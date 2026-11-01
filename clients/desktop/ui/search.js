@@ -468,18 +468,21 @@ const clearSearch = () => {
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
-const runSearch = async () => {
+const runSearch = async (call = invoke) => {
   if (searchBusy || !searchForm.reportValidity()) return;
+  const generation = identityGeneration;
   const query = searchQuery();
   closeFound();
   clearSearch();
   setSearchBusy(true);
   searchMessage('search.loading');
   try {
-    const result = await invoke('search_profiles', { query });
-    knownPeers = [...new Set([...knownPeers, ...result.profiles.map((found) => found.peerId)])];
-    showSearchFilters(result.offered);
+    const result = await call('search_profiles', { query });
+    if (!identityCurrent(generation)) return;
     const found = await withPlaces(result.profiles);
+    if (!identityCurrent(generation)) return;
+    knownPeers = [...new Set([...knownPeers, ...result.profiles.map((item) => item.peerId)])];
+    showSearchFilters(result.offered);
     searchResults.replaceChildren(...found.map((item, index) => resultCard(item, `result-${index + 1}`)));
     const count = String(found.length);
     if (result.partial || result.failures.length) {
@@ -490,15 +493,17 @@ const runSearch = async () => {
     document.getElementById('search-empty').hidden = found.length > 0;
     searchAgain.hidden = !found.length;
   } catch (error) {
+    if (!identityCurrent(generation)) return;
     const code = String(error);
     if (code === 'notConnected') searchMessage('search.notConnected');
     else searchMessage('search.failed', '');
     showSearchError(code === 'notConnected' ? 'search.offline' : 'search.error', code);
   } finally {
-    setSearchBusy(false);
+    if (identityCurrent(generation)) setSearchBusy(false);
   }
 };
 window.resetSearch = () => {
+  setSearchBusy(false);
   searchForm.reset();
   searchPlace.set(null);
   showSearchFilters([]);
@@ -515,12 +520,15 @@ const likedButton = document.getElementById('chats-liked');
 const likedList = document.getElementById('chats-liked-list');
 const chatsMessage = (key, detail = '') =>
   statusMessage(document.getElementById('chats-status'), 'chats-open-network', key, detail);
-window.showChats = async () => {
+window.showChats = async (call = invoke) => {
+  const generation = identityGeneration;
   chatsMessage('chats.loading');
   try {
     // A failed mailbox refresh must not make the local list look current.
-    const receiveError = await invoke('receive_mail').then(() => null, (error) => String(error));
-    const found = await withPlaces(await invoke('liked_you'));
+    const receiveError = await call('receive_mail').then(() => null, (error) => String(error));
+    if (!identityCurrent(generation)) return;
+    const found = await withPlaces(await call('liked_you'));
+    if (!identityCurrent(generation)) return;
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
     likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
     document.getElementById('chats-liked-count').textContent = String(found.length);
@@ -529,16 +537,21 @@ window.showChats = async () => {
     else if (found.length) chatsMessage('chats.count', String(found.length));
     else chatsMessage('chats.none');
   } catch (error) {
+    if (!identityCurrent(generation)) return;
     const code = String(error);
     if (code === 'notConnected') chatsMessage('chats.notConnected');
     else chatsMessage('chats.failed', code);
   }
 };
 // The mailbox is polled in the background; failures stay quiet, the next poll retries.
-setInterval(async () => {
-  const changed = await invoke('receive_mail').catch(() => 0);
-  if (changed && !document.getElementById('chats-area').hidden) window.chatsDone = window.showChats();
-}, 60000);
+const pollMailbox = async (call = invoke) => {
+  const generation = identityGeneration;
+  const changed = await call('receive_mail').catch(() => 0);
+  if (identityCurrent(generation) && changed && !document.getElementById('chats-area').hidden) {
+    window.chatsDone = window.showChats();
+  }
+};
+setInterval(pollMailbox, 60000);
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));

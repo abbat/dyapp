@@ -106,7 +106,10 @@ creates another identity there,
 switches between both identities, cancels removal once, then confirms removal and relaunches to
 verify the surviving identity and Settings inventory. In the add-identity case, it also pauses an
 old identity response, shows the newer picker, resumes the old response, and checks the picker
-remains visible before returning to Ready. That relaunch also checks the Storage card:
+remains visible before returning to Ready. It then pauses old Search and Chats requests,
+starts current requests after returning to Ready, and checks that late old results cannot
+change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
+refresh after the identity changes. That relaunch also checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

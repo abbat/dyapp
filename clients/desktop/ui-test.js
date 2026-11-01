@@ -142,6 +142,61 @@ const checkStaleRender = async () => {
   await act(Promise.resolve(readyState));
   if (document.getElementById('identity').hidden) throw new Error('ready view not restored');
 };
+// A result from an old identity must not paint or unlock controls for a newer one.
+const checkStaleSearchAndChats = async () => {
+  const readyState = current;
+  await openArea('search-area');
+  let finishOld;
+  const oldSearch = runSearch(() => new Promise((resolve) => { finishOld = resolve; }));
+  if (!searchBusy) throw new Error('old search did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('search-area');
+  let finishCurrent;
+  const newSearch = runSearch(() => new Promise((resolve) => { finishCurrent = resolve; }));
+  finishOld({ profiles: [], offered: [], partial: false, failures: [] });
+  await oldSearch;
+  if (!searchBusy || document.getElementById('search-status').textContent
+    !== window.strings['search.loading']) throw new Error('old search changed new search state');
+  finishCurrent({ profiles: [], offered: [], partial: false, failures: [] });
+  await newSearch;
+  if (searchBusy || document.getElementById('search-status').textContent
+    !== window.strings['search.empty']) throw new Error('current search did not finish');
+
+  await openArea('chats-area');
+  await window.chatsDone;
+  let finishMail;
+  let oldLikedCalls = 0;
+  const oldChats = window.showChats((command) => {
+    if (command === 'liked_you') { oldLikedCalls += 1; return Promise.resolve([]); }
+    return new Promise((resolve) => { finishMail = resolve; });
+  });
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  let finishNewMail;
+  const newChats = window.showChats((command) => command === 'liked_you'
+    ? Promise.resolve([]) : new Promise((resolve) => { finishNewMail = resolve; }));
+  finishMail(1);
+  await oldChats;
+  if (oldLikedCalls || document.getElementById('chats-status').textContent
+    !== window.strings['chats.loading']) throw new Error('old mailbox changed new Chats');
+  finishNewMail(0);
+  await newChats;
+  if (document.getElementById('chats-status').textContent !== window.strings['chats.none']) {
+    throw new Error('current Chats did not finish');
+  }
+
+  await openArea('chats-area');
+  await window.chatsDone;
+  let finishPoll;
+  const oldPoll = pollMailbox(() => new Promise((resolve) => { finishPoll = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  const chatsDone = window.chatsDone;
+  finishPoll(1);
+  await oldPoll;
+  if (window.chatsDone !== chatsDone) throw new Error('old poll scheduled a Chats refresh');
+  await act(Promise.resolve(readyState));
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -908,6 +963,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await switchFromSettings(mode);
       await checkSettingsInventory(addedPeer, mode);
       await checkStaleRender();
+      await checkStaleSearchAndChats();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

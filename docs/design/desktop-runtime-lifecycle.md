@@ -19,9 +19,10 @@ Network activation also saves the active settings and, when they differ from the
 settings, clears verified profiles and advances the profile-cache epoch under one cache lock. A
 repeat activation of the same settings retains the cache. Search and chat work captures that
 epoch before loading network settings and does not cache a result after activation changes it.
-The WebView now advances an identity generation when a transition starts, and its identity
-renderer discards a completion after the generation changes. Guards for other async callbacks
-remain planned.
+The WebView advances an identity generation when a transition starts. Its identity renderer,
+Search and Chats discard late responses after the generation changes; a mailbox poll cannot
+schedule a Chats refresh for another identity. Viewed-peer actions and other async callback
+guards remain planned.
 
 ## Required behavior
 
