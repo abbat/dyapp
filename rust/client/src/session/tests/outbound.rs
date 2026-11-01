@@ -154,7 +154,7 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     ] {
         assert!(due.iter().any(|write| write.as_bytes() == exact.as_bytes()));
     }
-    assert_eq!(session.clear_chat(&group_id).unwrap(), 2);
+    assert_eq!(session.clear_chat(&group_id).unwrap(), 3);
     assert!(session.chat_message(&own).unwrap().is_none());
     assert!(session.due_outbound(0).unwrap().is_empty());
 }

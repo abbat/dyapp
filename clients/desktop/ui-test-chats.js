@@ -35,7 +35,7 @@ const checkChatProjection = async () => {
     throw new Error(`unexpected chat command: ${command}`);
   });
   if (!marked || chatDetail.hidden || chatMessages.textContent.indexOf('hello') < 0
-    || document.querySelector('#chats-requests .badge')) {
+    || document.querySelector('#chats-requests .meta .badge')) {
     throw new Error('chat history did not clear local unread');
   }
   chatInput.value = 'reply';

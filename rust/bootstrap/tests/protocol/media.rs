@@ -79,7 +79,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         .await
         .unwrap();
     let mut profiles = Vec::new();
-    for owner in [alice.identity.peer_id(), bob_owner] {
+    for owner in [alice.identity.peer_id(), bob_owner.clone()] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
     let alice_mailbox = alice.mailbox();
