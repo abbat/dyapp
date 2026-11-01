@@ -10,17 +10,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import uniffi.dyapp.NetworkFile
-import uniffi.dyapp.NetworkSettings
 
 /**
  * The active identity's Settings screen: the identity list and this identity's network. Create and
@@ -77,20 +71,7 @@ private fun IdentityList(
 // The active network of this identity; its editor checks a draft before it replaces it.
 @Composable
 private fun SettingsNetwork(active: Opened.Ready, onEdit: () -> Unit) {
-    val loaded by produceState<Result<NetworkSettings?>?>(null, active.slot.id) {
-        value = withContext(Dispatchers.IO) { runCatching { RustBridge.loadNetwork(active, NetworkFile.ACTIVE) } }
-    }
-    val public = stringResource(R.string.settings_network_public)
-    val status = loaded.let { result ->
-        when {
-            result == null -> stringResource(R.string.network_loading)
-            result.isFailure -> stringResource(R.string.network_read_failed)
-            else -> result.getOrNull()
-                ?.let { stringResource(R.string.settings_network_active, it.name.ifEmpty { public }) }
-                ?: stringResource(R.string.settings_network_none)
-        }
-    }
-    Text(status, Modifier.testTag("settings-network-status"))
+    Text(activeNetworkStatus(active), Modifier.testTag("settings-network-status"))
     OutlinedButton(onClick = onEdit, Modifier.testTag("settings-network")) {
         Text(stringResource(R.string.network_title))
     }

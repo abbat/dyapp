@@ -70,13 +70,13 @@ class IdentitySettingsTests {
 
     @Test
     fun settingsShowTheNetworkAndReturnFromItsEditor() {
-        val peerId = compose.shownPeerId()
+        compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
         // Other tests leave no active network.
         compose.waitForText("connection-status", R.string.status_no_network)
         compose.waitForText("settings-network-status", R.string.settings_network_none)
         click("settings-network")
-        compose.onNodeWithTag("network-peer-id").assertTextEquals(peerId)
+        compose.onNodeWithTag("network-seeds").assertExists()
         compose.onNodeWithTag("skip-network").assertDoesNotExist()
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("settings-create").assertExists()

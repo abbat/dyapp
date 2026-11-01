@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -44,10 +48,11 @@ private class NetworkDraftState {
     var checker by mutableStateOf<ConnectionCheck?>(null)
     var checkStatus by mutableStateOf<Int?>(null)
     var checkRows by mutableStateOf<List<Pair<String, SeedRow>>>(emptyList())
+    var checkError by mutableStateOf<String?>(null)
 
     fun editSeeds(value: String) { seeds = value; clearCheck() }
     fun editName(value: String) { name = value; clearCheck() }
-    private fun clearCheck() { checkStatus = null; checkRows = emptyList() }
+    private fun clearCheck() { checkStatus = null; checkRows = emptyList(); checkError = null }
 }
 
 private class DraftActions(
@@ -81,12 +86,14 @@ private suspend fun checkDraft(checker: ConnectionCheck, draft: NetworkSettings,
     }, onFailure = {
         Log.w("dyapp", "Connection check failed", it)
         state.checkStatus = checkFailure(it)
+        state.checkError = it.toString()
     })
 }
 
 private suspend fun activateDraft(checker: ConnectionCheck, state: NetworkDraftState) {
     val activated = withContext(Dispatchers.IO) { runCatching { checker.activate() } }
     state.checkStatus = if (activated.isSuccess) R.string.network_active else R.string.network_activation_failed
+    state.checkError = activated.exceptionOrNull()?.toString()
 }
 
 private suspend fun saveDraft(opened: Opened.Ready, draft: NetworkSettings, state: NetworkDraftState) {
@@ -94,7 +101,10 @@ private suspend fun saveDraft(opened: Opened.Ready, draft: NetworkSettings, stat
     state.status = if (saved.isSuccess) DraftStatus.SAVED else DraftStatus.SAVE_FAILED
 }
 
-/** Edit one ready identity's network draft; checking and activation are separate steps. */
+/**
+ * Edit one ready identity's network draft. The wizard ([onBack] set) checks and activates in separate
+ * steps; the section does both with one action, and a failed check leaves the active network alone.
+ */
 @Composable
 internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
     val state = remember(opened.slot.id) { NetworkDraftState() }
@@ -108,7 +118,14 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
         state.checker?.let { checker ->
             state.checkStatus = R.string.network_checking
             state.checkRows = emptyList()
-            scope.launch { checkDraft(checker, networkSettings(state), state) }
+            state.checkError = null
+            scope.launch {
+                checkDraft(checker, networkSettings(state), state)
+                if (onBack == null && state.checkStatus == R.string.network_connected) {
+                    state.checkStatus = R.string.network_activating
+                    activateDraft(checker, state)
+                }
+            }
         }
     }, cancel = { state.checker?.cancel() }, activate = {
         if (state.checkStatus == R.string.network_connected) {
@@ -121,7 +138,7 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
         state.status = DraftStatus.SAVING
         scope.launch { saveDraft(opened, networkSettings(state), state) }
     })
-    NetworkDraftForm(opened.peerId, state, onBack, actions)
+    NetworkDraftForm(opened, state, onBack, actions)
 }
 
 private fun networkSettings(state: NetworkDraftState) = NetworkSettings(
@@ -130,7 +147,7 @@ private fun networkSettings(state: NetworkDraftState) = NetworkSettings(
 )
 
 @Composable
-private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (() -> Unit)?, actions: DraftActions) {
+private fun NetworkDraftForm(opened: Opened.Ready, state: NetworkDraftState, onBack: (() -> Unit)?, actions: DraftActions) {
     val editable = state.status !in setOf(DraftStatus.LOADING, DraftStatus.SAVING, DraftStatus.READ_FAILED) &&
         state.checkStatus !in setOf(R.string.network_checking, R.string.network_activating)
     if (onBack != null) {
@@ -138,8 +155,8 @@ private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (
             Caption(stringResource(R.string.wizard_step2))
             PageTitle(R.string.wizard_network_title)
             Caption(stringResource(R.string.storage_peer_id))
-            Text(peerId, Modifier.testTag("peer-id"), fontFamily = FontFamily.Monospace)
-            CopyButton(peerId, "copy-peer-id")
+            Text(opened.peerId, Modifier.testTag("peer-id"), fontFamily = FontFamily.Monospace)
+            CopyButton(opened.peerId, "copy-peer-id")
             NetworkDraftFields(state, editable, wizard = true)
             Caption(stringResource(networkStatusText(state.status)), Modifier.testTag("network-status"))
             NetworkCheckResults(state.checkStatus, state.checkRows)
@@ -147,20 +164,55 @@ private fun NetworkDraftForm(peerId: String, state: NetworkDraftState, onBack: (
         return
     }
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.network_title))
-        Text(stringResource(R.string.storage_peer_id))
-        Text(peerId, Modifier.testTag("network-peer-id"))
-        Text(stringResource(R.string.storage_os_loss))
-        NetworkDraftFields(state, editable, wizard = false)
-        Button(onClick = actions.save, enabled = editable, modifier = Modifier.testTag("network-save")) {
-            Text(stringResource(R.string.network_save))
+        val active = activeNetworkStatus(opened, state.checkStatus == R.string.network_active)
+        Caption(
+            if (state.status == DraftStatus.READ_FAILED) stringResource(R.string.network_read_failed) else active,
+            Modifier.testTag("network-status")
+        )
+        SectionCheckStatus(state)
+        FormCard {
+            NetworkDraftFields(state, editable, wizard = false)
+            val checking = state.checkStatus == R.string.network_checking
+            SeedRows(if (checking) networkSettings(state).seeds.map { it to null } else state.checkRows)
+            if (checking || state.checkStatus == R.string.network_activating) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            if (checking) {
+                OutlinedButton(onClick = actions.cancel, Modifier.fillMaxWidth().testTag("cancel-check")) {
+                    Text(stringResource(R.string.network_cancel))
+                }
+            }
+            Button(onClick = actions.check, Modifier.fillMaxWidth().testTag("check-and-connect"),
+                editable && state.checker != null) {
+                Text(stringResource(R.string.network_check_and_connect))
+            }
         }
-        NetworkCheckControls(state, editable, actions)
-        Text(stringResource(networkStatusText(state.status)), Modifier.testTag("network-status"))
-        NetworkCheckResults(state.checkStatus, state.checkRows)
+        Caption(stringResource(R.string.network_keep))
+    }
+}
+
+// Progress and success stay a caption; only a result that kept the old network is a notice.
+@Composable
+private fun SectionCheckStatus(state: NetworkDraftState) {
+    val status = state.checkStatus ?: return
+    val calm = setOf(
+        R.string.network_checking, R.string.network_activating, R.string.network_connected,
+        R.string.network_active, R.string.network_cancelled,
+    )
+    if (status in calm) {
+        Caption(
+            stringResource(status),
+            Modifier.testTag("network-check-status").semantics { liveRegion = LiveRegionMode.Polite }
+        )
+    } else {
+        ErrorNotice(
+            stringResource(status), "network-check-status",
+            state.checkError ?: rowDetails(state.checkRows), "network-error-details", "copy-network-details"
+        )
     }
 }
 
@@ -194,24 +246,6 @@ private fun WizardNetworkActions(state: NetworkDraftState, editable: Boolean, on
         TextButton(onClick = onBack, wide.testTag("skip-network"), checked != R.string.network_activating) {
             Text(stringResource(R.string.wizard_skip))
         }
-    }
-}
-
-@Composable
-private fun NetworkCheckControls(state: NetworkDraftState, editable: Boolean, actions: DraftActions) {
-    val checked = state.checkStatus
-    Button(onClick = actions.check, enabled = editable && state.checker != null,
-        modifier = Modifier.testTag("check-and-connect")) {
-        Text(stringResource(if (checked == null) R.string.network_check else R.string.network_retry))
-    }
-    if (checked == R.string.network_checking) {
-        OutlinedButton(onClick = actions.cancel, modifier = Modifier.testTag("cancel-check")) {
-            Text(stringResource(R.string.network_cancel))
-        }
-    }
-    Button(onClick = actions.activate, enabled = checked == R.string.network_connected,
-        modifier = Modifier.testTag("network-continue")) {
-        Text(stringResource(R.string.network_continue))
     }
 }
 

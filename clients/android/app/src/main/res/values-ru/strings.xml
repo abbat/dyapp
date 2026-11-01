@@ -103,6 +103,9 @@
     <string name="network_read_failed">Не удалось прочитать настройки сети. Ключ идентичности не изменён.</string>
     <string name="network_save_failed">Не удалось сохранить черновик сети.</string>
     <string name="network_check">Проверить подключение</string>
+    <string name="network_check_and_connect">Проверить и подключиться</string>
+    <string name="network_keep">Если проверка не удалась или отменена, остаётся прежняя сеть.</string>
+    <string name="network_row_checking">Проверка…</string>
     <string name="network_checking">Подключение…</string>
     <string name="network_connected">Подключено. Можно продолжить.</string>
     <string name="network_retry">Повторить подключение</string>
