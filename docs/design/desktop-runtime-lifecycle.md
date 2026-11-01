@@ -21,8 +21,8 @@ repeat activation of the same settings retains the cache. Search and chat work c
 epoch before loading network settings and does not cache a result after activation changes it.
 The WebView advances an identity generation when a transition starts. Its identity renderer,
 Search and Chats discard late responses after the generation changes; a mailbox poll cannot
-schedule a Chats refresh for another identity. Viewed-peer actions and other async callback
-guards remain planned.
+schedule a Chats refresh for another identity. Viewed-peer likes and block actions also discard
+old completions. Safety-number, QR and other async callback guards remain planned.
 
 ## Required behavior
 

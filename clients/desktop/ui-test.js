@@ -197,6 +197,57 @@ const checkStaleSearchAndChats = async () => {
   if (window.chatsDone !== chatsDone) throw new Error('old poll scheduled a Chats refresh');
   await act(Promise.resolve(readyState));
 };
+// Even reopening the same card object for a new identity cannot admit an old peer response.
+const checkStalePeerActions = async () => {
+  const readyState = current;
+  const found = { peerId: 'f'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null }, place: '' };
+  const card = resultCard(found, 'stale-peer');
+  const reopen = async () => {
+    await openArea('search-area');
+    searchResults.append(card);
+    openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+    await Promise.resolve();
+  };
+  const switchBack = async () => {
+    await act(Promise.resolve({ status: 'picker' }));
+    await act(Promise.resolve(readyState));
+    await reopen();
+  };
+  await openArea('search-area');
+  searchResults.append(card);
+  let finishLikes;
+  openFound(found, card, () => new Promise((resolve) => { finishLikes = resolve; }));
+  await switchBack();
+  finishLikes({ ours: true, matched: true });
+  await Promise.resolve();
+  if (document.getElementById('view-like').hidden) throw new Error('old peer likes changed new card');
+
+  let finishOldLike;
+  const oldLike = sendLike(true, () => new Promise((resolve) => { finishOldLike = resolve; }));
+  await switchBack();
+  let finishNewLike;
+  const newLike = sendLike(true, () => new Promise((resolve) => { finishNewLike = resolve; }));
+  finishOldLike({ ours: true, matched: true });
+  await oldLike;
+  if (!document.getElementById('view-like').disabled
+    || viewStatus.textContent !== window.strings['view.sending']) {
+    throw new Error('old like changed new controls');
+  }
+  finishNewLike({ ours: true, matched: false });
+  await newLike;
+  if (document.getElementById('view-like').disabled || !document.getElementById('view-like').hidden) {
+    throw new Error('current like did not finish');
+  }
+
+  let finishBlock;
+  const oldBlock = blockViewed(() => new Promise((resolve) => { finishBlock = resolve; }));
+  await switchBack();
+  finishBlock({ revocation: 'notNeeded' });
+  await oldBlock;
+  if (!card.isConnected || profileView.hidden) throw new Error('old block removed new card');
+  await blockViewed(() => Promise.resolve({ revocation: 'notNeeded' }));
+  if (card.isConnected || !profileView.hidden) throw new Error('current block did not finish');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -964,6 +1015,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkSettingsInventory(addedPeer, mode);
       await checkStaleRender();
       await checkStaleSearchAndChats();
+      await checkStalePeerActions();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

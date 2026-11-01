@@ -109,7 +109,9 @@ old identity response, shows the newer picker, resumes the old response, and che
 remains visible before returning to Ready. It then pauses old Search and Chats requests,
 starts current requests after returning to Ready, and checks that late old results cannot
 change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
-refresh after the identity changes. That relaunch also checks the Storage card:
+refresh after the identity changes. The same case reopens a peer card and checks that old
+likes and block responses cannot change the new card or its controls. That relaunch also checks
+the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

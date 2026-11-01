@@ -145,7 +145,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopSafetyCamera();
 });
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
-const openFound = (found, card) => {
+const openFound = (found, card, call = invoke) => {
+  const generation = identityGeneration;
   stopSafetyCamera();
   viewed = { found, card };
   document.getElementById('view-safety-image').value = '';
@@ -159,8 +160,8 @@ const openFound = (found, card) => {
   qr.height = 0;
   document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
   showLikes({ ours: false, matched: false });
-  invoke('peer_likes', { peerId: found.peerId })
-    .then((likes) => { if (viewed?.found === found) showLikes(likes); }, () => {});
+  call('peer_likes', { peerId: found.peerId })
+    .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
   const short = peerLabel(document.getElementById('view-peer'), found.peerId);
   document.getElementById('view-peer').textContent = short;
   document.getElementById('view-title').textContent = short;
@@ -194,22 +195,28 @@ document.getElementById('view-back').addEventListener('click', () => {
   card.focus();
 });
 // A like goes to the pair group on the active network; the first one invites the peer.
-const sendLike = async (liked) => {
+const sendLike = async (liked, call = invoke) => {
   const { found } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const buttons = ['view-like', 'view-unlike'].map((id) => document.getElementById(id));
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = window.strings['view.sending'];
   try {
-    showLikes(await invoke('like_peer', { peerId: found.peerId, liked }));
+    const likes = await call('like_peer', { peerId: found.peerId, liked });
+    if (!currentView()) return;
+    showLikes(likes);
     viewStatus.textContent = '';
   } catch (error) {
+    if (!currentView()) return;
     const code = String(error);
     viewStatus.textContent = window.strings[`view.like.${code}`]
       ?? `${window.strings['view.like.failed']} ${code}`;
     // A failed send can still be staged, so the stored state decides the button.
-    invoke('peer_likes', { peerId: found.peerId }).then(showLikes, () => {});
+    call('peer_likes', { peerId: found.peerId })
+      .then((likes) => { if (currentView()) showLikes(likes); }, () => {});
   } finally {
-    for (const button of buttons) button.disabled = false;
+    if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
 document.getElementById('view-like').addEventListener('click', () => {
@@ -431,19 +438,26 @@ document.getElementById('view-safety-image').addEventListener('change', (event) 
   if (file) window.scanQrDone = globalThis.scanQrFile(file);
 });
 // The local block takes effect even if token revocation cannot reach a node.
-document.getElementById('view-block').addEventListener('click', async () => {
+const blockViewed = async (call = invoke) => {
   const { found, card } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
   let result;
   try {
-    result = await invoke('block_peer', { peerId: found.peerId });
+    result = await call('block_peer', { peerId: found.peerId });
   } catch (error) {
-    return searchMessage('search.failed', String(error));
+    if (currentView()) searchMessage('search.failed', String(error));
+    return;
   }
+  if (!currentView()) return;
   const wasLiked = Boolean(card.closest('#chats-liked-list'));
   card.remove();
   if (wasLiked) document.getElementById('chats-liked-count').textContent = String(likedList.children.length);
   closeFound();
   return searchMessage(`search.blocked.${result.revocation}`);
+};
+document.getElementById('view-block').addEventListener('click', () => {
+  window.blockDone = blockViewed();
 });
 const searchError = document.getElementById('search-error');
 const showSearchError = (key, details) => {
