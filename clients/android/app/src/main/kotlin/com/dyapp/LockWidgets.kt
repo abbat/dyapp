@@ -51,7 +51,7 @@ internal fun PinField(state: MutableState<String>, label: Int, tag: String, enab
 }
 
 @Composable
-internal fun ErrorText(id: Int) = Text(stringResource(id), Modifier.testTag("pin-error"))
+internal fun ErrorText(id: Int) = Text(stringResource(id), Modifier.testTag("lock-error"))
 
 @Composable
 internal fun NoScreenLockText() =
@@ -105,7 +105,7 @@ internal fun BiometricOption(device: DeviceLock, enabled: Boolean) {
 /** The OS screen lock is the recovery method; without one, say how to restore it. */
 @Composable
 internal fun DeviceCredentialButton(deviceSecure: Boolean, label: Int, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, Modifier.testTag("pin-device-unlock"), enabled = deviceSecure) {
+    OutlinedButton(onClick = onClick, Modifier.testTag("lock-device"), enabled = deviceSecure) {
         Text(stringResource(label))
     }
     if (!deviceSecure) {
@@ -115,14 +115,14 @@ internal fun DeviceCredentialButton(deviceSecure: Boolean, label: Int, onClick: 
 
 @Composable
 internal fun NewPinFields(pin: MutableState<String>, repeat: MutableState<String>, label: Int, enabled: Boolean) {
-    PinField(pin, label, "pin-new", enabled)
+    PinField(pin, label, "pin-set", enabled)
     PinField(repeat, R.string.lock_pin_repeat, "pin-repeat", enabled)
 }
 
 @Composable
-internal fun SetPinButton(label: Int, onSet: (() -> Unit)?) {
+internal fun SetPinButton(tag: String, label: Int, onSet: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onSet?.invoke() }, Modifier.testTag("pin-set"), enabled = onSet != null) {
+    Button(onClick = { onSet?.invoke() }, Modifier.testTag(tag), enabled = onSet != null) {
         Text(stringResource(label))
     }
 }

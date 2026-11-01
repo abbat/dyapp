@@ -69,8 +69,8 @@ class AppLockUITests {
     private fun string(id: Int) = compose.activity.getString(id)
 
     private fun enterPin(pin: String) {
-        compose.onNodeWithTag("pin").performTextInput(pin)
-        compose.onNodeWithTag("pin-unlock").performClick()
+        compose.onNodeWithTag("pin-unlock").performTextInput(pin)
+        compose.onNodeWithTag("lock-unlock").performClick()
     }
 
     // The Argon2id check takes seconds on the software-rendered emulator.
@@ -94,11 +94,11 @@ class AppLockUITests {
             compose.onNodeWithTag("identity").assertDoesNotExist()
             // The emulator has no screen lock, so recovery is explained instead of offered.
             if (!compose.activity.getSystemService(KeyguardManager::class.java).isDeviceSecure) {
-                compose.onNodeWithTag("pin-device-unlock").assertIsNotEnabled()
+                compose.onNodeWithTag("lock-device").assertIsNotEnabled()
                 compose.onNodeWithTag("lock-recovery-unavailable").assertIsDisplayed()
             }
             enterPin("654321")
-            waitForTag("pin-error")
+            waitForTag("lock-error")
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
             enterPin("123456")
             compose.shownPeerId()
@@ -120,11 +120,11 @@ class AppLockUITests {
             compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_pin))
             compose.onNodeWithTag("pin-current").performTextInput("654321")
-            compose.onNodeWithTag("lock-off").performClick()
-            waitForTag("pin-error")
+            compose.onNodeWithTag("lock-turn-off").performClick()
+            waitForTag("lock-error")
             check(store.mode() == StoredLock.PIN) { "A wrong current PIN turned the lock off" }
             compose.onNodeWithTag("pin-current").performTextInput("123456")
-            compose.onNodeWithTag("lock-off").performClick()
+            compose.onNodeWithTag("lock-turn-off").performClick()
             compose.waitUntil(timeoutMillis = 60_000) { store.mode() == StoredLock.OFF }
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_off))
             check(!secure()) { "Turning the lock off kept FLAG_SECURE" }

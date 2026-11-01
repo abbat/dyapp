@@ -65,7 +65,7 @@ private fun SetupIntro(deviceSecure: Boolean) {
 
 @Composable
 private fun SetupActions(onSet: (() -> Unit)?, onSkip: (() -> Unit)?) {
-    SetPinButton(R.string.lock_set, onSet)
+    SetPinButton("lock-set", R.string.lock_set, onSet)
     OutlinedButton(onClick = { onSkip?.invoke() }, Modifier.testTag("lock-skip"), enabled = onSkip != null) {
         Text(stringResource(R.string.lock_skip))
     }
@@ -90,7 +90,7 @@ fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttemp
             DeviceCredentialText()
             return@LockColumn
         }
-        PinField(pinState, R.string.lock_pin, "pin", !busy)
+        PinField(pinState, R.string.lock_pin, "pin-unlock", !busy)
         error?.let { ErrorText(it) }
         val submit: () -> Unit = {
             val entered = pinState.value.also { pinState.value = "" }
@@ -118,7 +118,7 @@ fun BiometricUnlockScreen(deviceSecure: Boolean, onUnlock: () -> Unit) = LockCol
 @Composable
 private fun UnlockButton(onUnlock: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onUnlock?.invoke() }, Modifier.testTag("pin-unlock"), enabled = onUnlock != null) {
+    Button(onClick = { onUnlock?.invoke() }, Modifier.testTag("lock-unlock"), enabled = onUnlock != null) {
         Text(stringResource(R.string.lock_unlock))
     }
 }
