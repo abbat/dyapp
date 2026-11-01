@@ -906,6 +906,7 @@ fn main() {
             chats::commands::chat_rows,
             chats::commands::chat_history,
             chats::commands::send_chat_text,
+            chats::forward::forward_chat_text,
             chats::operations::edit_chat_text,
             chats::operations::delete_chat_text,
             chats::commands::clear_chat,

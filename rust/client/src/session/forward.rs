@@ -43,4 +43,17 @@ impl Session {
         self.send_staged(nodes, writes, seal_key).await?;
         Ok(id)
     }
+
+    /// Forward into the pair's canonical joined group after the target profile was checked.
+    pub async fn send_forwarded_text_to(
+        &mut self,
+        nodes: &mut [Node],
+        peer_id: &str,
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<[u8; 16], Error> {
+        let group_id = self.pair_group(peer_id).ok_or(Error::UnknownGroup)?;
+        self.send_forwarded_text(nodes, &group_id, text, seal_key)
+            .await
+    }
 }
