@@ -1086,6 +1086,38 @@ const checkStaleCopy = async () => {
     button.textContent = window.strings['action.copy'];
   }
 };
+// The same place text on B must keep B's suggestion ID when A responds late.
+const checkStalePlaceSuggestions = async () => {
+  const readyState = current;
+  const countryInput = document.createElement('input');
+  const input = document.createElement('input');
+  const list = document.createElement('datalist');
+  countryInput.value = 'DE';
+  let finishOld;
+  let calls = 0;
+  const picker = placePicker(countryInput, input, list, () => countryInput.value, () => {
+    calls += 1;
+    return calls === 1 ? new Promise((resolve) => { finishOld = resolve; })
+      : Promise.resolve([{ id: 2, name: 'Berlin' }]);
+  });
+  input.value = 'Berlin';
+  input.dispatchEvent(new Event('input'));
+  const oldPlaces = window.placesShown;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  input.value = 'Berlin';
+  input.dispatchEvent(new Event('input'));
+  await window.placesShown;
+  if (picker.id() !== '2' || !input.validity.valid) {
+    throw new Error('current place suggestion did not render');
+  }
+  finishOld([{ id: 1, name: 'Oldtown' }]);
+  await oldPlaces;
+  if (picker.id() !== '2' || !input.validity.valid
+    || list.querySelector('option')?.value !== 'Berlin') {
+    throw new Error('old place suggestion replaced new identity');
+  }
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1871,6 +1903,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleNetworkForm();
       await checkStaleNetworkCheck();
       await checkStaleCopy();
+      await checkStalePlaceSuggestions();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

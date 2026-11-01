@@ -36,7 +36,8 @@ busy controls; stale checks cannot release controls owned by the new identity. O
 callback guards remain planned.
 Generic Copy callbacks check the generation before writing or repainting the source and button;
 their reset timer also checks it. Sensitive clipboard expiry still clears an old copied number
-when its timer fires.
+when its timer fires. Place suggestions require the same generation, input text and country
+before updating shared option IDs or validity.
 
 ## Required behavior
 

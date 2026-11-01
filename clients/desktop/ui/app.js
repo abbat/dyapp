@@ -555,7 +555,7 @@ const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 're
 // The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
 // so typed text that is no suggestion fails validation instead of being saved or searched.
 // Editing the country clears the place.
-const placePicker = (countryInput, input, list, country) => {
+const placePicker = (countryInput, input, list, country, call = invoke) => {
   let ids = new Map();
   const show = (places) => {
     ids = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
@@ -576,10 +576,13 @@ const placePicker = (countryInput, input, list, country) => {
   input.addEventListener('input', () => {
     const text = input.value;
     if (ids.has(text)) return check();
-    window.placesShown = invoke('search_places', {
-      country: country(), prefix: text, lang: window.locale, limit: 20,
+    const generation = identityGeneration;
+    const selectedCountry = country();
+    window.placesShown = call('search_places', {
+      country: selectedCountry, prefix: text, lang: window.locale, limit: 20,
     }).then((places) => {
-      if (input.value === text) show(places);
+      if (!identityCurrent(generation)) return;
+      if (input.value === text && country() === selectedCountry) show(places);
       check();
     });
   });
