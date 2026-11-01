@@ -1,5 +1,9 @@
 package com.dyapp
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
@@ -15,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import uniffi.dyapp.Place
 import uniffi.dyapp.placeCountries
 import uniffi.dyapp.placeName
@@ -67,23 +72,27 @@ internal fun PlacePicker(
         placeCountries().map { it to countryName(it, locale) }.sortedBy { it.second }
     }
     var expanded by remember { mutableStateOf(false) }
-    Text(stringResource(R.string.profile_country))
-    OutlinedButton(onClick = { expanded = true }, modifier = Modifier.testTag("$screen-country")) {
-        Text(countries.firstOrNull { it.first == inputs.country }?.second ?: stringResource(none))
-    }
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        DropdownMenuItem(text = { Text(stringResource(none)) },
-            onClick = { inputs.pickCountry(""); expanded = false }, modifier = Modifier.testTag("country-none"))
-        for ((code, name) in countries) {
-            DropdownMenuItem(text = { Text(name) }, onClick = { inputs.pickCountry(code); expanded = false },
-                modifier = Modifier.testTag("country-$code"))
+    Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(4.dp)) {
+        Caption(stringResource(R.string.profile_country))
+        Box {
+            OutlinedButton(onClick = { expanded = true }, Modifier.fillMaxWidth().testTag("$screen-country")) {
+                Text(countries.firstOrNull { it.first == inputs.country }?.second ?: stringResource(none))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text(stringResource(none)) },
+                    onClick = { inputs.pickCountry(""); expanded = false }, modifier = Modifier.testTag("country-none"))
+                for ((code, name) in countries) {
+                    DropdownMenuItem(text = { Text(name) }, onClick = { inputs.pickCountry(code); expanded = false },
+                        modifier = Modifier.testTag("country-$code"))
+                }
+            }
         }
     }
     if (!places) return
     // A focused field can repeat its last text after a country change; only a real edit drops the pick.
     OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
         label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),
-        singleLine = true, modifier = Modifier.testTag("$screen-place"))
+        singleLine = true, modifier = Modifier.fillMaxWidth().testTag("$screen-place"))
     if (inputs.unknown) PlaceSuggestions(inputs, placeLang())
 }
 

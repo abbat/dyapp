@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -46,6 +50,19 @@ internal fun PageTitle(id: Int, modifier: Modifier = Modifier) =
 internal fun Caption(text: String, modifier: Modifier = Modifier) = Text(
     text, modifier,
     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
+)
+
+/** A group of fields on a scrolling screen. */
+@Composable
+internal fun FormCard(content: @Composable ColumnScope.() -> Unit) = Surface(
+    Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.surfaceContainer
+) {
+    Column(Modifier.padding(16.dp), Arrangement.spacedBy(12.dp), content = content)
+}
+
+@Composable
+internal fun CardTitle(id: Int) = Text(
+    stringResource(id), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium
 )
 
 /** Copies [text]; Android shows its own clipboard confirmation from version 13. */
