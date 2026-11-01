@@ -462,6 +462,7 @@ pub async fn receive(
     let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
+    retry_outbox(&mut session, &mut node, &seal_key).await?;
     let mut changed = 0;
     for _ in 0..2 {
         let mut profiles = cached.all().to_vec();
@@ -497,6 +498,24 @@ pub async fn receive(
     }
     refill_if_due(&mut session, &mut node, &seal_key).await?;
     Ok(changed)
+}
+
+// The mailbox poll resumes exact staged writes after a failed send or restart. Session owns
+// outbox backoff; this path never drafts another text.
+async fn retry_outbox(
+    session: &mut Session,
+    node: &mut dyapp_client::Node,
+    seal_key: &[u8; 32],
+) -> Result<(), String> {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis();
+    let now_ms = i64::try_from(now_ms).map_err(|e| e.to_string())?;
+    session
+        .retry_due(std::slice::from_mut(node), now_ms, seal_key)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 async fn refill_if_due(

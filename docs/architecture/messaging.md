@@ -146,8 +146,11 @@ the caller's nodes, e.g. one per replica key: a put tries them lowest penalty fi
 ([scores](bootstrap.md#replication-and-repair)), the node that accepted the write last tried
 last, and each failure counts against its node; `receive` fetches from the first that answers. A
 receipt for a later write to the same mailbox counts against the node that accepted a
-still-waiting earlier one, which is resent at once. The desktop app uses this adapter for
-likes, mailbox receive, and token refill; other messaging screens remain planned.
+still-waiting earlier one, which is resent at once. The Linux desktop's minute mailbox poll
+calls `Session::retry_due` before receiving mail, under the active identity lease and the shared
+Sessions lock; due writes are retried after reconnect or restart without drafting new text.
+The desktop app also uses this adapter for likes and token refill; other messaging screens remain
+planned.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the
