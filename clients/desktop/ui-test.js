@@ -451,6 +451,49 @@ const checkStalePublishAndHide = async () => {
   if (profileBusy || !profileHidden.checked) throw new Error('new hide did not finish');
   await showProfile();
 };
+// Search-wait and elapsed timers must retain the identity generation that scheduled them.
+const checkStaleProfileTimers = async () => {
+  const readyState = current;
+  const originalTimeout = globalThis.setTimeout;
+  let oldTick;
+  let sent = 0;
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay === 60000) { oldTick = callback; return 0; }
+    return originalTimeout(callback, delay, ...args);
+  };
+  try { showSearchWait({ searchMinutes: 1 }, () => { sent += 1; }); }
+  finally { globalThis.setTimeout = originalTimeout; }
+  if (!oldTick) throw new Error('search wait timer was not scheduled');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  oldTick();
+  if (sent) throw new Error('old search wait timer ran on new identity');
+
+  let finishSearch;
+  const oldSearch = sendSearchProfile(identityGeneration,
+    () => new Promise((resolve) => { finishSearch = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const status = profileStatus.textContent;
+  finishSearch({ searchMinutes: null, hidden: true, published: 1 });
+  await oldSearch;
+  if (profileStatus.textContent !== status) throw new Error('old search send changed new profile');
+
+  const originalInterval = globalThis.setInterval;
+  let elapsedTick;
+  globalThis.setInterval = (callback, delay, ...args) => {
+    if (delay === 1000) { elapsedTick = callback; return 0; }
+    return originalInterval(callback, delay, ...args);
+  };
+  try { startElapsed(); }
+  finally { globalThis.setInterval = originalInterval; }
+  if (!elapsedTick) throw new Error('publish elapsed timer was not scheduled');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  elapsed.textContent = 'new identity';
+  elapsedTick();
+  if (elapsed.textContent !== 'new identity') throw new Error('old elapsed timer changed new dialog');
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1223,6 +1266,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleProfileLoad();
       await checkStaleProfileHandlers();
       await checkStalePublishAndHide();
+      await checkStaleProfileTimers();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

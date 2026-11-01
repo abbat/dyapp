@@ -98,6 +98,8 @@ let identityGeneration = 0;
 const identityCurrent = (generation) => generation === identityGeneration;
 const act = async (pending, fresh = false) => {
   const generation = ++identityGeneration;
+  clearTimeout(searchWaitTimer);
+  clearInterval(elapsedTimer);
   try {
     const state = await pending;
     if (identityCurrent(generation)) return await render(state, generation, fresh);
@@ -550,19 +552,26 @@ const profileMessage = (key, detail = '') => statusMessage(profileStatus, 'profi
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = document.getElementById('profile-search-wait');
 let searchWaitTimer;
-const sendSearchProfile = () => invoke('send_search_profile').then((view) => {
-  showSearchWait(view);
-  showHidden(view);
-}, () => {});
-const showSearchWait = (view) => {
+const sendSearchProfile = (generation = identityGeneration, call = invoke) => {
+  if (!identityCurrent(generation)) return Promise.resolve();
+  return call('send_search_profile').then((view) => {
+    if (!identityCurrent(generation)) return;
+    showSearchWait(view);
+    showHidden(view);
+  }, () => {});
+};
+const showSearchWait = (view, send = sendSearchProfile) => {
   clearTimeout(searchWaitTimer);
+  const generation = identityGeneration;
   const minutes = view.searchMinutes;
   searchWait.hidden = minutes == null;
   if (minutes == null) return;
   searchWait.textContent = minutes
     ? window.strings['profile.searchIn'].replace('{minutes}', String(minutes))
     : window.strings['profile.searchPending'];
-  searchWaitTimer = setTimeout(sendSearchProfile, (minutes || 1) * 60_000);
+  searchWaitTimer = setTimeout(() => {
+    if (identityCurrent(generation)) send(generation);
+  }, (minutes || 1) * 60_000);
 };
 const showProfile = async (call = invoke) => {
   const generation = identityGeneration;
@@ -570,7 +579,7 @@ const showProfile = async (call = invoke) => {
     [call('profile_scales'), call('load_profile'), call('place_countries')]);
   if (!identityCurrent(generation)) return;
   showSearchWait(view);
-  if (view.searchMinutes === 0) sendSearchProfile();
+  if (view.searchMinutes === 0) sendSearchProfile(generation);
   scaleFields = scales;
   const rows = scales.map((scale) => {
     const label = document.createElement('label');

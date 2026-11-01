@@ -22,9 +22,10 @@ epoch before loading network settings and does not cache a result after activati
 The WebView advances an identity generation when a transition starts. Its identity renderer,
 Search and Chats discard late responses after the generation changes; a mailbox poll cannot
 schedule a Chats refresh for another identity. Viewed-peer likes, block, safety-number, QR and
-camera, profile load/save, publish and hide callbacks also discard old completions. Other async
-callback guards remain planned. Sensitive clipboard expiry still clears an old copied
-number when its timer fires.
+camera, profile load/save, publish and hide callbacks also discard old completions. Profile
+search-wait and publish-elapsed timers stop at an identity transition; old search-send results
+cannot repaint the new editor. Other async callback guards remain planned. Sensitive clipboard
+expiry still clears an old copied number when its timer fires.
 
 ## Required behavior
 
