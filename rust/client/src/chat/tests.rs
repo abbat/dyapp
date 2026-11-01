@@ -1,6 +1,7 @@
 use super::{
-    apply_all, message, pad, unpad, AttachmentWire, Body, Delivery, Event, Receipt, TokenAnswer,
-    TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TEXT_BYTES, MAX_TOKENS, MIN_PADDED_BYTES,
+    apply_all, message, pad, unpad, AttachmentMessage, AttachmentWire, Body, Delivery, Event,
+    Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TEXT_BYTES, MAX_TOKENS,
+    MIN_PADDED_BYTES,
 };
 use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
 use crate::interactions::{Interaction, Kind};

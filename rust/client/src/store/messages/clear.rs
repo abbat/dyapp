@@ -162,7 +162,9 @@ mod tests {
             .unwrap());
         let write = prepare_put(&[7; 32], vec![8]).unwrap();
         let own_photo = photo(5, 0);
-        let Body::Attachment(mut own_message) = own_photo else { unreachable!() };
+        let Body::Attachment(mut own_message) = own_photo else {
+            unreachable!()
+        };
         own_message.hlc = store.draft_chat_text(1_000).unwrap();
         store
             .stage_chat_outbound(

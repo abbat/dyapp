@@ -152,7 +152,7 @@ impl Store {
             {
                 return Err(Error::InboxConflict);
             }
-            let id = id.try_into().map_err(|_| Error::InboxConflict)?;
+            let id: [u8; 16] = id.try_into().map_err(|_| Error::InboxConflict)?;
             let hlc = u64::try_from(hlc).map_err(|_| Error::InboxConflict)?;
             let delivery = DeliveryState::from_stored(delivery)?;
             if generation
