@@ -80,6 +80,7 @@ internal fun AppShell(
     // The result already verified; after a recreation only the Peer ID is left and the page fetches.
     var viewFound by remember(opened.slot.id) { mutableStateOf<FoundProfile?>(null) }
     val closeView = { viewPeer = null; viewFound = null }
+    val openFound = { found: FoundProfile -> viewFound = found; viewPeer = found.peerId }
     val chat = chatPeer
     val viewed = viewPeer
     if (viewed != null) {
@@ -94,11 +95,8 @@ internal fun AppShell(
     } else if (chat != null) {
         ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
     } else {
-        ShellFrame(slots, opened, section, lockMode, act, open, feed, { chatPeer = it }) {
-            SearchScreen(search, { open(StartTarget.NETWORK) }) {
-                viewFound = it
-                viewPeer = it.peerId
-            }
+        ShellFrame(slots, opened, section, lockMode, act, open, feed, { chatPeer = it }, openFound) {
+            SearchScreen(search, { open(StartTarget.NETWORK) }, openFound)
         }
     }
 }
@@ -115,6 +113,7 @@ private fun ShellFrame(
     open: (StartTarget?) -> Unit,
     feed: ChatFeed,
     openChat: (String) -> Unit,
+    openFound: (FoundProfile) -> Unit,
     search: @Composable () -> Unit,
 ) {
     var switcher by remember { mutableStateOf(false) }
@@ -125,7 +124,7 @@ private fun ShellFrame(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (current.target == StartTarget.CHATS) {
-                ChatsScreen(feed.rows, openChat)
+                ChatsScreen(feed, openChat, openFound)
             } else {
                 SectionContent(slots, opened, current.target, lockMode, act, open, search)
             }

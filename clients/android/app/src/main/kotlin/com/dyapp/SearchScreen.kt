@@ -125,7 +125,7 @@ private fun SearchEmpty(result: ProfileSearchResult) {
 
 // One verified profile: the short Peer ID, its possible age and country; the page has the rest.
 @Composable
-private fun SearchResultRow(found: FoundProfile, number: Int, open: () -> Unit) {
+internal fun SearchResultRow(found: FoundProfile, tag: String, open: () -> Unit) {
     val draft = found.draft.draft()
     val locale = LocalConfiguration.current.locales[0]
     val summary = listOfNotNull(
@@ -134,7 +134,7 @@ private fun SearchResultRow(found: FoundProfile, number: Int, open: () -> Unit) 
     ).joinToString(", ").ifEmpty { stringResource(R.string.profile_preview_empty) }
     Surface(
         onClick = open,
-        modifier = Modifier.fillMaxWidth().testTag("result-$number"),
+        modifier = Modifier.fillMaxWidth().testTag(tag),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
@@ -157,7 +157,7 @@ private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfil
             STATUS.semantics { liveRegion = LiveRegionMode.Polite })
         SearchFailures(result)
         for ((index, found) in result.profiles.withIndex()) {
-            SearchResultRow(found, index + 1) { openProfile(found) }
+            SearchResultRow(found, "result-${index + 1}") { openProfile(found) }
         }
         OutlinedButton(onClick = run, modifier = Modifier.fillMaxWidth().testTag("search-again")) {
             Text(stringResource(R.string.search_again))
