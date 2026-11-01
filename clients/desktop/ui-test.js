@@ -560,6 +560,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await openArea('profile-area');
       await identityChecks.checkStaleRender();
       await identityChecks.checkStaleSearchAndChats();
+      await identityChecks.checkChatProjection();
       await identityChecks.checkStalePeerActions();
       await identityChecks.checkStaleSafety();
       await identityChecks.checkStaleProfileLoad();

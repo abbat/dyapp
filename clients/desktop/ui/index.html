@@ -297,11 +297,23 @@
           <button id="chats-open-network" class="btn" type="button" data-i18n="network.open"
             hidden></button>
         </div>
-        <button id="chats-liked" class="list-button" type="button" aria-expanded="false"
-          aria-controls="chats-liked-list"><span class="grow"><b data-i18n="chats.liked"></b><br><span
-          class="caption" data-i18n="chats.liked.text"></span></span><span id="chats-liked-count"
-          class="badge"></span></button>
-        <div id="chats-liked-list" hidden></div>
+        <div id="chats-overview">
+          <button id="chats-liked" class="list-button" type="button" aria-expanded="false"
+            aria-controls="chats-liked-list"><span class="grow"><b data-i18n="chats.liked"></b><br><span
+            class="caption" data-i18n="chats.liked.text"></span></span><span id="chats-liked-count"
+            class="badge"></span></button>
+          <div id="chats-liked-list" hidden></div>
+          <h2><span data-i18n="chats.requests"></span> <span id="chats-requests-count" class="badge"></span></h2>
+          <div id="chats-requests"></div>
+          <h2 data-i18n="chats.conversations"></h2>
+          <div id="chat-list"></div>
+        </div>
+        <div id="chat-detail" hidden>
+          <button id="chat-back" class="btn quiet back" type="button" data-i18n="chats.back"></button>
+          <h2 id="chat-peer"></h2>
+          <p id="chat-state" class="caption"></p>
+          <div id="chat-messages" class="thread" role="log" aria-live="polite"></div>
+        </div>
       </section>
       <section id="network-area" hidden>
         <h1 data-i18n="network.title"></h1>

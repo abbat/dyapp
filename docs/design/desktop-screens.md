@@ -207,15 +207,14 @@ and timed cleanup are best effort
 
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
-learns nothing until a reply (read receipts are off by default). Conversations and requests show
-the peer's photo thumbnail (letters only without a photo), the public name or short Peer ID, the
-last message, its time and the unread count. The current Linux **Liked you** screen shows
-an error when mailbox refresh fails instead of claiming an empty local list is current. Rows
-already rendered stay visible if the profile lookup also fails; background polling retries on
-the next interval. The Rust Store now supplies ordered pair-wide rows with latest current message,
-optional original HLC and local unread count. Desktop commands expose read-only chat data,
-send text, clear a pair's local history and mark its current messages read for the active
-identity; Linux conversation rows and message requests in the UI are planned.
+learns nothing until a reply. The Linux screen now renders ordered, pair-wide local requests
+and conversations with a short Peer ID, latest text or deletion placeholder, original message
+time when present, and local unread count. It shows the local rows after mailbox refresh even if
+that refresh or the network-backed **Liked you** lookup fails. Opening a row shows its current
+message history and marks incoming messages read on this device; Back returns to the list.
+Profile names/photos, composition, Clear chat, and message actions remain planned for this UI.
+The Rust desktop commands already expose history, send text, Clear chat and mark read for the
+active identity.
 
 | Control | ID | Notes |
 | --- | --- | --- |

@@ -175,7 +175,7 @@ const checkStaleSearchAndChats = async () => {
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
   let finishNewMail;
-  const newChats = window.showChats((command) => command === 'liked_you'
+  const newChats = window.showChats((command) => ['liked_you', 'chat_rows'].includes(command)
     ? Promise.resolve([]) : new Promise((resolve) => { finishNewMail = resolve; }));
   finishMail(1);
   await oldChats;
@@ -197,6 +197,54 @@ const checkStaleSearchAndChats = async () => {
   await oldPoll;
   if (window.chatsDone !== chatsDone) throw new Error('old poll scheduled a Chats refresh');
   await act(Promise.resolve(readyState));
+};
+// The local projection renders requests, unread counts and original timestamps without a node.
+const checkChatProjection = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = 'd'.repeat(64);
+  const other = 'e'.repeat(64);
+  const message = { author: peer, text: 'hello', deleted: false, sentAtMs: 1_700_000_000_000 };
+  const rows = [
+    { peerId: peer, state: 'requestReceived', lastMessage: message, unreadCount: 2 },
+    { peerId: other, state: 'open', lastMessage: { text: null, deleted: true, sentAtMs: null }, unreadCount: 0 },
+  ];
+  await window.showChats((command) => {
+    if (command === 'receive_mail') return Promise.reject('notConnected');
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    if (command === 'liked_you') return Promise.reject('notConnected');
+    throw new Error(`unexpected Chats command: ${command}`);
+  });
+  const request = document.querySelector('#chats-requests button');
+  const conversation = document.querySelector('#chat-list button');
+  if (!request || !conversation || !request.textContent.includes('hello')
+    || !request.querySelector('.meta .caption').textContent
+    || !request.textContent.includes('2')
+    || !conversation.textContent.includes(window.strings['chats.deleted'])
+    || document.getElementById('chats-status').textContent !== window.strings['chats.notConnected']) {
+    throw new Error('local Chats rows disappeared when the node failed');
+  }
+  let marked = false;
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'requestReceived', messages: [message] });
+    if (command === 'mark_chat_read') { marked = true; return Promise.resolve(1); }
+    if (command === 'chat_rows') return Promise.resolve([{ ...rows[0], unreadCount: 0 }, rows[1]]);
+    throw new Error(`unexpected chat command: ${command}`);
+  });
+  if (!marked || chatDetail.hidden || chatMessages.textContent.indexOf('hello') < 0
+    || document.querySelector('#chats-requests .badge')) {
+    throw new Error('chat history did not clear local unread');
+  }
+  document.getElementById('chat-back').click();
+  if (!chatDetail.hidden || chatOverview.hidden) throw new Error('chat Back did not show the list');
+  const readyState = current;
+  let finishHistory;
+  const oldHistory = openChat(peer, () => new Promise((resolve) => { finishHistory = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishHistory({ state: 'open', messages: [message] });
+  await oldHistory;
+  if (!chatDetail.hidden) throw new Error('old chat history opened after identity switch');
 };
 // Even reopening the same card object for a new identity cannot admit an old peer response.
 const checkStalePeerActions = async () => {
@@ -688,6 +736,7 @@ const checkStaleBlocked = async () => {
 globalThis.uiSmokeIdentity = Object.freeze({
   waitFor, openArea, hiddenRendered, shortPeerIdRule, chooseStorage, checkCopy, pickReady,
   checkSettingsInventory, switchFromSettings, checkStaleRender, checkStaleSearchAndChats,
+  checkChatProjection,
   checkStalePeerActions, checkStaleSafety, checkStaleProfileLoad, checkStaleProfileHandlers,
   checkStalePublishAndHide, checkStaleProfileTimers, checkStaleUsageStatus, checkStalePrivacy,
   checkStaleBlocked,

@@ -111,7 +111,9 @@ old identity response, shows the newer picker, resumes the old response, and che
 remains visible before returning to Ready. It then pauses old Search and Chats requests,
 starts current requests after returning to Ready, and checks that late old results cannot
 change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
-refresh after the identity changes. The same case reopens a peer card and checks that old
+refresh after the identity changes. The Chats smoke also renders local request and conversation
+rows through mocked commands while the node is unavailable, opens history, marks incoming text
+read locally, and checks Back returns to the list. The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
 safety panel, camera capture and sensitive copy across a switch; an already active camera stream
 stops synchronously when the switch begins. The old copy still schedules
