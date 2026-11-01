@@ -2,8 +2,8 @@
 
 use super::*;
 use dyapp_ffi::{
-    new_chat_state_key, save_profile_draft, ChatSession, ChatState, IdentityKey, KeyStore,
-    ProfileSolve, PublicProfileDraft, WrapError,
+    new_chat_state_key, save_profile_draft, ChatLikes, ChatSession, ChatState, IdentityKey,
+    KeyStore, ProfileSolve, PublicProfileDraft, WrapError,
 };
 use dyapp_identity::network::{self, Network, Settings};
 use libp2p::multiaddr::Protocol;
@@ -75,9 +75,8 @@ fn texts(chats: &ChatSession, peer_id: &str) -> Vec<String> {
         .collect()
 }
 
-#[test]
-fn two_chat_sessions_exchange_a_text_and_list_it() {
-    // The sessions block on their own runtimes, so the node needs threads of its own.
+/// A store node; the sessions block on their own runtimes, so it needs threads of its own.
+fn store_node() -> (tokio::runtime::Runtime, Multiaddr) {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -87,6 +86,46 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
         config.limits.requests_per_second = 1000;
         config.limits.min_free_mb = 0;
     }));
+    (runtime, address)
+}
+
+#[test]
+fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
+    let (_runtime, address) = store_node();
+    let (alice_key, alice) = person(&address);
+    let (bob_key, bob) = person(&address);
+    let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
+    let likes = |ours, matched| ChatLikes { ours, matched };
+
+    assert_eq!(
+        alice.like(bob_id.clone(), true).unwrap(),
+        likes(true, false)
+    );
+    assert!(bob.receive().unwrap() > 0);
+    assert_eq!(bob.liked_you().unwrap(), [alice_id.clone()]);
+    assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(false, false));
+
+    assert_eq!(bob.like(alice_id.clone(), true).unwrap(), likes(true, true));
+    assert!(bob.liked_you().unwrap().is_empty());
+    assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);
+    assert!(alice.receive().unwrap() > 0);
+    assert_eq!(alice.likes(bob_id.clone()).unwrap(), likes(true, true));
+    assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::Open);
+
+    // Taking the like back ends the match but the chat stays open.
+    assert_eq!(
+        alice.like(bob_id.clone(), false).unwrap(),
+        likes(false, false)
+    );
+    assert_eq!(alice.state(bob_id).unwrap(), ChatState::Open);
+    assert!(bob.receive().unwrap() > 0);
+    assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(true, false));
+    assert_eq!(bob.state(alice_id).unwrap(), ChatState::Open);
+}
+
+#[test]
+fn two_chat_sessions_exchange_a_text_and_list_it() {
+    let (runtime, address) = store_node();
     let (alice_key, alice) = person(&address);
     let (bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
