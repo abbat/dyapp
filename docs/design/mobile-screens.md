@@ -40,6 +40,7 @@ biometrics; the device screen lock recovers a forgotten PIN.
 
 | Control | ID | Notes |
 | --- | --- | --- |
+| PIN, repeated | `pin-set`, `pin-repeat` | On the page above the actions; the prototype omits them |
 | Set PIN | `lock-set` | Primary |
 | Use device biometrics | `lock-biometric` | Only when enrolled |
 | Skip | `lock-skip` | Text button |
@@ -51,7 +52,7 @@ biometrics; the device screen lock recovers a forgotten PIN.
 | PIN | `pin-unlock` | Numeric |
 | Wrong PIN | `lock-error` | Shown after a wrong PIN |
 | Unlock | `lock-unlock` | Primary |
-| Use device screen lock | `lock-device` | Always offered |
+| Use device screen lock | `lock-device` | Always offered; the primary action once too many wrong PINs require it |
 
 `lock-settings`: from the Settings row `lock-settings`; back with `lock-back`.
 

@@ -12,6 +12,8 @@
     <string name="app_locked">Приложение заблокировано</string>
     <string name="lock_setup_title">Защитите приложение</string>
     <string name="lock_setup_body">PIN из 6–64 цифр скрывает ваши идентичности и чаты, пока вы его не введёте.</string>
+    <string name="lock_recovery">Забытый PIN восстанавливается блокировкой экрана устройства.</string>
+    <string name="lock_unlock_title">Введите PIN</string>
     <string name="lock_no_screen_lock">Чтобы использовать PIN, включите блокировку экрана в настройках устройства.</string>
     <string name="lock_pin">PIN</string>
     <string name="lock_pin_repeat">Повторите PIN</string>
