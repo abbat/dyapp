@@ -74,6 +74,8 @@ for the pair. Both sides reach the same choice once each has every Welcome. A me
 sent to another group is still shown, so nothing is lost. A group that also contains a third
 identity is refused, as today. Timed texts use their original HLC for ordering. Legacy tag-1 texts
 have no sent time and use a non-reused local arrival ordinal as a fallback before timed texts.
+`Store::current_chat_messages` exposes that order across every group of one pair, including the
+current edit or deletion marker. The Chats list row still needs its own read API.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,

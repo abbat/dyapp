@@ -16,6 +16,8 @@ mod inbound_tests;
 mod operations;
 #[cfg(test)]
 mod outbound_tests;
+#[cfg(test)]
+mod read_tests;
 
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
@@ -90,6 +92,35 @@ pub struct CurrentMessage {
     pub edited: bool,
     /// Whether deletion is terminal for this message.
     pub deleted: bool,
+}
+
+/// One current message in a pair's ordered local history.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ChatMessage {
+    /// Logical key, including the MLS group that carried this message.
+    pub key: MessageKey,
+    /// The sole current text or deletion placeholder.
+    pub current: CurrentMessage,
+    /// Authenticated original time; absent for legacy tag-1 bodies.
+    pub original_hlc: Option<Timestamp>,
+    /// Whether this device has not yet viewed the incoming text.
+    pub unread: bool,
+}
+
+impl CurrentMessage {
+    fn from_stored(text: Option<Vec<u8>>, edited: i64, deleted: i64) -> Result<Self, Error> {
+        if !matches!(
+            (edited, deleted, text.is_some()),
+            (0 | 1, 0, true) | (0 | 1, 1, false)
+        ) {
+            return Err(Error::InboxConflict);
+        }
+        Ok(Self {
+            text,
+            edited: edited == 1,
+            deleted: deleted == 1,
+        })
+    }
 }
 
 impl Store {
@@ -320,6 +351,64 @@ impl Store {
         Ok(changed)
     }
 
+    /// Read a pair's current texts and deletion placeholders across all cataloged MLS groups.
+    /// Legacy bodies have no sent time and appear first in local arrival order; timed bodies
+    /// follow original HLC, author, logical ID and group ID order.
+    pub fn current_chat_messages(&self, peer_id: &str) -> Result<Vec<ChatMessage>, Error> {
+        if peer_id.is_empty() || peer_id == self.owner_peer_id {
+            return Err(Error::InboxConflict);
+        }
+        let mut query = self.db.prepare(
+            "SELECT `m`.`group_id`, `m`.`author`, `m`.`message_id`, `m`.`text`,
+                    `m`.`edited`, `m`.`deleted`, `m`.`original_hlc`, `m`.`unread`
+             FROM `chat_messages` AS `m`
+             JOIN `conversation_groups` AS `g` ON `m`.`group_id` = `g`.`group_id`
+             WHERE `g`.`peer_id` = ?1
+             ORDER BY (`m`.`original_hlc` IS NOT NULL),
+                      CASE WHEN `m`.`original_hlc` IS NULL THEN `m`.`arrival_order` END,
+                      `m`.`original_hlc`, `m`.`author`, `m`.`message_id`, `m`.`group_id`",
+        )?;
+        let rows = query.query_map([peer_id], |row| {
+            Ok((
+                row.get::<_, Vec<u8>>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Vec<u8>>(2)?,
+                row.get::<_, Option<Vec<u8>>>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, Option<i64>>(6)?,
+                row.get::<_, i64>(7)?,
+            ))
+        })?;
+        rows.map(|row| {
+            let (group, author, id, text, edited, deleted, original_hlc, unread) = row?;
+            if author != self.owner_peer_id && author != peer_id {
+                return Err(Error::InboxConflict);
+            }
+            let id = id.try_into().map_err(|_| Error::InboxConflict)?;
+            let current = CurrentMessage::from_stored(text, edited, deleted)?;
+            let original_hlc = original_hlc
+                .map(|value| {
+                    u64::try_from(value)
+                        .map(Timestamp::from)
+                        .map_err(|_| Error::InboxConflict)
+                })
+                .transpose()?;
+            let unread = match unread {
+                0 => false,
+                1 => true,
+                _ => return Err(Error::InboxConflict),
+            };
+            Ok(ChatMessage {
+                key: MessageKey { group, author, id },
+                current,
+                original_hlc,
+                unread,
+            })
+        })
+        .collect()
+    }
+
     /// Read one logical message from this profile's current projection.
     pub fn chat_message(&self, key: &MessageKey) -> Result<Option<CurrentMessage>, Error> {
         let row: Option<(Option<Vec<u8>>, i64, i64)> = self
@@ -331,20 +420,8 @@ impl Store {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        row.map(|(text, edited, deleted)| {
-            if !matches!(
-                (edited, deleted, text.is_some()),
-                (0 | 1, 0, true) | (0 | 1, 1, false)
-            ) {
-                return Err(Error::InboxConflict);
-            }
-            Ok(CurrentMessage {
-                text,
-                edited: edited == 1,
-                deleted: deleted == 1,
-            })
-        })
-        .transpose()
+        row.map(|(text, edited, deleted)| CurrentMessage::from_stored(text, edited, deleted))
+            .transpose()
     }
 
     /// Store first text once. A repeated body is harmless; a different body with the same
