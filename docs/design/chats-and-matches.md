@@ -94,7 +94,9 @@ lease and MLS-session mutex; a failed network send retains the staged outbox byt
 unpublished own profile or device, a blocked or self peer, stale profile data and invalid text.
 `clear_chat(peerId)` clears all local groups for that pair in one transaction and returns the
 number of removed current messages; the conversation state and empty row stay. It rejects an
-unknown, blocked or self peer. The Chats UI and mark-read command remain planned.
+unknown, blocked or self peer. `mark_chat_read(peerId)` clears the current unread flags on
+this device across the pair's groups when the chat is opened; it sends no peer-visible receipt.
+The Chats UI call site remains planned.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,

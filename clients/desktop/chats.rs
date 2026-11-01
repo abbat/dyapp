@@ -173,19 +173,32 @@ pub fn chat_history(
     Ok(ChatHistoryView { state, messages })
 }
 
-/// Clear this peer's entire device-local history while retaining its conversation state.
-pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
+fn open_visible_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Store, String> {
     if peer_id == identity.peer_id() {
         return Err("ownPeer".into());
     }
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     if store.blocked(peer_id).map_err(|e| e.to_string())? {
         return Err("blocked".into());
     }
     if store.conversation(peer_id).map_err(|e| e.to_string())? == Conversation::None {
         return Err("unknownPeer".into());
     }
-    store.clear_chat_pair(peer_id).map_err(|e| e.to_string())
+    Ok(store)
+}
+
+/// Clear this peer's entire device-local history while retaining its conversation state.
+pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
+    open_visible_chat(dir, identity, peer_id)?
+        .clear_chat_pair(peer_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Mark current incoming texts in every group of a visible pair read on this device only.
+pub fn mark_chat_read(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
+    open_visible_chat(dir, identity, peer_id)?
+        .mark_chat_read(peer_id)
+        .map_err(|e| e.to_string())
 }
 
 fn accept_peer(
@@ -562,6 +575,25 @@ pub mod commands {
         super::chat_history(dir, identity, &peer_id)
     }
 
+    /// Clear this device's unread flags after a visible conversation is opened.
+    #[tauri::command]
+    pub(crate) async fn mark_chat_read(
+        state: tauri::State<'_, crate::IdentityState>,
+        sessions: tauri::State<'_, super::Sessions>,
+        peer_id: String,
+    ) -> Result<usize, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
+        let sessions = Arc::clone(&sessions.0);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
+            let _session = sessions.lock().map_err(|e| e.to_string())?;
+            super::mark_chat_read(&dir, &identity, &peer_id)
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     /// Clear all local MLS groups for this peer while keeping the conversation row.
     #[tauri::command]
     pub(crate) async fn clear_chat(
@@ -810,11 +842,20 @@ mod tests {
             .is_empty());
         assert!(chat_rows(&dir, &bob).is_err());
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Ok(0));
+        assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Ok(0));
         assert_eq!(chat_rows(&dir, &alice).unwrap().len(), 1);
         assert_eq!(clear_chat(&dir, &alice, &alice_id), Err("ownPeer".into()));
+        assert_eq!(
+            mark_chat_read(&dir, &alice, &alice_id),
+            Err("ownPeer".into())
+        );
         let unknown = Identity::generate().peer_id();
         assert_eq!(
             clear_chat(&dir, &alice, &unknown),
+            Err("unknownPeer".into())
+        );
+        assert_eq!(
+            mark_chat_read(&dir, &alice, &unknown),
             Err("unknownPeer".into())
         );
         let store = open(&dir, &alice).unwrap();
@@ -822,6 +863,7 @@ mod tests {
         assert!(chat_rows(&dir, &alice).unwrap().is_empty());
         assert_eq!(chat_history(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Err("blocked".into()));
+        assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Err("blocked".into()));
     }
 
     #[test]
