@@ -30,15 +30,16 @@ class ProfileDraftTests {
     fun previewShowsOnlyTheSavedDraftWithAgeAndWarnings() {
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-profile").performClick()
-        val parts = listOf("birth-year" to "2000", "birth-month" to "1", "birth-day" to "1")
-        for ((tag, value) in parts) {
-            compose.onNodeWithTag(tag).performScrollTo().performTextClearance()
-            compose.onNodeWithTag(tag).performTextInput(value)
-        }
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
+        compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("birth-year").performTextInput("2000")
+        pickBirthPart("birth-month")
+        pickBirthPart("birth-day")
         // Born on 1 January, so the age is exact on any day of the year.
         val age = LocalDate.now(ZoneOffset.UTC).year - 2000
+        compose.onNodeWithTag("profile-age").performScrollTo()
+            .assertTextEquals(compose.activity.getString(R.string.profile_age_search, "$age"))
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("profile-preview-age").performScrollTo()
             .assertTextEquals(compose.activity.getString(R.string.profile_age, "$age"))
         compose.onNodeWithTag("profile-public-disclosure").performScrollTo().assertIsDisplayed()
@@ -46,6 +47,7 @@ class ProfileDraftTests {
 
         // An unsaved edit does not change the preview; a saved one does.
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("profile-age").assertDoesNotExist()
         compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
         compose.onNodeWithTag("profile-full-date").assertExists()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
@@ -53,6 +55,22 @@ class ProfileDraftTests {
         val unknown = compose.activity.getString(R.string.profile_age, string(R.string.profile_age_unknown))
         compose.onNodeWithTag("profile-preview-age").performScrollTo().assertTextEquals(unknown)
         compose.onNodeWithTag("profile-full-date").assertDoesNotExist()
+    }
+
+    private fun pickBirthPart(tag: String) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose.onNodeWithTag("$tag-1").performScrollTo().performClick()
+        compose.onNodeWithTag(tag).assertTextEquals("1")
+    }
+
+    @Test
+    fun otherScalesStayFoldedUntilProfileMoreOpens() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-profile").performClick()
+        val tag = "profile-" + profileScales().first { it.key !in BASIC_SCALES }.key
+        compose.onNodeWithTag(tag).assertDoesNotExist()
+        compose.onNodeWithTag("profile-more").performScrollTo().performClick()
+        compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
     }
 
     @Test

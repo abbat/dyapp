@@ -19,7 +19,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
 
-private fun possibleAgeOnUtcToday(saved: Map<String, Int>): String? {
+internal fun possibleAgeOnUtcToday(saved: Map<String, Int>): String? {
     val today = LocalDate.now(ZoneOffset.UTC).toEpochDay().toULong()
     val ages = runCatching {
         assessBirthParts(saved[BIRTH_YEAR]?.toUInt(), saved[BIRTH_MONTH]?.toUInt(), saved[BIRTH_DAY]?.toUInt(), today)
