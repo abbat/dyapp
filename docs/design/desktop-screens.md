@@ -224,9 +224,11 @@ Profile names/photos remain planned for this UI. An own, live text can be edited
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation
 warns that the peer, nodes, other devices and backups may keep copies. The local history shows a
-terminal placeholder after deletion, including when network delivery remains pending. Clear chat
-asks for confirmation,
-deletes this computer's history, keeps the conversation row and shows a local-only note. Block
+terminal placeholder after deletion, including when network delivery remains pending. Own
+messages show a persisted pending, accepted-by-node or received-by-one-device label; node
+acceptance does not imply peer delivery, and none of these labels claims the message was read.
+The open chat refreshes after the minute mailbox poll, including receipt-only changes. Clear chat
+asks for confirmation, deletes this computer's history, keeps the conversation row and shows a local-only note. Block
 is available from a request or open chat: it hides the peer locally at once and reports whether
 network token revocation is pending. The Rust desktop commands expose history, send text, Clear
 chat and mark read for the active identity.
@@ -237,12 +239,12 @@ chat and mark read for the active identity.
 | Message requests | `chats-requests` | With count |
 | Conversations | `chat-list` | Rows `chat-1`, `chat-2` |
 
-`chat`: one conversation with a match. The peer's avatar and name in the header open the found
-profile, so a narrow window keeps one text button. The header shows "Active recently" when the
-last signal from the peer is at most 2 hours old; there is no online or last-seen time. Own
-messages show Sent or Delivered, and Read only when the peer sends read receipts; an edited
-message says so, and a deleted one leaves a placeholder. Edit and Delete apply to own messages and
-are best effort. `chat-first`: to a non-match, one message is sent and the composer stays disabled
+`chat`: one conversation with a match. The prototype's peer avatar/name link and "Active
+recently" header remain planned; no online or last-seen time is shown. The current Linux message
+status is pending, accepted by a node, or received by one peer device. Read marks require a
+separate peer read receipt and remain planned. An edited message says so, a deleted one leaves a
+placeholder, and Edit and Delete apply to live own messages with best-effort delivery.
+`chat-first`: to a non-match, one message is sent and the composer stays disabled
 until a reply or a match. `chat-request`: an incoming message from a non-match, with Reply through
 the composer or Block. "Anna is typing…" shows for 10 seconds after the last typing signal, only
 over a direct path.

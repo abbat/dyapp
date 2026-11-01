@@ -8,7 +8,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use dyapp_client::chat::Event;
 use dyapp_client::interactions::Kind;
 use dyapp_client::session::Session;
-use dyapp_client::store::messages::ChatMessage;
 use dyapp_client::store::{Conversation, Store};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -18,6 +17,8 @@ use crate::profile;
 use crate::search::{self, Found, ProfileCache};
 
 pub(crate) mod operations;
+mod view;
+pub use view::{ChatHistoryView, ChatRowView, ChatState, MessageView};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
@@ -62,78 +63,6 @@ impl BlockResult {
 
 fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
-}
-
-/// Conversation states exposed to the desktop without the request's internal message ID.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ChatState {
-    None,
-    RequestSent,
-    RequestReceived,
-    Open,
-}
-
-impl From<Conversation> for ChatState {
-    fn from(state: Conversation) -> Self {
-        match state {
-            Conversation::None => Self::None,
-            Conversation::RequestSent(_) => Self::RequestSent,
-            Conversation::RequestReceived(_) => Self::RequestReceived,
-            Conversation::Open => Self::Open,
-        }
-    }
-}
-
-/// Current text or deletion marker, in the Store's pair-wide order.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MessageView {
-    pub group_id: Vec<u8>,
-    pub author: String,
-    pub id: [u8; 16],
-    pub text: Option<String>,
-    pub edited: bool,
-    pub deleted: bool,
-    pub unread: bool,
-    /// Original wall time for timed text; legacy tag-1 text has no timestamp.
-    pub sent_at_ms: Option<u64>,
-}
-
-impl From<ChatMessage> for MessageView {
-    fn from(message: ChatMessage) -> Self {
-        Self {
-            group_id: message.key.group,
-            author: message.key.author,
-            id: message.key.id,
-            text: message
-                .current
-                .text
-                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()),
-            edited: message.current.edited,
-            deleted: message.current.deleted,
-            unread: message.unread,
-            sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
-        }
-    }
-}
-
-/// One Chats list row from this identity's local Store.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatRowView {
-    pub peer_id: String,
-    pub state: ChatState,
-    pub last_message: Option<MessageView>,
-    pub unread_count: usize,
-}
-
-/// One peer's current conversation, including an empty chat after Clear chat.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatHistoryView {
-    pub state: ChatState,
-    pub messages: Vec<MessageView>,
 }
 
 pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, String> {
@@ -889,7 +818,7 @@ mod tests {
 
     #[test]
     fn message_view_keeps_legacy_time_absent_and_uses_safe_wall_time() {
-        use dyapp_client::store::messages::{CurrentMessage, MessageKey};
+        use dyapp_client::store::messages::{ChatMessage, CurrentMessage, MessageKey};
         let message = |original_hlc| ChatMessage {
             key: MessageKey {
                 group: vec![1],
@@ -903,6 +832,7 @@ mod tests {
             },
             original_hlc,
             unread: true,
+            delivery: None,
         };
         assert_eq!(MessageView::from(message(None)).sent_at_ms, None);
         let timed = MessageView::from(message(Some((1_700_000_000_000u64 << 16).into())));

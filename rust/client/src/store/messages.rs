@@ -98,6 +98,26 @@ pub struct CurrentMessage {
     pub deleted: bool,
 }
 
+/// Persisted status of the current own text or edit/delete operation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeliveryState {
+    Pending,
+    NodeAccepted,
+    DeviceReceived,
+}
+
+impl DeliveryState {
+    pub(super) fn from_stored(value: Option<i64>) -> Result<Option<Self>, Error> {
+        match value {
+            None => Ok(None),
+            Some(0) => Ok(Some(Self::Pending)),
+            Some(1) => Ok(Some(Self::NodeAccepted)),
+            Some(2) => Ok(Some(Self::DeviceReceived)),
+            _ => Err(Error::InboxConflict),
+        }
+    }
+}
+
 /// One current message in a pair's ordered local history.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ChatMessage {
@@ -109,6 +129,8 @@ pub struct ChatMessage {
     pub original_hlc: Option<Timestamp>,
     /// Whether this device has not yet viewed the incoming text.
     pub unread: bool,
+    /// Absent for peer text or an own text received from another device.
+    pub delivery: Option<DeliveryState>,
 }
 
 impl CurrentMessage {
@@ -417,7 +439,8 @@ impl Store {
         }
         let mut query = self.db.prepare(
             "SELECT `m`.`group_id`, `m`.`author`, `m`.`message_id`, `m`.`text`,
-                    `m`.`edited`, `m`.`deleted`, `m`.`original_hlc`, `m`.`unread`
+                    `m`.`edited`, `m`.`deleted`, `m`.`original_hlc`, `m`.`unread`,
+                    `m`.`delivery_state`
              FROM `chat_messages` AS `m`
              JOIN `conversation_groups` AS `g` ON `m`.`group_id` = `g`.`group_id`
              WHERE `g`.`peer_id` = ?1
@@ -435,11 +458,16 @@ impl Store {
                 row.get::<_, i64>(5)?,
                 row.get::<_, Option<i64>>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, Option<i64>>(8)?,
             ))
         })?;
         rows.map(|row| {
-            let (group, author, id, text, edited, deleted, original_hlc, unread) = row?;
+            let (group, author, id, text, edited, deleted, original_hlc, unread, delivery) = row?;
             if author != self.owner_peer_id && author != peer_id {
+                return Err(Error::InboxConflict);
+            }
+            let delivery = DeliveryState::from_stored(delivery)?;
+            if author != self.owner_peer_id && delivery.is_some() {
                 return Err(Error::InboxConflict);
             }
             let id = id.try_into().map_err(|_| Error::InboxConflict)?;
@@ -461,6 +489,7 @@ impl Store {
                 current,
                 original_hlc,
                 unread,
+                delivery,
             })
         })
         .collect()

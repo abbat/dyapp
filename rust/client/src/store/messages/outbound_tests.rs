@@ -1,4 +1,4 @@
-use super::{Body, Error, MessageKey, Store, VerifiedChatSender};
+use super::{Body, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::{prepare_put, PreparedEnvelope};
 use dyapp_identity::Identity;
 use rusqlite::params;
@@ -199,6 +199,10 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     assert_eq!(delivery_state(&store, &key), 0);
     store.accepted(&write3, 2_000, "node").unwrap();
     assert_eq!(delivery_state(&store, &key), 1);
+    assert_eq!(
+        store.current_chat_messages(&peer).unwrap()[0].delivery,
+        Some(DeliveryState::NodeAccepted)
+    );
     store.receipted(write1.mailbox(), &[*write1.id()]).unwrap();
     assert_eq!(delivery_state(&store, &key), 1);
     store.receipted(write3.mailbox(), &[*write3.id()]).unwrap();
@@ -206,6 +210,14 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     drop(store);
     let mut store = Store::open(&path, &owner).unwrap();
     assert_eq!(delivery_state(&store, &key), 2);
+    assert_eq!(
+        store.chat_rows().unwrap()[0]
+            .last_message
+            .as_ref()
+            .unwrap()
+            .delivery,
+        Some(DeliveryState::DeviceReceived)
+    );
     let before_failure = store.draft_chat_operation(1_000).unwrap().1;
     assert!(matches!(
         store.stage_chat_outbound(b"mls-bad", &[], sender, &edit, 1_000),

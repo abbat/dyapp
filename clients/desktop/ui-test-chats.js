@@ -417,7 +417,44 @@ const checkChatDelete = async () => {
   await oldDelete;
   if (deleteDialog.open || !chatDetail.hidden) throw new Error('old Delete painted new identity');
 };
+const checkChatDelivery = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '8'.repeat(64);
+  const own = { author: current.peerId, groupId: [1], id: [1], text: 'outgoing',
+    edited: false, deleted: false, sentAtMs: null };
+  const theirs = { ...own, author: peer, id: [2], text: 'incoming',
+    delivery: 'nodeAccepted' };
+  let delivery = 'pending';
+  const call = (command) => {
+    if (command === 'receive_mail') return Promise.resolve(0);
+    if (command === 'chat_history') return Promise.resolve({ state: 'open',
+      messages: [{ ...own, delivery }, theirs] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([]);
+    throw new Error(`unexpected delivery command: ${command}`);
+  };
+  await openChat(peer, call);
+  if (!chatMessages.textContent.includes(window.strings['chats.delivery.pending'])
+    || chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])) {
+    throw new Error('pending own message or peer delivery status rendered incorrectly');
+  }
+  delivery = 'nodeAccepted';
+  await pollMailbox(call);
+  if (!chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])
+    || chatMessages.textContent.includes(window.strings['chats.delivery.pending'])) {
+    throw new Error('node acceptance did not refresh an open chat');
+  }
+  delivery = 'deviceReceived';
+  document.getElementById('chat-back').click();
+  await openChat(peer, call);
+  if (!chatMessages.textContent.includes(window.strings['chats.delivery.deviceReceived'])
+    || chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])) {
+    throw new Error('device receipt status did not survive reopening');
+  }
+  document.getElementById('chat-back').click();
+};
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
-  checkChatDelete,
+  checkChatDelete, checkChatDelivery,
 });

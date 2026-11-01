@@ -124,7 +124,10 @@ immediate row hiding and an old result after identity switch. The Edit smoke che
 only on live own text, current text in the editor, Cancel, refreshed text and edited mark,
 retained unstaged draft, pending delivery for a staged edit and a late identity result. The
 Delete smoke checks the best-effort warning, Cancel, own-message placeholder, retained text on
-an unstaged error, pending delivery after staging and a stale identity result.
+an unstaged error, pending delivery after staging and a stale identity result. The delivery
+smoke renders only own status, refreshes node acceptance during a mailbox poll with no new text,
+and checks the device-received label after reopening. Store tests cover persistence across restart
+and ignore receipts for a superseded message generation.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

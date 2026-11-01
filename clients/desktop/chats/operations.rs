@@ -147,6 +147,7 @@ mod tests {
             },
             original_hlc: None,
             unread: false,
+            delivery: None,
         };
         assert!(target_matches(&message, &own, &[4], [2; 16]));
         assert!(!target_matches(&message, &own, &[5], [2; 16]));

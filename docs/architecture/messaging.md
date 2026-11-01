@@ -156,8 +156,9 @@ operations clear a superseded local generation. Node acceptance atomically advan
 local generation to node-accepted; a signed recipient-device receipt advances it to received by
 at least one device. A late receipt for an older text or edit cannot change the newer generation.
 Those states survive restart and outbox removal. Chat writes have no expiry before acceptance;
-an accepted write given up after 30 days still has the factual node-accepted status. Exposing
-the states in the desktop UI remains a separate step.
+an accepted write given up after 30 days still has the factual node-accepted status. Linux
+Chats reads these persisted states for its own-message labels after reopening and refreshes an
+open chat on the minute mailbox poll, including a receipt with no new visible text.
 The desktop app also uses this adapter for likes, token refill, and own-message edit/delete
 commands. Edit/delete validate peer, group and logical message ID against the local projection
 before opening a Session. Linux Chats exposes Edit and Delete for own live text; other

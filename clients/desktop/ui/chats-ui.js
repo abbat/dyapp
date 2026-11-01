@@ -241,6 +241,12 @@ const openChat = async (peerId, call = invoke) => {
       const body = document.createElement('span');
       body.textContent = chatPreview(message);
       item.append(label, document.createTextNode(': '), body);
+      if (message.author === current.peerId && message.delivery) {
+        const delivery = document.createElement('span');
+        delivery.className = 'caption';
+        delivery.textContent = ` · ${window.strings[`chats.delivery.${message.delivery}`] || ''}`;
+        item.append(delivery);
+      }
       if (message.edited && !message.deleted) {
         const edited = document.createElement('span');
         edited.className = 'caption';
@@ -522,8 +528,13 @@ window.showChats = async (call = invoke) => {
 const pollMailbox = async (call = invoke) => {
   const generation = identityGeneration;
   const changed = await call('receive_mail').catch(() => 0);
-  if (identityCurrent(generation) && changed && !document.getElementById('chats-area').hidden) {
-    window.chatsDone = window.showChats();
+  if (!identityCurrent(generation) || document.getElementById('chats-area').hidden) return;
+  // Retry and signed receipts can change delivery status without a new visible chat event.
+  if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
+    && !chatSending && !chatBlocking) {
+    await openChat(activeChat.peerId, call);
+  } else if (changed) {
+    window.chatsDone = window.showChats(call);
   }
 };
 setInterval(pollMailbox, 60000);
