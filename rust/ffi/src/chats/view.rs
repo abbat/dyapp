@@ -4,6 +4,15 @@ use super::ChatState;
 use dyapp_client::store;
 use dyapp_client::store::messages::{self, DeliveryState};
 
+/// The like state with one peer as the screens show it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct ChatLikes {
+    /// This profile likes the peer: the screen shows Liked.
+    pub ours: bool,
+    /// Both like each other.
+    pub matched: bool,
+}
+
 /// Status of the current own content; node acceptance alone is not recipient delivery.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum ChatDelivery {

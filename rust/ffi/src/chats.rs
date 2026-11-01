@@ -8,6 +8,7 @@ use crate::profile_network::{
 };
 use crate::{CoreError, IdentityKey, KeyStore, PublicProfileDraft};
 use dyapp_client::chat::Event;
+use dyapp_client::interactions::Kind;
 use dyapp_client::publish;
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
@@ -22,7 +23,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
 mod view;
-pub use view::{ChatDelivery, ChatHistory, ChatMessage, ChatRow};
+pub use view::{ChatDelivery, ChatHistory, ChatLikes, ChatMessage, ChatRow};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
@@ -215,6 +216,49 @@ impl ChatSession {
         })
     }
 
+    /// The like state with `peer_id`.
+    pub fn likes(&self, peer_id: String) -> Result<ChatLikes, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        likes_in(session.store(), &peer_id)
+    }
+
+    /// The Liked you peers: each likes this profile, is not liked back and is not blocked, in
+    /// Peer ID order. Local: the screen fetches their profiles.
+    pub fn liked_you(&self) -> Result<Vec<String>, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        session.store().liked_by().map_err(failed)
+    }
+
+    /// Like `peer_id` (`liked`) or take the like back, as a signal in the pair group on the active
+    /// network; the first like invites the peer. A failed send stays staged and is retried with
+    /// the same bytes. Errors are `unpublished` (no published own profile), `notConnected` or a
+    /// node or storage message.
+    pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
+        let mut guard = self.session.lock().map_err(failed)?;
+        // The guard stays on this thread; the session it lends moves to the network thread.
+        let session: &mut Session = &mut guard;
+        let own = own_profile(session.store(), &self.key.identity)?
+            .ok_or_else(|| CoreError::Failed("unpublished".into()))?;
+        let network = active_network(&self.dir)?;
+        let kind = if liked { Kind::Like } else { Kind::Unlike };
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                let peer = node.get_profile(&peer_id).await.map_err(failed)?;
+                session
+                    .interact_with(
+                        std::slice::from_mut(&mut node),
+                        &[own, peer],
+                        kind,
+                        &self.seal_key,
+                    )
+                    .await
+                    .map_err(failed)?;
+                likes_in(session.store(), &peer_id)
+            })
+        })
+    }
+
     /// Resend the staged writes that are due, apply this device's mailbox and refill tokens when
     /// due. Returns how many events changed a chat. An envelope from an owner the node has no
     /// profile for waits in the mailbox for the next call. Errors are `notConnected` or a node
@@ -223,15 +267,7 @@ impl ChatSession {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        let own = session
-            .store()
-            .profile_draft()
-            .map_err(failed)?
-            .unwrap_or_default();
-        let own = match own.version {
-            0 => None,
-            _ => Some(dyapp_profile::verify(&own.sign(&self.key.identity)).map_err(failed)?),
-        };
+        let own = own_profile(session.store(), &self.key.identity)?;
         let network = active_network(&self.dir)?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -271,6 +307,26 @@ impl ChatSession {
             })
         })
     }
+}
+
+fn likes_in(store: &Store, peer_id: &str) -> Result<ChatLikes, CoreError> {
+    let likes = store.likes(peer_id).map_err(failed)?;
+    Ok(ChatLikes {
+        ours: likes.ours,
+        matched: likes.matched(),
+    })
+}
+
+/// This identity's published profile, signed again from its stored draft; `None` before the first
+/// publish.
+fn own_profile(store: &Store, identity: &Identity) -> Result<Option<VerifiedProfile>, CoreError> {
+    let own = store.profile_draft().map_err(failed)?.unwrap_or_default();
+    if own.version == 0 {
+        return Ok(None);
+    }
+    dyapp_profile::verify(&own.sign(identity))
+        .map(Some)
+        .map_err(failed)
 }
 
 /// Apply one mailbox fetch, then once more if that fetched profiles of owners it did not know,
@@ -366,6 +422,18 @@ mod tests {
         assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
         assert!(chats.chat_rows().unwrap().is_empty());
         let peer = "ab".repeat(32);
+        assert_eq!(
+            chats.like(peer.clone(), true).unwrap_err().to_string(),
+            "unpublished"
+        );
+        assert_eq!(
+            chats.likes(peer.clone()).unwrap(),
+            ChatLikes {
+                ours: false,
+                matched: false
+            }
+        );
+        assert!(chats.liked_you().unwrap().is_empty());
         let empty = chats.chat_history(peer.clone()).unwrap();
         assert_eq!((empty.state, empty.messages), (ChatState::None, Vec::new()));
         let session = chats.session.lock().unwrap();
