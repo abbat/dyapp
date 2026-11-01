@@ -167,7 +167,8 @@ impl Store {
         match replacement {
             Some(text) => tx.execute(
                 "UPDATE `chat_messages` SET `text` = ?4, `edited` = 1, `last_hlc` = ?5,
-                 `last_device` = ?6, `last_operation` = ?7
+                 `last_device` = ?6, `last_operation` = ?7,
+                 `delivery_generation` = NULL, `delivery_state` = NULL
                  WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![
                     &key.group,
@@ -181,7 +182,8 @@ impl Store {
             )?,
             None => tx.execute(
                 "UPDATE `chat_messages` SET `text` = NULL, `deleted` = 1, `last_hlc` = ?4,
-                 `last_device` = ?5, `last_operation` = ?6
+                 `last_device` = ?5, `last_operation` = ?6,
+                 `delivery_generation` = NULL, `delivery_state` = NULL
                  WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![
                     &key.group,
@@ -218,7 +220,8 @@ pub(super) fn resolve_pending(
         if let Some((hlc, device, operation, text)) = best {
             tx.execute(
                 "UPDATE `chat_messages` SET `text` = ?4, `edited` = 1, `last_hlc` = ?5,
-                 `last_device` = ?6, `last_operation` = ?7
+                 `last_device` = ?6, `last_operation` = ?7,
+                 `delivery_generation` = NULL, `delivery_state` = NULL
                  WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![
                     &key.group,

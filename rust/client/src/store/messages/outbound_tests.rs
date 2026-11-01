@@ -1,6 +1,33 @@
 use super::{Body, Error, MessageKey, Store, VerifiedChatSender};
-use crate::prepare_put;
+use crate::{prepare_put, PreparedEnvelope};
 use dyapp_identity::Identity;
+use rusqlite::params;
+
+fn assert_staged(store: &Store, key: &MessageKey, write: &PreparedEnvelope, generation: [u8; 16]) {
+    let link: (Vec<u8>, Vec<u8>, Vec<u8>) = store
+        .db
+        .query_row(
+            "SELECT `chat_group`, `chat_message_id`, `chat_generation_id` FROM `outbox`
+         WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+            params![write.mailbox().as_slice(), write.id().as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        link,
+        (key.group.clone(), key.id.to_vec(), generation.to_vec())
+    );
+    let projection: (Vec<u8>, i64) = store
+        .db
+        .query_row(
+            "SELECT `delivery_generation`, `delivery_state` FROM `chat_messages`
+         WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+            params![&key.group, &key.author, key.id.as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(projection, (generation.to_vec(), 0));
+}
 
 #[test]
 fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
@@ -46,6 +73,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
             1_000,
         )
         .unwrap();
+    assert_staged(&store, &key, &write1, key.id);
     let original = store.current_chat_messages(&peer).unwrap();
     assert_eq!(
         original[0].current.text.as_deref(),
@@ -108,6 +136,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
             1_000,
         )
         .unwrap();
+    assert_staged(&store, &key, &write2, edit_id);
     assert_eq!(
         store.chat_message(&key).unwrap().unwrap().text.as_deref(),
         Some(&b"private replacement"[..])
@@ -128,9 +157,11 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
             1_000,
         )
         .unwrap();
+    assert_staged(&store, &key, &write3, delete_id);
     drop(store);
 
     let mut store = Store::open(&path, &owner).unwrap();
+    assert_staged(&store, &key, &write3, delete_id);
     let current = store.chat_message(&key).unwrap().unwrap();
     assert!(current.edited && current.deleted && current.text.is_none());
     let ordered = store.current_chat_messages(&peer).unwrap();

@@ -492,8 +492,11 @@ CREATE TABLE `outbox` (
     `accepted_by` TEXT,
     `last_accepted_ms` INTEGER,
     `expires_at_ms` INTEGER,
-    -- The MLS group of a chat text, edit or delete, so Clear chat can cancel it; else NULL.
+    -- The MLS group and logical target/generation of a chat text, edit or delete.
     `chat_group` BLOB,
+    `chat_message_id` BLOB CHECK (`chat_message_id` IS NULL OR length(`chat_message_id`) = 16),
+    `chat_generation_id` BLOB CHECK (`chat_generation_id` IS NULL OR length(`chat_generation_id`) = 16),
+    CHECK ((`chat_message_id` IS NULL) = (`chat_generation_id` IS NULL)),
     PRIMARY KEY (`mailbox`, `envelope_id`)
 ) STRICT;
 CREATE TABLE `settings` (

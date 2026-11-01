@@ -34,6 +34,10 @@ CREATE TABLE `chat_messages` (
     `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
     `original_hlc` INTEGER CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0),
     `unread` INTEGER NOT NULL DEFAULT 0 CHECK (`unread` IN (0, 1)),
+    -- Own current content: pending=0, node-accepted=1, device-received=2, expired=3.
+    `delivery_generation` BLOB CHECK (`delivery_generation` IS NULL OR length(`delivery_generation`) = 16),
+    `delivery_state` INTEGER CHECK (`delivery_state` IS NULL OR `delivery_state` IN (0, 1, 2, 3)),
+    CHECK ((`delivery_generation` IS NULL) = (`delivery_state` IS NULL)),
     CHECK ((`last_hlc` IS NULL AND `last_device` IS NULL AND `last_operation` IS NULL)
         OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),
     CHECK ((`deleted` = 0 AND `text` IS NOT NULL AND `original_digest` IS NOT NULL)
@@ -227,9 +231,14 @@ impl Store {
         if sender.author != owner || sender.group.is_empty() || sender.device.len() != 32 {
             return Err(Error::InboxConflict);
         }
-        let id = match body {
-            Body::Text { id, .. } => id,
-            Body::Edit { target, .. } | Body::Delete { target, .. } => target,
+        let (id, generation) = match body {
+            Body::Text { id, .. } => (id, id),
+            Body::Edit {
+                target, operation, ..
+            }
+            | Body::Delete {
+                target, operation, ..
+            } => (target, operation),
             _ => return Err(Error::InboxConflict),
         };
         let key = MessageKey {
@@ -263,14 +272,23 @@ impl Store {
         }
         Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
         for write in writes {
-            tx.execute(
-                "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+            let linked = tx.execute(
+                "UPDATE `outbox` SET `chat_group` = ?3, `chat_message_id` = ?4,
+                 `chat_generation_id` = ?5 WHERE `mailbox` = ?1 AND `envelope_id` = ?2
+                 AND (`chat_group` IS NULL OR `chat_group` = ?3)
+                 AND (`chat_message_id` IS NULL OR `chat_message_id` = ?4)
+                 AND (`chat_generation_id` IS NULL OR `chat_generation_id` = ?5)",
                 params![
                     write.mailbox().as_slice(),
                     write.id().as_slice(),
-                    sender.group
+                    sender.group,
+                    id.as_slice(),
+                    generation.as_slice()
                 ],
             )?;
+            if linked != 1 {
+                return Err(Error::OutboxConflict);
+            }
         }
         let changed = match body {
             Body::Text { hlc, text, .. } => Self::record_chat_text_tx(tx, &key, text, *hlc, false)?,
@@ -281,6 +299,14 @@ impl Store {
         };
         // An outbound action must change local state; replay uses the exact existing outbox write.
         if !changed {
+            return Err(Error::InboxConflict);
+        }
+        let updated = tx.execute(
+            "UPDATE `chat_messages` SET `delivery_generation` = ?4, `delivery_state` = 0
+             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+            params![sender.group, owner, id.as_slice(), generation.as_slice()],
+        )?;
+        if updated != 1 {
             return Err(Error::InboxConflict);
         }
         if let Some(hlc) = timed_text {
