@@ -212,9 +212,12 @@ and conversations with a short Peer ID, latest text or deletion placeholder, ori
 time when present, and local unread count. It shows the local rows after mailbox refresh even if
 that refresh or the network-backed **Liked you** lookup fails. Opening a row shows its current
 message history and marks incoming messages read on this device; Back returns to the list.
-Profile names/photos, composition, Clear chat, and message actions remain planned for this UI.
-The Rust desktop commands already expose history, send text, Clear chat and mark read for the
-active identity.
+The Linux detail now lets a received request reply and an open conversation send text.
+A sent request shows a disabled composer until the peer replies or a match opens the chat.
+A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it
+in history and reports pending delivery. Profile names/photos, starting a first message from
+Search, Clear chat, and message actions remain planned for this UI. The Rust desktop commands
+already expose history, send text, Clear chat and mark read for the active identity.
 
 | Control | ID | Notes |
 | --- | --- | --- |

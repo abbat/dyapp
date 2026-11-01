@@ -561,6 +561,25 @@ const chatDetail = document.getElementById('chat-detail');
 const chatRequests = document.getElementById('chats-requests');
 const chatList = document.getElementById('chat-list');
 const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+const chatComposeStatus = document.getElementById('chat-compose-status');
+let activeChat = null;
+let chatSending = false;
+const updateComposer = () => {
+  const waiting = activeChat?.state === 'requestSent';
+  const writable = Boolean(activeChat) && !waiting && !chatSending;
+  const bytes = new TextEncoder().encode(chatInput.value).length;
+  chatInput.disabled = !writable;
+  chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
+  document.getElementById('chat-first-notice').hidden = !waiting;
+  document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';
+  if (bytes > 65536) chatComposeStatus.textContent = window.strings['chats.tooLong'];
+};
+chatInput.addEventListener('input', () => {
+  chatComposeStatus.textContent = '';
+  updateComposer();
+});
 let chatsRequest = 0;
 let chatOpenRequest = 0;
 const chatTime = (message) => message?.sentAtMs == null ? '' :
@@ -610,6 +629,11 @@ const renderChatRows = (rows) => {
 };
 const closeChat = () => {
   chatOpenRequest += 1;
+  activeChat = null;
+  chatSending = false;
+  chatInput.value = '';
+  chatComposeStatus.textContent = '';
+  updateComposer();
   chatDetail.hidden = true;
   chatOverview.hidden = false;
 };
@@ -631,6 +655,8 @@ const openChat = async (peerId, call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
+  activeChat = null;
+  updateComposer();
   chatsMessage('chats.loading');
   try {
     const history = await call('chat_history', { peerId });
@@ -660,6 +686,8 @@ const openChat = async (peerId, call = invoke) => {
     peer.textContent = peerLabel(peer, peerId);
     document.getElementById('chat-state').textContent =
       window.strings[`chats.state.${history.state}`] || '';
+    activeChat = { peerId, ...history };
+    updateComposer();
     chatOverview.hidden = true;
     chatDetail.hidden = false;
     chatsMessage('chats.ready');
@@ -672,6 +700,49 @@ const openChat = async (peerId, call = invoke) => {
     if (currentChat()) chatsMessage('chats.failed', String(error));
   }
 };
+const sendChatText = async (call = invoke) => {
+  if (!activeChat || chatSending || chatSend.disabled) return;
+  const { peerId, messages } = activeChat;
+  const text = chatInput.value;
+  const generation = identityGeneration;
+  const request = chatOpenRequest;
+  const currentSend = () => identityCurrent(generation) && request === chatOpenRequest
+    && activeChat?.peerId === peerId;
+  const existing = new Set(messages.map((message) => JSON.stringify(message.id)));
+  chatSending = true;
+  chatComposeStatus.textContent = window.strings['chats.sending'];
+  updateComposer();
+  let result = 'sent';
+  let errorText = '';
+  try {
+    await call('send_chat_text', { peerId, text });
+  } catch (error) {
+    errorText = String(error);
+    // A failed node delivery may already have committed the text and its retryable outbox.
+    // Show that local text instead of allowing a second copy from the same draft.
+    const history = await call('chat_history', { peerId }).catch(() => null);
+    if (!currentSend()) return;
+    result = history?.messages.some((message) => message.author === current.peerId
+      && !existing.has(JSON.stringify(message.id))) ? 'queued' : 'failed';
+  }
+  if (!currentSend()) return;
+  chatSending = false;
+  if (result === 'failed') {
+    chatComposeStatus.textContent = `${window.strings['chats.sendFailed']} ${errorText}`;
+    updateComposer();
+    return;
+  }
+  chatInput.value = '';
+  updateComposer();
+  await openChat(peerId, call);
+  if (identityCurrent(generation) && activeChat?.peerId === peerId) {
+    chatComposeStatus.textContent = window.strings[`chats.${result}`];
+  }
+};
+document.getElementById('chat-composer').addEventListener('submit', (event) => {
+  event.preventDefault();
+  window.chatSent = sendChatText();
+});
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatsRequest;

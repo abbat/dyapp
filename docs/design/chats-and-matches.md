@@ -50,6 +50,11 @@ A **match** is derived, never stored: both likes are liked. The screens show the
 causes it, and is never cleared: not by unlike, Clear chat or unblock. Only removing the identity
 deletes it. After an unlike the two keep writing; Block is the way to stop a peer.
 
+The Linux Chats composer follows these states: `requestSent` disables another send,
+`requestReceived` allows one reply, and `open` allows later text. It keeps a draft when a send
+fails before local staging. If a network failure occurs after staging, it shows the local text
+and pending delivery; the desktop outbox retry integration is still planned.
+
 **No daily limit.** A count of first messages per day would only be checked by the sender's
 client, which anyone can change, so there is none. The one-pending rule holds because the
 *recipient* enforces it: while a request is unanswered, a second text from that peer with another

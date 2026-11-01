@@ -313,6 +313,15 @@
           <h2 id="chat-peer"></h2>
           <p id="chat-state" class="caption"></p>
           <div id="chat-messages" class="thread" role="log" aria-live="polite"></div>
+          <p id="chat-first-notice" class="notice" data-i18n="chats.firstNotice" hidden></p>
+          <p id="chat-request-notice" class="notice" data-i18n="chats.requestNotice" hidden></p>
+          <form id="chat-composer">
+            <label for="chat-input" data-i18n="chats.message"></label>
+            <textarea id="chat-input" rows="3" maxlength="65536"></textarea>
+            <p id="chat-compose-status" class="caption" role="status"></p>
+            <div class="actions"><button id="chat-send" class="btn primary" type="submit"
+              data-i18n="chats.send" disabled></button></div>
+          </form>
         </div>
       </section>
       <section id="network-area" hidden>

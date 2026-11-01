@@ -235,6 +235,57 @@ const checkChatProjection = async () => {
     || document.querySelector('#chats-requests .badge')) {
     throw new Error('chat history did not clear local unread');
   }
+  chatInput.value = 'reply';
+  chatInput.dispatchEvent(new Event('input'));
+  let sentArgs;
+  const reply = { author: current.peerId, id: [1], text: 'reply', deleted: false, sentAtMs: null };
+  await sendChatText((command, args) => {
+    if (command === 'send_chat_text') { sentArgs = args; return Promise.resolve([1]); }
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message, reply] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([{ ...rows[0], state: 'open', unreadCount: 0 }]);
+    throw new Error(`unexpected reply command: ${command}`);
+  });
+  if (sentArgs.peerId !== peer || sentArgs.text !== 'reply' || chatInput.value
+    || activeChat.state !== 'open') throw new Error('reply did not open conversation');
+
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'requestSent', messages: [reply] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    throw new Error(`unexpected first-message command: ${command}`);
+  });
+  if (!chatInput.disabled || !chatSend.disabled
+    || document.getElementById('chat-first-notice').hidden) {
+    throw new Error('second unanswered first message is enabled');
+  }
+
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    throw new Error(`unexpected open command: ${command}`);
+  });
+  chatInput.value = 'keep draft';
+  chatInput.dispatchEvent(new Event('input'));
+  await sendChatText((command) => {
+    if (command === 'send_chat_text') return Promise.reject('notConnected');
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message] });
+    throw new Error(`unexpected failed send command: ${command}`);
+  });
+  if (chatInput.value !== 'keep draft' || !chatComposeStatus.textContent.includes('notConnected')) {
+    throw new Error('failed send lost the unstaged draft');
+  }
+  await sendChatText((command) => {
+    if (command === 'send_chat_text') return Promise.reject('nodeFailed');
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message, reply] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    throw new Error(`unexpected staged send command: ${command}`);
+  });
+  if (chatInput.value || chatComposeStatus.textContent !== window.strings['chats.queued']) {
+    throw new Error('staged failed send could be duplicated');
+  }
   document.getElementById('chat-back').click();
   if (!chatDetail.hidden || chatOverview.hidden) throw new Error('chat Back did not show the list');
   const readyState = current;
@@ -245,6 +296,21 @@ const checkChatProjection = async () => {
   finishHistory({ state: 'open', messages: [message] });
   await oldHistory;
   if (!chatDetail.hidden) throw new Error('old chat history opened after identity switch');
+  await openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    throw new Error(`unexpected stale-send setup: ${command}`);
+  });
+  chatInput.value = 'late';
+  chatInput.dispatchEvent(new Event('input'));
+  let finishSend;
+  const oldSend = sendChatText(() => new Promise((resolve) => { finishSend = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishSend([1]);
+  await oldSend;
+  if (!chatDetail.hidden || chatInput.value) throw new Error('old send painted new identity');
 };
 // Even reopening the same card object for a new identity cannot admit an old peer response.
 const checkStalePeerActions = async () => {

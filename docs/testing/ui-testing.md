@@ -113,7 +113,10 @@ starts current requests after returning to Ready, and checks that late old resul
 change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
 refresh after the identity changes. The Chats smoke also renders local request and conversation
 rows through mocked commands while the node is unavailable, opens history, marks incoming text
-read locally, and checks Back returns to the list. The same case reopens a peer card and checks that old
+read locally, and checks Back returns to the list. Mocked send checks the reply transition,
+disabled composer for an unanswered request, retention of an unstaged draft on failure, and a
+locally staged text shown as pending after node failure. Late history and send results are
+ignored after an identity switch. The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
 safety panel, camera capture and sensitive copy across a switch; an already active camera stream
 stops synchronously when the switch begins. The old copy still schedules
