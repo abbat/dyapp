@@ -21,42 +21,6 @@ fn person() -> (Identity, Device, dyapp_profile::VerifiedProfile) {
     (identity, device, dyapp_profile::verify(&profile).unwrap())
 }
 
-#[test]
-fn mls_snapshot_reseals_without_losing_the_device() {
-    let owner = Identity::generate();
-    let device_key = Identity::generate();
-    let path = temp_path();
-    let old = [3; 32];
-    let new = [4; 32];
-    let mut store = Store::open(&path, &owner).unwrap();
-    let mailbox = [1; 32];
-    let token_key = store.token_key(&mailbox, 100, &old).unwrap();
-    let session = Session::open_or_create(store, &owner, &device_key, &old).unwrap();
-    let certificate = session.certificate().unwrap();
-    drop(session);
-
-    let mut store = Store::open(&path, &owner).unwrap();
-    assert!(Session::seal_opens(&store, &old).unwrap());
-    assert!(!Session::seal_opens(&store, &new).unwrap());
-    assert!(Session::reseal(&mut store, &[9; 32], &new).is_err());
-    assert!(Session::seal_opens(&store, &old).unwrap());
-    Session::reseal(&mut store, &old, &new).unwrap();
-    assert!(Session::seal_opens(&store, &new).unwrap());
-    assert!(!Session::seal_opens(&store, &old).unwrap());
-    assert_eq!(store.token_key(&mailbox, 100, &new).unwrap(), token_key);
-    assert!(store.token_key(&mailbox, 100, &old).is_err());
-    // Repair a database whose snapshot migrated before held tokens were included.
-    let legacy_mailbox = [2; 32];
-    let legacy_key = store.token_key(&legacy_mailbox, 101, &old).unwrap();
-    Session::reseal(&mut store, &old, &new).unwrap();
-    assert_eq!(
-        store.token_key(&legacy_mailbox, 101, &new).unwrap(),
-        legacy_key
-    );
-    let reopened = Session::open(store, &new).unwrap();
-    assert_eq!(reopened.certificate().unwrap(), certificate);
-}
-
 #[path = "tests/outbound.rs"]
 mod outbound;
 

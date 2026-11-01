@@ -107,34 +107,6 @@ impl Session {
         Ok(self.store.clear_chat(group_id)?)
     }
 
-    /// Whether the current MLS snapshot opens with `key`, for a key-backend migration.
-    pub fn seal_opens(store: &Store, key: &[u8; 32]) -> Result<bool, Error> {
-        let Some(sealed) = store.sealed_device()? else {
-            return Ok(true);
-        };
-        let Ok(device) = Device::open(&sealed, key) else {
-            return Ok(false);
-        };
-        store.load_groups(&device)?;
-        Ok(true)
-    }
-
-    /// Rewrap the MLS snapshot and held write-token keys after the new secret was persisted.
-    /// A retry also repairs tokens left under the old key by an earlier migration.
-    pub fn reseal(store: &mut Store, old: &[u8; 32], new: &[u8; 32]) -> Result<(), Error> {
-        let replacement = match store.sealed_device()? {
-            Some(sealed) if Device::open(&sealed, new).is_ok() => None,
-            Some(sealed) => {
-                let device = Device::open(&sealed, old)?;
-                store.load_groups(&device)?;
-                Some(device.seal(new)?)
-            }
-            None => None,
-        };
-        store.reseal_snapshot_and_tokens(replacement.as_deref(), old, new)?;
-        Ok(())
-    }
-
     /// The scores of the nodes this session used.
     pub fn scores(&self) -> &Scores {
         &self.scores

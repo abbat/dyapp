@@ -258,91 +258,6 @@ impl Store {
             .map_err(|_| Error::TokenConflict)?;
         Ok(Some(Identity::from_secret(secret)))
     }
-
-    /// Rewrap token keys and the optional MLS snapshot in one commit. A token already sealed
-    /// with `new` is left alone, including after an interrupted earlier migration.
-    pub(crate) fn reseal_snapshot_and_tokens(
-        &mut self,
-        sealed_device: Option<&[u8]>,
-        old: &[u8; 32],
-        new: &[u8; 32],
-    ) -> Result<(), Error> {
-        let tx = self.db.transaction()?;
-        let rows = {
-            let mut query =
-                tx.prepare("SELECT `mailbox`, `epoch`, `sealed_key` FROM `held_tokens`")?;
-            let mapped = query.query_map([], |row| {
-                Ok((
-                    row.get::<_, Vec<u8>>(0)?,
-                    row.get::<_, u32>(1)?,
-                    row.get::<_, Vec<u8>>(2)?,
-                ))
-            })?;
-            mapped.collect::<Result<Vec<_>, _>>()?
-        };
-        for (mailbox, epoch, sealed) in rows {
-            let mailbox: [u8; 32] = mailbox.try_into().map_err(|_| Error::TokenConflict)?;
-            if let Some(rewrapped) = rewrap_token(&mailbox, epoch, &sealed, old, new)? {
-                tx.execute(
-                    "UPDATE `held_tokens` SET `sealed_key` = ?3 WHERE `mailbox` = ?1 AND `epoch` = ?2",
-                    params![mailbox.as_slice(), epoch, rewrapped],
-                )?;
-            }
-        }
-        if let Some(sealed) = sealed_device {
-            tx.execute(
-                "UPDATE `mls_state` SET `sealed` = ?1 WHERE `slot` = 1",
-                [sealed],
-            )?;
-        }
-        tx.commit()?;
-        Ok(())
-    }
-}
-
-fn rewrap_token(
-    mailbox: &[u8; 32],
-    epoch: u32,
-    sealed: &[u8],
-    old: &[u8; 32],
-    new: &[u8; 32],
-) -> Result<Option<Vec<u8>>, Error> {
-    let (nonce, ciphertext) = sealed
-        .split_at_checked(NONCE_BYTES)
-        .ok_or(Error::TokenConflict)?;
-    let aad = aad(mailbox, epoch);
-    let nonce = Nonce::from_slice(nonce);
-    let payload = || Payload {
-        msg: ciphertext,
-        aad: &aad,
-    };
-    if let Ok(secret) = Aes256Gcm::new(new.into()).decrypt(nonce, payload()) {
-        let secret = zeroize::Zeroizing::new(secret);
-        if secret.len() != 32 {
-            return Err(Error::TokenConflict);
-        }
-        return Ok(None);
-    }
-    let secret = zeroize::Zeroizing::new(
-        Aes256Gcm::new(old.into())
-            .decrypt(nonce, payload())
-            .map_err(|_| Error::TokenConflict)?,
-    );
-    if secret.len() != 32 {
-        return Err(Error::TokenConflict);
-    }
-    let mut next_nonce = [0; NONCE_BYTES];
-    getrandom::fill(&mut next_nonce).map_err(|_| Error::Random)?;
-    let encrypted = Aes256Gcm::new(new.into())
-        .encrypt(
-            Nonce::from_slice(&next_nonce),
-            Payload {
-                msg: &secret,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| Error::TokenConflict)?;
-    Ok(Some([next_nonce.as_slice(), &encrypted].concat()))
 }
 
 /// Binds a sealed key to its row, so a copied ciphertext does not open for another day or mailbox.
@@ -419,30 +334,6 @@ mod tests {
             Err(Error::TokenConflict)
         ));
         assert!(store.token_key(&mailbox, 101, &seal).is_err());
-    }
-
-    #[test]
-    fn reseal_rolls_back_snapshot_and_tokens_when_one_token_is_corrupt() {
-        let owner = Identity::generate();
-        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
-        let (old, new, mailbox) = ([7; 32], [8; 32], [1; 32]);
-        let first = store.token_key(&mailbox, 100, &old).unwrap();
-        store.token_key(&mailbox, 101, &old).unwrap();
-        store.stage_outbound(b"old snapshot", &[]).unwrap();
-        store
-            .db
-            .execute(
-                "UPDATE `held_tokens` SET `sealed_key` = x'00' WHERE `epoch` = ?1",
-                [101],
-            )
-            .unwrap();
-
-        assert!(store
-            .reseal_snapshot_and_tokens(Some(b"new snapshot"), &old, &new)
-            .is_err());
-        assert_eq!(store.sealed_device().unwrap().unwrap(), b"old snapshot");
-        assert_eq!(store.token_key(&mailbox, 100, &old).unwrap(), first);
-        assert!(store.token_key(&mailbox, 100, &new).is_err());
     }
 
     #[test]

@@ -193,7 +193,7 @@ pub async fn send_text(
     if peer.profile.deleted || peer.profile.version == 0 {
         return Err("unpublished".into());
     }
-    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     if !own
@@ -265,7 +265,7 @@ pub async fn block(
         Ok(device) => device,
         Err(error) => return Ok(BlockResult::pending(error)),
     };
-    let seal_key = match crate::sealing_key(root, dir, &mut store, &device) {
+    let seal_key = match crate::sealing_key(root, dir, &store) {
         Ok(key) => key,
         Err(error) => return Ok(BlockResult::pending(error)),
     };
@@ -314,7 +314,7 @@ pub async fn like(
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
-    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     let kind = if liked { Kind::Like } else { Kind::Unlike };
@@ -391,7 +391,7 @@ pub async fn receive(
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
-    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     retry_outbox(&mut session, &mut node, &seal_key).await?;

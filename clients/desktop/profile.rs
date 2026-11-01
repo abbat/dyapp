@@ -14,10 +14,9 @@ use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
-use dyapp_identity::{sha256, Identity};
+use dyapp_identity::Identity;
 use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{CivilDate, Profile};
-use zeroize::Zeroizing;
 
 /// Profile proof of work a publish computes: the default search-node minimum, until clients
 /// take it from node hints.
@@ -28,7 +27,6 @@ const STEP: u64 = 8;
 const SEARCH_NODES: usize = 2;
 /// Single-use KeyPackages each publish puts on the network for peers' first texts.
 const KEY_PACKAGES: usize = 4;
-const SEAL_KEY_CONTEXT: &[u8] = b"dyapp device seal key v1";
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.
 #[derive(Default)]
@@ -362,7 +360,7 @@ pub async fn publish(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     publish::list_device(
@@ -380,12 +378,6 @@ pub async fn publish(
         .map_err(|e| e.to_string())?;
     send_held(session.store(), &mut node, &active).await?;
     view(&published, today, Some(session.store()))
-}
-
-/// Legacy MLS seal derivation, used only to migrate existing desktop snapshots.
-pub fn legacy_seal_key(device_key: &Identity) -> Zeroizing<[u8; 32]> {
-    let input = Zeroizing::new([SEAL_KEY_CONTEXT, &*device_key.secret()].concat());
-    Zeroizing::new(sha256(&input))
 }
 
 /// Hides the profile from search, keeping direct profile and KeyPackage lookup available.
@@ -612,16 +604,5 @@ mod tests {
         assert!(second.load(Ordering::Relaxed));
         let third = state.begin().unwrap();
         assert!(!third.load(Ordering::Relaxed));
-    }
-
-    #[test]
-    fn the_legacy_seal_key_is_fixed_per_device_key() {
-        let device = Identity::generate();
-        assert_eq!(*legacy_seal_key(&device), *legacy_seal_key(&device));
-        assert_ne!(
-            *legacy_seal_key(&device),
-            *legacy_seal_key(&Identity::generate())
-        );
-        assert_ne!(*legacy_seal_key(&device), *device.secret());
     }
 }

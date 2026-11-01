@@ -1,29 +1,22 @@
-//! Independent per-slot MLS sealing secret and migration from the legacy device-key derivation.
+//! Independent per-slot MLS sealing secret.
 
-use std::path::Path;
-use dyapp_identity::Identity;
 use crate::slots::{self, Slot};
-use crate::{load_key, profile, save_key};
+use crate::{load_key, save_key};
+use dyapp_identity::Identity;
+use std::path::Path;
 
-/// Independent per-slot MLS seal secret. Persist it before rewrapping a legacy snapshot, so a
-/// crash can retry the migration with either key. A missing new secret cannot reset old MLS state.
+/// Independent per-slot MLS seal secret. A missing secret cannot reset existing MLS state.
 pub(crate) fn sealing_key(
     root: &Path,
     dir: &Path,
-    store: &mut dyapp_client::store::Store,
-    device: &Identity,
+    store: &dyapp_client::store::Store,
 ) -> Result<zeroize::Zeroizing<[u8; 32]>, String> {
-    use dyapp_client::session::Session;
     let slot = slots::list(root)?
         .into_iter()
         .find(|slot| slot.dir == dir && slot.state == slots::State::Ready)
         .ok_or("Unknown identity")?;
     let saved = load_key(&slot, &slot.seal_path(), &slot.seal_name())?;
-    let old = profile::legacy_seal_key(device);
-    if saved.is_none()
-        && store.sealed_device().map_err(|e| e.to_string())?.is_some()
-        && !Session::seal_opens(store, &old).map_err(|e| e.to_string())?
-    {
+    if saved.is_none() && store.sealed_device().map_err(|e| e.to_string())?.is_some() {
         return Err("MLS sealing key is missing or state is unreadable".into());
     }
     let secret = match saved {
@@ -37,9 +30,7 @@ pub(crate) fn sealing_key(
             },
         )?,
     };
-    let key = zeroize::Zeroizing::new(*secret.secret());
-    Session::reseal(store, &old, &key).map_err(|e| e.to_string())?;
-    Ok(key)
+    Ok(zeroize::Zeroizing::new(*secret.secret()))
 }
 
 #[cfg(test)]
@@ -51,7 +42,7 @@ mod tests {
     use dyapp_identity::Identity;
 
     #[test]
-    fn per_slot_seal_secret_migrates_legacy_mls_state_without_reset() {
+    fn per_slot_seal_secret_persists_and_missing_key_refuses_existing_state() {
         let root = std::env::temp_dir().join(format!(
             "dyapp-seal-test-{}",
             Identity::generate().peer_id()
@@ -59,30 +50,29 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
         let device = device_key(&root, &slot.dir, &owner).unwrap();
-        let legacy = super::profile::legacy_seal_key(&device);
         let path = slot.dir.join("client.db");
         let store = Store::open(&path, &owner).unwrap();
-        let session = Session::open_or_create(store, &owner, &device, &legacy).unwrap();
+        let seal = sealing_key(&root, &slot.dir, &store).unwrap();
+        let session = Session::open_or_create(store, &owner, &device, &seal).unwrap();
         let certificate = session.certificate().unwrap();
         drop(session);
 
-        let mut store = Store::open(&path, &owner).unwrap();
-        let new = sealing_key(&root, &slot.dir, &mut store, &device).unwrap();
-        assert_ne!(*new, *legacy);
+        let store = Store::open(&path, &owner).unwrap();
         assert!(slot.seal_path().is_file());
-        assert!(!Session::seal_opens(&store, &legacy).unwrap());
-        assert_eq!(Session::open(store, &new).unwrap().certificate().unwrap(), certificate);
-        let mut reopened = Store::open(&path, &owner).unwrap();
-        assert_eq!(*sealing_key(&root, &slot.dir, &mut reopened, &device).unwrap(), *new);
+        assert_eq!(
+            Session::open(store, &seal).unwrap().certificate().unwrap(),
+            certificate
+        );
+        let reopened = Store::open(&path, &owner).unwrap();
+        assert_eq!(*sealing_key(&root, &slot.dir, &reopened).unwrap(), *seal);
 
         let (other, other_owner) = slots::create(&root, "file", &save, &load).unwrap();
-        let mut other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
+        let other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
         Session::open_or_create(other_store, &other_owner, &device, &[8; 32]).unwrap();
-        other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
+        let other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
         assert!(device_key(&root, &other.dir, &other_owner).is_err());
         assert!(!other.device_path().exists());
-        assert!(sealing_key(&root, &other.dir, &mut other_store, &device).is_err());
+        assert!(sealing_key(&root, &other.dir, &other_store).is_err());
         assert!(!other.seal_path().exists());
     }
-
 }

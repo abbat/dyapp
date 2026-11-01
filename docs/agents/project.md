@@ -6,6 +6,11 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+Before the first app release, stored client databases have no compatibility promise. Change the
+version-1 schema directly and remove obsolete database migration paths; do not spend work on
+migrating development databases. Recreate a development database or restore a matching backup.
+Keep fail-closed checks for missing secrets, wrong identity and unknown schema versions.
+
 | Path | What it is |
 |------|------------|
 | `rust/` | Cargo workspace (`Cargo.toml` at the root): `bootstrap`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`. Toolchain pinned to 1.99.0 in `rust-toolchain.toml`. |
