@@ -127,7 +127,9 @@ responses cannot open a dialog after a switch. An old withdrawal cannot remove t
 or change its dialog to Offline; a current withdrawal still proceeds. An old launch network
 load cannot start a dial or repaint the newer connection status; a late old dial cannot repaint
 it either. Old active or draft network file loads and a late draft-save error cannot change the
-new network form or status. That relaunch checks the Storage card:
+new network form or status. A late old check cannot update the new rows or start activation;
+late activation cannot apply the node, and old error/finally cannot change the new status or
+busy controls. That relaunch checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

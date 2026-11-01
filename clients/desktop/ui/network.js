@@ -11,6 +11,7 @@ const networkError = document.getElementById('network-error');
 const connectionStatus = document.getElementById('connection-status');
 // Only the latest launch connect or check may set the shell status.
 let connectionRun = 0;
+let checkGeneration = identityGeneration;
 const showConnection = (state, name) => {
   connectionStatus.dataset.state = state;
   for (const dot of document.querySelectorAll('.connection-dot')) {
@@ -53,6 +54,11 @@ const draft = () => ({
 // Fills the form from the draft, else the active settings; a damaged file is shown, not reset.
 const showNetwork = async (call = invoke) => {
   const generation = identityGeneration;
+  if (checkGeneration !== generation) {
+    checkGeneration = generation;
+    checkButton.disabled = false;
+    cancelButton.hidden = true;
+  }
   seedRows.replaceChildren();
   networkError.hidden = true;
   try {
@@ -105,9 +111,11 @@ const showNetworkError = (code, lines = []) => {
 
 // A list a node of the network answered becomes active at once; anything else keeps the
 // previous network and its shell status.
-const check = async () => {
+const check = async (call = invoke) => {
   const rows = draft();
+  const generation = identityGeneration;
   const run = ++connectionRun;
+  const live = () => identityCurrent(generation) && run === connectionRun;
   const before = connectionStatus.dataset.state;
   checkButton.disabled = true;
   cancelButton.hidden = false;
@@ -116,7 +124,8 @@ const check = async () => {
   networkStatus('network.checking');
   showConnection('connecting');
   try {
-    const result = await invoke('check_connection', { draft: rows, waitMs: 15000 });
+    const result = await call('check_connection', { draft: rows, waitMs: 15000 });
+    if (!live()) return;
     seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
     networkStatus(summary(result));
     if (!result.some((row) => row.status === 'connected')) {
@@ -124,13 +133,15 @@ const check = async () => {
         `${rows.seeds[at]}:`, row.status, row.reason].filter(Boolean).join(' ')));
       return;
     }
-    await invoke('activate_connection');
+    await call('activate_connection');
+    if (!live()) return;
     networkStatus('network.active');
     showConnection('connected', rows.name);
     // A node that waited for a network starts on it now.
-    invoke('apply_node').catch(() => {});
+    call('apply_node').catch(() => {});
     leaveWizard();
   } catch (error) {
+    if (!live()) return;
     const [code, ...reason] = String(error).split(': ');
     if (['empty', 'cancelled', 'invalidNetwork'].includes(code)) {
       networkStatus(`network.${code}`, reason.join(': '));
@@ -140,12 +151,14 @@ const check = async () => {
     }
   } finally {
     // A check that interrupted the launch connect leaves nothing to restore, so that dial reruns.
-    if (run === connectionRun && connectionStatus.dataset.state === 'connecting') {
-      if (before === 'connecting') window.connectionShown = connectAtLaunch();
-      else showConnection(before);
+    if (live()) {
+      if (connectionStatus.dataset.state === 'connecting') {
+        if (before === 'connecting') window.connectionShown = connectAtLaunch();
+        else showConnection(before);
+      }
+      checkButton.disabled = false;
+      cancelButton.hidden = true;
     }
-    checkButton.disabled = false;
-    cancelButton.hidden = true;
   }
 };
 

@@ -960,6 +960,73 @@ const checkStaleNetworkForm = async () => {
   await oldSave;
   checkNew('old draft-save error changed new network status');
 };
+// Old network checks cannot activate the new identity or unlock its busy form.
+const checkStaleNetworkCheck = async () => {
+  const readyState = current;
+  let finishOldCheck;
+  let oldActivations = 0;
+  const oldCheck = check((command) => {
+    if (command === 'check_connection') {
+      return new Promise((resolve) => { finishOldCheck = resolve; });
+    }
+    oldActivations += 1;
+    return Promise.resolve();
+  });
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  if (checkButton.disabled || !cancelButton.hidden) {
+    throw new Error('new network form inherited old busy controls');
+  }
+  let finishNewCheck;
+  const newCheck = check((command) => command === 'check_connection'
+    ? new Promise((resolve) => { finishNewCheck = resolve; }) : Promise.resolve());
+  finishOldCheck([{ status: 'connected' }]);
+  await oldCheck;
+  if (oldActivations || !checkButton.disabled || cancelButton.hidden
+    || document.getElementById('network-status').textContent
+      !== window.strings['network.checking']) {
+    throw new Error('old network check changed new busy form or activated');
+  }
+  finishNewCheck([{ status: 'unreachable' }]);
+  await newCheck;
+  if (checkButton.disabled || !cancelButton.hidden) {
+    throw new Error('current network check did not release controls');
+  }
+
+  let finishActivation;
+  let oldApply = 0;
+  const oldActivation = check((command) => {
+    if (command === 'check_connection') return Promise.resolve([{ status: 'connected' }]);
+    if (command === 'activate_connection') {
+      return new Promise((resolve) => { finishActivation = resolve; });
+    }
+    oldApply += 1;
+    return Promise.resolve();
+  });
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishActivation) throw new Error('old network activation did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const status = document.getElementById('network-status').textContent;
+  finishActivation();
+  await oldActivation;
+  if (oldApply || document.getElementById('network-status').textContent !== status
+    || checkButton.disabled || !cancelButton.hidden) {
+    throw new Error('old activation changed new network or applied node');
+  }
+
+  let failOldCheck;
+  const oldFailure = check(() => new Promise((_, reject) => { failOldCheck = reject; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  const newerStatus = document.getElementById('network-status').textContent;
+  failOldCheck(new Error('old check'));
+  await oldFailure;
+  if (document.getElementById('network-status').textContent !== newerStatus
+    || checkButton.disabled || !cancelButton.hidden) {
+    throw new Error('old network check error changed new form');
+  }
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1743,6 +1810,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleWithdrawal();
       await checkStaleLaunchConnection();
       await checkStaleNetworkForm();
+      await checkStaleNetworkCheck();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);
