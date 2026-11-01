@@ -51,6 +51,7 @@ jobs:
           echo "860a50d3e009c72fefc12506869cc11ea34d240c65da65cda2c491ed2aaa34f3  $HOME/.cargo/bin/cargo-sbom" | sha256sum -c
           chmod +x "$HOME/.cargo/bin/cargo-sbom"
           cargo sbom --cargo-package dyapp-bootstrap --output-format spdx_json_2_3 > build/dyappd.spdx.json
+          cargo sbom --project-directory clients/linux --cargo-package dyapp-linux --output-format spdx_json_2_3 > build/dyapp.spdx.json
       - name: collect
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
@@ -61,6 +62,7 @@ jobs:
           cp -f "build/deb/dyapp_${version}_amd64.deb" \
             "build/deb/dyapp-${version}-x86_64-linux-gnu.tar.gz" build/release/
           cp build/dyappd.spdx.json "build/release/dyappd-$version.spdx.json"
+          cp build/dyapp.spdx.json "build/release/dyapp-$version.spdx.json"
           (cd build/release && sha256sum -- * > SHA256SUMS)
           docker save dyappd:latest | gzip -n > build/dyappd-image.tar.gz
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

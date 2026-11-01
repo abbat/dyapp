@@ -115,7 +115,7 @@ so until the first tag, build from a tagged commit with `make deb`.
 | Linux desktop tarball `dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz` | Same release, after extract-and-launch smoke on Debian 12 and Ubuntu 24.04 |
 | Windows portable ZIP `dyapp-X.Y.Z-x86_64-windows.zip` | Same release, after native Windows UI smoke |
 | Tarball `dyappd-X.Y.Z-x86_64-linux-gnu.tar.gz` | GitHub Releases |
-| SPDX SBOM `dyappd-X.Y.Z.spdx.json` and `SHA256SUMS` | GitHub Releases |
+| SPDX SBOMs `dyappd-X.Y.Z.spdx.json` and `dyapp-X.Y.Z.spdx.json`, plus `SHA256SUMS` | GitHub Releases |
 | Container image | `ghcr.io/abbat/dyappd:X.Y.Z` |
 
 Check the files and the image before installing; every one carries a signed build provenance
@@ -126,9 +126,13 @@ sha256sum -c SHA256SUMS
 gh attestation verify dyappd_X.Y.Z_amd64.deb --repo abbat/dyapp
 gh attestation verify dyapp_X.Y.Z_amd64.deb --repo abbat/dyapp
 gh attestation verify dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz --repo abbat/dyapp
+gh attestation verify dyapp-X.Y.Z.spdx.json --repo abbat/dyapp
 gh attestation verify dyapp-X.Y.Z-x86_64-windows.zip --repo abbat/dyapp
 gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
 ```
+
+The Linux client SBOM lists Rust packages from the separate `clients/linux` Cargo project.
+It does not inventory native system libraries such as WebKitGTK or Debian package dependencies.
 
 The tagged release workflow verifies published client packages, stages a
 `stable-update-feed` workflow artifact, then packages only the verified JSON
