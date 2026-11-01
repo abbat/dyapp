@@ -7,15 +7,22 @@ use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_draft, send_held, ProfilePublished,
 };
 use crate::{CoreError, IdentityKey, KeyStore, PublicProfileDraft};
+use dyapp_client::chat::Event;
 use dyapp_client::publish;
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
+use dyapp_client::Node;
+use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
-use dyapp_profile::DeviceCertificate;
+use dyapp_profile::{DeviceCertificate, VerifiedProfile};
 use prost::Message as _;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
+
+mod view;
+pub use view::{ChatDelivery, ChatHistory, ChatMessage, ChatRow};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
@@ -176,13 +183,141 @@ impl ChatSession {
             })
         })
     }
+
+    /// This identity's chats, newest first, without blocked peers.
+    pub fn chat_rows(&self) -> Result<Vec<ChatRow>, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        let store = session.store();
+        let mut rows = Vec::new();
+        for row in store.chat_rows().map_err(failed)? {
+            if !store.blocked(&row.peer_id).map_err(failed)? {
+                rows.push(row.into());
+            }
+        }
+        Ok(rows)
+    }
+
+    /// The current messages with `peer_id`; `blocked` for a blocked peer.
+    pub fn chat_history(&self, peer_id: String) -> Result<ChatHistory, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        let store = session.store();
+        if store.blocked(&peer_id).map_err(failed)? {
+            return Err(CoreError::Failed("blocked".into()));
+        }
+        Ok(ChatHistory {
+            state: store.conversation(&peer_id).map_err(failed)?.into(),
+            messages: store
+                .current_chat_messages(&peer_id)
+                .map_err(failed)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        })
+    }
+
+    /// Resend the staged writes that are due, apply this device's mailbox and refill tokens when
+    /// due. Returns how many events changed a chat. An envelope from an owner the node has no
+    /// profile for waits in the mailbox for the next call. Errors are `notConnected` or a node
+    /// or storage message.
+    pub fn receive(&self) -> Result<u32, CoreError> {
+        let mut guard = self.session.lock().map_err(failed)?;
+        // The guard stays on this thread; the session it lends moves to the network thread.
+        let session: &mut Session = &mut guard;
+        let own = session
+            .store()
+            .profile_draft()
+            .map_err(failed)?
+            .unwrap_or_default();
+        let own = match own.version {
+            0 => None,
+            _ => Some(dyapp_profile::verify(&own.sign(&self.key.identity)).map_err(failed)?),
+        };
+        let network = active_network(&self.dir)?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(failed)?;
+        let now_ms = i64::try_from(now.as_millis()).map_err(failed)?;
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                session
+                    .retry_due(std::slice::from_mut(&mut node), now_ms, &self.seal_key)
+                    .await
+                    .map_err(failed)?;
+                let changed = apply_mailbox(
+                    session,
+                    &mut node,
+                    own,
+                    &self.device_key.identity,
+                    &self.seal_key,
+                )
+                .await?;
+                // A failed refill stays due for the next call.
+                if session
+                    .store()
+                    .token_refill_due(now.as_secs())
+                    .map_err(failed)?
+                    && session
+                        .refill(std::slice::from_mut(&mut node), &self.seal_key)
+                        .await
+                        .is_ok()
+                {
+                    session
+                        .store()
+                        .token_refill_sent(now.as_secs())
+                        .map_err(failed)?;
+                }
+                Ok(changed)
+            })
+        })
+    }
+}
+
+/// Apply one mailbox fetch, then once more if that fetched profiles of owners it did not know,
+/// such as the Welcome of a first text. Returns how many events changed a chat.
+async fn apply_mailbox(
+    session: &mut Session,
+    node: &mut Node,
+    own: Option<VerifiedProfile>,
+    device_key: &Identity,
+    seal_key: &[u8; 32],
+) -> Result<u32, CoreError> {
+    // shortcut: every call fetches the senders' profiles again, since the app opens a session
+    // per call; keep them in the Store if mailbox polls start costing too many requests.
+    let mut profiles: Vec<VerifiedProfile> = own.into_iter().collect();
+    let mut changed = 0;
+    for _ in 0..2 {
+        let events = session
+            .receive(std::slice::from_mut(node), device_key, &profiles, seal_key)
+            .await
+            .map_err(failed)?;
+        let mut fetched = false;
+        for event in events {
+            match event {
+                Event::UnknownOwner(peer) => {
+                    if profiles.iter().any(|known| known.peer_id == peer) {
+                        continue;
+                    }
+                    if let Ok(found) = node.get_profile(&peer).await {
+                        profiles.push(found);
+                        fetched = true;
+                    }
+                }
+                Event::Gap(_) | Event::Refused(_) => {}
+                _ => changed += 1,
+            }
+        }
+        if !fetched {
+            break;
+        }
+    }
+    Ok(changed)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::WrapError;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     /// XOR with a fixed byte: stands in for the platform keystore.
     struct TestStore;
@@ -228,6 +363,15 @@ mod tests {
                 .to_string(),
             "notConnected"
         );
+        assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
+        assert!(chats.chat_rows().unwrap().is_empty());
+        let peer = "ab".repeat(32);
+        let empty = chats.chat_history(peer.clone()).unwrap();
+        assert_eq!((empty.state, empty.messages), (ChatState::None, Vec::new()));
+        let session = chats.session.lock().unwrap();
+        session.store().set_blocked(&peer, true).unwrap();
+        drop(session);
+        assert_eq!(chats.chat_history(peer).unwrap_err().to_string(), "blocked");
         // A publish refuses at the same gates as the plain publisher, before any network use.
         assert_eq!(
             chats.publish_profile(false).unwrap_err().to_string(),

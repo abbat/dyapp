@@ -10,7 +10,9 @@ use zeroize::Zeroizing;
 #[cfg(target_os = "android")]
 mod android;
 mod chats;
-pub use chats::{ChatSession, ChatState};
+pub use chats::{
+    new_chat_state_key, ChatDelivery, ChatHistory, ChatMessage, ChatRow, ChatSession, ChatState,
+};
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod network;

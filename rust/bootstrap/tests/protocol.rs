@@ -944,6 +944,8 @@ mod chat_pagination;
 #[path = "protocol/replicas.rs"]
 mod replicas;
 
+#[path = "protocol/ffi_chats.rs"]
+mod ffi_chats;
 #[path = "protocol/gossip.rs"]
 mod gossip;
 
