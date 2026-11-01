@@ -253,6 +253,53 @@ fn message_operations_have_strict_frames() {
 }
 
 #[test]
+fn timed_text_is_strict_and_receive_only() {
+    let timed = Body::Text {
+        id: [7; 16],
+        hlc: Some(0x0102_0304_0506_0708),
+        text: b"hello".to_vec(),
+    };
+    let encoded = timed.encode();
+    assert_eq!(
+        &encoded[..25],
+        &[&[12][..], &[7; 16], &0x0102_0304_0506_0708u64.to_be_bytes()].concat()
+    );
+    assert!(Body::decode(&encoded).ok() == Some(timed.clone()));
+    assert!(
+        Body::decode(&[&[7][..], &encoded].concat()).ok()
+            == Some(Body::Forwarded(Box::new(timed.clone())))
+    );
+    assert!(Body::decode(&encoded[..24]).is_err());
+    assert!(Body::decode(
+        &[
+            vec![12],
+            vec![7; 16],
+            vec![0; 8],
+            vec![0; MAX_TEXT_BYTES + 1]
+        ]
+        .concat()
+    )
+    .is_err());
+
+    let (_, alice, alice_profile) = person();
+    let (_, bob, bob_profile) = person();
+    let (mut group, _) = alice
+        .create_group(
+            &[bob.key_package(false).unwrap()],
+            &[alice_profile, bob_profile],
+        )
+        .unwrap();
+    assert!(matches!(
+        message(&mut group, &alice, &timed),
+        Err(crate::Error::Input(_))
+    ));
+    assert!(matches!(
+        message(&mut group, &alice, &Body::Forwarded(Box::new(timed))),
+        Err(crate::Error::Input(_))
+    ));
+}
+
+#[test]
 fn token_bodies_are_strict() {
     let ask = TokenAsk {
         mailbox: vec![1; 32],

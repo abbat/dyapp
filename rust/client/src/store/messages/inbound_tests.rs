@@ -10,6 +10,55 @@ fn inbox(id: u8) -> InboxKey {
 }
 
 #[test]
+fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
+    let path = crate::store::tests::temp_db_path();
+    let owner = Identity::generate();
+    let key = MessageKey {
+        group: vec![3],
+        author: Identity::generate().peer_id(),
+        id: [4; 16],
+    };
+    let device = [5; 32];
+    let sender = VerifiedChatSender {
+        group: &key.group,
+        author: &key.author,
+        device: &device,
+    };
+    let mut store = Store::open(&path, &owner).unwrap();
+    crate::store::tests::catalog_group(&mut store, &key.group, &key.author);
+    let timed = |hlc| Body::Text {
+        id: key.id,
+        hlc: Some(hlc),
+        text: b"hello".to_vec(),
+    };
+    assert!(matches!(
+        store.stage_chat_inbound(
+            b"mls",
+            &inbox(1),
+            sender,
+            &timed(Timestamp::new(61_001, 0).into()),
+            1_000
+        ),
+        Err(Error::ClockSkew(_))
+    ));
+    assert!(matches!(
+        store.stage_chat_inbound(b"mls", &inbox(1), sender, &timed(u64::MAX), 1_000),
+        Err(Error::ClockRange)
+    ));
+    assert!(!store.has_inbox(&inbox(1)).unwrap());
+    let valid = Timestamp::new(61_000, 0);
+    assert!(store
+        .stage_chat_inbound(b"mls", &inbox(1), sender, &timed(valid.into()), 1_000)
+        .unwrap());
+    assert!(super::load_hlc(&store.db).unwrap() > valid);
+    assert_eq!(
+        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        Some(&b"hello"[..])
+    );
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1)]);
+}
+
+#[test]
 fn chat_projection_and_delivery_commit_atomically() {
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
@@ -32,6 +81,7 @@ fn chat_projection_and_delivery_commit_atomically() {
     };
     let original = Body::Text {
         id: key.id,
+        hlc: None,
         text: b"private original".to_vec(),
     };
     let mut store = Store::open(&path, &owner).unwrap();
@@ -59,6 +109,7 @@ fn chat_projection_and_delivery_commit_atomically() {
 
     let conflicting = Body::Text {
         id: key.id,
+        hlc: None,
         text: b"other original".to_vec(),
     };
     assert!(matches!(
@@ -135,6 +186,7 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
     };
     let original = Body::Text {
         id: key.id,
+        hlc: None,
         text: b"late private original".to_vec(),
     };
     let mut store = Store::open(&path, &owner).unwrap();

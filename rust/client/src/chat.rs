@@ -91,10 +91,12 @@ pub enum Event {
 /// is never read as an interaction.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Body {
-    /// User text with its logical ID, tag 1.
+    /// User text with its logical ID. Legacy tag 1 has no time; tag 12 carries an HLC.
     Text {
         /// Stable logical ID shared across recipient devices.
         id: [u8; 16],
+        /// Original sender HLC; absent for tag 1.
+        hlc: Option<u64>,
         /// The current text bytes.
         text: Vec<u8>,
     },
@@ -236,13 +238,20 @@ pub struct TokenAnswer {
 impl Body {
     /// Makes a text body with a caller-owned logical ID, shared by all device deliveries.
     pub fn text_with_id(id: [u8; 16], text: Vec<u8>) -> Self {
-        Self::Text { id, text }
+        Self::Text {
+            id,
+            hlc: None,
+            text,
+        }
     }
 
     /// The tag byte, then the bounded body bytes.
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            Self::Text { id, text } => [&[1], id.as_slice(), text.as_slice()].concat(),
+            Self::Text { id, hlc, text } => match hlc {
+                Some(hlc) => [&[12], id.as_slice(), &hlc.to_be_bytes(), text.as_slice()].concat(),
+                None => [&[1], id.as_slice(), text.as_slice()].concat(),
+            },
             Self::Interaction(event) => [&[2], event.encode().as_slice()].concat(),
             Self::TokenRequest(request) => [&[3], request.encode_to_vec().as_slice()].concat(),
             Self::TokenAnswer(answer) => [&[4], answer.encode_to_vec().as_slice()].concat(),
@@ -305,6 +314,7 @@ impl Body {
                 }
                 Ok(Self::Text {
                     id: *id,
+                    hlc: None,
                     text: text.to_vec(),
                 })
             }
@@ -344,7 +354,7 @@ impl Body {
                 .map(Self::Attachment)
                 .ok_or(Error::Reply("bad attachment")),
             Some((7, body)) => match body.first() {
-                Some(1 | 6) => Ok(Self::Forwarded(Box::new(Self::decode(body)?))),
+                Some(1 | 6 | 12) => Ok(Self::Forwarded(Box::new(Self::decode(body)?))),
                 _ => Err(Error::Reply("bad forward")),
             },
             Some((8, body)) => {
@@ -378,6 +388,22 @@ impl Body {
             Some((11, body)) => Ok(Self::Read {
                 up_to: body.try_into().map_err(|_| Error::Reply("bad read"))?,
             }),
+            Some((12, body)) => {
+                let (id, rest) = body
+                    .split_first_chunk::<MESSAGE_ID_BYTES>()
+                    .ok_or(Error::Reply("bad timed text"))?;
+                let (hlc, text) = rest
+                    .split_first_chunk::<8>()
+                    .ok_or(Error::Reply("bad timed text"))?;
+                if text.len() > MAX_TEXT_BYTES {
+                    return Err(Error::Reply("bad timed text"));
+                }
+                Ok(Self::Text {
+                    id: *id,
+                    hlc: Some(u64::from_be_bytes(*hlc)),
+                    text: text.to_vec(),
+                })
+            }
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
@@ -492,6 +518,12 @@ pub fn create(
 
 /// Pads and encrypts `body` for every other device in `group`.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
+    // Old supported clients ACK and discard tag 12; keep it receive-only until rollout.
+    if matches!(body, Body::Text { hlc: Some(_), .. })
+        || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { hlc: Some(_), .. }))
+    {
+        return Err(Error::Input("timed chat text is receive-only"));
+    }
     let floor = match body {
         Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => SIGNAL_PADDED_BYTES,
         _ => MIN_PADDED_BYTES,

@@ -1,7 +1,7 @@
 //! Current chat text projection. Inbox envelope IDs remain a separate transport dedupe key.
 
 use super::conversations;
-use super::likes::load_hlc;
+use super::likes::{load_hlc, save_hlc};
 use super::{Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
 use crate::PreparedEnvelope;
@@ -279,7 +279,13 @@ impl Store {
                     return Ok(());
                 }
                 match body {
-                    Body::Text { text, .. } => {
+                    Body::Text { hlc, text, .. } => {
+                        if let Some(hlc) = hlc {
+                            i64::try_from(*hlc).map_err(|_| Error::ClockRange)?;
+                            let observed = HybridClock::resume(load_hlc(tx)?)
+                                .observe_at(Timestamp::from(*hlc), wall_ms)?;
+                            save_hlc(tx, observed)?;
+                        }
                         Self::record_chat_text_tx(tx, &key, text)?;
                     }
                     Body::Edit { .. } | Body::Delete { .. } => {

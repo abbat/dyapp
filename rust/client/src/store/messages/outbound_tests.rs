@@ -26,6 +26,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     };
     let text = Body::Text {
         id: key.id,
+        hlc: None,
         text: b"private original".to_vec(),
     };
     let write1 = prepare_put(&[7; 32], vec![1]).unwrap();
@@ -49,6 +50,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     );
     let conflicting = Body::Text {
         id: key.id,
+        hlc: None,
         text: b"other".to_vec(),
     };
     assert!(matches!(

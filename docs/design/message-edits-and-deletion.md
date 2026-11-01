@@ -1,10 +1,11 @@
 # Message edits and deletion
 
 This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
-No app exposes chat yet. The Rust chat codec carries a logical ID in tag 1 and parses tags 8 and
-9; the client Store has a separate current-text projection keyed by logical message ID and can
-apply edits/deletes even before originals arrive. Its atomic chat staging method saves only a
-body digest in the inbox alongside the current projection, sealed MLS state and ACK intent.
+No app exposes chat yet. The Rust chat codec reads legacy text tag 1 and timed text tag 12,
+and parses edit/delete tags 8 and 9; the client Store has a separate current-text projection
+keyed by logical message ID and can apply edits/deletes even before originals arrive. Its atomic
+chat staging method saves only a body digest in the inbox alongside the current projection,
+sealed MLS state and ACK intent.
 Session routes received text, edit and delete through that method. Attachment and forwarded
 bodies still use inbox payloads; UI remains planned. The recipient device alone can sign a
 mailbox `Ack`.
@@ -20,7 +21,11 @@ envelope ID is not a message ID: a separate envelope is prepared for each recipi
 
 The existing first-byte chat body tag remains the type boundary. Before the first release, tag 1
 has changed from raw text to `message ID (16 bytes) || text`. Text and replacement text are
-limited to 64 KiB by the codec. Tag 8 is an edit:
+limited to 64 KiB by the codec. Tag 12 reads
+`message ID (16) || original HLC (8, big endian) || text` and applies the 60-second future-clock
+guard when accepted into the Store. Sending tag 12 remains disabled until all supported clients
+can decode it; its original HLC is not yet persisted for Chats ordering. See
+[ADR 0037](../decisions/0037-chat-list-order.md). Tag 8 is an edit:
 `target ID (16) || operation ID (16) || HLC (8, big endian) || replacement text`.
 Tag 9 is a delete with the same 40-byte header and no text. An operation ID is random and stays
 unchanged across retry. The sender identity and device key come from the verified MLS group,

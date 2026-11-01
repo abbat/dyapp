@@ -56,9 +56,12 @@ client, which anyone can change, so there is none. The one-pending rule holds be
 logical ID is acked and dropped. Edits and deletes of the pending text still apply. Node limits
 (signal quota, tokenless mailbox pool, puzzles) and local Block bound the rest.
 
-A request is text only (tag 1). Before the conversation is open the recipient acks and drops a
-non-match's attachments, forwards, presence, read receipts and token requests, and answers no
-token request: a stranger gets no write token until the recipient replies or a match exists.
+A request is text only (currently sent as tag 1). The shared decoder also accepts timed tag 12,
+but sending it and persisting original time for the Chats list await the compatibility rollout in
+[ADR 0037](../decisions/0037-chat-list-order.md). Before the conversation is open the recipient
+acks and drops a non-match's attachments, forwards, presence, read receipts and token requests,
+and answers no token request: a stranger gets no write token until the recipient replies or a match
+exists.
 Likes and views follow their own rules and are accepted either way.
 
 ## One group per pair

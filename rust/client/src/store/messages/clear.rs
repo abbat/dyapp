@@ -63,6 +63,7 @@ mod tests {
     fn text(id: u8) -> Body {
         Body::Text {
             id: [id; 16],
+            hlc: None,
             text: vec![id],
         }
     }
