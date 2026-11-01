@@ -50,6 +50,14 @@
     <string name="details">Подробнее</string>
     <string name="action_copy">Копировать</string>
     <string name="settings_title">Настройки</string>
+    <string name="settings_appearance">Внешний вид</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_follow_system">Как в системе</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_ru">Русский</string>
     <string name="settings_identities">Личности на устройстве</string>
     <string name="settings_active">Активная</string>
     <string name="settings_key_store">Хранилище ключей Android</string>

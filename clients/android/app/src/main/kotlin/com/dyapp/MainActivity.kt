@@ -1,6 +1,7 @@
 package com.dyapp
 
 import android.app.KeyguardManager
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -56,16 +57,23 @@ class MainActivity : ComponentActivity() {
         confirmDeviceCredential(biometric) { checked = then; refreshLock() }
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase.inChosenLanguage())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadTheme()
         // An unreadable verifier must fail closed, never start a new unlocked session.
         lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
         val lockOn = lock == StoredLock.PIN || lock == StoredLock.BIOMETRIC
         appLock = AppLockLifecycle(lockOn, SystemClock::elapsedRealtime)
         obscureSnapshot(lockOn)
         refreshLock()
+        // A locked relaunch drops this at the next refresh, as any return past the lock screen.
+        returnTo = takeRelaunchTarget()
         setContent {
-            DYAppTheme {
+            DYAppTheme(chosenDarkTheme()) {
                 val biometric = lock == StoredLock.BIOMETRIC
                 when {
                     locked && biometric -> BiometricUnlockScreen(device.secure) { verify(true) {} }
