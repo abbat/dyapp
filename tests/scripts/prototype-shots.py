@@ -4,7 +4,8 @@
 Runs under xvfb-run in the prototype image: loads
 /<platform>/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
 /shots/<screen>-<lang>-<width>.png. The platform is desktop (default) or
-android; Android shots also come in the dark theme as <screen>-dark-...
+android; optional screen names select a subset. Android shots also come in the
+dark theme as <screen>-dark-...
 """
 import sys
 
@@ -20,7 +21,8 @@ DESKTOP = [
     "publish-dialog", "publish-progress",
     "network", "network-checking", "network-error",
     "search", "search-loading", "search-empty", "search-error",
-    "profile-view", "profile-view-match", "unlike-dialog",
+    "profile-view", "profile-view-safety", "profile-view-match",
+    "unlike-dialog",
     "chats", "chat", "chat-first", "chat-request",
     "chat-menu", "chat-clear-dialog", "chat-cleared", "delete-dialog",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
@@ -37,7 +39,13 @@ ANDROID = [
     "settings", "lock-settings", "switcher", "remove-dialog", "remove-offline",
 ]
 PLATFORM = sys.argv[1] if len(sys.argv) > 1 else "desktop"
-SCREENS = {"desktop": DESKTOP, "android": ANDROID}[PLATFORM]
+ALL_SCREENS = {"desktop": DESKTOP, "android": ANDROID}[PLATFORM]
+requested = sys.argv[2:]
+if len(requested) != len(set(requested)) or any(
+        s not in ALL_SCREENS for s in requested):
+    raise SystemExit("screen names must be unique and available "
+                     "on this platform")
+SCREENS = requested or ALL_SCREENS
 # Phone widths for Android: a small and a common one.
 WIDTHS = [360, 412] if PLATFORM == "android" else [440, 1280]
 THEMES = ["light", "dark"] if PLATFORM == "android" else ["light"]

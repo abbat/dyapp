@@ -116,11 +116,48 @@ const showLikes = (likes) => {
   document.getElementById('view-match').hidden = !likes.matched;
 };
 let viewed = null;
+let safetyScanToken = 0;
+let cameraStream = null;
+let cameraTimer = null;
+let cameraPending = false;
+const showSafetyStatus = (key) => {
+  const status = document.getElementById('view-safety-scan-status');
+  status.textContent = window.strings[key];
+  status.hidden = false;
+};
+const stopSafetyCamera = () => {
+  safetyScanToken += 1;
+  clearTimeout(cameraTimer);
+  cameraTimer = null;
+  cameraPending = false;
+  cameraStream?.getTracks().forEach((track) => { track.stop(); });
+  cameraStream = null;
+  const preview = document.getElementById('view-safety-preview');
+  preview.srcObject = null;
+  preview.hidden = true;
+  const button = document.getElementById('view-safety-camera');
+  button.textContent = window.strings['view.safety.camera.start'];
+};
+document.addEventListener('dyapp:area-change', (event) => {
+  if (event.detail !== 'search-area') stopSafetyCamera();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopSafetyCamera();
+});
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card) => {
+  stopSafetyCamera();
   viewed = { found, card };
+  document.getElementById('view-safety-image').value = '';
+  document.getElementById('view-safety-scan-status').hidden = true;
   if (!card.closest('#search-area')) showArea('search-area');
   viewStatus.textContent = '';
+  document.getElementById('view-safety-panel').hidden = true;
+  document.getElementById('view-safety-number').textContent = '';
+  const qr = document.getElementById('view-safety-qr');
+  qr.width = 0;
+  qr.height = 0;
+  document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
   showLikes({ ours: false, matched: false });
   invoke('peer_likes', { peerId: found.peerId })
     .then((likes) => { if (viewed?.found === found) showLikes(likes); }, () => {});
@@ -142,6 +179,7 @@ const openFound = (found, card) => {
   document.getElementById('view-back').focus();
 };
 const closeFound = () => {
+  stopSafetyCamera();
   profileView.hidden = true;
   searchMain.hidden = false;
   if (viewed?.card.isConnected) viewed.card.focus();
@@ -191,17 +229,221 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
-// Blocking is local: the card goes, and later searches drop the peer.
+document.getElementById('copy-safety-number').addEventListener('click', () => {
+  const button = document.getElementById('copy-safety-number');
+  const source = document.getElementById('view-safety-number');
+  const peerId = viewed?.found.peerId;
+  const token = ++window.clipboardCopyToken;
+  window.safetyCopied = invoke('copy_safety_number', { peerId }).then((copy) => {
+    button.textContent = window.strings['action.copied'];
+    setTimeout(() => { button.textContent = window.strings['view.safety.copy']; }, 2000);
+    setTimeout(() => {
+      window.safetyClearDone = token === window.clipboardCopyToken
+        ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
+        : Promise.resolve(false);
+    }, 60000);
+  }, () => {
+    window.getSelection().selectAllChildren(source);
+  });
+});
+const drawContactQr = ({ size, modules }) => {
+  if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
+    throw new Error('invalid contact QR matrix');
+  }
+  const canvas = document.getElementById('view-safety-qr');
+  const scale = 6;
+  canvas.width = (size + 8) * scale;
+  canvas.height = canvas.width;
+  canvas.setAttribute('aria-label', window.strings['view.safety.qr']);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#000';
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (modules[y * size + x]) context.fillRect((x + 4) * scale, (y + 4) * scale, scale, scale);
+    }
+  }
+};
+document.getElementById('view-safety').addEventListener('click', () => {
+  const { found } = viewed;
+  const button = document.getElementById('view-safety');
+  const panel = document.getElementById('view-safety-panel');
+  if (!panel.hidden) {
+    stopSafetyCamera();
+    panel.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  button.disabled = true;
+  window.safetyDone = Promise.all([
+    invoke('contact_safety_number', { peerId: found.peerId }),
+    invoke('contact_safety_qr', { peerId: found.peerId }),
+  ]).then(([number, matrix]) => {
+    if (viewed?.found !== found) return;
+    drawContactQr(matrix);
+    document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
+    panel.hidden = false;
+    button.setAttribute('aria-expanded', 'true');
+  })
+    .catch(() => { if (viewed?.found === found) viewStatus.textContent = window.strings['view.safety.failed']; })
+    .finally(() => { button.disabled = false; });
+});
+const grayscaleFrame = (context, width, height) => {
+  const rgba = context.getImageData(0, 0, width, height).data;
+  const pixels = new Array(width * height);
+  for (let i = 0; i < pixels.length; i += 1) {
+    const at = i * 4;
+    const luma = Math.round((rgba[at] * 299 + rgba[at + 1] * 587 + rgba[at + 2] * 114) / 1000);
+    pixels[i] = Math.round((luma * rgba[at + 3] + 255 * (255 - rgba[at + 3])) / 255);
+  }
+  return pixels;
+};
+// The UI smoke passes a PNG made from the rendered canvas through this same file path.
+globalThis.scanQrFile = async (file) => {
+  const found = viewed?.found;
+  const panel = document.getElementById('view-safety-panel');
+  const token = ++safetyScanToken;
+  const current = () => token === safetyScanToken && viewed?.found === found && !panel.hidden;
+  const report = (key) => {
+    if (!current()) return;
+    showSafetyStatus(`view.safety.scan.${key}`);
+  };
+  if (!file || !found) return;
+  if (!['image/png', 'image/jpeg'].includes(file.type)) return report('unsupported');
+  if (file.size > 2 * 1024 * 1024) return report('tooLarge');
+  report('checking');
+  let bitmap;
+  try {
+    // A File source needs no blob: URL; the desktop CSP allows only self images.
+    bitmap = await createImageBitmap(file);
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16_000_000) {
+      return report('tooLarge');
+    }
+    const scale = Math.min(1, 768 / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    const pixels = grayscaleFrame(context, width, height);
+    const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+    report(result);
+  } catch (_) {
+    report(bitmap ? 'failed' : 'loadFailed');
+  } finally {
+    bitmap?.close();
+  }
+};
+document.getElementById('view-safety-camera').addEventListener('click', () => {
+  if (cameraPending || cameraStream) {
+    stopSafetyCamera();
+    showSafetyStatus('view.safety.camera.stopped');
+    return;
+  }
+  const found = viewed?.found;
+  const panel = document.getElementById('view-safety-panel');
+  if (!found || panel.hidden) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showSafetyStatus('view.safety.camera.unsupported');
+    return;
+  }
+  const token = ++safetyScanToken;
+  const current = () => token === safetyScanToken && viewed?.found === found
+    && !panel.hidden && !document.getElementById('search-area').hidden && !document.hidden;
+  const button = document.getElementById('view-safety-camera');
+  const preview = document.getElementById('view-safety-preview');
+  cameraPending = true;
+  button.textContent = window.strings['view.safety.camera.stop'];
+  showSafetyStatus('view.safety.camera.starting');
+  window.cameraDone = (async () => {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+        video: { width: { ideal: 640 }, height: { ideal: 480 } } });
+      if (!current()) {
+        stream.getTracks().forEach((track) => { track.stop(); });
+        return;
+      }
+      cameraStream = stream;
+      cameraPending = false;
+      preview.srcObject = stream;
+      preview.hidden = false;
+      await preview.play();
+      if (!current()) return;
+      showSafetyStatus('view.safety.camera.scanning');
+      const scan = async () => {
+        if (!current() || !cameraStream) return;
+        try {
+          if (preview.videoWidth && preview.videoHeight) {
+            const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
+            const width = Math.max(1, Math.round(preview.videoWidth * scale));
+            const height = Math.max(1, Math.round(preview.videoHeight * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            context.drawImage(preview, 0, 0, width, height);
+            const pixels = grayscaleFrame(context, width, height);
+            const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+            if (!current()) return;
+            if (result !== 'notFound' && result !== 'unreadable') {
+              stopSafetyCamera();
+              showSafetyStatus(`view.safety.scan.${result}`);
+              return;
+            }
+          }
+          if (cameraStream.getVideoTracks()[0]?.readyState === 'ended') {
+            stopSafetyCamera();
+            showSafetyStatus('view.safety.camera.unavailable');
+            return;
+          }
+          cameraTimer = setTimeout(scan, 300);
+        } catch (_) {
+          if (current()) {
+            stopSafetyCamera();
+            showSafetyStatus('view.safety.camera.failed');
+          }
+        }
+      };
+      cameraTimer = setTimeout(scan, 300);
+    } catch (error) {
+      if (!current()) return;
+      const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name) ? 'denied'
+        : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
+          ? 'unavailable' : 'failed';
+      stopSafetyCamera();
+      showSafetyStatus(`view.safety.camera.${kind}`);
+    }
+  })();
+});
+document.getElementById('view-safety-select').addEventListener('click', () => {
+  document.getElementById('view-safety-image').click();
+});
+document.getElementById('view-safety-image').addEventListener('change', (event) => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  input.value = '';
+  if (file) window.scanQrDone = globalThis.scanQrFile(file);
+});
+// The local block takes effect even if token revocation cannot reach a node.
 document.getElementById('view-block').addEventListener('click', async () => {
   const { found, card } = viewed;
+  let result;
   try {
-    await invoke('block_peer', { peerId: found.peerId });
+    result = await invoke('block_peer', { peerId: found.peerId });
   } catch (error) {
     return searchMessage('search.failed', String(error));
   }
+  const wasLiked = Boolean(card.closest('#chats-liked-list'));
   card.remove();
+  if (wasLiked) document.getElementById('chats-liked-count').textContent = String(likedList.children.length);
   closeFound();
-  return searchMessage('search.blocked');
+  return searchMessage(`search.blocked.${result.revocation}`);
 });
 const searchError = document.getElementById('search-error');
 const showSearchError = (key, details) => {
@@ -276,13 +518,15 @@ const chatsMessage = (key, detail = '') =>
 window.showChats = async () => {
   chatsMessage('chats.loading');
   try {
-    // A like that arrived since the last poll should be in the list.
-    await invoke('receive_mail').catch(() => 0);
+    // A failed mailbox refresh must not make the local list look current.
+    const receiveError = await invoke('receive_mail').then(() => null, (error) => String(error));
     const found = await withPlaces(await invoke('liked_you'));
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
     likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
     document.getElementById('chats-liked-count').textContent = String(found.length);
-    if (found.length) chatsMessage('chats.count', String(found.length));
+    if (receiveError === 'notConnected') chatsMessage('chats.notConnected');
+    else if (receiveError) chatsMessage('chats.receiveFailed', receiveError);
+    else if (found.length) chatsMessage('chats.count', String(found.length));
     else chatsMessage('chats.none');
   } catch (error) {
     const code = String(error);

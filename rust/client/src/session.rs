@@ -195,6 +195,9 @@ impl Session {
         let keys = self
             .store
             .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
+        if keys.is_empty() {
+            return Ok(());
+        }
         scores::first(&mut self.scores, nodes, Node::peer, async |node| {
             node.revoke_tokens(device_key, &keys).await
         })
@@ -418,6 +421,9 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Option<Interaction>, Error> {
         let peer = self.peer_in(profiles)?;
+        if self.store.blocked(&peer)? {
+            return Err(crate::store::Error::BlockedPeer.into());
+        }
         if let Some(group_id) = self.pair_group(&peer) {
             return self.interact(nodes, &group_id, kind, seal_key).await;
         }

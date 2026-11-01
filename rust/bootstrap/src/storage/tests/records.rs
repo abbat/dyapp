@@ -146,6 +146,41 @@ fn envelopes_once_per_id_limits_and_expiry() {
         .is_empty());
 }
 
+#[test]
+fn paged_fetch_moves_past_unacked_head_and_deleted_cursor() {
+    let dir = format!("build/test-bootstrap-{}", Uuid::new_v4());
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = BootstrapStore::new(&dir).unwrap();
+    let mailbox = [7u8; 32];
+    let record = |n: u8| SignedRecord {
+        payload: vec![n; 32],
+        ..SignedRecord::default()
+    };
+    // A signal inserted first must still come after all ordinary messages.
+    assert!(store
+        .put_plain(&mailbox, &[250; 16], &record(250), true, 3000, 1 << 20)
+        .unwrap());
+    for n in 0..=100u8 {
+        assert!(store
+            .put_plain(&mailbox, &[n; 16], &record(n), false, 3000, 1 << 20)
+            .unwrap());
+    }
+    let (first, more, cursor) = store
+        .fetch_envelopes_after(&mailbox, None, 100, u64::MAX)
+        .unwrap();
+    assert_eq!(first.len(), 100);
+    assert_eq!(first[0], record(0)); // Deliberately left unacked.
+    assert_eq!(first[99], record(99));
+    assert!(more);
+    store.ack_envelopes(&mailbox, &[vec![99; 16]]).unwrap();
+    let (last, more, next) = store
+        .fetch_envelopes_after(&mailbox, cursor, 100, u64::MAX)
+        .unwrap();
+    assert_eq!(last, vec![record(100), record(250)]);
+    assert!(!more);
+    assert!(next > cursor);
+}
+
 /// Ids of a mailbox's envelopes in arrival order.
 fn ids(store: &BootstrapStore, mailbox: &[u8]) -> Vec<Vec<u8>> {
     lock(&store.messages)
@@ -253,6 +288,12 @@ fn signed_profile_versions_and_tombstone() {
         dyapp_profile::stored_version(&store.get_profile(&owner.peer_id()).unwrap().unwrap()),
         Ok(3)
     );
+    // Finality on a cooperating node lasts only while it retains the tombstone.
+    let cutoff = chrono::Utc::now().timestamp();
+    assert_eq!(store.expire_profiles(cutoff - 60).unwrap(), 0);
+    assert_eq!(store.expire_profiles(cutoff + 1).unwrap(), 1);
+    assert!(store.get_profile(&owner.peer_id()).unwrap().is_none());
+    store.put_profile(&profile(4).sign(&owner)).unwrap();
 }
 
 #[test]

@@ -3,30 +3,34 @@
 The Rust client keeps active MLS handles in memory and seals them to SQLite. This design gives each
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
-The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. Nothing on this
-page is wired into an app yet. The Rust store foundation creates the identity-bound version-1
-schema; before the first release a schema change edits version 1 in place, with no migration. It persists the
-per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger;
-chat, MLS and outbound mailbox calls are not wired into the app yet. The store can atomically
-stage a sealed MLS snapshot and exact signed outbox records, reopen due records and schedule
-retries. It also commits an own interaction event, its HLC, like/view state, sealed MLS snapshot
-and exact outbox writes in one transaction before network delivery.
+The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. The Linux desktop
+uses the Store for profile drafts, privacy settings, likes and inbound mailbox work; chat text
+screens remain planned. The Rust store foundation creates the identity-bound version-1 schema;
+before the first release a schema change edits version 1 in place, with no migration. It persists
+the per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger.
+The store can atomically stage a sealed MLS snapshot and exact signed outbox records,
+reopen due records and schedule retries. It also commits an own interaction event, its HLC,
+like/view state, sealed MLS snapshot and exact outbox writes in one transaction before network
+delivery.
 Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
-`Session::receive` uses them for one-to-one chat and sends delivery receipts; the app does not
-call the session yet.
+`Session::receive` uses them for one-to-one chat and sends delivery receipts. The Linux desktop
+calls it while polling the active identity's mailbox; the chat text UI remains planned.
 
 ## Ownership and location
 
 The app supplies an absolute database path to the Rust store; the store never guesses an OS
 directory or creates an identity key. On desktop, a new identity's database belongs under
-`<app-config>/profiles/<slot>/client.sqlite3`; the virtual legacy identity uses
-`<app-config>/client.sqlite3` without moving its key. Mobile apps supply a private per-profile
+`<app-config>/profiles/<slot>/client.db`; the virtual legacy identity uses
+`<app-config>/client.db` without moving its key. Mobile apps supply a private per-profile
 path in their own app data directory. The random local slot is a filesystem name, never a network
 identifier. A database records the Peer ID derived from its selected identity key on first open
-and refuses a different key thereafter. Profile switching closes the previous store and stops its
-network work before opening the next one. A separate database per profile avoids accidental
-cross-profile joins and keeps local deletion scoped to the selected slot. The app serializes
-writers for each slot; read-only multi-instance access is a later decision.
+and refuses a different key thereafter. A separate database per profile avoids accidental
+cross-profile joins and keeps local deletion scoped to the selected slot. The intended lifecycle
+serializes writers per slot and drains old network work before switching. The current Tauri shell
+serializes MLS commands but does not yet quiesce all in-flight commands on a switch or removal;
+see the [desktop runtime audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
+and [planned lifecycle](desktop-runtime-lifecycle.md).
+Read-only multi-instance access is a later decision.
 
 The identity key and the 32-byte MLS sealing key stay in the platform key backend, not SQLite.
 `Device::seal` already encrypts the MLS signer, unused KeyPackages and all groups; only that sealed
@@ -53,7 +57,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
 | `chat_cleared` | `(group ID, author Peer ID, message ID)` of each message Clear chat removed, no text | A text, edit or delete naming a mark is discarded and still ACKed; the mark outlives restarts. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it; which node accepted the latest copy and when; an optional expiry time; the chat group of a chat write | `(mailbox, envelope ID)` is unique; Clear chat drops unaccepted chat writes of its group; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
-| `settings` | Typed, versioned per-profile values such as view sending | Per profile; documented defaults for absent values. The planned app lock is app-wide and its PIN verifier belongs in platform-protected storage, not this table. |
+| `settings` | Typed, versioned per-profile values such as view sending and the bounded mailbox fetch cursor | Per profile; the cursor row binds an opaque 1–64 byte position to one node Peer ID and an empty value means start at the head. The planned app lock is app-wide and its PIN verifier belongs in platform-protected storage, not this table. |
 | `pass_history` | Peer identity and current local pass state | Never published or included in a signal. |
 | `interaction_ledger` | Applied like, unlike and view events with sender device and exact payload | `(sender, event ID)` is unique; a replay with other bytes is refused. |
 | `like_state` | Latest like or unlike per sender and target | Replaced only by a greater `(HLC, device, event ID)`. |
@@ -198,6 +202,119 @@ The first integration tests must inject a store failure after MLS send and recei
 reopen the last snapshot, and prove the unsent/outstanding envelope can be processed without
 duplicate display or premature ACK. They must also restart after a committed send, retry exact
 signed bytes, and restart after a committed receive before ACK.
+
+### Planned catch-up runtime
+
+The platform runtime owns one catch-up job per active identity slot, sharing that slot's
+`Session` lock with foreground chat commands. On desktop the job must hold the
+[active-slot lease](desktop-runtime-lifecycle.md) through its blocking worker and network
+calls. The WebView only requests an immediate pass and renders committed events; its timer
+cannot own delivery because hidden views may be suspended. Mobile runtimes use the same
+foreground contract when the app opens or resumes; OS background opportunities are
+best-effort and are not a delivery guarantee.
+
+Start a pass after the slot opens, when connectivity returns, when the app resumes or Chats
+opens, and when a due outbox deadline arrives. A pass calls `retry_due`, then
+`receive` and pending ACK handling for the active device; it schedules the next due
+outbox write and a bounded mailbox check (the desktop currently polls every 60 seconds).
+Keep only one pass per slot. A network failure schedules another pass with a bounded,
+jittered delay; the durable outbox keeps its own per-envelope backoff, so restarting the
+app may check connectivity immediately without rewriting send deadlines. Use the
+client's existing 15-second per-request timeout and cap each pass's work so switching
+can drain it. Never abort after an MLS mutation before its Store transaction settles.
+A UI event is emitted only from a committed inbox row and carries the slot generation,
+so a late result cannot render under another identity.
+
+The first implementation can make one mailbox fetch per pass. It is **not** complete
+backlog recovery: `Session::receive_page` now processes one bounded page through
+the durable inbox and ACK path, but the desktop still calls legacy
+`Session::receive`, which discards `more`. An unresolved first-page envelope can
+hide later mail even across repeated desktop passes;
+[the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
+must wire continuation before claiming eventual catch-up. Cross-replica union
+and reconciliation remain separate work.
+
+| Owner | Benefit | Cost |
+|---|---|---|
+| Platform runtime job (chosen) | Runs while the desktop WebView is hidden and shares the active-slot lease and Session lock. | Requires wake scheduling and lifecycle wiring on each platform. |
+| WebView timer | Reuses the existing Chats poll. | Suspension and slot switching can delay or misroute work. |
+| Always-running service | Can attempt delivery while the app is closed. | Adds platform permissions, battery cost and lifecycle complexity without a portable guarantee. |
+
+### Planned mailbox pagination
+
+Bootstrap now accepts an optional cursor in the owner-signed `Fetch` and returns the
+last emitted position in `MailboxResponse`. A cursor encodes a version, envelope class
+and local SQLite sequence number. The node validates its shape and selects records
+strictly after `(class, seq)` in its existing message-before-signal order. It sets
+`more` when another record follows the returned byte/record-limited page. The cursor is
+only a position, not an ACK or authorization token; the signed fetch and fresh
+connection nonce remain mandatory. Old requests still fetch from the head. A node
+that ignores the new field returns no next cursor. Legacy `Node::fetch` still
+returns that first page; `Node::fetch_page` reports a non-advancing reply if
+`more` is true, so the pagination caller cannot loop over page one.
+
+The Store has one profile-bound cursor setting: `save_mailbox_cursor` records an
+opaque 1–64 byte cursor with the responding node's Peer ID, `mailbox_cursor_for`
+clears it on holder switch, and `clear_mailbox_cursor` resets to the head. Corrupt
+format, Peer ID or length fails safely. `Session::receive_page` calls these APIs
+after the page's per-envelope commits, ACK and receipt attempts; it returns
+events and whether another page is due. A crash before cursor save replays a
+page through inbox deduplication. A crash after save resumes after the
+committed page. If the node changes, the client clears the cursor and starts from
+the head; sequence numbers have no meaning across holders. Use a small page (at most
+20 records per catch-up pass), and schedule another pass while `more` is true. Before
+starting each next envelope or page, check the active-slot transition flag; never
+interrupt an MLS/Store transaction. Once `more` is false, clear the cursor and
+start the next scheduled check from the head, which also finds inserts with reused
+or earlier sequence numbers. Deletion or eviction of the cursor row does not
+invalidate the strict `>` position query. A new message inserted behind the cursor
+is reached on a later head pass. A non-advancing or malformed cursor is an error,
+not a reason for an unbounded refetch loop.
+
+### KeyPackage recovery boundary
+
+A device needs an available KeyPackage on a node before a new peer can create its MLS
+group. The desktop currently publishes four single-use packages only when it publishes
+the profile. Bootstrap consumes one before replying to a fetch, per holder and
+allocation slot, and returns `NOT_FOUND` when stock is empty; it allows at most 20
+unconsumed ordinary packages per device. `Session::refill` requests *write tokens*
+from existing groups, not KeyPackages. The desktop's daily refill timer therefore
+does not restore exhausted KeyPackages.
+
+The target is to replenish a published device while it is active, without changing
+its identity or creating a second device. Keep enough stock for an offline peer to
+start a chat, and report temporary unavailability when stock or a fresh profile is
+missing. Publishing the profile must precede package publication. Generate and seal
+private package state before any node publish; a failed publish may leave unused
+sealed keys but must not leave a public package without its private key. Never use a
+newly generated package after a failed local transaction. A repeated node publish
+of the same signed package must not unconsume it.
+
+The chosen availability floor is one MLS last-resort KeyPackage per device, published
+after the profile and initial single-use batch. Both the node and OpenMLS already support
+reusing it for multiple Welcomes. Rotate it before its 30-day expiry while the owner is
+active, and on the next foreground open after a longer offline period. Persist its
+monotonically increasing revision and exact signed publication alongside the sealed
+private MLS state before any network publish, then retry that publication after a lost
+reply or restart. Use the existing node replication path and wait for its successful
+publish response before treating the device as ready for new invitations.
+A profile that no longer lists the device must not republish its package.
+
+The current fetch API has no non-consuming stock count, so the client cannot know when
+ordinary stock is low. The last-resort package keeps new invitations possible after
+the four ordinary packages are consumed; it is not a claim that one-time package stock
+has been refilled. Reusing one KeyPackage increases exposure if its private material is
+compromised and means multiple Welcomes can target the same key. OpenMLS explicitly marks
+and supports this mode; rotate at least before expiry and whenever the device certificate
+changes. A blind fixed batch on every foreground start can hit the 20-package quota and
+grow private state. A stale device certificate requires a refreshed verified profile
+before an invite is retried.
+
+| Refill option | Benefit | Cost or limit |
+|---|---|---|
+| One rotating last-resort package (chosen) | Uses the existing wire format, node replication and OpenMLS reuse; works after ordinary stock is consumed. | One private key can serve multiple Welcomes until rotation or expiry; it needs a durable revision and retry record. |
+| Owner-authenticated stock inventory | Can top up ordinary packages to a low-water mark. | Adds a wire request, authorization and per-replica stock reconciliation; a count can change as peers consume packages. |
+| Blind ordinary batch on every resume | No new wire request. | Can hit the 20-package quota and accumulate unused sealed keys without knowing whether nodes received stock. |
 
 ## Implementation checkpoints
 

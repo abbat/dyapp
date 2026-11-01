@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use dyapp_identity::Identity;
@@ -13,24 +13,31 @@ use tauri::Manager;
 
 #[path = "chats.rs"]
 mod chats;
+mod clipboard;
 #[path = "file_store.rs"]
 mod file_store;
+#[path = "identity_gate.rs"]
+mod identity_gate;
+mod identity_runtime;
+use identity_runtime::{describe, respond, IdentityState};
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).
 #[cfg(unix)]
 #[path = "node.rs"]
 mod node;
+mod node_usage_commands;
 #[path = "privacy.rs"]
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
+mod safety;
+#[path = "sealing.rs"]
+mod sealing;
 #[path = "search.rs"]
 mod search;
 #[path = "slots.rs"]
 mod slots;
-#[path = "sealing.rs"]
-mod sealing;
 use sealing::sealing_key;
 #[path = "system_store.rs"]
 mod system_store;
@@ -38,11 +45,10 @@ mod system_store;
 mod tray;
 #[path = "usage.rs"]
 mod usage;
+#[cfg(all(target_os = "linux", debug_assertions))]
+mod video_frames;
 #[path = "window.rs"]
 mod window;
-
-/// The open identity and its slot folder.
-struct IdentityState(Mutex<Option<(Arc<Identity>, PathBuf)>>);
 
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if std::env::args().any(|arg| arg == "--ui-test") {
@@ -128,50 +134,29 @@ fn device_key(root: &Path, dir: &Path, identity: &Identity) -> Result<Identity, 
     )
 }
 
-fn ready_result(mode: &str, peer_id: String, dir: &Path) -> HashMap<&'static str, String> {
-    let mut result = HashMap::from([
-        ("status", "ready".into()),
-        ("mode", mode.to_owned()),
-        ("peerId", peer_id),
-    ]);
-    if mode == "file" {
-        result.insert("keyPath", dir.join("identity.key").display().to_string());
-    }
-    result
+/// Stop admitted long-running work after closing admission, then wait off the UI thread.
+async fn drain_identity(
+    app: &tauri::AppHandle,
+    state: &IdentityState,
+) -> Result<identity_gate::Transition<identity_runtime::ActiveIdentity>, String> {
+    let transition = state.start_transition_with(|| {
+        app.state::<ProfileState>().cancel();
+        network::cancel(&app.state::<NetworkState>());
+    })?;
+    let searching = app.state::<search::SearchState>();
+    let checks = app.state::<NetworkState>();
+    drain_and_clear(transition, &searching, &checks).await
 }
 
-/// The page's view of an opened slot and the identity it unlocked, if any.
-fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option<(Identity, PathBuf)>) {
-    let mut result = HashMap::new();
-    match opened {
-        Opened::Ready(slot, identity) => {
-            result = ready_result(slot.mode.unwrap_or_default(), identity.peer_id(), &slot.dir);
-            result.insert("slot", slot.id);
-            return (result, Some((identity, slot.dir)));
-        }
-        Opened::Setup => {
-            result.insert("status", "setup".into());
-        }
-        Opened::Picker => {
-            result.insert("status", "picker".into());
-        }
-        Opened::Recovery(slot, reason, peer_id) => {
-            result.insert("status", "recovery".into());
-            result.insert("reason", reason.into());
-            result.insert("slot", slot.id);
-            result.extend(slot.mode.map(|mode| ("mode", mode.into())));
-            result.extend(peer_id.map(|peer_id| ("peerId", peer_id)));
-        }
-    }
-    (result, None)
-}
-
-/// Makes `opened` the current identity; a picker or recovery state leaves none open.
-fn respond(opened: Opened, state: &IdentityState) -> Result<HashMap<&'static str, String>, String> {
-    let (result, identity) = describe(opened);
-    *state.0.lock().map_err(|e| e.to_string())? =
-        identity.map(|(identity, dir)| (Arc::new(identity), dir));
-    Ok(result)
+async fn drain_and_clear(
+    transition: identity_gate::Transition<identity_runtime::ActiveIdentity>,
+    searching: &search::SearchState,
+    checks: &NetworkState,
+) -> Result<identity_gate::Transition<identity_runtime::ActiveIdentity>, String> {
+    let transition = IdentityState::drain(transition).await?;
+    searching.clear()?;
+    checks.clear_checked()?;
+    Ok(transition)
 }
 
 #[tauri::command]
@@ -179,14 +164,18 @@ async fn identity_state(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
         .await
         .map_err(|e| e.to_string())??;
-    if let Opened::Setup = opened {
-        return storage_options().await;
+    let setup = matches!(opened, Opened::Setup);
+    let result = respond(opened, transition)?;
+    if setup {
+        storage_options().await
+    } else {
+        Ok(result)
     }
-    respond(opened, &state)
 }
 
 /// The storage choice for a new identity.
@@ -242,18 +231,23 @@ async fn select_identity(
     state: tauri::State<'_, IdentityState>,
     slot: String,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = drain_identity(&app, &state).await?;
+    #[cfg(unix)]
+    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || {
         let slot = slots::list(&dir)?
             .into_iter()
             .find(|listed| listed.id == slot)
             .ok_or("Unknown identity")?;
-        slots::set_active(&dir, &slot.id)?;
-        slots::open_slot(slot, &load)
+        let id = slot.id.clone();
+        let opened = slots::open_slot(slot, &load)?;
+        slots::set_active(&dir, &id)?;
+        Ok::<_, String>(opened)
     })
     .await
     .map_err(|e| e.to_string())??;
-    respond(opened, &state)
+    respond(opened, transition)
 }
 
 #[tauri::command]
@@ -267,8 +261,12 @@ async fn create_identity(
         "file" => "file",
         _ => return Err("Unknown identity storage mode".into()),
     };
+    let transition = drain_identity(&app, &state).await?;
+    #[cfg(unix)]
+    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
-    let (slot, identity) = tauri::async_runtime::spawn_blocking(move || {
+    let recover_dir = dir.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
             system_store::probe()
                 .map_err(|reason| format!("System storage unavailable: {:?}", reason))?;
@@ -276,11 +274,15 @@ async fn create_identity(
         slots::create(&dir, mode, &save, &load)
     })
     .await
-    .map_err(|e| e.to_string())??;
-    let mut response = ready_result(mode, identity.peer_id(), &slot.dir);
-    response.insert("slot", slot.id);
-    *state.0.lock().map_err(|e| e.to_string())? = Some((Arc::new(identity), slot.dir));
-    Ok(response)
+    .map_err(|error| error.to_string())
+    .and_then(|result| result);
+    match result {
+        Ok((slot, identity)) => respond(Opened::Ready(slot, identity), transition),
+        Err(error) => {
+            IdentityState::reconcile(recover_dir, transition).await?;
+            Err(error)
+        }
+    }
 }
 
 /// Removes a slot whose key yields the Peer ID the user confirmed, then shows the picker, or the
@@ -292,31 +294,32 @@ async fn remove_identity(
     slot: String,
     peer_id: Option<String>,
 ) -> Result<HashMap<&'static str, String>, String> {
+    let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
+    let recover_dir = dir.clone();
     // The slot's node must not hold its folder open while it is removed. A cfg on a command
     // argument does not reach Tauri's macro, so the state comes from the app handle.
     #[cfg(unix)]
     node::stop(&app.state::<node::NodeState>()).await;
-    let remaining = tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
         slots::list(&dir).map(|slots| slots.len())
     })
     .await
-    .map_err(|e| e.to_string())??;
-    *state.0.lock().map_err(|e| e.to_string())? = None;
+    .map_err(|error| error.to_string())
+    .and_then(|result| result);
+    let remaining = match result {
+        Ok(remaining) => remaining,
+        Err(error) => {
+            IdentityState::reconcile(recover_dir, transition).await?;
+            return Err(error);
+        }
+    };
+    transition.commit(None).map_err(|e| format!("{e:?}"))?;
     if remaining == 0 {
         return storage_options().await;
     }
     Ok(describe(Opened::Picker).0)
-}
-
-fn open_identity(state: &IdentityState) -> Result<(Arc<Identity>, PathBuf), String> {
-    let open = state.0.lock().map_err(|e| e.to_string())?;
-    open.clone().ok_or_else(|| "No identity is open".into())
-}
-
-fn identity_dir(state: &IdentityState) -> Result<PathBuf, String> {
-    open_identity(state).map(|(_, dir)| dir)
 }
 
 /// The open identity's `draft` or `active` bootstrap settings, `null` when never saved.
@@ -325,10 +328,15 @@ async fn load_network(
     state: tauri::State<'_, IdentityState>,
     file: String,
 ) -> Result<Option<Draft>, String> {
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || network::load(&dir, &file))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
+    // A cancelled command cannot stop its blocking worker; the worker owns the lease.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        network::load(&dir, &file)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -336,10 +344,14 @@ async fn save_network_draft(
     state: tauri::State<'_, IdentityState>,
     draft: Draft,
 ) -> Result<(), String> {
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || network::save_draft(&dir, draft))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        network::save_draft(&dir, draft)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Saves the draft and reports every seed row; see `network::check` for the errors.
@@ -350,8 +362,16 @@ async fn check_connection(
     draft: Draft,
     wait_ms: u32,
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
-    let dir = identity_dir(&state)?;
-    network::check(&checks, dir, draft, Duration::from_millis(wait_ms.into())).await
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
+    network::check(
+        &checks,
+        dir,
+        draft,
+        Duration::from_millis(wait_ms.into()),
+        || lease.transitioning().map_err(|error| format!("{error:?}")),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -365,7 +385,8 @@ async fn connect_network(
     state: tauri::State<'_, IdentityState>,
     wait_ms: u32,
 ) -> Result<bool, String> {
-    let dir = identity_dir(&state)?;
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
     network::connect(&dir, Duration::from_millis(wait_ms.into())).await
 }
 
@@ -374,7 +395,8 @@ async fn activate_connection(
     state: tauri::State<'_, IdentityState>,
     checks: tauri::State<'_, NetworkState>,
 ) -> Result<Draft, String> {
-    let dir = identity_dir(&state)?;
+    let lease = state.lease()?;
+    let dir = lease.active().1.clone();
     network::activate(&checks, &dir)
 }
 
@@ -411,10 +433,14 @@ fn search_places(
 /// The open identity's profile draft; see `profile::load`.
 #[tauri::command]
 async fn load_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
-    tauri::async_runtime::spawn_blocking(move || profile::load(&dir, &identity))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        profile::load(&dir, &identity)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -422,10 +448,14 @@ async fn save_profile(
     state: tauri::State<'_, IdentityState>,
     draft: profile::Draft,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
-    tauri::async_runtime::spawn_blocking(move || profile::save(&dir, &identity, draft))
-        .await
-        .map_err(|e| e.to_string())?
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        profile::save(&dir, &identity, draft)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Runs the profile proof of work until solved or cancelled; see `profile::solve`.
@@ -435,10 +465,18 @@ async fn solve_profile(
     solving: tauri::State<'_, ProfileState>,
     attested: bool,
 ) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    let cancel = Arc::clone(&solving.0);
-    cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    let cancel = solving.begin()?;
+    // The transition may have signalled cancellation before this solve registered.
+    if lease
+        .transitioning()
+        .map_err(|error| format!("{error:?}"))?
+    {
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         profile::solve(&cancel, &dir, &identity, attested, profile::POW_BITS)
     })
     .await
@@ -447,7 +485,7 @@ async fn solve_profile(
 
 #[tauri::command]
 fn cancel_profile_solve(solving: tauri::State<'_, ProfileState>) {
-    solving.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    solving.cancel();
 }
 
 /// Publishes the solved draft and checks the readback; see `profile::publish`.
@@ -458,11 +496,13 @@ async fn publish_profile(
     sessions: tauri::State<'_, chats::Sessions>,
     attested: bool,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     let root = config_dir(&app)?;
     let sessions = Arc::clone(&sessions.0);
     // The client store is not `Sync`, so the publish runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = device_key(&root, &dir, &identity)?;
         tauri::async_runtime::block_on(profile::publish(
@@ -481,9 +521,11 @@ async fn publish_profile(
 /// Hides the published profile from search with a tombstone; see `profile::hide`.
 #[tauri::command]
 async fn hide_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     // The client store is not `Sync`, as in `publish_profile`.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::hide(&dir, &identity))
     })
     .await
@@ -493,8 +535,10 @@ async fn hide_profile(state: tauri::State<'_, IdentityState>) -> Result<profile:
 /// Publishes final deletion to profile storage and search before removing an identity.
 #[tauri::command]
 async fn withdraw_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::withdraw(&dir, &identity))
     })
     .await
@@ -506,9 +550,11 @@ async fn withdraw_profile(state: tauri::State<'_, IdentityState>) -> Result<prof
 async fn send_search_profile(
     state: tauri::State<'_, IdentityState>,
 ) -> Result<profile::View, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     // The client store is not `Sync`, as in `publish_profile`.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(profile::send_search(&dir, &identity))
     })
     .await
@@ -522,32 +568,24 @@ async fn search_profiles(
     searching: tauri::State<'_, search::SearchState>,
     query: search::Query,
 ) -> Result<search::Results, String> {
-    let (identity, dir) = open_identity(&state)?;
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
     let cache = Arc::clone(&searching.0);
     // The client store is not `Sync`, so the search runs on a thread of its own.
     tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
         tauri::async_runtime::block_on(search::search(&cache, &dir, &identity, query))
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-/// Blocks a found peer on this device; see `search::block`.
-#[tauri::command]
-fn block_peer(
-    state: tauri::State<'_, IdentityState>,
-    searching: tauri::State<'_, search::SearchState>,
-    peer_id: String,
-) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    search::block(&searching.0, &dir, &identity, &peer_id)
-}
-
 /// The open identity's privacy settings; see `privacy::load`.
 #[tauri::command]
 fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::load(&dir, &identity)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::load(dir, identity)
 }
 
 /// Stores the open identity's privacy settings; see `privacy::save`.
@@ -556,85 +594,25 @@ fn set_privacy(
     state: tauri::State<'_, IdentityState>,
     privacy: privacy::Privacy,
 ) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::save(&dir, &identity, privacy)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::save(dir, identity, privacy)
 }
 
 /// Peers the open identity blocked on this device.
 #[tauri::command]
 fn blocked_peers(state: tauri::State<'_, IdentityState>) -> Result<Vec<String>, String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::blocked(&dir, &identity)
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::blocked(dir, identity)
 }
 
 /// Unblocks a peer on this device; see `privacy::unblock`.
 #[tauri::command]
 fn unblock_peer(state: tauri::State<'_, IdentityState>, peer_id: String) -> Result<(), String> {
-    let (identity, dir) = open_identity(&state)?;
-    privacy::unblock(&dir, &identity, &peer_id)
-}
-
-/// The open identity's node settings; see `node::load`.
-#[cfg(unix)]
-#[tauri::command]
-async fn load_node_settings(
-    state: tauri::State<'_, IdentityState>,
-) -> Result<node::Settings, String> {
-    node::load(&identity_dir(&state)?)
-}
-
-/// Saves the node settings and restarts the node as they say; see `node::apply`.
-#[cfg(unix)]
-#[tauri::command]
-async fn save_node_settings(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-    settings: node::Settings,
-) -> Result<HashMap<&'static str, String>, String> {
-    let dir = identity_dir(&state)?;
-    node::save(&dir, &settings)?;
-    node::apply(&nodes, &dir).await
-}
-
-/// Starts or stops the node for the open identity, as on start or after a switch.
-#[cfg(unix)]
-#[tauri::command]
-async fn apply_node(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-) -> Result<HashMap<&'static str, String>, String> {
-    node::apply(&nodes, &identity_dir(&state)?).await
-}
-
-#[cfg(unix)]
-#[tauri::command]
-async fn node_status(
-    state: tauri::State<'_, IdentityState>,
-    nodes: tauri::State<'_, node::NodeState>,
-) -> Result<HashMap<&'static str, String>, String> {
-    Ok(node::status(&nodes, &identity_dir(&state)?).await)
-}
-
-/// Settings → Storage for the open identity; see `usage::usage`.
-#[tauri::command]
-async fn storage_usage(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, IdentityState>,
-) -> Result<usage::Usage, String> {
-    let config = config_dir(&app).ok();
-    let dir = identity_dir(&state)?;
-    tauri::async_runtime::spawn_blocking(move || usage::usage(config.as_deref(), &dir))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// The status bar: client traffic since start and the open identity's message store bytes.
-#[tauri::command]
-fn status(state: tauri::State<'_, IdentityState>) -> usage::Status {
-    usage::Status {
-        traffic: dyapp_client::traffic(),
-        messages: identity_dir(&state).ok().and_then(|dir| usage::messages(&dir)),
-    }
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    privacy::unblock(dir, identity, &peer_id)
 }
 
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
@@ -663,8 +641,7 @@ fn ui_test_existing() -> bool {
     std::env::args().any(|arg| arg == "--ui-test-existing")
 }
 
-/// The extra flow a UI test drives: `add`, `pick`, `recovery`, `remove`, `network`,
-/// `network-restart` or `connect:<seed>`.
+/// UI test flow: add, pick, recovery, remove, network, network-restart, or connect:<seed>.
 #[tauri::command]
 fn ui_test_step() -> String {
     std::env::args()
@@ -672,9 +649,8 @@ fn ui_test_step() -> String {
         .unwrap_or_default()
 }
 
-/// UI test only, with `DYAPP_UI_SHOTS=<dir>`: saves the screen as `<dir>/<name>-<lang>-<width>.png`
-/// at a narrow and a wide window, then restores the size. An existing file is kept; a failed or
-/// empty screenshot fails the test when capture is enabled.
+/// UI test screenshot at narrow and wide widths, then restores size. Existing files are kept;
+/// failed or empty captures fail the test when `DYAPP_UI_SHOTS=<dir>` is set.
 #[tauri::command]
 async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
     // A trace of the screens reached, so a timed-out suite shows where it stopped.
@@ -731,6 +707,12 @@ fn ui_test_result(
     }
     let success = passed && window.is_visible().unwrap_or(false);
     if success {
+        if reason.starts_with("video:") {
+            println!(
+                "UI_SMOKE_METRICS:{}",
+                reason.chars().take(512).collect::<String>()
+            );
+        }
         println!("UI_SMOKE_PASS:{peer_id}");
     } else {
         let reason = reason.lines().next().unwrap_or("unknown");
@@ -816,7 +798,12 @@ async fn ui_test_window(
         .primary_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("no display")?;
-    let rect = |x, y, width, height| window::Rect { x, y, width, height };
+    let rect = |x, y, width, height| window::Rect {
+        x,
+        y,
+        width,
+        height,
+    };
     Ok([
         rect(position.x, position.y, size.width, size.height),
         rect(
@@ -844,11 +831,16 @@ fn main() {
         });
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)));
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            tray::show(app)
+        }));
     #[cfg(unix)]
-    let builder = builder.manage(node::NodeState::default());
+    let builder = builder
+        .on_permission_request(safety::camera_permission)
+        .manage(node::NodeState::default());
     builder
-        .manage(IdentityState(Mutex::new(None)))
+        .manage(IdentityState::new())
         .manage(NetworkState::default())
         .manage(ProfileState::default())
         .manage(search::SearchState::default())
@@ -900,7 +892,12 @@ fn main() {
             withdraw_profile,
             send_search_profile,
             search_profiles,
-            block_peer,
+            safety::contact_safety_number,
+            safety::contact_safety_qr,
+            safety::scan_contact_qr,
+            clipboard::copy_safety_number,
+            clipboard::clear_safety_clipboard,
+            chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,
             chats::commands::liked_you,
@@ -910,15 +907,15 @@ fn main() {
             blocked_peers,
             unblock_peer,
             #[cfg(unix)]
-            load_node_settings,
+            node_usage_commands::load_node_settings,
             #[cfg(unix)]
-            save_node_settings,
+            node_usage_commands::save_node_settings,
             #[cfg(unix)]
-            apply_node,
+            node_usage_commands::apply_node,
             #[cfg(unix)]
-            node_status,
-            storage_usage,
-            status,
+            node_usage_commands::node_status,
+            node_usage_commands::storage_usage,
+            node_usage_commands::status,
             pseudo_locale,
             ui_test_russian,
             ui_test_mode,
@@ -928,6 +925,8 @@ fn main() {
             ui_test_window,
             ui_test_hide,
             ui_test_result,
+            #[cfg(all(target_os = "linux", debug_assertions))]
+            video_frames::ui_test_video_frames,
             set_tray,
             quit
         ])
@@ -943,8 +942,10 @@ fn main() {
                 }
                 webview
                     .eval(format!(
-                        "{}\n{}",
+                        "{}\n{}\n{}\n{}",
                         include_str!("ui-test-common.js"),
+                        include_str!("video-frame-renderer.js"),
+                        include_str!("video-frame-smoke.js"),
                         include_str!("ui-test.js")
                     ))
                     .expect("start UI test");
@@ -962,33 +963,5 @@ fn main() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::ready_result;
-    use std::path::Path;
-
-    #[test]
-    fn backup_path_is_only_returned_for_file_storage() {
-        let dir = Path::new("profile");
-        let file = ready_result("file", "peer".into(), dir);
-        assert_eq!(
-            file["keyPath"],
-            dir.join("identity.key").display().to_string()
-        );
-        let system = ready_result("system", "peer".into(), dir);
-        assert!(!system.contains_key("keyPath"));
-    }
-
-    #[test]
-    fn configured_window_is_visible_and_local() {
-        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
-        let app = &context.config().app;
-        assert_eq!(app.windows.len(), 1);
-        // Hidden until `window::restore` has placed it, then shown.
-        assert!(!app.windows[0].visible);
-        assert_eq!((app.windows[0].min_width, app.windows[0].min_height), (Some(400.0), Some(560.0)));
-        assert_eq!(app.windows[0].title, "DYApp");
-        assert!(matches!(app.windows[0].url, tauri::WebviewUrl::App(_)));
-        // No capabilities: the page can call only the app's own command, no plugin APIs.
-        assert!(app.security.capabilities.is_empty());
-    }
-}
+#[path = "main_tests.rs"]
+mod tests;

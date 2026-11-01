@@ -27,6 +27,65 @@ impl Session {
                 Ok((node.peer(), node.fetch(device_key).await?))
             })
             .await?;
+        self.process_page(nodes, device_key, profiles, seal_key, at, envelopes)
+            .await
+    }
+
+    /// Process one bounded page and report whether another page is due on this same node.
+    /// The caller schedules the continuation; each call commits inbox work before ACK.
+    pub async fn receive_page(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+    ) -> Result<(Vec<Event>, bool), Error> {
+        const PAGE_LIMIT: u32 = 20;
+        let now = crate::now();
+        let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+        let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
+        for i in self.scores.ranked(&peers, now) {
+            let at = peers[i];
+            let cursor = self.store.mailbox_cursor_for(at)?;
+            let fetched = nodes[i]
+                .fetch_page(device_key, cursor.as_deref(), PAGE_LIMIT)
+                .await;
+            let page = match fetched {
+                Ok(page) => page,
+                Err(error) => {
+                    if scores::faulty(&error) {
+                        self.scores.fault(at, now);
+                    }
+                    last = error;
+                    continue;
+                }
+            };
+            let events = self
+                .process_page(nodes, device_key, profiles, seal_key, at, page.envelopes)
+                .await?;
+            if page.more {
+                let next = page
+                    .next_cursor
+                    .as_deref()
+                    .ok_or(crate::Error::Reply("missing mailbox cursor"))?;
+                self.store.save_mailbox_cursor(at, next)?;
+            } else {
+                self.store.clear_mailbox_cursor()?;
+            }
+            return Ok((events, page.more));
+        }
+        Err(last.into())
+    }
+
+    async fn process_page(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+        at: libp2p::PeerId,
+        envelopes: Vec<crate::Envelope>,
+    ) -> Result<Vec<Event>, Error> {
         let mailbox = crate::mailbox(&device_key.public_key());
         let mut events = Vec::new();
         let mut seen = Vec::new();

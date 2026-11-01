@@ -89,7 +89,14 @@ and remains available on Retry. Rust's connection-check test and a desktop smoke
 the Apple cancel path belongs to the later Apple failure matrix.
 The same native UI cases verify that Continue stays disabled after an invalid row; a shared
 unit test verifies that calling Activate then leaves the active settings absent.
-The shared Linux/Windows desktop smoke measures the Peer ID text at narrow and
+The Linux debug UI smoke injects the synthetic raw-frame Canvas consumer, receives four binary
+Tauri channel frames each at 360p and 720p, checks the final Canvas dimensions and RGBA pixel,
+rejects malformed and oversized buffers, and records bounded frame counts and ages in
+`desktop-ui-results.json`. Xvfb checks correctness only; it is not a performance benchmark.
+The shared Linux/Windows desktop smoke blocks a known Peer ID in Settings, checks that Retry
+reports the token revocation state, then unblocks it and checks that the list clears. The native
+search and Liked you blocking flow remains for later UI coverage. The shared Linux/Windows
+desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. Its final check also runs the short Peer ID
 rule on fixed IDs: "@" and the last 6 characters, one more for each tail another known ID shares,
@@ -128,7 +135,8 @@ then compares the node's signed profile payload with the locally saved draft and
 post-publish UI readback fields, age range and full-date warning equal the reviewed preview. The
 same Linux
 fixture first attempts publication without an active network, checks that the draft survives,
-and that search asks to connect with a retry. It then checks the node under a wrong pin, under
+and that search asks to connect with a retry. The disconnected Chats visit must also show a
+mailbox refresh error instead of claiming the empty Liked you list is current. It then checks the node under a wrong pin, under
 another network name and a closed port, each with Continue disabled and no active network; the
 next launch retries, connects and retries the publication. A fresh first run connects to the same node on the
 wizard's network step and must leave an active network. After it,
@@ -177,8 +185,10 @@ corrupted, reopen it and remove it through the remove screen; add another file i
 recovery after its key is corrupted and again after it is deleted (Details start collapsed,
 Copy copies the code and slot row) and remove it from recovery (each removal must delete only
 its slot folder and reopen the system identity); file create/restart, then
-reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair, which rejects an unlisted place, picks Berlin from the
-suggestions, checks it after the restart and clears it with the country;
+reopen the same key moved to the pre-slot root layout; a profile draft create/save/restart pair,
+which rejects an unlisted place, checks that unsaved fields and its invalid state survive
+section navigation, picks Berlin from the suggestions, checks it after the restart and clears it
+with the country;
 then Russian, pseudo-locale and an
 injected rejection that hides the Profile heading. The restart in
 each mode must report the same 64-character Peer ID. Successful runs print
@@ -316,7 +326,23 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   anyway and Cancel keeps it; with the node restarted the tombstone goes first and the identity is
   removed. Settings → Privacy starts at its defaults and keeps changes across a restart. This
   isolated fixture uses an 8-bit node-ID puzzle in both the node and test-mode client; production
-  keeps 22 bits.
+  keeps 22 bits. The profile test saves a valid draft and checks its fields after a normal app
+  restart; cancellation of the publish dialog keeps that saved draft. Unsaved crash recovery is
+  outside this test and is described in the [UI state contract](../architecture/ui-state-contract.md).
+  The contact safety check opens a verified search result, asserts the grouped 60-digit number
+  and checks that the rendered QR canvas has a white quiet zone and black finder pattern. The
+  QR payload comes from the active identity and selected contact. A Rust unit fixture renders
+  that payload into grayscale pixels and checks the bounded decoder's match, reversed/foreign,
+  bad-version, blank-frame and multiple-code results. The native UI test also feeds a PNG made
+  from its displayed QR through image import and rejects that same-direction code; it reports a
+  malformed PNG. Fake media-device responses verify camera denial, no-device
+  status and cancellation of a pending capture without opening a real camera.
+  Real Debian 12 capture and two-client scanning remain pending.
+  A fake-clock clipboard case copies the grouped number, runs the 60-second
+  expiry through the native clipboard command, preserves a later different
+  safety number, and leaves an ordinary Peer ID copy alone. It tests the
+  plugin in CI's desktop session; clipboard-history exclusion still needs a
+  real desktop-session check.
 - **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs
@@ -329,9 +355,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `settings-storage`, `remove`, `remove-offline`, `recovery`, `recovery-details`,
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
   `publish-dialog`, `profile-publish-failed`, `profile-published`, `profile-hidden`,
-  `profile-unhidden-pending`, `search-not-connected`, `search-results`, `search-profile`,
-  `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where the test flow reaches
-  them). The in-progress network check and the publish puzzle finish
+  `profile-unhidden-pending`, `search-not-connected`, `chats-not-connected`, `search-results`,
+  `search-profile`, `search-safety`, `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
+  the test flow reaches them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
   (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the
@@ -341,7 +367,10 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   rejects a positive `tabindex` (tab order follows the DOM), focuses every visible control and
   requires a focus ring (`box-shadow` or `outline`), and resizes the window to 440 px through
   `ui_test_window` to reject horizontal overflow. Any finding fails the case with the rule, theme
-  and first element.
+  and first element. The `target-size` rule in axe-core 4.14 is disabled by default even though
+  it has the WCAG 2.2 AA tag. A pilot enables it explicitly on the `ready` and `search-results`
+  checkpoints and checks that two deliberately undersized adjacent buttons are reported;
+  coverage of the other screens remains planned pending runtime and false-positive review.
 
 ### Desktop prototype screenshots
 
@@ -351,8 +380,10 @@ light `dyapp:prototype` image (Debian 12, WebKitGTK 4.1, Xvfb; no Rust build, al
 `prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
 for each screen of [Desktop screens](../design/desktop-screens.md) in English and Russian, at 440
 and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
-non-zero when any page fails to load or save. The prototype has no logic, so this checks layout
-and wording only; the maintainer reviews the files by eye.
+non-zero when any page fails to load or save. Pass `desktop` and optional screen names after the
+script path to capture only named states; use a fresh `/shots` mount under `build/` when preserving
+existing screenshots. The prototype has no logic, so this checks layout and wording only; the
+maintainer reviews the files by eye.
 
 ### Android prototype screenshots
 
@@ -447,9 +478,9 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 
 ## Troubleshooting
 
-Linux unit/smoke stages, the standalone desktop smoke CLI and Windows Cargo
-checks use mapped concise output. Native Linux/Windows CI archives full logs
-from `build/platform-check-output`; JSON unit manifests and desktop result
+Linux unit/smoke stages, the standalone desktop smoke CLI, the Ubuntu release-tarball
+smoke and Windows Cargo checks use mapped concise output. Native Linux/Windows CI archives full
+logs from `build/platform-check-output`; JSON unit manifests and desktop result
 files keep their existing roles. If the Linux test binary fails to compile, the script prints up
 to eight compiler errors from its JSON manifest into the mapped failure output. Desktop failures
 include only the failed app invocation output, so the expected `--break-ui` rejection is not

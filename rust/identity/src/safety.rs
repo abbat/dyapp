@@ -13,6 +13,33 @@ const LABEL: &[u8] = b"dyapp/safety-number/v1\0";
 
 /// The 60-digit safety number of two identity keys, the same on both sides.
 pub fn safety_number(mine: &[u8; 32], theirs: &[u8; 32]) -> String {
+    from_hashes(&key_hash(mine), &key_hash(theirs))
+}
+
+/// The same safety number from canonical lowercase hexadecimal Peer IDs.
+/// A verified profile already supplies a Peer ID, so its signer key need not be retained.
+pub fn safety_number_for_peer_ids(mine: &str, theirs: &str) -> Option<String> {
+    Some(from_hashes(&parse_peer_id(mine)?, &parse_peer_id(theirs)?))
+}
+
+fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 64
+        || !bytes
+            .iter()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return None;
+    }
+    let mut peer = [0u8; 32];
+    for (index, pair) in bytes.as_chunks::<2>().0.iter().enumerate() {
+        peer[index] =
+            (pair[0] as char).to_digit(16)? as u8 * 16 + (pair[1] as char).to_digit(16)? as u8;
+    }
+    Some(peer)
+}
+
+fn from_hashes(mine: &[u8; 32], theirs: &[u8; 32]) -> String {
     let (mut low, mut high) = (half(mine), half(theirs));
     if low > high {
         std::mem::swap(&mut low, &mut high);
@@ -21,8 +48,7 @@ pub fn safety_number(mine: &[u8; 32], theirs: &[u8; 32]) -> String {
 }
 
 // 30 digits: six 5-byte chunks of the iterated hash, each mod 100000.
-fn half(public_key: &[u8; 32]) -> String {
-    let peer = key_hash(public_key);
+fn half(peer: &[u8; 32]) -> String {
     let mut hash: [u8; 64] = Sha512::new()
         .chain_update(LABEL)
         .chain_update(peer)
@@ -48,12 +74,29 @@ fn half(public_key: &[u8; 32]) -> String {
 
 /// What this profile's QR code carries: a version, then its raw Peer ID and the contact's.
 pub fn qr_payload(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
-    [&[VERSION][..], &key_hash(mine), &key_hash(theirs)].concat()
+    qr_from_hashes(&key_hash(mine), &key_hash(theirs))
+}
+
+/// The same QR payload from canonical lowercase hexadecimal Peer IDs.
+pub fn qr_payload_for_peer_ids(mine: &str, theirs: &str) -> Option<Vec<u8>> {
+    Some(qr_from_hashes(
+        &parse_peer_id(mine)?,
+        &parse_peer_id(theirs)?,
+    ))
+}
+
+fn qr_from_hashes(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
+    [&[VERSION][..], mine, theirs].concat()
 }
 
 /// Whether a QR code scanned from the contact's screen names both keys the right way round.
 pub fn qr_matches(scanned: &[u8], mine: &[u8; 32], theirs: &[u8; 32]) -> bool {
     scanned == qr_payload(theirs, mine)
+}
+
+/// The same check for canonical lowercase hexadecimal Peer IDs.
+pub fn qr_matches_peer_ids(scanned: &[u8], mine: &str, theirs: &str) -> bool {
+    qr_payload_for_peer_ids(theirs, mine).is_some_and(|expected| scanned == expected)
 }
 
 #[cfg(test)]
@@ -68,8 +111,24 @@ mod tests {
         assert!(number.bytes().all(|byte| byte.is_ascii_digit()));
         assert_eq!(number, safety_number(&bob, &alice));
         assert_ne!(number, safety_number(&alice, &carol));
-        let (a, b) = (half(&alice), half(&bob));
+        let (a, b) = (half(&key_hash(&alice)), half(&key_hash(&bob)));
         assert!(number == a.clone() + &b || number == b + &a);
+        let alice_id = crate::peer_id(&alice);
+        let bob_id = crate::peer_id(&bob);
+        assert_eq!(
+            safety_number_for_peer_ids(&alice_id, &bob_id),
+            Some(number.clone())
+        );
+        assert_eq!(safety_number_for_peer_ids(&bob_id, &alice_id), Some(number));
+        assert_eq!(
+            safety_number_for_peer_ids(&alice_id.to_uppercase(), &bob_id),
+            None
+        );
+        assert_eq!(safety_number_for_peer_ids(&alice_id[..63], &bob_id), None);
+        assert_eq!(
+            safety_number_for_peer_ids(&format!("g{}", &alice_id[1..]), &bob_id),
+            None
+        );
     }
 
     #[test]
@@ -81,5 +140,32 @@ mod tests {
         assert!(!qr_matches(&qr_payload(&alice, &bob), &alice, &bob));
         assert!(!qr_matches(&qr_payload(&carol, &alice), &alice, &bob));
         assert!(!qr_matches(&shown_by_bob[..64], &alice, &bob));
+        let alice_id = crate::peer_id(&alice);
+        let bob_id = crate::peer_id(&bob);
+        let carol_id = crate::peer_id(&carol);
+        assert_eq!(
+            qr_payload_for_peer_ids(&bob_id, &alice_id),
+            Some(shown_by_bob.clone())
+        );
+        assert!(qr_matches_peer_ids(&shown_by_bob, &alice_id, &bob_id));
+        assert!(!qr_matches_peer_ids(&shown_by_bob, &bob_id, &alice_id));
+        assert!(!qr_matches_peer_ids(&shown_by_bob, &alice_id, &carol_id));
+        assert!(!qr_matches_peer_ids(
+            &shown_by_bob[..64],
+            &alice_id,
+            &bob_id
+        ));
+        let mut unknown = shown_by_bob.clone();
+        unknown[0] = VERSION + 1;
+        assert!(!qr_matches_peer_ids(&unknown, &alice_id, &bob_id));
+        assert_eq!(
+            qr_payload_for_peer_ids(&bob_id.to_uppercase(), &alice_id),
+            None
+        );
+        assert!(!qr_matches_peer_ids(
+            &shown_by_bob,
+            &alice_id[..63],
+            &bob_id
+        ));
     }
 }

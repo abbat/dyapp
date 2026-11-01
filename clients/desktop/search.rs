@@ -23,6 +23,14 @@ const SEARCH_NODES: usize = 3;
 #[derive(Default)]
 pub struct SearchState(pub Arc<Mutex<Profiles>>);
 
+impl SearchState {
+    /// Discard verified profiles held for the previous active context.
+    pub fn clear(&self) -> Result<(), String> {
+        *self.0.lock().map_err(|e| e.to_string())? = Profiles::default();
+        Ok(())
+    }
+}
+
 /// One filter as the page sends it; `op` is `eq`, `in` or `range`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
 pub struct Condition {
@@ -225,16 +233,16 @@ pub async fn search(
     })
 }
 
-/// Blocks `peer_id` on this device: later searches drop it. Only a peer some search of this run
-/// returned can be blocked. Errors are `unknownPeer` or a storage message.
-pub fn block(
-    cache: &Mutex<Profiles>,
-    dir: &Path,
-    identity: &Identity,
-    peer_id: &str,
-) -> Result<(), String> {
-    if cache.lock().map_err(|e| e.to_string())?.get(peer_id).is_none() {
-        return Err("unknownPeer".into());
+/// Blocks a well-formed peer on this device; later searches drop it. A known Peer ID need
+/// not come from this run's search cache (for example it may have sent a like).
+pub fn block(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
+    if peer_id.len() != 64
+        || !peer_id
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        || peer_id == identity.peer_id()
+    {
+        return Err("invalidPeer".into());
     }
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     store.set_blocked(peer_id, true).map_err(|e| e.to_string())
@@ -290,15 +298,17 @@ mod tests {
     }
 
     #[test]
-    fn only_a_peer_a_search_returned_can_be_blocked() {
-        let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
-        let stranger = Identity::generate().peer_id().to_string();
+    fn known_peer_id_can_be_blocked_without_a_search_result() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        let peer = Identity::generate().peer_id();
+        assert_eq!(block(&dir, &alice, "bad"), Err("invalidPeer".into()));
         assert_eq!(
-            block(&cache, &dir, &alice, &stranger),
-            Err("unknownPeer".into())
+            block(&dir, &alice, &alice.peer_id()),
+            Err("invalidPeer".into())
         );
+        assert!(block(&dir, &alice, &peer).is_ok());
         let store = Store::open(&dir.join("client.db"), &alice).unwrap();
-        assert!(store.blocked_peers().unwrap().is_empty());
+        assert!(store.blocked(&peer).unwrap());
     }
 
     #[test]

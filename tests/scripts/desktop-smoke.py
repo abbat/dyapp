@@ -140,7 +140,8 @@ def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
         raise RuntimeError(f"published profile readback failed: {result}")
     payload = signed_profile_payload(result["record"])
     if (payload == draft[0]) == hidden:
-        raise RuntimeError("node readback has wrong hidden or published version")
+        raise RuntimeError(
+            "node readback has wrong hidden or published version")
     return payload
 
 
@@ -160,6 +161,17 @@ def forge_search_signature(node_storage):
                    (forged, key))
 
 
+def video_smoke(case, reports):
+    """Linux-only raw Tauri channel and Canvas smoke.
+
+    Runs separately from account flows.
+    """
+    for size in ("360p", "720p"):
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            case(f"video-{size}", [f"--ui-test-step=video:{size}"],
+                 profile, peer=False)
+
+
 def smoke(executable, flows=True):
     """flows=False skips the stateful identity and network flows, which a
     stateless fixture app cannot pass; only tests of this script use it."""
@@ -170,11 +182,13 @@ def smoke(executable, flows=True):
     reports.mkdir(parents=True, exist_ok=True)
     results = []
 
-    def case(name, extra, profile, broken=False, peer=True, timeout=120):
-        arguments = [executable, "--ui-test", *extra]
+    def case(name, extra, profile, broken=False, peer=True, timeout=120,
+             launcher=(), extra_env=None):
+        arguments = [*launcher, executable, "--ui-test", *extra]
         if os.environ.get("DYAPP_SMOKE_RU") == "1":
             arguments.append("--ui-test-ru")
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
+        env.update(extra_env or {})
         process = run(arguments, timeout=timeout, env=env)
         match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)
         found = match is not None and (match[1] is not None or not peer)
@@ -187,8 +201,15 @@ def smoke(executable, flows=True):
                 f"{process.stdout}\n{process.stderr}")
         print(process.stdout, end="")
         print(process.stderr, end="", file=sys.stderr)
-        results.append({"case": name, "exit": process.returncode,
-                        "passed": True})
+        result = {"case": name, "exit": process.returncode, "passed": True}
+        if name.startswith("video-"):
+            metrics = re.search(
+                r"^UI_SMOKE_METRICS:video:(?:360p|720p):(\{[^\n]{1,500}\})$",
+                process.stdout, re.M)
+            if not metrics:
+                raise RuntimeError(f"{name} did not report bounded metrics")
+            result["metrics"] = json.loads(metrics[1])
+        results.append(result)
         return match.group(1) if match else None
 
     def remove(name, profile, slot, first):
@@ -276,6 +297,28 @@ def smoke(executable, flows=True):
              profile, peer=False)
         remove("remove-missing", profile, added, first)
 
+    def system_files_only(profile):
+        """An app-file copy cannot recover a credential in a fresh provider."""
+        root = Path(profile)
+        slot = (root / "active-profile").read_text().strip()
+        with tempfile.TemporaryDirectory(dir=reports) as restored:
+            restored = Path(restored)
+            (restored / "profiles").mkdir()
+            shutil.copytree(root / "profiles" / slot,
+                            restored / "profiles" / slot)
+            home = restored / "home"
+            home.mkdir()
+            runtime = restored / "runtime"
+            runtime.mkdir(mode=0o700)
+            launcher = ["dbus-run-session", "--", "bash",
+                        str(Path(__file__).with_name("fresh-keyring.sh"))]
+            case("system-files-only", ["--ui-test-step=recovery:missing"],
+                 restored, peer=False, launcher=launcher,
+                 extra_env={"HOME": str(home),
+                            "XDG_DATA_HOME": str(home / "data"),
+                            "XDG_CONFIG_HOME": str(home / "config"),
+                            "XDG_RUNTIME_DIR": str(runtime)})
+
     def legacy(profile, peer_id):
         """Turn the file slot into a pre-slot root key and reopen it."""
         root = Path(profile)
@@ -327,6 +370,17 @@ def smoke(executable, flows=True):
                      profile)
         if saved != peer_id:
             raise RuntimeError("saving a profile replaced the identity")
+        # The app has exited; copy the whole slot into a fresh config.
+        with tempfile.TemporaryDirectory(dir=reports) as restored:
+            slot = (Path(profile) / "active-profile").read_text().strip()
+            target = Path(restored) / "profiles"
+            target.mkdir()
+            shutil.copytree(Path(profile) / "profiles" / slot, target / slot)
+            restored_peer = case(
+                "profile-backup-restore",
+                [*file, "--ui-test-step=profile-restart"], restored)
+            if restored_peer != peer_id:
+                raise RuntimeError("restored file slot changed Peer ID")
         reopened = case("profile-restart",
                         [*file, "--ui-test-step=profile-restart"], profile)
         if reopened != peer_id:
@@ -418,7 +472,8 @@ def smoke(executable, flows=True):
                              profile, timeout=180)
             if published != peer_id:
                 raise RuntimeError("publishing replaced the identity")
-            visible_payload = check_profile_readback(node, seed, peer_id, env, storage)
+            visible_payload = check_profile_readback(
+                node, seed, peer_id, env, storage)
             case("search", [*file, "--ui-test-step=search"], profile,
                  timeout=180)
             forge_search_signature(storage / "node")
@@ -432,18 +487,22 @@ def smoke(executable, flows=True):
             case("profile-unhide", [*file, "--ui-test-step=profile-unhide"],
                  profile, timeout=180)
             check_profile_readback(node, seed, peer_id, env, storage)
-            # A separate client root keeps the first identity's removal flow intact while
-            # both published Peer IDs coexist on the same loopback node for interaction tests.
-            peer_root = Path(tempfile.mkdtemp(prefix="like-peer-", dir=reports))
+            # Keep the first identity's removal flow intact while both
+            # published Peer IDs coexist on the loopback node.
+            peer_root = Path(tempfile.mkdtemp(
+                prefix="like-peer-", dir=reports))
             other_peer = case("peer-create", file, peer_root)
             if other_peer == peer_id:
-                raise RuntimeError("two client roots generated the same Peer ID")
+                raise RuntimeError(
+                    "two client roots generated the same Peer ID")
             if case("peer-connect", [*file, f"--ui-test-step=connect:{seed}"],
                     peer_root) != other_peer:
-                raise RuntimeError("connecting the second client changed its Peer ID")
+                raise RuntimeError(
+                    "connecting the second client changed its Peer ID")
             if case("peer-publish", [*file, "--ui-test-step=profile-publish"],
                     peer_root, timeout=180) != other_peer:
-                raise RuntimeError("publishing the second client changed its Peer ID")
+                raise RuntimeError(
+                    "publishing the second client changed its Peer ID")
             check_profile_readback(node, seed, other_peer, env, peer_root)
             check_profile_readback(node, seed, peer_id, env, storage)
             # A first run that connects on the wizard's network step.
@@ -475,6 +534,9 @@ def smoke(executable, flows=True):
             server.terminate()
             server.wait(timeout=30)
 
+    video_enabled = os.environ.get("DYAPP_VIDEO_SMOKE") == "1"
+    if flows and sys.platform.startswith("linux") and video_enabled:
+        video_smoke(case, reports)
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
             flags = ["--ui-test-file"] if mode == "file" else []
@@ -485,6 +547,8 @@ def smoke(executable, flows=True):
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
             if flows:
+                if mode == "system" and sys.platform.startswith("linux"):
+                    system_files_only(profile)
                 (legacy if mode == "file" else mixed)(profile, peer_id)
     if flows:
         with tempfile.TemporaryDirectory(dir=reports) as profile:

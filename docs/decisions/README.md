@@ -59,8 +59,8 @@ fails only the push that carries it.
 | [0020](0020-dyappd-release-channels.md) | dyappd release channels: GitHub Releases and GHCR with build provenance |
 | [0021](0021-ai-review-human-merge.md) | AI review with a human merge |
 | [0022](0022-desktop-system-credential-storage.md) | Optional desktop system credential storage |
-| [0023](0023-bootstrap-node-update-policy.md) | Opt-in unattended bootstrap updates for v0.0.1 |
-| [0024](0024-bootstrap-update-channel.md) | TUF channel with offline release signer and reserve root key |
+| [0023](0023-bootstrap-node-update-policy.md) | Manual bootstrap node upgrades for v0.0.1 |
+| [0024](0024-bootstrap-update-channel.md) | Historical TUF proposal for unattended bootstrap updates (rejected for v0.0.1) |
 | [0025](0025-client-local-sqlite-storage.md) | Per-profile SQLite client storage |
 | [0026](0026-profile-text-rules.md) | Unicode rules for profile strings |
 | [0027](0027-optional-public-profile-name.md) | Optional public profile name, replaced by local names |
@@ -73,5 +73,6 @@ fails only the push that carries it.
 | [0034](0034-desktop-tray-and-single-instance.md) | Desktop tray and single instance |
 | [0035](0035-windows-free-disk-space.md) | Windows free disk space |
 | [0036](0036-search-visibility.md) | Search visibility is separate from profile deletion |
+| [0039](0039-sensitive-safety-clipboard.md) | Sensitive safety-number clipboard on desktop |
 
-All listed ADRs are accepted.
+All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

@@ -17,6 +17,7 @@ pub mod seeds;
 pub mod session;
 pub mod store;
 pub mod tokens;
+pub mod updates;
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
@@ -102,6 +103,18 @@ pub struct Envelope {
     pub sender_key: Vec<u8>,
     /// MLS message bytes.
     pub ciphertext: Vec<u8>,
+}
+
+/// One bounded mailbox fetch from a single node.
+/// A cursor is only valid for that node's Peer ID; callers persist that binding separately.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MailboxPage {
+    /// Envelopes in node order.
+    pub envelopes: Vec<Envelope>,
+    /// Whether the node reports another page.
+    pub more: bool,
+    /// Opaque position for the next fetch on the same node.
+    pub next_cursor: Option<Vec<u8>>,
 }
 
 /// A signed mailbox write that can be persisted and retried without changing its ID or bytes.
@@ -459,10 +472,38 @@ impl Node {
     }
 
     /// The envelopes waiting in the mailbox of `device`, and whether more are waiting.
+    /// Existing first-page callers can use this API without handling a cursor.
     pub async fn fetch(&mut self, device: &Identity) -> Result<(Vec<Envelope>, bool), Error> {
+        let page = self.fetch_inner(device, None, 0, false).await?;
+        Ok((page.envelopes, page.more))
+    }
+
+    /// Fetch one bounded page from this node. `cursor` must come from this same node's Peer ID.
+    /// An old or malformed node that claims more without advancing is rejected.
+    pub async fn fetch_page(
+        &mut self,
+        device: &Identity,
+        cursor: Option<&[u8]>,
+        limit: u32,
+    ) -> Result<MailboxPage, Error> {
+        if !(1..=100).contains(&limit) || cursor.is_some_and(|value| value.is_empty()) {
+            return Err(Error::Input("bad mailbox page limit or cursor"));
+        }
+        self.fetch_inner(device, cursor, limit, true).await
+    }
+
+    async fn fetch_inner(
+        &mut self,
+        device: &Identity,
+        cursor: Option<&[u8]>,
+        limit: u32,
+        require_progress: bool,
+    ) -> Result<MailboxPage, Error> {
         let nonce = self.challenge().await?;
         let fetch = proto::Fetch {
             nonce,
+            limit,
+            cursor: cursor.unwrap_or_default().to_vec(),
             ..Default::default()
         };
         let record = device.sign(Domain::MailboxFetch, fetch.encode_to_vec());
@@ -483,7 +524,18 @@ impl Node {
                 })
             })
             .collect::<Result<_, Error>>()?;
-        Ok((envelopes, response.more))
+        if require_progress
+            && response.more
+            && (response.next_cursor.is_empty()
+                || cursor.is_some_and(|previous| previous == response.next_cursor.as_slice()))
+        {
+            return Err(Error::Reply("mailbox cursor did not advance"));
+        }
+        Ok(MailboxPage {
+            envelopes,
+            more: response.more,
+            next_cursor: (!response.next_cursor.is_empty()).then_some(response.next_cursor),
+        })
     }
 
     /// Deletes envelopes `ids` from the mailbox of `device`.

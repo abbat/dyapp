@@ -16,8 +16,37 @@ use tokio::sync::oneshot;
 pub struct NetworkState {
     // Stops the running check; a second concurrent check takes it over.
     cancel: Mutex<Option<oneshot::Sender<()>>>,
-    // The identity folder and the last draft of it that reached a node of its network.
-    checked: Mutex<Option<(PathBuf, Network)>>,
+    // A successful check belongs to one active-network epoch.
+    checked: Mutex<CheckContext>,
+}
+
+#[derive(Default)]
+struct CheckContext {
+    epoch: u64,
+    last: Option<(PathBuf, Network)>,
+}
+
+impl NetworkState {
+    /// A successful check is valid only for the active identity generation.
+    pub fn clear_checked(&self) -> Result<(), String> {
+        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
+        checked.epoch = checked.epoch.wrapping_add(1);
+        checked.last = None;
+        Ok(())
+    }
+
+    fn check_epoch(&self) -> Result<u64, String> {
+        Ok(self.checked.lock().map_err(|e| e.to_string())?.epoch)
+    }
+
+    fn remember_connected(&self, epoch: u64, dir: PathBuf, draft: Network) -> Result<(), String> {
+        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
+        if checked.epoch != epoch {
+            return Err("cancelled".into());
+        }
+        checked.last = Some((dir, draft));
+        Ok(())
+    }
 }
 
 /// Seed rows and network name as the page sends and receives them.
@@ -85,11 +114,17 @@ pub async fn check(
     dir: PathBuf,
     draft: Draft,
     wait: Duration,
+    transition_started: impl FnOnce() -> Result<bool, String>,
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
+    let epoch = state.check_epoch()?;
     let draft = Network::from(draft);
     network::save(&dir, Settings::Draft, &draft).map_err(|e| e.to_string())?;
     let (stop, stopped) = oneshot::channel();
     *state.cancel.lock().map_err(|e| e.to_string())? = Some(stop);
+    // A transition may have signalled cancellation before this sender was registered.
+    if transition_started()? {
+        return Err("cancelled".into());
+    }
     let rows = tokio::select! {
         rows = seeds::check(&draft, wait) => rows,
         _ = stopped => return Err("cancelled".into()),
@@ -101,7 +136,7 @@ pub async fn check(
         Err(error) => return Err(error.to_string()),
     };
     if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-        *state.checked.lock().map_err(|e| e.to_string())? = Some((dir, draft));
+        state.remember_connected(epoch, dir, draft)?;
     }
     Ok(rows.into_iter().map(describe).collect())
 }
@@ -131,12 +166,14 @@ pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
 /// Makes the last draft of `dir` that reached a node the active configuration; `notChecked`
 /// when no check of this folder did.
 pub fn activate(state: &NetworkState, dir: &Path) -> Result<Draft, String> {
-    let checked = state.checked.lock().map_err(|e| e.to_string())?.clone();
-    let network = match checked {
-        Some((checked_dir, network)) if checked_dir == dir => network,
+    let mut checked = state.checked.lock().map_err(|e| e.to_string())?;
+    let network = match &checked.last {
+        Some((checked_dir, network)) if checked_dir == dir => network.clone(),
         _ => return Err("notChecked".into()),
     };
     network::save(dir, Settings::Active, &network).map_err(|e| e.to_string())?;
+    checked.epoch = checked.epoch.wrapping_add(1);
+    checked.last = None;
     Ok(network.into())
 }
 
@@ -175,7 +212,7 @@ mod tests {
             .unwrap();
         let unreachable = draft(&[&closed.to_string(), "seed"], "");
         let wait = Duration::from_secs(2);
-        let rows = check(&state, dir.clone(), unreachable.clone(), wait)
+        let rows = check(&state, dir.clone(), unreachable.clone(), wait, || Ok(false))
             .await
             .unwrap();
         assert_eq!(rows[0]["status"], "unreachable");
@@ -183,20 +220,55 @@ mod tests {
         assert_eq!(load(&dir, "draft"), Ok(Some(unreachable)));
         assert_eq!(activate(&state, &dir), Err("notChecked".into()));
 
-        let empty = check(&state, dir.clone(), draft(&[], ""), wait).await;
+        let empty = check(&state, dir.clone(), draft(&[], ""), wait, || Ok(false)).await;
         assert_eq!(empty, Err("empty".into()));
-        let bad_name = check(&state, dir.clone(), draft(&["seed:1"], " city"), wait).await;
+        let bad_name = check(
+            &state,
+            dir.clone(),
+            draft(&["seed:1"], " city"),
+            wait,
+            || Ok(false),
+        )
+        .await;
         assert!(bad_name.unwrap_err().starts_with("invalidNetwork: "));
 
         // A remembered success never activates another identity's folder.
         let other = draft(&["seed:1"], "");
-        *state.checked.lock().unwrap() = Some((dir.clone(), other.clone().into()));
+        state.checked.lock().unwrap().last = Some((dir.clone(), other.clone().into()));
         assert_eq!(
             activate(&state, &temp_dir("other")),
             Err("notChecked".into())
         );
         assert_eq!(activate(&state, &dir), Ok(other.clone()));
         assert_eq!(load(&dir, "active"), Ok(Some(other)));
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
+        state.clear_checked().unwrap();
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
+    }
+
+    #[test]
+    fn late_success_cannot_restore_a_consumed_network_check() {
+        let (dir, state) = (temp_dir("check-epoch"), NetworkState::default());
+        let first = draft(&["seed:1"], "first");
+        let old_epoch = state.check_epoch().unwrap();
+        state
+            .remember_connected(old_epoch, dir.clone(), first.clone().into())
+            .unwrap();
+        assert_eq!(activate(&state, &dir), Ok(first));
+        let next = draft(&["seed:2"], "next");
+        assert_eq!(
+            state.remember_connected(old_epoch, dir.clone(), next.clone().into()),
+            Err("cancelled".into())
+        );
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
+        state
+            .remember_connected(
+                state.check_epoch().unwrap(),
+                dir.clone(),
+                next.clone().into(),
+            )
+            .unwrap();
+        assert_eq!(activate(&state, &dir), Ok(next));
     }
 
     #[tokio::test]
@@ -215,13 +287,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn check_registered_after_transition_signal_cancels_before_dial() {
+        use crate::identity_gate::IdentityGate;
+
+        let (dir, state) = (temp_dir("transition"), NetworkState::default());
+        let gate = IdentityGate::new(Some("first"));
+        let lease = gate.lease().unwrap();
+        let transition = gate.start_transition().unwrap();
+        cancel(&state); // The signal arrives before the check registers its sender.
+        let first = draft(&[], "");
+        let result = check(&state, dir.clone(), first.clone(), Duration::ZERO, || {
+            Ok(lease.transitioning().unwrap())
+        })
+        .await;
+        assert_eq!(result, Err("cancelled".into()));
+        assert_eq!(load(&dir, "draft"), Ok(Some(first)));
+
+        drop(lease);
+        transition.wait().unwrap();
+        transition.commit(Some("second")).unwrap();
+        let next = gate.lease().unwrap();
+        let result = check(&state, dir, draft(&[], ""), Duration::ZERO, || {
+            Ok(next.transitioning().unwrap())
+        })
+        .await;
+        assert_eq!(result, Err("empty".into()));
+    }
+
+    #[tokio::test]
     async fn cancel_stops_a_running_check() {
         let (dir, state) = (temp_dir("cancel"), NetworkState::default());
         // Accepts TCP but never answers the handshake, so the check waits for the minute.
         let mute = TcpListener::bind("127.0.0.1:0").unwrap();
         let silent = draft(&[&mute.local_addr().unwrap().to_string()], "");
         let started = std::time::Instant::now();
-        let running = check(&state, dir, silent, Duration::from_secs(60));
+        let running = check(&state, dir, silent, Duration::from_secs(60), || Ok(false));
         let stop = async {
             loop {
                 tokio::time::sleep(Duration::from_millis(100)).await;

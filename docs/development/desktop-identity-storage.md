@@ -23,8 +23,9 @@ non-secret `storage-mode` file in the same directory contains `system` or `file`
 written before the identity key. An interrupted save leaves an
 incomplete slot without a key; the app then reports it rather than generating another.
 After choosing file storage, the ready screen shows the exact `identity.key` path from the
-running app and asks the user to back up its whole folder. System storage never shows a file
-path. The screen does not reveal key bytes.
+running app and asks the user to close the app and copy its whole folder. The user is responsible
+for protecting the copy. System storage never shows a file path, and copying app files does not
+back up that credential. The screen does not reveal key bytes.
 
 After selection, failure to open the chosen backend never generates a replacement identity or
 switches storage. Restore access to that backend and restart the app. Changing backends later
@@ -129,11 +130,11 @@ Back up a file-backed new identity by copying its **whole** `profiles/<slot>/` d
 including `storage-mode`, plus any per-profile network settings. The active pointer is
 convenience metadata, not the secret. The legacy file backup remains `identity.key` together
 with `identity-storage`. Copying app files alone does not back up system credentials; the UI
-must say this and may offer a separately designed export. On restore, inspect the key and
+says this and no key export is planned. On restore, inspect the key and
 derive its Peer ID before activation. If the incoming slot UUID already exists with a
 different key, import under a fresh slot after user confirmation; never overwrite either.
-Once the proposed SQLite client store exists, stop the app before a directory copy so its WAL is
-checkpointed; a future live export must use SQLite's backup mechanism.
+Stop the app before a directory copy so its SQLite state is consistent. The app has no managed
+backup or key export.
 
 | Scenario to verify on Linux and Windows | Expected result |
 |---|---|
@@ -146,8 +147,11 @@ checkpointed; a future live export must use SQLite's backup mechanism.
 `tests/scripts/desktop-smoke.py` covers on Linux and Windows: a file legacy upgrade, a pending
 slot beside the active one, system and file identities with switch and restart, a corrupt
 pointer, a missing file key, and removal of a ready file slot and of a slot whose key is missing
-(only that slot folder goes). A locked provider, removal of a system-store key through the UI,
-duplicate restore and backup are not covered yet.
+(only that slot folder goes). It also copies a stopped file-backed slot with a saved profile draft
+into a fresh app config, then checks the Peer ID and draft after reopening. On Linux it also
+copies a system-backed slot's app files into a fresh home and Secret Service session and checks
+that missing-key recovery appears without a replacement identity. A locked provider, removal of
+a system-store key through the UI and duplicate restore are not covered yet.
 
 This layout favors directory discovery over a single registry: it survives interrupted
 registry writes and exposes incomplete slots, at the cost of visible local metadata and a

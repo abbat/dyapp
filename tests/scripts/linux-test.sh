@@ -6,10 +6,10 @@ if [[ ${1:-} == --session ]]; then
     printf 'dyapp-ci-test-keyring' | gnome-keyring-daemon --unlock --components=secrets >/dev/null
     export DYAPP_TEST_SECRET_SERVICE=1
     python3 "$root/tests/scripts/run-cargo-unit-binaries.py" "$root/build/unit-build.json"
-    python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
+    DYAPP_VIDEO_SMOKE=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
     # With screenshots on (DYAPP_UI_SHOTS), a second pass in Russian saves the -ru screenshots.
     if [[ -n ${DYAPP_UI_SHOTS:-} ]]; then
-        DYAPP_SMOKE_RU=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
+        DYAPP_SMOKE_RU=1 DYAPP_VIDEO_SMOKE=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
     fi
     exit 0
 fi

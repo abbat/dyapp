@@ -26,6 +26,13 @@ use prost::Message as _;
 use std::io;
 use std::time::Duration;
 
+/// A unique protocol-test path under the repository's ignored build directory.
+fn protocol_build_path(name: &str) -> std::path::PathBuf {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/protocol");
+    std::fs::create_dir_all(&root).unwrap();
+    root.join(format!("{name}-{}", uuid::Uuid::new_v4()))
+}
+
 /// Starts a node with its own store and returns its address.
 async fn start(requests_per_second: u32) -> Multiaddr {
     start_with(|l| l.requests_per_second = requests_per_second).await
@@ -69,15 +76,15 @@ async fn start_config_in_protocols(
     std::sync::Arc<dyapp_p2p_net::WireBytes>,
     std::sync::Arc<Service>,
 ) {
-    let dir = format!("/tmp/ai/test-protocol-{}", uuid::Uuid::new_v4());
+    let dir = protocol_build_path("test-protocol");
     let mut config = NodeConfig::default();
-    config.storage.dir = dir.clone().into();
+    config.storage.dir = dir.clone();
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
-    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
     service.protocols = protocols;
     let mut swarm = node::swarm_with_protocols(
         keypair,
@@ -927,8 +934,12 @@ mod search;
 
 #[path = "protocol/chat.rs"]
 mod chat;
+#[path = "protocol/chat_ack_failure.rs"]
+mod chat_ack_failure;
 #[path = "protocol/chat_edits.rs"]
 mod chat_edits;
+#[path = "protocol/chat_pagination.rs"]
+mod chat_pagination;
 
 #[path = "protocol/replicas.rs"]
 mod replicas;

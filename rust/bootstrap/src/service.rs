@@ -733,6 +733,17 @@ impl Service {
             }
         }
         if !store {
+            // Reject revival before replica fan-out: otherwise an isolated node waits for
+            // the put timeout because its retained tombstone will refuse the local copy.
+            if self
+                .store
+                .get_profile(&verified.peer_id)?
+                .map(|held| dyapp_profile::verify(&held))
+                .transpose()?
+                .is_some_and(|held| held.profile.deleted)
+            {
+                return Ok(reply(Status::Invalid, None));
+            }
             return Ok(reply(Status::Ok, None));
         }
         let max_mb = self.config.limits.profiles_max_mb;

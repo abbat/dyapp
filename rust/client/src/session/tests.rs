@@ -338,6 +338,48 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
     assert_eq!(session.acks([9; 32], vec![key(2)]).unwrap(), [key(2)]);
 }
 
+#[tokio::test]
+async fn blocked_peer_is_refused_before_outbound_interaction_uses_network() {
+    let owner = Identity::generate();
+    let device_key = Identity::generate();
+    let peer = person().2;
+    let seal_key = [7; 32];
+    let store = Store::open(&temp_path(), &owner).unwrap();
+    let mut session = Session::open_or_create(store, &owner, &device_key, &seal_key).unwrap();
+    session.store.set_blocked(&peer.peer_id, true).unwrap();
+    let own = Profile {
+        version: 1,
+        devices: vec![session.certificate().unwrap()],
+        ..Default::default()
+    }
+    .sign(&owner);
+    let own = dyapp_profile::verify(&own).unwrap();
+    assert!(matches!(
+        session
+            .interact_with(
+                &mut [],
+                &[own, peer],
+                crate::interactions::Kind::Like,
+                &seal_key,
+            )
+            .await,
+        Err(Error::Store(crate::store::Error::BlockedPeer))
+    ));
+    assert!(session.store.due_outbound(0).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn block_with_no_issued_tokens_is_local_even_without_nodes() {
+    let owner = Identity::generate();
+    let device_key = Identity::generate();
+    let peer = Identity::generate().peer_id();
+    let seal_key = [7; 32];
+    let store = Store::open(&temp_path(), &owner).unwrap();
+    let mut session = Session::open_or_create(store, &owner, &device_key, &seal_key).unwrap();
+    session.block(&mut [], &device_key, &peer).await.unwrap();
+    assert!(session.store.blocked(&peer).unwrap());
+}
+
 #[test]
 fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
     let seal_key = [7; 32];

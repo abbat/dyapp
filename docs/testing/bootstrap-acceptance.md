@@ -94,6 +94,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Version order, `STALE` with the stored record, forged payload, tombstone | Unit, E2E | `storage.rs::signed_profile_versions_and_tombstone`, `service/tests.rs::publish_get_stale_and_errors`, `network-test.py::suite` | exists |
 | Profile expires after the owner was last seen; heartbeat keeps it | Unit | `storage.rs::profiles_expire_after_the_owner_was_last_seen`, `service/tests.rs::heartbeat_keeps_the_profile_seen` | exists |
 | Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network_checks.py::mailbox` | exists |
+| Fetch cursor advances past an unacked head and a deleted cursor row; malformed cursor is refused | Unit, service | `storage/tests/records.rs::paged_fetch_moves_past_unacked_head_and_deleted_cursor`, `service/tests/mailbox.rs::fetch_cursor_advances_and_rejects_malformed_position` | exists |
 | Challenge is bound to its connection | Functional | `protocol.rs::challenge_is_bound_to_its_connection` | exists |
 | Node info and signed-time failures carry clock hints; valid future boundary keeps prior statuses; non-clock errors remain unhinted | Functional, contract, unit | `protocol/clock.rs::signed_time_failures_keep_clock_hints_over_real_tcp`, `::future_clock_boundary_preserves_valid_request_statuses_over_tcp`, `compatibility.rs::server_clock_hints_keep_fixed_tags_and_legacy_decoding`, `service/clock.rs` | exists |
 | Watching fetch gets a push | E2E | `network_checks.py::mailbox` | exists |
@@ -103,6 +104,30 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 | Recipient ACK removes an original from its cooperating mailbox node; re-putting that original after a terminal delete is invisible and re-ACKed | Functional | `protocol/chat_edits.rs::two_sessions_converge_on_edit_and_terminal_delete` | exists |
 | A device-signed ACK on one connected node is forwarded and removes the same opaque envelope from cooperating replicas; a replica that misses forwarding can retain it until TTL | Network | `network_checks.py::acked_everywhere`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed` | exists |
 | When the recipient is offline, the node keeps the original and delete until reconnect and ACK; delete-before-original at the authenticated Store boundary keeps the placeholder and records ACK intent for the late original | Functional, unit | `protocol/chat_edits.rs::offline_recipient_acknowledges_original_and_delete_after_reconnect`, `store/messages/inbound_tests.rs::late_original_after_delete_keeps_placeholder_and_ack_intent` | exists |
+
+### Client recovery matrix
+
+| Failure or recovery point | Expected result | Evidence / next test | Status |
+|---|---|---|---|
+| Kill before local send transaction commits | No network put and no visible sent message; reopen the previous MLS snapshot | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after send commit but before node accepts | Restart sends the exact stored signed envelope ID and bytes; local projection stays once | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after node accepts but before receipt | The outbox remains; a due resend is idempotent at the node and stops only after receipt or expiry | `protocol/chat_edits.rs::two_sessions_converge_on_edit_and_terminal_delete`; add runtime restart wake case | core exists; runtime planned |
+| Kill before receive transaction commits | Do not ACK or display; refetch and process from reopened MLS state | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | exists |
+| Kill after receive commit but before ACK | Retry ACK; duplicate envelope neither advances MLS again nor appears twice | `protocol/chat.rs::durable_chat_survives_restarts_storage_faults_and_retries` | core exists |
+| ACK request fails after receive commit | Refresh the committed Store projection even if `Session::receive` returns an error before returning its events; retry pending ACK | Add desktop ACK-failure display/restart test | planned |
+| Local ACK marker fails after a committed receive and node ACK | Projection remains once, cursor does not advance, restart retries the pending ACK without another event | `protocol/chat_ack_failure.rs::ack_marker_failure_keeps_projection_and_retries_without_duplicate_event` | exists; native CI pending |
+| Push disabled, app foregrounded after offline period | Runtime wakes, sends due outbox writes, fetches inbox and retries ACKs without relying on push | Add desktop runtime wake/restart test after active-slot gate | planned |
+| Unresolved Gap or unknown owner occupies first page | Keep that ID unacked while reaching a later valid envelope; persist cursor after commits and resume after restart | `protocol/chat_pagination.rs::unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switch` | exists; native CI pending |
+| ACK deletion or signal eviction removes the cursor row | The next page still starts strictly after its class/sequence position; a later head pass finds rows inserted behind it | Add node pagination mutation test | planned |
+| Catch-up switches node or meets an old node | Clear the node-local cursor and dedupe from the head; an old node with more but no next cursor returns a non-advancing reply error | `protocol/chat_pagination.rs::unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switch`, `client/tests.rs::mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors` | exists; native CI pending |
+| Four single-use KeyPackages consumed or expired | New invites use the published last-resort package; after its expiry an active owner rotates and republishes it before retry, without changing Peer ID | Add node stock/exhaustion and desktop recovery test | planned |
+| Package published after local seal but reply lost | Repeating the same signed publish does not make a consumed package available again; future stock replenishment remains bounded | Add publish retry and consume test | planned |
+| Profile no longer lists the device | Reject its package and invite until a verified current device list is available; do not silently trust stale state | `service/keypackages.rs` current-device check; add stale-profile recovery test | partial |
+
+The [KeyPackage recovery boundary](../design/client-local-storage.md#keypackage-recovery-boundary)
+separates package stock from the existing write-token refill. Platform background
+delivery remains opportunistic; the guaranteed retry point is the next foreground
+open or resume.
 
 The clock checks cover node replies. Client signing-time correction using a median from
 three distinct nodes remains planned.

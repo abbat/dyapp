@@ -38,6 +38,61 @@ pub(super) fn mailbox_status(response: &MailboxResponse) -> Status {
 }
 
 #[test]
+fn fetch_cursor_advances_and_rejects_malformed_position() {
+    let service = service_with(|_| {});
+    let sender = Identity::generate();
+    let device = Identity::generate();
+    let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
+    for n in [1u8, 2] {
+        let envelope = proto::Envelope {
+            id: vec![n; 16],
+            mailbox: address.clone(),
+            ciphertext: vec![n],
+            ..Default::default()
+        };
+        let signed = sender.sign(Domain::Envelope, envelope.encode_to_vec());
+        let response = mailbox(&service, &mut None, mailbox_request::Request::Put(signed));
+        assert_eq!(mailbox_status(&response), Status::Ok);
+    }
+    let mut nonce = None;
+    let read = |service: &Service, nonce: &mut Option<[u8; 32]>, cursor| {
+        let request = proto::Fetch {
+            nonce: challenge(service, nonce),
+            limit: 1,
+            cursor,
+            ..Default::default()
+        };
+        mailbox(
+            service,
+            nonce,
+            mailbox_request::Request::Fetch(
+                device.sign(Domain::MailboxFetch, request.encode_to_vec()),
+            ),
+        )
+    };
+    let first = read(&service, &mut nonce, Vec::new());
+    assert_eq!(mailbox_status(&first), Status::Ok);
+    assert_eq!(first.envelopes.len(), 1);
+    assert!(first.more);
+    assert_eq!(first.next_cursor.len(), 10);
+    let second = read(&service, &mut nonce, first.next_cursor);
+    assert_eq!(mailbox_status(&second), Status::Ok);
+    assert_eq!(second.envelopes.len(), 1);
+    assert!(!second.more);
+    assert_ne!(first.envelopes, second.envelopes);
+    for invalid in [
+        vec![1, 0],
+        vec![1, 2, 0, 0, 0, 0, 0, 0, 0, 1],
+        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ] {
+        assert_eq!(
+            mailbox_status(&read(&service, &mut nonce, invalid)),
+            Status::Invalid
+        );
+    }
+}
+
+#[test]
 fn deny_list_refuses_without_strikes() {
     let mut service = service_with(|l| l.strikes_to_ban = 1);
     let (listed, device) = (Identity::generate(), Identity::generate());

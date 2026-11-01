@@ -41,6 +41,7 @@
   "ui-reports": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "linux-test": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"rust-test"},
   "desktop-smoke": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
+  "linux-ubuntu-smoke": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"lines","nested":true,"pattern":"^.+: line [0-9]+:|^error:|^Error response from daemon:"},
   "artifact-size": {"fix":"docs/development/ci-base.md#artifact-size-budgets","format":"lines","details":true,"pattern":"^.+: error:"},
   "artifact-measurement": {"fix":"docs/development/ci-base.md#artifact-size-budgets","format":"lines","details":true,"pattern":"^.+: error:"},
   "reproducible": {"fix":"docs/development/ci-base.md#reproducible-builds","format":"lines","details":true,"pattern":"^.+: error:"},

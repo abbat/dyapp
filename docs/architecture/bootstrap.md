@@ -131,6 +131,12 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | `/dyapp/digest` | search | node to node: `(topic)` → the 256 bucket hashes of the topic, `(topic, bucket)` → the 256 sub-bucket hashes of one bucket; 32 B each, same guards as `/dyapp/inventory` |
 | `/dyapp/node` | TURN | `turn` → short-lived username, password and URLs of the node's coturn |
 
+Mailbox fetch returns at most 100 records, a `more` flag and a cursor for the last
+record. The owner-signed `Fetch` accepts that cursor to continue past unresolved
+records while preserving message-before-signal order. An empty cursor keeps the old
+first-page behavior; malformed cursors return `INVALID`. The cursor is local to one
+holder. Client use is planned in the [pagination contract](../design/client-local-storage.md#planned-mailbox-pagination).
+
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
 heartbeats between search nodes only ([Search](#search)); the search role has its own Kademlia,
 `/dyapp/search-kad`. Media and other large payloads go in chunks below the node's
@@ -437,7 +443,10 @@ fetch reveal device count and contact interest to store nodes; no private direct
   store nodes keep the ordinary profile and device directory for direct Peer ID lookup
   and KeyPackages. Final identity removal sends a tombstone to both services. Search
   withdrawal remains best effort and pending until a node accepts it; public fields at store
-  nodes remain fetchable by someone who knows the Peer ID.
+  nodes remain fetchable by someone who knows the Peer ID. A search node that never receives
+  the tombstone can keep listing the old profile, and a node that expires it can accept a later
+  signed version. A store node likewise stops rejecting later versions after its final
+  tombstone expires; clients that observed the final store tombstone retain local finality.
 - **Proof of work.** Store and search share `search.min_profile_pow_bits` (public default 11,
   at most 20), advertised by every store node in `info.min_profile_pow`. A private test network
   may explicitly set it to 0 on all nodes; changing `network.name` alone does not lower it.
@@ -1150,7 +1159,8 @@ then trusts it as the owner's own claim, not as fact:
 | envelope `ciphertext` | sender | size only; the recipient checks the sender inside it |
 
 - **Profiles are owner-only.** Only the holder of the identity key can publish, replace or delete
-  (tombstone) a profile. A replayed old version is rejected.
+  (tombstone) a profile. A replayed old version is rejected. While a profile-store tombstone is
+  retained, the node rejects attempts to publish the same Peer ID before replica fan-out.
 - **Age.** Birth-date parts are self-declared. The node validates their calendar
   ranges but cannot prove adulthood. Client 18+ self-attestation and the
   conservative year-based gate are planned; 30+ is

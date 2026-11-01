@@ -322,6 +322,28 @@ const checkPrivacy = async (restarted) => {
   if (root.dataset.theme !== 'dark') throw new Error('dark theme not applied');
   document.getElementById('theme-system').click();
   if ('theme' in root.dataset) throw new Error('system theme not restored');
+  const blockedPeer = 'f'.repeat(64);
+  const blocked = await invokeTest('block_peer', { peerId: blockedPeer });
+  if (blocked.revocation !== 'notNeeded') throw new Error(`unexpected block state: ${blocked.revocation}`);
+  await openArea('profile-area');
+  await openArea('settings');
+  await window.blockedShown;
+  const retry = document.getElementById('retry-revocation-1');
+  if (!retry || !document.getElementById('unblock-1')
+    || document.getElementById('blocked-revoke-status').textContent) {
+    throw new Error('blocked peer has no retry and unblock actions');
+  }
+  retry.click();
+  await window.revocationRetried;
+  if (document.getElementById('blocked-revoke-status').textContent
+    !== window.strings['settings.blocked.notNeeded']) {
+    throw new Error('retry did not report token revocation state');
+  }
+  document.getElementById('unblock-1').click();
+  await window.blockedShown;
+  if (!shown('blocked-none') || document.getElementById('blocked-list').children.length) {
+    throw new Error('unblock did not clear the blocked list');
+  }
 };
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
@@ -483,6 +505,14 @@ const saveProfileForRestart = async () => {
   place.dispatchEvent(new Event('input', { bubbles: true }));
   await window.placesShown;
   if (place.checkValidity()) throw new Error('unlisted place accepted');
+  await openArea('network-area');
+  await openArea('profile-area');
+  if (document.getElementById('profile-gender').value !== '1'
+    || document.getElementById('birth-year').value !== '1990'
+    || document.getElementById('birth-month').value !== '2'
+    || place.value !== 'Nowhere' || place.checkValidity()) {
+    throw new Error('unsaved profile fields changed after section navigation');
+  }
   await pickPlace();
   const saved = waitForProfileStatus('profile.saved');
   document.getElementById('profile-save').click();
@@ -673,6 +703,12 @@ const searchOnLoopback = async (connected) => {
       throw new Error(`search without a network: ${status}, details ${searchFailures()}`);
     }
     await shot('search-not-connected');
+    await openArea('chats-area');
+    await window.chatsDone;
+    if (document.getElementById('chats-status').textContent !== window.strings['chats.notConnected']) {
+      throw new Error('Chats showed a fresh empty list without a network');
+    }
+    await shot('chats-not-connected');
     return;
   }
   const peers = [...document.querySelectorAll('#search-results [data-peer-id]')]
@@ -690,6 +726,8 @@ const searchOnLoopback = async (connected) => {
     throw new Error('the result card did not open the profile');
   }
   await shot('search-profile');
+  await globalThis.checkSafetyNumber();
+  await shot('search-safety');
   document.getElementById('view-back').click();
   if (!shown('search-main') || shown('profile-view')
     || document.activeElement.id !== 'result-1'
@@ -727,6 +765,15 @@ const searchForged = async () => {
 Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_test_existing'),
   invokeTest('ui_test_step')])
   .then(async ([state, mode, existing, step]) => {
+    if (step.startsWith('video-bench:')) return globalThis.videoBenchmark(step.slice('video-bench:'.length));
+    if (step.startsWith('video:')) {
+      const size = step.slice('video:'.length);
+      if (!['360p', '720p'].includes(size)) throw new Error('invalid video smoke size');
+      const metrics = await videoFrames(size);
+      return invokeTest('ui_test_result', {
+        passed: true, peerId: '', reason: `video:${size}:${JSON.stringify(metrics)}`,
+      });
+    }
     // Steps that run one check on the reopened identity.
     const readySteps = {
       network: checkNetwork,

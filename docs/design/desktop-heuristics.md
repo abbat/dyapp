@@ -97,6 +97,57 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 States with no finding: `picker`, `setup`, `wizard-network`, `recovery-details`, `ready`,
 `network-empty`, `profile-edit`, `profile-preview`, `profile-published`, `remove`.
 
+### Safety-number review (2026-10-31)
+
+Reviewed `profile-view-safety` and its `profile-view` and `profile-view-match`
+neighbours against H1–H10 in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in `build/ux-research/safety-review-20261031/`.
+The unverified status, all 60 digits, trusted-channel instruction and return
+navigation are visible without clipping; the adjacent states keep their message
+and like actions. No open finding. This is a static layout review; interaction
+and real-device performance remain separate checks.
+
+### Contact QR layout review (2026-10-31)
+
+Reviewed the changed `profile-view-safety` panel and neighbouring `profile-view`
+and `profile-view-match` states in English and Russian at 440 and 1280 px; twelve
+WebKitGTK prototype screenshots are in `build/ux-research/safety-qr-review-20261031/`.
+The QR layout stand-in keeps the number, status, instruction and navigation
+visible without horizontal clipping. The neighbouring actions remain visible.
+No open H1–H10 finding. The stand-in is deliberately not scanable; the shipped
+canvas receives a real encoded matrix and needs the native UI check.
+
+### QR image import layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-import-review-final-20261031/`. The import button,
+number, QR, instruction, navigation and neighbouring actions remain visible
+without clipping. Increased the gap between the button and instruction after
+the first screenshot review. No open H1–H10 finding. The prototype uses a
+layout stand-in; native image import is checked by the UI smoke.
+
+### Contact camera control layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-camera-review-20261031/`. The image and camera
+buttons wrap cleanly at narrow widths, while the QR, instruction and adjacent
+profile actions remain visible. No open H1–H10 finding. The prototype does not
+exercise a physical camera; native CI and real-device checks are separate.
+
+### Safety-number copy layout review (2026-10-31)
+
+Reviewed `profile-view-safety` and neighbouring `profile-view` and
+`profile-view-match` states in English and Russian at 440 and 1280 px. Twelve
+WebKitGTK prototype screenshots are in
+`build/ux-research/safety-copy-review-20261031/`. The copy action stays adjacent
+to the grouped number, the QR and scan controls remain readable, and the
+neighbouring profile actions remain visible. No open H1–H10 finding. Clipboard
+expiry is covered by a separate behavioral test, not by these static images.
+
 ### Accepted exceptions
 
 None.

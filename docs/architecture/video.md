@@ -207,7 +207,9 @@ No test sends media.
 
 ## Planned work
 
-- Media engine codecs, tracks, capture/render on each platform
+- Media engine codecs, tracks, capture/render on each platform; the
+  [desktop rendering spike](../design/desktop-video-rendering.md) defines a Linux measurement
+  plan, not a working media path
 - STUN/TURN configuration and a signaling channel
 - SFrame on the media path, its base key exported per epoch from the chat's MLS group
 - A two-peer test in Docker that reaches `connected` and exchanges frames

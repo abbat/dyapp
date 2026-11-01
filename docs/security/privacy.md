@@ -38,6 +38,19 @@ canonicalization helper for them.
 
 ## Retention
 
+### Safety-number clipboard
+
+The desktop comparison panel copies the grouped safety number only on an
+explicit click. The [clipboard plugin](../decisions/0039-sensitive-safety-clipboard.md)
+asks the desktop clipboard manager to omit it from history where supported.
+After 60 seconds the WebView asks a Rust command to read and clear the clipboard
+only if it still holds those exact bytes and no later in-app copy superseded
+it. The Rust read runs off the GUI thread. A changed value or failed read is
+left alone. History exclusion is a hint; expiry can be delayed by a suspended
+WebView. An external copy of identical bytes, or a change between the read and
+clear, cannot be distinguished. Expiry is best effort, not a security
+guarantee. Ordinary Peer ID copy has no timed cleanup.
+
 The node config sets `limits.message_ttl_hours = 24`; an envelope is kept until the device acks
 it or the TTL passes, and `dyappd` deletes expired envelopes every hour. Exception: mailbox
 repair gives a repaired copy a new TTL, so an envelope its device never acks can outlive the TTL

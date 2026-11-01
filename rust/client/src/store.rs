@@ -11,6 +11,7 @@ use std::path::Path;
 mod conversations;
 mod inbox;
 mod likes;
+mod mailbox_cursor;
 pub mod messages;
 mod outbox;
 mod peers;
@@ -70,6 +71,9 @@ pub enum Error {
     /// An interaction reuses an event ID with other bytes, or does not involve this profile.
     #[error("client store interaction conflicts or names another profile")]
     InteractionConflict,
+    /// A blocked peer cannot receive a new outgoing interaction.
+    #[error("client store peer is blocked")]
+    BlockedPeer,
     /// A second own text to a peer who has not answered the first; one request stays pending.
     #[error("client store message request is still pending")]
     RequestPending,

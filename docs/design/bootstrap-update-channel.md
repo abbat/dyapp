@@ -1,10 +1,11 @@
 # Bootstrap update channel and key custody: analysis
 
-**Status:** channel and signer model accepted in
-[ADR 0024](../decisions/0024-bootstrap-update-channel.md). No signing keys,
-metadata publisher or updater exist. This narrows
-[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) without changing
-its release gate.
+**Status:** historical analysis of the rejected unattended-update proposal.
+[ADR 0023](../decisions/0023-bootstrap-node-update-policy.md) selects manual
+operator-controlled upgrades for v0.0.1, and
+[ADR 0024](../decisions/0024-bootstrap-update-channel.md) rejects this TUF
+channel for that release. No TUF keys, metadata publisher or updater exist.
+The requirements below describe the former proposal, not current release gates.
 
 ## Boundary and choice
 
@@ -16,7 +17,7 @@ hold signing or package-installation keys.
 
 | Channel | Benefit | Cost and remaining risk |
 |---|---|---|
-| **Chosen: TUF metadata with offline target approval** | Established root, targets, snapshot and timestamp roles, expiry, version and key rotation rules; a release-CI compromise alone cannot approve a new digest. | A metadata publisher, key custody and an audited verifier are substantial new operations. An offline approver still needs to validate each build. |
+| Former proposal: TUF metadata with offline target approval | Established root, targets, snapshot and timestamp roles, expiry, version and key rotation rules; a release-CI compromise alone cannot approve a new digest. | A metadata publisher, key custody and an audited verifier are substantial new operations. An offline approver still needs to validate each build. |
 | Signed APT repository with a key outside CI | APT already verifies signed Release metadata and package hashes; operators know its configuration. | An independent signer/repository is still required. APT alone does not coordinate node restarts, preserve stores or enforce the app's monotonic version policy. Repository-key compromise authorizes packages. |
 | Pinned one-file signed manifest | Few moving parts to publish initially. | Implementing expiry, rollback, key rotation and metadata consistency recreates part of TUF; an error would authorize privileged installation. |
 
@@ -55,23 +56,24 @@ insider-risk trade-off; threshold signing was considered and not chosen.
    descriptor. It cannot take a URL, digest or command from peer traffic.
    Backup, rollout and host-isolation gates remain separate beads.
 
-The approved policy is in ADR 0024. Before generating production keys, choose
-and review the verifier library, custody procedure and metadata publisher.
-Adversarial fixtures must cover forged targets, stale metadata, key rotation,
-replayed/changed tags, mismatched provenance and lower package versions.
+The former policy was recorded in ADR 0024 and is now rejected for v0.0.1.
+Its proposed production gate required a reviewed verifier, key custody and
+metadata publisher, plus adversarial fixtures for forged targets, stale
+metadata, key rotation, replayed tags, mismatched provenance and downgrades.
+No production TUF keys are planned under the current manual-upgrade policy.
 
-## Proposed implementation profile
+## Historical implementation profile
 
 The Rust [`tough` client](https://docs.rs/tough/latest/tough/) 0.24.0 builds
 with the repository's Rust 1.99 toolchain in an isolated Docker spike. Its
 publisher is **not selected**. Source inspection of [`tuftool` 0.17.0](https://github.com/awslabs/tough/tree/tuftool-v0.17.0/tuftool)
 shows that `create` and `update` pass one set of signing keys to
 `RepositoryEditor::sign`, which signs targets, snapshot and timestamp in one
-process. Requiring the offline targets key on the online publisher would
-violate ADR 0024. A full `tuftool` build attempt exhausted the 1 GiB local
-`/tmp` filesystem; that is an environment limit, not a compiler result.
-Keep the role separation requirement and prove a two-stage publisher with
-disposable keys before choosing a production stack.
+process. Requiring the offline targets key on the online publisher would have
+violated the former ADR 0024. A full `tuftool` build attempt exhausted the
+1 GiB local temporary filesystem; that is an environment limit, not a compiler
+result. A future proposal would need to prove role separation with disposable
+keys before choosing a production stack.
 
 | Stack | Benefits | Costs and decision |
 |---|---|---|
@@ -174,7 +176,7 @@ application version checks succeed, followed by an atomic handoff. Persist
 the highest approved and installed application versions separately from TUF
 metadata. State loss blocks unattended installation until operator recovery.
 
-### Verification gate before enabling updates
+### Historical verification gate for the rejected proposal
 
 Use an offline fixture repository and a fake package installer. The gate must
 exercise a valid release; forged targets/root; omitted, modified or truncated

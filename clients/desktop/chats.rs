@@ -14,7 +14,7 @@ use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
 use crate::profile;
-use crate::search::Found;
+use crate::search::{self, Found};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
@@ -29,6 +29,32 @@ pub struct Likes {
     pub ours: bool,
     /// Both like each other.
     pub matched: bool,
+}
+
+/// Network revocation is only confirmed by the node reached in this attempt.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Revocation {
+    NotNeeded,
+    Pending,
+    Confirmed,
+}
+
+/// Local block always remains effective when network revocation is pending.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockResult {
+    pub revocation: Revocation,
+    pub detail: Option<String>,
+}
+
+impl BlockResult {
+    fn pending(detail: impl ToString) -> Self {
+        Self {
+            revocation: Revocation::Pending,
+            detail: Some(detail.to_string()),
+        }
+    }
 }
 
 fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
@@ -46,6 +72,61 @@ fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
 /// The like state with `peer_id`.
 pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, String> {
     likes_in(&open(dir, identity)?, peer_id)
+}
+
+/// Persist a local block before trying to revoke this profile's issued write tokens. A retry
+/// sends the same live keys again; a failed node call never undoes the local block.
+pub async fn block(
+    root: &Path,
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+) -> Result<BlockResult, String> {
+    search::block(dir, identity, peer_id)?;
+    let mut store = open(dir, identity)?;
+    let today = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs()
+        / 86_400;
+    let keys = match store.revoke_issued(peer_id, today as u32) {
+        Ok(keys) => keys,
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    if keys.is_empty() {
+        return Ok(BlockResult {
+            revocation: Revocation::NotNeeded,
+            detail: None,
+        });
+    }
+    let active = match network::load(dir, Settings::Active) {
+        Ok(Some(active)) => active,
+        Ok(None) => return Ok(BlockResult::pending("notConnected")),
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    let mut node = match profile::connect(&active).await {
+        Ok(node) => node,
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    let device = match crate::device_key(root, dir, identity) {
+        Ok(device) => device,
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    let seal_key = match crate::sealing_key(root, dir, &mut store, &device) {
+        Ok(key) => key,
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    let mut session = match Session::open_or_create(store, identity, &device, &seal_key) {
+        Ok(session) => session,
+        Err(error) => return Ok(BlockResult::pending(error)),
+    };
+    match session.block(std::slice::from_mut(&mut node), &device, peer_id).await {
+        Ok(()) => Ok(BlockResult {
+            revocation: Revocation::Confirmed,
+            detail: None,
+        }),
+        Err(error) => Ok(BlockResult::pending(error)),
+    }
 }
 
 /// Likes `peer_id` (`liked`) or takes the like back, as a signal in the pair group on the active
@@ -218,14 +299,36 @@ pub mod commands {
 
     use crate::search::{Found, SearchState};
 
+    /// Locally blocks a Peer ID and reports this attempt's network token revocation.
+    #[tauri::command]
+    pub(crate) async fn block_peer(
+        app: tauri::AppHandle,
+        state: tauri::State<'_, crate::IdentityState>,
+        sessions: tauri::State<'_, super::Sessions>,
+        peer_id: String,
+    ) -> Result<super::BlockResult, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
+        let root = crate::config_dir(&app)?;
+        let sessions = Arc::clone(&sessions.0);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
+            let _session = sessions.lock().map_err(|error| error.to_string())?;
+            tauri::async_runtime::block_on(super::block(&root, &dir, &identity, &peer_id))
+        })
+        .await
+        .map_err(|error| error.to_string())?
+    }
+
     /// The like state with a peer; see `likes`.
     #[tauri::command]
     pub(crate) fn peer_likes(
         state: tauri::State<'_, crate::IdentityState>,
         peer_id: String,
     ) -> Result<super::Likes, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
-        super::likes(&dir, &identity, &peer_id)
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::likes(dir, identity, &peer_id)
     }
 
     /// Likes a found peer or takes the like back; see `like`.
@@ -238,12 +341,14 @@ pub mod commands {
         peer_id: String,
         liked: bool,
     ) -> Result<super::Likes, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;
         let cache = Arc::clone(&searching.0);
         let sessions = Arc::clone(&sessions.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::like(
@@ -260,10 +365,12 @@ pub mod commands {
         state: tauri::State<'_, crate::IdentityState>,
         searching: tauri::State<'_, SearchState>,
     ) -> Result<Vec<Found>, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let cache = Arc::clone(&searching.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             tauri::async_runtime::block_on(super::liked_you(&cache, &dir, &identity))
         })
         .await
@@ -278,12 +385,14 @@ pub mod commands {
         searching: tauri::State<'_, SearchState>,
         sessions: tauri::State<'_, super::Sessions>,
     ) -> Result<usize, String> {
-        let (identity, dir) = crate::open_identity(&state)?;
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;
         let cache = Arc::clone(&searching.0);
         let sessions = Arc::clone(&sessions.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir, &identity)?;
             tauri::async_runtime::block_on(super::receive(&cache, &root, &dir, &identity, &device))
@@ -306,6 +415,37 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-desktop-chats-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[tokio::test]
+    async fn block_without_issued_tokens_needs_no_network() {
+        let (dir, owner, peer) = (temp_dir(), Identity::generate(), Identity::generate().peer_id());
+        assert_eq!(
+            block(&dir, &dir, &owner, &peer).await,
+            Ok(BlockResult {
+                revocation: Revocation::NotNeeded,
+                detail: None,
+            })
+        );
+        assert!(open(&dir, &owner).unwrap().blocked(&peer).unwrap());
+    }
+
+    #[tokio::test]
+    async fn offline_revocation_remains_retryable_without_undoing_the_block() {
+        let (dir, owner, peer) = (temp_dir(), Identity::generate(), Identity::generate().peer_id());
+        let store = open(&dir, &owner).unwrap();
+        let today = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() / 86_400;
+        let key = [7; 32];
+        store.record_issued(&peer, &[1; 32], &key, today as u32).unwrap();
+        for _ in 0..2 {
+            let result = block(&dir, &dir, &owner, &peer).await.unwrap();
+            assert_eq!(result.revocation, Revocation::Pending);
+            assert_eq!(result.detail.as_deref(), Some("notConnected"));
+            let store = open(&dir, &owner).unwrap();
+            assert!(store.blocked(&peer).unwrap());
+            assert!(store.issued_revoked(&key).unwrap());
+            assert_eq!(store.revoke_issued(&peer, today as u32).unwrap(), [key]);
+        }
     }
 
     #[tokio::test]

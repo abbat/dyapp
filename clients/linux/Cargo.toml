@@ -6,11 +6,14 @@ rust-version = "1.99"
 
 [dependencies]
 tauri = { version = "=2.12.3", features = ["tray-icon"] }
+tauri-plugin-clipboard-manager = "=2.5.0"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-client = { path = "../../rust/client" }
 dyapp-identity = { path = "../../rust/identity" }
 dyapp-p2p-net = { path = "../../rust/p2p-net" }
 dyapp-profile = { path = "../../rust/profile" }
+qrcodegen = "=1.8.0"
+quircs = "=0.10.3"
 secret-service = { version = "=5.2.0", default-features = false, features = [
     "rt-tokio-crypto-rust",
 ] }

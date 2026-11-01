@@ -54,6 +54,9 @@ EXCEPTIONS = {
     ("tokio", "1.54.1"): ("2026-10-23", "fixes RUSTSEC-2026-0384"),
     ("ctutils", "0.4.4"): ("2026-10-23", "fixes RUSTSEC-2026-0385"),
     ("tokio-util", "0.7.20"): ("2026-10-23", LOCKED),
+    # arboard requires ^5.3.1; every older matching release is yanked.
+    ("clipboard-win", "5.4.3"): (
+        "2026-11-01", "only non-yanked arboard-compatible release"),
 }
 
 

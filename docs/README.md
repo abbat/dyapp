@@ -27,10 +27,14 @@ it are entry points that tools discover by path (see
 - [FFI design](architecture/ffi-design.md)
 - [Protobuf schema](architecture/protobuf-schema.md)
 - [Platform integration](architecture/platform-integration.md)
+- [UI state retention](architecture/ui-state-contract.md): current Linux profile draft survival and planned chat draft contract
 
 ### Product and operator design
 
 - [Client local storage](design/client-local-storage.md): per-profile SQLite ownership, migrations, crash-safe mailbox work and planned search visibility; [storage ADR](decisions/0025-client-local-sqlite-storage.md), [visibility ADR](decisions/0036-search-visibility.md)
+- [Desktop runtime lifecycle](design/desktop-runtime-lifecycle.md): planned identity switch/removal gate, cancellation and cache isolation
+- [Desktop video rendering](design/desktop-video-rendering.md): synthetic-frame benchmark plan for Linux WebView and native fallback
+- [Desktop camera capture](design/desktop-camera-capture.md): evidence and validation plan for Linux contact QR scanning
 - [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [Likes, matches and chats](design/chats-and-matches.md): planned per-pair state, message requests, one group per pair and own-device cases
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
@@ -44,8 +48,8 @@ it are entry points that tools discover by path (see
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX
-- [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [accepted policy](decisions/0023-bootstrap-node-update-policy.md)
-- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): signing boundary, key custody and anti-rollback options; [accepted channel](decisions/0024-bootstrap-update-channel.md)
+- [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [manual upgrade policy](decisions/0023-bootstrap-node-update-policy.md)
+- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): historical TUF/key custody proposal; [rejected v0.0.1 channel](decisions/0024-bootstrap-update-channel.md)
 - [Linux Secret Service migration](design/linux-secret-service-migration.md): options and proposed ADR amendment for removing the zbus 5 advisory chain
 
 ### Development

@@ -161,8 +161,13 @@ only thumbnails; the full photos load here. Field values are claims of the owner
 nothing is shown as verified. Before a match the hint says one message can be sent until a reply.
 `profile-view-match`: a mutual like adds the match notice, Like becomes Liked (aria-pressed), and
 pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the match for both.
-Block is local, hides the peer from search and chats, sits apart from Like as a quiet button under
-the fields, and is undone in Settings.
+Block hides the peer from local search and chats, sits apart from Like as a quiet button under
+the fields, and is undone in Settings. It also removes the peer from the Liked you list. The
+desktop command persists the local block before trying to revoke issued write tokens through one
+node. Search reports whether revocation was unneeded, still pending, or confirmed by that node.
+Settings offers Retry token revocation for each blocked peer. After reopening, the network
+status is unknown because the acknowledgement is not stored; Retry is available. A successful
+node reply is best effort, not network-wide removal.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -170,12 +175,26 @@ the fields, and is undone in Settings.
 | Photos | `view-photos` | Gallery with thumbnails under it |
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
+| Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs; still unverified |
+| Copy safety number | `copy-safety-number` | Copies grouped digits; attempts to clear after 60 seconds only while unchanged |
 | Match notice | `view-match` | Match only |
 | Message | `view-message` | `view-message-match` after a match |
 | Like | `view-like` | `view-unlike` (Liked) after a match |
 | Fields | `view-fields` | Looking for, children, interests, languages |
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
 | Block | `view-block` | Quiet, under the fields |
+
+`profile-view-safety` is the expanded comparison panel. The number and rendered QR are derived
+from the active identity and the verified contact Peer ID. The QR carries a version byte followed
+by both raw Peer IDs in shower/scanner order. Comparing digits, displaying the QR,
+importing an image or scanning with the camera does not yet record a verified
+contact. Both scan paths reject foreign codes with a localized result; image
+import also rejects malformed and multiple codes. The camera stops on exit and
+reports denial or an unavailable device. A real Debian 12 camera check and the
+verified mark are pending ([capture notes](desktop-camera-capture.md)).
+The copy button does not change verification state. Its native clipboard hint
+and timed cleanup are best effort
+([privacy limits](../security/privacy.md#safety-number-clipboard)).
 
 `unlike-dialog` confirms taking the like back.
 
@@ -190,7 +209,10 @@ the fields, and is undone in Settings.
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
 learns nothing until a reply (read receipts are off by default). Conversations and requests show
 the peer's photo thumbnail (letters only without a photo), the public name or short Peer ID, the
-last message, its time and the unread count.
+last message, its time and the unread count. The current Linux **Liked you** screen shows
+an error when mailbox refresh fails instead of claiming an empty local list is current. Rows
+already rendered stay visible if the profile lookup also fails; background polling retries on
+the next interval. Conversation rows and message requests are planned.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -255,6 +277,7 @@ sending off never stops receiving.
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
+| Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |
 | Theme | `theme-system`, `theme-light`, `theme-dark` | System by default |
 | Language | `language` | |
