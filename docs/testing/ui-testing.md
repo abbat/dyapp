@@ -374,8 +374,11 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   safety number, and leaves an ordinary Peer ID copy alone. It tests the
   plugin in CI's desktop session; clipboard-history exclusion still needs a
   real desktop-session check.
-- **Screenshots.** `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
-  `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints `ui-test.js` calls the test-only
+- **Screenshots.** The debug shell concatenates `ui-test-common.js`, the video frame helpers,
+  `ui-test-identity.js`, `ui-test-guards.js` and `ui-test.js` into one WebView script, in that order.
+  The final file dispatches named smoke cases; the earlier files expose shared helpers.
+  `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
+  `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs
   ImageMagick `import -window root` and restores the size; the Xvfb screen is 1280x1400. Files are
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
@@ -392,8 +395,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
   (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the
-  test-mode app injects it before `ui-test.js`; a set but unreadable path fails the launch. Before
-  every screenshot checkpoint, with or without `DYAPP_UI_SHOTS`, `ui-test.js` runs axe with the
+  test-mode app injects it before the smoke; a set but unreadable path fails the launch. Before
+  every screenshot checkpoint, with or without `DYAPP_UI_SHOTS`, the shared audit helper runs axe with the
   WCAG 2.0–2.2 A and AA tags in the light and the dark theme (labels and contrast included),
   rejects a positive `tabindex` (tab order follows the DOM), focuses every visible control and
   requires a focus ring (`box-shadow` or `outline`), and resizes the window to 440 px through
