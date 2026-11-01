@@ -15,14 +15,19 @@ const chatSend = document.getElementById('chat-send');
 const chatComposeStatus = document.getElementById('chat-compose-status');
 let activeChat = null;
 let chatSending = false;
+let chatBlocking = false;
 const updateComposer = () => {
   const waiting = activeChat?.state === 'requestSent';
-  const writable = Boolean(activeChat) && !waiting && !chatSending;
+  const writable = Boolean(activeChat) && !waiting && !chatSending && !chatBlocking;
   const bytes = new TextEncoder().encode(chatInput.value).length;
   chatInput.disabled = !writable;
   chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
   document.getElementById('chat-first-notice').hidden = !waiting;
   document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';
+  document.getElementById('chat-block').hidden = activeChat?.state === 'requestReceived';
+  for (const id of ['chat-block', 'request-block', 'chat-clear']) {
+    document.getElementById(id).disabled = chatSending || chatBlocking;
+  }
   if (bytes > 65536) chatComposeStatus.textContent = window.strings['chats.tooLong'];
 };
 chatInput.addEventListener('input', () => {
@@ -30,6 +35,7 @@ chatInput.addEventListener('input', () => {
   updateComposer();
 });
 let chatsRequest = 0;
+let visibleChatRows = [];
 let chatOpenRequest = 0;
 const clearDialog = document.getElementById('chat-clear-dialog');
 const clearError = document.getElementById('chat-clear-error');
@@ -96,6 +102,7 @@ const chatRow = (row) => {
   return button;
 };
 const renderChatRows = (rows) => {
+  visibleChatRows = rows;
   knownPeers = [...new Set([...knownPeers, ...rows.map((row) => row.peerId)])];
   const requests = rows.filter((row) => row.state === 'requestReceived');
   const conversations = rows.filter((row) => row.state !== 'requestReceived');
@@ -110,6 +117,7 @@ const closeChat = () => {
   closeClear();
   activeChat = null;
   chatSending = false;
+  chatBlocking = false;
   chatInput.value = '';
   chatComposeStatus.textContent = '';
   updateComposer();
@@ -122,6 +130,7 @@ document.addEventListener('dyapp:area-change', (event) => {
 });
 document.addEventListener('dyapp:identity-change', () => {
   chatsRequest += 1;
+  visibleChatRows = [];
   clearedPeer = null;
   closeChat();
   chatRequests.replaceChildren();
@@ -191,6 +200,37 @@ document.getElementById('view-message').addEventListener('click', () => {
   showArea('chats-area');
   window.chatOpened = openChat(found.peerId);
 });
+const blockChat = async (call = invoke) => {
+  if (!activeChat || chatBlocking) return;
+  const { peerId } = activeChat;
+  const generation = identityGeneration;
+  const request = chatOpenRequest;
+  chatBlocking = true;
+  updateComposer();
+  let result;
+  try {
+    result = await call('block_peer', { peerId });
+  } catch (error) {
+    if (identityCurrent(generation) && request === chatOpenRequest && activeChat?.peerId === peerId) {
+      chatBlocking = false;
+      updateComposer();
+      chatsMessage('chats.blockFailed', String(error));
+    }
+    return;
+  }
+  if (!identityCurrent(generation)) return;
+  // Invalidate a mailbox refresh that started before the local block was committed.
+  const listRequest = ++chatsRequest;
+  renderChatRows(visibleChatRows.filter((row) => row.peerId !== peerId));
+  if (request === chatOpenRequest && activeChat?.peerId === peerId) closeChat();
+  else { chatBlocking = false; updateComposer(); }
+  chatsMessage(`chats.blocked.${result.revocation}`);
+  const rows = await call('chat_rows').catch(() => null);
+  if (identityCurrent(generation) && listRequest === chatsRequest && rows) renderChatRows(rows);
+};
+for (const id of ['chat-block', 'request-block']) {
+  document.getElementById(id).addEventListener('click', () => { window.chatBlocked = blockChat(); });
+}
 const clearChat = async (call = invoke) => {
   const target = clearTarget;
   if (!target || clearBusy) return;

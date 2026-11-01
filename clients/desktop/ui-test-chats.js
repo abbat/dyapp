@@ -208,6 +208,55 @@ const checkClearChat = async () => {
     throw new Error('old Clear repainted new identity');
   }
 };
+const checkChatBlock = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = 'b'.repeat(64);
+  const message = { author: peer, id: [4], text: 'request', deleted: false, sentAtMs: null };
+  const row = { peerId: peer, state: 'requestReceived', lastMessage: message, unreadCount: 1 };
+  const open = (state) => openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state, messages: [message] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([row]);
+    throw new Error(`unexpected block setup: ${command}`);
+  });
+  renderChatRows([row]);
+  await open('requestReceived');
+  if (document.getElementById('request-block').hidden
+    || !document.getElementById('chat-block').hidden) {
+    throw new Error('request Block control missing');
+  }
+  await blockChat((command) => {
+    if (command === 'block_peer') return Promise.reject('diskFailed');
+    throw new Error(`unexpected failed block: ${command}`);
+  });
+  if (chatDetail.hidden || !chatRequests.querySelector('button')
+    || !document.getElementById('chats-status').textContent.includes('diskFailed')) {
+    throw new Error('failed Block hid the chat');
+  }
+  await open('open');
+  if (document.getElementById('chat-block').hidden) throw new Error('open chat Block missing');
+  await blockChat((command) => {
+    if (command === 'block_peer') return Promise.resolve({ revocation: 'pending', detail: 'offline' });
+    if (command === 'chat_rows') return Promise.resolve([]);
+    throw new Error(`unexpected successful block: ${command}`);
+  });
+  if (!chatDetail.hidden || chatRequests.querySelector('button')
+    || document.getElementById('chats-status').textContent
+      !== window.strings['chats.blocked.pending']) {
+    throw new Error('blocked peer stayed in Chats or revocation was overstated');
+  }
+  await open('open');
+  let finishBlock;
+  const oldBlock = blockChat((command) => command === 'block_peer'
+    ? new Promise((resolve) => { finishBlock = resolve; }) : Promise.resolve([]));
+  const readyState = current;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishBlock({ revocation: 'confirmed' });
+  await oldBlock;
+  if (!chatDetail.hidden) throw new Error('old Block repainted new identity');
+};
 globalThis.uiSmokeChats = Object.freeze({
-  checkChatProjection, checkFirstMessage, checkClearChat,
+  checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock,
 });

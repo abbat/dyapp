@@ -119,6 +119,8 @@ locally staged text shown as pending after node failure. The Found profile smoke
 `none` chat, sends one first text and checks the pending request row and disabled second send.
 Late history and send results are ignored after an identity switch. The Clear chat smoke checks Cancel, a failed clear,
 confirmation with an empty row and local-only note, and a late result after switching identity.
+The Block smoke covers request/open controls, a failed local block, pending network revocation,
+immediate row hiding and an old result after identity switch.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
 The same case reopens a peer card and checks that old

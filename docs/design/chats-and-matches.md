@@ -54,7 +54,9 @@ The Linux Found profile's Message action opens a `none` conversation to send one
 The Chats composer then follows these states: `requestSent` disables another send,
 `requestReceived` allows one reply, and `open` allows later text. It keeps a draft when a send
 fails before local staging. If a network failure occurs after staging, it shows the local text
-and pending delivery; the desktop minute mailbox poll retries due outbox writes.
+and pending delivery; the desktop minute mailbox poll retries due outbox writes. Block from
+the Linux chat detail hides the peer immediately on this computer; network token revocation may
+remain pending and can be retried in Settings.
 
 **No daily limit.** A count of first messages per day would only be checked by the sender's
 client, which anyone can change, so there is none. The one-pending rule holds because the

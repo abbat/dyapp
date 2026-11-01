@@ -221,8 +221,10 @@ A send error keeps an unstaged draft; if the text was already staged locally, th
 in history and reports pending delivery. A verified Found profile's Message action opens an
 empty first-message detail; after one send it becomes a sent request and disables the composer.
 Profile names/photos and message actions remain planned for this UI. Clear chat now asks for confirmation,
-deletes this computer's history, keeps the conversation row and shows a local-only note. The Rust
-desktop commands expose history, send text, Clear chat and mark read for the active identity.
+deletes this computer's history, keeps the conversation row and shows a local-only note. Block
+is available from a request or open chat: it hides the peer locally at once and reports whether
+network token revocation is pending. The Rust desktop commands expose history, send text, Clear
+chat and mark read for the active identity.
 
 | Control | ID | Notes |
 | --- | --- | --- |

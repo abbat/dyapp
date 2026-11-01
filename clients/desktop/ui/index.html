@@ -310,13 +310,18 @@
         <div id="chat-detail" hidden>
           <button id="chat-back" class="btn quiet back" type="button" data-i18n="chats.back"></button>
           <h2 id="chat-peer"></h2>
-          <div class="actions"><button id="chat-clear" class="btn quiet" type="button"
-            data-i18n="chats.clear"></button></div>
+          <div class="actions">
+            <button id="chat-block" class="btn quiet" type="button" data-i18n="view.block"></button>
+            <button id="chat-clear" class="btn quiet" type="button" data-i18n="chats.clear"></button>
+          </div>
           <p id="chat-state" class="caption"></p>
           <div id="chat-messages" class="thread" role="log" aria-live="polite"></div>
           <p id="chat-cleared" class="notice" data-i18n="chats.cleared" hidden></p>
           <p id="chat-first-notice" class="notice" data-i18n="chats.firstNotice" hidden></p>
-          <p id="chat-request-notice" class="notice" data-i18n="chats.requestNotice" hidden></p>
+          <div id="chat-request-notice" class="notice" hidden>
+            <p data-i18n="chats.requestNotice"></p>
+            <button id="request-block" class="btn quiet" type="button" data-i18n="view.block"></button>
+          </div>
           <form id="chat-composer">
             <label for="chat-input" data-i18n="chats.message"></label>
             <textarea id="chat-input" rows="3" maxlength="65536"></textarea>
