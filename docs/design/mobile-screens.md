@@ -112,18 +112,21 @@ The IDs inside each section are the desktop ones; only the frame differs.
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
 - Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`.
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
-  `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` and `language`,
+  `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
+  `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`) and `node` (`node-enabled`). `remove-dialog` and `remove-offline`
   confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
   `remove-action`, `remove-retry` and `remove-anyway`. Android has no profile withdrawal yet, so its
   dialog says that a published profile leaves search by itself within 30 days; `remove-offline` and
   its Retry and Remove anyway are planned there. Android Settings has the identity rows, the lock
-  row and the version; a block list, theme, language, privacy and node settings have no Android
-  feature yet and are planned. It switches identities only in the identity menu.
+  row, the theme and language, and the version; a block list, privacy and node settings have no
+  Android feature yet and are planned. It switches identities only in the identity menu.
 
-The theme follows the system by default; the prototype shows the dark theme with
-`?theme=dark` instead of a separate state.
+The theme and language follow the system by default; the prototype shows the dark theme with
+`?theme=dark` instead of a separate state. On Android a picked theme applies at once. A picked
+language relaunches the activity back into Settings; with an app lock on, that asks to unlock
+first and returns to the first section, as any activity relaunch does.
 
 ## Detail screens
 

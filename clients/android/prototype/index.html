@@ -388,8 +388,11 @@ search providers asked: 0 of 3</pre>
           <label class="choice"><input type="radio" name="theme" id="theme-light"><span data-t="settings.theme.light"></span></label>
           <label class="choice"><input type="radio" name="theme" id="theme-dark"><span data-t="settings.theme.dark"></span></label>
         </fieldset>
-        <div class="field"><label for="language" data-t="settings.language"></label>
-          <select id="language"><option>English</option><option>Русский</option></select></div>
+        <fieldset id="language"><legend data-t="settings.language"></legend>
+          <label class="choice"><input type="radio" name="language" id="language-system" checked><span data-t="settings.theme.system"></span></label>
+          <label class="choice"><input type="radio" name="language" id="language-en"><span>English</span></label>
+          <label class="choice"><input type="radio" name="language" id="language-ru"><span>Русский</span></label>
+        </fieldset>
       </div>
       <div class="card" id="privacy">
         <h2 data-t="settings.privacy"></h2>
