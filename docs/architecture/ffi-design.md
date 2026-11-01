@@ -39,9 +39,9 @@ no identity if that slot cannot reopen. Once old leases drain, every identity tr
 the shared verified profile cache and remembered successful seed check. A solve or seed check that
 registers after the transition signal probes the gate and cancels itself. The UI asks the node to
 apply the new identity after rendering it. Network activation consumes the successful seed check;
-a late check cannot restore it. Saving active settings also clears verified profiles and
-advances the cache epoch under one lock, so late search and chat results cannot repopulate it. UI
-callback guards are specified in the
+a late check cannot restore it. Saving different active settings also clears verified profiles
+and advances the cache epoch under one lock, so late search and chat results cannot repopulate it.
+Repeating the same settings retains the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
 ## Exported surface
