@@ -24,7 +24,7 @@ has changed from raw text to `message ID (16 bytes) || text`. Text and replaceme
 limited to 64 KiB by the codec. Tag 12 reads
 `message ID (16) || original HLC (8, big endian) || text` and applies the 60-second future-clock
 guard when accepted into the Store. Sending tag 12 remains disabled until all supported clients
-can decode it; its original HLC is not yet persisted for Chats ordering. See
+can decode it; the Store persists its original HLC, while Chats ordering is still planned. See
 [ADR 0037](../decisions/0037-chat-list-order.md). Tag 8 is an edit:
 `target ID (16) || operation ID (16) || HLC (8, big endian) || replacement text`.
 Tag 9 is a delete with the same 40-byte header and no text. An operation ID is random and stays

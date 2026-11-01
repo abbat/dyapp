@@ -44,8 +44,9 @@ go into logs or migration diagnostics.
 
 ## Versioned records
 
-The initial SQLite schema has one `user_version` (1), one profile binding,
-and these logical tables. Exact SQL and indexes belong to the storage implementation and its ADR.
+Fresh SQLite databases use `user_version` 2 and one profile binding; existing version-1 databases
+migrate in place. These are the logical tables. Exact SQL and indexes belong to the storage
+implementation and its ADR.
 
 | Table | Durable content | Key / invariant |
 | --- | --- | --- |
@@ -53,7 +54,7 @@ and these logical tables. Exact SQL and indexes belong to the storage implementa
 | `mls_state` | One current sealed device blob | Replaced atomically with every operation that changes MLS state. |
 | `conversation_groups` | Group ID and verified peer association | Registered with the sealed state and Welcome outbox; reopen rejects a missing group or peer mismatch. |
 | `inbox` | Mailbox and envelope IDs, processed message or event, ack-pending bit | `(mailbox, envelope ID)` is unique; duplicate delivery never shows twice. |
-| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Fresh pre-release schema only, without a version bump or migration. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. Chat operations and private interactions share one persisted HLC; rejected operations roll back clock changes. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. The Store also provides `stage_chat_outbound` to commit an own text/edit/delete projection with exact outbox writes and sealed MLS state before network delivery; Session send routing is planned. |
+| `chat_messages` | One current text or deletion placeholder per `(group ID, verified author Peer ID, logical message ID)` | Version 2 adds nullable original HLC and a local unread flag (currently defaulting to read; unread updates follow separately). Migration keeps legacy original time NULL and read. A received tag-12 original records its HLC, including after an edit/delete placeholder; conflicting time for the same logical ID is refused. SHA-256 of the original text identifies duplicate deliveries after an edit/delete without retaining another text copy. Store orders edits by `(HLC, device key, operation ID)` and treats delete as terminal, including when it arrives before the original. Chat operations and private interactions share one persisted HLC; rejected operations roll back clock changes. `Session::receive` uses `stage_chat_inbound` to commit this projection with the sealed MLS snapshot, inbox dedupe and pending ACK; the inbox retains only a body digest for text, edit and delete. The Store also provides `stage_chat_outbound` to commit an own text/edit/delete projection with exact outbox writes and sealed MLS state before network delivery; Session stages sends through this path. |
 | `chat_operations` | Operation ID, target ID, sending device and SHA-256 body digest; replacement text only while the original is missing | Same group and author cannot reuse an operation ID with different content or device. At most 64 unresolved operations exist across the profile; the 65th is refused until an original resolves pending work. Pending text is cleared with that original. |
 | `chat_cleared` | `(group ID, author Peer ID, message ID)` of each message Clear chat removed, no text | A text, edit or delete naming a mark is discarded and still ACKed; the mark outlives restarts. |
 | `outbox` | Exact signed envelope bytes, mailbox, retry schedule and attempts; whether the row waits for a receipt and when a node first accepted it; which node accepted the latest copy and when; an optional expiry time; the chat group of a chat write | `(mailbox, envelope ID)` is unique; Clear chat drops unaccepted chat writes of its group; retry reuses bytes and ID. A receipt or presence row leaves on acceptance; any other row leaves on its receipt or 30 days after acceptance. A row past its expiry, set only for presence (2 hours after it was drafted), is given up unsent. |
@@ -122,13 +123,13 @@ Like/unlike/view event ordering and match derivation belong to the
 separately authoritative boolean. Chat history and outgoing work share this store so a failed
 network attempt does not discard the user's message.
 
-Opening verifies the bound identity and the schema version. Migration steps are planned for
-schema changes after the first release: each starts a transaction, applies one monotonic version
-step, and commits only after its integrity checks. A future version, invalid
-binding or corrupt database fails closed with a recoverable error; it never silently creates an
-empty replacement at that path. Before a destructive migration, the app must offer a consistent
-backup. Copying a live WAL database file alone is not a consistent backup: an app-provided export
-must use SQLite's backup mechanism or stop and checkpoint the store first. Restoring an old
+Opening verifies the bound identity and the schema version. For version 1, it checks the Peer ID
+binding before a transactional change to version 2; failure rolls back both new columns and the
+version number. Future schema changes must use monotonic steps with integrity checks. A future
+version, invalid binding or corrupt database fails closed with a recoverable error; it never
+silently creates an empty replacement at that path. Before a destructive migration, the app
+must offer a consistent backup. Copying a live WAL database file alone is not a consistent
+backup: an app-provided export must use SQLite's backup mechanism or stop and checkpoint the store first. Restoring an old
 snapshot must not silently roll MLS state back over a newer one; the app must require explicit
 recovery and re-establish sessions before sending.
 

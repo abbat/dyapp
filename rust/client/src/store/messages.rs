@@ -29,6 +29,8 @@ CREATE TABLE `chat_messages` (
     `last_hlc` INTEGER,
     `last_device` BLOB,
     `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
+    `original_hlc` INTEGER CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0),
+    `unread` INTEGER NOT NULL DEFAULT 0 CHECK (`unread` IN (0, 1)),
     CHECK ((`last_hlc` IS NULL AND `last_device` IS NULL AND `last_operation` IS NULL)
         OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),
     CHECK ((`deleted` = 0 AND `text` IS NOT NULL AND `original_digest` IS NOT NULL)
@@ -54,6 +56,13 @@ CREATE TABLE `chat_cleared` (
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
     PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
+";
+
+pub(super) const MIGRATE_V2: &str = "
+ALTER TABLE `chat_messages` ADD COLUMN `original_hlc` INTEGER
+    CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0);
+ALTER TABLE `chat_messages` ADD COLUMN `unread` INTEGER NOT NULL DEFAULT 0
+    CHECK (`unread` IN (0, 1));
 ";
 
 /// One logical message, shared by recipient devices and independent of envelope IDs.
@@ -211,7 +220,7 @@ impl Store {
             )?;
         }
         let changed = match body {
-            Body::Text { text, .. } => Self::record_chat_text_tx(tx, &key, text)?,
+            Body::Text { hlc, text, .. } => Self::record_chat_text_tx(tx, &key, text, *hlc)?,
             Body::Edit { .. } | Body::Delete { .. } => {
                 Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
             }
@@ -286,7 +295,7 @@ impl Store {
                                 .observe_at(Timestamp::from(*hlc), wall_ms)?;
                             save_hlc(tx, observed)?;
                         }
-                        Self::record_chat_text_tx(tx, &key, text)?;
+                        Self::record_chat_text_tx(tx, &key, text, *hlc)?;
                     }
                     Body::Edit { .. } | Body::Delete { .. } => {
                         Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?;
@@ -330,7 +339,7 @@ impl Store {
     /// logical key is a conflict. The caller has already verified the author through MLS.
     pub fn record_chat_text(&mut self, key: &MessageKey, text: &[u8]) -> Result<bool, Error> {
         let tx = self.db.transaction()?;
-        let changed = Self::record_chat_text_tx(&tx, key, text)?;
+        let changed = Self::record_chat_text_tx(&tx, key, text, None)?;
         tx.commit()?;
         Ok(changed)
     }
@@ -339,37 +348,44 @@ impl Store {
         tx: &Transaction<'_>,
         key: &MessageKey,
         text: &[u8],
+        hlc: Option<u64>,
     ) -> Result<bool, Error> {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(Error::InboxConflict);
         }
+        let original_hlc = hlc
+            .map(i64::try_from)
+            .transpose()
+            .map_err(|_| Error::ClockRange)?;
         let digest = sha256(text);
-        let saved: Option<Option<Vec<u8>>> = tx
+        let saved: Option<(Option<Vec<u8>>, Option<i64>)> = tx
             .query_row(
-                "SELECT `original_digest` FROM `chat_messages`
+                "SELECT `original_digest`, `original_hlc` FROM `chat_messages`
              WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                 params![&key.group, &key.author, key.id.as_slice()],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
         match saved {
-            Some(Some(original_digest)) => {
-                if original_digest != digest {
+            Some((Some(original_digest), saved_hlc)) => {
+                if original_digest != digest || saved_hlc != original_hlc {
                     return Err(Error::InboxConflict);
                 }
                 // An original delivered after edit/delete must not replace the projection.
                 Ok(false)
             }
-            Some(None) => {
-                // A delete reached us before its original; record its digest, keep the tombstone.
+            Some((None, Some(_))) => Err(Error::InboxConflict),
+            Some((None, None)) => {
+                // A delete reached us before its original; record its digest and time.
                 tx.execute(
-                    "UPDATE `chat_messages` SET `original_digest` = ?4
+                    "UPDATE `chat_messages` SET `original_digest` = ?4, `original_hlc` = ?5
                      WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
                     params![
                         &key.group,
                         &key.author,
                         key.id.as_slice(),
-                        digest.as_slice()
+                        digest.as_slice(),
+                        original_hlc
                     ],
                 )?;
                 operations::resolve_pending(tx, key, true)?;
@@ -377,9 +393,9 @@ impl Store {
             }
             None => {
                 tx.execute(
-                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`)
-                     VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
-                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice()],
+                    "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `original_hlc`, `edited`, `deleted`)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0)",
+                    params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc],
                 )?;
                 operations::resolve_pending(tx, key, false)?;
                 Ok(true)

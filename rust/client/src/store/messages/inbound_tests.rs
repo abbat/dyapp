@@ -56,6 +56,37 @@ fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
         Some(&b"hello"[..])
     );
     assert_eq!(store.pending_acks().unwrap(), vec![inbox(1)]);
+    let stored: i64 = store
+        .db
+        .query_row(
+            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&key.id[..]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, i64::try_from(u64::from(valid)).unwrap());
+    assert!(matches!(
+        store.stage_chat_inbound(
+            b"other",
+            &inbox(2),
+            sender,
+            &timed(Timestamp::new(61_000, 1).into()),
+            1_000
+        ),
+        Err(Error::InboxConflict)
+    ));
+    assert!(!store.has_inbox(&inbox(2)).unwrap());
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    let restarted: i64 = store
+        .db
+        .query_row(
+            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&key.id[..]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(restarted, stored);
 }
 
 #[test]
@@ -186,7 +217,7 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
     };
     let original = Body::Text {
         id: key.id,
-        hlc: None,
+        hlc: Some(Timestamp::new(150, 0).into()),
         text: b"late private original".to_vec(),
     };
     let mut store = Store::open(&path, &owner).unwrap();
@@ -213,6 +244,18 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
     let store = Store::open(&path, &owner).unwrap();
     let current = store.chat_message(&key).unwrap().unwrap();
     assert!(current.deleted && current.text.is_none());
+    let original_hlc: i64 = store
+        .db
+        .query_row(
+            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&key.id[..]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        original_hlc,
+        i64::try_from(u64::from(Timestamp::new(150, 0))).unwrap()
+    );
     assert_eq!(store.pending_acks().unwrap(), vec![inbox(1), inbox(2)]);
     let saved: Vec<u8> = store
         .db
