@@ -35,7 +35,7 @@ impl NetworkState {
         Ok(())
     }
 
-    fn check_epoch(&self) -> Result<u64, String> {
+    pub(crate) fn check_epoch(&self) -> Result<u64, String> {
         Ok(self.checked.lock().map_err(|e| e.to_string())?.epoch)
     }
 
