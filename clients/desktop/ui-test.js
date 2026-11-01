@@ -397,6 +397,60 @@ const checkStaleProfileHandlers = async () => {
   await newPreview;
   if (profileBusy || publishDialog.open) throw new Error('new preview did not finish');
 };
+// A late publish or hide must leave the next identity's dialog and busy state alone.
+const checkStalePublishAndHide = async () => {
+  const readyState = current;
+  const published = { published: 1, hidden: false, searchMinutes: null };
+  const openDialog = () => {
+    openPublishDialog({ draft: profileDraft() });
+    profileAttested.checked = true;
+    profileDisclosure.checked = true;
+    publishConfirm.disabled = false;
+  };
+  openDialog();
+  let finishOldPublish;
+  const oldPublish = confirmPublish((command) => command === 'solve_profile'
+    ? Promise.resolve() : new Promise((resolve) => { finishOldPublish = resolve; }));
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishOldPublish) throw new Error('old profile publish did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  openDialog();
+  let finishNewSolve;
+  const newPublish = confirmPublish((command) => command === 'publish_profile'
+    ? Promise.resolve(published) : new Promise((resolve) => { finishNewSolve = resolve; }));
+  finishOldPublish(published);
+  await oldPublish;
+  if (!profileBusy || !publishDialog.open
+    || profileStatus.textContent !== window.strings['profile.solving']) {
+    throw new Error('old publish changed new dialog');
+  }
+  finishNewSolve();
+  await newPublish;
+  if (profileBusy || publishDialog.open
+    || profileStatus.textContent !== `${window.strings['profile.published']} 1`) {
+    throw new Error('new publish did not finish');
+  }
+
+  profileHidden.checked = true;
+  let finishOldHide;
+  const oldHide = hideProfile(() => new Promise((resolve) => { finishOldHide = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  profileHidden.checked = true;
+  let finishNewHide;
+  const newHide = hideProfile(() => new Promise((resolve) => { finishNewHide = resolve; }));
+  const status = profileStatus.textContent;
+  finishOldHide({ ...published, hidden: true });
+  await oldHide;
+  if (!profileBusy || profileStatus.textContent !== status) {
+    throw new Error('old hide changed new editor');
+  }
+  finishNewHide({ ...published, hidden: true });
+  await newHide;
+  if (profileBusy || !profileHidden.checked) throw new Error('new hide did not finish');
+  await showProfile();
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1168,6 +1222,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleSafety();
       await checkStaleProfileLoad();
       await checkStaleProfileHandlers();
+      await checkStalePublishAndHide();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

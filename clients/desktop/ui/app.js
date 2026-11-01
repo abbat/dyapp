@@ -690,14 +690,17 @@ const openPublishDialog = (view) => {
 const elapsed = document.getElementById('publish-elapsed');
 let elapsedTimer;
 const startElapsed = () => {
+  const generation = identityGeneration;
   const start = Date.now();
   const tick = () => {
+    if (!identityCurrent(generation)) return;
     const seconds = Math.floor((Date.now() - start) / 1000);
     elapsed.textContent = window.strings['publish.elapsed']
       .replace('{time}', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
   };
   tick();
   elapsedTimer = setInterval(tick, 1000);
+  return elapsedTimer;
 };
 const setProfileBusy = (busy) => {
   profileBusy = busy;
@@ -756,56 +759,69 @@ for (const box of [profileAttested, profileDisclosure]) {
 // Cancel stops the puzzle while it runs and otherwise closes the dialog; the draft stays.
 profileCancel.addEventListener('click', () => {
   if (!profileBusy) return publishDialog.close();
+  const generation = identityGeneration;
   profileCancel.disabled = true;
-  invoke('cancel_profile_solve').catch(profileFailure);
+  invoke('cancel_profile_solve').catch((error) => {
+    if (identityCurrent(generation)) profileFailure(error);
+  });
 });
 publishDialog.addEventListener('cancel', (event) => {
   event.preventDefault();
   profileCancel.click();
 });
 publishDialog.addEventListener('close', () => { publishDialog.hidden = true; });
-publishConfirm.addEventListener('click', async () => {
+const confirmPublish = async (call = invoke) => {
   if (profileBusy || !profileAttested.checked || !profileDisclosure.checked) return;
+  const generation = identityGeneration;
   setProfileBusy(true);
   publishConfirm.disabled = true;
   document.getElementById('publish-consents').hidden = true;
   document.getElementById('publish-progress').hidden = false;
-  startElapsed();
+  const timer = startElapsed();
   try {
     profileMessage('profile.solving');
-    await invoke('solve_profile', { attested: true });
+    await call('solve_profile', { attested: true });
+    if (!identityCurrent(generation)) return;
     profileMessage('profile.publishing');
-    const published = await invoke('publish_profile', { attested: true });
+    const published = await call('publish_profile', { attested: true });
+    if (!identityCurrent(generation)) return;
     showSearchWait(published);
     showHidden(published);
     profileMessage('profile.published', String(published.published));
   } catch (error) {
-    profileFailure(error);
+    if (identityCurrent(generation)) profileFailure(error);
   } finally {
-    clearInterval(elapsedTimer);
-    publishDialog.close();
-    setProfileBusy(false);
-    profileCancel.disabled = false;
+    clearInterval(timer);
+    if (identityCurrent(generation)) {
+      publishDialog.close();
+      setProfileBusy(false);
+      profileCancel.disabled = false;
+    }
   }
-});
+};
+publishConfirm.addEventListener('click', () => { window.publishDone = confirmPublish(); });
 // On hides the profile with a tombstone; off publishes the saved draft again through the dialog.
-profileHidden.addEventListener('change', async () => {
+const hideProfile = async (call = invoke) => {
   if (!profileHidden.checked) {
     profileHidden.checked = true;
     return previewAndPublish();
   }
+  const generation = identityGeneration;
   setProfileBusy(true);
   try {
-    const view = await invoke('hide_profile');
+    const view = await call('hide_profile');
+    if (!identityCurrent(generation)) return;
     showSearchWait(view);
     showHidden(view);
   } catch (error) {
+    if (!identityCurrent(generation)) return;
     profileHidden.checked = false;
     profileFailure(error);
   } finally {
-    setProfileBusy(false);
+    if (identityCurrent(generation)) setProfileBusy(false);
   }
-});
+};
+profileHidden.addEventListener('change', () => { window.hideDone = hideProfile(); });
 
 async function render(state, generation = identityGeneration, fresh = false) {
   if (!identityCurrent(generation)) return state;
@@ -828,6 +844,8 @@ async function render(state, generation = identityGeneration, fresh = false) {
     await showProfile();
     if (!identityCurrent(generation)) return state;
     setProfileBusy(false);
+    profileCancel.disabled = false;
+    if (publishDialog.open) publishDialog.close();
     window.resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
