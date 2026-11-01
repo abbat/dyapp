@@ -52,14 +52,21 @@ def host_info():
             continue
     return {
         "hostname": socket.gethostname(), "uname": platform.uname()._asdict(),
-        "source_commit": optional_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"]),
+        "source_commit": optional_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"]),
         "os_release": distro, "gpu": gpu,
-        "webkitgtk": optional_output(["dpkg-query", "-W", "-f=${Package} ${Version}",
-                                       "libwebkit2gtk-4.1-0"]),
+        "webkitgtk": optional_output(
+            ["dpkg-query", "-W", "-f=${Package} ${Version}",
+             "libwebkit2gtk-4.1-0"]),
         "cpu": optional_output(["lscpu"]),
-        "display": {key: os.environ.get(key, "") for key in
-                    ("DISPLAY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE", "GDK_BACKEND")},
-        "clock_uncertainty": "Rust and JavaScript share host wall clock; Date.now() is quantized to at least 1 ms. Clock adjustments and scheduling delay are not isolated.",
+        "display": {
+            key: os.environ.get(key, "") for key in
+            ("DISPLAY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE", "GDK_BACKEND")
+        },
+        "clock_uncertainty": (
+            "Rust and JavaScript share host wall clock; Date.now() is "
+            "quantized to at least 1 ms. Clock adjustments and scheduling "
+            "delay are not isolated."),
     }
 
 
@@ -116,13 +123,16 @@ def run_case(app, name, output):
             now = time.monotonic()
             if now >= next_sample:
                 current = process_tree(process.pid)
-                cpu_ticks += sum(max(0, ticks - previous[key][0])
-                                 for key, (ticks, _) in current.items() if key in previous)
+                cpu_ticks += sum(
+                    max(0, ticks - previous[key][0])
+                    for key, (ticks, _) in current.items() if key in previous)
                 previous = current
                 if current and len(samples) < 200:
                     samples.append({
                         "seconds": round(now - started, 2),
-                        "rss_mb": round(sum(rss for _, rss in current.values()) / 1048576, 2),
+                        "rss_mb": round(
+                            sum(rss for _, rss in current.values()) / 1048576,
+                            2),
                         "processes": len(current),
                     })
                 next_sample = now + 0.5
@@ -130,7 +140,7 @@ def run_case(app, name, output):
                 if exit_seen_at is None:
                     exit_seen_at = time.monotonic()
                 if time.monotonic() - exit_seen_at > 2:
-                    break  # An orphaned WebKit helper may still hold stdout open.
+                    break  # A WebKit helper may still hold stdout open.
             if time.monotonic() - started > 95:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=5)
@@ -141,8 +151,10 @@ def run_case(app, name, output):
         process.stdout.close()
     text = output_tail.decode("utf-8", errors="replace")
     (output / f"{name}.log").write_text(text)
-    match = re.search(rf"^UI_SMOKE_METRICS:video:{re.escape(name)}:(\{{[^\n]{{1,500}}\}})$",
-                      text, re.M)
+    metric_pattern = (
+        rf"^UI_SMOKE_METRICS:video:{re.escape(name)}:"
+        r"(\{[^\n]{1,500}\})$")
+    match = re.search(metric_pattern, text, re.M)
     if process.returncode or "UI_SMOKE_PASS:" not in text or not match:
         raise RuntimeError(f"{name} failed; see {output / (name + '.log')}")
     duration = (exit_seen_at or time.monotonic()) - started
@@ -161,16 +173,20 @@ def run_case(app, name, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--app", type=Path, default=BUILD / "debug/dyapp-linux")
-    parser.add_argument("--host", required=True, help="human-readable name of the measured desktop")
+    parser.add_argument("--app", type=Path,
+                        default=BUILD / "debug/dyapp-linux")
+    parser.add_argument("--host", required=True,
+                        help="human-readable name of the measured desktop")
     args = parser.parse_args()
-    if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", args.host) or args.host in (".", ".."):
+    valid_name = re.fullmatch(r"[A-Za-z0-9._-]{1,64}", args.host)
+    if not valid_name or args.host in (".", ".."):
         parser.error("--host must be a short name without path separators")
     app = args.app.resolve()
     if not app.is_file():
         parser.error(f"debug app not found: {app}")
     info = host_info()
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y%m%dT%H%M%SZ")
     output = BUILD / "video-benchmark" / f"{stamp}-{args.host}"
     output.mkdir(parents=True)
     cases = {}
@@ -178,7 +194,8 @@ def main():
         cases[name] = run_case(app, name, output)
     idle = cases["idle"]["cpu_cores"]
     for name in ("360p", "720p"):
-        cases[name]["additional_cpu_cores"] = round(cases[name]["cpu_cores"] - idle, 3)
+        cases[name]["additional_cpu_cores"] = round(
+            cases[name]["cpu_cores"] - idle, 3)
     (output / "report.json").write_text(json.dumps({
         "host": args.host, "environment": info, "cases": cases,
     }, indent=2) + "\n")

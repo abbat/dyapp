@@ -534,8 +534,8 @@ def smoke(executable, flows=True):
             server.terminate()
             server.wait(timeout=30)
 
-    if (flows and sys.platform.startswith("linux") and
-            os.environ.get("DYAPP_VIDEO_SMOKE") == "1"):
+    video_enabled = os.environ.get("DYAPP_VIDEO_SMOKE") == "1"
+    if flows and sys.platform.startswith("linux") and video_enabled:
         video_smoke(case, reports)
     for mode in ("system", "file"):
         with tempfile.TemporaryDirectory(dir=reports) as profile:
