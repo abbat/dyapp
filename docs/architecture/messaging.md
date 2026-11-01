@@ -152,9 +152,12 @@ Sessions lock; due writes are retried after reconnect or restart without draftin
 For a staged own text, edit or delete, the outbox now records the logical message ID and the
 current content generation (the original ID or edit/delete operation ID) alongside its MLS group.
 The current chat projection records that generation as pending in the same transaction; incoming
-operations clear a superseded local generation. This is the durable link needed to show delivery
-status after restart. Advancing it on node acceptance or peer-device receipt and exposing it in
-the desktop UI are tracked as separate steps; pending does not yet mean that a retry is active.
+operations clear a superseded local generation. Node acceptance atomically advances the current
+local generation to node-accepted; a signed recipient-device receipt advances it to received by
+at least one device. A late receipt for an older text or edit cannot change the newer generation.
+Those states survive restart and outbox removal. Chat writes have no expiry before acceptance;
+an accepted write given up after 30 days still has the factual node-accepted status. Exposing
+the states in the desktop UI remains a separate step.
 The desktop app also uses this adapter for likes, token refill, and own-message edit/delete
 commands. Edit/delete validate peer, group and logical message ID against the local projection
 before opening a Session. Linux Chats exposes Edit and Delete for own live text; other

@@ -34,9 +34,9 @@ CREATE TABLE `chat_messages` (
     `last_operation` BLOB CHECK (`last_operation` IS NULL OR length(`last_operation`) = 16),
     `original_hlc` INTEGER CHECK (`original_hlc` IS NULL OR `original_hlc` >= 0),
     `unread` INTEGER NOT NULL DEFAULT 0 CHECK (`unread` IN (0, 1)),
-    -- Own current content: pending=0, node-accepted=1, device-received=2, expired=3.
+    -- Own current content: pending=0, node-accepted=1, device-received=2.
     `delivery_generation` BLOB CHECK (`delivery_generation` IS NULL OR length(`delivery_generation`) = 16),
-    `delivery_state` INTEGER CHECK (`delivery_state` IS NULL OR `delivery_state` IN (0, 1, 2, 3)),
+    `delivery_state` INTEGER CHECK (`delivery_state` IS NULL OR `delivery_state` IN (0, 1, 2)),
     CHECK ((`delivery_generation` IS NULL) = (`delivery_state` IS NULL)),
     CHECK ((`last_hlc` IS NULL AND `last_device` IS NULL AND `last_operation` IS NULL)
         OR (`last_hlc` IS NOT NULL AND `last_device` IS NOT NULL AND `last_operation` IS NOT NULL)),

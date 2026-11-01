@@ -3,6 +3,18 @@ use crate::{prepare_put, PreparedEnvelope};
 use dyapp_identity::Identity;
 use rusqlite::params;
 
+fn delivery_state(store: &Store, key: &MessageKey) -> i64 {
+    store
+        .db
+        .query_row(
+            "SELECT `delivery_state` FROM `chat_messages`
+         WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+            params![&key.group, &key.author, key.id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
 fn assert_staged(store: &Store, key: &MessageKey, write: &PreparedEnvelope, generation: [u8; 16]) {
     let link: (Vec<u8>, Vec<u8>, Vec<u8>) = store
         .db
@@ -182,6 +194,18 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     assert!(due
         .iter()
         .any(|write| write.as_bytes() == write3.as_bytes()));
+    // A node taking the superseded original cannot mark the deleted generation accepted.
+    store.accepted(&write1, 2_000, "node").unwrap();
+    assert_eq!(delivery_state(&store, &key), 0);
+    store.accepted(&write3, 2_000, "node").unwrap();
+    assert_eq!(delivery_state(&store, &key), 1);
+    store.receipted(write1.mailbox(), &[*write1.id()]).unwrap();
+    assert_eq!(delivery_state(&store, &key), 1);
+    store.receipted(write3.mailbox(), &[*write3.id()]).unwrap();
+    assert_eq!(delivery_state(&store, &key), 2);
+    drop(store);
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert_eq!(delivery_state(&store, &key), 2);
     let before_failure = store.draft_chat_operation(1_000).unwrap().1;
     assert!(matches!(
         store.stage_chat_outbound(b"mls-bad", &[], sender, &edit, 1_000),

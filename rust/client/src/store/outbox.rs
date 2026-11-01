@@ -39,22 +39,28 @@ impl Store {
 
     /// Node `peer` accepted `write`: drop it if it needs no receipt, else resend it 1 h after the
     /// first acceptance, doubling up to a day.
-    pub fn accepted(&self, write: &PreparedEnvelope, now_ms: i64, peer: &str) -> Result<(), Error> {
-        let row = params![
-            write.mailbox().as_slice(),
-            write.id().as_slice(),
-            write.as_bytes()
-        ];
-        let deleted = self.db.execute(
+    pub fn accepted(
+        &mut self,
+        write: &PreparedEnvelope,
+        now_ms: i64,
+        peer: &str,
+    ) -> Result<(), Error> {
+        let tx = self.db.transaction()?;
+        let deleted = tx.execute(
             "DELETE FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2
              AND `signed_envelope` = ?3 AND `awaits_receipt` = 0",
-            row,
+            params![
+                write.mailbox().as_slice(),
+                write.id().as_slice(),
+                write.as_bytes()
+            ],
         )?;
         if deleted == 1 {
+            tx.commit()?;
             return Ok(());
         }
         // SET reads the old row, so the first acceptance starts the pace over at 1 h.
-        let changed = self.db.execute(
+        let changed = tx.execute(
             "UPDATE `outbox` SET
              `retry_at_ms` = ?4 + MIN(3600000 << CASE WHEN `accepted_at_ms` IS NULL THEN 0
                  ELSE MIN(`attempts`, 5) END, 86400000),
@@ -70,7 +76,10 @@ impl Store {
                 peer
             ],
         )?;
-        exactly_one(changed)
+        exactly_one(changed)?;
+        advance_chat_delivery(&tx, &self.owner_peer_id, write.mailbox(), write.id(), 1)?;
+        tx.commit()?;
+        Ok(())
     }
 
     /// The node that last accepted `write`, unless a receipt blamed it since.
@@ -90,15 +99,15 @@ impl Store {
     /// and the nodes that dropped earlier writes to `mailbox`: those writes still wait though
     /// their latest copy was accepted before the received ones. They become due at once.
     pub fn receipted(
-        &self,
+        &mut self,
         mailbox: &[u8; 32],
         ids: &[[u8; 16]],
     ) -> Result<(usize, Vec<String>), Error> {
+        let tx = self.db.transaction()?;
         let mut fetched_after: Option<i64> = None;
         let mut dropped = 0;
         for id in ids {
-            let at: Option<i64> = self
-                .db
+            let at: Option<i64> = tx
                 .query_row(
                     "SELECT `accepted_at_ms` FROM `outbox`
                      WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `awaits_receipt` = 1",
@@ -110,29 +119,31 @@ impl Store {
             if let Some(at) = at {
                 fetched_after = Some(fetched_after.map_or(at, |t| t.min(at)));
             }
-            dropped += self.db.execute(
+            advance_chat_delivery(&tx, &self.owner_peer_id, mailbox, id, 2)?;
+            dropped += tx.execute(
                 "DELETE FROM `outbox`
                  WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `awaits_receipt` = 1",
                 params![mailbox.as_slice(), id.as_slice()],
             )?;
         }
         let Some(fetched_after) = fetched_after else {
+            tx.commit()?;
             return Ok((dropped, Vec::new()));
         };
         let overtaken =
             "WHERE `mailbox` = ?1 AND `awaits_receipt` = 1 AND `accepted_by` IS NOT NULL
              AND `last_accepted_ms` < ?2";
         let row = params![mailbox.as_slice(), fetched_after - GRACE_MS];
-        let faulty = self
-            .db
+        let faulty = tx
             .prepare(&format!("SELECT `accepted_by` FROM `outbox` {overtaken}"))?
             .query_map(row, |row| row.get(0))?
             .collect::<Result<_, _>>()?;
         // Clearing `accepted_by` faults a node once per copy; the resend records the next node.
-        self.db.execute(
+        tx.execute(
             &format!("UPDATE `outbox` SET `retry_at_ms` = 0, `accepted_by` = NULL {overtaken}"),
             row,
         )?;
+        tx.commit()?;
         Ok((dropped, faulty))
     }
 
@@ -144,6 +155,28 @@ impl Store {
             [now_ms.saturating_sub(GIVE_UP_MS), now_ms],
         )?)
     }
+}
+
+/// Advance only the still-current local generation; old text/operation receipts cannot repaint it.
+fn advance_chat_delivery(
+    tx: &rusqlite::Transaction<'_>,
+    owner: &str,
+    mailbox: &[u8; 32],
+    envelope_id: &[u8; 16],
+    state: i64,
+) -> Result<(), Error> {
+    tx.execute(
+        "UPDATE `chat_messages` SET `delivery_state` = MAX(`delivery_state`, ?4)
+         WHERE `author` = ?3 AND EXISTS (
+             SELECT 1 FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2
+             AND `awaits_receipt` = 1
+             AND `chat_group` = `chat_messages`.`group_id`
+             AND `chat_message_id` = `chat_messages`.`message_id`
+             AND `chat_generation_id` = `chat_messages`.`delivery_generation`
+         )",
+        params![mailbox.as_slice(), envelope_id.as_slice(), owner, state],
+    )?;
+    Ok(())
 }
 
 fn exactly_one(changed: usize) -> Result<(), Error> {
@@ -251,22 +284,31 @@ mod tests {
         store.accepted(&close, 180_000 - GRACE_MS, "c").unwrap();
         store.accepted(&recent, 180_000, "y").unwrap();
         assert_eq!(store.accepted_by(&early).unwrap().as_deref(), Some("x"));
-        assert_eq!(blamed(&store, &[*recent.id()]), (1, vec!["x".to_owned()]));
+        assert_eq!(
+            blamed(&mut store, &[*recent.id()]),
+            (1, vec!["x".to_owned()])
+        );
         assert_eq!(due_bytes(&store, 0), [early.as_bytes()]);
         assert_eq!(store.accepted_by(&early).unwrap(), None);
-        assert_eq!(blamed(&store, &[*recent.id()]), (0, vec![]));
+        assert_eq!(blamed(&mut store, &[*recent.id()]), (0, vec![]));
 
         // x is blamed once for its copy; the resend's node only for its own.
         store
             .stage_outbound(b"mls", &[fresh.clone(), later.clone()])
             .unwrap();
         store.accepted(&fresh, 400_000, "v").unwrap();
-        assert_eq!(blamed(&store, &[*fresh.id()]), (1, vec!["c".to_owned()]));
+        assert_eq!(
+            blamed(&mut store, &[*fresh.id()]),
+            (1, vec!["c".to_owned()])
+        );
         store.accepted(&early, 500_000, "u").unwrap();
         store.accepted(&later, 700_000, "w").unwrap();
-        assert_eq!(blamed(&store, &[*later.id()]), (1, vec!["u".to_owned()]));
+        assert_eq!(
+            blamed(&mut store, &[*later.id()]),
+            (1, vec!["u".to_owned()])
+        );
 
-        fn blamed(store: &Store, ids: &[[u8; 16]]) -> (usize, Vec<String>) {
+        fn blamed(store: &mut Store, ids: &[[u8; 16]]) -> (usize, Vec<String>) {
             store.receipted(&[1; 32], ids).unwrap()
         }
     }
