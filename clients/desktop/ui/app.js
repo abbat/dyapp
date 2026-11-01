@@ -964,24 +964,28 @@ const removeOffline = document.getElementById('remove-offline');
 const removeRetry = document.getElementById('remove-retry');
 const removeAnyway = document.getElementById('remove-anyway');
 let removePublished = false;
-const showRemove = async () => {
-  const items = await invoke('list_identities');
-  const copies = current.peerId && items.some((item) => item.slot !== current.slot
-    && item.status === 'ready' && item.peerId === current.peerId);
+const showRemove = async (call = invoke) => {
+  const generation = identityGeneration;
+  const state = current;
+  const items = await call('list_identities');
+  if (!identityCurrent(generation)) return;
+  const copies = state.peerId && items.some((item) => item.slot !== state.slot
+    && item.status === 'ready' && item.peerId === state.peerId);
   const whoRow = document.getElementById('remove-who');
-  whoRow.replaceChildren(...who(whoRow, current.peerId, current.reason, modeText(current)));
+  whoRow.replaceChildren(...who(whoRow, state.peerId, state.reason, modeText(state)));
   const peer = document.getElementById('remove-peer');
-  peer.textContent = current.peerId || reasonText(current.reason);
-  peer.parentElement.hidden = !current.peerId;
+  peer.textContent = state.peerId || reasonText(state.reason);
+  peer.parentElement.hidden = !state.peerId;
   const path = document.getElementById('remove-path');
-  path.hidden = !current.keyPath;
-  path.querySelector('code').textContent = current.keyPath || '';
-  document.getElementById('remove-copies').textContent = !current.peerId ? ''
+  path.hidden = !state.keyPath;
+  path.querySelector('code').textContent = state.keyPath || '';
+  document.getElementById('remove-copies').textContent = !state.peerId ? ''
     : window.strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
   // A missing key or another copy means nothing irreplaceable is lost.
-  document.getElementById('remove-warning').hidden = !current.peerId || copies;
+  document.getElementById('remove-warning').hidden = !state.peerId || copies;
   // A published profile is withdrawn from search before the key goes.
-  const view = current.status === 'ready' && await invoke('load_profile').catch(() => null);
+  const view = state.status === 'ready' && await call('load_profile').catch(() => null);
+  if (!identityCurrent(generation)) return;
   removePublished = Boolean(view?.published);
   document.getElementById('remove-text').hidden = !removePublished;
   removeAsk.hidden = false;
@@ -994,7 +998,10 @@ const showRemove = async () => {
 };
 removeDialog.addEventListener('close', () => { removeDialog.hidden = true; });
 for (const button of [removeIdentity, settingsRemove]) {
-  button.addEventListener('click', () => showRemove().catch(showError));
+  button.addEventListener('click', () => {
+    const generation = identityGeneration;
+    showRemove().catch(() => { if (identityCurrent(generation)) showError(); });
+  });
 }
 for (const id of ['setup-cancel', 'picker-cancel']) {
   document.getElementById(id).addEventListener('click', () => (current.status === 'ready'

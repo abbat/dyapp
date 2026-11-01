@@ -802,6 +802,36 @@ const checkStaleTray = async () => {
   }
   await setTray(null);
 };
+// Old removal preparation cannot open the dialog after another identity renders.
+const checkStaleRemovePreparation = async () => {
+  const readyState = current;
+  const items = await invokeTest('list_identities');
+  let finishList;
+  const oldList = showRemove(() => new Promise((resolve) => { finishList = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishList(items);
+  await oldList;
+  if (removeDialog.open || !removeDialog.hidden) {
+    throw new Error('old removal inventory opened new dialog');
+  }
+
+  let finishProfile;
+  const oldProfile = showRemove((command) => command === 'list_identities'
+    ? Promise.resolve(items) : new Promise((resolve) => { finishProfile = resolve; }));
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  if (!finishProfile) throw new Error('old removal profile load did not start');
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishProfile({ published: 1 });
+  await oldProfile;
+  if (removeDialog.open || !removeDialog.hidden) {
+    throw new Error('old removal profile opened new dialog');
+  }
+  await showRemove((command) => Promise.resolve(command === 'list_identities' ? items : null));
+  if (!removeDialog.open) throw new Error('current removal dialog did not open');
+  removeDialog.close();
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1581,6 +1611,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleSettingsInventory();
       await checkStaleNode();
       await checkStaleTray();
+      await checkStaleRemovePreparation();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

@@ -122,7 +122,8 @@ old success or error responses cannot change the new toggles or error state. Pau
 loads, unblock and revocation callbacks cannot change the new list, status or controls. An old
 Settings identity inventory response cannot replace newer rows or show an old error. Paused node
 status, settings load and save responses cannot change the new node form or unlock its Save.
-A late tray result cannot replace the new window controls. That relaunch also checks the Storage
+A late tray result cannot replace the new window controls. Old removal inventory and profile
+responses cannot open a dialog after a switch. That relaunch also checks the Storage
 card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
