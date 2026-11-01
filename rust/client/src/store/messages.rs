@@ -108,7 +108,11 @@ pub struct ChatMessage {
 }
 
 impl CurrentMessage {
-    fn from_stored(text: Option<Vec<u8>>, edited: i64, deleted: i64) -> Result<Self, Error> {
+    pub(super) fn from_stored(
+        text: Option<Vec<u8>>,
+        edited: i64,
+        deleted: i64,
+    ) -> Result<Self, Error> {
         if !matches!(
             (edited, deleted, text.is_some()),
             (0 | 1, 0, true) | (0 | 1, 1, false)

@@ -8,6 +8,9 @@ use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
+mod chat_list;
+#[cfg(test)]
+mod chat_list_tests;
 mod conversations;
 mod inbox;
 mod likes;
@@ -20,6 +23,7 @@ mod profile_draft;
 mod reads;
 mod search_publish;
 mod tokens;
+pub use chat_list::ChatRow;
 pub use conversations::Conversation;
 pub use likes::Likes;
 pub use peers::ContactName;
