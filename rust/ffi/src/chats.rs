@@ -6,7 +6,7 @@ use crate::profile_draft::database;
 use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_draft, send_held, ProfilePublished,
 };
-use crate::{CoreError, IdentityKey, KeyStore, PublicProfileDraft};
+use crate::{CoreError, FoundProfile, IdentityKey, KeyStore, PublicProfileDraft};
 use dyapp_client::chat::{Event, MAX_TEXT_BYTES};
 use dyapp_client::interactions::Kind;
 use dyapp_client::publish;
@@ -243,6 +243,32 @@ impl ChatSession {
         session.store().liked_by().map_err(failed)
     }
 
+    /// The verified profiles of `peer_ids` from the active network, in that order; a peer no node
+    /// returns is left out. No peers means no connection. Errors are `notConnected` or a node
+    /// message.
+    pub fn profiles(&self, peer_ids: Vec<String>) -> Result<Vec<FoundProfile>, CoreError> {
+        if peer_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let network = active_network(&self.dir)?;
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                let mut found = Vec::new();
+                for peer_id in peer_ids {
+                    if let Ok(verified) = node.get_profile(&peer_id).await {
+                        found.push(FoundProfile {
+                            peer_id: verified.peer_id,
+                            draft: PublicProfileDraft::from(&verified.profile),
+                            version: verified.profile.version,
+                        });
+                    }
+                }
+                Ok(found)
+            })
+        })
+    }
+
     /// Like `peer_id` (`liked`) or take the like back, as a signal in the pair group on the active
     /// network; the first like invites the peer. A failed send stays staged and is retried with
     /// the same bytes. Errors are `unpublished` (no published own profile lists this device),
@@ -456,6 +482,11 @@ mod tests {
             }
         );
         assert!(chats.liked_you().unwrap().is_empty());
+        assert!(chats.profiles(Vec::new()).unwrap().is_empty());
+        assert_eq!(
+            chats.profiles(vec![peer.clone()]).unwrap_err().to_string(),
+            "notConnected"
+        );
         let empty = chats.chat_history(peer.clone()).unwrap();
         assert_eq!((empty.state, empty.messages), (ChatState::None, Vec::new()));
         let session = chats.session.lock().unwrap();
