@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,7 +60,6 @@ private val sections = listOf(
  * content and the bottom navigation bar. [open] switches
  * sections and opens the lock screen; [act] changes the active identity.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("LongParameterList") // Sections and identity actions both route through the shell.
 internal fun AppShell(
@@ -71,18 +71,45 @@ internal fun AppShell(
     open: (StartTarget?) -> Unit,
 ) {
     if (showNetworkWizard(opened, section)) return
+    // Above the chat branch: the mailbox poll goes on while a chat is open.
+    val feed = rememberChatFeed(opened)
+    var chatPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
+    val peer = chatPeer
+    if (peer != null) {
+        ChatScreen(opened, peer, feed) { chatPeer = null }
+        return
+    }
+    // Back from a chat always lands on Chats, as the prototype's back button says.
+    ShellFrame(slots, opened, section, lockMode, act, open, feed) {
+        chatPeer = it
+        open(StartTarget.CHATS)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+@Suppress("LongParameterList") // The frame routes the shell's sections and identity actions.
+private fun ShellFrame(
+    slots: Slots,
+    opened: Opened.Ready,
+    section: StartTarget?,
+    lockMode: LockMode,
+    act: (() -> Opened) -> Unit,
+    open: (StartTarget?) -> Unit,
+    feed: ChatFeed,
+    openChat: (String) -> Unit,
+) {
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
-    val chats = rememberChatRows(opened)
     Scaffold(
         topBar = { ShellTopBar(opened, current, open) { switcher = true } },
-        bottomBar = { ShellNavigationBar(current, chatsBadge(chats), open) },
+        bottomBar = { ShellNavigationBar(current, chatsBadge(feed.rows), open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (current.target == StartTarget.CHATS) {
-                ChatsScreen(chats)
+                ChatsScreen(feed.rows, openChat)
             } else {
-                SectionContent(slots, opened, current.target, lockMode, act, open)
+                SectionContent(slots, opened, current.target, lockMode, act, open, openChat)
             }
         }
     }
@@ -141,9 +168,10 @@ private fun SectionContent(
     lockMode: LockMode,
     act: (() -> Opened) -> Unit,
     open: (StartTarget?) -> Unit,
+    openChat: (String) -> Unit,
 ) {
     when (target) {
-        StartTarget.SEARCH -> SearchScreen(opened) { open(StartTarget.NETWORK) }
+        StartTarget.SEARCH -> SearchScreen(opened, { open(StartTarget.NETWORK) }, openChat)
         StartTarget.NETWORK -> NetworkDraftScreen(opened, null)
         StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, lockMode, act) { open(StartTarget.LOCK) }
         else -> Column {

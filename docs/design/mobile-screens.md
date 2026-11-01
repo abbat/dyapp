@@ -11,8 +11,8 @@ dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
 
 The Android client follows this prototype, and its test tags are the IDs below. Still planned:
-both detail screens, found profile and chat, and the Chats tabs. The sections below note every
-other difference from the prototype. `make quality` checks that every ID and state in backticks on
+the found profile page and the Chats tabs. The sections below note every other difference from
+the prototype. `make quality` checks that every ID and state in backticks on
 this page is an id or a data-on state in the prototype. The prototype wording is a draft; the shipped strings stay in
 `clients/android/app/src/main/res`.
 
@@ -110,8 +110,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
 - Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. Android
   has no `chats-liked` and `chats-requests` yet, so requests sit in `chat-list` with a marker; a row
-  shows the short Peer ID rather than a name and does not open yet. The app receives the mailbox
-  every minute while it is in the foreground, on every section; failures stay quiet.
+  shows the short Peer ID rather than a name and opens the chat. The app receives the mailbox
+  every minute while it is in the foreground, on every section and in a chat; failures stay quiet.
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
@@ -139,7 +139,12 @@ first and returns to the first section, as any activity relaunch does.
   `chat-cleared` and `delete-dialog`: `chat-back`, `chat-profile`, `chat-more` with
   `chat-clear` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own message),
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
-  dialogs.
+  dialogs. Android has `chat`, `chat-first` and `chat-request` with `chat-back`, `chat-profile`,
+  `chat-first-notice`, `chat-request-notice`, `chat-thread`, `chat-input` and `chat-send`; the
+  menus, dialogs and blocking are planned, so the request notice does not offer a block yet. It
+  opens from a Chats row and from `view-message` on a search result, as the found profile page is
+  planned; back always lands on Chats. The first-message notice also shows before that message,
+  and an own message reads Pending until a node takes it, Sent, then Delivered.
 
 ## Identity switcher
 

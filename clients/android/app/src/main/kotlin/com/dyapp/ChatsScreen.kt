@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,8 +14,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,35 +45,65 @@ import java.util.Date
 private const val RECEIVE_INTERVAL_MS = 60_000L
 
 /**
- * This identity's chat rows, read locally first and again after each mailbox receive while the
- * activity is started. The shell owns them because the tab badge shows on every section.
+ * This identity's chat rows; the shell owns them because the tab badge shows on every section.
+ * The blocking calls belong on IO.
  */
-@Composable
-internal fun rememberChatRows(opened: Opened.Ready): List<ChatRow> {
-    // Keyed so that a switch never shows the previous identity's chats, even for a frame.
-    val rows = remember(opened.slot.id) { mutableStateOf(emptyList<ChatRow>()) }
-    val owner = checkNotNull(LocalView.current.findViewTreeLifecycleOwner()) { "Compose needs a lifecycle" }
-    LaunchedEffect(rows, owner) {
-        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            // On IO the delay is real time, so Compose tests do not fast-forward this endless loop.
-            withContext(Dispatchers.IO) { pollChats(opened) { rows.value = it } }
+internal class ChatFeed(private val opened: Opened.Ready) {
+    var rows by mutableStateOf(emptyList<ChatRow>())
+        private set
+
+    /** Counts the reads, so an open chat reloads for a change the rows do not show. */
+    var version by mutableIntStateOf(0)
+        private set
+
+    // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
+    private fun read() {
+        runCatching {
+            RustBridge.withChats(opened) {
+                rows = it.chatRows()
+                version += 1
+            }
         }
     }
-    return rows.value
+
+    fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
+
+    /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
+    fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {
+        val error = runCatching { RustBridge.withChats(opened) { it.sendText(peer, text) } }.exceptionOrNull()
+        read()
+        return error?.let { failed ->
+            val after = runCatching { history(peer).messages }.getOrDefault(before)
+            sendStatus(failed, stagedNew(before, after, opened.peerId))
+        }
+    }
+
+    // shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
+    // hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
+    // Upgrade when removal moves off the UI thread: take the chats lock there.
+    suspend fun poll() {
+        read()
+        while (true) {
+            runCatching { RustBridge.withChats(opened) { it.receive() } }
+            read()
+            delay(RECEIVE_INTERVAL_MS)
+        }
+    }
 }
 
-// shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
-// hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
-// Upgrade when removal moves off the UI thread: take the chats lock there.
-private suspend fun pollChats(opened: Opened.Ready, show: (List<ChatRow>) -> Unit) {
-    // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
-    fun read() = runCatching { RustBridge.withChats(opened) { it.chatRows() } }.onSuccess(show)
-    read()
-    while (true) {
-        runCatching { RustBridge.withChats(opened) { it.receive() } }
-        read()
-        delay(RECEIVE_INTERVAL_MS)
+/** The rows read locally first and again after each mailbox receive while the activity is started. */
+@Composable
+internal fun rememberChatFeed(opened: Opened.Ready): ChatFeed {
+    // Keyed so that a switch never shows the previous identity's chats, even for a frame.
+    val feed = remember(opened.slot.id) { ChatFeed(opened) }
+    val owner = checkNotNull(LocalView.current.findViewTreeLifecycleOwner()) { "Compose needs a lifecycle" }
+    LaunchedEffect(feed, owner) {
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // On IO the delay is real time, so Compose tests do not fast-forward this endless loop.
+            withContext(Dispatchers.IO) { feed.poll() }
+        }
     }
+    return feed
 }
 
 /** The tab badge: unread messages plus message requests; a request's own unread text counts once. */
@@ -79,14 +113,14 @@ internal fun chatsBadge(rows: List<ChatRow>): ULong = rows.sumOf {
 
 /** The Chats section: this identity's conversations and message requests. */
 @Composable
-internal fun ChatsScreen(rows: List<ChatRow>) {
+internal fun ChatsScreen(rows: List<ChatRow>, onOpen: (String) -> Unit) {
     Column(Modifier.fillMaxSize().testTag("chats")) {
         if (rows.isEmpty()) {
             Text(stringResource(R.string.chats_empty), Modifier.padding(16.dp))
         } else {
             LazyColumn(Modifier.weight(1f).testTag("chat-list")) {
                 itemsIndexed(rows, key = { _, row -> row.peerId }) { index, row ->
-                    ChatListRow(row, Modifier.testTag("chat-${index + 1}"))
+                    ChatListRow(row, Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) })
                 }
             }
         }
@@ -126,7 +160,7 @@ internal fun UnreadBadge(count: ULong, modifier: Modifier) {
 }
 
 @Composable
-private fun chatPreview(message: ChatMessage?): String = when {
+internal fun chatPreview(message: ChatMessage?): String = when {
     message == null -> stringResource(R.string.chats_no_messages)
     message.deleted -> stringResource(R.string.chats_deleted)
     message.forwarded -> stringResource(R.string.chats_forwarded, message.text.orEmpty())
@@ -134,7 +168,7 @@ private fun chatPreview(message: ChatMessage?): String = when {
 }
 
 @Composable
-private fun chatTime(sentAtMs: ULong?): String? {
+internal fun chatTime(sentAtMs: ULong?): String? {
     val locale = LocalConfiguration.current.locales[0]
     return sentAtMs?.let {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale).format(Date(it.toLong()))
