@@ -494,6 +494,51 @@ const checkStaleProfileTimers = async () => {
   elapsedTick();
   if (elapsed.textContent !== 'new identity') throw new Error('old elapsed timer changed new dialog');
 };
+// Old Settings and status polls must not paint B or schedule another A poll.
+const checkStaleUsageStatus = async () => {
+  const readyState = current;
+  await openArea('settings');
+  await window.usageShown;
+  let finishUsage;
+  const oldUsage = showUsage(() => new Promise((resolve) => { finishUsage = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await openArea('settings');
+  await window.usageShown;
+  const path = document.getElementById('usage-identity-dir').textContent;
+  const originalTimeout = globalThis.setTimeout;
+  let oldTimers = 0;
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay === 10000) oldTimers += 1;
+    return originalTimeout(callback, delay, ...args);
+  };
+  try {
+    finishUsage({ identityDir: '/old', messages: 0, messagesPath: '/old',
+      nodePath: null, node: null, nodeLimit: null, free: null });
+    await oldUsage;
+  } finally { globalThis.setTimeout = originalTimeout; }
+  if (document.getElementById('usage-identity-dir').textContent !== path || oldTimers) {
+    throw new Error('old usage changed new storage card or rearmed polling');
+  }
+
+  let finishStatus;
+  const oldStatus = showStatus(() => new Promise((resolve) => { finishStatus = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await window.statusShown;
+  const traffic = document.getElementById('status-traffic').textContent;
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay === 2000) oldTimers += 1;
+    return originalTimeout(callback, delay, ...args);
+  };
+  try {
+    finishStatus({ traffic: [1, 2], messages: 1 });
+    await oldStatus;
+  } finally { globalThis.setTimeout = originalTimeout; }
+  if (document.getElementById('status-traffic').textContent !== traffic || oldTimers) {
+    throw new Error('old status changed new status bar or rearmed polling');
+  }
+};
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
   const { strings } = window;
@@ -1267,6 +1312,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkStaleProfileHandlers();
       await checkStalePublishAndHide();
       await checkStaleProfileTimers();
+      await checkStaleUsageStatus();
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

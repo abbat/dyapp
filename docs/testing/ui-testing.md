@@ -116,7 +116,8 @@ its expiry. Paused profile load, place-name lookup and save results cannot repai
 editor. An old Save or Publish preview cannot unlock the newer form or open its dialog; old
 publish and hide results cannot change the newer progress, dialog or busy controls. It checks
 that an old profile search-wait timer, search-send response and elapsed timer do not affect the
-new editor. That relaunch also checks the Storage card:
+new editor. Late usage and status responses cannot repaint the new storage card or status bar,
+or rearm old polling. That relaunch also checks the Storage card:
 the message store path sits in the shown identity folder and has a size, no size reads as a zero,
 free space shows, and the node row shows on Linux and is hidden on Windows. The status bar then
 shows no traffic before any network, the message store size, and wraps without overflow at the

@@ -100,6 +100,8 @@ const act = async (pending, fresh = false) => {
   const generation = ++identityGeneration;
   clearTimeout(searchWaitTimer);
   clearInterval(elapsedTimer);
+  clearTimeout(usageTimer);
+  clearTimeout(statusTimer);
   try {
     const state = await pending;
     if (identityCurrent(generation)) return await render(state, generation, fresh);
@@ -193,12 +195,14 @@ const sizeText = (bytes) => {
 const knownSize = (bytes) => (bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes));
 const usageText = (id, text) => { document.getElementById(id).textContent = text; };
 let usageTimer;
-const showUsage = async () => {
+const showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
+  const generation = identityGeneration;
   const card = document.getElementById('usage');
   if (document.getElementById('settings').hidden) return;
   try {
-    const usage = await invoke('storage_usage');
+    const usage = await call('storage_usage');
+    if (!identityCurrent(generation)) return;
     usageText('usage-identity-dir', usage.identityDir ?? window.strings['usage.unavailable']);
     usageText('usage-messages', knownSize(usage.messages));
     usageText('usage-messages-path', usage.messagesPath);
@@ -215,31 +219,35 @@ const showUsage = async () => {
     if (usage.free !== null) usageText('usage-free', sizeText(usage.free));
     card.hidden = false;
   } catch (_) {
+    if (!identityCurrent(generation)) return;
     card.hidden = true;
   }
-  usageTimer = setTimeout(showUsage, 10_000);
+  if (identityCurrent(generation)) usageTimer = setTimeout(showUsage, 10_000);
 };
 
 // The status bar: client traffic every 2 s, unavailable until a client swarm starts.
 let statusTimer;
-const showStatus = async () => {
+const showStatus = async (call = invoke) => {
   clearTimeout(statusTimer);
+  const generation = identityGeneration;
   const { strings } = window;
   const traffic = document.getElementById('status-traffic');
   const messages = document.getElementById('status-messages');
   try {
-    const status = await invoke('status');
+    const status = await call('status');
+    if (!identityCurrent(generation)) return;
     traffic.textContent = status.traffic === null ? strings['statusbar.noTraffic']
       : strings['statusbar.traffic'].replace('{in}', sizeText(status.traffic[0]))
         .replace('{out}', sizeText(status.traffic[1]));
     messages.textContent = status.messages === null ? strings['statusbar.noMessages']
       : strings['statusbar.messages'].replace('{size}', sizeText(status.messages));
   } catch (_) {
+    if (!identityCurrent(generation)) return;
     traffic.textContent = strings['statusbar.noTraffic'];
     messages.textContent = strings['statusbar.noMessages'];
   }
   traffic.title = strings['statusbar.trafficNote'];
-  statusTimer = setTimeout(showStatus, 2000);
+  if (identityCurrent(generation)) statusTimer = setTimeout(showStatus, 2000);
 };
 
 // Settings → Window: the tray icon and close-to-tray, usable only while a tray host is running.
