@@ -39,7 +39,12 @@ impl NetworkState {
         Ok(self.checked.lock().map_err(|e| e.to_string())?.epoch)
     }
 
-    fn remember_connected(&self, epoch: u64, dir: PathBuf, draft: Network) -> Result<(), String> {
+    pub(crate) fn remember_connected(
+        &self,
+        epoch: u64,
+        dir: PathBuf,
+        draft: Network,
+    ) -> Result<(), String> {
         let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
         if checked.epoch != epoch {
             return Err("cancelled".into());

@@ -19,15 +19,58 @@ use crate::profile::{self, Draft};
 /// Search providers one search asks.
 const SEARCH_NODES: usize = 3;
 
-/// Verified profiles seen in this run, so a search fetches only versions it lacks.
+/// Verified profiles seen in the active identity and network context.
 #[derive(Default)]
-pub struct SearchState(pub Arc<Mutex<Profiles>>);
+pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
+
+/// Profiles and their context epoch share one lock, so a late result cannot repopulate a cache
+/// cleared by network activation.
+#[derive(Default)]
+pub struct ProfileCache {
+    epoch: u64,
+    profiles: Profiles,
+}
+
+impl ProfileCache {
+    pub fn snapshot(&self) -> (u64, Profiles) {
+        (self.epoch, self.profiles.clone())
+    }
+
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+
+    pub fn current(&self, epoch: u64) -> bool {
+        self.epoch == epoch
+    }
+
+    pub fn accept_if_current(&mut self, epoch: u64, profile: VerifiedProfile) -> bool {
+        self.current(epoch) && self.profiles.accept(profile).is_ok()
+    }
+
+    pub fn clear(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
+        self.profiles = Profiles::default();
+    }
+}
 
 impl SearchState {
     /// Discard verified profiles held for the previous active context.
     pub fn clear(&self) -> Result<(), String> {
-        *self.0.lock().map_err(|e| e.to_string())? = Profiles::default();
+        self.0.lock().map_err(|e| e.to_string())?.clear();
         Ok(())
+    }
+
+    /// Save the checked network and clear profiles at one cache boundary.
+    pub fn activate_network(
+        &self,
+        checks: &crate::network::NetworkState,
+        dir: &Path,
+    ) -> Result<crate::network::Draft, String> {
+        let mut cache = self.0.lock().map_err(|e| e.to_string())?;
+        let draft = crate::network::activate(checks, dir)?;
+        cache.clear();
+        Ok(draft)
     }
 }
 
@@ -182,7 +225,7 @@ pub struct Results {
 /// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
 /// node), `invalid search op`, `invalid search age` or a storage message.
 pub async fn search(
-    cache: &Mutex<Profiles>,
+    cache: &Mutex<ProfileCache>,
     dir: &Path,
     identity: &Identity,
     query: Query,
@@ -193,14 +236,18 @@ pub async fn search(
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let blocked = store.blocked_peers().map_err(|e| e.to_string())?;
     let own = profile::stored(&store)?;
+    // Capture the context before loading settings: activation saves settings and advances this
+    // epoch under the same cache lock.
+    let (epoch, seen) = cache.lock().map_err(|e| e.to_string())?.snapshot();
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+        return Err("notConnected".into());
+    }
     let protocols = Arc::new(Protocols::new(&active.name).map_err(|e| e.to_string())?);
     let mut entry = profile::connect(&active).await?;
     let mut reached = search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
-    // A copy, so no lock is held across the network wait.
-    let seen = cache.lock().map_err(|e| e.to_string())?.clone();
     let mut results = search::search(
         &mut reached.nodes,
         &conditions,
@@ -218,8 +265,8 @@ pub async fn search(
         .into_iter()
         .map(|found| {
             let shown = Found::from(&found);
-            // An older or equal version is already cached.
-            let _ = cache.accept(found);
+            // An older, equal or previous-network result is not cached.
+            cache.accept_if_current(epoch, found);
             shown
         })
         .collect();
@@ -295,6 +342,58 @@ mod tests {
         network::save(&dir, Settings::Active, &unreachable).unwrap();
         assert!(run(Vec::new()).await.is_err());
         assert!(run(Vec::new()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn activation_rejects_a_paused_previous_network_profile_result() {
+        let dir = temp_dir();
+        let state = SearchState::default();
+        let checks = crate::network::NetworkState::default();
+        let first = Network {
+            seeds: vec!["first:1".into()],
+            name: "first".into(),
+        };
+        let second = Network {
+            seeds: vec!["second:1".into()],
+            name: "second".into(),
+        };
+        network::save(&dir, Settings::Active, &first).unwrap();
+        let verified = |owner: &Identity| {
+            dyapp_profile::verify(
+                &dyapp_profile::Profile {
+                    version: 1,
+                    ..dyapp_profile::Profile::default()
+                }
+                .sign(owner),
+            )
+            .unwrap()
+        };
+        let stale = verified(&Identity::generate());
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
+        let cache = Arc::clone(&state.0);
+        let worker = tokio::spawn(async move {
+            let (epoch, _) = cache.lock().unwrap().snapshot();
+            started_tx.send(()).unwrap();
+            resume_rx.await.unwrap();
+            cache.lock().unwrap().accept_if_current(epoch, stale)
+        });
+        started_rx.await.unwrap();
+        let current = verified(&Identity::generate());
+        assert!(state.0.lock().unwrap().accept_if_current(0, current));
+        checks.remember_connected(0, dir.clone(), second.clone()).unwrap();
+        assert_eq!(state.activate_network(&checks, &dir).unwrap().name, "second");
+        assert_eq!(network::load(&dir, Settings::Active).unwrap(), Some(second));
+        assert!(state.0.lock().unwrap().snapshot().1.all().is_empty());
+        resume_tx.send(()).unwrap();
+        assert!(!worker.await.unwrap());
+        let new_epoch = state.0.lock().unwrap().snapshot().0;
+        assert!(state
+            .0
+            .lock()
+            .unwrap()
+            .accept_if_current(new_epoch, verified(&Identity::generate())));
+        assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
     }
 
     #[test]
