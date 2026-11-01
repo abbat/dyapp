@@ -3,12 +3,17 @@ package com.dyapp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -17,12 +22,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ProfileScale
@@ -34,12 +47,12 @@ import uniffi.dyapp.profileScales
 
 private const val MS_PER_SECOND = 1000uL
 
-/** Nothing asked yet, a search running, its verified result, or the failure text. */
+/** Nothing asked yet, a search running, its verified result, or the failure text with its details. */
 private sealed interface SearchState {
     data object Idle : SearchState
     data object Loading : SearchState
     data class Done(val result: ProfileSearchResult) : SearchState
-    data class Failed(val text: Int) : SearchState
+    data class Failed(val text: Int, val details: String) : SearchState
 }
 
 private fun searchError(error: Throwable) = when {
@@ -59,29 +72,75 @@ private fun failureText(failure: ProfileSearchFailure) = when (failure) {
     is ProfileSearchFailure.Invalid -> stringResource(R.string.search_failure_invalid)
 }
 
+private val STATUS = Modifier.testTag("search-status")
+
 @Composable
-private fun statusText(state: SearchState) = when (state) {
-    SearchState.Idle -> stringResource(R.string.search_idle)
-    SearchState.Loading -> stringResource(R.string.search_loading)
-    is SearchState.Failed -> stringResource(state.text)
-    is SearchState.Done -> when {
-        state.result.profiles.isEmpty() -> stringResource(R.string.search_empty)
-        state.result.partial -> stringResource(R.string.search_partial, state.result.profiles.size)
-        else -> stringResource(R.string.search_results, state.result.profiles.size)
+private fun SearchFailures(result: ProfileSearchResult) {
+    Column(Modifier.testTag("search-failures")) {
+        for (failure in result.failures) Caption(failureText(failure))
+    }
+}
+
+@Composable
+private fun SearchLoading(cancel: () -> Unit) {
+    Caption(stringResource(R.string.search_loading), STATUS.semantics { liveRegion = LiveRegionMode.Polite })
+    repeat(2) {
+        Surface(Modifier.fillMaxWidth().height(72.dp), RoundedCornerShape(12.dp),
+            MaterialTheme.colorScheme.surfaceContainer) {}
+    }
+    OutlinedButton(onClick = cancel, modifier = Modifier.fillMaxWidth().testTag("search-cancel")) {
+        Text(stringResource(R.string.search_cancel))
+    }
+}
+
+@Composable
+private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {
+    ErrorNotice(stringResource(failed.text), "search-status", failed.details, "search-failures", "copy-search-details")
+    // An age no birth date fits needs the fields fixed, not a connection or the same query again.
+    if (failed.text != R.string.search_age_invalid) {
+        OutlinedButton(onClick = openNetwork, modifier = Modifier.fillMaxWidth().testTag("search-open-network")) {
+            Text(stringResource(R.string.search_open_network))
+        }
+        OutlinedButton(onClick = run, modifier = Modifier.fillMaxWidth().testTag("search-retry")) {
+            Text(stringResource(R.string.search_retry))
+        }
+    }
+}
+
+// The advice points at the filters, so this state offers no other sample.
+@Composable
+private fun SearchEmpty(result: ProfileSearchResult) {
+    Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp), Alignment.CenterHorizontally) {
+        Icon(painterResource(R.drawable.ic_nav_search), null)
+        Text(stringResource(R.string.search_empty), STATUS.semantics {
+            heading()
+            liveRegion = LiveRegionMode.Polite
+        }, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Caption(stringResource(R.string.search_empty_text))
+        SearchFailures(result)
     }
 }
 
 // Typed failures, then each verified profile by Peer ID with its public fields.
 @Composable
-private fun SearchResults(result: ProfileSearchResult, scales: List<ProfileScale>) {
-    Column(Modifier.testTag("search-failures")) {
-        for (failure in result.failures) Text(failureText(failure))
-    }
+private fun SearchFound(result: ProfileSearchResult, scales: List<ProfileScale>, run: () -> Unit) {
     val context = LocalContext.current
-    for ((index, found) in result.profiles.withIndex()) {
-        Column(Modifier.testTag("result-${index + 1}")) {
-            Text(stringResource(R.string.search_peer, found.peerId), style = MaterialTheme.typography.titleSmall)
-            ProfileRows(found.draft.draft(), scales, context)
+    val count = result.profiles.size
+    Column(Modifier.testTag("search-results"), Arrangement.spacedBy(12.dp)) {
+        Caption(stringResource(if (result.partial) R.string.search_partial else R.string.search_results, count),
+            STATUS.semantics { liveRegion = LiveRegionMode.Polite })
+        SearchFailures(result)
+        for ((index, found) in result.profiles.withIndex()) {
+            Column(Modifier.testTag("result-${index + 1}")) {
+                FormCard {
+                    Text(stringResource(R.string.search_peer, found.peerId),
+                        style = MaterialTheme.typography.titleSmall)
+                    ProfileRows(found.draft.draft(), scales, context)
+                }
+            }
+        }
+        OutlinedButton(onClick = run, modifier = Modifier.fillMaxWidth().testTag("search-again")) {
+            Text(stringResource(R.string.search_again))
         }
     }
 }
@@ -102,16 +161,16 @@ private suspend fun sample(
         }
     }
     result.onSuccess { filters.offered = it.offered }
-    return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it)) })
+    return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it), it.toString()) })
 }
 
 /**
  * Verified sample search over the active network; the nodes pick the sample, filters appear for the
  * fields they offer, and only profiles the shared core verified are listed. Retry or another sample
- * runs the same query again.
+ * runs the same query again. Cancel abandons the answer; the blocking call itself runs to its end.
  */
 @Composable
-internal fun SearchScreen(opened: Opened.Ready) {
+internal fun SearchScreen(opened: Opened.Ready, openNetwork: () -> Unit) {
     val scales = remember { profileScales() }
     // The searcher keeps verified versions for this screen, so a later sample never shows an older one.
     val searcher = remember(opened.slot.id) { runCatching { ProfileSearcher(opened.slot.dir.absolutePath) } }
@@ -119,38 +178,34 @@ internal fun SearchScreen(opened: Opened.Ready) {
     var state by remember(opened.slot.id) { mutableStateOf<SearchState>(SearchState.Idle) }
     val filters = remember(opened.slot.id) { SearchFilters(scales) }
     val scope = rememberCoroutineScope()
+    var job by remember { mutableStateOf<Job?>(null) }
     val run: () -> Unit = {
         state = SearchState.Loading
-        scope.launch { state = sample(opened, searcher, filters) }
+        job = scope.launch { state = sample(opened, searcher, filters) }
     }
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.search_title), style = MaterialTheme.typography.headlineSmall)
-        Text(stringResource(R.string.search_sample))
-        SearchFilterFields(filters)
-        SearchActions(state, run)
-        Text(statusText(state), Modifier.testTag("search-status"))
-        (state as? SearchState.Done)?.let { SearchResults(it.result, scales) }
-    }
-}
-
-// Search, then Retry after a failure or Load another sample after a result; disabled while loading.
-@Composable
-private fun SearchActions(state: SearchState, run: () -> Unit) {
-    val idle = state != SearchState.Loading
-    Button(onClick = run, enabled = idle, modifier = Modifier.testTag("run-search")) {
-        Text(stringResource(R.string.search_run))
-    }
-    val again = when (state) {
-        is SearchState.Failed -> R.string.search_retry
-        is SearchState.Done -> R.string.search_again
-        else -> null
-    }
-    again?.let {
-        OutlinedButton(onClick = run, enabled = idle, modifier = Modifier.testTag("search-again")) {
-            Text(stringResource(it))
+        Caption(stringResource(R.string.search_sample))
+        FormCard {
+            SearchFilterFields(filters)
+            Button(onClick = run, enabled = state != SearchState.Loading,
+                modifier = Modifier.fillMaxWidth().testTag("run-search")) {
+                Text(stringResource(R.string.search_run))
+            }
+        }
+        when (val shown = state) {
+            SearchState.Idle -> Caption(stringResource(R.string.search_idle), STATUS)
+            SearchState.Loading -> SearchLoading {
+                job?.cancel()
+                state = SearchState.Idle
+            }
+            is SearchState.Failed -> SearchFailed(shown, run, openNetwork)
+            is SearchState.Done -> shown.result.let {
+                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, scales, run)
+            }
         }
     }
 }

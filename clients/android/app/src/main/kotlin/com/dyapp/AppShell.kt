@@ -126,7 +126,7 @@ private fun SectionContent(
     open: (StartTarget?) -> Unit,
 ) {
     when (target) {
-        StartTarget.SEARCH -> SearchScreen(opened)
+        StartTarget.SEARCH -> SearchScreen(opened) { open(StartTarget.NETWORK) }
         StartTarget.NETWORK -> NetworkDraftScreen(opened, null)
         StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, act, open)
         else -> Column {
