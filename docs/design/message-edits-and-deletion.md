@@ -1,10 +1,11 @@
 # Message edits and deletion
 
 This is the client contract for [best-effort deletion](../decisions/0011-best-effort-deletion.md).
-No app exposes chat yet. The Rust chat codec reads legacy text tag 1 and timed text tag 12,
-and parses edit/delete tags 8 and 9; the client Store has a separate current-text projection
-keyed by logical message ID and can apply edits/deletes even before originals arrive. Its atomic
-chat staging method saves only a body digest in the inbox alongside the current projection,
+The Linux app now exposes chat text and requests; its desktop adapter accepts own-message
+edit/delete commands, while their UI controls are planned. The Rust chat codec reads legacy
+text tag 1 and timed text tag 12, and parses edit/delete tags 8 and 9; the client Store has a
+separate current-text projection keyed by logical message ID and can apply edits/deletes even
+before originals arrive. Its atomic chat staging method saves only a body digest in the inbox alongside the current projection,
 sealed MLS state and ACK intent.
 Session routes received text, edit and delete through that method. Attachment and forwarded
 bodies still use inbox payloads; UI remains planned. The recipient device alone can sign a
@@ -23,8 +24,8 @@ The existing first-byte chat body tag remains the type boundary. Before the firs
 has changed from raw text to `message ID (16 bytes) || text`. Text and replacement text are
 limited to 64 KiB by the codec. Tag 12 reads
 `message ID (16) || original HLC (8, big endian) || text` and applies the 60-second future-clock
-guard when accepted into the Store. Sending tag 12 remains disabled until all supported clients
-can decode it; the Store persists its original HLC, while Chats ordering is still planned. See
+guard when accepted into the Store. Session now sends tag 12 before the first client release;
+the Store persists its original HLC and Chats uses it for ordering. See
 [ADR 0037](../decisions/0037-chat-list-order.md). Tag 8 is an edit:
 `target ID (16) || operation ID (16) || HLC (8, big endian) || replacement text`.
 Tag 9 is a delete with the same 40-byte header and no text. An operation ID is random and stays
@@ -58,9 +59,11 @@ cannot be reliably erased.
 The UI must not promise that.
 
 The Store atomically stages own text/edit/delete state, sealed MLS state and exact outbound
-envelopes. Session uses it before the first network put. `stage_edit` and `stage_delete` return the
-operation ID and exact writes while offline; `send_edit` and `send_delete` attempt delivery after
-staging. Only a present own text in the same group can be targeted; deletion is terminal. Incoming
+envelopes. Session uses it before the first network put. The Linux adapter binds a requested
+edit/delete to a live own text in the selected peer's cataloged group before opening a Session;
+foreign, blocked and already deleted targets are rejected locally. `stage_edit` and
+`stage_delete` return the operation ID and exact writes while offline; `send_edit` and
+`send_delete` attempt delivery after staging. Only a present own text in the same group can be targeted; deletion is terminal. Incoming
 operations and pending mailbox ACKs must be committed before acknowledging receipt. A retry or restart reuses the same operation ID and encrypted envelopes. A delete shown
 locally before delivery is pending on the peer until its receipt.
 

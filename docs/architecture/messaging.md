@@ -149,8 +149,9 @@ receipt for a later write to the same mailbox counts against the node that accep
 still-waiting earlier one, which is resent at once. The Linux desktop's minute mailbox poll
 calls `Session::retry_due` before receiving mail, under the active identity lease and the shared
 Sessions lock; due writes are retried after reconnect or restart without drafting new text.
-The desktop app also uses this adapter for likes and token refill; other messaging screens remain
-planned.
+The desktop app also uses this adapter for likes, token refill, and own-message edit/delete
+commands. Edit/delete validate peer, group and logical message ID against the local projection
+before opening a Session. Their Linux UI controls and other messaging screens remain planned.
 It can also commit an incoming envelope ID, caller-provided application payload and new sealed MLS
 snapshot in one transaction. The caller checks the ID before applying MLS; after commit it can
 acknowledge pending IDs, and a restart reopens the ACK queue. Duplicate IDs never overwrite the

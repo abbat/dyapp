@@ -17,6 +17,8 @@ use dyapp_profile::VerifiedProfile;
 use crate::profile;
 use crate::search::{self, Found, ProfileCache};
 
+pub(crate) mod operations;
+
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
 #[derive(Default)]
