@@ -29,8 +29,8 @@ class ProfilePublishTests {
     private fun eligibility(id: Int) = compose.waitForText("profile-publish-eligibility", id)
 
     private fun confirmBoth() {
-        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-confirm-public").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-attested").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-disclosure").performScrollTo().performClick()
         eligibility(R.string.profile_eligible)
     }
 
@@ -38,27 +38,27 @@ class ProfilePublishTests {
     fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-profile").performClick()
-        compose.onNodeWithTag("profile-prepare-publish").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
         confirmBoth()
 
         // An unsaved edit clears and disables both confirmations until it is saved.
-        compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextInput("2000")
+        compose.onNodeWithTag("birth-year").performScrollTo().performTextInput("2000")
         eligibility(R.string.profile_save_changes_before_publish)
-        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff().assertIsNotEnabled()
+        compose.onNodeWithTag("profile-attested").performScrollTo().assertIsOff().assertIsNotEnabled()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff().assertIsEnabled()
+        compose.onNodeWithTag("profile-attested").performScrollTo().assertIsOff().assertIsEnabled()
         confirmBoth()
 
         // Skipped network entry leaves no active network: the proof runs, publication fails and retries.
-        compose.onNodeWithTag("profile-prepare-publish").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-publish").performScrollTo().performClick()
         compose.waitUntil(PUBLISH_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-publish-error")).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("profile-publish-error").performScrollTo()
             .assertTextEquals(string(R.string.profile_publish_error_not_connected))
-        compose.onNodeWithTag("profile-confirm-public").performScrollTo().assertIsOff()
+        compose.onNodeWithTag("profile-disclosure").performScrollTo().assertIsOff()
         compose.onNodeWithText(string(R.string.profile_retry_publish)).assertExists()
-        compose.onNodeWithTag("profile-prepare-publish").assertIsNotEnabled()
+        compose.onNodeWithTag("profile-publish").assertIsNotEnabled()
     }
 
     @Test
@@ -67,18 +67,18 @@ class ProfilePublishTests {
         try {
             compose.activateLocalNode()
             compose.onNodeWithTag("nav-profile").performClick()
-            compose.onNodeWithTag("profile-birth-year").performScrollTo().performTextClearance()
-            compose.onNodeWithTag("profile-birth-year").performTextInput("1990")
+            compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
+            compose.onNodeWithTag("birth-year").performTextInput("1990")
             compose.onNodeWithTag("profile-save").performScrollTo().performClick()
             confirmBoth()
-            compose.onNodeWithTag("profile-prepare-publish").performScrollTo().performClick()
+            compose.onNodeWithTag("profile-publish").performScrollTo().performClick()
             // The software emulator proves and publishes slowly.
             compose.waitUntil(READBACK_WAIT_MS) {
                 compose.onAllNodes(hasTestTag("profile-published-readback")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("profile-publish-error").assertDoesNotExist()
             compose.onNodeWithText(string(R.string.profile_published)).performScrollTo().assertIsDisplayed()
-            compose.onNodeWithTag("profile-confirm-adult").performScrollTo().assertIsOff()
+            compose.onNodeWithTag("profile-attested").performScrollTo().assertIsOff()
         } finally {
             forgetNetworks()
         }

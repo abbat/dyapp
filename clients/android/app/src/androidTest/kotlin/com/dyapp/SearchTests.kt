@@ -88,7 +88,7 @@ class SearchTests {
             click("run-search")
             check(searched() == string(R.string.search_age_invalid)) { "status ${compose.texts("search-status")}" }
             compose.onNodeWithTag("search-age-max").performScrollTo().performTextReplacement("60")
-            click("profile-country")
+            click("search-country")
             click("country-DE")
             click("run-search")
             checkLocalSample()

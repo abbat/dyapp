@@ -66,7 +66,7 @@ internal fun SearchFilterFields(filters: SearchFilters) {
         AgeField(filters.ageMax, R.string.search_age_max, "search-age-max") { filters.ageMax = it }
     }
     if (COUNTRY_FIELD in filters.offered) {
-        PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any)
+        PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any, "search")
     }
     for (scale in filters.shownScales) {
         ScalePicker(scale, filters.picked[scale.key] ?: 0, R.string.search_any) { filters.picked[scale.key] = it }

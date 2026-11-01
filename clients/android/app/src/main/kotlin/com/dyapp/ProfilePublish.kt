@@ -167,12 +167,12 @@ internal fun PublishSection(opened: Opened.Ready, scales: List<ProfileScale>, un
     }
     DisposableEffect(Unit) { onDispose { state.solve?.cancel() } }
     val editable = !unsaved && !state.busy
-    Confirmation(state::adult, editable, R.string.profile_confirm_adult, "profile-confirm-adult")
-    Confirmation(state::public, editable, R.string.profile_confirm_public, "profile-confirm-public")
+    Confirmation(state::adult, editable, R.string.profile_confirm_adult, "profile-attested")
+    Confirmation(state::public, editable, R.string.profile_confirm_public, "profile-disclosure")
     val eligibility = state.eligibility(unsaved)
     Text(stringResource(eligibility), Modifier.testTag("profile-publish-eligibility"))
     Button(onClick = { scope.launch { prepareAndPublish(opened, state) } },
-        Modifier.testTag("profile-prepare-publish"), enabled = eligibility == R.string.profile_eligible) {
+        Modifier.testTag("profile-publish"), enabled = eligibility == R.string.profile_eligible) {
         Text(stringResource(state.failure?.second ?: R.string.profile_publish))
     }
     ProofProgress(state, scales)
@@ -185,7 +185,7 @@ private fun ProofProgress(state: PublishState, scales: List<ProfileScale>) {
             state.cancelling = true
             state.solve?.cancel()
         },
-            Modifier.testTag("profile-cancel-proof"), enabled = !state.cancelling) {
+            Modifier.testTag("profile-cancel"), enabled = !state.cancelling) {
             Text(stringResource(R.string.profile_cancel_proof))
         }
     }
