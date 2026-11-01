@@ -7,14 +7,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::chat::Event;
 use dyapp_client::interactions::Kind;
-use dyapp_client::profiles::Profiles;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
 use crate::profile;
-use crate::search::{self, Found};
+use crate::search::{self, Found, ProfileCache};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
@@ -135,7 +134,7 @@ pub async fn block(
 /// `unknownPeer`, `unpublished` (no published own profile lists this device), `notConnected` or
 /// a node or storage message.
 pub async fn like(
-    cache: &Mutex<Profiles>,
+    cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,
     identity: &Identity,
@@ -143,12 +142,8 @@ pub async fn like(
     peer_id: &str,
     liked: bool,
 ) -> Result<Likes, String> {
-    let peer = cache
-        .lock()
-        .map_err(|e| e.to_string())?
-        .get(peer_id)
-        .cloned()
-        .ok_or("unknownPeer")?;
+    let (epoch, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let peer = profiles.get(peer_id).cloned().ok_or("unknownPeer")?;
     let mut store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     if own.version == 0 {
@@ -158,6 +153,9 @@ pub async fn like(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+        return Err("notConnected".into());
+    }
     let mut node = profile::connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
@@ -179,7 +177,7 @@ pub async fn like(
 /// cached so they can be liked or blocked; a peer whose profile no node returns is left out. With
 /// no such peer it does not connect. Errors are `notConnected` or a storage message.
 pub async fn liked_you(
-    cache: &Mutex<Profiles>,
+    cache: &Mutex<ProfileCache>,
     dir: &Path,
     identity: &Identity,
 ) -> Result<Vec<Found>, String> {
@@ -187,9 +185,13 @@ pub async fn liked_you(
     if peers.is_empty() {
         return Ok(Vec::new());
     }
+    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+        return Err("notConnected".into());
+    }
     let mut node = profile::connect(&active).await?;
     let mut found = Vec::new();
     for peer_id in peers {
@@ -197,8 +199,11 @@ pub async fn liked_you(
             continue;
         };
         found.push(Found::from(&verified));
-        // An older or equal version is already cached.
-        let _ = cache.lock().map_err(|e| e.to_string())?.accept(verified);
+        // An older, equal or previous-network result is not cached.
+        cache
+            .lock()
+            .map_err(|e| e.to_string())?
+            .accept_if_current(epoch, verified);
     }
     Ok(found)
 }
@@ -209,7 +214,7 @@ pub async fn liked_you(
 /// on a second pass; one still unknown waits in the mailbox for the next call. Returns how many
 /// events changed a chat. Errors are `notConnected` or a node or storage message.
 pub async fn receive(
-    cache: &Mutex<Profiles>,
+    cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,
     identity: &Identity,
@@ -221,16 +226,20 @@ pub async fn receive(
         0 => None,
         _ => Some(dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?),
     };
+    let (epoch, mut cached) = cache.lock().map_err(|e| e.to_string())?.snapshot();
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+        return Err("notConnected".into());
+    }
     let mut node = profile::connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     let mut changed = 0;
     for _ in 0..2 {
-        let mut profiles = cache.lock().map_err(|e| e.to_string())?.all().to_vec();
+        let mut profiles = cached.all().to_vec();
         profiles.extend(own.clone());
         let events = session
             .receive(
@@ -246,11 +255,11 @@ pub async fn receive(
             match event {
                 Event::UnknownOwner(peer) => {
                     if let Ok(verified) = node.get_profile(&peer).await {
-                        fetched |= cache
+                        cache
                             .lock()
                             .map_err(|e| e.to_string())?
-                            .accept(verified)
-                            .is_ok();
+                            .accept_if_current(epoch, verified.clone());
+                        fetched |= cached.accept(verified).is_ok();
                     }
                 }
                 Event::Gap(_) | Event::Refused(_) => {}

@@ -15,7 +15,10 @@ and seed checks that register after the transition signal probe the gate and can
 After the old leases drain, identity transitions clear verified profiles and the last successful
 network check before admitting work for the new identity. A successful network activation consumes
 the check and advances its epoch; a late check from the prior epoch cannot authorize activation.
-Verified-profile invalidation on network activation and UI callback guards remain planned.
+Network activation also saves the active settings and clears verified profiles under one cache
+lock, advancing a profile-cache epoch. Search and chat work captures that epoch before loading
+network settings and does not cache a result after activation changes it. UI callback guards remain
+planned.
 
 ## Required behavior
 
