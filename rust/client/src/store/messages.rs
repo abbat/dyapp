@@ -10,6 +10,8 @@ use dyapp_messaging::hlc::{ClockSkew, HybridClock, Timestamp, MAX_CLOCK_SKEW_MS}
 use dyapp_messaging::mls::Group;
 use rusqlite::{params, OptionalExtension, Transaction};
 
+mod attachments;
+pub use attachments::ChatAttachment;
 mod clear;
 #[cfg(test)]
 mod inbound_tests;
@@ -44,6 +46,16 @@ CREATE TABLE `chat_messages` (
     CHECK ((`deleted` = 0 AND `text` IS NOT NULL AND `original_digest` IS NOT NULL)
         OR (`deleted` = 1 AND `text` IS NULL)),
     UNIQUE (`group_id`, `author`, `message_id`)
+) STRICT;
+CREATE TABLE `chat_attachments` (
+    `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),
+    `author` TEXT NOT NULL CHECK (length(`author`) > 0),
+    `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
+    `original_hlc` INTEGER NOT NULL CHECK (`original_hlc` >= 0),
+    `descriptor` BLOB NOT NULL CHECK (length(`descriptor`) > 0),
+    `forwarded` INTEGER NOT NULL CHECK (`forwarded` IN (0, 1)),
+    `unread` INTEGER NOT NULL CHECK (`unread` IN (0, 1)),
+    PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
 CREATE TABLE `chat_operations` (
     `group_id` BLOB NOT NULL,
@@ -603,6 +615,9 @@ impl Store {
         forwarded: bool,
     ) -> Result<bool, Error> {
         if key.group.is_empty() || key.author.is_empty() || text.len() > MAX_TEXT_BYTES {
+            return Err(Error::InboxConflict);
+        }
+        if attachments::exists(tx, key)? {
             return Err(Error::InboxConflict);
         }
         let original_hlc = hlc
