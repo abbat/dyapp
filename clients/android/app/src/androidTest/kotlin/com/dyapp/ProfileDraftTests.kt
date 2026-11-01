@@ -1,6 +1,7 @@
 package com.dyapp
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -26,6 +27,14 @@ class ProfileDraftTests {
 
     private fun string(id: Int) = compose.activity.getString(id)
 
+    private fun openPublish() {
+        compose.onNodeWithTag("profile-publish").performScrollTo().performClick()
+    }
+
+    private fun closePublish() {
+        compose.onNodeWithTag("profile-cancel").performClick()
+    }
+
     @Test
     fun previewShowsOnlyTheSavedDraftWithAgeAndWarnings() {
         compose.skipNetworkEntry()
@@ -39,22 +48,23 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-age").performScrollTo()
             .assertTextEquals(compose.activity.getString(R.string.profile_age_search, "$age"))
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
+        openPublish()
         compose.onNodeWithTag("profile-preview-age").performScrollTo()
             .assertTextEquals(compose.activity.getString(R.string.profile_age, "$age"))
         compose.onNodeWithTag("profile-public-disclosure").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("profile-full-date").performScrollTo().assertIsDisplayed()
+        closePublish()
 
-        // An unsaved edit does not change the preview; a saved one does.
+        // An unsaved edit blocks the dialog; a saved one changes what it shows.
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
         compose.onNodeWithTag("profile-age").assertDoesNotExist()
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-full-date").assertExists()
+        compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
+        openPublish()
         val unknown = compose.activity.getString(R.string.profile_age, string(R.string.profile_age_unknown))
         compose.onNodeWithTag("profile-preview-age").performScrollTo().assertTextEquals(unknown)
         compose.onNodeWithTag("profile-full-date").assertDoesNotExist()
+        closePublish()
     }
 
     private fun pickBirthPart(tag: String) {
@@ -111,12 +121,13 @@ class ProfileDraftTests {
         compose.onNodeWithTag("place-$berlinId").performScrollTo().performClick()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
+        openPublish()
         val lang = compose.activity.resources.configuration.locales[0].language
         val berlin = compose.activity.getString(R.string.profile_preview_row, string(R.string.profile_place),
             placeText("DE", berlinId, lang))
         compose.onNodeWithTag("preview-place").performScrollTo().assertTextEquals(berlin)
         compose.onNodeWithTag("preview-country").assertExists()
+        closePublish()
         clearCountryClearsPlace()
     }
 
@@ -125,11 +136,10 @@ class ProfileDraftTests {
         compose.onNodeWithTag("country-none").performScrollTo().performClick()
         compose.onNodeWithTag("profile-country").assertTextEquals(string(R.string.profile_unset))
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
-        // A save hides the stale preview; the status alone still reads "saved" from the last save.
-        compose.onNodeWithTag("preview-place").assertDoesNotExist()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
-        compose.onNodeWithTag("profile-preview").performScrollTo().performClick()
+        openPublish()
         compose.onNodeWithTag("preview-place").assertDoesNotExist()
         compose.onNodeWithTag("preview-country").assertDoesNotExist()
+        closePublish()
     }
 }

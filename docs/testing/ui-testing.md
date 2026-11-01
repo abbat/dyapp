@@ -58,14 +58,14 @@ system-mode cases check that no file path is shown. The Android UI test also rec
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
 iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 The Android place picker test picks Germany, refuses to save unlisted text, picks Berlin from
-the "Berl" suggestions, previews the country and place, then clears the country and checks both
-are gone from the preview. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
+the "Berl" suggestions, checks the country and place in the publish dialog, then clears the
+country and checks both are gone from the dialog. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
 Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it.
-The Android publish test checks that an unsaved edit clears and disables both confirmations
-until saved, then confirms both, runs the proof without an active network and expects the
-localized not-connected failure, retry label and cleared confirmations.
+The Android publish test checks that closing the dialog clears both confirmations and an unsaved
+edit disables publishing until saved, then confirms both, runs the proof without an active network
+and expects the localized not-connected failure, retry label and cleared confirmations.
 A second Android publish test checks and activates the emulator runner's loopback node
-(`10.0.2.2:33445`), publishes a saved draft and expects the signed readback, then deletes the
+(`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
 The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
 in the same isolated slot root, and check that the values reappear in the automatic form while Ready remains

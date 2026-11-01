@@ -1,11 +1,19 @@
 package com.dyapp
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,13 +64,15 @@ private fun blockText(block: String) = when (block) {
     else -> R.string.profile_eligibility_failed
 }
 
-/** Confirmations and progress of one publication attempt over the saved draft. */
+/** The dialog, confirmations and progress of one publication attempt over the saved draft. */
 private class PublishState {
+    var open by mutableStateOf(false)
     var adult by mutableStateOf(false)
     var public by mutableStateOf(false)
 
     /** The `profile_publish_block` result for [adult]; null while it is checked. */
     var block by mutableStateOf<Result<String?>?>(null)
+    var running by mutableStateOf(false)
     var solve by mutableStateOf<ProfileSolve?>(null)
     var cancelling by mutableStateOf(false)
     var publishing by mutableStateOf(false)
@@ -68,15 +82,19 @@ private class PublishState {
     var failure by mutableStateOf<Pair<Int, Int>?>(null)
     var published by mutableStateOf<ProfilePublished?>(null)
 
-    val busy get() = solve != null || publishing
+    fun close() {
+        open = false
+        adult = false
+        this.public = false
+        cancelling = false
+        failure = null
+    }
 }
 
-private fun PublishState.eligibility(unsaved: Boolean): Int {
+private fun PublishState.eligibility(): Int {
     val checked = block
     val blocked = checked?.getOrNull()
     return when {
-        unsaved -> R.string.profile_save_changes_before_publish
-        busy -> R.string.profile_proof_working
         checked == null -> R.string.profile_checking_eligibility
         checked.isFailure -> R.string.profile_eligibility_failed
         blocked != null -> blockText(blocked)
@@ -117,7 +135,7 @@ private suspend fun solveProof(opened: Opened.Ready, state: PublishState, attest
     return failure == null
 }
 
-// Proves and publishes the saved draft; each attempt clears both confirmations.
+// Proves and publishes the saved draft; each attempt clears both confirmations, and success closes the dialog.
 private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState) {
     val attested = state.adult
     state.adult = false
@@ -125,36 +143,52 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState)
     state.cancelling = false
     state.failure = null
     state.published = null
-    if (!solveProof(opened, state, attested)) return
-    state.publishing = true
-    val result = withContext(Dispatchers.IO) {
-        runCatching {
-            RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.publish(key, attested) } }
+    state.running = true
+    try {
+        if (!solveProof(opened, state, attested)) return
+        state.publishing = true
+        val result = withContext(Dispatchers.IO) {
+            runCatching {
+                RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.publish(key, attested) } }
+            }
         }
+        result.fold({
+            state.published = it
+            state.open = false
+        }, { state.failure = publishError(it) to R.string.profile_retry_publish })
+    } finally {
+        state.publishing = false
+        state.running = false
+        state.cancelling = false
     }
-    state.publishing = false
-    result.fold({ state.published = it }, { state.failure = publishError(it) to R.string.profile_retry_publish })
 }
 
 @Composable
-private fun Confirmation(checked: KMutableProperty0<Boolean>, enabled: Boolean, text: Int, tag: String) {
+private fun Confirmation(checked: KMutableProperty0<Boolean>, text: Int, tag: String) {
     Row(
-        Modifier.toggleable(checked.get(), enabled = enabled, role = Role.Checkbox, onValueChange = checked::set)
+        Modifier.fillMaxWidth().toggleable(checked.get(), role = Role.Checkbox, onValueChange = checked::set)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(checked.get(), onCheckedChange = null, enabled = enabled)
+        Checkbox(checked.get(), onCheckedChange = null)
         Text(stringResource(text))
     }
 }
 
 /**
- * Fresh 18+ and public-data confirmations, the shared eligibility check, the cancellable proof and
- * publication with its signed readback. The caller recreates it on every edit or save, which clears
- * the confirmations and cancels a running attempt.
+ * The form's save and publish actions, and the dialog with the saved public fields, fresh 18+ and
+ * public-data confirmations, the shared eligibility check and the cancellable proof and publication.
+ * The signed readback stays on the form. The caller recreates this section on every edit or save,
+ * which clears the confirmations and cancels a running attempt.
  */
 @Composable
-internal fun PublishSection(opened: Opened.Ready, scales: List<ProfileScale>, unsaved: Boolean) {
+internal fun PublishSection(
+    opened: Opened.Ready,
+    scales: List<ProfileScale>,
+    unsaved: Boolean,
+    read: () -> ProfileDraft,
+    save: @Composable RowScope.() -> Unit,
+) {
     val state = remember { PublishState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(state.adult, unsaved) {
@@ -166,40 +200,88 @@ internal fun PublishSection(opened: Opened.Ready, scales: List<ProfileScale>, un
         }
     }
     DisposableEffect(Unit) { onDispose { state.solve?.cancel() } }
-    val editable = !unsaved && !state.busy
-    Confirmation(state::adult, editable, R.string.profile_confirm_adult, "profile-attested")
-    Confirmation(state::public, editable, R.string.profile_confirm_public, "profile-disclosure")
-    val eligibility = state.eligibility(unsaved)
-    Text(stringResource(eligibility), Modifier.testTag("profile-publish-eligibility"))
-    Button(onClick = { scope.launch { prepareAndPublish(opened, state) } },
-        Modifier.testTag("profile-publish"), enabled = eligibility == R.string.profile_eligible) {
-        Text(stringResource(state.failure?.second ?: R.string.profile_publish))
-    }
-    ProofProgress(state, scales)
-}
-
-@Composable
-private fun ProofProgress(state: PublishState, scales: List<ProfileScale>) {
-    if (state.solve != null) {
-        OutlinedButton(onClick = {
-            state.cancelling = true
-            state.solve?.cancel()
-        },
-            Modifier.testTag("profile-cancel"), enabled = !state.cancelling) {
-            Text(stringResource(R.string.profile_cancel_proof))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        save()
+        Button(onClick = { state.open = true }, Modifier.weight(1f).testTag("profile-publish"), enabled = !unsaved) {
+            Text(stringResource(R.string.profile_publish))
         }
     }
-    if (state.publishing) {
-        Text(stringResource(R.string.profile_publishing), Modifier.testTag("profile-publish-status"))
+    if (unsaved) {
+        Text(stringResource(R.string.profile_save_changes_before_publish),
+            Modifier.testTag("profile-publish-eligibility"))
     }
-    if (state.nonce > 0uL) {
-        Text(stringResource(R.string.profile_proof_nonce, "${state.nonce}"),
-            Modifier.testTag("profile-proof-progress"))
-    }
-    state.failure?.let { (text, _) -> Text(stringResource(text), Modifier.testTag("profile-publish-error")) }
+    if (state.open) PublishDialog(state, scales, read) { scope.launch { prepareAndPublish(opened, state) } }
     state.published?.let { published ->
         Text(stringResource(R.string.profile_published_version, "${published.version}"),
             Modifier.testTag("profile-published-readback"))
         ProfilePreview(published.draft.draft(), scales, LocalContext.current, R.string.profile_published)
+    }
+}
+
+// Reads the saved draft once per opening; a running attempt keeps the dialog up until it ends or fails.
+@Composable
+private fun PublishDialog(
+    state: PublishState,
+    scales: List<ProfileScale>,
+    read: () -> ProfileDraft,
+    publish: () -> Unit,
+) {
+    val draft = remember { runCatching(read) }
+    val eligibility = state.eligibility()
+    AlertDialog(
+        onDismissRequest = { if (!state.running) state.close() },
+        title = { Text(stringResource(R.string.publish_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.testTag("profile-public-fields")) {
+                    draft.fold({ ProfilePreview(it, scales, LocalContext.current, R.string.publish_intro) },
+                        { Text(stringResource(R.string.profile_read_failed)) })
+                }
+                if (state.running) {
+                    PublishProgress(state)
+                } else {
+                    Confirmation(state::adult, R.string.profile_confirm_adult, "profile-attested")
+                    Confirmation(state::public, R.string.profile_confirm_public, "profile-disclosure")
+                    Text(stringResource(eligibility), Modifier.testTag("profile-publish-eligibility"))
+                }
+                state.failure?.let { (text, _) ->
+                    Text(stringResource(text), Modifier.testTag("profile-publish-error")
+                        .semantics { liveRegion = LiveRegionMode.Polite })
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = publish, Modifier.testTag("profile-publish-confirm"),
+                enabled = draft.isSuccess && !state.running && eligibility == R.string.profile_eligible) {
+                Text(stringResource(state.failure?.second ?: R.string.publish_confirm))
+            }
+        },
+        dismissButton = {
+            // Only the proof can stop; the publication itself runs to its result.
+            TextButton(onClick = {
+                if (state.running) {
+                    state.cancelling = true
+                    state.solve?.cancel()
+                } else {
+                    state.close()
+                }
+            }, Modifier.testTag("profile-cancel"),
+                enabled = !state.cancelling && (!state.running || state.solve != null)) {
+                Text(stringResource(R.string.remove_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun PublishProgress(state: PublishState) {
+    Text(stringResource(R.string.publish_working), Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    LinearProgressIndicator(Modifier.fillMaxWidth())
+    if (state.nonce > 0uL) {
+        Text(stringResource(R.string.profile_proof_nonce, "${state.nonce}"),
+            Modifier.testTag("profile-proof-progress"))
+    }
+    if (state.publishing) {
+        Text(stringResource(R.string.profile_publishing), Modifier.testTag("profile-publish-status"))
     }
 }

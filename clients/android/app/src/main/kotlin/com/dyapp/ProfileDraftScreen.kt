@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -60,7 +59,7 @@ internal fun label(context: Context, key: String): String {
 }
 
 /**
- * Profile draft editor, preview and publication over `client.db`; Rust supplies the closed wire choices.
+ * Profile draft editor and publication dialog over `client.db`; Rust supplies the closed wire choices.
  */
 @Composable
 fun ProfileDraftScreen(opened: Opened.Ready) {
@@ -166,17 +165,19 @@ private fun SaveAndPublish(
     var saves by remember { mutableIntStateOf(0) }
     var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
     val unsaved = edits != savedEdits
-    Button(onClick = {
-        val result = save()
-        status = context.getString(result)
-        saves++
-        if (result == R.string.profile_saved) savedEdits = edits
-    }, modifier = Modifier.testTag("profile-save")) {
-        Text(stringResource(R.string.profile_save))
+    if (status.isNotEmpty()) Text(status, Modifier.testTag("profile-status"))
+    key(saves, unsaved) {
+        PublishSection(opened, scales, unsaved, { loadDraft(opened, scales) }) {
+            OutlinedButton(onClick = {
+                val result = save()
+                status = context.getString(result)
+                saves++
+                if (result == R.string.profile_saved) savedEdits = edits
+            }, modifier = Modifier.testTag("profile-save")) {
+                Text(stringResource(R.string.profile_save))
+            }
+        }
     }
-    Text(status, Modifier.testTag("profile-status"))
-    PreviewSection({ loadDraft(opened, scales) }, scales, saves)
-    key(saves, unsaved) { PublishSection(opened, scales, unsaved) }
 }
 
 @Composable
