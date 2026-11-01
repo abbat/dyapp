@@ -34,7 +34,9 @@ connection-run token. Network form loads, draft-save errors, check results, acti
 follow-up ignore old generations as well. A newly shown identity resets inherited network-check
 busy controls; stale checks cannot release controls owned by the new identity. Other async
 callback guards remain planned.
-Sensitive clipboard expiry still clears an old copied number when its timer fires.
+Generic Copy callbacks check the generation before writing or repainting the source and button;
+their reset timer also checks it. Sensitive clipboard expiry still clears an old copied number
+when its timer fires.
 
 ## Required behavior
 

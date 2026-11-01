@@ -83,14 +83,21 @@ const reasonText = (reason) => window.strings[`recovery.${reason}`]
 window.clipboardCopyToken = 0;
 const copyFrom = (button, source, text = () => source.textContent) => button.addEventListener('click', () => {
   window.clipboardCopyToken += 1;
+  const generation = identityGeneration;
   const value = text();
-  window.copied = Promise.resolve(value).then((copy) => navigator.clipboard.writeText(copy)).then(() => {
-    button.textContent = window.strings['action.copied'];
-    setTimeout(() => { button.textContent = window.strings['action.copy']; }, 2000);
-  }, () => {
-    source.textContent = value;
-    window.getSelection().selectAllChildren(source);
-  });
+  window.copied = Promise.resolve(value)
+    .then((copy) => (identityCurrent(generation) ? navigator.clipboard.writeText(copy) : null))
+    .then(() => {
+      if (!identityCurrent(generation)) return;
+      button.textContent = window.strings['action.copied'];
+      setTimeout(() => {
+        if (identityCurrent(generation)) button.textContent = window.strings['action.copy'];
+      }, 2000);
+    }, () => {
+      if (!identityCurrent(generation)) return;
+      source.textContent = value;
+      window.getSelection().selectAllChildren(source);
+    });
 });
 
 // A result belongs to the identity view that started it, even after its Rust lease ends.
