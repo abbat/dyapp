@@ -311,8 +311,11 @@
         <div id="chat-detail" hidden>
           <button id="chat-back" class="btn quiet back" type="button" data-i18n="chats.back"></button>
           <h2 id="chat-peer"></h2>
+          <div class="actions"><button id="chat-clear" class="btn quiet" type="button"
+            data-i18n="chats.clear"></button></div>
           <p id="chat-state" class="caption"></p>
           <div id="chat-messages" class="thread" role="log" aria-live="polite"></div>
+          <p id="chat-cleared" class="notice" data-i18n="chats.cleared" hidden></p>
           <p id="chat-first-notice" class="notice" data-i18n="chats.firstNotice" hidden></p>
           <p id="chat-request-notice" class="notice" data-i18n="chats.requestNotice" hidden></p>
           <form id="chat-composer">
@@ -477,6 +480,15 @@
         <button id="remove-retry" class="btn" type="button" data-i18n="recovery.retry"></button>
         <button id="remove-anyway" class="btn danger" type="button" data-i18n="remove.anyway"></button>
       </div>
+    </div>
+  </dialog>
+  <dialog id="chat-clear-dialog" class="modal" aria-labelledby="chat-clear-title" hidden>
+    <h2 id="chat-clear-title" data-i18n="chats.clearTitle"></h2>
+    <p data-i18n="chats.clearWarning"></p>
+    <p id="chat-clear-error" class="notice error" role="alert" hidden></p>
+    <div class="actions">
+      <button id="chat-clear-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="chat-clear-confirm" class="btn danger" type="button" data-i18n="chats.clear"></button>
     </div>
   </dialog>
   <dialog id="unlike-dialog" class="modal" aria-labelledby="unlike-title" hidden>

@@ -116,7 +116,9 @@ rows through mocked commands while the node is unavailable, opens history, marks
 read locally, and checks Back returns to the list. Mocked send checks the reply transition,
 disabled composer for an unanswered request, retention of an unstaged draft on failure, and a
 locally staged text shown as pending after node failure. Late history and send results are
-ignored after an identity switch. The same case reopens a peer card and checks that old
+ignored after an identity switch. The Clear chat smoke checks Cancel, a failed clear,
+confirmation with an empty row and local-only note, and a late result after switching identity.
+The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
 safety panel, camera capture and sensitive copy across a switch; an already active camera stream
 stops synchronously when the switch begins. The old copy still schedules

@@ -582,6 +582,35 @@ chatInput.addEventListener('input', () => {
 });
 let chatsRequest = 0;
 let chatOpenRequest = 0;
+const clearDialog = document.getElementById('chat-clear-dialog');
+const clearError = document.getElementById('chat-clear-error');
+const clearCancel = document.getElementById('chat-clear-cancel');
+const clearConfirm = document.getElementById('chat-clear-confirm');
+let clearTarget = null;
+let clearBusy = false;
+let clearedPeer = null;
+const closeClear = () => {
+  if (clearDialog.open) clearDialog.close();
+  clearDialog.hidden = true;
+  clearTarget = null;
+  clearBusy = false;
+  clearCancel.disabled = false;
+  clearConfirm.disabled = false;
+};
+clearDialog.addEventListener('close', () => { if (!clearDialog.open) closeClear(); });
+clearDialog.addEventListener('cancel', (event) => {
+  if (clearBusy) event.preventDefault();
+});
+clearCancel.addEventListener('click', closeClear);
+document.getElementById('chat-clear').addEventListener('click', () => {
+  if (!activeChat) return;
+  clearTarget = { peerId: activeChat.peerId, generation: identityGeneration, request: chatOpenRequest };
+  clearError.hidden = true;
+  clearError.textContent = '';
+  clearDialog.hidden = false;
+  clearDialog.showModal();
+  clearCancel.focus();
+});
 const chatTime = (message) => message?.sentAtMs == null ? '' :
   new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'short', timeStyle: 'short' })
     .format(new Date(message.sentAtMs));
@@ -629,6 +658,7 @@ const renderChatRows = (rows) => {
 };
 const closeChat = () => {
   chatOpenRequest += 1;
+  closeClear();
   activeChat = null;
   chatSending = false;
   chatInput.value = '';
@@ -643,11 +673,13 @@ document.addEventListener('dyapp:area-change', (event) => {
 });
 document.addEventListener('dyapp:identity-change', () => {
   chatsRequest += 1;
+  clearedPeer = null;
   closeChat();
   chatRequests.replaceChildren();
   document.getElementById('chats-requests-count').textContent = '0';
   chatList.replaceChildren();
   chatMessages.replaceChildren();
+  document.getElementById('chat-cleared').hidden = true;
   likedList.replaceChildren();
   document.getElementById('chats-liked-count').textContent = '0';
 });
@@ -681,7 +713,9 @@ const openChat = async (peerId, call = invoke) => {
       }
       return item;
     }));
-    if (!history.messages.length) chatMessages.textContent = window.strings['chats.noMessages'];
+    const cleared = clearedPeer === peerId && !history.messages.length;
+    document.getElementById('chat-cleared').hidden = !cleared;
+    if (!history.messages.length && !cleared) chatMessages.textContent = window.strings['chats.noMessages'];
     const peer = document.getElementById('chat-peer');
     peer.textContent = peerLabel(peer, peerId);
     document.getElementById('chat-state').textContent =
@@ -700,6 +734,34 @@ const openChat = async (peerId, call = invoke) => {
     if (currentChat()) chatsMessage('chats.failed', String(error));
   }
 };
+const clearChat = async (call = invoke) => {
+  const target = clearTarget;
+  if (!target || clearBusy) return;
+  const currentClear = () => clearTarget === target && identityCurrent(target.generation)
+    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  clearBusy = true;
+  clearCancel.disabled = true;
+  clearConfirm.disabled = true;
+  try {
+    await call('clear_chat', { peerId: target.peerId });
+  } catch (error) {
+    if (!currentClear()) return;
+    clearBusy = false;
+    clearCancel.disabled = false;
+    clearConfirm.disabled = false;
+    clearError.textContent = `${window.strings['chats.clearFailed']} ${String(error)}`;
+    clearError.hidden = false;
+    return;
+  }
+  if (!currentClear()) return;
+  clearedPeer = target.peerId;
+  chatInput.value = '';
+  chatMessages.replaceChildren();
+  document.getElementById('chat-cleared').hidden = false;
+  closeClear();
+  await openChat(target.peerId, call);
+};
+clearConfirm.addEventListener('click', () => { window.chatCleared = clearChat(); });
 const sendChatText = async (call = invoke) => {
   if (!activeChat || chatSending || chatSend.disabled) return;
   const { peerId, messages } = activeChat;

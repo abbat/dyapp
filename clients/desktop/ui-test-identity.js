@@ -312,6 +312,60 @@ const checkChatProjection = async () => {
   await oldSend;
   if (!chatDetail.hidden || chatInput.value) throw new Error('old send painted new identity');
 };
+const checkClearChat = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = 'c'.repeat(64);
+  const message = { author: peer, id: [3], text: 'private', deleted: false, sentAtMs: null };
+  const row = { peerId: peer, state: 'open', lastMessage: message, unreadCount: 0 };
+  const history = { state: 'open', messages: [message] };
+  const open = (currentHistory) => openChat(peer, (command) => {
+    if (command === 'chat_history') return Promise.resolve(currentHistory);
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([row]);
+    throw new Error(`unexpected clear setup: ${command}`);
+  });
+  await open(history);
+  document.getElementById('chat-clear').click();
+  if (!clearDialog.open || !clearDialog.textContent.includes(window.strings['chats.clearWarning'])) {
+    throw new Error('Clear chat confirmation missing');
+  }
+  clearCancel.click();
+  if (clearDialog.open || !chatMessages.textContent.includes('private')) {
+    throw new Error('Cancel cleared the chat');
+  }
+  document.getElementById('chat-clear').click();
+  await clearChat((command) => {
+    if (command === 'clear_chat') return Promise.reject('diskFailed');
+    throw new Error(`unexpected failed clear: ${command}`);
+  });
+  if (!clearDialog.open || !clearError.textContent.includes('diskFailed')
+    || !chatMessages.textContent.includes('private')) throw new Error('failed Clear lost chat');
+  let clearCalls = 0;
+  await clearChat((command) => {
+    if (command === 'clear_chat') { clearCalls += 1; return Promise.resolve(1); }
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([{ ...row, lastMessage: null }]);
+    throw new Error(`unexpected clear command: ${command}`);
+  });
+  if (clearCalls !== 1 || clearDialog.open || chatMessages.textContent !== ''
+    || document.getElementById('chat-cleared').hidden || activeChat.state !== 'open'
+    || !document.querySelector('#chat-list button[data-peer-id]')) {
+    throw new Error('Clear did not keep the empty conversation');
+  }
+  document.getElementById('chat-clear').click();
+  let finishClear;
+  const oldClear = clearChat(() => new Promise((resolve) => { finishClear = resolve; }));
+  const readyState = current;
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  finishClear(0);
+  await oldClear;
+  if (clearDialog.open || !document.getElementById('chat-cleared').hidden) {
+    throw new Error('old Clear repainted new identity');
+  }
+};
 // Even reopening the same card object for a new identity cannot admit an old peer response.
 const checkStalePeerActions = async () => {
   const readyState = current;
@@ -802,7 +856,7 @@ const checkStaleBlocked = async () => {
 globalThis.uiSmokeIdentity = Object.freeze({
   waitFor, openArea, hiddenRendered, shortPeerIdRule, chooseStorage, checkCopy, pickReady,
   checkSettingsInventory, switchFromSettings, checkStaleRender, checkStaleSearchAndChats,
-  checkChatProjection,
+  checkChatProjection, checkClearChat,
   checkStalePeerActions, checkStaleSafety, checkStaleProfileLoad, checkStaleProfileHandlers,
   checkStalePublishAndHide, checkStaleProfileTimers, checkStaleUsageStatus, checkStalePrivacy,
   checkStaleBlocked,

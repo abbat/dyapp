@@ -216,8 +216,9 @@ The Linux detail now lets a received request reply and an open conversation send
 A sent request shows a disabled composer until the peer replies or a match opens the chat.
 A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it
 in history and reports pending delivery. Profile names/photos, starting a first message from
-Search, Clear chat, and message actions remain planned for this UI. The Rust desktop commands
-already expose history, send text, Clear chat and mark read for the active identity.
+Search and message actions remain planned for this UI. Clear chat now asks for confirmation,
+deletes this computer's history, keeps the conversation row and shows a local-only note. The Rust
+desktop commands expose history, send text, Clear chat and mark read for the active identity.
 
 | Control | ID | Notes |
 | --- | --- | --- |

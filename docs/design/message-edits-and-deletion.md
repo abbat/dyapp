@@ -76,8 +76,10 @@ message neither shows nor loads again. The marks hold no text and go when the co
 deleted. A tag 1 text has no
 send time, so a message first received after the clear shows as new even if it was written
 earlier. Unsent outbox writes are found by the group each chat write is tagged with; a write a
-node already accepted stays, since only the recipient can drop it. `Store::clear_chat` and
-`Session::clear_chat` implement this; the chat screen is planned.
+node already accepted stays, since only the recipient can drop it. `Store::clear_chat_pair`
+and `Session::clear_chat` implement this; the Linux chat screen now confirms before invoking
+the pair-wide clear command. Its cleared note is immediate in the open view; the Store does not
+persist a separate cleared marker.
 
 The match, likes, block state and the chat row stay; the chat opens empty with a note. The peer
 and nodes are not told and keep their copies; to ask for removal, delete own messages first
