@@ -96,6 +96,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   instead of the elapsed time, and the signed readback appears on the form after the dialog closes.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.
+  One action checks and, when a node answered, activates; a failed or cancelled check keeps the
+  previous network. Android's status line names the active network, and its row texts say why a
+  row failed in more detail than the prototype's.
 - Search, `search`, `search-loading`, `search-empty` and `search-error`: `search-age-min`,
   `search-age-max`, `search-country`, `search-place`, `search-more`, `run-search`,
   `search-results` with `result-1` and `result-2`, `search-again`, `search-cancel`,

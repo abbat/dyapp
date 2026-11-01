@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,9 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
@@ -85,23 +80,10 @@ internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit
 
 @Composable
 private fun RecoveryDetails(opened: Opened.Recovery) {
-    Surface(
-        Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.errorContainer
-    ) {
-        Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-            Text(
-                reasonText(opened.reason),
-                Modifier.testTag("recovery-reason").semantics { liveRegion = LiveRegionMode.Polite }
-            )
-            var expanded by rememberSaveable(opened.slot.id) { mutableStateOf(false) }
-            TextButton(onClick = { expanded = !expanded }) { Text(stringResource(R.string.details)) }
-            if (expanded) {
-                val details = listOfNotNull(opened.reason, opened.peerId).joinToString("\n")
-                Text(details, Modifier.testTag("recovery-details"), fontFamily = FontFamily.Monospace)
-                CopyButton(details, "copy-recovery-details")
-            }
-        }
-    }
+    ErrorNotice(
+        reasonText(opened.reason), "recovery-reason",
+        listOfNotNull(opened.reason, opened.peerId).joinToString("\n"), "recovery-details", "copy-recovery-details"
+    )
     opened.peerId?.let {
         Caption(stringResource(R.string.storage_peer_id))
         Text(it, Modifier.testTag("recovery-peer"), fontFamily = FontFamily.Monospace)

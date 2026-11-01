@@ -48,10 +48,11 @@ private fun ComposeTestRule.checkShows(vararg ids: Int) = ids.any { id ->
 internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false, button: String = "check-connection") {
     // The first dial of a cold, software-emulated app can outlast the 5 s check.
     repeat(if (retryUnreachable) CHECK_TRIES else 1) {
-        if (checkShows(R.string.network_connected)) return@repeat
+        if (checkShows(R.string.network_connected, R.string.network_active)) return@repeat
         onNodeWithTag(button).performScrollTo().performClick()
         waitUntil(CHECK_WAIT_MS) {
-            checkShows(R.string.network_connected, R.string.network_unreachable, R.string.network_check_failed,
+            checkShows(R.string.network_connected, R.string.network_active, R.string.network_activation_failed,
+                R.string.network_unreachable, R.string.network_check_failed,
                 R.string.network_invalid_address, R.string.network_wrong)
         }
     }
@@ -65,8 +66,6 @@ internal fun ComposeTestRule.activateLocalNode() {
     onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
     onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
     checkNetwork(retryUnreachable = true, button = "check-and-connect")
-    waitForText("network-check-status", R.string.network_connected)
-    onNodeWithTag("network-continue").performScrollTo().performClick()
     waitForText("network-check-status", R.string.network_active)
 }
 

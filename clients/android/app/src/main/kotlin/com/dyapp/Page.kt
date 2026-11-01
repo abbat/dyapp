@@ -18,12 +18,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 /**
@@ -64,6 +71,22 @@ internal fun FormCard(content: @Composable ColumnScope.() -> Unit) = Surface(
 internal fun CardTitle(id: Int) = Text(
     stringResource(id), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium
 )
+
+/** A failure on its screen: the reason, with the technical [details] to copy behind a toggle. */
+@Composable
+internal fun ErrorNotice(text: String, textTag: String, details: String, detailsTag: String, copyTag: String) = Surface(
+    Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.errorContainer
+) {
+    Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+        Text(text, Modifier.testTag(textTag).semantics { liveRegion = LiveRegionMode.Polite })
+        var expanded by rememberSaveable(details) { mutableStateOf(false) }
+        TextButton(onClick = { expanded = !expanded }) { Text(stringResource(R.string.details)) }
+        if (expanded) {
+            Text(details, Modifier.testTag(detailsTag), fontFamily = FontFamily.Monospace)
+            CopyButton(details, copyTag)
+        }
+    }
+}
 
 /** Copies [text]; Android shows its own clipboard confirmation from version 13. */
 @Composable

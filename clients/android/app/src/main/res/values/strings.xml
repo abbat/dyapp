@@ -104,6 +104,9 @@
     <string name="network_read_failed">Could not read network settings. Your identity key was not changed.</string>
     <string name="network_save_failed">Could not save the network draft.</string>
     <string name="network_check">Check connection</string>
+    <string name="network_check_and_connect">Check and connect</string>
+    <string name="network_keep">A failed or cancelled check keeps the previous network.</string>
+    <string name="network_row_checking">Checking…</string>
     <string name="network_checking">Connecting…</string>
     <string name="network_connected">Connected. You can continue.</string>
     <string name="network_retry">Retry connection</string>
