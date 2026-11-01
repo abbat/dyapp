@@ -76,6 +76,10 @@ so tag-12 sending may start before v0.0.1 while tag-1 decoding remains.
 Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
 big-endian 8-byte HLC; edit adds at most 64 KiB of replacement text, while delete has no tail.
 The codec refuses short IDs, oversized text, trailing delete bytes and forwarded operations.
+The desktop `send_chat_text` command fetches a verified peer profile before sending, checks it
+against the newest profile held in the active network cache, and serializes the MLS Session with
+other desktop sends and mailbox receives. A delivery failure leaves the exact staged bytes in
+the outbox for retry.
 A forward wraps the tagged text or attachment and names no original author: apps show it as forwarded from the MLS sender, never as another member's words. An
 attachment body carries the `Attachment` descriptor: the key, plaintext and blob SHA-256 and
 release secret, 32 bytes each, the plaintext size, an optional JPEG preview of at most 24 KiB, a

@@ -12,6 +12,7 @@ use dyapp_client::store::messages::ChatMessage;
 use dyapp_client::store::{Conversation, Store};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
+use dyapp_profile::VerifiedProfile;
 
 use crate::profile;
 use crate::search::{self, Found, ProfileCache};
@@ -170,6 +171,87 @@ pub fn chat_history(
         .map_err(|e| e.to_string())?
         .into();
     Ok(ChatHistoryView { state, messages })
+}
+
+fn accept_peer(
+    cache: &Mutex<ProfileCache>,
+    epoch: u64,
+    peer_id: &str,
+    fetched: VerifiedProfile,
+) -> Result<VerifiedProfile, String> {
+    if fetched.peer_id != peer_id {
+        return Err("unknownPeer".into());
+    }
+    let mut cache = cache.lock().map_err(|e| e.to_string())?;
+    if !cache.current(epoch) {
+        return Err("notConnected".into());
+    }
+    if !cache.accept_if_current(epoch, fetched) {
+        return Err("staleProfile".into());
+    }
+    cache
+        .snapshot()
+        .1
+        .get(peer_id)
+        .cloned()
+        .ok_or("unknownPeer".into())
+}
+
+/// Send through the active network after refreshing the peer's signed profile. The Session
+/// stages the text and any first Welcome before network delivery; a failed send stays retryable.
+pub async fn send_text(
+    cache: &Mutex<ProfileCache>,
+    root: &Path,
+    dir: &Path,
+    identity: &Identity,
+    device_key: &Identity,
+    peer_id: &str,
+    text: &str,
+) -> Result<[u8; 16], String> {
+    if peer_id == identity.peer_id() {
+        return Err("ownPeer".into());
+    }
+    if text.is_empty() || text.len() > dyapp_client::chat::MAX_TEXT_BYTES {
+        return Err("invalidText".into());
+    }
+    let mut store = open(dir, identity)?;
+    if store.blocked(peer_id).map_err(|e| e.to_string())? {
+        return Err("blocked".into());
+    }
+    let own = profile::stored(&store)?;
+    if own.version == 0 {
+        return Err("unpublished".into());
+    }
+    let own = dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
+    let mut node = profile::connect(&active).await?;
+    let fetched = node.get_profile(peer_id).await.map_err(|e| e.to_string())?;
+    let peer = accept_peer(cache, epoch, peer_id, fetched)?;
+    if peer.profile.deleted || peer.profile.version == 0 {
+        return Err("unpublished".into());
+    }
+    let seal_key = crate::sealing_key(root, dir, &mut store, device_key)?;
+    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
+        .map_err(|e| e.to_string())?;
+    if !own
+        .profile
+        .devices
+        .contains(&session.certificate().map_err(|e| e.to_string())?)
+    {
+        return Err("unpublished".into());
+    }
+    session
+        .send_text_to(
+            std::slice::from_mut(&mut node),
+            &[own, peer],
+            text.as_bytes(),
+            &seal_key,
+        )
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
@@ -465,6 +547,33 @@ pub mod commands {
         super::chat_history(dir, identity, &peer_id)
     }
 
+    /// Send first, reply or later text through the active identity's MLS Session.
+    #[tauri::command]
+    pub(crate) async fn send_chat_text(
+        app: tauri::AppHandle,
+        state: tauri::State<'_, crate::IdentityState>,
+        searching: tauri::State<'_, SearchState>,
+        sessions: tauri::State<'_, super::Sessions>,
+        peer_id: String,
+        text: String,
+    ) -> Result<[u8; 16], String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
+        let root = crate::config_dir(&app)?;
+        let cache = Arc::clone(&searching.0);
+        let sessions = Arc::clone(&sessions.0);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
+            let _session = sessions.lock().map_err(|e| e.to_string())?;
+            let device = crate::device_key(&root, &dir, &identity)?;
+            tauri::async_runtime::block_on(super::send_text(
+                &cache, &root, &dir, &identity, &device, &peer_id, &text,
+            ))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     /// The like state with a peer; see `likes`.
     #[tauri::command]
     pub(crate) fn peer_likes(
@@ -694,5 +803,82 @@ mod tests {
         assert_eq!(timed.sent_at_ms, Some(1_700_000_000_000));
         assert_eq!(timed.text.as_deref(), Some("hello"));
         assert!(timed.unread);
+    }
+
+    #[tokio::test]
+    async fn text_send_rejects_bad_local_state_before_network() {
+        let dir = temp_dir();
+        let owner = Identity::generate();
+        let device = Identity::generate();
+        let peer = Identity::generate().peer_id();
+        let cache = Mutex::default();
+        assert_eq!(
+            send_text(
+                &cache,
+                &dir,
+                &dir,
+                &owner,
+                &device,
+                &owner.peer_id(),
+                "hello"
+            )
+            .await,
+            Err("ownPeer".into())
+        );
+        assert_eq!(
+            send_text(&cache, &dir, &dir, &owner, &device, &peer, "").await,
+            Err("invalidText".into())
+        );
+        assert_eq!(
+            send_text(&cache, &dir, &dir, &owner, &device, &peer, "hello").await,
+            Err("unpublished".into())
+        );
+        open(&dir, &owner)
+            .unwrap()
+            .set_blocked(&peer, true)
+            .unwrap();
+        assert_eq!(
+            send_text(&cache, &dir, &dir, &owner, &device, &peer, "hello").await,
+            Err("blocked".into())
+        );
+    }
+
+    #[test]
+    fn send_uses_only_a_current_signed_peer_profile() {
+        use dyapp_profile::Profile;
+        let owner = Identity::generate();
+        let peer_id = owner.peer_id();
+        let signed = |version| {
+            dyapp_profile::verify(
+                &Profile {
+                    version,
+                    ..Default::default()
+                }
+                .sign(&owner),
+            )
+            .unwrap()
+        };
+        let cache = Mutex::default();
+        assert_eq!(
+            accept_peer(&cache, 0, &peer_id, signed(2))
+                .unwrap()
+                .profile
+                .version,
+            2
+        );
+        assert_eq!(
+            accept_peer(&cache, 0, &peer_id, signed(1)),
+            Err("staleProfile".into())
+        );
+        let other = Identity::generate().peer_id();
+        assert_eq!(
+            accept_peer(&cache, 0, &other, signed(3)),
+            Err("unknownPeer".into())
+        );
+        cache.lock().unwrap().clear();
+        assert_eq!(
+            accept_peer(&cache, 0, &peer_id, signed(3)),
+            Err("notConnected".into())
+        );
     }
 }

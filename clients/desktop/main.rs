@@ -905,6 +905,7 @@ fn main() {
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,
+            chats::commands::send_chat_text,
             privacy_settings,
             set_privacy,
             blocked_peers,

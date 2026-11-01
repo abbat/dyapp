@@ -88,8 +88,11 @@ commands for the active identity. `chat_rows` returns `peerId`, `state`, `lastMe
 `unreadCount`; `chat_history(peerId)` returns `state` and ordered `messages`. A message includes
 opaque group and logical IDs, current text or a deletion marker, local unread and optional
 `sentAtMs`. The commands hide blocked peers, return original wall time in JavaScript-safe
-milliseconds, and leave legacy text time absent. The Chats UI and send, read and clear commands
-remain planned.
+milliseconds, and leave legacy text time absent. `send_chat_text(peerId, text)` now refreshes
+the signed peer profile on the active network and uses `Session::send_text_to` under the identity
+lease and MLS-session mutex; a failed network send retains the staged outbox bytes. It rejects an
+unpublished own profile or device, a blocked or self peer, stale profile data and invalid text.
+The Chats UI, mark-read and clear commands remain planned.
 
 The Store marks each accepted incoming text unread on this device; own texts are read. Edits and
 deletes do not add unread items. Opening a chat will call `Store::mark_chat_read` for the peer,
