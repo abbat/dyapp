@@ -111,8 +111,14 @@ class NetworkDraftTests {
         compose.onNode(hasTestTag("network-name") and hasText(name)).assertExists()
     }
 
-    private fun expectRows(vararg expected: String) {
-        val rows = compose.textsIn("seed-rows")
+    // A live node's row can read unreachable when its dial outlasts the check, so retry as a user would.
+    private fun checkUntilRows(vararg expected: String) {
+        var rows = emptyList<String?>()
+        repeat(CHECK_TRIES) {
+            if (rows == expected.toList()) return@repeat
+            compose.checkNetwork()
+            rows = compose.textsIn("seed-rows")
+        }
         check(rows == expected.toList()) { "Unexpected rows $rows" }
     }
 
@@ -128,22 +134,20 @@ class NetworkDraftTests {
             reopensDraft(peerId, seeds.joinToString("\n"), "city")
 
             // An invalid row, a closed port and a wrong pin: nothing connects, Continue stays off.
-            compose.checkNetwork()
-            compose.waitForText("network-check-status", R.string.network_invalid_address)
-            expectRows(
+            checkUntilRows(
                 "${seeds[0]}: ${string(R.string.network_row_invalid_address)}",
                 "${seeds[1]}: ${string(R.string.network_row_unreachable)}",
                 "${seeds[2]}: ${string(R.string.network_row_wrong_peer)}",
             )
+            compose.waitForText("network-check-status", R.string.network_invalid_address)
             compose.onNodeWithTag("network-continue").assertDoesNotExist()
             compose.onNodeWithTag("check-connection").assertTextEquals(string(R.string.network_retry))
 
             // The live node under another network name.
             enter(LOCAL_NODE, "city")
             compose.onNodeWithTag("check-connection").assertTextEquals(string(R.string.network_check))
-            compose.checkNetwork()
+            checkUntilRows("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")
             compose.waitForText("network-check-status", R.string.network_wrong)
-            expectRows("$LOCAL_NODE: ${string(R.string.network_row_wrong_network)}")
             compose.onNodeWithTag("network-continue").assertDoesNotExist()
         } finally {
             forgetNetworks()
