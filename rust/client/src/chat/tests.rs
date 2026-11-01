@@ -42,12 +42,12 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(1, welcome)], &profiles);
     assert!(events == [Event::Joined(group.id().to_vec())]);
     assert_eq!(acked, [vec![1]]);
-    let sent = message(
-        &mut group,
-        &alice,
-        &Body::text_with_id([1; 16], b"hi".to_vec()),
-    )
-    .unwrap();
+    let timed = Body::Text {
+        id: [1; 16],
+        hlc: Some(123 << 16),
+        text: b"hi".to_vec(),
+    };
+    let sent = message(&mut group, &alice, &timed).unwrap();
     let (events, acked) = apply_all(
         &bob,
         &mut groups,
@@ -60,7 +60,7 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
                 group: group.id().to_vec(),
                 sender: alice_identity.peer_id(),
                 device: alice.device_key().unwrap(),
-                body: Body::text_with_id([1; 16], b"hi".to_vec()),
+                body: timed,
             }]
     );
     assert_eq!(acked, [vec![2]]);
@@ -253,7 +253,7 @@ fn message_operations_have_strict_frames() {
 }
 
 #[test]
-fn timed_text_is_strict_and_receive_only() {
+fn timed_text_is_strict_and_sendable() {
     let timed = Body::Text {
         id: [7; 16],
         hlc: Some(0x0102_0304_0506_0708),
@@ -289,14 +289,13 @@ fn timed_text_is_strict_and_receive_only() {
             &[alice_profile, bob_profile],
         )
         .unwrap();
-    assert!(matches!(
-        message(&mut group, &alice, &timed),
-        Err(crate::Error::Input(_))
-    ));
-    assert!(matches!(
-        message(&mut group, &alice, &Body::Forwarded(Box::new(timed))),
-        Err(crate::Error::Input(_))
-    ));
+    assert_eq!(message(&mut group, &alice, &timed).unwrap().len(), 1);
+    assert_eq!(
+        message(&mut group, &alice, &Body::Forwarded(Box::new(timed)))
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]

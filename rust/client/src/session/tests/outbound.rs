@@ -50,6 +50,18 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
         .unwrap();
     assert_ne!(offline_id, [1; 16]);
     assert_eq!(offline_writes.len(), 1);
+    let sent = session
+        .store
+        .current_chat_messages(&bob_profile.peer_id)
+        .unwrap();
+    let original_hlc = sent
+        .iter()
+        .find(|message| message.key.id == offline_id)
+        .unwrap()
+        .original_hlc
+        .unwrap();
+    assert!(u64::from(original_hlc) > 0);
+    assert!(session.store.draft_chat_text(crate::now() * 1000).unwrap() > u64::from(original_hlc));
     let own = MessageKey {
         group: group_id.clone(),
         author: alice_id.peer_id(),

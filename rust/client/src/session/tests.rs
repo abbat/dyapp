@@ -738,9 +738,15 @@ fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
         crate::mailbox(&alice_key).to_vec(),
         alice.key_package(false).unwrap(),
     )];
-    let (_, writes) = session
+    let (first_id, writes) = session
         .stage_text_to(&profiles, &packages, b"hi", &seal_key)
         .unwrap();
+    let sent = session.store.current_chat_messages(&alice_peer).unwrap();
+    let first = sent
+        .iter()
+        .find(|message| message.key.id == first_id)
+        .unwrap();
+    assert!(first.original_hlc.is_some());
     // The Welcome and the text, both to Alice's device, in one commit.
     assert_eq!(writes.len(), 2);
     assert!(writes

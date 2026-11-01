@@ -56,11 +56,17 @@ client, which anyone can change, so there is none. The one-pending rule holds be
 logical ID is acked and dropped. Edits and deletes of the pending text still apply. Node limits
 (signal quota, tokenless mailbox pool, puzzles) and local Block bound the rest.
 
-A request is text only (currently sent as tag 1). The shared decoder also accepts timed tag 12,
-but sending it and exposing the persisted original time in the Chats list await the compatibility
-rollout in [ADR 0037](../decisions/0037-chat-list-order.md). Before the conversation is open,
-the recipient acks and drops a non-match's attachments, forwards, presence, read receipts and
-token requests, and answers no token request: a stranger gets no write token until the recipient
+A request is text only. The shared decoder accepts legacy tag 1 and timed tag 12.
+As of 2026-11-01, `gh release list --limit 20` found no published releases, and no
+client app has shipped. The decoder-first condition in
+[ADR 0037](../decisions/0037-chat-list-order.md) is therefore satisfied before the first
+release; `Session::stage_text` and `Session::stage_text_to` now send tag 12. They draft one
+HLC before encryption and commit it with MLS state, the outbox and the local text.
+Recheck the supported release inventory before any later wire change.
+
+Before the conversation is open, the recipient acks and drops a non-match's attachments,
+forwards, presence, read receipts and token requests, and answers no token request: a stranger
+gets no write token until the recipient
 replies or a match exists.
 Likes and views follow their own rules and are accepted either way.
 

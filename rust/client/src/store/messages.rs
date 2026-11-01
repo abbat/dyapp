@@ -6,7 +6,7 @@ use super::{Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
 use crate::PreparedEnvelope;
 use dyapp_identity::sha256;
-use dyapp_messaging::hlc::{HybridClock, Timestamp};
+use dyapp_messaging::hlc::{ClockSkew, HybridClock, Timestamp, MAX_CLOCK_SKEW_MS};
 use dyapp_messaging::mls::Group;
 use rusqlite::{params, OptionalExtension, Transaction};
 
@@ -68,7 +68,7 @@ pub struct MessageKey {
     pub group: Vec<u8>,
     /// Verified MLS author Peer ID.
     pub author: String,
-    /// Random ID carried by chat tag 1.
+    /// Random ID carried by chat text tag 1 or 12.
     pub id: [u8; 16],
 }
 
@@ -128,13 +128,21 @@ impl CurrentMessage {
 }
 
 impl Store {
+    /// Draft the original time for one text without changing durable state. The staged MLS
+    /// body and the outbox commit must use this exact value.
+    pub fn draft_chat_text(&self, wall_ms: u64) -> Result<u64, Error> {
+        Ok(HybridClock::resume(load_hlc(&self.db)?)
+            .now_at(wall_ms)
+            .into())
+    }
+
     /// Draft a fresh operation ID and HLC without changing durable state. Encrypt this exact
     /// operation before committing it with `stage_chat_outbound`.
     pub fn draft_chat_operation(&self, wall_ms: u64) -> Result<([u8; 16], u64), Error> {
-        let hlc = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
+        let hlc = self.draft_chat_text(wall_ms)?;
         let mut operation = [0; 16];
         getrandom::fill(&mut operation).map_err(|_| Error::Random)?;
-        Ok((operation, hlc.into()))
+        Ok((operation, hlc))
     }
 
     /// Stage an own chat body, current projection, sealed MLS state and exact writes together.
@@ -234,6 +242,22 @@ impl Store {
                 return Err(Error::InboxConflict);
             }
         }
+        let timed_text = match body {
+            Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+            _ => None,
+        };
+        if let Some(hlc) = timed_text {
+            if hlc <= load_hlc(tx)? {
+                return Err(Error::InboxConflict);
+            }
+            if hlc.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
+                return Err(Error::ClockSkew(ClockSkew {
+                    remote_ms: hlc.wall_ms(),
+                    local_ms: wall_ms,
+                }));
+            }
+            i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
+        }
         if let Body::Text { id, .. } = body {
             conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
         }
@@ -258,6 +282,9 @@ impl Store {
         // An outbound action must change local state; replay uses the exact existing outbox write.
         if !changed {
             return Err(Error::InboxConflict);
+        }
+        if let Some(hlc) = timed_text {
+            save_hlc(tx, hlc)?;
         }
         Ok(())
     }

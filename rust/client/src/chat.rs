@@ -518,12 +518,6 @@ pub fn create(
 
 /// Pads and encrypts `body` for every other device in `group`.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
-    // Old supported clients ACK and discard tag 12; keep it receive-only until rollout.
-    if matches!(body, Body::Text { hlc: Some(_), .. })
-        || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { hlc: Some(_), .. }))
-    {
-        return Err(Error::Input("timed chat text is receive-only"));
-    }
     let floor = match body {
         Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => SIGNAL_PADDED_BYTES,
         _ => MIN_PADDED_BYTES,

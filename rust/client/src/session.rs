@@ -320,8 +320,13 @@ impl Session {
         let mut id = [0; 16];
         getrandom::fill(&mut id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        let writes =
-            self.stage_message(group_id, &Body::text_with_id(id, text.to_vec()), seal_key)?;
+        let hlc = self.store.draft_chat_text(crate::now() * 1000)?;
+        let body = Body::Text {
+            id,
+            hlc: Some(hlc),
+            text: text.to_vec(),
+        };
+        let writes = self.stage_message(group_id, &body, seal_key)?;
         Ok((id, writes))
     }
 
@@ -358,7 +363,11 @@ impl Session {
         let mut id = [0; 16];
         getrandom::fill(&mut id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        let body = Body::text_with_id(id, text.to_vec());
+        let body = Body::Text {
+            id,
+            hlc: Some(self.store.draft_chat_text(crate::now() * 1000)?),
+            text: text.to_vec(),
+        };
         let staged = (|| {
             let (mut group, welcome) = chat::create(device, packages, profiles)?;
             let class = EnvelopeClass::Message;

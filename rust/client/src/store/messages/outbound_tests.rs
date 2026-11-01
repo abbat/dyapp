@@ -24,16 +24,18 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         author: author.clone(),
         id: [5; 16],
     };
-    let text = Body::Text {
-        id: key.id,
-        hlc: None,
-        text: b"private original".to_vec(),
-    };
     let write1 = prepare_put(&[7; 32], vec![1]).unwrap();
     let write2 = prepare_put(&[7; 32], vec![2]).unwrap();
     let write3 = prepare_put(&[7; 32], vec![3]).unwrap();
     let mut store = Store::open(&path, &owner).unwrap();
-    crate::store::tests::catalog_group(&mut store, &group, &Identity::generate().peer_id());
+    let peer = Identity::generate().peer_id();
+    crate::store::tests::catalog_group(&mut store, &group, &peer);
+    let text_hlc = store.draft_chat_text(1_000).unwrap();
+    let text = Body::Text {
+        id: key.id,
+        hlc: Some(text_hlc),
+        text: b"private original".to_vec(),
+    };
 
     store
         .stage_chat_outbound(
@@ -44,13 +46,16 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
             1_000,
         )
         .unwrap();
+    let original = store.current_chat_messages(&peer).unwrap();
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        original[0].current.text.as_deref(),
         Some(&b"private original"[..])
     );
+    assert_eq!(original[0].original_hlc.map(u64::from), Some(text_hlc));
+    assert!(store.draft_chat_text(1_000).unwrap() > text_hlc);
     let conflicting = Body::Text {
         id: key.id,
-        hlc: None,
+        hlc: Some(text_hlc),
         text: b"other".to_vec(),
     };
     assert!(matches!(
@@ -67,6 +72,24 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-1"[..])
     );
+    assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+    let next_hlc = store.draft_chat_text(1_000).unwrap();
+    let conflicting_later = Body::Text {
+        id: key.id,
+        hlc: Some(next_hlc),
+        text: b"other".to_vec(),
+    };
+    assert!(matches!(
+        store.stage_chat_outbound(
+            b"mls-bad",
+            std::slice::from_ref(&write2),
+            sender,
+            &conflicting_later,
+            1_000,
+        ),
+        Err(Error::InboxConflict)
+    ));
+    assert_eq!(store.draft_chat_text(1_000).unwrap(), next_hlc);
     assert_eq!(store.due_outbound(0).unwrap().len(), 1);
 
     let (edit_id, edit_hlc) = store.draft_chat_operation(1_000).unwrap();
@@ -110,6 +133,9 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     let mut store = Store::open(&path, &owner).unwrap();
     let current = store.chat_message(&key).unwrap().unwrap();
     assert!(current.edited && current.deleted && current.text.is_none());
+    let ordered = store.current_chat_messages(&peer).unwrap();
+    assert_eq!(ordered[0].original_hlc.map(u64::from), Some(text_hlc));
+    assert!(store.draft_chat_text(1_000).unwrap() > delete_hlc);
     assert_eq!(
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-3"[..])

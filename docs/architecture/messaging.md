@@ -68,9 +68,12 @@ The like, unlike and view payload and match state are specified in the
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
 attachment, `7` forwarded text or attachment, `8` edit, `9` delete, `10` presence, `11` read
-receipt), so a text is never read as
-an interaction; an unknown tag is refused and acked. Tag 1 contains a 16-byte logical ID before
-at most 64 KiB of text. Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
+receipt, `12` timed text), so a text is never read as
+an interaction; an unknown tag is refused and acked. Legacy tag 1 contains a 16-byte
+logical ID before at most 64 KiB of text. Tag 12 adds an eight-byte big-endian HLC
+after the ID, with the same text limit. No client release existed on 2026-11-01,
+so tag-12 sending may start before v0.0.1 while tag-1 decoding remains.
+Tags 8 and 9 contain a 16-byte target ID, 16-byte operation ID and
 big-endian 8-byte HLC; edit adds at most 64 KiB of replacement text, while delete has no tail.
 The codec refuses short IDs, oversized text, trailing delete bytes and forwarded operations.
 A forward wraps the tagged text or attachment and names no original author: apps show it as forwarded from the MLS sender, never as another member's words. An
