@@ -48,13 +48,12 @@ object RustBridge {
     // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
     // client runtime.
     /**
-     * Runs [action] and returns the screen for its result. A fresh install gets its first
-     * identity; the picker lists every slot, opened or with its recovery reason.
+     * Runs [action] and returns the screen for its result. A fresh install shows the identity
+     * step and creates nothing; the picker lists every slot, opened or with its recovery reason.
      */
     @Synchronized
     fun show(slots: Slots, action: () -> Opened): Shown = runCatching {
         when (val opened = action()) {
-            Opened.Setup -> Shown(slots.create())
             Opened.Picker -> Shown(opened, slots.list().map { openSlot(it, slots::load) })
             else -> Shown(opened)
         }

@@ -194,7 +194,8 @@ internal fun reasonText(reason: String) =
     stringResource(reasons[reason] ?: R.string.recovery_unavailable)
 
 /**
- * The app shell for a ready identity, else the identity picker or a recovery state. `app-ready`
+ * The app shell for a ready identity, the identity step when no slot exists yet, else the
+ * identity picker or a recovery state. `app-ready`
  * tags the title or status line UI tests wait for, `peer-id` the core's answer.
  */
 @Composable
@@ -223,6 +224,7 @@ fun MainScreen(onLockSettings: () -> Unit = {}) {
     when {
         asked != null -> RemoveScreen(slots, asked, act)
         opened is Opened.Ready -> AppShell(slots, opened, editor, act, open)
+        opened == Opened.Setup -> WizardIdentity { act(slots::create) }
         else -> StartColumn(shown, slots, act, open)
     }
 }

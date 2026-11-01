@@ -21,11 +21,19 @@ import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
 
+/** Creates the first identity if this test is the first on a clean device. */
+internal fun ComposeTestRule.passIdentityStep() {
+    val shown = { tag: String -> onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+    waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("skip-network") || shown("create-identity") }
+    if (shown("create-identity")) onNodeWithTag("create-identity").performScrollTo().performClick()
+}
+
 /**
  * Waits for the start screen, leaving with Back the network draft that an identity without an
  * active connection opens on; the Argon2id unlock takes seconds on the emulator.
  */
 internal fun ComposeTestRule.skipNetworkEntry() {
+    passIdentityStep()
     val shown = { tag: String -> onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("skip-network") }
     if (shown("skip-network")) onNodeWithTag("skip-network").performScrollTo().performClick()

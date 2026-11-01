@@ -33,6 +33,24 @@ import androidx.compose.ui.unit.dp
 /** What a bottom bar item or button opens. */
 internal enum class StartTarget { REMOVE, PROFILE, SEARCH, NETWORK, SETTINGS, LOCK }
 
+/** First-run step 1: explains the key and creates nothing until [onCreate]. */
+@Composable
+internal fun WizardIdentity(onCreate: () -> Unit) {
+    Page(
+        actions = {
+            Button(onClick = onCreate, Modifier.fillMaxWidth().testTag("create-identity")) {
+                Text(stringResource(R.string.wizard_create))
+            }
+        },
+    ) {
+        Caption(stringResource(R.string.wizard_step1))
+        PageTitle(R.string.wizard_identity_title)
+        Text(stringResource(R.string.wizard_identity_intro))
+        Caption(stringResource(R.string.storage_android), Modifier.testTag("key-store"))
+        Caption(stringResource(R.string.backup_none), Modifier.testTag("no-backup"))
+    }
+}
+
 /**
  * Shows the first-run network wizard while [opened] has no active network and no section was
  * picked yet; returns false otherwise, so the caller shows the app shell. Back skips it.
