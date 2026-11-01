@@ -394,10 +394,11 @@ async fn connect_network(
 async fn activate_connection(
     state: tauri::State<'_, IdentityState>,
     checks: tauri::State<'_, NetworkState>,
+    searching: tauri::State<'_, search::SearchState>,
 ) -> Result<Draft, String> {
     let lease = state.lease()?;
     let dir = lease.active().1.clone();
-    network::activate(&checks, &dir)
+    searching.activate_network(&checks, &dir)
 }
 
 /// Picker values from the shared profile vocabulary.

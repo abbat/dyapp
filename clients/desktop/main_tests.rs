@@ -28,7 +28,7 @@ async fn identity_transition_clears_profiles_only_after_old_work_drains() {
     )
     .unwrap();
     let searching = Arc::new(search::SearchState::default());
-    searching.0.lock().unwrap().accept(verified).unwrap();
+    assert!(searching.0.lock().unwrap().accept_if_current(0, verified));
     let checks = Arc::new(NetworkState::default());
     let transition = state.start_transition().unwrap();
     let worker = {
@@ -38,10 +38,10 @@ async fn identity_transition_clears_profiles_only_after_old_work_drains() {
     };
     tokio::task::yield_now().await;
     assert!(!worker.is_finished());
-    assert_eq!(searching.0.lock().unwrap().all().len(), 1);
+    assert_eq!(searching.0.lock().unwrap().snapshot().1.all().len(), 1);
     drop(lease);
     worker.await.unwrap().unwrap().commit(None).unwrap();
-    assert!(searching.0.lock().unwrap().all().is_empty());
+    assert!(searching.0.lock().unwrap().snapshot().1.all().is_empty());
 }
 
 #[test]
