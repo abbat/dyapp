@@ -33,10 +33,7 @@ impl Store {
 }
 
 /// Clear every cataloged group of `peer_id` inside `tx`; see [`Store::clear_chat_pair`].
-pub(in crate::store) fn clear_pair_tx(
-    tx: &Transaction<'_>,
-    peer_id: &str,
-) -> Result<usize, Error> {
+pub(in crate::store) fn clear_pair_tx(tx: &Transaction<'_>, peer_id: &str) -> Result<usize, Error> {
     let groups = {
         let mut query =
             tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;

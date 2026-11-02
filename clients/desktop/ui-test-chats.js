@@ -951,13 +951,15 @@ const peerSteps = {
     await liveSend('after clear');
   },
   'chat-block': async (peer) => {
-    await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('after clear'), 'the text after Clear');
+    // Later steps sent newer texts, so the row no longer shows this one.
+    await liveChats(() => liveRow('chat-list', peer), 'the chat');
     await liveOpen(liveRow('chat-list', peer));
     const { messages } = await invoke('chat_history', { peerId: peer });
     // The peer opened these with the default setting, and this side's setting survived a restart.
-    if (messages.some((message) => message.read)
+    if (!messages.some((message) => message.text === 'after clear')
+      || messages.some((message) => message.read)
       || !(await invoke('privacy_settings')).sendReadReceipts) {
-      throw new Error('default-off read receipts or the setting went wrong');
+      throw new Error('the text after Clear, default-off read receipts or the setting went wrong');
     }
     document.getElementById('chat-block').click();
     await window.chatBlocked;
@@ -972,7 +974,10 @@ const peerSteps = {
   'chat-after-block': async (peer) => {
     await liveChats(() => liveRow('chat-list', peer), 'the chat');
     await liveOpen(liveRow('chat-list', peer));
-    if ((await liveHistory(peer)).join() !== 'after clear') throw new Error('Clear did not survive');
+    const kept = await liveHistory(peer);
+    if (!kept.includes('after clear') || kept.includes('reply text')) {
+      throw new Error('Clear did not survive');
+    }
     await liveSend('after block', ['chats.sent', 'chats.queued']);
   },
   'chat-blocked': async (peer) => {

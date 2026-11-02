@@ -112,15 +112,15 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
     assert_eq!(alice.likes(bob_id.clone()).unwrap(), likes(true, true));
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::Open);
 
-    // Taking the like back ends the match but the chat stays open.
+    // Taking the like back ends the match and closes the chat on both sides.
     assert_eq!(
         alice.like(bob_id.clone(), false).unwrap(),
         likes(false, false)
     );
-    assert_eq!(alice.state(bob_id).unwrap(), ChatState::Open);
+    assert_eq!(alice.state(bob_id).unwrap(), ChatState::Closed);
     assert!(bob.receive().unwrap() > 0);
     assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(true, false));
-    assert_eq!(bob.state(alice_id).unwrap(), ChatState::Open);
+    assert_eq!(bob.state(alice_id).unwrap(), ChatState::Closed);
 }
 
 #[test]
