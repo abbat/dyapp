@@ -23,7 +23,8 @@ DESKTOP = [
     "search", "search-loading", "search-empty", "search-error",
     "profile-view", "profile-view-safety", "verify-dialog",
     "profile-view-verified", "profile-view-match", "unlike-dialog",
-    "chats", "chat", "chat-first", "chat-request", "chat-new-device",
+    "chats", "chat", "chat-closed", "chat-first", "chat-request",
+    "chat-new-device",
     "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
     "delete-dialog",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
@@ -35,7 +36,7 @@ ANDROID = [
     "network", "network-checking", "network-error",
     "search", "search-loading", "search-empty", "search-error",
     "profile-view", "profile-view-match", "unlike-dialog",
-    "chats", "chat", "chat-first", "chat-request",
+    "chats", "chat", "chat-closed", "chat-first", "chat-request",
     "chat-menu", "chat-clear-dialog", "chat-cleared", "delete-dialog",
     "settings", "lock-settings", "switcher", "remove-dialog", "remove-offline",
 ]

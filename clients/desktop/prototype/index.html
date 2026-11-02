@@ -114,7 +114,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -138,7 +138,7 @@
       <svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
     <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
-    <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-closed chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav" id="nav-network" data-current="network network-checking network-error">
@@ -377,15 +377,15 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <section id="chat" class="chat" data-on="chat chat-closed chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
       <div class="chat-head">
         <button type="button" class="btn quiet" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
         <button type="button" class="peer" id="chat-profile">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog"></span>
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
             <span class="sub caption ellipsis" id="chat-presence" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
         <button type="button" class="btn quiet" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
@@ -395,6 +395,7 @@ search providers asked: 0 of 3</pre>
         </div>
       </div>
       <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
+      <div class="notice" id="chat-closed-notice" data-on="chat-closed" data-t="chat.closed.notice"></div>
       <div class="notice warn" id="chat-new-device-notice" data-on="chat-new-device"><span data-t="chats.newDevice"></span>
         <div class="actions"><button type="button" class="btn" id="chat-new-device-ack" data-t="chats.newDevice.ack"></button></div></div>
       <div class="notice warn" id="chat-request-notice" data-on="chat-request"><span data-t="chat.request.notice"></span>
@@ -402,20 +403,20 @@ search providers asked: 0 of 3</pre>
       <div class="thread" id="chat-thread">
         <span class="day" data-off="chat-cleared" data-t="chat.today"></span>
         <p class="caption cleared" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
-        <div class="msg out" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
-        <div class="msg out" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
-          <span class="msg-menu" id="msg-menu"><button type="button" class="btn quiet" data-t="chat.edit"></button><button type="button" class="btn quiet" id="msg-delete" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <div class="msg out" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn quiet" data-t="chat.edit"></button><button type="button" class="btn quiet" id="msg-delete" data-t="chat.delete"></button></span></div>
+        <div class="msg in" data-on="chat chat-closed chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
         <span class="caption" id="chat-typing" data-on="chat chat-new-device chat-menu chat-clear-dialog chat-rename-dialog delete-dialog" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
       </div>
       <div class="composer">
-        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
+        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first chat-closed"></textarea>
         <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
-        <button type="button" class="btn quiet" id="chat-attach" data-t="chat.attach" data-disabled="chat-first"></button>
+        <button type="button" class="btn quiet" id="chat-attach" data-t="chat.attach" data-disabled="chat-first chat-closed"></button>
         <button type="button" class="btn primary" id="chat-send" data-t="chat.send" disabled></button>
       </div>
       <p class="caption" data-on="chat-first" data-t="chat.first.wait"></p>

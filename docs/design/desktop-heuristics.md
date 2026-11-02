@@ -539,6 +539,28 @@ Findings: none open.
 
 Findings: none open.
 
+### Ended match review (2026-11-02)
+
+States: `chat-closed` and `unlike-dialog` in both languages at 440 and 1280 px.
+
+1. Visibility: the header caption says the match ended and the notice stays above the thread, so
+   the disabled composer is explained before anyone tries it.
+2. Real world: "match" and "chat" are the words the rest of the app uses; "closed" is not a state
+   name the user must learn, the notice says what happened.
+3. Control: Clear chat and Block stay in the menu, and a new match reopens the chat.
+4. Consistency: the same notice style and disabled composer as `chat-first`.
+5. Error prevention: the unlike dialog now says the chat closes for both and the unliker's copy is
+   erased, before the confirmation. Edit and Delete are gone from own messages, so no action
+   starts that would be refused.
+6. Recognition: history stays readable; only what cannot work is disabled.
+7. Flexibility: not applicable, the state has no options.
+8. Minimalism: one notice and one caption, no extra control.
+9. Error recovery: a send crossing the peer's unlike shows the same notice instead of a raw store
+   error, and the text stays in the composer.
+10. Help: the notice says what reopens the chat.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

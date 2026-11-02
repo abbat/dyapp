@@ -1,16 +1,16 @@
-//! Per-peer conversation state: a pending message request until a reply or a match opens it.
-//! Open is final; see docs/design/chats-and-matches.md.
+//! Per-peer conversation state: a pending message request until a reply or a match opens it, and
+//! closed once a match ends; see docs/design/chats-and-matches.md.
 
 use super::{Error, Store};
 use rusqlite::{params, OptionalExtension, Transaction};
 
-// `state`: 1 request sent, 2 request received, 3 open; no row is none.
+// `state`: 1 request sent, 2 request received, 3 open, 4 closed; no row is none.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `conversations` (
     `peer_id` TEXT PRIMARY KEY CHECK (length(`peer_id`) > 0),
-    `state` INTEGER NOT NULL CHECK (`state` IN (1, 2, 3)),
+    `state` INTEGER NOT NULL CHECK (`state` IN (1, 2, 3, 4)),
     `request_id` BLOB,
-    CHECK ((`state` = 3 AND `request_id` IS NULL)
+    CHECK ((`state` IN (3, 4) AND `request_id` IS NULL)
         OR (`state` IN (1, 2) AND length(`request_id`) = 16))
 ) STRICT;
 ";
@@ -24,8 +24,10 @@ pub enum Conversation {
     RequestSent([u8; 16]),
     /// The peer sent the one pending text with this logical ID.
     RequestReceived([u8; 16]),
-    /// A reply or a match opened the chat; it stays open.
+    /// A reply or a match opened the chat; only an ended match closes it.
     Open,
+    /// A match ended. Nothing more is sent or shown until a new match opens the chat.
+    Closed,
 }
 
 impl Store {
@@ -52,6 +54,7 @@ fn load(db: &rusqlite::Connection, peer_id: &str) -> Result<Conversation, Error>
         Some((1, request)) => Conversation::RequestSent(id(request)?),
         Some((2, request)) => Conversation::RequestReceived(id(request)?),
         Some((3, None)) => Conversation::Open,
+        Some((4, None)) => Conversation::Closed,
         Some(_) => return Err(Error::InboxConflict),
     })
 }
@@ -62,6 +65,7 @@ fn save(tx: &Transaction<'_>, peer_id: &str, state: Conversation) -> Result<(), 
         Conversation::RequestSent(id) => (1, Some(id)),
         Conversation::RequestReceived(id) => (2, Some(id)),
         Conversation::Open => (3, None),
+        Conversation::Closed => (4, None),
     };
     tx.execute(
         "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?1, ?2, ?3)
@@ -72,7 +76,7 @@ fn save(tx: &Transaction<'_>, peer_id: &str, state: Conversation) -> Result<(), 
     Ok(())
 }
 
-fn matched(tx: &Transaction<'_>, owner: &str, peer_id: &str) -> Result<bool, Error> {
+pub(super) fn matched(tx: &Transaction<'_>, owner: &str, peer_id: &str) -> Result<bool, Error> {
     Ok(tx.query_row(
         "SELECT COUNT(*) = 2 FROM `like_state` WHERE `liked` = 1
          AND ((`sender` = ?1 AND `target` = ?2) OR (`sender` = ?2 AND `target` = ?1))",
@@ -103,8 +107,9 @@ fn group_peer(
 }
 
 /// Apply the request rules to a text with logical `id` before it is recorded. Returns whether to
-/// record it; a dropped text is a second pending request from the peer. `outbound` refuses a
-/// second own request with [`Error::RequestPending`]; an own text from another device is kept.
+/// record it; a dropped text is a second pending request from the peer or a text after a match
+/// ended. `outbound` refuses a second own request with [`Error::RequestPending`] and a text to a
+/// closed chat with [`Error::ChatClosed`]; an own text from another device is kept.
 pub(super) fn on_text(
     tx: &Transaction<'_>,
     owner: &str,
@@ -117,6 +122,8 @@ pub(super) fn on_text(
     let own = author == owner;
     let next = match load(tx, &peer)? {
         Conversation::Open => return Ok(true),
+        Conversation::Closed if outbound => return Err(Error::ChatClosed),
+        Conversation::Closed => return Ok(false),
         _ if matched(tx, owner, &peer)? => Conversation::Open,
         Conversation::None if own => Conversation::RequestSent(id),
         Conversation::None => Conversation::RequestReceived(id),
@@ -150,7 +157,7 @@ pub(super) fn on_attachment(
             Conversation::Open => true,
             Conversation::RequestSent(_) => !own,
             Conversation::RequestReceived(_) => own,
-            Conversation::None => false,
+            Conversation::None | Conversation::Closed => false,
         };
     if !allowed {
         return Ok(false);
@@ -158,8 +165,8 @@ pub(super) fn on_attachment(
     on_text(tx, owner, group, author, id, false)
 }
 
-/// Whether a peer's edit or delete of `target` applies: while a request is pending only the
-/// pending text may change.
+/// Whether an edit or delete of `target` applies: while a request is pending only the pending
+/// text may change, and nothing changes in a closed chat.
 pub(super) fn allows_operation(
     tx: &Transaction<'_>,
     owner: &str,
@@ -170,14 +177,28 @@ pub(super) fn allows_operation(
     let peer = group_peer(tx, owner, group, author)?;
     Ok(match load(tx, &peer)? {
         Conversation::RequestReceived(request) => author == owner || request == target,
+        Conversation::Closed => false,
         _ => true,
     })
 }
 
-/// Open the chat when a like completes a match, in the like's transaction.
-pub(super) fn on_like(tx: &Transaction<'_>, owner: &str, peer_id: &str) -> Result<(), Error> {
+/// After a like or unlike changed the latest state, in its transaction: open the chat when a
+/// match now exists, close it when `was_matched` ended, and then erase this device's copy if
+/// `own` unlike ended it.
+pub(super) fn on_like(
+    tx: &Transaction<'_>,
+    owner: &str,
+    peer_id: &str,
+    was_matched: bool,
+    own: bool,
+) -> Result<(), Error> {
     if matched(tx, owner, peer_id)? {
         save(tx, peer_id, Conversation::Open)?;
+    } else if was_matched {
+        save(tx, peer_id, Conversation::Closed)?;
+        if own {
+            super::messages::clear_pair_tx(tx, peer_id)?;
+        }
     }
     Ok(())
 }
@@ -268,11 +289,11 @@ mod tests {
             self.store.interact(&peer, kind, &[1], 1_000).unwrap();
         }
 
-        fn peer_like(&mut self) {
+        fn peer_like(&mut self, kind: Kind, wall_ms: u64) {
             let event = Interaction {
-                kind: Kind::Like,
-                event_id: [8; 16],
-                hlc: Timestamp::new(500, 0).into(),
+                kind,
+                event_id: [wall_ms.to_be_bytes()[6]; 16],
+                hlc: Timestamp::new(wall_ms, 0).into(),
             };
             let (peer, own) = (self.peer.clone(), self.own.clone());
             assert!(self
@@ -332,22 +353,92 @@ mod tests {
     }
 
     #[test]
-    fn match_opens_and_open_is_final() {
+    fn open_survives_clear_and_unblock() {
         let mut p = pair();
         let peer = p.peer.clone();
         assert!(p.receive(1, &text(1)));
         p.own_like(Kind::Like);
         assert_eq!(p.state(), Conversation::RequestReceived([1; 16]));
-        p.peer_like();
+        p.peer_like(Kind::Like, 500);
         assert_eq!(p.state(), Conversation::Open);
 
-        p.own_like(Kind::Unlike);
         p.store.clear_chat(GROUP).unwrap();
         p.store.set_blocked(&peer, true).unwrap();
         p.store.set_blocked(&peer, false).unwrap();
         assert_eq!(p.state(), Conversation::Open);
         assert!(p.receive(2, &text(2)));
         p.send(&text(3)).unwrap();
+    }
+
+    fn matched_pair() -> Pair {
+        let mut p = pair();
+        p.own_like(Kind::Like);
+        p.peer_like(Kind::Like, 500);
+        assert_eq!(p.state(), Conversation::Open);
+        p
+    }
+
+    #[test]
+    fn own_unlike_closes_the_match_and_erases_only_this_copy() {
+        let mut p = matched_pair();
+        let peer = p.peer.clone();
+        assert!(p.receive(1, &text(1)));
+        p.own_like(Kind::Unlike);
+        assert_eq!(p.state(), Conversation::Closed);
+        assert_eq!(p.shown(&peer, 1), None);
+        assert!(p.store.chat_rows().unwrap().is_empty());
+
+        assert!(!p.receive(2, &text(2)));
+        assert_eq!(p.shown(&peer, 2), None);
+        assert!(matches!(p.send(&text(3)), Err(Error::ChatClosed)));
+        assert!(p.store.pending_acks().unwrap().contains(&InboxKey {
+            mailbox: [1; 32],
+            id: [2; 16],
+        }));
+    }
+
+    #[test]
+    fn peer_unlike_closes_the_match_and_keeps_history_until_a_new_match() {
+        let mut p = matched_pair();
+        let peer = p.peer.clone();
+        assert!(p.receive(1, &text(1)));
+        p.peer_like(Kind::Unlike, 600);
+        assert_eq!(p.state(), Conversation::Closed);
+        assert!(p.shown(&peer, 1).is_some());
+        assert_eq!(p.store.chat_rows().unwrap().len(), 1);
+        assert!(matches!(p.send(&text(2)), Err(Error::ChatClosed)));
+        let edit = Body::Edit {
+            target: [1; 16],
+            operation: [8; 16],
+            hlc: Timestamp::new(700, 0).into(),
+            text: b"later".to_vec(),
+        };
+        assert!(!p.receive(2, &edit));
+        assert_eq!(p.shown(&peer, 1).as_deref(), Some(&[1][..]));
+
+        p.peer_like(Kind::Like, 800);
+        assert_eq!(p.state(), Conversation::Open);
+        assert!(p.receive(3, &text(3)));
+        p.send(&text(4)).unwrap();
+    }
+
+    #[test]
+    fn an_unlike_without_a_match_leaves_the_chat_open() {
+        let mut p = pair();
+        assert!(p.receive(1, &text(1)));
+        p.send(&text(2)).unwrap();
+        assert_eq!(p.state(), Conversation::Open);
+        p.own_like(Kind::Like);
+        p.own_like(Kind::Unlike);
+        assert_eq!(p.state(), Conversation::Open);
+        assert!(p.receive(3, &text(3)));
+    }
+
+    #[test]
+    fn someone_i_unmatched_is_not_listed_in_liked_you() {
+        let mut p = matched_pair();
+        p.own_like(Kind::Unlike);
+        assert!(p.store.liked_by().unwrap().is_empty());
     }
 
     #[test]

@@ -267,7 +267,7 @@ impl Session {
                     ..
                 } if sender != self.store.owner_peer_id() => matches!(
                     self.store.conversation(sender)?,
-                    Conversation::None | Conversation::RequestReceived(_)
+                    Conversation::None | Conversation::RequestReceived(_) | Conversation::Closed
                 ),
                 _ => false,
             };

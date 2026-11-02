@@ -26,19 +26,28 @@ impl Store {
             return Err(Error::InboxConflict);
         }
         let tx = self.db.transaction()?;
-        let groups = {
-            let mut query =
-                tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;
-            let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
-            rows.collect::<Result<Vec<_>, _>>()?
-        };
-        let mut removed = 0;
-        for group in groups {
-            removed += clear_group_tx(&tx, &group)?;
-        }
+        let removed = clear_pair_tx(&tx, peer_id)?;
         tx.commit()?;
         Ok(removed)
     }
+}
+
+/// Clear every cataloged group of `peer_id` inside `tx`; see [`Store::clear_chat_pair`].
+pub(in crate::store) fn clear_pair_tx(
+    tx: &Transaction<'_>,
+    peer_id: &str,
+) -> Result<usize, Error> {
+    let groups = {
+        let mut query =
+            tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;
+        let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
+        rows.collect::<Result<Vec<_>, _>>()?
+    };
+    let mut removed = 0;
+    for group in groups {
+        removed += clear_group_tx(tx, &group)?;
+    }
+    Ok(removed)
 }
 
 fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {

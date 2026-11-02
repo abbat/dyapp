@@ -10,8 +10,12 @@ import uniffi.dyapp.ChatState
 // As the core's limit and the desktop composer.
 private const val MAX_TEXT_BYTES = 65_536
 
-/** A shown chat takes text unless the first message waits for a reply; null is still loading. */
-internal fun chatWritable(state: ChatState?) = state != null && state != ChatState.REQUEST_SENT
+/**
+ * A shown chat takes text unless the first message waits for a reply or a match ended; null is
+ * still loading.
+ */
+internal fun chatWritable(state: ChatState?) =
+    state != null && state != ChatState.REQUEST_SENT && state != ChatState.CLOSED
 
 internal fun chatTooLong(text: String) = text.toByteArray().size > MAX_TEXT_BYTES
 

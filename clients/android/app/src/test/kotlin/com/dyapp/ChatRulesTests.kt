@@ -46,6 +46,7 @@ class ChatRulesTests {
         assertFalse(chatSendable(ChatState.OPEN, Char(0x416).toString().repeat(32_769)))
         assertFalse(chatSendable(ChatState.OPEN, " \n"))
         assertFalse(chatSendable(ChatState.REQUEST_SENT, "text"))
+        assertFalse(chatSendable(ChatState.CLOSED, "text"))
     }
 
     @Test

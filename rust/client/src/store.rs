@@ -18,6 +18,7 @@ mod last_resort;
 mod likes;
 mod mailbox_cursor;
 pub mod messages;
+mod notice;
 pub mod originals;
 mod outbox;
 mod peers;
@@ -31,19 +32,8 @@ pub use chat_list::ChatRow;
 pub use conversations::Conversation;
 pub use last_resort::LastResort;
 pub use likes::Likes;
+pub use notice::NoticeContent;
 pub use peers::ContactName;
-
-/// What a local notice shows on a screen others may see.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum NoticeContent {
-    /// Only the fixed text.
-    #[default]
-    Fixed,
-    /// The sender's name.
-    Name,
-    /// The sender's name and the message.
-    Text,
-}
 
 const VERSION: i64 = 1;
 
@@ -101,6 +91,9 @@ pub enum Error {
     /// A second own text to a peer who has not answered the first; one request stays pending.
     #[error("client store message request is still pending")]
     RequestPending,
+    /// A match ended; a new match reopens the chat.
+    #[error("client store chat is closed")]
+    ChatClosed,
     /// A received timestamp is too far ahead of the local clock.
     #[error("client store interaction: {0}")]
     ClockSkew(#[from] dyapp_messaging::hlc::ClockSkew),
@@ -257,26 +250,6 @@ impl Store {
             Some(2) => Ok(AutoDownload::OnTap),
             _ => Err(Error::InvalidSetting),
         }
-    }
-
-    /// What a local notice shows.
-    pub fn notice_content(&self) -> Result<NoticeContent, Error> {
-        match self.setting_byte("notice_content")? {
-            None | Some(0) => Ok(NoticeContent::Fixed),
-            Some(1) => Ok(NoticeContent::Name),
-            Some(2) => Ok(NoticeContent::Text),
-            _ => Err(Error::InvalidSetting),
-        }
-    }
-
-    /// Persist what a local notice shows.
-    pub fn set_notice_content(&self, content: NoticeContent) -> Result<(), Error> {
-        let value = match content {
-            NoticeContent::Fixed => 0,
-            NoticeContent::Name => 1,
-            NoticeContent::Text => 2,
-        };
-        self.set_setting_byte("notice_content", value)
     }
 
     /// Persist the choice for downloading originals without a tap.

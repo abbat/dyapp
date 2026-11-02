@@ -144,6 +144,8 @@ private fun ChatStateNotice(state: ChatState?) {
         ) {
             Text(stringResource(R.string.chat_request_notice), Modifier.padding(12.dp).testTag("chat-request-notice"))
         }
+        ChatState.CLOSED ->
+            Caption(stringResource(R.string.chat_closed_notice), modifier.testTag("chat-closed-notice"))
         else -> Unit
     }
 }

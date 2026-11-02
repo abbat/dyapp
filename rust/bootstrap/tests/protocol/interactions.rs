@@ -244,6 +244,10 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
         [Event::Interaction { event, .. }] if event.kind == Kind::Unlike
     ));
     assert!(!alice_session.likes(&bob_owner).unwrap().matched());
+    for (session, peer) in [(&alice_session, &bob_owner), (&bob_session, &alice_owner)] {
+        let state = session.conversation(peer).unwrap();
+        assert_eq!(state, dyapp_client::store::Conversation::Closed);
+    }
 
     // Alice sends one view a day; Bob receives it without sending views himself.
     let view = alice_session

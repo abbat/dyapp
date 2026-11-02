@@ -69,6 +69,21 @@ const checkChatProjection = async () => {
   }
 
   await openChat(peer, (command) => {
+    if (command === 'chat_history') {
+      return Promise.resolve({ state: 'closed', messages: [{ ...reply, author: current.peerId }] });
+    }
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    throw new Error(`unexpected closed chat command: ${command}`);
+  });
+  if (!chatInput.disabled || !chatSend.disabled
+    || document.getElementById('chat-closed-notice').hidden
+    || [...chatMessages.querySelectorAll('button')]
+      .some((button) => button.textContent === window.strings['chats.edit'])) {
+    throw new Error('a closed chat can still be written to');
+  }
+
+  await openChat(peer, (command) => {
     if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message] });
     if (command === 'mark_chat_read') return Promise.resolve(0);
     if (command === 'chat_rows') return Promise.resolve(rows);

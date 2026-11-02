@@ -46,7 +46,8 @@ Each local profile stores, per peer identity, its own latest like state, the pee
 state, an event-ID replay ledger, local pass history, and sent/received view-day records. A like
 sets the sender's state to
 liked; an unlike sets it to unliked. An unlike is an encrypted signal to the peer, including when
-the earlier like was already sent. Both peers remove an active match when they apply it. A match
+the earlier like was already sent. Both peers remove an active match when they apply it, which
+closes their chat ([chats and matches](chats-and-matches.md)). A match
 exists only when the latest known state in **both directions** is liked. Pass and undo-pass are
 local changes; neither sends a signal, and a passed peer leaves local search and Liked you. A view is sent only when the local setting allows it and
 at most once per peer profile per UTC day. Receiving views never depends on that setting.

@@ -20,7 +20,8 @@ let chatSending = false;
 let chatBlocking = false;
 const updateComposer = () => {
   const waiting = activeChat?.state === 'requestSent';
-  const writable = Boolean(activeChat) && !waiting && !chatSending && !chatBlocking;
+  const closed = activeChat?.state === 'closed';
+  const writable = Boolean(activeChat) && !waiting && !closed && !chatSending && !chatBlocking;
   const bytes = new TextEncoder().encode(chatInput.value).length;
   chatInput.disabled = !writable;
   chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
@@ -28,6 +29,7 @@ const updateComposer = () => {
   attach.hidden = activeChat?.state !== 'open';
   attach.disabled = !writable;
   document.getElementById('chat-first-notice').hidden = !waiting;
+  document.getElementById('chat-closed-notice').hidden = !closed;
   document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';
   document.getElementById('chat-block').hidden = activeChat?.state === 'requestReceived';
   for (const id of ['chat-block', 'request-block', 'chat-clear']) {
@@ -565,7 +567,8 @@ const openChat = async (peerId, call = invoke) => {
         edited.textContent = ` (${window.strings['chats.edited']})`;
         item.append(edited);
       }
-      if (message.author === current.peerId && !message.deleted && !message.photo) {
+      if (message.author === current.peerId && !message.deleted && !message.photo
+        && history.state !== 'closed') {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'btn quiet';
@@ -733,8 +736,12 @@ const sendChatText = async (call = invoke) => {
   const text = chatInput.value;
   await sendInChat((peerId) => call('send_chat_text', { peerId, text }),
     () => { chatInput.value = ''; },
-    (error) => (error === 'peerUnavailable' ? window.strings['chats.peerUnavailable']
-      : `${window.strings['chats.sendFailed']} ${error}`), call);
+    (error) => {
+      if (error === 'peerUnavailable') return window.strings['chats.peerUnavailable'];
+      // The peer's unlike landed after this chat was drawn.
+      if (String(error).endsWith('chat is closed')) return window.strings['chats.closedNotice'];
+      return `${window.strings['chats.sendFailed']} ${error}`;
+    }, call);
 };
 document.getElementById('chat-composer').addEventListener('submit', (event) => {
   event.preventDefault();

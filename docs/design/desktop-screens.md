@@ -309,7 +309,9 @@ status is pending, accepted by a node, received by one peer device, or read when
 opt-in read receipt. An edited message says so, a deleted one leaves a
 placeholder, and Edit and Delete apply to live own messages with best-effort delivery.
 `chat-first`: to a non-match, one message is sent and the composer stays disabled
-until a reply or a match. `chat-request`: an incoming message from a non-match, with Reply through
+until a reply or a match. `chat-closed`: an unlike ended the match, so the composer is disabled,
+own messages offer no Edit or Delete and the notice says a new match reopens the chat; the
+history stays until Clear chat, and the unliker's own copy is already gone. `chat-request`: an incoming message from a non-match, with Reply through
 the composer or Block. `chat-new-device`: a profile no older than the newest one seen lists a device
 that was not there, whether or not the contact was ever verified. The first profile seen of a
 contact only records its devices. The store clears any mark and raises a per-contact flag in one
@@ -335,6 +337,7 @@ over a direct path.
 | Clear chat | `chat-clear` | In the menu |
 | Block | `chat-block` | In the menu |
 | First-message notice | `chat-first-notice` | `chat-first` only |
+| Closed notice | `chat-closed-notice` | `chat-closed` only |
 | New-device notice | `chat-new-device-notice` | `chat-new-device` only; stays until acknowledged |
 | I understand | `chat-new-device-ack` | Ends the notice, keeps the mark off |
 | Request notice | `chat-request-notice` | `chat-request` only |

@@ -38,6 +38,7 @@ impl ChatRow {
 
 impl Store {
     /// Read active conversations, latest current texts and attachments, and local unread counts.
+    /// A closed conversation with nothing left in it is not listed.
     /// Timed rows sort first by original HLC; legacy rows use local arrival order. Empty
     /// conversations follow rows with messages, then Peer ID breaks any remaining tie.
     pub fn chat_rows(&self) -> Result<Vec<ChatRow>, Error> {
@@ -65,6 +66,7 @@ impl Store {
             FROM `conversations` AS `c`
             LEFT JOIN `ranked` AS `r`
               ON `c`.`peer_id` = `r`.`peer_id` AND `r`.`message_rank` = 1
+            WHERE `c`.`state` <> 4 OR `r`.`group_id` IS NOT NULL
             ORDER BY (`r`.`group_id` IS NULL),
                      (`r`.`original_hlc` IS NOT NULL) DESC,
                      CASE WHEN `r`.`original_hlc` IS NULL
@@ -119,6 +121,7 @@ impl Store {
                 1 => Conversation::RequestSent(request_id()?),
                 2 => Conversation::RequestReceived(request_id()?),
                 3 if request.is_none() => Conversation::Open,
+                4 if request.is_none() => Conversation::Closed,
                 _ => return Err(Error::InboxConflict),
             };
             let last_message = if let Some(group) = group {

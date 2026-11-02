@@ -13,6 +13,7 @@ use rusqlite::{params, OptionalExtension, Transaction};
 pub(crate) mod attachments;
 pub use attachments::{ChatAttachment, ChatItem};
 mod clear;
+pub(super) use clear::clear_pair_tx;
 #[cfg(test)]
 mod inbound_tests;
 mod operations;
@@ -330,6 +331,8 @@ impl Store {
             }
         } else if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
             conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
+        } else if !conversations::allows_operation(tx, owner, sender.group, sender.author, *id)? {
+            return Err(Error::ChatClosed);
         }
         Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
         for write in writes {

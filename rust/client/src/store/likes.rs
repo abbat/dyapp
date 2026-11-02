@@ -227,6 +227,8 @@ impl Store {
             Kind::Unlike => false,
             Kind::View => return Ok(false),
         };
+        let peer = if sender == owner { target } else { sender };
+        let was_matched = super::conversations::matched(tx, owner, peer)?;
         let changed = tx.execute(
             "INSERT INTO `like_state` (`sender`, `target`, `liked`, `hlc`, `device`, `event_id`)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT (`sender`, `target`) DO UPDATE SET
@@ -243,9 +245,8 @@ impl Store {
                 event.event_id.as_slice()
             ],
         )?;
-        if changed != 0 && liked {
-            let peer = if sender == owner { target } else { sender };
-            super::conversations::on_like(tx, owner, peer)?;
+        if changed != 0 {
+            super::conversations::on_like(tx, owner, peer, was_matched, sender == owner)?;
         }
         Ok(changed != 0)
     }
@@ -269,8 +270,8 @@ impl Store {
         })
     }
 
-    /// The "Liked you" peers: each likes this profile, is not liked back, blocked or passed, in
-    /// Peer ID order.
+    /// The "Liked you" peers: each likes this profile, is not liked back, blocked, passed or in a
+    /// closed chat, in Peer ID order.
     pub fn liked_by(&self) -> Result<Vec<String>, Error> {
         let mut query = self.db.prepare(
             "SELECT `theirs`.`sender` FROM `like_state` AS `theirs`
@@ -281,6 +282,8 @@ impl Store {
                  AND `peers`.`blocked` = 1)
              AND NOT EXISTS (SELECT 1 FROM `pass_history` WHERE `peer_id` = `theirs`.`sender`
                  AND `passed` = 1)
+             AND NOT EXISTS (SELECT 1 FROM `conversations`
+                 WHERE `peer_id` = `theirs`.`sender` AND `state` = 4)
              ORDER BY `theirs`.`sender`",
         )?;
         let peers = query

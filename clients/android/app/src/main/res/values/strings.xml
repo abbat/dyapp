@@ -37,8 +37,9 @@
     <string name="view_not_found">No node returned this profile: it may be hidden or withdrawn.</string>
     <string name="view_load_failed">The profile could not be loaded.</string>
     <string name="unlike_title">Take the like back?</string>
-    <string name="unlike_text">If you like each other, the match ends for both of you. You can like again later.</string>
+    <string name="unlike_text">If you match, the chat closes for both of you and your copy is erased; theirs stays with them. You can like again later.</string>
     <string name="unlike_action">Take back</string>
+    <string name="chat_closed_notice">You no longer match, so this chat is closed. A new match reopens it.</string>
     <string name="chat_first_notice">You have not matched yet, so you can send one message until they reply.</string>
     <string name="chat_first_wait">Waiting for a reply. A like from them also opens the chat.</string>
     <string name="chat_request_notice">Message request: you have not matched. Reply below to start the conversation.</string>

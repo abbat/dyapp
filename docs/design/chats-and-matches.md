@@ -21,7 +21,7 @@ a node.
 | --- | --- | --- |
 | Own like | none, liked, unliked | Latest own like/unlike event |
 | Peer like | none, liked, unliked | Latest received like/unlike event |
-| Conversation | none, request sent, request received, open | Pair group texts and matches |
+| Conversation | none, request sent, request received, open, closed | Pair group texts and matches |
 | Block | off, on | Local only (`Store::set_blocked`) |
 
 A **match** is derived, never stored: both likes are liked. The screens show the pair as:
@@ -33,6 +33,7 @@ A **match** is derived, never stored: both likes are liked. The screens show the
 | Message request (`chat-request`) | Conversation is request received, no block |
 | First message sent (`chat-first`) | Conversation is request sent |
 | Chat (`chat`) | Conversation is open, no block |
+| Match ended (`chat-closed`) | Conversation is closed, history kept, no block |
 
 ## Transitions
 
@@ -45,13 +46,36 @@ A **match** is derived, never stored: both likes are liked. The screens show the
 | Own text (Reply) | request received | open |
 | Further peer text | request received | acked and dropped, no history |
 | Match applied (either side's like completes it) | any | open |
-| Unlike, either side | open | open: the match ends, the chat stays |
+| Unlike that ends a match, peer | open | closed; own history stays until Clear chat |
+| Unlike that ends a match, own | open | closed; own history is erased with it |
+| Unlike without a match | any | unchanged |
+| Own text, edit or delete | closed | refused locally |
+| Peer text, edit, delete, attachment or token request | closed | acked and dropped, no history |
 | Clear chat | any | unchanged; history only is removed |
 | Block | any | unchanged, hidden; peer traffic acked without history |
 
-**Open is final.** It is set once, in the same transaction that records the text or like that
-causes it, and is never cleared: not by unlike, Clear chat or unblock. Only removing the identity
-deletes it. After an unlike the two keep writing; Block is the way to stop a peer.
+**Open ends only with a match.** It is set in the same transaction that records the text or like
+that causes it. Clear chat and unblock leave it alone. An unlike that ends a match closes the
+chat on both sides, in the same transaction. Only a new match reopens it. A chat opened by a reply
+without two likes has no match to end: Block is the way to stop that peer.
+
+An unlike needs no wire change: it already goes to the pair group, and each side sees the event
+end the match. A text crossing the unlike is acked and dropped, and stays Sent for its author.
+Write tokens already issued stay valid until they expire, as Block alone revokes them, but the
+closed side drops what they carry. A peer in a closed chat is not listed in Liked you, and a
+closed chat with no history left is not listed in Chats.
+
+What can be undone:
+
+| Action | Effect | Undone by |
+| --- | --- | --- |
+| Clear chat | Own history of the pair | Nothing; the chat stays as it was |
+| Unlike ending a match | Closes the chat for both; erases the unliker's copy only | A new match; the erased copy does not return |
+| Block | Local: no traffic, tokens revoked; the peer is not told | Unblock; texts dropped meanwhile do not return |
+| Ignore a request (planned) | A silent local block | Unblock |
+| Report | None in this release; the design keeps room for it | |
+| Profile tombstone | Final for the signed profile | Nothing; a node can forget it after its TTL ([bootstrap](../architecture/bootstrap.md)) |
+| Remove the identity | Deletes the local profile, with the key-loss warning | A backup of the key restores the Peer ID, not the local history |
 
 The Linux Found profile's Message action opens a `none` conversation to send one first text.
 The Chats composer then follows these states: `requestSent` disables another send,
@@ -75,7 +99,8 @@ release; `Session::stage_text` and `Session::stage_text_to` now send tag 12. The
 HLC before encryption and commit it with MLS state, the outbox and the local text.
 Recheck the supported release inventory before any later wire change.
 
-Before the conversation is open, the recipient acks and drops a non-match's attachments,
+Before the conversation is open and after it closes, the recipient acks and drops a non-match's
+attachments,
 forwards, presence, read receipts and token requests, and answers no token request: a stranger
 gets no write token until the recipient
 replies or a match exists.
@@ -126,7 +151,9 @@ commit. Retries reuse the staged bytes, as for every chat write.
 - Texts, edits and deletes keep their logical and operation IDs; a replay is a no-op.
 - Like, unlike and view events keep the ledger rules of the interaction design.
 - A replayed Welcome for a group already held is ignored.
-- Open is set-only, so applying the same events in any order gives the same result.
+- A replayed like or unlike does not change the latest state, so it cannot open or close a chat
+  again. Closing depends on the order events apply in: an unlike that lands before the match was
+  seen ends nothing here.
 - A request is counted per pair across all its groups, so a second group cannot carry a second
   pending text.
 
@@ -141,19 +168,21 @@ device sync of the interaction design. The cases:
    Delivered, on the second device.
 2. One own device sends the request and another replies to a peer text: both see the group, so
    both show the chat as open.
-3. A like from one own device and an unlike from another: the ledger order decides; the chat stays
-   open if it was.
+3. A like from one own device and an unlike from another: the ledger order decides. Until device
+   sync, an unlike closes the chat and erases the copy on the device that made it; the other own
+   device closes it on the peer's side only when it sees the event.
 4. A device offline during a match: it shows Liked you until device sync brings the own like.
 5. Block on one device: local until device sync; the other device still shows the chat.
 
 ## Tests for the implementation
 
-1. Store: each transition above, including the refused second request, open surviving unlike,
-   Clear chat and unblock, and the transaction that sets open with its cause.
+1. Store: each transition above, including the refused second request, open surviving Clear chat
+   and unblock, an unlike closing a match on each side, a new match reopening it, and the
+   transaction that sets open with its cause.
 2. Receive: a second request text is acked without history; an edit of the pending text applies;
    a non-match's attachment and token request are dropped before a reply and handled after it.
-3. Two clients: request, reply, open; like, like back, open; unlike keeps writing possible; block
-   stops history.
+3. Two clients: request, reply, open; like, like back, open; unlike closes both sides; block stops
+   history.
 4. Concurrent creation: both peers send a first text at once, both show one chat with both texts
    and send the next text to the same canonical group.
 5. Restart: a staged Welcome and first text retry with the same bytes; open survives a restart.

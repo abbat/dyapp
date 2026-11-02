@@ -123,8 +123,8 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
+<div class="app" data-on="profile profile-hidden publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
     <span class="title"><span data-on="profile profile-hidden publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
@@ -318,15 +318,15 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
+    <section id="chat" class="chat" data-on="chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
       <div class="backbar">
         <button type="button" class="icon-btn" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile. -->
         <button type="button" class="list-item peer" id="chat-profile">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog"></span>
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-menu chat-clear-dialog chat-cleared delete-dialog"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
             <span class="caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
         <button type="button" class="icon-btn" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
@@ -335,25 +335,26 @@ search providers asked: 0 of 3</pre>
         </div>
       </div>
       <div class="notice" id="chat-first-notice" data-on="chat-first" data-t="chat.first.notice"></div>
+      <div class="notice" id="chat-closed-notice" data-on="chat-closed" data-t="chat.closed.notice"></div>
       <div class="notice warn" id="chat-request-notice" data-on="chat-request"><span data-t="chat.request.notice"></span>
         <div class="actions"><button type="button" class="btn" id="request-block" data-t="view.block"></button></div></div>
       <div class="thread" id="chat-thread">
         <span class="day caption" data-off="chat-cleared" data-t="chat.today"></span>
         <p class="caption day" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
-        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
+        <div class="msg in deleted" data-on="chat chat-closed chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
         <!-- A long press on an own message offers Edit and Delete. -->
-        <div class="msg out" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
-          <span class="msg-menu" id="msg-menu"><button type="button" class="btn text" data-t="chat.edit"></button><button type="button" class="btn text" id="msg-delete" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn text" data-t="chat.edit"></button><button type="button" class="btn text" id="msg-delete" data-t="chat.delete"></button></span></div>
+        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
         <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog delete-dialog" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
       </div>
       <p class="caption" style="padding:0 16px" data-on="chat-first" data-t="chat.first.wait"></p>
       <div class="composer">
-        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first"></textarea>
+        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first chat-closed"></textarea>
         <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
         <button type="button" class="icon-btn send" id="chat-send" data-ta="chat.send" disabled><svg aria-hidden="true" class="icon"><use href="#i-send"/></svg></button>
       </div>
@@ -432,7 +433,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog lock-settings">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">

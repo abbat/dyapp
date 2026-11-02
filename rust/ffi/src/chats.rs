@@ -49,8 +49,10 @@ pub enum ChatState {
     RequestSent,
     /// The peer's one pending text waits for a reply (`chat-request`).
     RequestReceived,
-    /// A reply or a match opened the chat; it stays open.
+    /// A reply or a match opened the chat; only an ended match closes it.
     Open,
+    /// A match ended; a new match reopens the chat.
+    Closed,
 }
 
 impl From<Conversation> for ChatState {
@@ -60,6 +62,7 @@ impl From<Conversation> for ChatState {
             Conversation::RequestSent(_) => Self::RequestSent,
             Conversation::RequestReceived(_) => Self::RequestReceived,
             Conversation::Open => Self::Open,
+            Conversation::Closed => Self::Closed,
         }
     }
 }

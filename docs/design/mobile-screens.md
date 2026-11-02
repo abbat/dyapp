@@ -141,12 +141,13 @@ first and returns to the first section, as any activity relaunch does.
   the page fetches the profile from the network and offers a retry; it hides `view-like` and
   `view-message` on the own profile. A failed like shows why, then the stored likes decide the
   button.
-- Chat, `chat`, `chat-first`, `chat-request`, `chat-menu`, `chat-clear-dialog`,
+- Chat, `chat`, `chat-closed`, `chat-first`, `chat-request`, `chat-menu`, `chat-clear-dialog`,
   `chat-cleared` and `delete-dialog`: `chat-back`, `chat-profile`, `chat-more` with
   `chat-clear` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own message),
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
-  dialogs. Android has `chat`, `chat-first` and `chat-request` with `chat-back`, `chat-profile`,
-  `chat-first-notice`, `chat-request-notice`, `chat-thread`, `chat-input` and `chat-send`; the
+  dialogs. Android has `chat`, `chat-closed`, `chat-first` and `chat-request` with `chat-back`,
+  `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,
+  `chat-input` and `chat-send`; the
   menus, dialogs and blocking are planned, so the request notice does not offer a block yet. It
   opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that

@@ -14,6 +14,7 @@ pub enum ChatState {
     RequestSent,
     RequestReceived,
     Open,
+    Closed,
 }
 
 impl From<Conversation> for ChatState {
@@ -23,6 +24,7 @@ impl From<Conversation> for ChatState {
             Conversation::RequestSent(_) => Self::RequestSent,
             Conversation::RequestReceived(_) => Self::RequestReceived,
             Conversation::Open => Self::Open,
+            Conversation::Closed => Self::Closed,
         }
     }
 }

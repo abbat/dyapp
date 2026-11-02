@@ -20,7 +20,9 @@ keep likes, view history or matching preferences private, or enforce rules such 
   ([ADR 0009](0009-message-delivery-and-storage.md)). It is not stored in the profile or published
   on bootstrap. The recipient sees who liked them after delivery; a match is a mutual like. Undoing
   a sent like sends an encrypted unlike signal so both sides remove the active match when it
-  arrives. Offline delivery can delay this, and an earlier notification cannot be erased.
+  arrives. Offline delivery can delay this, and an earlier notification cannot be erased. An
+  unlike that ends a match closes the chat for both sides and erases only the unliker's copy; a
+  new match reopens it ([chats and matches](../design/chats-and-matches.md)).
 - **A profile view is an optional P2P signal** from the viewer to the viewed user. Whether to send it
   is a local setting of the viewer, not a profile field. There is no reciprocity: turning sending
   off does not stop receiving. Undelivered signals are stored on bootstrap like messages.

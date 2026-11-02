@@ -36,8 +36,9 @@
     <string name="view_not_found">Ни один узел не вернул этот профиль: возможно, его скрыли или сняли с публикации.</string>
     <string name="view_load_failed">Не удалось загрузить профиль.</string>
     <string name="unlike_title">Отменить симпатию?</string>
-    <string name="unlike_text">Если симпатия взаимна, она пропадёт у обоих. Отметить снова можно позже.</string>
+    <string name="unlike_text">Если симпатия взаимна, переписка закроется у обоих и ваша копия удалится; копия собеседника останется. Отметить снова можно позже.</string>
     <string name="unlike_action">Отменить симпатию</string>
+    <string name="chat_closed_notice">Взаимной симпатии больше нет, поэтому переписка закрыта. Новая взаимная симпатия откроет её снова.</string>
     <string name="chat_first_notice">Взаимности пока нет, поэтому до ответа можно отправить одно сообщение.</string>
     <string name="chat_first_wait">Ждём ответа. Взаимная симпатия тоже откроет переписку.</string>
     <string name="chat_request_notice">Запрос на переписку: взаимности нет. Ответьте ниже, чтобы начать разговор.</string>
