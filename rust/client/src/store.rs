@@ -32,6 +32,18 @@ pub use last_resort::LastResort;
 pub use likes::Likes;
 pub use peers::ContactName;
 
+/// What a local notice shows on a screen others may see.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NoticeContent {
+    /// Only the fixed text.
+    #[default]
+    Fixed,
+    /// The sender's name.
+    Name,
+    /// The sender's name and the message.
+    Text,
+}
+
 const VERSION: i64 = 1;
 
 /// Why a profile database could not be opened safely.
@@ -244,6 +256,26 @@ impl Store {
             Some(2) => Ok(AutoDownload::OnTap),
             _ => Err(Error::InvalidSetting),
         }
+    }
+
+    /// What a local notice shows.
+    pub fn notice_content(&self) -> Result<NoticeContent, Error> {
+        match self.setting_byte("notice_content")? {
+            None | Some(0) => Ok(NoticeContent::Fixed),
+            Some(1) => Ok(NoticeContent::Name),
+            Some(2) => Ok(NoticeContent::Text),
+            _ => Err(Error::InvalidSetting),
+        }
+    }
+
+    /// Persist what a local notice shows.
+    pub fn set_notice_content(&self, content: NoticeContent) -> Result<(), Error> {
+        let value = match content {
+            NoticeContent::Fixed => 0,
+            NoticeContent::Name => 1,
+            NoticeContent::Text => 2,
+        };
+        self.set_setting_byte("notice_content", value)
     }
 
     /// Persist the choice for downloading originals without a tap.
@@ -595,7 +627,7 @@ PRAGMA user_version = 1;
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{AutoDownload, Error, InboxKey, InboxKind, Store, VERSION};
+    use super::{AutoDownload, Error, InboxKey, InboxKind, NoticeContent, Store, VERSION};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -687,6 +719,10 @@ pub(crate) mod tests {
             store.set_auto_download(mode).unwrap();
             assert_eq!(store.auto_download().unwrap(), mode);
         }
+        assert_eq!(store.notice_content().unwrap(), NoticeContent::Fixed);
+        store.set_notice_content(NoticeContent::Name).unwrap();
+        assert_eq!(store.notice_content().unwrap(), NoticeContent::Name);
+        store.set_notice_content(NoticeContent::Text).unwrap();
         store.set_send_profile_views(true).unwrap();
         store.set_send_typing(false).unwrap();
         store.set_notifications(false).unwrap();
@@ -696,6 +732,7 @@ pub(crate) mod tests {
 
         let store = Store::open(&path, &alice).unwrap();
         assert!(store.send_profile_views().unwrap());
+        assert_eq!(store.notice_content().unwrap(), NoticeContent::Text);
         assert!(!store.send_typing().unwrap() && !store.notifications().unwrap());
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());

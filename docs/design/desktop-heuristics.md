@@ -476,6 +476,24 @@ Chat rows and the open identity's avatars in `sidebar`, the switcher, Settings a
 
 Findings: none open.
 
+### Notice content review (2026-11-02)
+
+The `notice-content` choice under the notifications switch in `settings`, and the notice it shapes.
+
+- Visibility: the choice sits right under the switch it depends on, and is disabled while it is off.
+- Match with the real world: the options say what appears, not a level of privacy.
+- User control: a click on a notice shows the window; any option can be changed back at once.
+- Consistency: it is a labelled `select` like Language, and saves on change like the other privacy
+  settings; a failed save shows the same `privacy-error`.
+- Error prevention: the default shows no name and no text, and the caption warns about the lock
+  screen before anyone picks more; a request or a like stays fixed whatever the choice.
+- Recognition: all three options stay visible in the list.
+- Minimalist design: one control and one caption.
+- Help with errors: a server without actions still shows the notice, so nothing fails silently
+  beyond the click.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

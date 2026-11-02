@@ -392,7 +392,8 @@ sending off never stops receiving.
 | Send read receipts | `send-read-receipts` | Off |
 | Show typing | `send-typing` | On |
 | Active recently to | `presence-matches`, `presence-nobody` | Matches by default |
-| New messages and likes | `message-notifications` | On: a notice when mail arrives and the window has no focus. Linux only so far; it says only "New message", never a name or text |
+| New messages and likes | `message-notifications` | On: a notice when mail arrives and the window has no focus; a click shows the window. Linux only so far |
+| What a notice shows | `notice-content` | "New message" only; or the sender's name; or the name and text. Disabled while notices are off. Requests and likes stay fixed |
 | Run a node | `node-enabled` | Off |
 
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws

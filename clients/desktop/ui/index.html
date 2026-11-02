@@ -457,6 +457,13 @@
           </fieldset>
           <label class="choice"><input id="message-notifications" type="checkbox">
             <span data-i18n="privacy.notifications"></span></label>
+          <div class="field"><label for="notice-content" data-i18n="privacy.noticeContent"></label>
+            <select id="notice-content">
+              <option value="fixed" data-i18n="privacy.noticeContent.fixed"></option>
+              <option value="name" data-i18n="privacy.noticeContent.name"></option>
+              <option value="text" data-i18n="privacy.noticeContent.text"></option>
+            </select></div>
+          <p class="caption" data-i18n="privacy.noticeContent.hint"></p>
           <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="privacy.hint"></p>
         </form>
@@ -645,6 +652,7 @@
     </div>
   </dialog>
   <script src="peer-names.js"></script>
+  <script src="privacy-ui.js"></script>
   <script src="app.js"></script>
   <script src="passes.js"></script>
   <script src="remove.js"></script>

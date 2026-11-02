@@ -636,7 +636,14 @@ const checkPrivacy = async (restarted) => {
   if (!shown('blocked-none') || document.getElementById('blocked-list').children.length) {
     throw new Error('blocked list not empty');
   }
+  const noticeChoice = document.getElementById('notice-content');
+  if (noticeChoice.value !== (restarted ? 'text' : 'fixed') || noticeChoice.disabled !== restarted) {
+    throw new Error(`notice content ${noticeChoice.value}, disabled ${noticeChoice.disabled}`);
+  }
   if (restarted) return;
+  noticeChoice.value = 'text';
+  noticeChoice.dispatchEvent(new Event('change', { bubbles: true }));
+  await window.privacySaved;
   for (const id of ['send-views', 'send-read-receipts', 'send-typing', 'presence-nobody',
     'message-notifications']) {
     document.getElementById(id).click();

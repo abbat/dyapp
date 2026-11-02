@@ -1,18 +1,97 @@
-//! One notice for mail that arrived while the window has no focus. It holds only a fixed text in
-//! the UI language, never a name or a message, because a desktop can show it on the lock screen.
+//! One notice for mail that arrived while the window has no focus. By default it holds only a
+//! fixed text in the UI language, because a desktop can show it on the lock screen; the identity's
+//! settings can add the sender's name and the message.
 
 use std::path::Path;
+#[cfg(unix)]
+use std::sync::atomic::{AtomicU32, Ordering};
 
+use dyapp_client::store::{ChatRow, Conversation, NoticeContent};
 use dyapp_identity::Identity;
 use tauri::{AppHandle, Manager};
 
-/// Unread items and unanswered likes, so own, dropped and blocked mail never counts.
-fn waiting(dir: &Path, identity: &Identity) -> Result<usize, String> {
-    let rows = crate::chats::chat_rows(dir, identity)?;
-    let likes = crate::chats::open(dir, identity)?
-        .liked_by()
-        .map_err(|e| e.to_string())?;
-    Ok(rows.iter().map(|row| row.unread_count).sum::<usize>() + likes.len())
+/// The most of a message a notice shows; the rest waits in the app.
+const BODY_CHARS: usize = 200;
+
+/// Rows without blocked peers, and unanswered likes, so own, dropped and blocked mail never counts.
+fn waiting(dir: &Path, identity: &Identity) -> Result<(Vec<ChatRow>, usize), String> {
+    let store = crate::chats::open(dir, identity)?;
+    let mut rows = Vec::new();
+    for row in store.chat_rows().map_err(|e| e.to_string())? {
+        if !store.blocked(&row.peer_id).map_err(|e| e.to_string())? {
+            rows.push(row);
+        }
+    }
+    let likes = store.liked_by().map_err(|e| e.to_string())?;
+    Ok((rows, likes.len()))
+}
+
+/// The newest row with more unread items than before.
+fn newest<'a>(before: &[ChatRow], after: &'a [ChatRow]) -> Option<&'a ChatRow> {
+    after.iter().find(|row| {
+        let old = before.iter().find(|old| old.peer_id == row.peer_id);
+        row.unread_count > old.map_or(0, |old| old.unread_count)
+    })
+}
+
+/// The row's unread text on one line, bounded and escaped: a server may read the body as markup,
+/// and a peer chooses this text.
+// ponytail: a server without `body-markup` shows the entities; ask GetCapabilities if one matters.
+fn body(row: &ChatRow) -> String {
+    let last = row.last_attachment.is_none();
+    let message = row.last_message.as_ref().filter(|m| last && m.unread);
+    let text = message.and_then(|m| m.current.text.as_deref());
+    let text = text.and_then(|text| std::str::from_utf8(text).ok());
+    let one_line = text.unwrap_or_default().chars().take(BODY_CHARS);
+    one_line
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect::<String>()
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// The name and text the setting allows; empty ones leave the fixed text alone. Only an open chat
+/// adds them: a request or a like would put a stranger's words on the lock screen unasked.
+fn content(
+    mode: NoticeContent,
+    before: &[ChatRow],
+    after: &[ChatRow],
+    name: impl FnOnce(&str) -> String,
+) -> (String, String) {
+    let row = newest(before, after).filter(|row| row.state == Conversation::Open);
+    match (mode, row) {
+        (NoticeContent::Name, Some(row)) => (name(&row.peer_id), String::new()),
+        (NoticeContent::Text, Some(row)) => (name(&row.peer_id), body(row)),
+        _ => Default::default(),
+    }
+}
+
+/// The content of the notice a mail pass calls for, if any.
+fn due(
+    app: &AppHandle,
+    dir: &Path,
+    identity: &Identity,
+    before: Result<(Vec<ChatRow>, usize), String>,
+    after: Result<(Vec<ChatRow>, usize), String>,
+) -> Option<(String, String)> {
+    let ((old, old_likes), (new, new_likes)) = (before.ok()?, after.ok()?);
+    let unread = |rows: &[ChatRow]| rows.iter().map(|row| row.unread_count).sum::<usize>();
+    let privacy = crate::privacy::load(dir, identity).ok()?;
+    if unread(&new) + new_likes <= unread(&old) + old_likes || !privacy.notifications {
+        return None;
+    }
+    let name = |peer_id: &str| {
+        let search = app.state::<crate::search::SearchState>();
+        crate::chats::open(dir, identity)
+            .and_then(|store| {
+                crate::chats::names::names(&search.0, &store, vec![peer_id.to_owned()])
+            })
+            .ok()
+            .and_then(|mut names| names.pop())
+            .map_or_else(String::new, |view| view.name)
+    };
+    Some(content(privacy.notice_content, &old, &new, name))
 }
 
 /// Runs a mail pass and notifies when it left more waiting. The focus check waits on the main
@@ -25,20 +104,63 @@ pub(crate) fn around_pass<T>(
 ) -> T {
     let before = waiting(dir, identity);
     let result = pass();
-    let grew = matches!((before, waiting(dir, identity)), (Ok(old), Ok(new)) if new > old);
-    if grew && crate::privacy::load(dir, identity).is_ok_and(|privacy| privacy.notifications) {
+    if let Some((name, body)) = due(app, dir, identity, before, waiting(dir, identity)) {
         let app = app.clone();
         std::thread::spawn(move || {
             let window = app.get_webview_window("main");
             if !window.is_some_and(|window| window.is_focused().unwrap_or(false)) {
-                if let Some(text) = crate::tray::notice_text(&app) {
-                    send(&text);
+                if let Some((open, fixed)) = crate::tray::notice_labels(&app) {
+                    send(if name.is_empty() { &fixed } else { &name }, &body, &open);
                 }
             }
         });
     }
     result
 }
+
+#[cfg(unix)]
+const SERVER: &str = "org.freedesktop.Notifications";
+#[cfg(unix)]
+const PATH: &str = "/org/freedesktop/Notifications";
+/// The notice's own connection: a server can tie a notice to it, and send it the click alone.
+#[cfg(unix)]
+static BUS: std::sync::OnceLock<zbus::Connection> = std::sync::OnceLock::new();
+#[cfg(unix)]
+static LAST: AtomicU32 = AtomicU32::new(0);
+
+/// Opens the connection for notices and shows the window when the last one is clicked. A desktop
+/// without a session bus shows neither.
+#[cfg(unix)]
+pub fn watch(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        use zbus::export::futures_core::Stream;
+        let listen = async {
+            let bus = zbus::Connection::session().await?;
+            let _ = BUS.set(bus.clone());
+            let rule = zbus::MatchRule::builder()
+                .msg_type(zbus::message::Type::Signal)
+                .interface(SERVER)?
+                .member("ActionInvoked")?
+                .path(PATH)?
+                .build();
+            zbus::MessageStream::for_match_rule(rule, &bus, None).await
+        };
+        let Ok(mut stream) = listen.await else { return };
+        while let Some(Ok(message)) =
+            std::future::poll_fn(|cx| std::pin::Pin::new(&mut stream).poll_next(cx)).await
+        {
+            let Ok((id, _)) = message.body().deserialize::<(u32, String)>() else {
+                continue;
+            };
+            if id != 0 && id == LAST.load(Ordering::SeqCst) {
+                crate::tray::show(&app);
+            }
+        }
+    });
+}
+
+#[cfg(not(unix))]
+pub fn watch(_app: AppHandle) {}
 
 #[cfg(unix)]
 type Notify<'a> = (
@@ -55,22 +177,26 @@ type Notify<'a> = (
 /// The `Notify` arguments: application, replaced notice, icon, summary, body, actions, hints and
 /// the server's own timeout.
 #[cfg(unix)]
-fn notice(text: &str, replaces: u32) -> Notify<'_> {
-    ("DYApp", replaces, "", text, "", &[], Default::default(), -1)
+fn notice<'a>(
+    summary: &'a str,
+    body: &'a str,
+    actions: &'a [&'a str],
+    replaces: u32,
+) -> Notify<'a> {
+    let hints = Default::default();
+    ("DYApp", replaces, "", summary, body, actions, hints, -1)
 }
 
-/// Best effort, as a desktop may have no notification server. A new notice replaces the last one.
+/// Best effort, as a desktop may have no notification server. A new notice replaces the last one,
+/// and a click on it runs the `default` action.
 #[cfg(unix)]
-fn send(text: &str) {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static LAST: AtomicU32 = AtomicU32::new(0);
-    const SERVER: &str = "org.freedesktop.Notifications";
+fn send(summary: &str, body: &str, open: &str) {
+    let Some(bus) = BUS.get() else { return };
     let shown = tauri::async_runtime::block_on(async {
-        let args = notice(text, LAST.load(Ordering::SeqCst));
-        let path = "/org/freedesktop/Notifications";
-        let bus = zbus::Connection::session().await?;
+        let actions = ["default", open];
+        let args = notice(summary, body, &actions, LAST.load(Ordering::SeqCst));
         let reply = bus
-            .call_method(Some(SERVER), path, Some(SERVER), "Notify", &args)
+            .call_method(Some(SERVER), PATH, Some(SERVER), "Notify", &args)
             .await?;
         let id: u32 = reply.body().deserialize()?;
         Ok::<_, zbus::Error>(id)
@@ -82,18 +208,91 @@ fn send(text: &str) {
 
 // ponytail: Windows shows no notice yet; add the toast API when that client ships.
 #[cfg(not(unix))]
-fn send(_text: &str) {}
+fn send(_summary: &str, _body: &str, _open: &str) {}
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
-    use super::notice;
+    use super::*;
+    use dyapp_client::store::messages::{ChatMessage, CurrentMessage, MessageKey};
+
+    fn row(peer: &str, state: Conversation, text: &str, unread_count: usize) -> ChatRow {
+        let last_message = ChatMessage {
+            key: MessageKey {
+                group: vec![1],
+                author: peer.to_owned(),
+                id: [1; 16],
+            },
+            current: CurrentMessage {
+                text: Some(text.as_bytes().to_vec()),
+                edited: false,
+                deleted: false,
+            },
+            original_hlc: None,
+            unread: true,
+            forwarded: false,
+            delivery: None,
+        };
+        ChatRow {
+            peer_id: peer.to_owned(),
+            state,
+            last_message: Some(last_message),
+            last_attachment: None,
+            unread_count,
+        }
+    }
+
+    fn shown(mode: NoticeContent, state: Conversation) -> (String, String) {
+        let before = [row("old", Conversation::Open, "seen", 1)];
+        let after = [
+            row("new", state, "<b>hi</b> & bye\nnext", 1),
+            row("old", Conversation::Open, "seen", 1),
+        ];
+        content(mode, &before, &after, |peer| format!("name of {peer}"))
+    }
 
     #[test]
-    fn a_notice_carries_only_the_fixed_text() {
-        let (application, replaces, icon, summary, body, actions, hints, _) =
-            notice("New message", 7);
+    fn the_default_notice_carries_neither_name_nor_text() {
+        let nothing = (String::new(), String::new());
+        assert_eq!(shown(NoticeContent::default(), Conversation::Open), nothing);
+    }
+
+    #[test]
+    fn the_setting_adds_the_name_and_the_escaped_text_of_the_newest_arrival() {
+        let name = "name of new".to_owned();
+        assert_eq!(
+            shown(NoticeContent::Name, Conversation::Open),
+            (name.clone(), String::new())
+        );
+        assert_eq!(
+            shown(NoticeContent::Text, Conversation::Open),
+            (name, "&lt;b&gt;hi&lt;/b&gt; &amp; bye next".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_request_stays_fixed_whatever_the_setting() {
+        let request = Conversation::RequestReceived([1; 16]);
+        let nothing = (String::new(), String::new());
+        assert_eq!(shown(NoticeContent::Text, request), nothing);
+    }
+
+    #[test]
+    fn a_body_is_bounded_and_holds_only_an_unread_text() {
+        let mut long = row("a", Conversation::Open, &"x".repeat(BODY_CHARS * 2), 1);
+        assert_eq!(body(&long).chars().count(), BODY_CHARS);
+        long.last_message.as_mut().unwrap().unread = false;
+        assert_eq!(body(&long), "");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_notice_offers_the_click_and_no_hints() {
+        let actions = ["default", "Open"];
+        let (application, replaces, icon, summary, text, actions, hints, _) =
+            notice("New message", "", &actions, 7);
         assert_eq!((application, replaces, icon), ("DYApp", 7, ""));
-        assert_eq!((summary, body), ("New message", ""));
-        assert!(actions.is_empty() && hints.is_empty());
+        assert_eq!((summary, text), ("New message", ""));
+        assert_eq!(actions, ["default", "Open"]);
+        assert!(hints.is_empty());
     }
 }

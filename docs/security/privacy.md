@@ -154,10 +154,14 @@ provider choice and token registration are not implemented yet.
 ### Local notices
 
 The Linux desktop client sends the session's notification server one notice when a mail pass
-leaves more unread items or unanswered likes and the window has no focus. It holds only the fixed
-"New message" text, so a lock screen shows neither the name nor the message, and it replaces the
-previous notice. The setting turns it off. Showing the name or text as a choice, the other
-platforms and a click that opens the app are planned.
+leaves more unread items or unanswered likes and the window has no focus. By default it holds only
+the fixed "New message" text, so a lock screen shows neither the name nor the message, and it
+replaces the previous notice. The identity's settings can turn it off, or add the sender's name, or
+the name and up to 200 characters of the message, which then reach the notification server and may
+show on the lock screen. Only an open chat adds them: a message request and a like stay fixed, so a
+stranger's words never appear unasked. The text is escaped, because a server may read the body as
+markup. A click on the notice shows the window; a server without actions just shows the notice. The
+other platforms are planned.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

@@ -134,11 +134,12 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
     builder.build(app).map(drop)
 }
 
-/// The text of a new-mail notice, once the page has given it.
-pub fn notice_text(app: &AppHandle) -> Option<String> {
+/// The Open label and the text of a new-mail notice, once the page has given them.
+pub fn notice_labels(app: &AppHandle) -> Option<(String, String)> {
     let tray = app.state::<Tray>();
     let inner = tray.lock();
-    inner.labels.as_ref().map(|[_, _, notice]| notice.clone())
+    let labels = inner.labels.as_ref();
+    labels.map(|[open, _, notice]| (open.clone(), notice.clone()))
 }
 
 pub fn show(app: &AppHandle) {

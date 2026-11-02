@@ -22,7 +22,7 @@ pub struct PeerNameView {
 /// The name and photo of each peer. A public name and the photo need the peer's profile in the
 /// in-memory cache, so after a restart they return with the next search or chat fetch; a local name
 /// is always there.
-fn names(
+pub(crate) fn names(
     cache: &Mutex<ProfileCache>,
     store: &Store,
     peer_ids: Vec<String>,

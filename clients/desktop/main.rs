@@ -844,6 +844,7 @@ fn main() {
                 window::restore(&main, config_dir(app.handle()).ok().as_deref());
             }
             tray::watch(app.handle().clone());
+            notify::watch(app.handle().clone());
             chats::commands::watch_mail(app.handle().clone());
             Ok(())
         })

@@ -629,10 +629,10 @@ const checkStalePrivacy = async () => {
   await openArea('settings');
   await window.privacyShown;
   const newer = { sendViews: true, sendReadReceipts: true, sendTyping: false,
-    presenceMatches: false, notifications: false };
+    presenceMatches: false, notifications: false, noticeContent: 'name' };
   await showPrivacy(() => Promise.resolve(newer));
   finishLoad({ sendViews: false, sendReadReceipts: false, sendTyping: true,
-    presenceMatches: true, notifications: true });
+    presenceMatches: true, notifications: true, noticeContent: 'fixed' });
   await oldLoad;
   if (privacyState() !== 'true,true,false,false,false'
     || !document.getElementById('presence-nobody').checked || shown('privacy-error')) {

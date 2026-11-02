@@ -3,8 +3,16 @@
 
 use std::path::Path;
 
-use dyapp_client::store::Store;
+use dyapp_client::store::{NoticeContent, Store};
 use dyapp_identity::Identity;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(remote = "NoticeContent", rename_all = "camelCase")]
+enum NoticeContentDef {
+    Fixed,
+    Name,
+    Text,
+}
 
 /// Privacy settings as the page shows them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -16,6 +24,8 @@ pub struct Privacy {
     /// Presence goes to matches, otherwise to nobody.
     pub presence_matches: bool,
     pub notifications: bool,
+    #[serde(with = "NoticeContentDef")]
+    pub notice_content: NoticeContent,
 }
 
 fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
@@ -32,6 +42,7 @@ pub fn load(dir: &Path, identity: &Identity) -> Result<Privacy, String> {
             send_typing: store.send_typing()?,
             presence_matches: store.send_presence()?,
             notifications: store.notifications()?,
+            notice_content: store.notice_content()?,
         })
     };
     read().map_err(|e| e.to_string())
@@ -45,7 +56,8 @@ pub fn save(dir: &Path, identity: &Identity, privacy: Privacy) -> Result<(), Str
         store.set_send_read_receipts(privacy.send_read_receipts)?;
         store.set_send_typing(privacy.send_typing)?;
         store.set_send_presence(privacy.presence_matches)?;
-        store.set_notifications(privacy.notifications)
+        store.set_notifications(privacy.notifications)?;
+        store.set_notice_content(privacy.notice_content)
     };
     write().map_err(|e| e.to_string())
 }
@@ -144,6 +156,7 @@ mod tests {
             send_typing: true,
             presence_matches: true,
             notifications: true,
+            notice_content: NoticeContent::Fixed,
         };
         assert_eq!(load(&dir, &alice), Ok(defaults));
         let changed = Privacy {
@@ -152,6 +165,7 @@ mod tests {
             send_typing: false,
             presence_matches: false,
             notifications: false,
+            notice_content: NoticeContent::Text,
         };
         save(&dir, &alice, changed).unwrap();
         assert_eq!(load(&dir, &alice), Ok(changed));
