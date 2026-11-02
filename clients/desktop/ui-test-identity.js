@@ -334,6 +334,49 @@ const checkStaleSafety = async () => {
   await leaving;
   await act(Promise.resolve(readyState));
   await reopen();
+  // Failures and answers for an earlier identity leave the mark off; only a current answer sets it.
+  const safetyAnswers = (command) => Promise.resolve(command === 'contact_safety_qr' ? matrix : number);
+  const mark = document.getElementById('view-verified');
+  const confirmStatus = document.getElementById('view-safety-scan-status');
+  await loadSafety(safetyAnswers);
+  for (const code of ['notConnected', 'unavailable', 'unknownPeer', 'staleProfile', 'unpublished']) {
+    await confirmContact(() => Promise.reject(code));
+    if (!mark.hidden || confirmStatus.textContent !== window.strings[`view.safety.confirm.${code}`]) {
+      throw new Error(`confirmation error ${code} was not shown or changed the mark`);
+    }
+  }
+  await confirmContact(() => Promise.reject('storage is broken'));
+  if (!mark.hidden || confirmStatus.textContent !== window.strings['view.safety.confirm.failed']) {
+    throw new Error('an unknown confirmation error was not shown');
+  }
+  let finishOldConfirm;
+  const oldConfirm = confirmContact(() => new Promise((resolve) => { finishOldConfirm = resolve; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  await act(Promise.resolve(readyState));
+  await reopen();
+  finishOldConfirm({ ...found, version: 9 });
+  await oldConfirm;
+  if (!mark.hidden || found.version === 9 || document.getElementById('view-confirm').disabled) {
+    throw new Error('old confirmation changed the new view');
+  }
+  await loadSafety(safetyAnswers);
+  await confirmContact(() => Promise.resolve({ ...found, version: 2 }));
+  if (mark.hidden || found.version !== 2 || !document.getElementById('view-confirm').hidden
+    || document.getElementById('view-safety-state').textContent !== window.strings['view.safety.verified']
+    || document.activeElement.id !== 'view-unverify') {
+    throw new Error('the fresh profile did not show the verified mark');
+  }
+  await shot('search-safety-verified');
+  await removeMark(() => Promise.reject(new Error('locked')));
+  if (mark.hidden || confirmStatus.textContent !== window.strings['view.safety.confirm.removeFailed']) {
+    throw new Error('a failed removal changed the mark');
+  }
+  await removeMark(() => Promise.resolve());
+  if (!mark.hidden || document.getElementById('view-confirm').hidden
+    || document.activeElement.id !== 'view-confirm') {
+    throw new Error('the mark was not removed');
+  }
+  await reopen();
   const copyButton = document.getElementById('copy-safety-number');
   const copyLabel = copyButton.textContent;
   const originalTimeout = globalThis.setTimeout;

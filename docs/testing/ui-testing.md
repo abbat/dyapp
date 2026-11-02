@@ -404,6 +404,12 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   malformed PNG. Fake media-device responses verify camera denial, no-device
   status and cancellation of a pending capture without opening a real camera.
   Real Debian 12 capture and two-client scanning remain pending.
+  Opening the panel leaves `view-verified` hidden, `verify-dialog` opens with Cancel focused and
+  Cancel changes nothing, and the real `confirm_contact` refuses the own-profile fixture. The stale
+  identity guards answer the command from the page: each error code keeps the mark off, an answer
+  for an earlier identity changes nothing, a current answer shows the mark and the fresh profile,
+  and a failed removal keeps it. Rust unit tests cover the write and the read of the mark; a real
+  two-client confirmation remains pending.
   A fake-clock clipboard case copies the grouped number, runs the 60-second
   expiry through the native clipboard command, preserves a later different
   safety number, and leaves an ordinary Peer ID copy alone. It tests the
@@ -426,7 +432,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
   `publish-dialog`, `profile-publish-failed`, `profile-published`, `profile-hidden`,
   `profile-unhidden-pending`, `search-not-connected`, `chats-not-connected`, `search-results`,
-  `search-profile`, `search-safety`, `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
+  `search-profile`, `search-safety-confirm`, `search-safety`, `search-safety-verified`,
+  `search-empty`, `search-error`, `statusbar`, `tray-none`, `tray` (where
   the test flow reaches them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
 - **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`

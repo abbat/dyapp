@@ -127,11 +127,17 @@ impl Store {
         {
             return Ok(true);
         }
+        self.clear_verified(&profile.peer_id)?;
+        Ok(false)
+    }
+
+    /// Take the verified mark off `peer_id`.
+    pub fn clear_verified(&self, peer_id: &str) -> Result<(), Error> {
         self.db.execute(
             "UPDATE `peers` SET `verified_devices` = NULL WHERE `peer_id` = ?1",
-            [&profile.peer_id],
+            [peer_id],
         )?;
-        Ok(false)
+        Ok(())
     }
 
     /// Every peer this profile blocks, in Peer ID order.
@@ -283,6 +289,10 @@ mod tests {
                 verified: true
             }
         );
+
+        store.clear_verified(&two.peer_id).unwrap();
+        assert!(!store.verified(&two).unwrap());
+        store.set_verified(&two).unwrap();
 
         // Dropping a device keeps the mark; a new one clears it for good.
         let mut one = two.clone();

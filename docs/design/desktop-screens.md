@@ -178,7 +178,10 @@ node reply is best effort, not network-wide removal.
 | Photos | `view-photos` | Gallery with thumbnails under it |
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
-| Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs; still unverified |
+| Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs |
+| Verified notice | `view-verified` | Shown while the mark holds for the cached profile's devices |
+| Mark verified | `view-confirm` | In the panel; opens `verify-dialog` |
+| Remove verified mark | `view-unverify` | Replaces `view-confirm`; takes the mark off at once |
 | Copy safety number | `copy-safety-number` | Copies grouped digits; attempts to clear after 60 seconds only while unchanged |
 | Match notice | `view-match` | Match only |
 | Message | `view-message` | `view-message-match` after a match |
@@ -187,19 +190,28 @@ node reply is best effort, not network-wide removal.
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
 | Block | `view-block` | Quiet, under the fields |
 
-`profile-view-safety` is the expanded comparison panel. The number and rendered QR are derived
+`profile-view-safety` is the expanded comparison panel. `profile-view-verified` is the same panel after a
+confirmation, and `verify-dialog` is the question before it. The number and rendered QR are derived
 from the active identity and the verified contact Peer ID. The QR carries a version byte followed
 by both raw Peer IDs in shower/scanner order. Comparing digits, displaying the QR,
-importing an image or scanning with the camera does not yet record a verified
+importing an image or scanning with the camera does not record a verified
 contact. Both scan paths reject foreign codes with a localized result; image
 import also rejects malformed and multiple codes. The camera stops on exit and
-reports denial or an unavailable device. A real Debian 12 camera check and the
-verified mark are pending ([capture notes](desktop-camera-capture.md)).
+reports denial or an unavailable device. A real Debian 12 camera check is
+pending ([capture notes](desktop-camera-capture.md)).
+Only `view-confirm` followed by `verify-confirm` in `verify-dialog` sets the mark; Cancel is
+focused and sends nothing. The panel shows progress and a reason for every failure in
+`view-safety-scan-status`, and a failure leaves the mark as it was. On success the view shows the
+returned fresh profile. An answer for an earlier identity or another open profile changes
+nothing on screen. `view-verified` reads the mark through `contact_verified` for the profile
+cached in this session, so a card with no cached profile shows no mark, and a cached profile that
+lists a new device clears it. `unverify_contact` removes the mark with no network and no dialog,
+because it only lowers trust and Mark verified restores it.
 The `confirm_contact` command is the only writer of the mark: it fetches the signed profile from
 every reachable seed, keeps the newest observed version and refuses the identity's own Peer ID,
 another owner's profile, a version below one already seen in this identity and network context, a
 tombstone, and a run with no answering seed. That check is held in memory, so a restart forgets
-it. No screen calls the command yet.
+it.
 The copy button does not change verification state. Its native clipboard hint
 and timed cleanup are best effort
 ([privacy limits](../security/privacy.md#safety-number-clipboard)).

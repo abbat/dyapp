@@ -206,9 +206,44 @@ pub async fn confirm_contact(
     .map_err(|e| e.to_string())?
 }
 
+/// Whether the owner of the cached profile is marked verified. With no cached profile the page
+/// shows no mark until a search or chat fetches one.
+fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<bool, String> {
+    let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    match profiles.get(peer_id) {
+        Some(peer) => store.verified(peer).map_err(|e| e.to_string()),
+        None => Ok(false),
+    }
+}
+
+/// Reads the mark for the profile on screen; see `marked`.
+#[tauri::command]
+pub fn contact_verified(
+    state: tauri::State<'_, IdentityState>,
+    searching: tauri::State<'_, SearchState>,
+    peer_id: String,
+) -> Result<bool, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    marked(&searching.0, &store, &peer_id)
+}
+
+/// Takes the mark back, so a mistaken confirmation can be undone without the network.
+#[tauri::command]
+pub fn unverify_contact(
+    state: tauri::State<'_, IdentityState>,
+    peer_id: String,
+) -> Result<(), String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    store.clear_verified(&peer_id).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{confirm, mark, matrix_for_peer_ids, scan_frame, QrMatrix};
+    use super::{confirm, mark, marked, matrix_for_peer_ids, scan_frame, QrMatrix};
     use crate::search::ProfileCache;
     use dyapp_client::store::Store;
     use dyapp_identity::network::{self, Network, Settings};
@@ -320,6 +355,23 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let store = Store::open(&dir.join("client.db"), identity).unwrap();
         (dir, store)
+    }
+
+    #[test]
+    fn the_mark_is_read_for_a_cached_profile_and_can_be_taken_back() {
+        let (me, bob) = (Identity::generate(), Identity::generate());
+        let (dir, store) = temp_store("marked", &me);
+        let peer = bob.peer_id();
+        let cache = Mutex::<ProfileCache>::default();
+        let current = signed(&bob, 3);
+        store.set_verified(&current).unwrap();
+        assert!(!marked(&cache, &store, &peer).unwrap());
+        assert!(cache.lock().unwrap().accept_if_current(0, current));
+        assert!(marked(&cache, &store, &peer).unwrap());
+        store.clear_verified(&peer).unwrap();
+        assert!(!marked(&cache, &store, &peer).unwrap());
+        drop(store);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

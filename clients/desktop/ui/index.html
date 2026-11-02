@@ -253,12 +253,13 @@
           <div id="view-photos" class="gallery"><div class="main avatar" aria-hidden="true"></div></div>
           <h1 id="view-title"></h1>
           <p id="view-summary" class="muted"></p>
+          <p id="view-verified" class="notice" data-i18n="view.safety.verified" hidden></p>
           <p class="caption"><span data-i18n="view.peer"></span> <code id="view-peer"></code>
             <button id="copy-view-peer" class="btn quiet" type="button" data-i18n="action.copy"></button></p>
           <button id="view-safety" class="btn quiet" type="button" aria-expanded="false"
             aria-controls="view-safety-panel" data-i18n="view.safety.action"></button>
           <div id="view-safety-panel" class="card" hidden>
-            <p class="caption" data-i18n="view.safety.unverified"></p>
+            <p id="view-safety-state" class="caption" data-i18n="view.safety.unverified"></p>
             <p id="view-safety-number" class="safety-number"></p>
             <button id="copy-safety-number" class="btn quiet" type="button"
               data-i18n="view.safety.copy"></button>
@@ -271,6 +272,10 @@
             <video id="view-safety-preview" class="safety-preview" autoplay muted playsinline hidden></video>
             <p id="view-safety-scan-status" class="notice" role="status" aria-live="polite" hidden></p>
             <p class="caption" data-i18n="view.safety.compare"></p>
+            <div class="actions"><button id="view-confirm" class="btn" type="button"
+              data-i18n="view.safety.confirm.action"></button>
+              <button id="view-unverify" class="btn" type="button"
+                data-i18n="view.safety.unverify" hidden></button></div>
           </div>
           <p id="view-match" class="notice" data-i18n="view.match" hidden></p>
           <div class="actions view-actions">
@@ -529,6 +534,14 @@
     <div class="actions">
       <button id="chat-clear-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
       <button id="chat-clear-confirm" class="btn danger" type="button" data-i18n="chats.clear"></button>
+    </div>
+  </dialog>
+  <dialog id="verify-dialog" class="modal" aria-labelledby="verify-title" hidden>
+    <h2 id="verify-title" data-i18n="verify.title"></h2>
+    <p data-i18n="verify.text"></p>
+    <div class="actions">
+      <button id="verify-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="verify-confirm" class="btn primary" type="button" data-i18n="verify.action"></button>
     </div>
   </dialog>
   <dialog id="unlike-dialog" class="modal" aria-labelledby="unlike-title" hidden>

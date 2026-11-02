@@ -114,7 +114,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -136,7 +136,7 @@
     </div>
     <button type="button" class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
       <svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
-    <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-match unlike-dialog">
+    <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
     <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-first chat-request chat-menu chat-clear-dialog chat-cleared delete-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
@@ -290,7 +290,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Found profile: opened from a result; the full photos load now. -->
-    <section id="profile-view" data-on="profile-view profile-view-safety profile-view-match unlike-dialog">
+    <section id="profile-view" data-on="profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog">
       <button type="button" class="btn quiet back" id="view-back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg><span data-t="view.back"></span></button>
       <div class="gallery" id="view-photos">
         <div class="main photo p2" role="img" data-ta="view.photo"></div>
@@ -301,13 +301,20 @@ search providers asked: 0 of 3</pre>
       <p class="caption"><span data-t="identity.peer"></span> <code id="view-peer">@4d81c6</code>
         <button type="button" class="btn quiet" id="copy-view-peer" data-t="action.copy"></button></p>
       <button type="button" class="btn quiet" id="view-safety" data-t="view.safety.action"></button>
-      <div id="view-safety-panel" class="card" data-on="profile-view-safety">
-        <p class="caption" data-t="view.safety.unverified"></p>
+      <p class="notice" id="view-verified" data-on="profile-view-verified" data-t="view.safety.verified"></p>
+      <div id="view-safety-panel" class="card" data-on="profile-view-safety profile-view-verified verify-dialog">
+        <p class="caption" data-on="profile-view-safety verify-dialog" data-t="view.safety.unverified"></p>
+        <p class="caption" data-on="profile-view-verified" data-t="view.safety.verified"></p>
         <p id="view-safety-number" class="safety-number">12345 67890 12345 67890 12345 67890 12345 67890 12345 67890 12345 67890</p>
         <button class="btn quiet" type="button" id="copy-safety-number" data-t="view.safety.copy"></button>
         <div class="safety-qr safety-qr-demo" aria-hidden="true"></div>
         <div class="actions"><button class="btn" type="button" data-t="view.safety.image"></button><button class="btn" type="button" data-t="view.safety.camera.start"></button></div>
+        <p class="notice" id="view-safety-scan-status" data-on="profile-view-verified" data-t="view.safety.confirm.done"></p>
         <p class="caption" data-t="view.safety.compare"></p>
+        <div class="actions">
+          <button class="btn" type="button" id="view-confirm" data-on="profile-view-safety verify-dialog" data-t="view.safety.confirm.action"></button>
+          <button class="btn" type="button" id="view-unverify" data-on="profile-view-verified" data-t="view.safety.unverify"></button>
+        </div>
       </div>
       <div class="notice" id="view-match" data-on="profile-view-match unlike-dialog"><b data-t="view.match"></b> <span data-t="view.match.text"></span></div>
       <div class="actions view-actions">
@@ -488,6 +495,17 @@ search providers asked: 0 of 3</pre>
 </div>
 
 <!-- Unlike dialog: Liked takes the like back, which ends the match for both. -->
+<div class="modal-scrim" data-on="verify-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="verify-title">
+    <h2 id="verify-title" data-t="verify.title"></h2>
+    <p data-t="verify.text"></p>
+    <div class="actions">
+      <button type="button" class="btn focus" id="verify-cancel" data-t="action.cancel"></button>
+      <button type="button" class="btn primary" id="verify-confirm" data-t="verify.action"></button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-scrim" data-on="unlike-dialog">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="unlike-title">
     <h2 id="unlike-title" data-t="unlike.title"></h2>

@@ -206,6 +206,23 @@ the identity was not replaced, which is false after a removal that fails past er
 H9, severity 2): it now says only that the action did not finish and what to check. No open H1–H10
 finding.
 
+### Contact verification review (2026-11-02)
+
+Read the safety panel, `verify-dialog`, the profile view with `view-verified` and every
+`view.safety.confirm.*` string against H1–H10 in English and Russian; the dialog and the panel
+reuse `.modal`, `.notice` and `.actions`, and the UI smoke audits them at 440 and 1280 px. The
+panel said a match does not verify and offered no way to verify (H1, H7, severity 3): `view-confirm`
+now does, and `view.safety.compare` and `view.safety.scan.matched` say so. One click writing a
+security mark from a long panel was too easy (H5, severity 3): `verify-dialog` states the condition
+and focuses Cancel. A mistaken mark could not be undone (H3, severity 3): `view-unverify` removes
+it. The panel kept saying Not verified after a confirmation and after a reopen (H1, severity 3):
+`view-safety-state` and `view-verified` follow the stored mark, and the notice stays visible with
+the panel closed. The network step can take seconds, so the panel names it (H1), every failure says
+nothing was marked and what to do (H9), and focus returns to the control that remains, not to
+`body`, after the disabled button goes away (H3). Own-profile cards keep the button and get a
+specific refusal, because the page does not hold its own Peer ID here (H5, severity 1, fixed by the
+message). No open H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

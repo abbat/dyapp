@@ -145,6 +145,29 @@ document.addEventListener('dyapp:area-change', (event) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopSafetyCamera();
 });
+const showVerified = (verified) => {
+  document.getElementById('view-verified').hidden = !verified;
+  const state = document.getElementById('view-safety-state');
+  state.dataset.i18n = verified ? 'view.safety.verified' : 'view.safety.unverified';
+  state.textContent = window.strings[state.dataset.i18n];
+  document.getElementById('view-confirm').hidden = verified;
+  document.getElementById('view-unverify').hidden = !verified;
+};
+const showFound = (found) => {
+  const short = peerLabel(document.getElementById('view-peer'), found.peerId);
+  document.getElementById('view-peer').textContent = short;
+  document.getElementById('view-title').textContent = short;
+  document.querySelector('#view-photos .main').textContent = short.slice(1, 3);
+  document.getElementById('view-summary').textContent = summaryText(found);
+  document.getElementById('view-fields').replaceChildren(...publicFacts(found.draft, found.place)
+    .flatMap(([label, value]) => {
+      const term = document.createElement('dt');
+      const detail = document.createElement('dd');
+      term.textContent = label;
+      detail.textContent = value;
+      return [term, detail];
+    }));
+};
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card, call = invoke) => {
   const generation = identityGeneration;
@@ -161,22 +184,16 @@ const openFound = (found, card, call = invoke) => {
   qr.width = 0;
   qr.height = 0;
   document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
+  document.getElementById('view-confirm').disabled = false;
+  document.getElementById('view-unverify').disabled = false;
+  showVerified(false);
+  call('contact_verified', { peerId: found.peerId }).then((verified) => {
+    if (identityCurrent(generation) && viewed?.found === found) showVerified(verified === true);
+  }, () => {});
   showLikes({ ours: false, matched: false });
   call('peer_likes', { peerId: found.peerId })
     .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
-  const short = peerLabel(document.getElementById('view-peer'), found.peerId);
-  document.getElementById('view-peer').textContent = short;
-  document.getElementById('view-title').textContent = short;
-  document.querySelector('#view-photos .main').textContent = short.slice(1, 3);
-  document.getElementById('view-summary').textContent = summaryText(found);
-  document.getElementById('view-fields').replaceChildren(...publicFacts(found.draft, found.place)
-    .flatMap(([label, value]) => {
-      const term = document.createElement('dt');
-      const detail = document.createElement('dd');
-      term.textContent = label;
-      detail.textContent = value;
-      return [term, detail];
-    }));
+  showFound(found);
   searchMain.hidden = true;
   profileView.hidden = false;
   document.getElementById('view-back').focus();
@@ -311,6 +328,70 @@ const loadSafety = (call = invoke) => {
 };
 document.getElementById('view-safety').addEventListener('click', () => {
   window.safetyDone = loadSafety();
+});
+// Only this path writes the mark; the answer is the signed profile the mark was made from.
+const confirmContact = (call = invoke) => {
+  const { found, card } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
+  const button = document.getElementById('view-confirm');
+  button.disabled = true;
+  showSafetyStatus('view.safety.confirm.checking');
+  return call('confirm_contact', { peerId: found.peerId }).then(async (fresh) => {
+    if (!currentView()) return;
+    button.disabled = false;
+    showVerified(true);
+    showSafetyStatus('view.safety.confirm.done');
+    document.getElementById('view-unverify').focus();
+    const [placed] = await withPlaces([fresh]).catch(() => [{ ...fresh, place: found.place }]);
+    if (!currentView()) return;
+    Object.assign(found, placed);
+    showFound(found);
+    card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
+  }, (error) => {
+    if (!currentView()) return;
+    const key = `view.safety.confirm.${error}`;
+    showSafetyStatus(window.strings[key] ? key : 'view.safety.confirm.failed');
+    button.disabled = false;
+    button.focus();
+  });
+};
+const removeMark = (call = invoke) => {
+  const { found } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
+  const button = document.getElementById('view-unverify');
+  button.disabled = true;
+  return call('unverify_contact', { peerId: found.peerId }).then(() => {
+    if (!currentView()) return;
+    button.disabled = false;
+    showVerified(false);
+    showSafetyStatus('view.safety.confirm.removed');
+    document.getElementById('view-confirm').focus();
+  }, () => {
+    if (!currentView()) return;
+    button.disabled = false;
+    showSafetyStatus('view.safety.confirm.removeFailed');
+    button.focus();
+  });
+};
+const verifyDialog = document.getElementById('verify-dialog');
+document.getElementById('view-confirm').addEventListener('click', () => {
+  verifyDialog.hidden = false;
+  verifyDialog.showModal();
+  document.getElementById('verify-cancel').focus();
+});
+verifyDialog.addEventListener('close', () => { verifyDialog.hidden = true; });
+document.addEventListener('dyapp:identity-change', () => {
+  if (verifyDialog.open) verifyDialog.close();
+});
+document.getElementById('verify-cancel').addEventListener('click', () => verifyDialog.close());
+document.getElementById('verify-confirm').addEventListener('click', () => {
+  verifyDialog.close();
+  window.confirmDone = confirmContact();
+});
+document.getElementById('view-unverify').addEventListener('click', () => {
+  window.confirmDone = removeMark();
 });
 const grayscaleFrame = (context, width, height) => {
   const rgba = context.getImageData(0, 0, width, height).data;

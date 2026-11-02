@@ -133,6 +133,28 @@ globalThis.checkSafetyNumber = async () => {
   if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.matched']) {
     throw new Error('loopback QR image did not match');
   }
+  // Opening the panel marks nothing, Cancel sends nothing, and the real command refuses this
+  // own-profile fixture; ui-test-identity.js answers the command for the other outcomes.
+  const confirm = document.getElementById('view-confirm');
+  const dialog = document.getElementById('verify-dialog');
+  const mark = document.getElementById('view-verified');
+  if (confirm.hidden || !mark.hidden) throw new Error('opening the safety panel changed the mark');
+  confirm.click();
+  if (!dialog.open || document.activeElement.id !== 'verify-cancel') {
+    throw new Error('verification did not ask first with Cancel focused');
+  }
+  await shot('search-safety-confirm');
+  document.getElementById('verify-cancel').click();
+  if (dialog.open || confirm.disabled || scan.textContent !== window.strings['view.safety.scan.matched']) {
+    throw new Error('Cancel did not leave the comparison as it was');
+  }
+  confirm.click();
+  document.getElementById('verify-confirm').click();
+  await window.confirmDone;
+  if (scan.textContent !== window.strings['view.safety.confirm.ownPeer'] || !mark.hidden
+    || confirm.disabled || document.activeElement !== confirm) {
+    throw new Error('own profile was not refused');
+  }
   const camera = document.getElementById('view-safety-camera');
   const mediaDescriptor = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
   const fakeMedia = (getUserMedia) => Object.defineProperty(navigator, 'mediaDevices', {
