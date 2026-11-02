@@ -242,7 +242,7 @@ activates nothing and shows the rows in the error details, a relaunch that shows
 keeps the draft unactivated, navigation that keeps the draft and failed rows, and Cancel on a seed
 that accepts but never answers. dyappd builds only for Linux, so on Windows the connected
 (Connected again at the next launch, kept by a Cancel), wrong-pin, wrong-network and
-wizard-connect paths are an accepted gap: they run the same `clients/desktop` code and are verified on Linux only. The same
+wizard-connect and device-link paths are an accepted gap: they run the same `clients/desktop` code and are verified on Linux only. There a second client on its own D-Bus session, which keeps the single-instance check out, links to a published identity through the node, in each language and the pseudo-locale: both list two devices, a disconnect wipes the new client, and no slot stays on disk. The same
 holds for publishing, searching on a node and the node settings. Without dyappd, the smoke
 instead runs the no-network start of the Linux fixture on a fresh identity: publishing keeps the
 draft and offers the network, and search asks to connect.

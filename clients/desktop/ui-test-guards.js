@@ -875,8 +875,88 @@ const checkLinkedNotice = async () => {
   if (!notice.hidden) throw new Error('a chat on a first device says it is linked');
   closeChat();
 };
+// Linking two real clients: each half is a step of its own process, the node carries the record.
+const linkUntil = async (check, what, ms = 60000) => {
+  const end = Date.now() + ms;
+  for (;;) {
+    const value = await check();
+    if (value) return value;
+    if (Date.now() > end) throw new Error(`no ${what}`);
+    await new Promise((resolve) => { setTimeout(resolve, 500); });
+  }
+};
+const liveDevices = (count) => linkUntil(
+  async () => (await invokeTest('list_devices', { live: true })).length === count,
+  `${count} devices`,
+);
+const linkWaitStep = async (mode, seed) => {
+  document.getElementById(`${mode}-choice`).click();
+  document.getElementById('link-identity').click();
+  await waitFor('wizard-network');
+  const rows = await submitCheck(seed);
+  if (rows.join() !== 'connected') throw new Error(`link network rows ${rows}`);
+  const code = await linkUntil(() => document.getElementById('link-code').textContent, 'link code');
+  await invokeTest('ui_test_link_code', { code });
+  await linkUntil(() => shown('link-done'), 'linked identity', 120000);
+  if (shown('link-pending')
+    || !document.getElementById('link-peer').textContent.includes(window.peerName(linkJoined.peerId))) {
+    throw new Error('the link did not finish');
+  }
+  await shot('link-joined');
+  document.getElementById('link-open').click();
+  await waitFor('identity');
+  await liveDevices(2);
+  return linkJoined.peerId;
+};
+const linkSendStep = async (code) => {
+  await openArea('settings');
+  await window.devicesShown;
+  document.getElementById('device-link').click();
+  document.getElementById('device-code').value = code;
+  document.getElementById('device-code-next').click();
+  await window.codeChecked;
+  document.getElementById('device-confirm-action').click();
+  await window.linkSent;
+  if (document.getElementById('devices-status').textContent !== window.strings['devices.sent']) {
+    throw new Error('the link was not sent');
+  }
+};
+const linkDisconnectStep = async () => {
+  await openArea('settings');
+  await liveDevices(2);
+  await showDevices();
+  document.getElementById('device-disconnect-1').click();
+  document.getElementById('disconnect-action').click();
+  await window.disconnectDone;
+  await window.devicesShown;
+  if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
+    throw new Error('the device was not disconnected');
+  }
+  await liveDevices(1);
+};
+// The catch-up of the launch may already have wiped it, so a failed pass here means nothing.
+const linkWipedStep = async () => {
+  await linkUntil(async () => {
+    await invokeTest('receive_mail').catch(() => {});
+    return shown('revoked');
+  }, 'wipe');
+  document.getElementById('revoked-ok').click();
+  await waitFor('setup');
+};
+// Returns the peer id the smoke compares, empty for a client that lost its identity.
+const linkStep = async (step, mode, state) => {
+  const value = step.slice(step.indexOf(':') + 1);
+  if (step.startsWith('link-wait:')) return linkWaitStep(mode, value);
+  if (step === 'link-wiped') {
+    await linkWipedStep();
+    return '';
+  }
+  await (step === 'link-disconnect' ? linkDisconnectStep() : linkSendStep(value));
+  return state.peerId;
+};
 globalThis.uiSmokeGuards = Object.freeze({
   checkLinkScreen,
+  linkStep,
   checkLinkedNotice,
   checkStaleSettingsInventory, checkStaleNode, checkStaleTray, checkStaleRemovePreparation,
   checkStaleWithdrawal, checkDeviceRevoked, checkDevices, checkLinkCode, checkStaleLaunchConnection, checkStaleNetworkForm,

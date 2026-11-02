@@ -243,6 +243,38 @@ def smoke(executable, flows=True):
         case("window-off-screen", [*file, "--ui-test-step=window:centre"],
              profile, peer=False)
 
+    def linked(owner, owner_id, seed, file):
+        """A new client joins the identity of `owner` through the node, both
+        list two devices, and a disconnect wipes the new client. It waits on
+        a bus of its own: on a shared one the single-instance check would
+        hand its launch to the running owner."""
+        with tempfile.TemporaryDirectory(dir=reports) as fresh:
+            fresh = Path(fresh)
+            written = fresh / "link-code"
+            with ThreadPoolExecutor(1) as pool:
+                joined = pool.submit(
+                    case, "link-wait",
+                    [*file, f"--ui-test-step=link-wait:{seed}"], fresh,
+                    timeout=180, launcher=["dbus-run-session", "--"])
+                code = ""
+                while not code and not joined.done():
+                    code = written.read_text() if written.is_file() else ""
+                    time.sleep(0.5)
+                if code:
+                    case("link-send",
+                         [*file, f"--ui-test-step=link-send:{code}"], owner)
+                if joined.result() != owner_id:
+                    raise RuntimeError("the client joined another identity")
+            slots = fresh / "profiles"
+            if len(list(slots.iterdir())) != 1:
+                raise RuntimeError("the wizard's slot outlived the link")
+            case("link-disconnect", [*file, "--ui-test-step=link-disconnect"],
+                 owner)
+            case("link-wiped", [*file, "--ui-test-step=link-wiped"], fresh,
+                 peer=False)
+            if any(slots.iterdir()):
+                raise RuntimeError("the wipe left the identity on disk")
+
     def single(profile):
         """A second launch shows the hidden window of the running one and
         exits."""
@@ -567,6 +599,8 @@ def smoke(executable, flows=True):
                 picked = (fresh / "active-profile").read_text().strip()
                 if not (fresh / "profiles" / picked / "network").is_file():
                     raise RuntimeError("the wizard did not activate a network")
+            for language in ([], ["--pseudo-locale"]):
+                linked(peer_root, other_peer, seed, [*file, *language])
             # Removal sends the tombstone first: with no node it keeps the
             # identity, with the node back it removes it.
             server.terminate()

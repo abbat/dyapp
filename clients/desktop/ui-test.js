@@ -543,6 +543,11 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await invokeTest('ui_test_hide', { close: false });
       return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
+    if (step.startsWith('link-')) {
+      // Not timed like a check: the wait lasts as long as the other client takes.
+      const peerId = await globalThis.uiSmokeGuards.linkStep(step, mode, state);
+      return invokeTest('ui_test_result', { passed: true, peerId, reason: '' });
+    }
     if (step.startsWith('wizard-connect:')) {
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode, step.slice('wizard-connect:'.length));

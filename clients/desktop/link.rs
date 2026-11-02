@@ -100,6 +100,15 @@ pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, Stri
     Ok(pending.is_some())
 }
 
+/// UI test only: hands the code to the smoke, which types it into the other client.
+#[tauri::command]
+pub fn ui_test_link_code(app: tauri::AppHandle, code: String) -> Result<(), String> {
+    if !std::env::args().any(|arg| arg == "--ui-test") {
+        return Err("UI test only".into());
+    }
+    std::fs::write(crate::config_dir(&app)?.join("link-code"), code).map_err(|e| e.to_string())
+}
+
 /// Whether the open identity came to this computer by a link.
 #[tauri::command]
 pub fn linked_device(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
