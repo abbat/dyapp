@@ -6,7 +6,7 @@ window.fail = (error) => invokeTest('ui_test_result', {
 const frames = () => new Promise((resolve) => {
   requestAnimationFrame(() => requestAnimationFrame(resolve));
 });
-// axe-core 4.14 marks target-size disabled by default, so pilot it explicitly on two screens.
+// axe-core 4.14 marks target-size disabled by default, so every checkpoint enables it.
 const targetSize = { runOnly: { type: 'rule', values: ['target-size'] },
   rules: { 'target-size': { enabled: true } } };
 const checkTargetSizeFixture = async () => {
@@ -51,14 +51,12 @@ const audit = async (name) => {
     if (theme) root.dataset.theme = theme; else delete root.dataset.theme;
   }
   if (name === 'search-results') await checkTargetSizeFixture();
-  if (name === 'ready' || name === 'search-results') {
-    const result = await window.axe.run(document, targetSize);
-    for (const violation of result.violations) {
-      problems.push(`target-size ${violation.nodes[0].target}`);
-    }
-    for (const review of result.incomplete) {
-      problems.push(`target-size needs review ${review.nodes[0].target}`);
-    }
+  const sized = await window.axe.run(document, targetSize);
+  for (const violation of sized.violations) {
+    problems.push(`target-size ${violation.nodes[0].target}`);
+  }
+  for (const review of sized.incomplete) {
+    problems.push(`target-size needs review ${review.nodes[0].target}`);
   }
   const visible = (element) => element.getClientRects().length > 0
     && getComputedStyle(element).visibility === 'visible';
