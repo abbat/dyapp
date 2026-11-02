@@ -23,7 +23,7 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//")
 BEAD = re.compile(r"\bdyapp-[a-z0-9]{3,4}(?:\.\d+)*(?![\w-])")
 CRATE = re.compile(r'^name\s*=\s*"(dyapp-[\w-]+)"', re.M)
 # Names that are not crates: the stale package name in build-uniffi.sh.
-NOT_TRACKER = {"dyapp-core"}
+NOT_TRACKER = {"dyapp-core", "dyapp-link"}
 # Commit-message ratchet: commits after this published cutoff follow the rules.
 # Moved on 2026-10-23 after a lowercase subject reached main; the local
 # commit-msg hook now checks new messages before Git records them.
