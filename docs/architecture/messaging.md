@@ -309,8 +309,9 @@ stale node copy drops a device by mistake, its owner's device adds it back.
 Any own device revokes another with `publish::revoke_device`. It first closes the dropped device's
 mailbox with an identity-signed `revoke` carrying the owner binding the device signed, which the
 profile keeps ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it, and then
-relists the profile without the device, which leaves a hidden profile hidden. A failed step is
-retried by repeating both. `dyapp_client::owner_binding` signs that binding and `Node::close_mailbox`
+relists the profile without the device, which leaves a hidden profile hidden. A profile at the node
+newer than the draft replaces the draft first, so the device list changed is always the newest. A
+failed step is retried by repeating both. `dyapp_client::owner_binding` signs that binding and `Node::close_mailbox`
 sends the close.
 
 `Session::own_device_revoked` tells a device that it was revoked: a profile past the last version
@@ -323,8 +324,9 @@ the rule and does not stop a stolen device.
 The Linux client wipes a revoked device. When a node refuses its mailbox, `Session::revoked_or`
 fetches the newest own profile, and only a refusal together with that signed profile counts: a fork
 of the profile leaves the mailbox open, and a node cannot forge a profile. Catch-up then removes the
-identity through the path of a manual removal, and says why. Revoking starts from the Tauri command
-`revoke_device`. The Devices and linking screens, and the Android wipe, are planned.
+identity through the path of a manual removal, and says why. Devices in Settings lists the newest
+profile's devices, or the saved draft's while no node answers, and revokes with the Tauri command
+`revoke_device`. The linking screens and the Android wipe are planned.
 
 A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
 `Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code

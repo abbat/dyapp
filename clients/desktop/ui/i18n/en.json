@@ -512,5 +512,15 @@
   "remove.anyway": "Remove anyway",
   "revoked.title": "This computer was disconnected from the identity",
   "revoked.text": "One of your other devices disconnected it, so the key, chats and matches of this identity were deleted here. The identity stays on your other devices.",
-  "revoked.ok": "OK"
+  "revoked.ok": "OK",
+  "devices.title": "Devices",
+  "devices.this": "This computer",
+  "devices.other": "Other device",
+  "devices.disconnect": "Disconnect…",
+  "devices.hint": "Every device holds the full key of this identity. A disconnected device that copied the key can add itself back; only a new identity recovers fully from that.",
+  "disconnect.title": "Disconnect this device?",
+  "disconnect.text": "It stops getting your chats and deletes this identity when it next connects. Your contacts see that the device left.",
+  "disconnect.action": "Disconnect",
+  "disconnect.offline": "No node answered, so the device stays connected. Check the network and retry.",
+  "devices.gone": "Device disconnected."
 }

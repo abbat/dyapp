@@ -63,6 +63,16 @@ pub fn list_device(draft: &mut Profile, certificate: SignedRecord, binding: Sign
     }
 }
 
+/// The mailbox keys of the devices `profile` lists.
+pub fn device_keys(profile: &Profile) -> Vec<Vec<u8>> {
+    profile
+        .devices
+        .iter()
+        .filter_map(|signed| DeviceCertificate::decode(signed.payload.as_slice()).ok())
+        .map(|certificate| certificate.device_key)
+        .collect()
+}
+
 /// Takes the device with the mailbox key `device_key` out of `draft`. Returns its owner binding,
 /// or `None` if the draft holds none and its mailbox cannot be closed.
 pub fn unlist_device(draft: &mut Profile, device_key: &[u8]) -> Option<SignedRecord> {
@@ -126,8 +136,10 @@ pub async fn relist(
 }
 
 /// Revokes the owner's device with the mailbox key `device_key`: closes its mailbox, then [`relist`]s
-/// `draft` without it. A failure may be retried, as a repeated close is harmless and the draft keeps
-/// the binding until the relist succeeds. Returns the new draft.
+/// `draft` without it. A newer profile at the node first replaces the saved draft, as in [`publish`],
+/// so a device listed elsewhere can go and no other device is lost. A failure may be retried, as a
+/// repeated close is harmless and the draft keeps the binding until the relist succeeds. Returns the
+/// new draft.
 pub async fn revoke_device(
     store: &Store,
     node: &mut Node,
@@ -135,7 +147,14 @@ pub async fn revoke_device(
     draft: &Profile,
     device_key: &[u8],
 ) -> Result<Profile, Failure> {
-    let mut draft = draft.clone();
+    let mut draft = match newest(node, identity).await? {
+        Some(held) if held.version > draft.version => {
+            take_photos(store, node, &held).await?;
+            store.save_profile_draft(&held)?;
+            held
+        }
+        _ => draft.clone(),
+    };
     let binding =
         unlist_device(&mut draft, device_key).ok_or(Error::Input("device has no owner binding"))?;
     node.close_mailbox(identity, binding).await?;
@@ -246,8 +265,8 @@ async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Res
     }
 }
 
-// The owner's profile at `node`, if it has one.
-async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
+/// The owner's profile at `node`, if it has one.
+pub async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
     match node.get_profile(&identity.peer_id()).await {
         Ok(held) => Ok(Some(held.profile)),
         Err(Error::Status(Status::NotFound)) => Ok(None),
@@ -399,7 +418,10 @@ pub enum Failure {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, hide, list_device, publish, unlist_device, withdraw, work, Block, Failure};
+    use super::{
+        check, device_keys, hide, list_device, publish, unlist_device, withdraw, work, Block,
+        Failure,
+    };
     use crate::store::{tests::temp_db_path, Store};
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
@@ -671,6 +693,14 @@ mod tests {
         }
         assert_eq!((draft.devices.len(), draft.device_owners.len()), (3, 3));
         assert!(dyapp_profile::verify(&draft.sign(&alice)).is_ok());
+        let mut keys = device_keys(&draft);
+        keys.sort();
+        let mut bound: Vec<_> = certificates
+            .iter()
+            .map(|(_, binding)| binding.public_key.clone())
+            .collect();
+        bound.sort();
+        assert_eq!(keys, bound);
 
         let (certificate, binding) = &certificates[1];
         let kept = unlist_device(&mut draft, &binding.public_key).unwrap();

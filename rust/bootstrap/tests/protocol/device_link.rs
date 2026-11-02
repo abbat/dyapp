@@ -493,6 +493,7 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
         &alice.device_key,
         &alice.identity.public_key(),
     )];
+    let before_laptop = draft.clone();
     let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
     laptop_session.list_self(&mut draft, binding).unwrap();
     let store = alice_session.store();
@@ -522,12 +523,13 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
         listed
     );
 
-    // The first device drops the laptop: the node refuses its mailbox and lists only the first.
+    // The first device drops the laptop: the node refuses its mailbox and lists only the first. Its
+    // draft predates the laptop, and the newest profile at the node takes its place.
     let dropped = publish::revoke_device(
         store,
         &mut alice.node,
         &alice.identity,
-        &listed,
+        &before_laptop,
         &laptop_key,
     )
     .await

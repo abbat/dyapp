@@ -420,11 +420,11 @@ sending off never stops receiving.
 | Identities | `settings-identities` | Avatar, short Peer ID, Active or storage kind |
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
-| Devices | `devices` | Short device key per row, this computer marked and without Disconnect; the hint says what a disconnected device can still do |
-| Disconnect | `device-disconnect` | Per other device, opens `disconnect-dialog` |
-| Link a new device | `device-link` | Opens `device-code-dialog` |
-| Link this computer to another identity | `device-join` | Opens `link-show` |
-| Device status | `devices-status` | `devices-sent` only, polite live region |
+| Devices | `devices` | Short device key per row, this computer first and without Disconnect; the hint says what a disconnected device can still do; hidden while the identity lists no device |
+| Disconnect | `device-disconnect` | Per other device, opens `disconnect-dialog`; the app numbers the IDs `device-disconnect-N` |
+| Link a new device | `device-link` | Opens `device-code-dialog`; planned in the client |
+| Link this computer to another identity | `device-join` | Opens `link-show`; planned in the client |
+| Device status | `devices-status` | Polite live region: `devices-sent` (planned), or that a device was disconnected |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |

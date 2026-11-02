@@ -697,9 +697,53 @@ const checkPrivacy = async (restarted) => {
     throw new Error('unblock did not clear the blocked list');
   }
 };
+// Devices with stubbed commands: rows, this computer first, a failed and a good disconnect.
+const checkDevices = async () => {
+  const card = document.getElementById('devices');
+  const dialog = document.getElementById('disconnect');
+  const rows = [{ key: [1, 2, 255], this: false }, { key: [10, 11, 12], this: true }];
+  const stale = showDevices(() => new Promise((resolve) => { setTimeout(() => resolve([rows[0]])); }));
+  const list = (command) => {
+    if (command !== 'list_devices') throw new Error(`unexpected ${command}`);
+    return Promise.resolve(structuredClone(rows));
+  };
+  await showDevices(() => Promise.resolve([]));
+  if (!card.hidden) throw new Error('an unpublished identity shows Devices');
+  await openArea('settings');
+  await showDevices(list);
+  await stale;
+  const shownKeys = [...document.querySelectorAll('#devices-list code')].map((key) => key.textContent);
+  if (card.hidden || shownKeys.join() !== '0a0b0c,0102ff'
+    || document.querySelectorAll('#devices-list button').length !== 1) {
+    throw new Error(`wrong device rows: ${shownKeys}`);
+  }
+  document.getElementById('device-disconnect-1').click();
+  if (!dialog.open || document.activeElement.id !== 'disconnect-cancel'
+    || document.getElementById('disconnect-device').textContent !== '0102ff') {
+    throw new Error('disconnect dialog did not open on the row');
+  }
+  await disconnectNow(() => Promise.reject(new Error('notConnected')));
+  if (document.getElementById('disconnect-problem').hidden
+    || document.getElementById('disconnect-retry').hidden
+    || !document.getElementById('disconnect-action').hidden) {
+    throw new Error('failed disconnect does not offer Retry');
+  }
+  const sent = [];
+  await disconnectNow((command, args) => {
+    sent.push([command, args.deviceKey.join()]);
+    return Promise.resolve();
+  });
+  if (dialog.open || sent.join() !== 'revoke_device,1,2,255') {
+    throw new Error(`disconnect sent ${sent}`);
+  }
+  await new Promise((resolve) => { setTimeout(resolve); });
+  if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
+    throw new Error('disconnect did not report its result');
+  }
+};
 globalThis.uiSmokeGuards = Object.freeze({
   checkStaleSettingsInventory, checkStaleNode, checkStaleTray, checkStaleRemovePreparation,
-  checkStaleWithdrawal, checkDeviceRevoked, checkStaleLaunchConnection, checkStaleNetworkForm,
+  checkStaleWithdrawal, checkDeviceRevoked, checkDevices, checkStaleLaunchConnection, checkStaleNetworkForm,
   checkStaleNetworkCheck, checkStaleCopy, checkStalePlaceSuggestions, removeOpened,
   testSeeds, connection, connectNetwork, checkNetwork, cancelNetwork, checkWrongNetwork,
   checkNetworkInSettings, checkSettingsLanguage, expectPrivacy, checkPrivacy,

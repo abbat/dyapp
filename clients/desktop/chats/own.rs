@@ -121,6 +121,26 @@ pub(super) fn wipe_if_revoked(app: &tauri::AppHandle, dir: &Path, passed: &Resul
     }
 }
 
+/// The devices of the active identity; see `profile::devices`.
+#[tauri::command]
+pub(crate) async fn list_devices(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, IdentityState>,
+    live: bool,
+) -> Result<Vec<crate::profile::Device>, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    let root = crate::config_dir(&app)?;
+    // The client store is not `Sync`, as in `crate::publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        let this = crate::device_key(&root, &dir, &identity)?.public_key();
+        tauri::async_runtime::block_on(crate::profile::devices(&dir, &identity, &this, live))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Revokes the owner's device with the mailbox key `device_key`; see `profile::revoke_device`.
 #[tauri::command]
 pub(crate) async fn revoke_device(

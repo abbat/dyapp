@@ -411,6 +411,12 @@
           </div>
           <p class="caption" data-i18n="backup.none"></p>
         </div>
+        <div id="devices" class="card" hidden>
+          <h2 data-i18n="devices.title"></h2>
+          <table class="rows"><tbody id="devices-list"></tbody></table>
+          <p id="devices-status" class="notice" role="status" aria-live="polite"></p>
+          <p class="caption" data-i18n="devices.hint"></p>
+        </div>
         <div id="blocked" class="card">
           <h2 data-i18n="settings.blocked"></h2>
           <table class="rows"><tbody id="blocked-list"></tbody></table>
@@ -560,6 +566,17 @@
       </div>
     </div>
   </dialog>
+  <dialog id="disconnect" class="modal" aria-labelledby="disconnect-title" hidden>
+    <h2 id="disconnect-title" data-i18n="disconnect.title"></h2>
+    <p><code id="disconnect-device"></code></p>
+    <p data-i18n="disconnect.text"></p>
+    <p id="disconnect-problem" class="notice error" role="alert" data-i18n="disconnect.offline" hidden></p>
+    <div class="actions">
+      <button id="disconnect-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="disconnect-action" class="btn danger" type="button" data-i18n="disconnect.action"></button>
+      <button id="disconnect-retry" class="btn danger" type="button" data-i18n="recovery.retry" hidden></button>
+    </div>
+  </dialog>
   <dialog id="revoked" class="modal" aria-labelledby="revoked-title" hidden>
     <h2 id="revoked-title" data-i18n="revoked.title"></h2>
     <p data-i18n="revoked.text"></p>
@@ -681,6 +698,7 @@
   <script src="app.js"></script>
   <script src="passes.js"></script>
   <script src="remove.js"></script>
+  <script src="devices.js"></script>
   <script src="search.js"></script>
   <script src="chats-ui.js"></script>
   <script src="photo-settings.js"></script>

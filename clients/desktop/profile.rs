@@ -458,6 +458,47 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
     view(&hidden, today()?, Some(&store))
 }
 
+/// A row of the Devices list in Settings.
+#[derive(serde::Serialize)]
+pub struct Device {
+    /// Mailbox key of the device.
+    pub key: Vec<u8>,
+    /// Whether it is this computer.
+    pub this: bool,
+}
+
+/// The devices of the saved draft or, when `live`, of the newest profile any node holds, with this
+/// computer's key `this`. The draft stands in when no node answers, and it is never replaced here,
+/// as it may hold edits not yet published.
+pub async fn devices(
+    dir: &Path,
+    identity: &Identity,
+    this: &[u8],
+    live: bool,
+) -> Result<Vec<Device>, String> {
+    let draft = stored(&open(dir, identity)?)?;
+    let held = match network::load(dir, Settings::Active) {
+        Ok(Some(active)) if live => match connect(&active).await {
+            Ok(mut node) => publish::newest(&mut node, identity)
+                .await
+                .ok()
+                .flatten(),
+            Err(_) => None,
+        },
+        _ => None,
+    };
+    let profile = held
+        .filter(|held| held.version > draft.version)
+        .unwrap_or(draft);
+    Ok(publish::device_keys(&profile)
+        .into_iter()
+        .map(|key| Device {
+            this: key == this,
+            key,
+        })
+        .collect())
+}
+
 /// Closes the mailbox of the device with the key `device_key` and relists the profile without it;
 /// see `publish::revoke_device`. Errors as in [`publish`]; a failed step may be retried.
 pub async fn revoke_device(
