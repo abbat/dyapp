@@ -1,8 +1,9 @@
 //! Durable media descriptors; encrypted blob bytes remain on the media node.
 
-use super::{Body, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
+use super::{Body, ChatMessage, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::chat::AttachmentMessage;
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{params, OptionalExtension, Row, Transaction};
+use std::collections::HashMap;
 
 /// One media message in a pair's local history.
 #[derive(Clone, PartialEq, Eq)]
@@ -17,6 +18,70 @@ pub struct ChatAttachment {
     pub forwarded: bool,
     /// Absent for peer media or an own attachment received from another device.
     pub delivery: Option<DeliveryState>,
+}
+
+/// One entry of a pair's merged history.
+#[derive(Clone, PartialEq, Eq)]
+pub enum ChatItem {
+    /// A text or its deletion placeholder.
+    Text(ChatMessage),
+    /// A media message.
+    Attachment(ChatAttachment),
+}
+
+/// Original HLC, author, logical ID and group ID: the order shared by texts and attachments.
+pub(crate) type ItemOrder<'a> = (u64, &'a str, &'a [u8; 16], &'a [u8]);
+
+impl ChatMessage {
+    /// Absent for a legacy text, which has no sent time and sorts before any timed entry.
+    pub(crate) fn order(&self) -> Option<ItemOrder<'_>> {
+        let MessageKey { group, author, id } = &self.key;
+        let hlc = u64::from(self.original_hlc?);
+        Some((hlc, author.as_str(), id, group.as_slice()))
+    }
+}
+
+impl ChatAttachment {
+    pub(crate) fn order(&self) -> ItemOrder<'_> {
+        let MessageKey { group, author, id } = &self.key;
+        (self.message.hlc, author.as_str(), id, group.as_slice())
+    }
+}
+
+impl ChatItem {
+    fn order(&self) -> Option<ItemOrder<'_>> {
+        match self {
+            Self::Text(message) => message.order(),
+            Self::Attachment(attachment) => Some(attachment.order()),
+        }
+    }
+}
+
+/// Columns of a stored attachment, in the order `Store::attachment_from` expects.
+type StoredAttachment = (
+    Vec<u8>,
+    String,
+    Vec<u8>,
+    i64,
+    Vec<u8>,
+    i64,
+    i64,
+    Option<i64>,
+    Option<Vec<u8>>,
+);
+
+fn stored_attachment(row: &Row<'_>) -> rusqlite::Result<StoredAttachment> {
+    Ok((
+        row.get(0)?,
+        row.get(1)?,
+        row.get(2)?,
+        row.get(3)?,
+        row.get(4)?,
+        row.get(5)?,
+        row.get(6)?,
+        row.get(7)?,
+        row.get(8)?,
+    ))
 }
 
 pub(super) fn exists(tx: &Transaction<'_>, key: &MessageKey) -> Result<bool, Error> {
@@ -129,58 +194,105 @@ impl Store {
              WHERE `g`.`peer_id` = ?1
              ORDER BY `a`.`original_hlc`, `a`.`author`, `a`.`message_id`, `a`.`group_id`",
         )?;
-        let rows = query.query_map([peer_id], |row| {
+        let rows = query.query_map([peer_id], stored_attachment)?;
+        rows.map(|row| self.attachment_from(peer_id, row?))
+            .collect()
+    }
+
+    /// Merge a pair's texts and attachments. Legacy texts come first in local arrival order;
+    /// everything else follows original HLC, author, logical ID and group ID.
+    pub fn current_chat_items(&self, peer_id: &str) -> Result<Vec<ChatItem>, Error> {
+        let texts = self.current_chat_messages(peer_id)?;
+        let attachments = self.current_chat_attachments(peer_id)?;
+        let mut items: Vec<_> = texts
+            .into_iter()
+            .map(ChatItem::Text)
+            .chain(attachments.into_iter().map(ChatItem::Attachment))
+            .collect();
+        // The sort is stable, so legacy texts keep the arrival order they were read in.
+        items.sort_by(|a, b| a.order().cmp(&b.order()));
+        Ok(items)
+    }
+
+    /// Each peer's newest attachment and count of unread attachments, by Peer ID.
+    pub(crate) fn latest_chat_attachments(
+        &self,
+    ) -> Result<HashMap<String, (ChatAttachment, usize)>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `group_id`, `author`, `message_id`, `original_hlc`, `descriptor`, `unread`,
+                    `forwarded`, `delivery_state`, `delivery_generation`, `peer_id`,
+                    `unread_count`
+             FROM (
+                 SELECT `a`.`group_id`, `a`.`author`, `a`.`message_id`, `a`.`original_hlc`,
+                        `a`.`descriptor`, `a`.`unread`, `a`.`forwarded`, `a`.`delivery_state`,
+                        `a`.`delivery_generation`, `g`.`peer_id`,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY `g`.`peer_id`
+                            ORDER BY `a`.`original_hlc` DESC, `a`.`author` DESC,
+                                     `a`.`message_id` DESC, `a`.`group_id` DESC
+                        ) AS `attachment_rank`,
+                        SUM(`a`.`unread`) OVER (PARTITION BY `g`.`peer_id`) AS `unread_count`
+                 FROM `chat_attachments` AS `a`
+                 JOIN `conversation_groups` AS `g` ON `a`.`group_id` = `g`.`group_id`
+             )
+             WHERE `attachment_rank` = 1",
+        )?;
+        let rows = query.query_map([], |row| {
             Ok((
-                row.get::<_, Vec<u8>>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Vec<u8>>(2)?,
-                row.get::<_, i64>(3)?,
-                row.get::<_, Vec<u8>>(4)?,
-                row.get::<_, i64>(5)?,
-                row.get::<_, i64>(6)?,
-                row.get::<_, Option<i64>>(7)?,
-                row.get::<_, Option<Vec<u8>>>(8)?,
+                stored_attachment(row)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, i64>(10)?,
             ))
         })?;
         rows.map(|row| {
-            let (group, author, id, hlc, descriptor, unread, forwarded, delivery, generation) =
-                row?;
-            if (author != self.owner_peer_id && author != peer_id)
-                || !matches!(unread, 0 | 1)
-                || !matches!(forwarded, 0 | 1)
-                || (author == self.owner_peer_id && unread != 0)
-            {
-                return Err(Error::InboxConflict);
-            }
-            let id: [u8; 16] = id.try_into().map_err(|_| Error::InboxConflict)?;
-            let hlc = u64::try_from(hlc).map_err(|_| Error::InboxConflict)?;
-            let delivery = DeliveryState::from_stored(delivery)?;
-            if generation
-                .as_deref()
-                .is_some_and(|generation| generation != id.as_slice())
-                || generation.is_some() != delivery.is_some()
-                || (author != self.owner_peer_id && delivery.is_some())
-            {
-                return Err(Error::InboxConflict);
-            }
-            let body = Body::decode(&descriptor).map_err(|_| Error::InboxConflict)?;
-            let message = body.attachment_message().ok_or(Error::InboxConflict)?;
-            if message.id != id
-                || message.hlc != hlc
-                || matches!(&body, Body::Forwarded(_)) != (forwarded == 1)
-                || body.encode() != descriptor
-            {
-                return Err(Error::InboxConflict);
-            }
-            Ok(ChatAttachment {
-                key: MessageKey { group, author, id },
-                message: message.clone(),
-                unread: unread == 1,
-                forwarded: forwarded == 1,
-                delivery,
-            })
+            let (stored, peer_id, unread) = row?;
+            let attachment = self.attachment_from(&peer_id, stored)?;
+            let unread = usize::try_from(unread).map_err(|_| Error::InboxConflict)?;
+            Ok::<_, Error>((peer_id, (attachment, unread)))
         })
         .collect()
+    }
+
+    fn attachment_from(
+        &self,
+        peer_id: &str,
+        stored: StoredAttachment,
+    ) -> Result<ChatAttachment, Error> {
+        let (group, author, id, hlc, descriptor, unread, forwarded, delivery, generation) = stored;
+        if (author != self.owner_peer_id && author != peer_id)
+            || !matches!(unread, 0 | 1)
+            || !matches!(forwarded, 0 | 1)
+            || (author == self.owner_peer_id && unread != 0)
+        {
+            return Err(Error::InboxConflict);
+        }
+        let id: [u8; 16] = id.try_into().map_err(|_| Error::InboxConflict)?;
+        let hlc = u64::try_from(hlc).map_err(|_| Error::InboxConflict)?;
+        let delivery = DeliveryState::from_stored(delivery)?;
+        if generation
+            .as_deref()
+            .is_some_and(|generation| generation != id.as_slice())
+            || generation.is_some() != delivery.is_some()
+            || (author != self.owner_peer_id && delivery.is_some())
+        {
+            return Err(Error::InboxConflict);
+        }
+        let body = Body::decode(&descriptor).map_err(|_| Error::InboxConflict)?;
+        let message = body.attachment_message().ok_or(Error::InboxConflict)?;
+        if message.id != id
+            || message.hlc != hlc
+            || matches!(&body, Body::Forwarded(_)) != (forwarded == 1)
+            || body.encode() != descriptor
+        {
+            return Err(Error::InboxConflict);
+        }
+        Ok(ChatAttachment {
+            key: MessageKey { group, author, id },
+            message: message.clone(),
+            unread: unread == 1,
+            forwarded: forwarded == 1,
+            delivery,
+        })
     }
 }
 

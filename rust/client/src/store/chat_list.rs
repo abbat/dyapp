@@ -1,6 +1,7 @@
 //! Pair-wide Chats list projection from local conversations and current message rows.
 
-use super::messages::{ChatMessage, CurrentMessage, DeliveryState, MessageKey};
+use super::messages::attachments::ItemOrder;
+use super::messages::{ChatAttachment, ChatMessage, CurrentMessage, DeliveryState, MessageKey};
 use super::{Conversation, Error, Store};
 use dyapp_messaging::hlc::Timestamp;
 
@@ -13,12 +14,30 @@ pub struct ChatRow {
     pub state: Conversation,
     /// Latest current text or deletion placeholder; absent after Clear chat.
     pub last_message: Option<ChatMessage>,
-    /// Incoming current messages not yet viewed on this device.
+    /// The newest attachment when it is newer than `last_message`: the row's preview.
+    pub last_attachment: Option<ChatAttachment>,
+    /// Incoming current texts and attachments not yet viewed on this device.
     pub unread_count: usize,
 }
 
+impl ChatRow {
+    fn latest(&self) -> Option<ItemOrder<'_>> {
+        let text = || self.last_message.as_ref().and_then(ChatMessage::order);
+        self.last_attachment
+            .as_ref()
+            .map(ChatAttachment::order)
+            .or_else(text)
+    }
+
+    /// Timed rows, then legacy rows, then empty conversations.
+    fn group(&self) -> (bool, bool) {
+        let empty = self.last_message.is_none() && self.last_attachment.is_none();
+        (empty, self.latest().is_none())
+    }
+}
+
 impl Store {
-    /// Read active conversations, latest current messages and local unread counts.
+    /// Read active conversations, latest current texts and attachments, and local unread counts.
     /// Timed rows sort first by original HLC; legacy rows use local arrival order. Empty
     /// conversations follow rows with messages, then Peer ID breaks any remaining tie.
     pub fn chat_rows(&self) -> Result<Vec<ChatRow>, Error> {
@@ -71,6 +90,7 @@ impl Store {
                 row.get::<_, i64>(13)?,
             ))
         })?;
+        let mut attachments = self.latest_chat_attachments()?;
         let mut result = Vec::new();
         for row in rows {
             let (
@@ -142,13 +162,28 @@ impl Store {
             } else {
                 None
             };
+            let (last_attachment, unread_attachments) = match attachments.remove(&peer_id) {
+                Some((attachment, count)) => (Some(attachment), count),
+                None => (None, 0),
+            };
+            let last_attachment = last_attachment.filter(|attachment| {
+                let text = last_message.as_ref().and_then(ChatMessage::order);
+                text < Some(attachment.order())
+            });
+            let unread_texts = usize::try_from(count).map_err(|_| Error::InboxConflict)?;
             result.push(ChatRow {
                 peer_id,
                 state,
                 last_message,
-                unread_count: usize::try_from(count).map_err(|_| Error::InboxConflict)?,
+                last_attachment,
+                unread_count: unread_texts + unread_attachments,
             });
         }
+        // The sort is stable, so legacy and empty rows keep the order the query gave them.
+        result.sort_by(|a, b| {
+            let newest_first = || b.latest().cmp(&a.latest());
+            a.group().cmp(&b.group()).then_with(newest_first)
+        });
         Ok(result)
     }
 }

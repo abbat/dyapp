@@ -10,8 +10,8 @@ use dyapp_messaging::hlc::{ClockSkew, HybridClock, Timestamp, MAX_CLOCK_SKEW_MS}
 use dyapp_messaging::mls::Group;
 use rusqlite::{params, OptionalExtension, Transaction};
 
-mod attachments;
-pub use attachments::ChatAttachment;
+pub(crate) mod attachments;
+pub use attachments::{ChatAttachment, ChatItem};
 mod clear;
 #[cfg(test)]
 mod inbound_tests;

@@ -49,6 +49,12 @@ supported existing databases, so pre-release schema changes replace this schema 
 migration. Existing development databases must be recreated or restored from a matching version.
 The desktop no longer rewraps MLS snapshots or held tokens from the old device-derived sealing
 key. A database with a missing sealing secret fails closed instead of silently creating a new one.
+
+`current_chat_items` merges a pair's texts and attachments: legacy texts first in arrival order,
+then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across both
+kinds and sets `last_attachment` when a photo is newer than the last text. Apps still read
+`last_message`, so the desktop and mobile lists do not show photos yet.
+
 Attachment bodies carry a message-scoped logical ID and HLC. The Store has a separate
 `chat_attachments` projection for verified descriptors, keyed by group, author and logical ID;
 its direct write and pair read API preserve forwarded and local unread metadata across restart.
