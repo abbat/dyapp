@@ -261,7 +261,7 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
   unlikeDialog.close();
   window.likeDone = sendLike(false);
 });
-// A pass stays on this device: the card leaves its list at once and the open profile can undo it.
+// A pass stays with the own devices: the card leaves its list at once and the open profile can undo it.
 const sendPass = async (passed, call = invoke) => {
   const { found, card } = viewed;
   const generation = identityGeneration;

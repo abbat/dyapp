@@ -167,7 +167,8 @@ mailbox at once and each later one an hour after the previous. If two start, eve
 all of them and accepts from any. `Session::change_peer` sends a block, mute, contact name or pass
 there as `Body::PeerChange`: the HLC of each field decides, so an older event never overwrites a
 newer one and a repeat changes nothing. A device that hears a block revokes the peer's tokens too.
-The desktop client does not call it yet (planned). The cases:
+The desktop client stages the change at once, online or not, and its next catch-up sends it, at
+most a minute later. The cases:
 
 1. Two own devices send a first text at once: each makes a group, the canonical rule merges them;
    the recipient keeps the first text it receives and drops the other, which stays Sent, never

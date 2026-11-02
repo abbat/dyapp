@@ -69,25 +69,6 @@ pub fn blocked(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Shows `peer_id` in later searches again.
-pub fn unblock(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
-    open(dir, identity)?
-        .set_blocked(peer_id, false)
-        .map_err(|e| e.to_string())
-}
-
-/// Mutes `peer_id` or ends that: only notices change, never the mail or the unread counts.
-pub fn set_muted(
-    dir: &Path,
-    identity: &Identity,
-    peer_id: &str,
-    muted: bool,
-) -> Result<(), String> {
-    open(dir, identity)?
-        .set_muted(peer_id, muted)
-        .map_err(|e| e.to_string())
-}
-
 /// Peers passed on this device, by Peer ID.
 pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
     open(dir, identity)?
@@ -96,7 +77,8 @@ pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
 }
 
 pub mod commands {
-    use crate::chats::{self, Likes};
+    use crate::chats::{self, own, Likes, Sessions};
+    use dyapp_client::chat::PeerChange;
     use crate::identity_runtime::IdentityState;
 
     /// The open identity's privacy settings; see `privacy::load`.
@@ -130,27 +112,27 @@ pub mod commands {
         super::blocked(dir, identity)
     }
 
-    /// Unblocks a peer on this device; see `privacy::unblock`.
+    /// Shows a peer in later searches again.
     #[tauri::command]
-    pub(crate) fn unblock_peer(
+    pub(crate) async fn unblock_peer(
+        app: tauri::AppHandle,
         state: tauri::State<'_, IdentityState>,
+        sessions: tauri::State<'_, Sessions>,
         peer_id: String,
     ) -> Result<(), String> {
-        let lease = state.lease()?;
-        let (identity, dir) = lease.active();
-        super::unblock(dir, identity, &peer_id)
+        own::command(&app, &state, &sessions, peer_id, PeerChange::Blocked(false)).await
     }
 
-    /// Mutes a peer on this device or ends that; see `privacy::set_muted`.
+    /// Mutes a peer or ends that: only notices change, never the mail or the unread counts.
     #[tauri::command]
-    pub(crate) fn set_muted(
+    pub(crate) async fn set_muted(
+        app: tauri::AppHandle,
         state: tauri::State<'_, IdentityState>,
+        sessions: tauri::State<'_, Sessions>,
         peer_id: String,
         muted: bool,
     ) -> Result<(), String> {
-        let lease = state.lease()?;
-        let (identity, dir) = lease.active();
-        super::set_muted(dir, identity, &peer_id, muted)
+        own::command(&app, &state, &sessions, peer_id, PeerChange::Muted(muted)).await
     }
 
     /// Peers the open identity passed on this device.
@@ -163,16 +145,20 @@ pub mod commands {
         super::passed(dir, identity)
     }
 
-    /// Passes on a peer or undoes that; see `chats::pass`.
+    /// Passes on a peer or undoes that; no signal goes to the peer.
     #[tauri::command]
-    pub(crate) fn pass_peer(
+    pub(crate) async fn pass_peer(
+        app: tauri::AppHandle,
         state: tauri::State<'_, IdentityState>,
+        sessions: tauri::State<'_, Sessions>,
         peer_id: String,
         passed: bool,
     ) -> Result<Likes, String> {
+        let change = PeerChange::Passed(passed);
+        own::command(&app, &state, &sessions, peer_id.clone(), change).await?;
         let lease = state.lease()?;
         let (identity, dir) = lease.active();
-        chats::pass(dir, identity, &peer_id, passed)
+        chats::likes(dir, identity, &peer_id)
     }
 }
 
@@ -215,18 +201,5 @@ mod tests {
         save(&dir, &alice, changed).unwrap();
         assert_eq!(load(&dir, &alice), Ok(changed));
         assert_eq!(load(&other, &bob), Ok(defaults));
-    }
-
-    #[test]
-    fn unblock_returns_a_blocked_peer() {
-        let (dir, alice) = (temp_dir(), Identity::generate());
-        let peer = Identity::generate().peer_id().to_string();
-        open(&dir, &alice)
-            .unwrap()
-            .set_blocked(&peer, true)
-            .unwrap();
-        assert_eq!(blocked(&dir, &alice), Ok(vec![peer.clone()]));
-        unblock(&dir, &alice, &peer).unwrap();
-        assert_eq!(blocked(&dir, &alice), Ok(Vec::new()));
     }
 }

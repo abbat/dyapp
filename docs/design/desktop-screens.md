@@ -179,10 +179,10 @@ pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the m
 Block hides the peer from local search and chats, sits apart from Like as a quiet button under
 the fields, and is undone in Settings. It also removes the peer from the Liked you list. A like
 that fails to send but stays stored says it goes out later; the catch-up pass retries it. Pass, a
-quiet button beside Block, hides the peer from this device's later search and Liked you lists and
+quiet button beside Block, hides the peer from the owner's later search and Liked you lists and
 sends no signal. It replaces Like, is not offered while a like stands, and is undone in the same
 place (`view-unpass`) or in Settings; chats and mail are not affected. The
-desktop command persists the local block before trying to revoke issued write tokens through one
+desktop command persists the block and stages it for the own devices before trying to revoke issued write tokens through one
 node. Search reports whether revocation was unneeded, still pending, or confirmed by that node.
 Settings offers Retry token revocation for each blocked peer. After reopening, the network
 status is unknown because the acknowledgement is not stored; Retry is available. A successful

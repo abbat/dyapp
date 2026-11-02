@@ -2,8 +2,10 @@
 
 use std::sync::Mutex;
 
-use dyapp_client::store::{ContactName, Error, Store};
+use dyapp_client::chat::PeerChange;
+use dyapp_client::store::{ContactName, Store};
 
+use super::Sessions;
 use crate::search::{ProfileCache, SearchState};
 use crate::IdentityState;
 
@@ -70,20 +72,20 @@ pub fn contact_names(
 
 /// Gives a peer with a visible chat a local name; an empty name removes it.
 #[tauri::command]
-pub fn set_contact_name(
+pub async fn set_contact_name(
+    app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
+    sessions: tauri::State<'_, Sessions>,
     peer_id: String,
     name: String,
 ) -> Result<(), String> {
-    let lease = state.lease()?;
-    let (identity, dir) = lease.active();
-    let store = super::open_visible_chat(dir, identity, &peer_id)?;
-    store
-        .set_local_name(&peer_id, name.trim())
-        .map_err(|error| match error {
-            Error::InvalidName => "invalidName".to_owned(),
-            error => error.to_string(),
-        })
+    {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::open_visible_chat(dir, identity, &peer_id)?;
+    }
+    let change = PeerChange::Name(name.trim().to_owned());
+    super::own::command(&app, &state, &sessions, peer_id, change).await
 }
 
 #[cfg(test)]

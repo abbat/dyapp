@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use dyapp_client::chat::Event;
+use dyapp_client::chat::{Event, PeerChange};
 use dyapp_client::interactions::Kind;
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
@@ -28,6 +28,8 @@ pub(crate) mod presence;
 mod reads;
 #[path = "chats/send_photo.rs"]
 pub(crate) mod send_photo;
+#[path = "chats/own.rs"]
+pub(crate) mod own;
 #[path = "chats/view.rs"]
 mod view;
 pub use view::{BlockResult, ChatHistoryView, ChatRowView, MessageView, Revocation};
@@ -233,15 +235,6 @@ pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, St
     likes_in(&open(dir, identity)?, peer_id)
 }
 
-/// Passes on `peer_id` or undoes that, on this device only; no signal goes out.
-pub fn pass(dir: &Path, identity: &Identity, peer_id: &str, passed: bool) -> Result<Likes, String> {
-    let mut store = open(dir, identity)?;
-    store
-        .pass(peer_id, passed, presence::now_ms()?)
-        .map_err(|e| e.to_string())?;
-    likes_in(&store, peer_id)
-}
-
 /// Persist a local block before trying to revoke this profile's issued write tokens. A retry
 /// sends the same live keys again; a failed node call never undoes the local block.
 pub async fn block(
@@ -251,6 +244,10 @@ pub async fn block(
     peer_id: &str,
 ) -> Result<BlockResult, String> {
     search::block(dir, identity, peer_id)?;
+    let change = PeerChange::Blocked(true);
+    if let Err(error) = own::change_peer(root, dir, identity, peer_id, change).await {
+        return Ok(BlockResult::pending(error));
+    }
     let store = open(dir, identity)?;
     let today = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -477,6 +474,9 @@ pub async fn receive(
             profiles.push(newest.clone());
             let nodes = std::slice::from_mut(&mut node);
             let _ = session
+                .join_own_devices(nodes, &newest, now, &seal_key)
+                .await;
+            let _ = session
                 .add_own_devices(nodes, &newest, &profiles, now, &seal_key)
                 .await;
         }
@@ -543,7 +543,7 @@ pub mod commands {
     // wake sources if a minute of delivery delay becomes the complaint.
     const CATCH_UP_PERIOD: Duration = Duration::from_secs(60);
 
-    /// Locally blocks a Peer ID and reports this attempt's network token revocation.
+    /// Blocks a Peer ID on the own devices and reports this attempt's network token revocation.
     #[tauri::command]
     pub(crate) async fn block_peer(
         app: tauri::AppHandle,
