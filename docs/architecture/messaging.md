@@ -301,6 +301,12 @@ signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop se
 `chat::revoked` tells a device that its owner's newest profile no longer lists it, so it wipes its
 keys and MLS state. The linking screen and the wipe itself are planned with the client apps.
 
+A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
+`Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code
+erases the X25519 key on the next look. `publish::adopt` then restores the owner's local state on a
+fresh store, takes the newest profile with its photos as the draft, and `publish::relist` adds the
+device. Storing the identity key under the platform store comes with the linking screen.
+
 openmls keeps its state in memory. `Device::seal(key)` returns all of it (the signature key, unused
 KeyPackages and every group) as nonce ‖ ChaCha20-Poly1305 ciphertext under a 32-byte key the client
 keeps wrapped by the platform KeyStore; `Device::open(sealed, key)` restores the device and

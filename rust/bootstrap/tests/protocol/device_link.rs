@@ -3,6 +3,7 @@
 use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
+use dyapp_client::link::{Code, Invite};
 use dyapp_client::publish::{self, Failure};
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
@@ -229,4 +230,93 @@ async fn a_device_that_missed_an_edit_never_overwrites_it() {
     let tombstone = alice.node.get_profile(&owner).await.unwrap().profile;
     assert!(tombstone.deleted);
     assert_eq!(tombstone.version, kept.version);
+}
+
+#[tokio::test]
+async fn a_link_record_crosses_a_node_and_restores_the_owner() {
+    const NOW: u64 = 1_000_000;
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let owner = alice.identity.peer_id();
+    let mut phone = Store::open(&store_path("restore-phone"), &alice.identity).unwrap();
+    phone.set_blocked("bob", true).unwrap();
+    phone.set_local_name("carol", "Carrie").unwrap();
+    phone.pass("erin", true, 1_000).unwrap();
+    // Enough rows for a record over one envelope.
+    for peer in 0..4_000 {
+        phone
+            .set_local_name(&format!("peer-{peer}"), "a contact named here")
+            .unwrap();
+    }
+    phone.set_profile_hidden(true).unwrap();
+
+    let laptop_key = Identity::generate();
+    let mut invite = Invite::new(dyapp_client::mailbox(&laptop_key.public_key()), NOW).unwrap();
+    let code = Code::parse(&invite.code().text(), NOW).unwrap();
+    let mut stranger = Person::device(&address, Identity::generate(), 1).await;
+    stranger.node.put(&code.mailbox, vec![7; 64]).await.unwrap();
+    let mut inbox = Person::device(&address, Identity::generate(), 1).await.node;
+    assert!(invite
+        .receive(&mut inbox, &laptop_key, NOW)
+        .await
+        .unwrap()
+        .is_none());
+
+    code.send(
+        &mut alice.node,
+        &alice.identity,
+        &phone.link_state().unwrap(),
+        NOW,
+    )
+    .await
+    .unwrap();
+    let linked = invite
+        .receive(&mut inbox, &laptop_key, NOW)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(linked.identity.peer_id(), owner);
+    let (held, more) = inbox.fetch(&laptop_key).await.unwrap();
+    assert!(held.is_empty() && !more, "the parts were acked");
+
+    // The fresh store takes the state and the live profile, and the laptop lists itself.
+    let mut laptop = Person::device(
+        &address,
+        Identity::from_secret(&linked.identity.secret()),
+        2,
+    )
+    .await;
+    let mut store = Store::open(&store_path("restore-laptop"), &laptop.identity).unwrap();
+    let live = alice.node.get_profile(&owner).await.unwrap().profile;
+    let mut draft = publish::adopt(
+        &mut store,
+        &mut laptop.node,
+        &alice.identity,
+        &linked.state,
+        NOW,
+    )
+    .await
+    .unwrap();
+    assert!(store.blocked("bob").unwrap());
+    assert_eq!(store.local_name("carol").unwrap(), "Carrie");
+    assert_eq!(store.passed_peers().unwrap(), ["erin"]);
+    assert_eq!(store.own_profile_seen().unwrap(), live.version);
+
+    // The profile stays hidden, and the node serves both devices.
+    publish::list_device(&mut draft, laptop.device.certificate().clone());
+    let hidden = publish::relist(&store, &mut laptop.node, &alice.identity, &draft)
+        .await
+        .unwrap();
+    assert!(store.profile_hidden().unwrap());
+    assert_eq!(hidden.version, live.version + 3);
+    let served = alice.node.get_profile(&owner).await.unwrap().profile;
+    assert_eq!(
+        (served.version, served.deleted, served.devices.len()),
+        (live.version + 2, false, 2)
+    );
 }

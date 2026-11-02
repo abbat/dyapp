@@ -4,6 +4,7 @@
 //! A caller runs [`check`], calls [`work`] in short steps (saving the draft after each, so a
 //! cancelled publish resumes where it stopped), then [`publish`].
 
+use crate::store::profile_photos::{fits, MAX_PHOTO_BYTES};
 use crate::store::{self, Store};
 use crate::{Error, Node};
 use dyapp_identity::{key_hash, Identity, SignedRecord};
@@ -92,6 +93,53 @@ pub async fn publish(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
+    send_draft(store, node, identity, draft, false).await
+}
+
+/// [`publish`] a device list change, which leaves a hidden profile hidden. Returns the new draft.
+pub async fn relist(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+) -> Result<Profile, Failure> {
+    send_draft(store, node, identity, draft, store.profile_hidden()?).await
+}
+
+/// Starts the fresh store of a linked device from the record's `state` and the newest profile with
+/// its photos, kept as the draft. A failure may be retried. The caller then lists the device and
+/// calls [`relist`]; the draft of a hidden profile goes past it, as [`hide`] leaves it.
+pub async fn adopt(
+    store: &mut Store,
+    node: &mut Node,
+    identity: &Identity,
+    state: &[u8],
+    now: u64,
+) -> Result<Profile, Failure> {
+    store.import_link_state(state)?;
+    let held = newest(node, identity)
+        .await?
+        .ok_or(Error::Reply("the account has no profile"))?;
+    if held.deleted {
+        return Err(Error::Reply("the account was removed").into());
+    }
+    take_photos(store, node, &held).await?;
+    store.own_profile_age(held.version, now)?;
+    let draft = Profile {
+        version: held.version + u64::from(store.profile_hidden()?),
+        ..held
+    };
+    store.save_profile_draft(&draft)?;
+    Ok(draft)
+}
+
+async fn send_draft(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+    stay_hidden: bool,
+) -> Result<Profile, Failure> {
     let next = Profile {
         version: draft.version + 1,
         ..draft.clone()
@@ -107,6 +155,7 @@ pub async fn publish(
         let ours = Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits);
         let foreign = held.version == draft.version && held != ours && store.profile_hidden()?;
         if held != next && (held.version > draft.version || foreign) {
+            take_photos(store, node, &held).await?;
             store.save_profile_draft(&held)?;
             return Err(Failure::Missed);
         }
@@ -118,9 +167,47 @@ pub async fn publish(
     let profile = send(node, identity, next).await?;
     store.save_profile_draft(&profile)?;
     store.retain_profile_photos(&hashes)?;
+    if stay_hidden {
+        return hide(store, identity, &profile);
+    }
     store.hold_search_profile(&profile.sign(identity))?;
     store.set_profile_hidden(false)?;
     Ok(profile)
+}
+
+// Fetch the blobs of `profile` this store lacks, for a publish that may have to put them back. One
+// a node lost stays missing: nothing here can restore it.
+async fn take_photos(store: &Store, node: &mut Node, profile: &Profile) -> Result<(), Failure> {
+    for hash in photo_hashes(profile) {
+        let Ok(key) = <[u8; 32]>::try_from(hash.as_slice()) else {
+            continue;
+        };
+        if store.profile_photo(&hash)?.is_some() {
+            continue;
+        }
+        match patiently(async || node.get_media(&key).await).await {
+            Ok(blob) if fits(&blob, MAX_PHOTO_BYTES) => {
+                store.save_profile_blob(&blob)?;
+            }
+            Ok(_) | Err(Error::Status(Status::NotFound)) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+// Repeat a media request the node refused for its rate.
+async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Result<T, Error> {
+    let mut waits = 0;
+    loop {
+        match request().await {
+            Err(Error::Status(Status::RateLimited)) if waits < PUT_WAITS => {
+                waits += 1;
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            done => return done,
+        }
+    }
 }
 
 // The owner's profile at `node`, if it has one.
@@ -196,16 +283,7 @@ async fn upload_photos(
         let blob = store
             .profile_photo(&hash)?
             .ok_or(Error::Reply("kept photo is not in the store"))?;
-        let mut waits = 0;
-        loop {
-            match node.put_media(&identity.peer_id(), blob.clone()).await {
-                Err(Error::Status(Status::RateLimited)) if waits < PUT_WAITS => {
-                    waits += 1;
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                }
-                put => break put?,
-            }
-        }
+        patiently(async || node.put_media(&identity.peer_id(), blob.clone()).await).await?;
     }
     Ok(())
 }

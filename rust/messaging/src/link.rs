@@ -45,6 +45,11 @@ impl LinkKey {
         &self.public
     }
 
+    /// Erases the private key: nothing opens any more.
+    pub fn erase(&mut self) {
+        self.private = None;
+    }
+
     /// Opens a [`seal`]ed record; the private key is erased on success.
     pub fn open(&mut self, sealed: &[u8]) -> Result<Vec<u8>, Error> {
         let private = self.private.as_ref().ok_or(Error::State)?;

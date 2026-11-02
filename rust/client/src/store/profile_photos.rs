@@ -30,7 +30,8 @@ pub fn fits(jpeg: &[u8], limit: usize) -> bool {
 }
 
 impl Store {
-    fn save_profile_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
+    /// Stores a blob of the published profile under its hash, as a linked device takes it.
+    pub fn save_profile_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
         let hash = sha256(data).to_vec();
         self.db.execute(
             "INSERT OR IGNORE INTO `settings` (`key`, `format_version`, `value`)

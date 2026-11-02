@@ -34,8 +34,9 @@ requires, so a device can be removed from groups and its mailbox closed.
    identity, and waits for a confirmation. A contact QR scanner refuses a `dyapp-link` code.
 3. It seals a link record to the X25519 key and puts it in that mailbox, in numbered parts that
    each fit the 100 KiB envelope limit. The record holds the identity key and the owner's local
-   state: likes, passes, blocks, mutes, contact names and verified marks. The X25519 private key
-   is erased after the last part; a code expires after five minutes.
+   state: likes, passes, blocks, mutes, contact names, verified marks and whether the profile is
+   hidden. The X25519 private key is erased once a record opens or the code expires; a code expires
+   after five minutes.
 4. The new device stores the identity key under its own platform store, fetches the newest
    profile from nodes, certifies its device, signs the owner binding, publishes the profile with
    itself added at a higher version, and publishes KeyPackages.

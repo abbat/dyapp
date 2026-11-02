@@ -2,7 +2,7 @@
 //! ([ADR 0040](../../../docs/decisions/0040-device-linking.md)). This is the only way the identity
 //! key leaves a store.
 
-use crate::{unhex, Error};
+use crate::{unhex, Error, Node};
 use dyapp_identity::Identity;
 use dyapp_messaging::link::{seal, LinkKey};
 use std::collections::BTreeMap;
@@ -101,6 +101,20 @@ impl Code {
             })
             .collect())
     }
+
+    /// Seals the record and puts its parts in the code's mailbox.
+    pub async fn send(
+        &self,
+        node: &mut Node,
+        identity: &Identity,
+        state: &[u8],
+        now: u64,
+    ) -> Result<(), Error> {
+        for part in self.seal_record(identity, state, now)? {
+            node.put(&self.mailbox, part).await?;
+        }
+        Ok(())
+    }
 }
 
 /// The new device's side of a link: the one-use key behind a code.
@@ -140,10 +154,48 @@ impl Invite {
         &self.code
     }
 
+    /// The record waiting in the mailbox of `device_key`, if a complete one opens. Poll this until
+    /// the code expires; the call after that erases the key.
+    pub async fn receive(
+        &mut self,
+        node: &mut Node,
+        device_key: &Identity,
+        now: u64,
+    ) -> Result<Option<Linked>, Error> {
+        self.live(now)?;
+        let (mut parts, mut ids, mut cursor) = (Vec::new(), Vec::new(), None);
+        loop {
+            let page = node.fetch_page(device_key, cursor.as_deref(), 100).await?;
+            for envelope in page.envelopes {
+                ids.push(envelope.id);
+                parts.push(envelope.ciphertext);
+            }
+            if !page.more {
+                break;
+            }
+            cursor = page.next_cursor;
+        }
+        let linked = self.open(&parts, now)?;
+        if linked.is_some() {
+            // The key is gone, so a lost ack must not lose the record; the parts expire unread.
+            let _ = node.ack(device_key, ids).await;
+        }
+        Ok(linked)
+    }
+
+    // An expired code takes its key with it.
+    fn live(&mut self, now: u64) -> Result<(), Error> {
+        let state = self.code.check(now);
+        if state.is_err() {
+            self.key.erase();
+        }
+        state
+    }
+
     /// Looks for a record in what the mailbox holds, in any order and among anything else. `None`
     /// means no complete record opened yet: someone who saw the code cannot spend the key with junk.
     pub fn open(&mut self, parts: &[Vec<u8>], now: u64) -> Result<Option<Linked>, Error> {
-        self.code.check(now)?;
+        self.live(now)?;
         let mut records: BTreeMap<(&[u8], u16), BTreeMap<u16, &[u8]>> = BTreeMap::new();
         for part in parts.iter().filter(|part| part.len() > HEADER_LEN) {
             let (id, rest) = part.split_at(ID_LEN);
@@ -252,5 +304,7 @@ mod tests {
         assert!(code.seal_record(&identity, b"", code.expires_at).is_err());
         let parts = code.seal_record(&identity, b"", NOW).unwrap();
         assert!(invite.open(&parts, code.expires_at).is_err());
+        // The key went with the code: even a clock set back opens nothing.
+        assert!(invite.open(&parts, NOW).unwrap().is_none());
     }
 }
