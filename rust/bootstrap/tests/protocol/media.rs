@@ -13,13 +13,87 @@ use std::slice::from_mut;
 const SEAL: [u8; 32] = [6; 32];
 
 async fn media_node() -> Multiaddr {
+    media_node_at(10).await
+}
+
+async fn media_node_at(media_requests_per_second: u32) -> Multiaddr {
     start_config(|config| {
         config.roles = vec![Role::Store, Role::Media];
         config.limits.requests_per_second = 1000;
+        config.limits.media_requests_per_second = media_requests_per_second;
         config.limits.min_free_mb = 0;
         config.limits.require_write_tokens = false;
     })
     .await
+}
+
+#[tokio::test]
+async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
+    let address = media_node_at(1000).await;
+    let connect = || {
+        dyapp_client::Node::connect(
+            address.clone(),
+            std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
+        )
+    };
+    let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
+    let owner = Identity::generate();
+    let store = Store::open(&store_path("photo-keep"), &owner).unwrap();
+    let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
+    let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
+    let published = publish::publish(&store, &mut node, &owner, &draft)
+        .await
+        .unwrap();
+    let photo = published.photos[0].clone();
+    let hash: [u8; 32] = photo.full[0].clone().try_into().unwrap();
+    let small = vec![photo.thumbnail.clone()];
+    let now = 1_000_000;
+
+    // The node dropped the full image, and that list sits one version past the profile.
+    node.keep_media(&owner, published.version + 1, small.clone())
+        .await
+        .unwrap();
+    assert!(reader.get_media(&hash).await.is_err());
+    publish::refresh_photos(&store, &mut node, &owner, now)
+        .await
+        .unwrap();
+    assert_eq!(reader.get_media(&hash).await.unwrap(), full);
+
+    // Within a day nothing is sent, so the next loss stays until the day has passed.
+    node.keep_media(&owner, published.version + 3, small)
+        .await
+        .unwrap();
+    publish::refresh_photos(&store, &mut node, &owner, now + 86_399)
+        .await
+        .unwrap();
+    assert!(reader.get_media(&hash).await.is_err());
+
+    // An unpublished removal changes nothing for readers of the live profile.
+    assert!(store.remove_profile_photo(0).unwrap().photos.is_empty());
+    publish::refresh_photos(&store, &mut node, &owner, now + 86_400)
+        .await
+        .unwrap();
+    assert_eq!(reader.get_media(&hash).await.unwrap(), full);
+}
+
+#[tokio::test]
+async fn six_photos_fit_the_default_rate_of_a_node() {
+    let address = media_node().await;
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let mut node = dyapp_client::Node::connect(address, protocols)
+        .await
+        .unwrap();
+    let owner = Identity::generate();
+    let store = Store::open(&store_path("six-photos"), &owner).unwrap();
+    for seed in 1..=6 {
+        store
+            .add_profile_photo(&[0xFF, 0xD8, 0xFF, seed], &[0xFF, 0xD8, 0xFF, 0x10 + seed])
+            .unwrap();
+    }
+    let draft = store.profile_draft().unwrap().unwrap();
+    publish::publish(&store, &mut node, &owner, &draft)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

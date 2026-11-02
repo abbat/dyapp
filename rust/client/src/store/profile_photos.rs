@@ -14,6 +14,10 @@ pub const MAX_PHOTO_BYTES: usize = 512 * 1024;
 pub const MAX_THUMBNAIL_BYTES: usize = 24 * 1024;
 
 const PREFIX: &str = "profile_photo:";
+/// Unix second of the last keep refresh, as 8 big-endian bytes.
+const KEPT: &str = "profile_photos_kept";
+/// Seconds between keep refreshes.
+const KEEP_INTERVAL: u64 = 86_400;
 
 fn key(hash: &[u8]) -> String {
     let hex: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
@@ -102,6 +106,34 @@ impl Store {
         Ok(!self.profile_photo_keys()?.is_empty())
     }
 
+    /// Whether a keep refresh is due at Unix second `now`. A clock moved back counts as elapsed, so
+    /// it cannot stop the refresh for as long as it moved.
+    pub fn profile_keep_due(&self, now: u64) -> Result<bool, Error> {
+        let kept: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT `value` FROM `settings` WHERE `key` = ?1 AND `format_version` = 1",
+                [KEPT],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(kept) = kept else {
+            return Ok(true);
+        };
+        let kept: [u8; 8] = kept.try_into().map_err(|_| Error::InvalidSetting)?;
+        Ok(now.abs_diff(u64::from_be_bytes(kept)) >= KEEP_INTERVAL)
+    }
+
+    /// Records a keep refresh attempted at `now`.
+    pub fn profile_keep_refreshed(&self, now: u64) -> Result<(), Error> {
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+            params![KEPT, now.to_be_bytes().to_vec()],
+        )?;
+        Ok(())
+    }
+
     /// Deletes every blob but `hashes`, after the profile that lists them is published.
     pub fn retain_profile_photos(&self, hashes: &[Vec<u8>]) -> Result<(), Error> {
         let wanted: Vec<String> = hashes.iter().map(|hash| key(hash)).collect();
@@ -125,6 +157,20 @@ mod tests {
         let mut data = vec![0xFF, 0xD8, 0xFF, seed];
         data.resize(bytes, seed);
         data
+    }
+
+    #[test]
+    fn the_keep_refresh_is_due_once_a_day() {
+        let owner = Identity::generate();
+        let store = Store::open(&temp_db_path(), &owner).unwrap();
+        assert!(store.profile_keep_due(1_000_000).unwrap());
+        store.profile_keep_refreshed(1_000_000).unwrap();
+        assert!(!store.profile_keep_due(1_000_000).unwrap());
+        assert!(!store.profile_keep_due(1_086_399).unwrap());
+        assert!(store.profile_keep_due(1_086_400).unwrap());
+        assert!(store.profile_keep_due(900_000).unwrap());
+        // The keep time is no photo.
+        assert!(!store.has_profile_photos().unwrap());
     }
 
     #[test]

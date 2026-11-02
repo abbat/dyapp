@@ -116,9 +116,37 @@ fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
     hashes
 }
 
+/// Refused keeps before a photo upload gives up. Each failed publish can leave one more version.
+const KEEP_REFUSALS: u32 = 8;
+/// One-second waits for a blob the node refused for its rate. Six photos are 13 requests, and a
+/// node takes ten media requests a second by default.
+const PUT_WAITS: u32 = 5;
+
+/// Renews the node's hold on the published photos at most once a day and puts back whatever it
+/// lost. The list comes from the live profile: a draft may hold edits that are not published, and
+/// a keep with them would release a photo readers still see. A failed attempt waits for the next
+/// day, because a failure that repeats would otherwise cost requests on every pass.
+pub async fn refresh_photos(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    now: u64,
+) -> Result<(), Failure> {
+    if !store.profile_keep_due(now)? || !store.has_profile_photos()? {
+        return Ok(());
+    }
+    store.profile_keep_refreshed(now)?;
+    let live = node.get_profile(&identity.peer_id()).await?.profile;
+    let hashes = photo_hashes(&live);
+    if !hashes.is_empty() {
+        upload_photos(store, node, identity, live.version, &hashes).await?;
+    }
+    Ok(())
+}
+
 // Replace the node's list with `hashes` and put what it lacks. The node refuses another list at an
 // equal version, and a failed publish may leave one there, so a refusal moves past both that and
-// any newer profile.
+// any newer profile, one version at a time because the refusal does not name the node's version.
 async fn upload_photos(
     store: &Store,
     node: &mut Node,
@@ -126,20 +154,31 @@ async fn upload_photos(
     version: u64,
     hashes: &[Vec<u8>],
 ) -> Result<(), Failure> {
-    let missing = match node.keep_media(identity, version, hashes.to_vec()).await {
-        Err(Error::Status(Status::Stale)) => {
-            let held = node.get_profile(&identity.peer_id()).await;
-            let held = held.map_or(0, |held| held.profile.version);
-            node.keep_media(identity, held.max(version) + 1, hashes.to_vec())
-                .await?
+    let (mut version, mut refused) = (version, 0);
+    let missing = loop {
+        match node.keep_media(identity, version, hashes.to_vec()).await {
+            Err(Error::Status(Status::Stale)) if refused < KEEP_REFUSALS => {
+                refused += 1;
+                let held = node.get_profile(&identity.peer_id()).await;
+                version = held.map_or(0, |held| held.profile.version).max(version) + 1;
+            }
+            missing => break missing?,
         }
-        missing => missing?,
     };
     for hash in missing {
         let blob = store
             .profile_photo(&hash)?
             .ok_or(Error::Reply("kept photo is not in the store"))?;
-        node.put_media(&identity.peer_id(), blob).await?;
+        let mut waits = 0;
+        loop {
+            match node.put_media(&identity.peer_id(), blob.clone()).await {
+                Err(Error::Status(Status::RateLimited)) if waits < PUT_WAITS => {
+                    waits += 1;
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+                put => break put?,
+            }
+        }
     }
     Ok(())
 }

@@ -4,8 +4,8 @@ How a client publishes, fetches and keeps public profile photos. The wire format
 [protobuf-schema.md](../architecture/protobuf-schema.md); node rules are in
 [bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
 publishing, and the desktop has the editor and shows photos on search and liked cards and in
-`profile-view`. Photos on chat rows and identity avatars, viewing on Android and Apple, the editor
-there, and the keep refresh of step 4 are planned.
+`profile-view`, and its catch-up pass runs the keep refresh of step 4. Photos on chat rows and
+identity avatars, and viewing, the editor and the keep refresh on Android and Apple are planned.
 
 ## Limits
 
@@ -34,12 +34,15 @@ then shows the node's `FULL` reply and keeps the photo local.
    a reader of the older profile briefly sees the placeholder. Withdrawing the identity sends an
    empty keep after the tombstone.
 4. The catch-up pass refreshes the keep with a newer signed `time`, at most once a day, and puts
-   back whatever it reports missing, so photos outlive node churn while the owner is active.
+   back whatever it reports missing, so photos outlive node churn while the owner is active. The
+   list comes from the node's live profile, not the draft, whose unpublished removals would
+   release a photo readers still see. A failed attempt waits for the next day.
 
 `keep` uses the profile `version`. A node refuses a different list at an equal version, which a
-failed publish can leave behind, so the client then moves one version past it. The store holds own
-photos until a publish drops them, so a repair needs no original file. The bare JPEG and byte
-limits are checked where the blob enters the store; the desktop checks pixels before that, because
+failed publish can leave behind, so the client then moves past it, one version per refusal up to
+eight. The store holds own photos until a publish drops them, so a repair needs no original file.
+The bare JPEG and byte limits are checked where the blob enters the store; the desktop checks
+pixels before that, because
 `rust/client` has no image decoder.
 
 ## Viewing

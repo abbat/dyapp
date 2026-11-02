@@ -481,6 +481,9 @@ pub async fn receive(
             .keep_last_resort(&mut node, device_key, dyapp_client::now(), &seal_key)
             .await;
     }
+    // Best effort like the package above; it tries again the next day.
+    let now = dyapp_client::now();
+    let _ = dyapp_client::publish::refresh_photos(session.store(), &mut node, identity, now).await;
     Ok(changed)
 }
 
