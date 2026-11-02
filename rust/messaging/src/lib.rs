@@ -2,6 +2,8 @@
 
 /// Hybrid logical timestamps and deterministic ordering.
 pub mod hlc;
+/// Sealing a link record to a one-use key.
+pub mod link;
 /// Serializable message fields and caller-assigned status.
 pub mod message;
 /// End-to-end encrypted groups over MLS.

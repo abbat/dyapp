@@ -55,7 +55,7 @@ pub enum Error {
     Mls(String),
 }
 
-fn mls(error: impl std::fmt::Display) -> Error {
+pub(crate) fn mls(error: impl std::fmt::Display) -> Error {
     Error::Mls(error.to_string())
 }
 

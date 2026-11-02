@@ -8,6 +8,8 @@ pub mod attachment;
 pub mod chat;
 pub mod compatibility;
 pub mod interactions;
+/// The device link code and record.
+pub mod link;
 pub mod places;
 pub mod profiles;
 pub mod publish;

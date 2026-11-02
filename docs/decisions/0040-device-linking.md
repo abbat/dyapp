@@ -75,7 +75,7 @@ device from groups. The dropped device wipes its keys and state on learning this
 - Turns delay a link by an hour for each earlier own device that stays offline. They do not cover
   an earlier device returning exactly as a later turn commits, or a contact committing to the
   group at that moment: such a fork stays possible.
-- X25519 sealing may add a direct dependency, recorded when it lands.
+- X25519 sealing uses the HPKE of the MLS crypto provider, so it adds no direct dependency.
 - History transfer stays possible later and needs its own decision.
 
 ## Alternatives and trade-offs
