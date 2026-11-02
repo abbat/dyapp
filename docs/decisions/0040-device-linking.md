@@ -25,7 +25,9 @@ move.
 **Every linked device holds the identity key.** Device and MLS keys stay per device, as ADR 0019
 requires, so a device can be removed from groups and its mailbox closed.
 
-**Linking.** It starts only from Devices in Settings on both sides.
+**Linking.** The device that gives the key starts from Devices in Settings, never from a link
+or a message. The new device starts from Devices too or, with no identity yet, from first run:
+it makes an ordinary identity to reach the network settings and erases that identity on success.
 
 1. The new device makes its device key and a one-use X25519 key, and shows a `dyapp-link` QR code
    with the public X25519 key and its mailbox address. A device without a camera takes the same

@@ -28,7 +28,11 @@ DESKTOP = [
     "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
     "delete-dialog",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
-    "revoked-dialog",
+    "revoked-dialog", "wizard-network-link", "link-show", "link-offline",
+    "link-expired", "link-finishing", "link-done", "link-done-pending",
+    "chat-linked", "devices-sent", "device-code-dialog", "device-code-error",
+    "device-code-bad",
+    "device-confirm-dialog", "disconnect-dialog", "disconnect-offline",
 ]
 ANDROID = [
     "lock-setup", "lock-unlock",

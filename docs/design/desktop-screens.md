@@ -30,6 +30,7 @@ says the key is kept unencrypted. Nothing is created before **Create identity**.
 | System keyring | `system-choice` | Radio, preselected when available |
 | File in the app folder | `file-choice` | Radio; says the key is unencrypted |
 | No-backup line | `no-backup` | Calm text, no reminder later |
+| Link to an identity I already use | `link-identity` | Creates an ordinary identity, then asks for the network and shows the link code |
 | Create identity | `create-identity` | Primary |
 
 `wizard-network`: step 2 of 2, may be skipped. Same form and outcome as the Network screen.
@@ -341,6 +342,7 @@ over a direct path.
 | Closed notice | `chat-closed-notice` | `chat-closed` only |
 | New-device notice | `chat-new-device-notice` | `chat-new-device` only; stays until acknowledged |
 | I understand | `chat-new-device-ack` | Ends the notice, keeps the mark off |
+| History notice | `chat-linked-notice` | `chat-linked` only: a linked device reads a chat from the moment it joined |
 | Request notice | `chat-request-notice` | `chat-request` only |
 | Block | `request-block` | In the request notice |
 | Message actions | `msg-menu` | Edit and Delete on own messages |
@@ -378,6 +380,35 @@ or sent. It replaces the public name everywhere, and an empty field removes it. 
 | Cancel | `delete-cancel` | Left, focused |
 | Delete | `delete-confirm` | Right |
 
+## Linking this computer
+
+The new computer needs an identity and a network before it can show a code, because a network
+belongs to an identity. **Link to an identity I already use** therefore makes an ordinary identity,
+then opens `wizard-network-link`: the network step without the Peer ID, as that identity is about
+to go, and with Cancel (`link-network-cancel`) in place of Skip, which keeps that identity as an
+ordinary one. **Link this computer to another identity** in Settings skips both and
+uses the current network.
+
+`link-show` shows the code as a QR code and as text and waits five minutes. `link-offline` is the
+same page while no node answers. `link-expired` drops the code and offers a new one: nothing was
+shared. Cancel, here and in these two states, leaves the identity the wizard made, ready to use.
+`link-finishing` follows when the record arrives and has no Cancel, as the key is already here.
+`link-done` names the identity joined and says chats start now. `link-done-pending`
+adds that the network has not accepted this computer yet; the app keeps trying while it is open.
+The identity the wizard made is erased at this point, and it was never published.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| QR code | `link-qr` | Same text as the code; desktop cannot scan it yet, a phone will |
+| Copy | `copy-link-code` | |
+| Link code | `link-code` | `dyapp-link:1:…`, wraps |
+| Status | `link-status` | Polite live region: waiting, no node, expired, finishing |
+| Cancel | `link-cancel` | Not in `link-finishing` |
+| Show a new code | `link-new` | `link-expired` only, primary |
+| Identity joined | `link-peer` | Avatar and short Peer ID |
+| Not accepted yet | `link-pending` | `link-done-pending` only |
+| Open identity | `link-open` | Primary |
+
 ## Settings and removal
 
 `settings`. Privacy settings are local to the identity and never published. Defaults: no profile
@@ -389,6 +420,11 @@ sending off never stops receiving.
 | Identities | `settings-identities` | Avatar, short Peer ID, Active or storage kind |
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
+| Devices | `devices` | Short device key per row, this computer marked and without Disconnect; the hint says what a disconnected device can still do |
+| Disconnect | `device-disconnect` | Per other device, opens `disconnect-dialog` |
+| Link a new device | `device-link` | Opens `device-code-dialog` |
+| Link this computer to another identity | `device-join` | Opens `link-show` |
+| Device status | `devices-status` | `devices-sent` only, polite live region |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |
@@ -427,3 +463,30 @@ decided on the other device, and says why the identity left this computer.
 | Control | ID | Notes |
 | --- | --- | --- |
 | OK | `revoked-ok` | Focused, closes the notice |
+
+`device-code-dialog` takes the code the new device shows, by paste; a desktop camera scan of a
+link code is planned. `device-code-error` is an expired code and `device-code-bad` text that is
+no code. Continue opens `device-confirm-dialog`, which says what full control means and sends
+nothing until it is confirmed. `devices-sent` follows: the new device appears in the list when it
+finishes.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| Code from the new device | `device-code` | Focused |
+| Expired | `device-code-problem` | `device-code-error` only |
+| Not a code | `device-code-invalid` | `device-code-bad` only |
+| Cancel | `device-code-cancel` | |
+| Continue | `device-code-next` | Primary |
+| Cancel | `device-confirm-cancel` | Left, focused |
+| Give full control | `device-confirm-action` | Right |
+
+`disconnect-dialog` names the device by short key. `disconnect-offline`: no node took the update,
+so nothing changed and the action reads Retry.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| Device | `disconnect-device` | Short key |
+| No node answered | `disconnect-problem` | `disconnect-offline` only |
+| Cancel | `disconnect-cancel` | Left, focused |
+| Disconnect | `disconnect-action` | Right |
+| Retry | `disconnect-retry` | `disconnect-offline` only |

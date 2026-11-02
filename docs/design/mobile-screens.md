@@ -115,6 +115,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   chat. A chat row shows the short Peer ID rather than a name and opens the chat. The app receives
   the mailbox every minute while it is in the foreground, on every section and in a chat; failures
   stay quiet.
+- Linking a phone to an identity and the Devices list are planned; the desktop screens define the
+  flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),

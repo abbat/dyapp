@@ -73,6 +73,24 @@ States with no finding: `wizard-identity`, `picker`, `publish-dialog`, `publish-
 `network-checking`, `search`, `profile-view`, `chat-menu`, `chat-clear-dialog`, `chat-cleared`,
 `switcher`, `menu`, `remove-offline`, `revoked-dialog`.
 
+Devices, reviewed on the prototype shots in EN and RU at 440 and 1280 px before any code:
+
+| State | Heuristic | Problem | Fix |
+| --- | --- | --- | --- |
+| `link-expired` | H1, H8 | An old title and an empty QR frame after the code had gone | The title stays neutral, the code and QR go, the page says nothing was shared and offers a new code |
+| `link-finishing` | H3 | Cancel offered after the key had arrived, which could undo nothing | No Cancel in this state |
+| `wizard-network-link` | H2, H3, H8 | Skip and the Peer ID of an identity about to be erased, and with Skip gone no way out | Both hidden, Cancel keeps the identity; the step says Link this computer |
+| `disconnect-offline` | H4 | The same action word after a failure, where removal says Retry | Retry, as in `remove-offline` |
+| `devices` | H8 | Two equal buttons, the rare one first | Link a new device is the button, the other a quiet link under it |
+| `device-confirm-dialog` | H5 | A pasted code could hand over the key with one click, the shape of a phishing request | A separate dialog says what the device gets and to stop if someone sent the code; Cancel has focus |
+| `device-code-error`, `device-code-bad` | H9 | One message for two causes | One message per cause, each with its next step |
+| `disconnect-dialog` | H5 | A device with a name nobody gave it is easy to confuse | The row and the dialog show the same short key |
+| `devices` | H10 | Disconnecting looks complete, though a copied key can add itself back | The hint says so and names the only full recovery |
+| `link-done-pending` | H1 | Success with contacts unable to reach the computer yet | A warning says what is pending and that it finishes by itself |
+
+States with no finding: `link-show`, `link-offline`, `link-done`, `devices-sent`,
+`device-code-dialog`, `chat-linked`.
+
 ### Shipped UI
 
 The states `make ui-test-linux` saves to `build/ux-research/current/`, checked the same way.
