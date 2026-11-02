@@ -11,7 +11,8 @@ shell with the Profile, Search, Chats, Network and Settings areas and both first
 Chats now shows local requests, conversations and text history with send, Edit, Delete and Clear
 controls; remaining chat actions and the switcher are planned. Its controller is
 `clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
-cards and place lookup; `chats-photo-send.js` follows it and sends a picked photo.
+cards and place lookup; `chats-photo-send.js` follows it and sends a picked photo, and
+`profile-photos.js` follows that and shares its canvas encoding for the profile editor.
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
 contracts.
 
@@ -102,6 +103,8 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | Status | `profile-status` | Draft, published with version, or hidden |
 | Hide from search | `profile-hidden` | Switch |
 | Hidden notice | `profile-hidden-notice` | Only while hidden |
+| Photos | `profile-photos` | Up to six tiles, the first marked main; Move left, Move right and Remove on each, with no move past an end |
+| Add photo | `profile-photo-add` | Disabled at six; `profile-photo-limit` then replaces `profile-photo-hint` |
 | Public name | `profile-name` | Optional, at most 64 characters, no hidden symbols |
 | Gender | `profile-gender` | |
 | Looking for | `profile-goal` | |
@@ -112,8 +115,13 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | Save draft | `profile-save` | |
 | Preview and publish | `profile-publish` | Primary; opens the dialog |
 
-`publish-dialog` lists exactly the public fields and needs both boxes; `publish-progress` shows the
-proof of work with elapsed time. Cancel is left and focused.
+`photo-remove-dialog` asks before a photo leaves the draft: `photo-remove-cancel` is left and
+focused, `photo-remove-confirm` is right. A change keeps focus on the moved photo, or moves it to
+Add photo after an add or a removal. Status line states are in
+[profile photos](profile-photos.md#states).
+
+`publish-dialog` lists exactly the public fields, with the number of photos, and needs both boxes;
+`publish-progress` shows the proof of work with elapsed time. Cancel is left and focused.
 
 | Control | ID | Notes |
 | --- | --- | --- |

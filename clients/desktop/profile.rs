@@ -15,6 +15,7 @@ use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
+use dyapp_p2p_net::proto::Status;
 use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{is_clean_text, CivilDate, Profile, MAX_FIELD_CHARS};
 
@@ -77,6 +78,9 @@ pub struct Draft {
     /// Decimal [`places::Place::id`] in `country`, empty when unset.
     #[serde(default)]
     pub place: String,
+    /// The thumbnail hash of each photo, in order. The photo commands change them, not a save.
+    #[serde(default, skip_deserializing)]
+    pub photos: Vec<Vec<u8>>,
 }
 
 /// A place offered by the place picker.
@@ -169,7 +173,7 @@ pub fn today() -> Result<CivilDate, String> {
     CivilDate::from_unix_days(now.as_secs() / 86_400).ok_or_else(|| "Clock out of range".into())
 }
 
-fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
+pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
 
@@ -196,11 +200,20 @@ impl From<&Profile> for Draft {
             name: profile.name.clone(),
             country: profile.country.clone(),
             place: profile.place.clone(),
+            photos: profile
+                .photos
+                .iter()
+                .map(|photo| photo.thumbnail.clone())
+                .collect(),
         }
     }
 }
 
-fn view(profile: &Profile, today: CivilDate, store: Option<&Store>) -> Result<View, String> {
+pub(crate) fn view(
+    profile: &Profile,
+    today: CivilDate,
+    store: Option<&Store>,
+) -> Result<View, String> {
     let (search_minutes, hidden) = match store {
         Some(store) => (
             store
@@ -360,9 +373,18 @@ pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
     Ok(nodes)
 }
 
+/// The page's code for a failed publish; anything else is shown as it is.
+fn publish_code(failure: publish::Failure) -> String {
+    match failure {
+        publish::Failure::Node(dyapp_client::Error::Status(Status::Full)) => "full".into(),
+        failure => failure.to_string(),
+    }
+}
+
 /// Publishes the solved draft to the active network and checks the signed readback; see
 /// `publish::publish`. Errors are `blocked: <code>`, `unsolved`, `notConnected` (no active
-/// network or no answering node) or a node or storage message; each leaves the draft as it was.
+/// network or no answering node), `full` (the node's quota has no room for the photos) or a node
+/// or storage message; each leaves the draft as it was.
 /// The profile lists this device, made on the first publish under `device_key`, and its
 /// KeyPackages follow, so peers can invite it to chats.
 pub async fn publish(
@@ -393,7 +415,7 @@ pub async fn publish(
     );
     let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(publish_code)?;
     // One single-use batch per device: repeats would hit the node's quota and fail this save.
     // The last-resort package answers every invite after the batch runs out.
     if session

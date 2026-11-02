@@ -32,14 +32,15 @@ const fittedPhoto = async (bitmap, sides, qualities, limit) => {
   return null;
 };
 const photoBytes = async (blob) => Array.from(new Uint8Array(await blob.arrayBuffer()));
-const preparePhoto = async (file) => {
+const preparePhoto = async (file, sides = PHOTO_SIDES, qualities = PHOTO_QUALITIES,
+  limit = MAX_PHOTO_BYTES) => {
   if (!['image/png', 'image/jpeg'].includes(file.type)) return Promise.reject('unsupported');
   if (file.size > MAX_PHOTO_FILE_BYTES) return Promise.reject('tooLarge');
   const bitmap = await createImageBitmap(file).catch(() => null);
   if (!bitmap) return Promise.reject('unsupported');
   try {
     if (bitmap.width * bitmap.height > MAX_PHOTO_PIXELS) return Promise.reject('tooLarge');
-    const photo = await fittedPhoto(bitmap, PHOTO_SIDES, PHOTO_QUALITIES, MAX_PHOTO_BYTES);
+    const photo = await fittedPhoto(bitmap, sides, qualities, limit);
     const preview = await fittedPhoto(bitmap, PREVIEW_SIDES, PREVIEW_QUALITIES, MAX_PREVIEW_BYTES);
     if (!photo || !preview) return Promise.reject('tooLarge');
     return { photo: await photoBytes(photo.blob), preview: await photoBytes(preview.blob),

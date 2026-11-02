@@ -145,6 +145,16 @@
         <p id="profile-hidden-notice" class="notice warn" data-i18n="profile.hiddenNotice" hidden></p>
         <form id="profile" novalidate>
           <div class="card">
+            <h2 data-i18n="profile.photos"></h2>
+            <div id="profile-photos" class="photo-grid"></div>
+            <input id="profile-photo-input" type="file" accept="image/png,image/jpeg" hidden>
+            <button id="profile-photo-add" class="btn" type="button"
+              aria-describedby="profile-photo-hint profile-photo-limit"
+              data-i18n="profile.photoAdd"></button>
+            <p id="profile-photo-hint" class="caption" data-i18n="profile.photoHint"></p>
+            <p id="profile-photo-limit" class="caption" data-i18n="profile.photoLimit" hidden></p>
+          </div>
+          <div class="card">
             <h2 data-i18n="profile.basics"></h2>
             <div class="field"><label for="profile-name" data-i18n="profile.name"></label>
               <input id="profile-name" type="text" maxlength="64" autocomplete="off"
@@ -599,6 +609,14 @@
       <button id="unlike-confirm" class="btn danger" type="button" data-i18n="unlike.action"></button>
     </div>
   </dialog>
+  <dialog id="photo-remove-dialog" class="modal" aria-labelledby="photo-remove-title" hidden>
+    <h2 id="photo-remove-title" data-i18n="photoRemove.title"></h2>
+    <p data-i18n="photoRemove.text"></p>
+    <div class="actions">
+      <button id="photo-remove-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="photo-remove-confirm" class="btn danger" type="button" data-i18n="photoRemove.action"></button>
+    </div>
+  </dialog>
   <dialog id="publish-dialog" class="modal" aria-labelledby="publish-title" hidden>
     <h2 id="publish-title" data-i18n="publish.title"></h2>
     <p class="muted" data-i18n="publish.intro"></p>
@@ -628,6 +646,7 @@
   <script src="search.js"></script>
   <script src="chats-ui.js"></script>
   <script src="chats-photo-send.js"></script>
+  <script src="profile-photos.js"></script>
   <script src="network.js"></script>
 </body>
 </html>

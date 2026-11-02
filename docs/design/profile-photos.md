@@ -3,8 +3,8 @@
 How a client publishes, fetches and keeps public profile photos. The wire format is in
 [protobuf-schema.md](../architecture/protobuf-schema.md); node rules are in
 [bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
-publishing; no client has the editor or the viewing below yet, and the keep refresh of step 4 is
-planned. The desktop follows this page first.
+publishing, and the desktop has the editor. The viewing below and the keep refresh of step 4 are
+planned on every client, and the editor is planned on Android and Apple.
 
 ## Limits
 
@@ -59,7 +59,7 @@ shows thumbnails and loads a full image on a tap, as chat originals do.
 | No photos | The avatar letters, and Add photo in the editor |
 | Six photos | Add photo is disabled and says why |
 | Wrong type, too large, cannot be read | The status line names the problem; nothing changes |
-| Node refused or unreachable | The status line says so; the photo stays local for a retry |
+| Node refused or unreachable | The status line says so and a full node gets its own text; the photo stays local for a retry |
 | Blob missing, fails its checks, or offline | The avatar letters on that photo; a later view tries again |
 | Removing a photo | A confirmation first |
 

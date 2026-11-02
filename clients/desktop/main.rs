@@ -34,6 +34,8 @@ mod notify;
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
+#[path = "profile_photos.rs"]
+mod profile_photos;
 mod safety;
 #[path = "sealing.rs"]
 mod sealing;
@@ -874,6 +876,10 @@ fn main() {
             search_places,
             load_profile,
             save_profile,
+            profile_photos::add_profile_photo,
+            profile_photos::remove_profile_photo,
+            profile_photos::move_profile_photo,
+            profile_photos::profile_photo,
             solve_profile,
             cancel_profile_solve,
             publish_profile,

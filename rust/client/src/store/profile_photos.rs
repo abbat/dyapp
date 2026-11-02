@@ -64,6 +64,18 @@ impl Store {
         Ok(draft)
     }
 
+    /// Moves the photo at `from` to `to`; the first photo is the main one.
+    pub fn move_profile_photo(&self, from: usize, to: usize) -> Result<Profile, Error> {
+        let mut draft = self.profile_draft()?.unwrap_or_default();
+        if from >= draft.photos.len() || to >= draft.photos.len() {
+            return Err(Error::PhotoRefused);
+        }
+        let photo = draft.photos.remove(from);
+        draft.photos.insert(to, photo);
+        self.save_profile_draft(&draft)?;
+        Ok(draft)
+    }
+
     /// The stored blob of `hash`.
     pub fn profile_photo(&self, hash: &[u8]) -> Result<Option<Vec<u8>>, Error> {
         Ok(self
@@ -159,6 +171,13 @@ mod tests {
         ));
         let draft = store.remove_profile_photo(0).unwrap();
         assert_eq!(draft.photos.len(), 5);
+        assert!(matches!(
+            store.move_profile_photo(0, 5),
+            Err(Error::PhotoRefused)
+        ));
+        let moved = store.move_profile_photo(4, 0).unwrap();
+        assert_eq!(moved.photos[0], draft.photos[4]);
+        assert_eq!(moved.photos[1], draft.photos[0]);
         assert!(store.profile_photo(&photo.full[0]).unwrap().is_some());
         store
             .retain_profile_photos(std::slice::from_ref(&photo.thumbnail))

@@ -114,7 +114,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-first chat-request chat-new-device chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -134,7 +134,7 @@
       <button type="button" class="nav" role="menuitem" id="add-identity-menu"><svg aria-hidden="true" class="icon"><use href="#i-plus"/></svg>
         <span class="label" data-t="identity.add"></span></button>
     </div>
-    <button type="button" class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
+    <button type="button" class="nav" id="nav-profile" data-current="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress menu switcher">
       <svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
     <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
@@ -159,7 +159,7 @@
 
   <main class="content">
     <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
-    <section id="profile" data-on="profile profile-hidden profile-dark publish-dialog publish-progress menu switcher">
+    <section id="profile" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress menu switcher">
       <h1 data-t="nav.profile"></h1>
       <p class="muted" id="profile-status"><span data-off="profile-hidden" data-t="profile.status.published"></span>
         <span data-on="profile-hidden" data-t="profile.status.hidden"></span></p>
@@ -172,6 +172,21 @@
         </div>
       </div>
       <div class="notice warn" id="profile-hidden-notice" data-on="profile-hidden" data-t="profile.hidden.notice"></div>
+      <div class="card">
+        <h2 data-t="profile.photos"></h2>
+        <div id="profile-photos" class="photo-grid">
+          <figure class="photo-tile"><span class="sample"></span>
+            <figcaption class="caption" data-t="profile.photoMain"></figcaption>
+            <div class="photo-tools"><button type="button" class="btn quiet">→</button>
+              <button type="button" class="btn quiet">×</button></div></figure>
+          <figure class="photo-tile"><span class="sample"></span>
+            <div class="photo-tools"><button type="button" class="btn quiet">←</button>
+              <button type="button" class="btn quiet">×</button></div></figure>
+        </div>
+        <button type="button" class="btn" id="profile-photo-add" data-t="profile.photoAdd"></button>
+        <p class="caption" id="profile-photo-hint" data-t="profile.photoHint"></p>
+        <p class="caption" id="profile-photo-limit" data-t="profile.photoLimit" hidden></p>
+      </div>
       <div class="card">
         <h2 data-t="profile.basics"></h2>
         <div class="field"><label for="profile-name" data-t="profile.name"></label>
@@ -538,6 +553,17 @@ search providers asked: 0 of 3</pre>
     <div class="actions">
       <button type="button" class="btn focus" id="verify-cancel" data-t="action.cancel"></button>
       <button type="button" class="btn primary" id="verify-confirm" data-t="verify.action"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-scrim" data-on="photo-remove-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="photo-remove-title">
+    <h2 id="photo-remove-title" data-t="photoRemove.title"></h2>
+    <p data-t="photoRemove.text"></p>
+    <div class="actions">
+      <button type="button" class="btn focus" id="photo-remove-cancel" data-t="action.cancel"></button>
+      <button type="button" class="btn danger" id="photo-remove-confirm" data-t="photoRemove.action"></button>
     </div>
   </div>
 </div>

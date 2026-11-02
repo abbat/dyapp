@@ -696,6 +696,7 @@ const showProfile = async (call = invoke) => {
   profilePlace.set(place);
   showAge(view);
   showHidden(view);
+  window.showProfilePhotos(view.draft.photos, call);
 };
 // The switch works once a version is published; hidden, the status and notice say so.
 const showHidden = (view) => {
@@ -733,6 +734,7 @@ const publicFacts = (draft, place) => {
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
   if (draft.name) fields.unshift(`${window.strings['profile.name']}: ${draft.name}`);
+  if (draft.photos?.length) fields.push(`${window.strings['profile.photos']}: ${draft.photos.length}`);
   return fields.length ? fields : [window.strings['profile.empty']];
 };
 const listItems = (values) => values.map((value) => {
@@ -788,6 +790,7 @@ const setProfileBusy = (busy) => {
   for (const element of profileForm.querySelectorAll('input, select, button')) {
     element.disabled = busy;
   }
+  window.limitProfilePhotos();
   for (const element of [profileAttested, profileDisclosure]) element.disabled = busy;
   profileHidden.disabled = busy || !profilePublished;
   switchIdentity.disabled = busy;
@@ -798,12 +801,10 @@ const profileFailure = (error) => {
   const code = String(error);
   if (code === 'cancelled') return profileMessage('profile.cancelled');
   if (code.startsWith('blocked: ')) return profileMessage(`profile.problem.${code.slice(9)}`);
-  if (code === 'notConnected') return profileMessage('profile.notConnected');
+  if (['notConnected', 'full'].includes(code)) return profileMessage(`profile.${code}`);
   profileMessage('profile.publishFailed', code);
 };
-profileForm.addEventListener('input', () => {
-  if (!profileBusy) profileMessage('profile.draft');
-});
+profileForm.addEventListener('input', () => { if (!profileBusy) profileMessage('profile.draft'); });
 const submitProfile = async (save = saveProfile) => {
   if (profileBusy || !profileForm.reportValidity()) return;
   const generation = identityGeneration;

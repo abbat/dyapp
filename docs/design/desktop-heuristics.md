@@ -416,6 +416,30 @@ Scope: the composer status when a first message finds no KeyPackage for the peer
 
 Findings: none open.
 
+### Profile photo editor review (2026-11-02)
+
+Scope: the Photos card in the profile editor, its removal dialog, the photo line in the publish
+dialog and the status line states.
+
+- Visibility of system status: the form is busy while a photo encodes or changes, and the status
+  line returns to unpublished changes, because nothing is public until the next publish.
+- Match with the real world: Photos, Main photo and Remove, with no hashes, blobs or sizes in pixels.
+- User control: removal asks first, Cancel is focused, and a removed photo stays public until the
+  next publish, so publishing is the only step that reaches other people.
+- Consistency: the same dialog layout as every destructive action, the same status line as the rest
+  of the form, and the bundled arrow and cross glyphs carry names and tooltips.
+- Error prevention: Add photo is disabled at six with the reason in place of the hint, and there is
+  no move past either end.
+- Recognition: the first tile is captioned Main photo, and the hint says photos become public on
+  publish, which the publish dialog repeats with their number.
+- Flexibility: every step is a button in tab order, focus stays on the moved photo, and drag is not
+  needed.
+- Minimalist design: three small controls per tile, and no crop or filter step.
+- Help with errors: each refusal names the problem and the next step, and a full node says to remove
+  a photo, keeping the draft.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

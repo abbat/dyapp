@@ -190,4 +190,96 @@ const checkChatPhoto = async () => {
   mode('byNetwork').click();
   await window.photoModeSaved;
 };
-globalThis.uiSmokePhotos = Object.freeze({ checkChatPhoto });
+// The profile editor: the status line for a bad file, adding, the limit at six, moving with focus
+// kept, removal behind its dialog, the form busy state, and the photo line of the publish dialog.
+const checkProfilePhotos = async () => {
+  const source = document.createElement('canvas');
+  source.width = 4;
+  source.height = 4;
+  source.getContext('2d').fillRect(0, 0, 4, 4);
+  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  const file = new File([jpeg], 'photo.jpg', { type: 'image/jpeg' });
+  const bytes = await jpeg.arrayBuffer();
+  const hashes = [];
+  const commands = [];
+  let refusal = null;
+  const call = (command, args) => {
+    commands.push(command);
+    if (command === 'profile_photo') return Promise.resolve(bytes);
+    if (refusal) return Promise.reject(refusal);
+    if (command === 'add_profile_photo') hashes.push([hashes.length + 1]);
+    if (command === 'remove_profile_photo') hashes.splice(args.index, 1);
+    if (command === 'move_profile_photo') hashes.splice(args.to, 0, ...hashes.splice(args.from, 1));
+    return Promise.resolve({ draft: { photos: [...hashes] } });
+  };
+  const { strings } = window;
+  const status = byId('profile-status');
+  const add = byId('profile-photo-add');
+  const grid = byId('profile-photos');
+  await openArea('profile-area');
+  window.showProfilePhotos([], call);
+  if (grid.children.length || add.disabled || !byId('profile-photo-limit').hidden) {
+    throw new Error('an empty editor did not offer a photo');
+  }
+
+  await addProfilePhoto(new File(['text'], 'a.txt', { type: 'text/plain' }), call);
+  if (status.textContent !== strings['profile.photoUnsupported'] || commands.length) {
+    throw new Error('a wrong file type was not named or reached the core');
+  }
+  refusal = 'photoRefused';
+  await addProfilePhoto(file, call);
+  if (status.textContent !== strings['profile.photoRefused'] || grid.children.length) {
+    throw new Error('a refused photo was not named or changed the grid');
+  }
+  refusal = null;
+
+  for (let added = 0; added < 6; added += 1) await addProfilePhoto(file, call);
+  await Promise.all([...grid.children].map((tile) => tile.ready));
+  if (grid.children.length !== 6 || !add.disabled || byId('profile-photo-limit').hidden
+    || !byId('profile-photo-hint').hidden) {
+    throw new Error('six photos did not disable Add photo with the reason');
+  }
+  if (status.textContent !== strings['profile.draft']) throw new Error('a photo was not a draft change');
+  if (grid.children[0].querySelector('canvas').hidden) throw new Error('a stored photo was not drawn');
+  if (grid.children[0].querySelector('.left') || grid.children[5].querySelector('.right')) {
+    throw new Error('a photo offered a move past the end');
+  }
+  await shot('profile-photos');
+
+  grid.children[0].querySelector('.right').click();
+  await window.profilePhotoChanged;
+  if (String(hashes.slice(0, 2)) !== '2,1') throw new Error('Move right did not reorder the draft');
+  if (!grid.children[1].contains(document.activeElement)) throw new Error('the move lost the focus');
+
+  const dialog = byId('photo-remove-dialog');
+  grid.children[0].querySelector('.remove').click();
+  if (!dialog.open || document.activeElement !== byId('photo-remove-cancel')) {
+    throw new Error('removal did not ask first with Cancel focused');
+  }
+  await shot('photo-remove-dialog');
+  byId('photo-remove-cancel').click();
+  if (dialog.open || hashes.length !== 6) throw new Error('Cancel removed a photo');
+  grid.children[0].querySelector('.remove').click();
+  byId('photo-remove-confirm').click();
+  await window.profilePhotoChanged;
+  if (hashes.length !== 5 || add.disabled || document.activeElement !== add) {
+    throw new Error('removal did not free a place and move the focus to Add photo');
+  }
+
+  setProfileBusy(true);
+  if (!add.disabled) throw new Error('Add photo stayed enabled while busy');
+  const before = commands.length;
+  await addProfilePhoto(file, call);
+  if (commands.length !== before) throw new Error('a photo changed while the form was busy');
+  setProfileBusy(false);
+  if (add.disabled) throw new Error('Add photo stayed disabled after the form was free');
+
+  if (!publicFields({ name: '', photos: [[1], [2]], birthYear: null, birthMonth: null,
+    birthDay: null }).includes(`${strings['profile.photos']}: 2`)) {
+    throw new Error('the publish dialog did not count the photos');
+  }
+  profileFailure('full');
+  if (status.textContent !== strings['profile.full']) throw new Error('a full node was not named');
+  await showProfile();
+};
+globalThis.uiSmokePhotos = Object.freeze({ checkChatPhoto, checkProfilePhotos });
