@@ -41,6 +41,7 @@ it are entry points that tools discover by path (see
 - [Read receipts and typing indicators](design/read-receipts.md): planned opt-in "read up to" signal; typing waits for a direct path
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
+- [Profile photos](design/profile-photos.md): planned publication, limits, cache and failure states
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
 - [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client, checked against the static Android prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)

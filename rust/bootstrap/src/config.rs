@@ -670,7 +670,7 @@ impl Default for Limits {
             tokenless_share_pct: 20,
             require_write_tokens: true,
             media_max_mb: 10240,
-            media_per_owner_mb: 10,
+            media_per_owner_mb: 32,
             attachment_retention_hours: 168,
             media_cache_minutes: 10,
             profile_ttl_days: 30,

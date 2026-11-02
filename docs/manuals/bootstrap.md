@@ -456,7 +456,7 @@ the store sizes plus SQLite overhead:
 | `mailbox_pool_kb` | 1024 | That pool, per mailbox, while `require_write_tokens` is on; when full, the oldest envelope of the sender group holding most bytes is deleted. At least 101. |
 | `tokenless_share_pct` | 20 | Tokenless envelope bytes kept store-wide, in percent of `messages_max_mb`. |
 | `media_max_mb` | 10240 | Media store size (media role); when full, cached assembled blobs go first, then unreleased attachments, then the oldest owners, down to 95 %. |
-| `media_per_owner_mb` | 10 | Media bytes of one owner, billed as whole copies × 5 and shards as `ceil(bytes × (K+4)/K)`. |
+| `media_per_owner_mb` | 32 | Media bytes of one owner, billed as whole copies × 5 and shards as `ceil(bytes × (K+4)/K)`. |
 | `min_free_mb` | 512 | Free space kept on the file system of `storage.dir`; writes stop below it. |
 
 Rates. A peer is a libp2p peer ID; an IP group is the addresses sharing the leading

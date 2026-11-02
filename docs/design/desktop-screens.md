@@ -256,8 +256,8 @@ A failed fetch offers a retry; an original no node holds shows "No longer availa
 fails its checks "This photo cannot be shown". In an open chat with an accepted person, originals
 also download by themselves under Settings → Photos: unless the network is metered or unknown (the
 default), always, or only on request. A switch to an unmetered network picks up what waited at the
-next mail pass. The composer sends one photo at a time. Profile photos remain planned for
-this UI. An own, live text can be edited; the dialog
+next mail pass. The composer sends one photo at a time. [Profile photos](profile-photos.md) remain
+planned for this UI. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation
 warns that the peer, nodes, other devices and backups may keep copies. The local history shows a
