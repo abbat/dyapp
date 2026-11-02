@@ -961,7 +961,8 @@ const peerSteps = {
     if ((await liveHistory(peer)).includes('after block')) throw new Error('blocked text was stored');
   },
 };
-const checkPeerStep = (kind, peer) => peerSteps[kind](peer);
+const checkPeerStep = (kind, peer) =>
+  (peerSteps[kind] || globalThis.uiSmokePresence.presenceSteps[kind])(peer);
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
   checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction, checkChatLinkHosts,

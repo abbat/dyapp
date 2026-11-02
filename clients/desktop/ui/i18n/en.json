@@ -346,6 +346,7 @@
   "chats.state.none": "Write one message to start a conversation.",
   "chats.state.requestReceived": "Message request",
   "chats.state.requestSent": "Waiting for a reply",
+  "chats.active": "Active recently",
   "chats.state.open": "Conversation",
   "chats.firstNotice": "One message is waiting for a reply. You can write again after the peer replies or you match.",
   "chats.requestNotice": "Replying opens the conversation.",

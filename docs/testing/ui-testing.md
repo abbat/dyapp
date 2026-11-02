@@ -139,7 +139,10 @@ checks the device-received label after reopening, and checks that a pass failed 
 still shows the committed row once. The read smoke checks that Read replaces the delivery label
 on the covered text only, that a hidden window neither marks read nor sends a receipt, and that
 returning to the window does both; the two-client steps check a receipt sent after turning the
-setting on, its mark after a restart and silence at the default. Store tests cover persistence
+setting on, its mark after a restart and silence at the default. The presence smoke checks the
+mark in the row and the open chat, that a pass with no new mail removes it from both, that focus
+sends presence and that a hidden window does not; the two-client steps make a match, check the
+hourly throttle and wait for the mark on the other client. Store tests cover persistence
 across restart
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
@@ -420,7 +423,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   plugin in CI's desktop session; clipboard-history exclusion still needs a
   real desktop-session check.
 - **Screenshots.** The debug shell concatenates `ui-test-common.js`, the video frame helpers,
-  `ui-test-identity.js`, `ui-test-chats.js`, `ui-test-guards.js` and `ui-test.js` into one
+  `ui-test-identity.js`, `ui-test-chats.js`, `ui-test-presence.js`, `ui-test-guards.js` and
+  `ui-test.js` into one
   WebView script, in that order. The final file dispatches named smoke cases; the earlier files
   expose shared helpers in the same eval scope.
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at

@@ -922,6 +922,7 @@ async function render(state, generation = identityGeneration, fresh = false) {
     window.resetSearch();
     // Starts the node when its setting is on and stops another identity's node; never blocks.
     invoke('apply_node').catch(() => {});
+    window.announcePresence();
     showArea('profile-area');
     window.statusShown = showStatus();
     wizardStep(fresh);

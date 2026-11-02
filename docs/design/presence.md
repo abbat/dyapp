@@ -1,12 +1,12 @@
 # Online presence
 
-This is the planned client contract for presence under
+This is the client contract for presence under
 [ADR 0012](../decisions/0012-private-p2p-interactions.md): a match can see that the other side
 used the app recently, and the user can hide it. Implemented in the Rust client: the wire body
 (`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class), the store rules
 (`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules),
 `Session::announce_presence` for the foreground send, the apply on receive and the outbox
-expiry. Planned: app UI that calls the send and shows the mark.
+expiry. The desktop sends it and shows the mark; planned: the same on the other clients.
 
 ## What a peer learns
 
@@ -45,6 +45,12 @@ not sent one to in the last hour. It never sends from the background or on a tim
 follows real use, not a heartbeat. The outbox drops an unsent presence older than 2 hours instead
 of retrying it: a late presence is wrong, not merely slow.
 
+The desktop counts launch, opening an identity and window focus as coming to the foreground, and
+skips a hidden window. Nothing is sent while a focused window stays in use, so the mark of a user
+who keeps one window focused for over 2 hours expires until the next focus. When nothing is due,
+the desktop opens no node connection. A failed connection stays silent and retries on the next
+focus; a presence already staged waits in the outbox.
+
 The one-hour throttle bounds the cost: a recipient offline for a day with 50 active matches
 receives at most 1 200 presence envelopes of about 640 bytes, under half of the default
 2 MiB signal quota. The quota evicts the oldest signals first, so a long-offline recipient with
@@ -56,6 +62,8 @@ The receiver applies the 60-second future-skew guard to the HLC, then keeps only
 presence per peer identity. It drops presence from a blocked peer and from a peer that is not a
 current match, before observing its HLC. A presence never notifies and never changes likes,
 views or chat, and it gets no receipt: the sender never retries it after a node accepts it.
+The desktop shows the mark in the Chats row and under the peer in the open chat, and each
+background pass redraws them, so a mark goes away within a pass of its 2 hours ending.
 
 ## What a node learns
 

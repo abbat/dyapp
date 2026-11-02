@@ -913,6 +913,7 @@ fn main() {
             chats::commands::chat_history,
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
+            chats::presence::announce_presence,
             chats::operations::edit_chat_text,
             chats::operations::delete_chat_text,
             chats::commands::clear_chat,
@@ -958,12 +959,13 @@ fn main() {
                 }
                 webview
                     .eval(format!(
-                        "{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                         include_str!("ui-test-common.js"),
                         include_str!("video-frame-renderer.js"),
                         include_str!("video-frame-smoke.js"),
                         include_str!("ui-test-identity.js"),
                         include_str!("ui-test-chats.js"),
+                        include_str!("ui-test-presence.js"),
                         include_str!("ui-test-guards.js"),
                         include_str!("ui-test.js")
                     ))

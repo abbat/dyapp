@@ -265,10 +265,10 @@ chat and mark read for the active identity.
 | --- | --- | --- |
 | Liked you | `chats-liked` | With count |
 | Message requests | `chats-requests` | With count |
-| Conversations | `chat-list` | Rows `chat-1`, `chat-2` |
+| Conversations | `chat-list` | Rows `chat-1`, `chat-2`; a row shows "Active recently" for a match |
 
-`chat`: one conversation with a match. The prototype's peer avatar/name link and "Active
-recently" header remain planned; no online or last-seen time is shown. The current Linux message
+`chat`: one conversation with a match. The prototype's peer avatar/name link remains planned;
+"Active recently" is shown under the peer, and no online or last-seen time is shown. The current Linux message
 status is pending, accepted by a node, or received by one peer device. Read marks require a
 separate peer read receipt and remain planned. An edited message says so, a deleted one leaves a
 placeholder, and Edit and Delete apply to live own messages with best-effort delivery.

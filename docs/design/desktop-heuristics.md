@@ -249,6 +249,17 @@ receipt exists, and the docs state that absence says nothing. A receipt that fai
 and retries, because the user did nothing to act on (H9). A message request sends nothing (H5). No
 open H1–H10 finding.
 
+### Presence mark review (2026-11-02)
+
+Read `chats.active` against H1–H10 in English and Russian; the smoke audits it at 440 and 1280 px
+with the chat detail. A mark drawn once would stay on a Chats list left open and claim activity
+that ended hours ago (H1, severity 3): every background pass now redraws a changed list, keeping
+focus on an unchanged one. The prototype's Russian string named one gender for any peer (H2,
+severity 2): it is now neutral, "Недавно в приложении". The mark is text, not a colored dot, so it
+needs no color to read (H6, and WCAG 1.4.1). Its absence says nothing, and it shows no time, which
+is the coarseness the design asks for (H2). A send that fails stays silent and retries on the next
+focus, because the user did nothing to act on (H9). No open H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

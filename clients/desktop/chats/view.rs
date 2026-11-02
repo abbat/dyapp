@@ -91,6 +91,7 @@ pub struct ChatRowView {
     pub state: ChatState,
     pub last_message: Option<MessageView>,
     pub unread_count: usize,
+    pub active_recently: bool,
 }
 
 /// One peer's current conversation, including an empty chat after Clear chat.
@@ -99,6 +100,7 @@ pub struct ChatRowView {
 pub struct ChatHistoryView {
     pub state: ChatState,
     pub messages: Vec<MessageView>,
+    pub active_recently: bool,
 }
 
 #[cfg(test)]

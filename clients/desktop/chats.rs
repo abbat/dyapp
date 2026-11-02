@@ -21,6 +21,7 @@ pub(crate) mod forward;
 #[path = "chats/operations.rs"]
 pub(crate) mod operations;
 #[path = "chats/reads.rs"]
+pub(crate) mod presence;
 mod reads;
 #[path = "chats/view.rs"]
 mod view;
@@ -73,12 +74,16 @@ fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
 
 pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, String> {
     let store = open(dir, identity)?;
+    let now = presence::now_ms()?;
     let mut rows = Vec::new();
     for row in store.chat_rows().map_err(|e| e.to_string())? {
         if store.blocked(&row.peer_id).map_err(|e| e.to_string())? {
             continue;
         }
         rows.push(ChatRowView {
+            active_recently: store
+                .active_recently(&row.peer_id, now)
+                .map_err(|e| e.to_string())?,
             peer_id: row.peer_id,
             state: row.state.into(),
             last_message: row.last_message.map(Into::into),
@@ -108,7 +113,14 @@ pub fn chat_history(
         .conversation(peer_id)
         .map_err(|e| e.to_string())?
         .into();
-    Ok(ChatHistoryView { state, messages })
+    let active_recently = store
+        .active_recently(peer_id, presence::now_ms()?)
+        .map_err(|e| e.to_string())?;
+    Ok(ChatHistoryView {
+        state,
+        messages,
+        active_recently,
+    })
 }
 
 fn open_visible_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Store, String> {

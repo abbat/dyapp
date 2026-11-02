@@ -1,6 +1,7 @@
 // Desktop UI smoke: network, profile, connected fixtures and step dispatch.
 const identityChecks = globalThis.uiSmokeIdentity;
 const chatChecks = globalThis.uiSmokeChats;
+const presenceChecks = globalThis.uiSmokePresence;
 const guardChecks = globalThis.uiSmokeGuards;
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
@@ -570,6 +571,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chatChecks.checkChatDelivery();
       await chatChecks.checkNewDevice();
       await chatChecks.checkChatRead();
+      await presenceChecks.checkChatPresence();
       await chatChecks.checkChatForwarded();
       await chatChecks.checkChatForwardAction();
       await chatChecks.checkChatLinkHosts();

@@ -221,6 +221,12 @@ const chatRow = (row) => {
     marker.textContent = window.strings['chats.state.requestReceived'];
     content.append(document.createTextNode(' '), marker);
   }
+  if (row.activeRecently) {
+    const active = document.createElement('span');
+    active.className = 'caption';
+    active.textContent = window.strings['chats.active'];
+    content.append(document.createTextNode(' '), active);
+  }
   const preview = document.createElement('span');
   preview.className = 'caption ellipsis';
   preview.textContent = chatPreview(row.lastMessage);
@@ -414,6 +420,7 @@ const openChat = async (peerId, call = invoke) => {
     peer.textContent = peerLabel(peer, peerId);
     document.getElementById('chat-state').textContent =
       window.strings[`chats.state.${history.state}`] || '';
+    document.getElementById('chat-presence').hidden = !history.activeRecently;
     activeChat = { peerId, ...history };
     document.getElementById('chat-clear').hidden = history.state === 'none';
     updateComposer();
@@ -707,7 +714,7 @@ window.showChats = async (call = invoke) => {
 };
 // The runtime reports each background pass: its changed-event count, or null after a failure,
 // which stays quiet because the next pass retries. A failure can follow a commit, such as a lost
-// ACK, so the list still follows the local projection.
+// ACK, so the list still follows the local projection, and with no mail a presence can expire.
 window.mailUpdated = async (changed, call = invoke) => {
   const generation = identityGeneration;
   if (document.getElementById('chats-area').hidden) return;
@@ -715,7 +722,7 @@ window.mailUpdated = async (changed, call = invoke) => {
   if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
     && !chatSending && !chatBlocking) {
     await openChat(activeChat.peerId, call);
-  } else if (changed === null) {
+  } else if (!changed) {
     const request = chatsRequest;
     const rows = await call('chat_rows').catch(() => null);
     // An unchanged list is left alone so an offline poll cannot take keyboard focus from a row.
@@ -728,6 +735,14 @@ window.mailUpdated = async (changed, call = invoke) => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) window.mailUpdated(0);
 });
+// Sent on launch and on focus, never on a timer, so it follows real use; the Store keeps the hour.
+window.announcePresence = async (call = invoke) => {
+  if (document.hidden) return;
+  try {
+    await call('announce_presence');
+  } catch { /* the page shows nothing for a background signal */ }
+};
+window.addEventListener('focus', () => { window.announcePresence(); });
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));

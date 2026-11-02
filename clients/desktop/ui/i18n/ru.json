@@ -346,6 +346,7 @@
   "chats.state.none": "Напишите одно сообщение, чтобы начать переписку.",
   "chats.state.requestReceived": "Запрос на переписку",
   "chats.state.requestSent": "Ожидание ответа",
+  "chats.active": "Недавно в приложении",
   "chats.state.open": "Переписка",
   "chats.firstNotice": "Одно сообщение ожидает ответа. Снова написать можно после ответа или взаимной симпатии.",
   "chats.requestNotice": "Ответ откроет переписку.",

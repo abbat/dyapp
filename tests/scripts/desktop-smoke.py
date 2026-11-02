@@ -514,6 +514,8 @@ def smoke(executable, flows=True):
                     (bob, "liked-gone"), (alice, "chat-first"),
                     (bob, "chat-reply"), (alice, "chat-open"),
                     (bob, "catch-up"), (bob, "chat-clear"),
+                    (alice, "presence-like"), (bob, "presence-match"),
+                    (alice, "presence-send"), (bob, "presence-shown"),
                     (alice, "chat-block"),
                     (bob, "chat-after-block"), (alice, "chat-blocked")):
                 case(f"peers-{step}",
