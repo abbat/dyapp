@@ -63,6 +63,20 @@ pub fn list_device(draft: &mut Profile, certificate: SignedRecord, binding: Sign
     }
 }
 
+/// Takes the device with the mailbox key `device_key` out of `draft`. Returns its owner binding,
+/// or `None` if the draft holds none and its mailbox cannot be closed.
+pub fn unlist_device(draft: &mut Profile, device_key: &[u8]) -> Option<SignedRecord> {
+    let binding = draft
+        .device_owners
+        .iter()
+        .position(|binding| binding.public_key == device_key)?;
+    draft.devices.retain(|signed| {
+        DeviceCertificate::decode(signed.payload.as_slice())
+            .map_or(true, |certificate| certificate.device_key != device_key)
+    });
+    Some(draft.device_owners.remove(binding))
+}
+
 /// Try up to `tries` more nonces for a profile proof of work of `bits` for `key`, the owner's
 /// public key. Progress stays in `draft.pow_nonce`; `draft.pow_bits` is set only once solved,
 /// and the proof does not depend on other fields, so later versions reuse it. Returns whether
@@ -109,6 +123,23 @@ pub async fn relist(
     draft: &Profile,
 ) -> Result<Profile, Failure> {
     send_draft(store, node, identity, draft, store.profile_hidden()?).await
+}
+
+/// Revokes the owner's device with the mailbox key `device_key`: closes its mailbox, then [`relist`]s
+/// `draft` without it. A failure may be retried, as a repeated close is harmless and the draft keeps
+/// the binding until the relist succeeds. Returns the new draft.
+pub async fn revoke_device(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+    device_key: &[u8],
+) -> Result<Profile, Failure> {
+    let mut draft = draft.clone();
+    let binding =
+        unlist_device(&mut draft, device_key).ok_or(Error::Input("device has no owner binding"))?;
+    node.close_mailbox(identity, binding).await?;
+    relist(store, node, identity, &draft).await
 }
 
 /// Starts the fresh store of a linked device from the record's `state` and the newest profile with
@@ -368,7 +399,7 @@ pub enum Failure {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, hide, list_device, publish, withdraw, work, Block, Failure};
+    use super::{check, hide, list_device, publish, unlist_device, withdraw, work, Block, Failure};
     use crate::store::{tests::temp_db_path, Store};
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
@@ -640,5 +671,13 @@ mod tests {
         }
         assert_eq!((draft.devices.len(), draft.device_owners.len()), (3, 3));
         assert!(dyapp_profile::verify(&draft.sign(&alice)).is_ok());
+
+        let (certificate, binding) = &certificates[1];
+        let kept = unlist_device(&mut draft, &binding.public_key).unwrap();
+        assert_eq!(kept, *binding);
+        assert!(!draft.devices.contains(certificate));
+        assert_eq!((draft.devices.len(), draft.device_owners.len()), (2, 2));
+        assert!(dyapp_profile::verify(&draft.sign(&alice)).is_ok());
+        assert_eq!(unlist_device(&mut draft, &binding.public_key), None);
     }
 }

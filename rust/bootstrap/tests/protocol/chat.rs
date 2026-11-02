@@ -391,8 +391,6 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         .get_profile(&alice.identity.peer_id())
         .await
         .unwrap();
-    assert!(chat::revoked(&lost.device, &profiles[0]));
-    assert!(!chat::revoked(&alice.device, &profiles[0]));
 
     // Bob, a contact, sees the newer profile and removes the device from the group.
     let commit = bob_groups[0]

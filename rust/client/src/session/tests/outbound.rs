@@ -1,4 +1,51 @@
 use super::*;
+use crate::store::tests::temp_db_path;
+
+#[test]
+fn only_a_newer_profile_without_this_device_revokes_it() {
+    let (identity, device, _) = person();
+    let seal_key = [3; 32];
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    store
+        .stage_outbound(&device.seal(&seal_key).unwrap(), &[])
+        .unwrap();
+    let session = Session::open(store, &seal_key).unwrap();
+    let certificate = device.certificate().clone();
+    let binding = crate::owner_binding(&Identity::generate(), &identity.public_key());
+    let without = |version| Profile {
+        version,
+        ..Profile::default()
+    };
+    let revoked = |profile: &Profile| session.own_device_revoked(profile).unwrap();
+
+    // A new device was never listed, whatever the node holds.
+    assert!(!revoked(&without(5)));
+    let mut draft = without(5);
+    session.list_self(&mut draft, binding.clone()).unwrap();
+    assert_eq!(draft.devices, [certificate.clone()]);
+
+    // Once listed, neither the same version nor an older copy drops it.
+    assert!(!revoked(&draft));
+    assert_eq!(session.store().device_listed().unwrap(), 5);
+    assert!(!revoked(&without(5)));
+    assert!(!revoked(&without(4)));
+    assert!(revoked(&without(6)));
+
+    // A withdrawn profile carries no device at all.
+    let withdrawn = Profile {
+        deleted: true,
+        ..without(6)
+    };
+    assert!(!revoked(&withdrawn));
+
+    // A draft taken from the profile that dropped it cannot bring it back.
+    let mut draft = without(6);
+    assert!(matches!(
+        session.list_self(&mut draft, binding),
+        Err(Error::Revoked)
+    ));
+    assert!(draft.devices.is_empty());
+}
 
 #[test]
 fn message_is_staged_before_network_and_reopens_exact_bytes() {

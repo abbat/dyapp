@@ -465,6 +465,70 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
 }
 
 #[tokio::test]
+async fn any_own_device_revokes_another_and_it_stays_out() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let owner = alice.identity.peer_id();
+    let alice_session = session(&alice, "revoke-alice");
+    let laptop = Person::device(
+        &address,
+        Identity::from_secret(&alice.identity.secret()),
+        2,
+    )
+    .await;
+    let laptop_session = session(&laptop, "revoke-laptop");
+    let laptop_key = laptop.device_key.public_key();
+
+    // Both devices list themselves, with the bindings that close their mailboxes.
+    let mut draft = alice.node.get_profile(&owner).await.unwrap().profile;
+    draft.device_owners =
+        vec![dyapp_client::owner_binding(&alice.device_key, &alice.identity.public_key())];
+    let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
+    laptop_session.list_self(&mut draft, binding).unwrap();
+    let store = alice_session.store();
+    let listed = publish::relist(store, &mut alice.node, &alice.identity, &draft)
+        .await
+        .unwrap();
+    assert!(!laptop_session.own_device_revoked(&listed).unwrap());
+    assert!(alice.node.fetch(&laptop.device_key).await.is_ok());
+
+    // A profile without a binding for the device closes nothing and changes nothing.
+    let failure =
+        publish::revoke_device(store, &mut alice.node, &alice.identity, &listed, &[9; 32])
+            .await
+            .unwrap_err();
+    assert!(matches!(failure, Failure::Node(_)), "{failure}");
+    assert_eq!(alice.node.get_profile(&owner).await.unwrap().profile, listed);
+
+    // The first device drops the laptop: the node refuses its mailbox and lists only the first.
+    let dropped =
+        publish::revoke_device(store, &mut alice.node, &alice.identity, &listed, &laptop_key)
+            .await
+            .unwrap();
+    assert_eq!(dropped.version, listed.version + 1);
+    assert_eq!(dropped.devices, [alice.device.certificate().clone()]);
+    assert_eq!(
+        alice.node.get_profile(&owner).await.unwrap().profile,
+        dropped
+    );
+    assert!(alice.node.fetch(&laptop.device_key).await.is_err());
+    assert!(alice.node.fetch(&alice.device_key).await.is_ok());
+
+    // The laptop sees it, ignores the older copy, and cannot list itself again.
+    assert!(laptop_session.own_device_revoked(&dropped).unwrap());
+    assert!(!laptop_session.own_device_revoked(&listed).unwrap());
+    let mut draft = dropped.clone();
+    let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
+    assert!(laptop_session.list_self(&mut draft, binding).is_err());
+    assert_eq!(draft, dropped);
+}
+
+#[tokio::test]
 async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     const NOW: u64 = 1_000_000;
     let address = start_config(|config| {

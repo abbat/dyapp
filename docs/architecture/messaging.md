@@ -306,12 +306,20 @@ saw the dropped device in that group (`dropped_leaf_seen/` in `settings`), and t
 cache says nothing. The desktop client refreshes one contact's profile per catch-up, in turn. If a
 stale node copy drops a device by mistake, its owner's device adds it back.
 
-The owner's other device also closes
-the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
-signed, which the profile keeps ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
-`dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and
-`chat::revoked` tells a device that its owner's newest profile no longer lists it, so it wipes its
-keys and MLS state. The linking screen and the wipe itself are planned with the client apps.
+Any own device revokes another with `publish::revoke_device`. It first closes the dropped device's
+mailbox with an identity-signed `revoke` carrying the owner binding the device signed, which the
+profile keeps ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it, and then
+relists the profile without the device, which leaves a hidden profile hidden. A failed step is
+retried by repeating both. `dyapp_client::owner_binding` signs that binding and `Node::close_mailbox`
+sends the close.
+
+`Session::own_device_revoked` tells a device that it was revoked: a profile past the last version
+known to list it (`device_listed` in `settings`) leaves it out. A new device was never listed and an
+older copy from a node proves nothing, and a withdrawn profile lists no device at all, so none of
+them count. `Session::list_self` refuses to list a revoked device, so a draft taken from the newest
+profile cannot bring it back. The owner's identity key is on every device, so this holds the app to
+the rule and does not stop a stolen device. The linking screen and the wipe itself are planned with
+the client apps.
 
 A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
 `Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code

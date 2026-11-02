@@ -3,17 +3,40 @@
 
 use super::{prepare, Error, Session};
 use crate::chat::{self, Body, Delivery, Event, PeerChange};
-use crate::{mailbox, scores, Node, PreparedEnvelope};
-use dyapp_identity::Identity;
+use crate::{mailbox, publish, scores, Node, PreparedEnvelope};
+use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
-use dyapp_profile::VerifiedProfile;
+use dyapp_profile::{Profile, VerifiedProfile};
 
 /// How long each device earlier in [`Group::add_turn`] or [`Group::remove_turn`] gets to commit
 /// first. Two commits on one epoch fork a group for good, and no server orders them.
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {
+    /// Whether `newest`, an own profile, revokes this device: a version past the last one known to
+    /// list it leaves it out. A new device was never listed and an older copy proves nothing. A
+    /// withdrawn profile lists no device at all, so it says nothing about this one. A profile that
+    /// lists this device is remembered.
+    pub fn own_device_revoked(&self, newest: &Profile) -> Result<bool, Error> {
+        if newest.devices.contains(&self.certificate()?) {
+            self.store.note_device_listed(newest.version)?;
+            return Ok(false);
+        }
+        let listed = self.store.device_listed()?;
+        Ok(!newest.deleted && listed != 0 && newest.version > listed)
+    }
+
+    /// [`publish::list_device`] for this device, refused with [`Error::Revoked`] once `draft`
+    /// revokes it: a draft taken from the newest profile must not list the device again.
+    pub fn list_self(&self, draft: &mut Profile, binding: SignedRecord) -> Result<(), Error> {
+        if self.own_device_revoked(draft)? {
+            return Err(Error::Revoked);
+        }
+        publish::list_device(draft, self.certificate()?, binding);
+        Ok(())
+    }
+
     /// The lowest ID of the groups changes reach the other own devices through. Two devices can
     /// start one each, so every device sends in all of them and accepts from any.
     pub fn own_group(&self) -> Option<Vec<u8>> {

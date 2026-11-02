@@ -410,14 +410,19 @@ pub async fn publish(
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
-    publish::list_device(
-        &mut draft,
-        session.certificate().map_err(|e| e.to_string())?,
-        dyapp_client::owner_binding(device_key, &identity.public_key()),
-    );
+    session
+        .list_self(
+            &mut draft,
+            dyapp_client::owner_binding(device_key, &identity.public_key()),
+        )
+        .map_err(|e| e.to_string())?;
     let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await
         .map_err(publish_code)?;
+    session
+        .store()
+        .note_device_listed(published.version)
+        .map_err(|e| e.to_string())?;
     // One single-use batch per device: repeats would hit the node's quota and fail this save.
     // The last-resort package answers every invite after the batch runs out.
     if session

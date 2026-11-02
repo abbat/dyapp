@@ -48,6 +48,9 @@ pub enum Error {
     /// An edit or delete target is absent or already deleted from this sender's current chat.
     #[error("message is absent or already deleted")]
     UnknownMessage,
+    /// The owner's newer profile dropped this device.
+    #[error("the owner revoked this device")]
+    Revoked,
     /// The sealed MLS state could not be opened.
     #[error(transparent)]
     Mls(#[from] dyapp_messaging::mls::Error),

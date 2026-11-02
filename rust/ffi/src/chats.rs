@@ -125,10 +125,9 @@ impl ChatSession {
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
         let mut draft = publishable_draft(session.store(), attested)?;
-        let certificate = session.certificate().map_err(failed)?;
         let owner = self.key.identity.public_key();
         let binding = dyapp_client::owner_binding(&self.device_key.identity, &owner);
-        publish::list_device(&mut draft, certificate, binding);
+        session.list_self(&mut draft, binding).map_err(failed)?;
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             self.runtime.block_on(async {
@@ -137,6 +136,10 @@ impl ChatSession {
                     publish::publish(session.store(), &mut node, &self.key.identity, &draft)
                         .await
                         .map_err(failed)?;
+                session
+                    .store()
+                    .note_device_listed(published.version)
+                    .map_err(failed)?;
                 // shortcut: a fixed batch per publish, as on desktop; peers can exhaust it until
                 // the next publish, so refill it when the receive loop lands.
                 session

@@ -6,6 +6,7 @@ use rusqlite::{params, OptionalExtension};
 
 const KEY: &str = "own_profile_seen";
 const DROPPED: &str = "dropped_leaf_seen/";
+const LISTED: &str = "device_listed";
 
 impl Store {
     /// Seconds since this device first saw own profile `version` or a newer one, 0 the first time.
@@ -27,6 +28,33 @@ impl Store {
     /// The newest own profile version this device has seen, 0 before the first.
     pub fn own_profile_seen(&self) -> Result<u64, Error> {
         Ok(self.own_profile_row()?.map_or(0, |(version, _)| version))
+    }
+
+    /// Records that own profile `version` lists this device; a lower one changes nothing.
+    pub fn note_device_listed(&self, version: u64) -> Result<(), Error> {
+        // Big-endian bytes compare as the numbers do.
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `value` = excluded.`value`
+             WHERE excluded.`value` > `settings`.`value`",
+            params![LISTED, version.to_be_bytes()],
+        )?;
+        Ok(())
+    }
+
+    /// The newest own profile version known to list this device, 0 before the first.
+    pub fn device_listed(&self) -> Result<u64, Error> {
+        let held: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT `value` FROM `settings` WHERE `key` = ?1",
+                [LISTED],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(held) = held else { return Ok(0) };
+        let held: [u8; 8] = held.try_into().map_err(|_| Error::InvalidSetting)?;
+        Ok(u64::from_be_bytes(held))
     }
 
     /// Seconds since this device first saw a dropped device in `group`, 0 the first time.
@@ -107,5 +135,11 @@ mod tests {
         store.forget_dropped_leaf(one).unwrap();
         assert_eq!(store.dropped_leaf_age(one, 2_600).unwrap(), 0);
         assert_eq!(store.dropped_leaf_age(two, 2_600).unwrap(), 500);
+        assert_eq!(store.device_listed().unwrap(), 0);
+        store.note_device_listed(256).unwrap();
+        store.note_device_listed(5).unwrap();
+        assert_eq!(store.device_listed().unwrap(), 256);
+        store.note_device_listed(257).unwrap();
+        assert_eq!(store.device_listed().unwrap(), 257);
     }
 }
