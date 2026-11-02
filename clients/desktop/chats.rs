@@ -136,7 +136,7 @@ pub fn mark_chat_read(dir: &Path, identity: &Identity, peer_id: &str) -> Result<
         .map_err(|e| e.to_string())
 }
 
-fn accept_peer(
+pub(crate) fn accept_peer(
     cache: &Mutex<ProfileCache>,
     epoch: u64,
     peer_id: &str,

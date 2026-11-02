@@ -195,6 +195,11 @@ contact. Both scan paths reject foreign codes with a localized result; image
 import also rejects malformed and multiple codes. The camera stops on exit and
 reports denial or an unavailable device. A real Debian 12 camera check and the
 verified mark are pending ([capture notes](desktop-camera-capture.md)).
+The `confirm_contact` command is the only writer of the mark: it fetches the signed profile from
+every reachable seed, keeps the newest observed version and refuses the identity's own Peer ID,
+another owner's profile, a version below one already seen in this identity and network context, a
+tombstone, and a run with no answering seed. That check is held in memory, so a restart forgets
+it. No screen calls the command yet.
 The copy button does not change verification state. Its native clipboard hint
 and timed cleanup are best effort
 ([privacy limits](../security/privacy.md#safety-number-clipboard)).

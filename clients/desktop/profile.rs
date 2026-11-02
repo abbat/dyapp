@@ -336,6 +336,21 @@ pub async fn connect(network: &Network) -> Result<Node, String> {
     Err(error)
 }
 
+/// Every answering node of the active network, at most one per seed row.
+pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
+    let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
+    let mut nodes = Vec::new();
+    for row in &network.seeds {
+        for address in seed::parse(row.trim()).into_iter().flatten() {
+            if let Ok(node) = Node::connect(address, Arc::clone(&protocols)).await {
+                nodes.push(node);
+                break;
+            }
+        }
+    }
+    Ok(nodes)
+}
+
 /// Publishes the solved draft to the active network and checks the signed readback; see
 /// `publish::publish`. Errors are `blocked: <code>`, `unsolved`, `notConnected` (no active
 /// network or no answering node) or a node or storage message; each leaves the draft as it was.

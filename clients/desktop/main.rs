@@ -894,6 +894,7 @@ fn main() {
             withdraw_profile,
             send_search_profile,
             search_profiles,
+            safety::confirm_contact,
             safety::contact_safety_number,
             safety::contact_safety_qr,
             safety::scan_contact_qr,
