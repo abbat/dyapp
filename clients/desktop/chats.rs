@@ -475,6 +475,12 @@ pub async fn receive(
         }
     }
     refill_if_due(&mut session, &mut node, &seal_key).await?;
+    // Rotates or repeats the package once the first profile publish made one; a failure stays due.
+    if matches!(session.store().last_resort(), Ok(Some(_))) {
+        let _ = session
+            .keep_last_resort(&mut node, device_key, dyapp_client::now(), &seal_key)
+            .await;
+    }
     Ok(changed)
 }
 

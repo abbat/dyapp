@@ -49,6 +49,25 @@ pub const MAX_PUZZLE_BITS: u32 = 24;
 // Expiry of a published KeyPackage record, below the node's 30-day bound for clock skew.
 const KEY_PACKAGE_RECORD_SECONDS: u64 = dyapp_messaging::mls::KEY_PACKAGE_LIFETIME_SECONDS - 3_600;
 
+/// A KeyPackage record of the device with mailbox key `device`, owned by `owner` (hex Peer ID).
+fn sign_key_package(
+    device: &Identity,
+    owner: &str,
+    package: Vec<u8>,
+    last_resort: bool,
+    revision: u32,
+) -> Result<SignedRecord, Error> {
+    let record = proto::KeyPackageRecord {
+        owner: unhex(owner)?,
+        mailbox: mailbox(&device.public_key()).to_vec(),
+        package,
+        expires: now() + KEY_PACKAGE_RECORD_SECONDS,
+        last_resort,
+        revision,
+    };
+    Ok(device.sign(Domain::KeyPackage, record.encode_to_vec()))
+}
+
 /// Why a client request failed.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -403,15 +422,12 @@ impl Node {
         last_resort: bool,
         revision: u32,
     ) -> Result<(), Error> {
-        let record = proto::KeyPackageRecord {
-            owner: unhex(owner)?,
-            mailbox: mailbox(&device.public_key()).to_vec(),
-            package,
-            expires: now() + KEY_PACKAGE_RECORD_SECONDS,
-            last_resort,
-            revision,
-        };
-        let signed = device.sign(Domain::KeyPackage, record.encode_to_vec());
+        let signed = sign_key_package(device, owner, package, last_resort, revision)?;
+        self.publish_signed_key_package(signed).await
+    }
+
+    /// Publishes a signed KeyPackage record; the node takes a repeat of a stored one as done.
+    pub async fn publish_signed_key_package(&mut self, signed: SignedRecord) -> Result<(), Error> {
         let response = self
             .keypackage(key_package_request::Request::Publish(signed))
             .await?;
@@ -946,7 +962,8 @@ fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, E
     ok(response.status).map(|()| response)
 }
 
-fn now() -> u64 {
+/// Unix seconds.
+pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_secs())

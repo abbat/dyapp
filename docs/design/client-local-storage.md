@@ -296,40 +296,39 @@ not a reason for an unbounded refetch loop.
 ### KeyPackage recovery boundary
 
 A device needs an available KeyPackage on a node before a new peer can create its MLS
-group. The desktop currently publishes four single-use packages only when it publishes
-the profile. Bootstrap consumes one before replying to a fetch, per holder and
+group. The desktop publishes four single-use packages with the device's first profile
+publish, then one reusable last-resort package. Bootstrap consumes one before replying to a fetch, per holder and
 allocation slot, and returns `NOT_FOUND` when stock is empty; it allows at most 20
 unconsumed ordinary packages per device. `Session::refill` requests *write tokens*
-from existing groups, not KeyPackages. The desktop's daily refill timer therefore
-does not restore exhausted KeyPackages.
+from existing groups, not KeyPackages, and the single-use batch is never refilled.
 
-The target is to replenish a published device while it is active, without changing
-its identity or creating a second device. Keep enough stock for an offline peer to
-start a chat, and report temporary unavailability when stock or a fresh profile is
-missing. Publishing the profile must precede package publication. Generate and seal
+A published device stays invitable while it is active, without changing its identity
+or creating a second device. Publishing the profile precedes package publication.
+Generate and seal
 private package state before any node publish; a failed publish may leave unused
 sealed keys but must not leave a public package without its private key. Never use a
 newly generated package after a failed local transaction. A repeated node publish
 of the same signed package must not unconsume it.
 
-The chosen availability floor is one MLS last-resort KeyPackage per device, published
-after the profile and initial single-use batch. Both the node and OpenMLS already support
-reusing it for multiple Welcomes. Rotate it before its 30-day expiry while the owner is
-active, and on the next foreground open after a longer offline period. Persist its
-monotonically increasing revision and exact signed publication alongside the sealed
-private MLS state before any network publish, then retry that publication after a lost
-reply or restart. Use the existing node replication path and wait for its successful
-publish response before treating the device as ready for new invitations.
-A profile that no longer lists the device must not republish its package.
+The availability floor is one MLS last-resort KeyPackage per device, published after the
+profile and initial single-use batch. Both the node and OpenMLS support reusing it for
+multiple Welcomes. `Session::keep_last_resort` replaces it 20 days after publication,
+ahead of its 30-day expiry; the catch-up pass calls it, so an owner back from a longer
+offline period replaces it on the first pass. It seals the private MLS state, then saves
+the revision, rotation time and exact signed record in the `settings` table, and only
+then publishes. A lost reply or restart repeats that record until a node confirms it.
+The revision is the previous one plus one, floored at the Unix time so a wiped store
+still supersedes what a node holds. The profile save waits for the confirmation and
+reports its failure. The device certificate is fixed for the life of a store, so a new
+certificate arrives with a store that has no saved publication.
+A node refuses the package of a device its current profile no longer lists.
 
 The current fetch API has no non-consuming stock count, so the client cannot know when
 ordinary stock is low. The last-resort package keeps new invitations possible after
-the four ordinary packages are consumed; it is not a claim that one-time package stock
-has been refilled. Reusing one KeyPackage increases exposure if its private material is
+the four ordinary packages are consumed; one-time stock is not refilled. Reusing one KeyPackage increases exposure if its private material is
 compromised and means multiple Welcomes can target the same key. OpenMLS explicitly marks
-and supports this mode; rotate at least before expiry and whenever the device certificate
-changes. A blind fixed batch on every foreground start can hit the 20-package quota and
-grow private state. A stale device certificate requires a refreshed verified profile
+and supports this mode. A fixed batch on every profile save or foreground start would hit
+the 20-package quota and grow private state, which is why the batch goes out once. A stale device certificate requires a refreshed verified profile
 before an invite is retried.
 
 | Refill option | Benefit | Cost or limit |

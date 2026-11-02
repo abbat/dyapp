@@ -941,6 +941,9 @@ mod chat_edits;
 #[path = "protocol/chat_pagination.rs"]
 mod chat_pagination;
 
+#[path = "protocol/last_resort.rs"]
+mod last_resort;
+
 #[path = "protocol/replicas.rs"]
 mod replicas;
 

@@ -394,10 +394,21 @@ pub async fn publish(
     let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await
         .map_err(|e| e.to_string())?;
-    // shortcut: a fixed batch per publish; the receive loop refills write tokens, not
-    // KeyPackages, so peers can exhaust this stock until a later profile publish.
+    // One single-use batch per device: repeats would hit the node's quota and fail this save.
+    // The last-resort package answers every invite after the batch runs out.
+    if session
+        .store()
+        .last_resort()
+        .map_err(|e| e.to_string())?
+        .is_none()
+    {
+        session
+            .publish_key_packages(&mut node, device_key, KEY_PACKAGES, &seal_key)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     session
-        .publish_key_packages(&mut node, device_key, KEY_PACKAGES, &seal_key)
+        .keep_last_resort(&mut node, device_key, dyapp_client::now(), &seal_key)
         .await
         .map_err(|e| e.to_string())?;
     send_held(session.store(), &mut node, &active).await?;

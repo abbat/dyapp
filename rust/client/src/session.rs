@@ -4,12 +4,16 @@ use crate::chat::{self, Body, Event};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
 use crate::store::messages::{CurrentMessage, MessageKey, VerifiedChatSender};
-use crate::store::Store;
+use crate::store::{LastResort, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
+
+/// A last-resort KeyPackage is replaced this long after its publication, ahead of its 30-day
+/// expiry, so a person who opens the app monthly never leaves an expired one behind.
+const LAST_RESORT_ROTATE_SECONDS: u64 = 20 * 86_400;
 
 /// A received non-projected message kept in the inbox (for example, an attachment).
 /// Text, forwarded text, edit and delete use the current chat projection instead.
@@ -152,6 +156,49 @@ impl Session {
         for package in packages {
             node.publish_key_package(device_key, &owner, package, false, 0)
                 .await?;
+        }
+        Ok(())
+    }
+
+    /// Keep this device's one reusable KeyPackage on `node`, so invites work once the single-use
+    /// stock runs out. Mints a revision when none exists or `now` reached its rotation: the
+    /// private key is sealed and the exact signed record saved before the network sees it. An
+    /// unconfirmed record is repeated as it is. Call after publishing the profile and from then
+    /// on; a failure stays due for the next call.
+    pub async fn keep_last_resort(
+        &mut self,
+        node: &mut Node,
+        device_key: &Identity,
+        now: u64,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let mut state = match self.store.last_resort()? {
+            Some(state) if now < state.rotate_at => state,
+            previous => {
+                let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+                let package = device.key_package(true)?;
+                self.store.stage_outbound(&device.seal(seal_key)?, &[])?;
+                // The clock floor keeps it above the node's revision after a wiped store.
+                let revision = previous
+                    .map_or(0, |state| state.revision)
+                    .saturating_add(1)
+                    .max(u32::try_from(now).unwrap_or(u32::MAX));
+                let owner = self.store.owner_peer_id();
+                let state = LastResort {
+                    revision,
+                    rotate_at: now + LAST_RESORT_ROTATE_SECONDS,
+                    published: false,
+                    record: crate::sign_key_package(device_key, owner, package, true, revision)?,
+                };
+                self.store.save_last_resort(&state)?;
+                state
+            }
+        };
+        if !state.published {
+            node.publish_signed_key_package(state.record.clone())
+                .await?;
+            state.published = true;
+            self.store.save_last_resort(&state)?;
         }
         Ok(())
     }

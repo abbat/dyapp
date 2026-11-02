@@ -14,6 +14,7 @@ mod chat_list;
 mod chat_list_tests;
 mod conversations;
 mod inbox;
+mod last_resort;
 mod likes;
 mod mailbox_cursor;
 pub mod messages;
@@ -26,6 +27,7 @@ mod search_publish;
 mod tokens;
 pub use chat_list::ChatRow;
 pub use conversations::Conversation;
+pub use last_resort::LastResort;
 pub use likes::Likes;
 pub use peers::ContactName;
 
