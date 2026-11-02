@@ -69,6 +69,11 @@ const checkLikePending = async () => {
   card.remove();
 };
 const liveMatched = async (peer) => (await invoke('peer_likes', { peerId: peer })).matched;
+// One more than the old mailbox limit of 100, so the last text only arrives past that limit.
+const FLOOD_TEXTS = 102;
+const FLOOD_STEP_MS = 60000;
+const floodTexts = async (peer) => (await liveHistory(peer))
+  .filter((text) => text?.startsWith('flood '));
 const presenceSteps = {
   'presence-like': async (peer) => {
     await liveFound(peer);
@@ -136,6 +141,22 @@ const presenceSteps = {
   },
   'match-received': async (peer) => {
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('match text'), 'the text');
+  },
+  // Stops inside the check's limit: the next run of this step goes on from the stored history, so
+  // the per-send cost decides how many runs it takes, not whether the step fails.
+  'flood-send': async (peer) => {
+    const stop = Date.now() + FLOOD_STEP_MS;
+    let sent = (await floodTexts(peer)).length;
+    while (sent < FLOOD_TEXTS && Date.now() < stop) {
+      await invoke('send_chat_text', { peerId: peer, text: `flood ${sent}` });
+      sent += 1;
+    }
+  },
+  'flood-received': async (peer) => {
+    const last = `flood ${FLOOD_TEXTS - 1}`;
+    await liveChats(() => liveRow('chat-list', peer)?.textContent.includes(last), 'the last text');
+    const stored = (await floodTexts(peer)).length;
+    if (stored !== FLOOD_TEXTS) throw new Error(`${stored} of ${FLOOD_TEXTS} pending texts arrived`);
   },
 };
 globalThis.uiSmokePresence = Object.freeze({

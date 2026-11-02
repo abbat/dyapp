@@ -524,6 +524,7 @@ def smoke(executable, flows=True):
                     (bob, "presence-match"),
                     (alice, "presence-send"), (bob, "presence-shown"),
                     (alice, "match-send"), (bob, "match-received"),
+                    *[(alice, "flood-send")] * 4, (bob, "flood-received"),
                     (alice, "chat-block"),
                     (bob, "chat-after-block"), (alice, "chat-blocked")):
                 case(f"peers-{step}",

@@ -144,7 +144,10 @@ returning to the window does both; the two-client steps check a receipt sent aft
 setting on, its mark after a restart and silence at the default. The presence smoke checks the
 mark in the row and the open chat, that a pass with no new mail removes it from both, that focus
 sends presence and that a hidden window does not; the two-client steps make a match, check the
-hourly throttle and wait for the mark on the other client. Store tests cover persistence
+hourly throttle and wait for the mark on the other client. A later pair of steps sends 102 texts
+to the stopped client, in up to four 60-second runs, and checks that all of them arrive through
+the mail pass once it returns, which only works past the old limit of 100. Store tests cover
+persistence
 across restart
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
