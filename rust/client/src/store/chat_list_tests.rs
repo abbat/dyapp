@@ -66,6 +66,9 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
     super::tests::catalog_group(&mut store, &group_b, &b);
     super::tests::catalog_group(&mut store, &group_c, &c);
     deliver(&mut store, 1, &group_a, &a, text(1, None));
+    // The reply opens the chat; a second text of a pending request would be dropped.
+    let own = owner.peer_id();
+    deliver(&mut store, 9, &group_a, &own, text(8, Some(150)));
     deliver(&mut store, 2, &group_a, &a, text(2, Some(300)));
     deliver(&mut store, 3, &group_b, &b, text(3, Some(400)));
     deliver(&mut store, 4, &group_c, &c, text(4, Some(100)));
@@ -95,7 +98,7 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
             ChatItem::Attachment(attachment) => attachment.key.id[0],
         })
         .collect();
-    assert_eq!(order, [1, 5, 2, 6]);
+    assert_eq!(order, [1, 8, 5, 2, 6]);
 
     let rows = store.chat_rows().unwrap();
     let peers: Vec<&str> = rows.iter().map(|row| row.peer_id.as_str()).collect();

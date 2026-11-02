@@ -963,7 +963,7 @@ fn main() {
                 }
                 webview
                     .eval(format!(
-                        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                         include_str!("ui-test-common.js"),
                         include_str!("video-frame-renderer.js"),
                         include_str!("video-frame-smoke.js"),
