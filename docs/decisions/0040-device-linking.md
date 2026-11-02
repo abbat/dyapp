@@ -39,7 +39,7 @@ requires, so a device can be removed from groups and its mailbox closed.
    after five minutes.
 4. The new device stores the identity key under its own platform store, fetches the newest
    profile from nodes, certifies its device, signs the owner binding, publishes the profile with
-   itself added at a higher version, and publishes KeyPackages.
+   itself and that binding added at a higher version, and publishes KeyPackages.
 5. The existing device sees the new certificate and adds the device to every pair group. A device
    that finds a listed own device missing from a group it holds does the same, so a link survives
    the first device going offline. Two commits on one epoch fork a group for good and no server

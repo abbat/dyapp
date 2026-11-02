@@ -413,6 +413,7 @@ pub async fn publish(
     publish::list_device(
         &mut draft,
         session.certificate().map_err(|e| e.to_string())?,
+        dyapp_client::owner_binding(device_key, &identity.public_key()),
     );
     let published = publish::publish(session.store(), &mut node, identity, &draft)
         .await

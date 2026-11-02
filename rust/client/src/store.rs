@@ -839,15 +839,19 @@ pub(crate) mod tests {
     #[test]
     fn the_owner_catalogs_a_group_of_only_own_devices() {
         let path = temp_db_path();
-        let (identity, first, _) = person();
-        let second = Device::new(&identity, Identity::generate().public_key(), 2).unwrap();
-        let profile = Profile {
+        let identity = Identity::generate();
+        let mut draft = Profile {
             version: 2,
-            devices: vec![first.certificate().clone(), second.certificate().clone()],
             ..Default::default()
-        }
-        .sign(&identity);
-        let profile = dyapp_profile::verify(&profile).unwrap();
+        };
+        let [first, second] = [1, 2].map(|sequence| {
+            let key = Identity::generate();
+            let device = Device::new(&identity, key.public_key(), sequence).unwrap();
+            let binding = crate::owner_binding(&key, &identity.public_key());
+            crate::publish::list_device(&mut draft, device.certificate().clone(), binding);
+            device
+        });
+        let profile = dyapp_profile::verify(&draft.sign(&identity)).unwrap();
         let package = second.key_package(false).unwrap();
         let (group, _) = first
             .create_group(&[package], std::slice::from_ref(&profile))

@@ -184,6 +184,7 @@ impl Profile {
         }
         let mut previous = None;
         let mut mls_keys = HashSet::new();
+        let mut listed = HashSet::new();
         for signed in &self.devices {
             if signed.public_key != owner_key || signed.verify(Domain::DeviceCertificate).is_err() {
                 return Err(Error::Invalid("invalid device certificate signature"));
@@ -208,6 +209,15 @@ impl Profile {
                 return Err(Error::Invalid("duplicate or unsorted devices"));
             }
             previous = Some(mailbox);
+            listed.insert(device);
+        }
+        let binds = |signed: &SignedRecord| {
+            <[u8; 32]>::try_from(signed.public_key.as_slice()).is_ok_and(|key| listed.contains(&key))
+                && signed.payload == owner_key
+                && signed.verify(Domain::DeviceOwner).is_ok()
+        };
+        if self.device_owners.len() > self.devices.len() || !self.device_owners.iter().all(binds) {
+            return Err(Error::Invalid("invalid device owner binding"));
         }
         Ok(())
     }
@@ -531,6 +541,25 @@ mod tests {
         let mut profile = sample(1);
         profile.devices = devices;
         assert!(verify(&profile.sign(&owner)).is_ok());
+
+        let binding = |device: &Identity, owner: &Identity| {
+            device.sign(Domain::DeviceOwner, owner.public_key().to_vec())
+        };
+        profile.device_owners = vec![binding(&first, &owner), binding(&second, &owner)];
+        assert!(verify(&profile.sign(&owner)).is_ok());
+        for bad in [
+            vec![binding(&Identity::generate(), &owner)],
+            vec![binding(&first, &Identity::generate())],
+            vec![first.sign(Domain::DeviceCertificate, owner.public_key().to_vec())],
+            vec![binding(&first, &owner); 3],
+        ] {
+            profile.device_owners = bad;
+            assert_eq!(
+                verify(&profile.sign(&owner)),
+                Err(Error::Invalid("invalid device owner binding"))
+            );
+        }
+        profile.device_owners.clear();
 
         profile.devices.reverse();
         assert_eq!(

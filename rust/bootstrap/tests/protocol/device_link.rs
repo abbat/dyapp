@@ -477,12 +477,14 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     assert_eq!(store.own_profile_seen().unwrap(), live.version);
 
     // The profile stays hidden, and the node serves both devices.
-    publish::list_device(&mut draft, laptop.device.certificate().clone());
+    let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
+    publish::list_device(&mut draft, laptop.device.certificate().clone(), binding.clone());
     let hidden = publish::relist(&store, &mut laptop.node, &alice.identity, &draft)
         .await
         .unwrap();
     assert!(store.profile_hidden().unwrap());
     assert_eq!(hidden.version, live.version + 3);
+    assert!(hidden.device_owners.contains(&binding));
     let served = alice.node.get_profile(&owner).await.unwrap().profile;
     assert_eq!(
         (served.version, served.deleted, served.devices.len()),

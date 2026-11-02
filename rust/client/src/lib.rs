@@ -924,8 +924,9 @@ pub fn mailbox(device_key: &[u8; 32]) -> [u8; 32] {
 }
 
 /// The binding a device signs with its mailbox key `device_key` when it is linked: it accepts
-/// the identity key `identity` as the owner that may later close its mailbox. Keep it on another
-/// device of the owner, which sends it with [`Node::close_mailbox`].
+/// the identity key `identity` as the owner that may later close its mailbox. The owner's profile
+/// carries it ([`publish::list_device`]), so another own device can send it with
+/// [`Node::close_mailbox`].
 pub fn owner_binding(device_key: &Identity, identity: &[u8; 32]) -> SignedRecord {
     device_key.sign(Domain::DeviceOwner, identity.to_vec())
 }

@@ -45,8 +45,13 @@ pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Bl
     Ok(())
 }
 
-/// List `certificate` among `draft`'s devices once, in the mailbox order a profile requires.
-pub fn list_device(draft: &mut Profile, certificate: SignedRecord) {
+/// List `certificate` among `draft`'s devices once, in the mailbox order a profile requires, with
+/// the device's [`owner_binding`](crate::owner_binding) that lets another own device close its
+/// mailbox.
+pub fn list_device(draft: &mut Profile, certificate: SignedRecord, binding: SignedRecord) {
+    if !draft.device_owners.contains(&binding) {
+        draft.device_owners.push(binding);
+    }
     if !draft.devices.contains(&certificate) {
         draft.devices.push(certificate);
         draft.devices.sort_by_key(|signed| {
@@ -623,16 +628,17 @@ mod tests {
         };
         let certificates: Vec<_> = (0..3)
             .map(|_| {
-                dyapp_messaging::mls::Device::new(&alice, Identity::generate().public_key(), 1)
-                    .unwrap()
-                    .certificate()
-                    .clone()
+                let device_key = Identity::generate();
+                let device = dyapp_messaging::mls::Device::new(&alice, device_key.public_key(), 1);
+                let certificate = device.unwrap().certificate().clone();
+                let binding = crate::owner_binding(&device_key, &alice.public_key());
+                (certificate, binding)
             })
             .collect();
-        for certificate in certificates.iter().chain(&certificates) {
-            list_device(&mut draft, certificate.clone());
+        for (certificate, binding) in certificates.iter().chain(&certificates) {
+            list_device(&mut draft, certificate.clone(), binding.clone());
         }
-        assert_eq!(draft.devices.len(), 3);
+        assert_eq!((draft.devices.len(), draft.device_owners.len()), (3, 3));
         assert!(dyapp_profile::verify(&draft.sign(&alice)).is_ok());
     }
 }

@@ -67,6 +67,9 @@ message Profile {
   uint32 fitness_level = 43;
   // Self-declared sign, independent of the published birth date.
   uint32 zodiac = 44;
+  // The binding each listed device signed, accepting this identity as the owner that may close
+  // its mailbox, see docs/architecture/bootstrap.md. At most one per entry of `devices`.
+  repeated dyapp.identity.SignedRecord device_owners = 45;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

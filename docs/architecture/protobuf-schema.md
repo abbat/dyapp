@@ -67,7 +67,10 @@ long side at most 320 px, at most 24 KiB, and a client refuses a larger one with
 the [bootstrap signed profile](bootstrap.md#signed-profile). `devices` (field 24) contains
 at most 64 identity-signed, mailbox-sorted `DeviceCertificate` records; each binds a distinct
 32-byte device key and MLS signature key with a positive generation. Duplicate device or MLS
-keys and malformed certificates invalidate the profile.
+keys and malformed certificates invalidate the profile. `device_owners` (field 45) holds at most
+one binding per entry of `devices`: the device key's signature over the owner key, which later
+closes that device's mailbox ([bootstrap](bootstrap.md#mailbox-envelope)). A binding of an unlisted
+device or another owner invalidates the profile.
 
 ## Node protocol
 
@@ -102,7 +105,7 @@ SHA-256 of the device public key (32 bytes each).
   verbatim as `replica_ack`; they check the signature and mailbox address, not the nonce. A
   `revoke`, signed by the device key without a nonce, is forwarded the same way as
   `replica_revoke`, and repair carries the unexpired ones. A `revoke` signed by the identity key
-  with the `owner` binding a revoked device signed at linking closes that device's mailbox. For
+  with the `owner` binding a revoked device signed, kept in the profile, closes that device's mailbox. For
   repair a node sends `inventory` (the ids it holds) and gets `missing` back; envelopes move
   between nodes as `replica_put`, signed by their senders and checked like a `put`.
 - **`/dyapp/mailbox-push`**: after a fetch with `watch`, the node pushes new envelopes over the

@@ -492,7 +492,7 @@ fetch reveal device count and contact interest to store nodes; no private direct
   `record` table apart from the store's profiles; catch-up refills a lost or dropped file
   ([rebuild](#storage-on-a-node)). The search role needs the store role, since a
   node without it serves no protocol. It holds typed columns for every
-  searchable `Profile` field (`search_fields`: all but `name`, devices and proof of work; photos only as their count), plus key, version, heartbeat time and a random u64 `r`, and a
+  searchable `Profile` field (`search_fields`: all but `name`, devices, their owner bindings and proof of work; photos only as their count), plus key, version, heartbeat time and a random u64 `r`, and a
   table of (key, interest) pairs. `r` is drawn again for every new version. Indexes are (country, place, r), (country, r)
   and (r). A `place_count` table keeps the number of indexed profiles per (country, place),
   updated on every put and removal; `key` also keeps `first_seen` (the first put, never
@@ -848,8 +848,8 @@ free room. The node sees which token pseudonyms a mailbox blocked, not who they 
 
 **Closing a revoked device's mailbox.** When the owner drops a lost or sold device from the
 profile, another of its devices sends a `revoke` with no token keys, signed by the identity key,
-whose `owner` is the binding the device signed when it was linked: its identity key as the
-payload, signed by the device key over `"dyapp/device-owner/v1\0" || payload`. The binding's
+whose `owner` is the binding the device signed when it was listed, which `Profile.device_owners`
+carries for every own device: its identity key as the payload, signed by the device key over `"dyapp/device-owner/v1\0" || payload`. The binding's
 signer must hash to `mailbox` and its payload must be the revoke's signer, so only the identity
 the device accepted can close it, without the lost device. A device certificate alone would not
 do: anyone can certify a public device key under their own identity. The node deletes every

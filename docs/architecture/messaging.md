@@ -299,7 +299,7 @@ and each waits `ADD_TURN_SECONDS` per earlier device, counted from when it first
 desktop client takes the owner's profile from a node, ignoring one older than its own copy. The
 owner's other device also closes
 the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
-signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
+signed, which the profile keeps ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
 `dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and
 `chat::revoked` tells a device that its owner's newest profile no longer lists it, so it wipes its
 keys and MLS state. The linking screen and the wipe itself are planned with the client apps.
