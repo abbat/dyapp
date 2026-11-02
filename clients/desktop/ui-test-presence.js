@@ -104,7 +104,8 @@ const presenceSteps = {
   },
   'presence-match': async (peer) => {
     await liveChats(() => liveRow('chats-liked-list', peer), 'the second like');
-    await liveFound(peer);
+    // Not through search: the other client unhid its profile, and that record waits for the window.
+    liveRow('chats-liked-list', peer).click();
     document.getElementById('view-like').click();
     await window.likeDone;
     if (!await liveMatched(peer)) throw new Error('the second like made no match');

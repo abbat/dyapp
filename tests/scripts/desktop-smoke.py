@@ -396,6 +396,7 @@ def smoke(executable, flows=True):
         env = dict(os.environ, DYAPPD_LISTEN=f'["{seed}"]',
                    DYAPPD_EXTERNAL=f'["{seed}"]',
                    DYAPPD_STORAGE_DIR=str(storage / "node"),
+                   DYAPPD_ROLES='["store", "search", "media"]',
                    DYAPPD_NETWORK_ID_POW_BITS="8")
         subprocess.run([node, "keygen"], env=env, check=True,
                        stdout=subprocess.DEVNULL, timeout=600)
@@ -500,7 +501,10 @@ def smoke(executable, flows=True):
                     peer_root) != other_peer:
                 raise RuntimeError(
                     "connecting the second client changed its Peer ID")
-            if case("peer-publish", [*file, "--ui-test-step=profile-publish"],
+            # With a photo: this first record reaches search at once, while
+            # a later edit waits out the search window.
+            if case("peer-publish",
+                    [*file, "--ui-test-step=profile-publish-photo"],
                     peer_root, timeout=180) != other_peer:
                 raise RuntimeError(
                     "publishing the second client changed its Peer ID")
@@ -510,6 +514,7 @@ def smoke(executable, flows=True):
             # so state it reads back survived a restart.
             alice, bob = (profile, other_peer), (peer_root, peer_id)
             for (root, peer), step in (
+                    (alice, "photo-seen"),
                     (alice, "like"), (alice, "like-restart"),
                     (bob, "liked-you"), (alice, "unlike"),
                     (bob, "liked-gone"), (alice, "chat-first"),

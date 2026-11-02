@@ -394,4 +394,39 @@ const checkPeerPhotos = async () => {
   byId('view-back').click();
   card.remove();
 };
-globalThis.uiSmokePhotos = Object.freeze({ checkChatPhoto, checkProfilePhotos, checkPeerPhotos });
+const addRealPhoto = async () => {
+  const source = document.createElement('canvas');
+  source.width = 640;
+  source.height = 640;
+  source.getContext('2d').fillRect(0, 0, 640, 640);
+  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  await openArea('profile-area');
+  await addProfilePhoto(new File([jpeg], 'photo.jpg', { type: 'image/jpeg' }));
+  if (byId('profile-photos').children.length !== 1) {
+    throw new Error(`the photo was not added: ${byId('profile-status').textContent}`);
+  }
+};
+const shownSide = () => document.querySelector('#view-photos .main canvas')?.width ?? 0;
+const photoSteps = {
+  // Over a real node: the thumbnail on the card and in the view, then the full image.
+  'photo-seen': async (peer) => {
+    await liveFound(peer);
+    await window.peerPhotosShown;
+    const thumbnail = shownSide();
+    if (!thumbnail) throw new Error(`no thumbnail in the view: ${byId('view-status').textContent}`);
+    const load = byId('view-photo-load');
+    if (!load.hidden) {
+      load.click();
+      await window.peerPhotoLoaded;
+    }
+    if (shownSide() !== 640) {
+      throw new Error(`no full image, side ${shownSide()}: ${byId('view-status').textContent}`);
+    }
+    byId('view-back').click();
+    await livePoll(() => document.querySelector(`#search-results [data-peer-id="${peer}"] .avatar canvas`),
+      'the thumbnail on the card');
+  },
+};
+globalThis.uiSmokePhotos = Object.freeze({
+  addRealPhoto, checkChatPhoto, checkProfilePhotos, checkPeerPhotos, photoSteps,
+});

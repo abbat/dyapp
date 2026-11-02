@@ -178,12 +178,13 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-save').click();
   await saved;
 };
-const expectedFields = () => [
+const expectedFields = (photos = 0) => [
   `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
   `${window.strings['profile.birthYear']}: 1990`,
   `${window.strings['profile.birthMonth']}: 2`,
+  ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
 ].join('|');
-const publishProfileOnLoopback = async (saved = false, fails = false) => {
+const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
   if (saved) {
     if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
       || byId('birth-month').value !== '2') {
@@ -195,7 +196,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false) => {
     byId('birth-month').value = '2';
   }
   const fields = await openPublishForTest();
-  if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
+  if (fields.join('|') !== expectedFields(photos)) throw new Error(`profile preview changed: ${fields}`);
   consent('profile-disclosure');
   consent('profile-attested');
   const result = waitForProfileStatus(
@@ -448,6 +449,10 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       'profile-publish-retry': () => publishProfileOnLoopback(true),
       'search-forged': searchForged,
       'profile-publish': () => publishProfileOnLoopback(),
+      'profile-publish-photo': async () => {
+        await photoChecks.addRealPhoto();
+        await publishProfileOnLoopback(false, false, 1);
+      },
       'profile-hide': hideProfileOnLoopback,
       'profile-unhide': unhideProfileOnLoopback,
       'search-no-network': () => searchOnLoopback(false),

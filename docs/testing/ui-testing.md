@@ -221,8 +221,9 @@ wizard's network step and must leave an active network. After it,
 a search on the node shows the sample (the own profile or none) with the node's filters and no
 failures; it must offer the place filter, and Germany with Berlin picked from the suggestions
 finds nobody, since the published profile has no place. The smoke then publishes a second,
-independent client identity to the same node and reads back both signed profiles; this prepares
-an actual peer for the interaction scenario. After activation, a node case turns on the app's own node in Settings: the form shows
+independent client identity with one real photo to the same node, which runs the media role, and
+reads back both signed profiles; this prepares an actual peer for the interaction scenario. The
+first client then finds it in search and sees the thumbnail and the full image. After activation, a node case turns on the app's own node in Settings: the form shows
 its defaults, refuses a 3 MB disk limit, shows the running node ID, then stops it, and the script
 checks the saved `node.json` is off. The desktop test then leaves the Network area for
 Profile and comes back, checks that draft rows and failed row statuses survive navigation, and compares
