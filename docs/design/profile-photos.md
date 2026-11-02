@@ -3,9 +3,9 @@
 How a client publishes, fetches and keeps public profile photos. The wire format is in
 [protobuf-schema.md](../architecture/protobuf-schema.md); node rules are in
 [bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
-publishing, and the desktop has the editor and shows photos on search and liked cards and in
-`profile-view`, and its catch-up pass runs the keep refresh of step 4. Photos on chat rows and
-identity avatars, and viewing, the editor and the keep refresh on Android and Apple are planned.
+publishing, and the desktop has the editor and shows photos on search and liked cards, chat rows
+and the open identity's avatars and in `profile-view`, and its catch-up pass runs the keep refresh
+of step 4. Viewing, the editor and the keep refresh on Android and Apple are planned.
 
 ## Limits
 

@@ -15,10 +15,13 @@ pub struct PeerNameView {
     pub peer_id: String,
     pub name: String,
     pub verified: Option<bool>,
+    /// The hash of the first thumbnail; empty when no photo is known.
+    pub photo: Vec<u8>,
 }
 
-/// The name of each peer. A public name needs the peer's profile in the in-memory cache, so
-/// after a restart it returns with the next search or chat fetch; a local name is always there.
+/// The name and photo of each peer. A public name and the photo need the peer's profile in the
+/// in-memory cache, so after a restart they return with the next search or chat fetch; a local name
+/// is always there.
 fn names(
     cache: &Mutex<ProfileCache>,
     store: &Store,
@@ -27,7 +30,10 @@ fn names(
     let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
     let mut views = Vec::with_capacity(peer_ids.len());
     for peer_id in peer_ids {
-        let name = match profiles.get(&peer_id) {
+        let peer = profiles.get(&peer_id);
+        let photo = peer.and_then(|peer| peer.profile.photos.first());
+        let photo = photo.map_or_else(Vec::new, |photo| photo.thumbnail.clone());
+        let name = match peer {
             Some(peer) => store.contact_name(peer).map_err(|e| e.to_string())?,
             None => match store.local_name(&peer_id).map_err(|e| e.to_string())? {
                 local if local.is_empty() => ContactName::Unnamed,
@@ -43,6 +49,7 @@ fn names(
             peer_id,
             name,
             verified,
+            photo,
         });
     }
     Ok(views)
@@ -83,7 +90,7 @@ pub fn set_contact_name(
 mod tests {
     use super::*;
     use dyapp_identity::Identity;
-    use dyapp_profile::Profile;
+    use dyapp_profile::{Photo, Profile};
 
     #[test]
     fn a_local_name_wins_and_a_public_name_needs_a_profile_and_carries_its_mark() {
@@ -97,6 +104,7 @@ mod tests {
             peer_id: peer.clone(),
             name: name.to_owned(),
             verified,
+            photo: Vec::new(),
         };
 
         assert_eq!(read(), view("", None));
@@ -116,6 +124,19 @@ mod tests {
         assert_eq!(read(), view("Bob", Some(true)));
         store.set_local_name(&peer, "Bobby").unwrap();
         assert_eq!(read(), view("Bobby", None));
+
+        let photos = vec![Photo {
+            full: vec![vec![1; 32]],
+            thumbnail: vec![2; 32],
+        }];
+        let newer = Profile {
+            version: 4,
+            photos,
+            ..profile
+        };
+        let newer = dyapp_profile::verify(&newer.sign(&bob)).unwrap();
+        assert!(cache.lock().unwrap().accept_if_current(0, newer));
+        assert_eq!(read().photo, vec![2; 32]);
 
         drop(store);
         std::fs::remove_dir_all(dir).unwrap();

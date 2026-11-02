@@ -159,6 +159,7 @@ const who = (element, id, reason, caption) => {
   note.textContent = caption;
   const text = document.createElement('span');
   text.append(name, document.createElement('br'), note);
+  if (id && id === current?.peerId) window.ownAvatar(avatar);
   return [avatar, text];
 };
 const modeText = (item) => window.strings[`identity.mode.${item.mode}`] || '';

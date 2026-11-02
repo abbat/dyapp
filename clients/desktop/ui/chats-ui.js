@@ -401,6 +401,7 @@ const chatRow = (row) => {
   button.type = 'button';
   button.className = 'list-button';
   button.dataset.peerId = row.peerId;
+  const [avatar] = who(button, row.peerId, '', '');
   const content = document.createElement('span');
   content.className = 'grow';
   const name = document.createElement('b');
@@ -435,11 +436,11 @@ const chatRow = (row) => {
     unread.setAttribute('aria-label', `${window.strings['chats.unread']}: ${row.unreadCount}`);
     meta.append(document.createElement('br'), unread);
   }
-  button.append(content, meta);
+  button.append(avatar, content, meta);
   button.addEventListener('click', () => { window.chatOpened = openChat(row.peerId); });
   return button;
 };
-const renderChatRows = (rows) => {
+const renderChatRows = (rows, call = invoke) => {
   visibleChatRows = rows;
   knownPeers = [...new Set([...knownPeers, ...rows.map((row) => row.peerId)])];
   const requests = rows.filter((row) => row.state === 'requestReceived');
@@ -447,6 +448,9 @@ const renderChatRows = (rows) => {
   chatRequests.replaceChildren(...requests.map(chatRow));
   document.getElementById('chats-requests-count').textContent = String(requests.length);
   chatList.replaceChildren(...conversations.map(chatRow));
+  const cards = [...chatRequests.children, ...chatList.children];
+  window.chatPhotosShown = window.showCardPhotos(cards.map((card) => ({
+    draft: { photos: [window.peerPhoto(card.dataset.peerId)] } })), cards, call);
   if (!requests.length) chatRequests.textContent = window.strings['chats.noRequests'];
   if (!conversations.length) chatList.textContent = window.strings['chats.noConversations'];
 };
@@ -904,7 +908,7 @@ window.showChats = async (call = invoke) => {
   if (!currentChats()) return;
   await loadPeerNames(rows.map((row) => row.peerId), call);
   if (!currentChats()) return;
-  renderChatRows(rows);
+  renderChatRows(rows, call);
   try {
     const found = await withPlaces(await call('liked_you'));
     if (!currentChats()) return;

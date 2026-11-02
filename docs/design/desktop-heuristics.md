@@ -459,6 +459,23 @@ Findings: none open.
 
 Findings: none open.
 
+### Chat row and identity avatars review (2026-11-02)
+
+Chat rows and the open identity's avatars in `sidebar`, the switcher, Settings and `remove-dialog`.
+
+- Visibility: a known face leads the row, and the letters hold its place until the thumbnail
+  arrives, so the row does not shift.
+- Match with the real world: the sidebar shows the same first photo the profile editor marks Main.
+- Consistency: rows use the same round avatar as search and liked cards, and the same letters.
+- Error prevention: a photo from a closed identity cannot show: the change of identity clears it
+  and drops a read still running.
+- Recognition: the Peer ID or name stays in text beside each avatar, so a missing photo loses
+  nothing; avatars stay hidden from screen readers for the same reason.
+- Minimalist design: no message and no spinner for a missing photo.
+- Help with errors: a failed read leaves the letters, and the next redraw tries again.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

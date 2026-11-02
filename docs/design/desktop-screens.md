@@ -46,9 +46,10 @@ says the key is kept unencrypted. Nothing is created before **Create identity**.
 ## Picker and recovery
 
 `picker`: several identities and none active, or after a removal. Every identity list (picker,
-switcher, Settings) leads each row with a round avatar: the thumbnail of the identity's first
-profile photo, or the two characters after "@" in the short Peer ID when it has none. A short Peer
-ID is "@" and the last 6 characters, longer until unique among the identity's known peers; the
+switcher, Settings) leads each row with a round avatar: for the open identity the first photo of
+its profile draft, read locally without contacting a node, otherwise the two characters after "@"
+in the short Peer ID, because other identities' stores stay closed. A short Peer ID is "@" and the
+last 6 characters, longer until unique among the identity's known peers; the
 full ID shows in the wizard, recovery and removal. Opened from an open identity, the picker and
 the key-storage choice also show Cancel, which returns to that identity.
 
@@ -291,7 +292,7 @@ chat and mark read for the active identity.
 | --- | --- | --- |
 | Liked you | `chats-liked` | With count |
 | Message requests | `chats-requests` | With count |
-| Conversations | `chat-list` | Rows `chat-1`, `chat-2`; a row shows "Active recently" for a match |
+| Conversations | `chat-list` | Rows `chat-1`, `chat-2`; a row leads with the peer's first thumbnail while their profile is in memory, otherwise the letters, and shows "Active recently" for a match |
 
 `chat`: one conversation with a match. The prototype's peer avatar and profile link remain planned.
 A peer is shown by the local name if it has one, else by its public name with "Verified" or "Not

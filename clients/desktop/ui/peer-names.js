@@ -9,6 +9,7 @@ window.peerName = (id) => {
   const mark = window.strings[entry.verified ? 'peer.verified' : 'peer.unverified'];
   return `${entry.name} · ${mark} · ${short}`;
 };
+window.peerPhoto = (id) => peerNames.get(id)?.photo;
 // A failed read keeps the last names: every peer still shows at least its short Peer ID.
 const loadPeerNames = async (peerIds, call) => {
   if (!peerIds.length) return;

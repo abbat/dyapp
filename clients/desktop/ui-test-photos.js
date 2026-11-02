@@ -271,6 +271,17 @@ const checkProfilePhotos = async () => {
   const before = commands.length;
   await addProfilePhoto(file, call);
   if (commands.length !== before) throw new Error('a photo changed while the form was busy');
+  const avatar = document.querySelector('#sidebar-identity .avatar');
+  await window.ownAvatarsShown;
+  if (!avatar.querySelector('canvas') || !avatar.textContent) {
+    throw new Error('the identity avatar did not draw the first photo over its letters');
+  }
+  if (commands.some((name) => name.includes('peer') || name.includes('fetch'))) {
+    throw new Error('the own photo touched a peer or node command');
+  }
+  window.showProfilePhotos([], call);
+  await window.ownAvatarsShown;
+  if (avatar.querySelector('canvas')) throw new Error('an identity without photos kept one');
   setProfileBusy(false);
   if (add.disabled) throw new Error('Add photo stayed disabled after the form was free');
 
@@ -294,6 +305,8 @@ const checkPeerPhotos = async () => {
   const fetches = [];
   const held = new Set();
   const refused = new Set();
+  const chatRows = ['ab', 'cd'].map((byte) => ({ peerId: byte.repeat(32), state: 'open',
+    lastMessage: null, unreadCount: 0, activeRecently: false }));
   let auto = false;
   const call = (command, args) => {
     if (command === 'fetch_peer_photos') {
@@ -305,6 +318,11 @@ const checkPeerPhotos = async () => {
       return held.has(args.hash[0]) ? Promise.resolve(bytes) : Promise.reject('notFound');
     }
     if (command === 'peer_photo_auto') return Promise.resolve(auto);
+    if (command === 'chat_rows') return Promise.resolve(chatRows);
+    if (command === 'contact_names') {
+      return Promise.resolve(chatRows.map(({ peerId }, index) => (
+        { peerId, name: '', verified: null, photo: index ? [] : [9] })));
+    }
     return Promise.reject('unsupported');
   };
   const person = (byte, photos, fullPhotos) => ({ peerId: byte.repeat(32), version: 1, place: '',
@@ -325,6 +343,16 @@ const checkPeerPhotos = async () => {
   if (!avatar.querySelector('canvas')) throw new Error('the next view did not retry the thumbnail');
   if (fetches.some(({ hashes, full }) => full || String(hashes) !== '1')) {
     throw new Error('a list asked for more than the first thumbnail');
+  }
+
+  await openArea('chats-area');
+  await window.chatsDone;
+  await window.showChats(call);
+  await window.chatPhotosShown;
+  const [shownRow, plainRow] = chatRows.map(({ peerId }) => liveRow('chat-list', peerId));
+  if (!shownRow.querySelector('.avatar canvas') || plainRow.querySelector('canvas')
+    || !plainRow.querySelector('.avatar').textContent) {
+    throw new Error('a chat row did not show its photo, or letters without one');
   }
 
   await openArea('search-area');

@@ -107,7 +107,36 @@ const profilePhotoTile = (hash, index, count, call) => {
   tile.append(tools);
   return tile;
 };
+// The open identity's first draft photo on its avatars. It is local, so no node hears of this.
+// Other identities keep their letters: their stores stay closed.
+let ownPhoto = null;
+let ownPhotoRun = 0;
+const paintOwnAvatar = async (avatar) => {
+  const photo = ownPhoto;
+  const canvas = document.createElement('canvas');
+  const drawn = !photo || await drawPhoto(canvas, photo, 'image/jpeg', PROFILE_TILE_SIDE)
+    .then(() => true, () => false);
+  if (photo !== ownPhoto) return;
+  avatar.querySelector('canvas')?.remove();
+  if (photo && drawn) avatar.append(canvas);
+};
+window.ownAvatar = (avatar) => {
+  avatar.dataset.own = 'true';
+  paintOwnAvatar(avatar);
+};
+const showOwnAvatars = async (hash, call) => {
+  const run = ++ownPhotoRun;
+  const photo = hash ? await call('profile_photo', { hash }).catch(() => null) : null;
+  if (run !== ownPhotoRun) return;
+  ownPhoto = photo;
+  await Promise.all([...document.querySelectorAll('.avatar[data-own]')].map(paintOwnAvatar));
+};
+document.addEventListener('dyapp:identity-change', () => {
+  ownPhotoRun += 1;
+  ownPhoto = null;
+});
 window.showProfilePhotos = (hashes = [], call = invoke) => {
+  window.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;
   profilePhotoGrid.replaceChildren(...hashes.map((hash, index) => profilePhotoTile(
     hash, index, hashes.length, call)));
