@@ -229,6 +229,35 @@ pub fn contact_verified(
     marked(&searching.0, &store, &peer_id)
 }
 
+/// Whether the contact's chat shows the new-device notice. Reading the mark first raises it for
+/// a cached profile that added a device.
+#[tauri::command]
+pub fn contact_new_device(
+    state: tauri::State<'_, IdentityState>,
+    searching: tauri::State<'_, SearchState>,
+    peer_id: String,
+) -> Result<bool, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    marked(&searching.0, &store, &peer_id)?;
+    store.new_device(&peer_id).map_err(|e| e.to_string())
+}
+
+/// Ends the notice after the user acknowledged it in the chat.
+#[tauri::command]
+pub fn acknowledge_new_device(
+    state: tauri::State<'_, IdentityState>,
+    peer_id: String,
+) -> Result<(), String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    store
+        .acknowledge_new_device(&peer_id)
+        .map_err(|e| e.to_string())
+}
+
 /// Takes the mark back, so a mistaken confirmation can be undone without the network.
 #[tauri::command]
 pub fn unverify_contact(

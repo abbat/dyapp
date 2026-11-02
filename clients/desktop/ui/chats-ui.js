@@ -13,7 +13,9 @@ const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 const chatComposeStatus = document.getElementById('chat-compose-status');
+const newDeviceNotice = document.getElementById('chat-new-device-notice');
 let activeChat = null;
+let newDevicePeer = null;
 let chatSending = false;
 let chatBlocking = false;
 const updateComposer = () => {
@@ -251,8 +253,42 @@ const renderChatRows = (rows) => {
   if (!requests.length) chatRequests.textContent = window.strings['chats.noRequests'];
   if (!conversations.length) chatList.textContent = window.strings['chats.noConversations'];
 };
+const showNewDevice = (peerId) => {
+  newDevicePeer = peerId;
+  newDeviceNotice.hidden = peerId === null;
+};
+// A failed read keeps what is shown; the next mail pass asks again.
+const newDeviceFlag = async (peerId, call) => {
+  try {
+    return await call('contact_new_device', { peerId });
+  } catch {
+    return null;
+  }
+};
+const acknowledgeDevice = async (call = invoke) => {
+  const peerId = newDevicePeer;
+  if (!peerId) return;
+  const generation = identityGeneration;
+  const shown = () => identityCurrent(generation) && newDevicePeer === peerId;
+  const acknowledge = document.getElementById('chat-new-device-ack');
+  acknowledge.disabled = true;
+  try {
+    await call('acknowledge_new_device', { peerId });
+    if (!shown()) return;
+    showNewDevice(null);
+    // Reopening supersedes a load that read the flag before the acknowledgement.
+    await openChat(peerId, call);
+    (chatInput.disabled ? document.getElementById('chat-back') : chatInput).focus();
+  } catch (error) {
+    if (shown()) chatsMessage('chats.newDevice.failed', String(error));
+  } finally {
+    acknowledge.disabled = false;
+  }
+};
+document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
   chatOpenRequest += 1;
+  showNewDevice(null);
   closeClear();
   closeEdit();
   closeDelete();
@@ -287,12 +323,16 @@ const openChat = async (peerId, call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
+  if (newDevicePeer !== peerId) showNewDevice(null);
   activeChat = null;
   updateComposer();
   chatsMessage('chats.loading');
   try {
     const history = await call('chat_history', { peerId });
     if (!currentChat()) return;
+    const newDevice = await newDeviceFlag(peerId, call);
+    if (!currentChat()) return;
+    if (newDevice !== null) showNewDevice(newDevice === true ? peerId : null);
     chatMessages.replaceChildren(...history.messages.map((message) => {
       const item = document.createElement('p');
       item.className = message.author === current.peerId ? 'msg out' : 'msg';

@@ -223,6 +223,20 @@ nothing was marked and what to do (H9), and focus returns to the control that re
 specific refusal, because the page does not hold its own Peer ID here (H5, severity 1, fixed by the
 message). No open H1–H10 finding.
 
+### New-device notice review (2026-11-02)
+
+Read `chat-new-device`, `chat-new-device-notice` and every `chats.newDevice*` string against H1–H10
+in English and Russian; the notice reuses `.notice` and `.btn quiet`, and the UI smoke audits it at
+440 and 1280 px. A silently lost mark would leave the user trusting a key they never checked (H1,
+severity 4): the chat says what changed and why the mark went, and the notice stays across a restart
+and every mail pass. A raw "keys changed" line gives no next step (H2, H9, severity 3): the text
+says when to act and where, in the app's own terms. A dismissal that looked like approval would
+restore false trust (H5, severity 3): the button says I understand and leaves the mark off. A failed
+dismissal keeps the notice and says to try again (H9). The disabled button goes away after success,
+so focus moves to the composer, or to Back when the composer is disabled (H3). A rebuild for each
+mail pass does not flicker the notice, because it is toggled only by the flag (H4). No open H1–H10
+finding.
+
 ### Accepted exceptions
 
 None.

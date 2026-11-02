@@ -425,6 +425,75 @@ const checkChatDelete = async () => {
   await oldDelete;
   if (deleteDialog.open || !chatDetail.hidden) throw new Error('old Delete painted new identity');
 };
+const checkNewDevice = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '9'.repeat(64);
+  const notice = document.getElementById('chat-new-device-notice');
+  const status = document.getElementById('chats-status');
+  let raised = true;
+  let stop = null;
+  let acknowledge = () => Promise.reject(new Error('busy'));
+  const call = (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [] });
+    if (command === 'contact_new_device') {
+      if (stop) {
+        stop.reached();
+        return stop.answered;
+      }
+      return raised === null ? Promise.reject(new Error('locked')) : Promise.resolve(raised);
+    }
+    if (command === 'acknowledge_new_device') return acknowledge();
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve([]);
+    throw new Error(`unexpected new-device command: ${command}`);
+  };
+  await openChat(peer, call);
+  if (notice.hidden) throw new Error('a raised new-device notice stayed hidden');
+  await shot('chat-new-device');
+  for (const flag of [true, null]) {
+    raised = flag;
+    await window.mailUpdated(0, call);
+    if (notice.hidden) throw new Error('a mail pass hid the new-device notice');
+  }
+  raised = true;
+  await acknowledgeDevice(call);
+  if (notice.hidden || !status.textContent.includes(window.strings['chats.newDevice.failed'])) {
+    throw new Error('a failed acknowledgement dismissed the notice silently');
+  }
+  acknowledge = () => {
+    raised = false;
+    return Promise.resolve();
+  };
+  await acknowledgeDevice(call);
+  if (!notice.hidden || document.activeElement !== chatInput) {
+    throw new Error('the acknowledgement left the notice or lost focus');
+  }
+  raised = true;
+  await openChat(peer, call);
+  if (notice.hidden) throw new Error('reopening lost a raised notice');
+  document.getElementById('chat-back').click();
+  if (!notice.hidden) throw new Error('leaving the chat kept the notice');
+  // An answer for a chat left behind, or for an earlier identity, shows nothing.
+  const departures = [
+    () => document.getElementById('chat-back').click(),
+    () => { identityGeneration += 1; },
+  ];
+  for (const leave of departures) {
+    const held = {};
+    held.asked = new Promise((resolve) => { held.reached = resolve; });
+    held.answered = new Promise((resolve) => { held.answer = resolve; });
+    stop = held;
+    const opening = openChat(peer, call);
+    await held.asked;
+    leave();
+    held.answer(true);
+    await opening;
+    if (!notice.hidden) throw new Error('a stale answer raised the new-device notice');
+  }
+  stop = null;
+  document.getElementById('chat-back').click();
+};
 const checkChatDelivery = async () => {
   await openArea('chats-area');
   await window.chatsDone;
@@ -841,5 +910,5 @@ const checkPeerStep = (kind, peer) => peerSteps[kind](peer);
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
   checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction, checkChatLinkHosts,
-  checkPeerStep,
+  checkNewDevice, checkPeerStep,
 });

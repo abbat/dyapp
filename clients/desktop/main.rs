@@ -899,6 +899,8 @@ fn main() {
             safety::contact_safety_qr,
             safety::contact_verified,
             safety::unverify_contact,
+            safety::contact_new_device,
+            safety::acknowledge_new_device,
             safety::scan_contact_qr,
             clipboard::copy_safety_number,
             clipboard::clear_safety_clipboard,

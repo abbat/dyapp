@@ -7,14 +7,17 @@ use prost::Message as _;
 use rusqlite::{params, OptionalExtension};
 
 // `verified_devices`: the device keys the contact listed when it was verified, 32 bytes each;
-// NULL is unverified.
+// NULL is unverified. `verified_version`: the profile version those keys came from.
+// `new_device`: a later profile added a device to a verified contact, until acknowledged.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `peers` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
     `blocked` INTEGER NOT NULL DEFAULT 0 CHECK (`blocked` IN (0, 1)),
     `muted` INTEGER NOT NULL DEFAULT 0 CHECK (`muted` IN (0, 1)),
     `local_name` TEXT NOT NULL DEFAULT '',
-    `verified_devices` BLOB
+    `verified_devices` BLOB,
+    `verified_version` INTEGER,
+    `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1))
 ) STRICT;
 ";
 
@@ -96,48 +99,72 @@ impl Store {
         })
     }
 
-    /// Mark the owner of `profile` verified after its safety number or QR code matched.
+    /// Mark the owner of `profile` verified after its safety number or QR code matched. This is
+    /// a fresh check, so it also ends a new-device notice.
     pub fn set_verified(&self, profile: &VerifiedProfile) -> Result<(), Error> {
         self.db.execute(
-            "INSERT INTO `peers` (`peer_id`, `verified_devices`) VALUES (?1, ?2)
-             ON CONFLICT (`peer_id`) DO UPDATE SET `verified_devices` = excluded.`verified_devices`",
-            params![profile.peer_id, device_keys(profile)],
+            "INSERT INTO `peers` (`peer_id`, `verified_devices`, `verified_version`)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT (`peer_id`) DO UPDATE SET
+                 `verified_devices` = excluded.`verified_devices`,
+                 `verified_version` = excluded.`verified_version`,
+                 `new_device` = 0",
+            params![profile.peer_id, device_keys(profile), version(profile)],
         )?;
         Ok(())
     }
 
-    /// Whether the owner of `profile` is verified; a device it added since clears the mark.
+    /// Whether the owner of `profile` is verified. A profile older than the verified one proves
+    /// nothing; any other that lists an unseen device clears the mark and raises the new-device
+    /// notice in one statement.
     pub fn verified(&self, profile: &VerifiedProfile) -> Result<bool, Error> {
-        let known: Option<Vec<u8>> = self
+        let known: Option<(Vec<u8>, i64)> = self
             .db
             .query_row(
-                "SELECT `verified_devices` FROM `peers` WHERE `peer_id` = ?1",
+                "SELECT `verified_devices`, `verified_version` FROM `peers`
+                 WHERE `peer_id` = ?1 AND `verified_devices` IS NOT NULL",
                 [&profile.peer_id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
-            .optional()?
-            .flatten();
-        let Some(known) = known else {
+            .optional()?;
+        let Some((known, known_version)) = known else {
             return Ok(false);
         };
         let current = device_keys(profile);
-        if current
-            .chunks(32)
-            .all(|key| known.chunks(32).any(|seen| seen == key))
+        if version(profile) < known_version
+            || current
+                .chunks(32)
+                .all(|key| known.chunks(32).any(|seen| seen == key))
         {
             return Ok(true);
         }
-        self.clear_verified(&profile.peer_id)?;
+        self.db.execute(
+            "UPDATE `peers`
+             SET `verified_devices` = NULL, `verified_version` = NULL, `new_device` = 1
+             WHERE `peer_id` = ?1",
+            [&profile.peer_id],
+        )?;
         Ok(false)
     }
 
     /// Take the verified mark off `peer_id`.
     pub fn clear_verified(&self, peer_id: &str) -> Result<(), Error> {
         self.db.execute(
-            "UPDATE `peers` SET `verified_devices` = NULL WHERE `peer_id` = ?1",
+            "UPDATE `peers` SET `verified_devices` = NULL, `verified_version` = NULL
+             WHERE `peer_id` = ?1",
             [peer_id],
         )?;
         Ok(())
+    }
+
+    /// Whether the chat with `peer_id` shows the new-device notice.
+    pub fn new_device(&self, peer_id: &str) -> Result<bool, Error> {
+        self.flag("new_device", peer_id)
+    }
+
+    /// End the new-device notice for `peer_id` after the user acknowledged it.
+    pub fn acknowledge_new_device(&self, peer_id: &str) -> Result<(), Error> {
+        self.set_flag("new_device", peer_id, false)
     }
 
     /// Every peer this profile blocks, in Peer ID order.
@@ -151,7 +178,7 @@ impl Store {
         Ok(peers)
     }
 
-    // `column` is one of two literals above, never caller input.
+    // `column` is one of the literals above, never caller input.
     fn set_flag(&self, column: &str, peer_id: &str, value: bool) -> Result<(), Error> {
         self.db.execute(
             &format!(
@@ -174,6 +201,11 @@ impl Store {
             .optional()?;
         Ok(value.unwrap_or(false))
     }
+}
+
+// SQLite integers are signed; a version beyond them still compares as the newest.
+fn version(profile: &VerifiedProfile) -> i64 {
+    i64::try_from(profile.profile.version).unwrap_or(i64::MAX)
 }
 
 // A verified profile's certificates are valid, so every device key is 32 bytes.
@@ -217,6 +249,10 @@ mod tests {
 
     // Bob's verified profile listing one device per generation in `generations`.
     fn bob(identity: &Identity, generations: &[u64]) -> VerifiedProfile {
+        bob_at(identity, generations, 1)
+    }
+
+    fn bob_at(identity: &Identity, generations: &[u64], version: u64) -> VerifiedProfile {
         let mut devices: Vec<_> = generations
             .iter()
             .map(|generation| {
@@ -227,7 +263,7 @@ mod tests {
             .collect();
         devices.sort_by_key(|(mailbox, _)| *mailbox);
         let profile = Profile {
-            version: 1,
+            version,
             name: "Bob".into(),
             devices: devices.into_iter().map(|(_, signed)| signed).collect(),
             ..Default::default()
@@ -301,5 +337,47 @@ mod tests {
         let three = bob(&bob_id, &[3]);
         assert!(!store.verified(&three).unwrap());
         assert!(!store.verified(&two).unwrap());
+    }
+
+    #[test]
+    fn only_a_current_profile_with_an_unseen_device_raises_a_durable_notice() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let store = Store::open(&path, &alice).unwrap();
+        let bob_id = Identity::generate();
+        let verified = bob_at(&bob_id, &[1], 5);
+        let peer = verified.peer_id.clone();
+
+        // With no mark there is nothing to lose, and an older profile proves no change.
+        assert!(!store.verified(&bob_at(&bob_id, &[2], 6)).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+        store.set_verified(&verified).unwrap();
+        assert!(store.verified(&bob_at(&bob_id, &[2], 4)).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+
+        // A mark taken back by hand has nothing to change either.
+        store.clear_verified(&peer).unwrap();
+        assert!(!store.verified(&bob_at(&bob_id, &[2], 6)).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+        store.set_verified(&verified).unwrap();
+
+        // The same version with another device is a signed fork, not stale data.
+        let added = bob_at(&bob_id, &[2], 5);
+        assert!(!store.verified(&added).unwrap());
+        assert!(store.new_device(&peer).unwrap());
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(store.new_device(&peer).unwrap());
+        assert!(!store.verified(&verified).unwrap());
+        store.acknowledge_new_device(&peer).unwrap();
+        assert!(!store.new_device(&peer).unwrap());
+        assert!(!store.verified(&verified).unwrap());
+
+        // Checking again ends a raised notice too.
+        store.set_verified(&verified).unwrap();
+        assert!(!store.verified(&added).unwrap());
+        store.set_verified(&added).unwrap();
+        assert!(store.verified(&added).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
     }
 }
