@@ -34,7 +34,12 @@ pub struct QrMatrix {
 fn matrix_for_peer_ids(mine: &str, theirs: &str) -> Result<QrMatrix, String> {
     let payload = dyapp_identity::safety::qr_payload_for_peer_ids(mine, theirs)
         .ok_or_else(|| "invalid Peer ID".to_owned())?;
-    let qr = QrCode::encode_binary(&payload, QrCodeEcc::Medium)
+    matrix(&payload)
+}
+
+/// The QR matrix of `payload`.
+pub(crate) fn matrix(payload: &[u8]) -> Result<QrMatrix, String> {
+    let qr = QrCode::encode_binary(payload, QrCodeEcc::Medium)
         .map_err(|_| "could not encode contact QR".to_owned())?;
     let size = qr.size();
     let qr = &qr;

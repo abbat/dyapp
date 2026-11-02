@@ -367,25 +367,40 @@ fn lock(root: &Path) -> Result<fs::File, String> {
     Ok(lock)
 }
 
-/// Creates an identity in a fresh slot and makes it active. The slot is marked ready only after
-/// its key reopens with the same Peer ID.
+/// Creates an identity in a fresh slot and makes it active; see [`adopt`].
 pub fn create(
     root: &Path,
     mode: &'static str,
     save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
     load: Load<'_>,
 ) -> Result<(Slot, Identity), String> {
+    let identity = Identity::generate();
+    let slot = adopt(root, mode, &identity, save, load, &|_| Ok(()))?;
+    Ok((slot, identity))
+}
+
+/// Puts `identity` in a fresh slot and makes it active. The slot is marked ready only after its key
+/// reopens with the same Peer ID and `fill` has added what else it needs, so a failure or a crash
+/// leaves an incomplete slot and the active one in place. `fill` runs under the slot lock.
+pub fn adopt(
+    root: &Path,
+    mode: &'static str,
+    identity: &Identity,
+    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
+    load: Load<'_>,
+    fill: &dyn Fn(&Slot) -> Result<(), String>,
+) -> Result<Slot, String> {
     let _lock = lock(root)?;
     let mut slot = reserve(root, mode)?;
-    let identity = Identity::generate();
-    save(&slot, &identity)?;
+    save(&slot, identity)?;
     match load(&slot)? {
         Some(saved) if saved.peer_id() == identity.peer_id() => {}
         _ => return Err("Saved identity does not reopen".into()),
     }
+    fill(&slot)?;
     set_state(&mut slot, State::Ready)?;
     set_active(root, &slot.id)?;
-    Ok((slot, identity))
+    Ok(slot)
 }
 
 /// The device mailbox key of the ready slot in `dir`, made on first use. It is random and kept
@@ -597,6 +612,34 @@ mod tests {
         set_state(&mut pending, State::Deleting).unwrap();
         assert_eq!(state(&only), format!("deleting {} {peer:?}", pending.id));
         fs::remove_dir_all(only).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_failed_fill_leaves_the_active_slot_and_no_ready_one() {
+        use std::cell::RefCell;
+        use std::collections::HashMap;
+        let root = temp_root();
+        let keys = RefCell::new(HashMap::new());
+        let save = |slot: &Slot, identity: &Identity| {
+            keys.borrow_mut().insert(slot.id.clone(), *identity.secret());
+            Ok::<_, String>(())
+        };
+        let load = |slot: &Slot| {
+            Ok::<_, String>(keys.borrow().get(&slot.id).map(Identity::from_secret))
+        };
+        let (first, _) = create(&root, "file", &save, &load).unwrap();
+        let linked = Identity::generate();
+        let failed = adopt(&root, "file", &linked, &save, &load, &|_| {
+            Err("no".to_owned())
+        });
+        assert!(failed.is_err());
+        assert_eq!(active(&root).as_deref(), Some(first.id.as_str()));
+        let slots = list(&root).unwrap();
+        let ready = slots.iter().filter(|s| s.state == State::Ready).count();
+        assert_eq!(ready, 1);
+        let slot = adopt(&root, "file", &linked, &save, &load, &|_| Ok(())).unwrap();
+        assert_eq!(active(&root).as_deref(), Some(slot.id.as_str()));
         fs::remove_dir_all(root).unwrap();
     }
 
