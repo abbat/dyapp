@@ -3,7 +3,6 @@
 use crate::attachment::AutoDownload;
 use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
-use dyapp_messaging::hlc::Timestamp;
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
