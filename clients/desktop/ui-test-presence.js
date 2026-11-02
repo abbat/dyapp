@@ -158,6 +158,21 @@ const presenceSteps = {
     const stored = (await floodTexts(peer)).length;
     if (stored !== FLOOD_TEXTS) throw new Error(`${stored} of ${FLOOD_TEXTS} pending texts arrived`);
   },
+  'notice-send': (peer) => invoke('send_chat_text', { peerId: peer, text: '<b>notice</b> text' }),
+  // desktop-smoke.py runs fake-notify.py here and reads the notice it kept. The window comes back
+  // only through the click, or ui_test_hide fails.
+  'notice-click': async () => {
+    await openArea('settings');
+    await window.showPrivacy();
+    const content = document.getElementById('notice-content');
+    content.value = 'text';
+    content.dispatchEvent(new Event('change', { bubbles: true }));
+    await window.privacySaved;
+    const back = invokeTest('ui_test_hide', { close: false });
+    await new Promise((resolve) => { setTimeout(resolve, 1500); });
+    await invoke('receive_mail');
+    await back;
+  },
 };
 globalThis.uiSmokePresence = Object.freeze({
   checkChatPresence, checkLikePending, presenceSteps,

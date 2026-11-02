@@ -198,6 +198,10 @@ On Linux the tray cases run `fake-tray.py`, a StatusNotifierItem host on the ses
 the tray menu by position: without a host the tray settings are off; the host's Quit exits the app;
 close-to-tray hides the window until the host's Open, and `tray.json` keeps the setting across a
 relaunch; a host that exits brings the hidden window back.
+The two-client steps run `fake-notify.py`, a notification server on the session bus, on Linux: with
+the window hidden and the Name and text setting on, a real mail pass must send a notice with the
+escaped text, and only the server's click on it brings the window back. The summary's name is
+not checked, because after a restart the sender's profile may not be in memory yet.
 On Windows `windows-tray.py` opens the notification-area menu through tray-icon's hidden window
 and picks Open or Quit by index; it runs the quit, close and relaunch cases, since the
 notification area is always there. Before Quit it checks that the window has its small icon; the

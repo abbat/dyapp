@@ -387,6 +387,24 @@ def smoke(executable, flows=True):
         if reopened != peer_id:
             raise RuntimeError("reopening a profile replaced the identity")
 
+    @contextlib.contextmanager
+    def fake_tray(mode, profile, script="fake-tray.py"):
+        """A session bus host (`script`), or a click driver for the Windows
+        notification area (windows-tray.py), for one case."""
+        (Path(profile) / "hidden").unlink(missing_ok=True)
+        driver = [sys.executable, "windows-tray.py"] if os.name == "nt" \
+            else ["/usr/bin/python3", script]
+        host = subprocess.Popen(  # pylint: disable=consider-using-with
+            [driver[0], str(Path(__file__).with_name(driver[1])),
+             mode, str(profile)], stdout=subprocess.PIPE, text=True)
+        try:
+            if host.stdout.readline().strip() != "ready":
+                raise RuntimeError(f"fake tray host did not start: {mode}")
+            yield
+        finally:
+            host.terminate()
+            host.wait(timeout=10)
+
     def connect(profile):
         """A loopback dyappd answers the check, which activates the list."""
         node, storage = Path(executable).with_name("dyappd"), Path(profile)
@@ -525,11 +543,22 @@ def smoke(executable, flows=True):
                     (alice, "presence-send"), (bob, "presence-shown"),
                     (alice, "match-send"), (bob, "match-received"),
                     *[(alice, "flood-send")] * 4, (bob, "flood-received"),
+                    (alice, "notice-send"), (bob, "notice-click"),
                     (alice, "chat-block"),
                     (bob, "chat-after-block"), (alice, "chat-blocked")):
-                case(f"peers-{step}",
-                     [*file, f"--ui-test-step=peer:{step}:{peer}"], root,
-                     timeout=180)
+                # The step fails unless the click brings the window back.
+                with (fake_tray("click", root, "fake-notify.py")
+                      if step == "notice-click"
+                      else contextlib.nullcontext()):
+                    case(f"peers-{step}",
+                         [*file, f"--ui-test-step=peer:{step}:{peer}"], root,
+                         timeout=180)
+            kept = Path(peer_root) / "notices.json"
+            notice = json.loads(kept.read_text())[-1]
+            body = "&lt;b&gt;notice&lt;/b&gt; text"
+            if not notice["summary"] or (
+                    notice["body"], notice["actions"][0]) != (body, "default"):
+                raise RuntimeError(f"unexpected notice: {notice}")
             # A first run that connects on the wizard's network step.
             with tempfile.TemporaryDirectory(dir=reports) as fresh:
                 case("wizard-connect",
@@ -602,24 +631,6 @@ def smoke(executable, flows=True):
         case("settings-privacy-restart",
              ["--ui-test-file", "--ui-test-step=settings-privacy-restart"],
              profile)
-
-    @contextlib.contextmanager
-    def fake_tray(mode, profile):
-        """A tray host on the session bus (fake-tray.py), or a click driver
-        for the Windows notification area (windows-tray.py), for one case."""
-        (Path(profile) / "hidden").unlink(missing_ok=True)
-        driver = [sys.executable, "windows-tray.py"] if os.name == "nt" \
-            else ["/usr/bin/python3", "fake-tray.py"]
-        host = subprocess.Popen(  # pylint: disable=consider-using-with
-            [driver[0], str(Path(__file__).with_name(driver[1])),
-             mode, str(profile)], stdout=subprocess.PIPE, text=True)
-        try:
-            if host.stdout.readline().strip() != "ready":
-                raise RuntimeError(f"fake tray host did not start: {mode}")
-            yield
-        finally:
-            host.terminate()
-            host.wait(timeout=10)
 
     def tray(profile):
         """Without a host the tray settings are off; with one, Quit exits,
