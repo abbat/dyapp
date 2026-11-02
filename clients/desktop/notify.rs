@@ -147,10 +147,10 @@ pub fn watch(app: AppHandle) {
             let _ = BUS.set(bus.clone());
             let rule = zbus::MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
-                .interface(SERVER)?
-                .member("ActionInvoked")?
-                .path(PATH)?
-                .build();
+                .interface(SERVER)
+                .member("ActionInvoked")
+                .path(PATH)
+                .build()?;
             zbus::MessageStream::for_match_rule(rule, &bus, None).await
         };
         let Ok(mut stream) = listen.await else { return };
@@ -178,7 +178,7 @@ type Notify<'a> = (
     &'a str,
     &'a str,
     &'a [&'a str],
-    std::collections::HashMap<&'a str, zbus::zvariant::Value<'a>>,
+    std::collections::HashMap<&'a str, zbus::Variant<'a>>,
     i32,
 );
 

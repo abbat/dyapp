@@ -11,6 +11,11 @@ if [[ ${1:-} == --session ]]; then
     if [[ -n ${DYAPP_UI_SHOTS:-} ]]; then
         DYAPP_SMOKE_RU=1 DYAPP_VIDEO_SMOKE=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
     fi
+    # Last, as both take the keyring away.
+    reach=(python3 "$root/tests/scripts/run-cargo-unit-binaries.py" "$root/build/unit-build.json"
+           controlled_service_out_of_reach)
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent DYAPP_TEST_SECRET_SERVICE=absent "${reach[@]}"
+    DYAPP_TEST_SECRET_SERVICE=locked "${reach[@]}"
     exit 0
 fi
 if [[ ${1:-} != --raw ]]; then

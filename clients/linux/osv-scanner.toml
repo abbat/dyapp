@@ -51,18 +51,3 @@ reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release) in the desktop
 ignoreUntil = 2026-11-21
 
 # zbus 6 merges these crates; secret-service 5.2, the Linux key store backend, still needs zbus 5.
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0370"
-reason = "zvariant is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
-ignoreUntil = 2026-11-21
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0371"
-reason = "zbus_names is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
-ignoreUntil = 2026-11-21
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0372"
-reason = "zvariant_derive is unmaintained, merged into zbus 6: zbus 5 via secret-service 5.2, no release on zbus 6 yet"
-ignoreUntil = 2026-11-21

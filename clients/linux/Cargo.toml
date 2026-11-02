@@ -14,14 +14,11 @@ dyapp-p2p-net = { path = "../../rust/p2p-net" }
 dyapp-profile = { path = "../../rust/profile" }
 qrcodegen = "=1.8.0"
 quircs = "=0.10.3"
-secret-service = { version = "=5.2.0", default-features = false, features = [
-    "rt-tokio-crypto-rust",
-] }
+dbus-secret-service = { version = "=4.1.0", features = ["crypto-rust"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt", "sync"] }
-tauri-plugin-single-instance = "=2.5.4"
-zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
+zbus = { version = "=6.2.1", default-features = false, features = ["proxy", "service", "tokio"] }
 zeroize = "1.9"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 

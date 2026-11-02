@@ -200,6 +200,62 @@ pub fn watch(app: AppHandle) {
 }
 
 /// Windows always has a notification area.
+#[cfg(unix)]
+const INSTANCE: &str = "com.dyapp.SingleInstance";
+#[cfg(unix)]
+const INSTANCE_PATH: &str = "/com/dyapp/SingleInstance";
+
+#[cfg(unix)]
+struct Instance(AppHandle);
+
+#[cfg(unix)]
+#[zbus::interface(name = "com.dyapp.SingleInstance")]
+impl Instance {
+    fn show(&self) {
+        show(&self.0);
+    }
+}
+
+/// The first launch of a session owns a bus name; a later one has it show the window and exits.
+/// Without a session bus every launch goes on. tauri-plugin-single-instance does the same on
+/// zbus 5, whose retired crates stay out of this lockfile. A plugin hook, as the window must not
+/// open first.
+#[cfg(unix)]
+pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::<tauri::Wry>::new("single-instance")
+        .setup(|app, _| {
+            tauri::async_runtime::block_on(async {
+                let served = zbus::connection::Builder::session()
+                    .serve_at(INSTANCE_PATH, Instance(app.clone()))
+                    .build()
+                    .await;
+                let Ok(bus) = served else { return };
+                // The default flags would take the name away from the first launch.
+                let only = zbus::fdo::RequestNameFlags::DO_NOT_QUEUE;
+                match bus.request_name_with_flags(INSTANCE, only).await {
+                    Ok(_) => {
+                        app.manage(bus);
+                    }
+                    Err(zbus::Error::NameTaken) => {
+                        let path = Some(INSTANCE);
+                        let _ = bus
+                            .call_method(path, INSTANCE_PATH, path, "Show", &())
+                            .await;
+                        std::process::exit(0);
+                    }
+                    Err(_) => {}
+                }
+            });
+            Ok(())
+        })
+        .build()
+}
+
+#[cfg(not(unix))]
+pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_single_instance::init(|app, _, _| show(app))
+}
+
 #[cfg(not(unix))]
 pub fn watch(app: AppHandle) {
     available(&app, true);

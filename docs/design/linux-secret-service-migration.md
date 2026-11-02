@@ -1,13 +1,18 @@
 # Linux Secret Service backend migration
 
-Status: option A accepted on 2026-10-24; implementation pending. The current Linux
-binary still uses `secret-service 5.2` until the migration tests pass.
+Status: option A accepted on 2026-10-24 and implemented. The Linux client reads and writes
+Secret Service through `dbus-secret-service`, and uses zbus 6 for its other D-Bus calls.
 See [ADR 0022](../decisions/0022-desktop-system-credential-storage.md).
+
+Replacing the key store alone did not clear the three findings: `tauri-plugin-single-instance`
+2.5.5 and 3.0-alpha still require zbus 5, so the Linux client owns its bus name itself in
+`clients/desktop/tray.rs` ([ADR 0034](../decisions/0034-desktop-tray-and-single-instance.md)).
+The Windows client keeps the plugin.
 
 ## Problem and invariant
 
-`clients/desktop/system_store.rs` uses `secret-service 5.2` for its Linux
-capability probe, `primary` identity slot, and encrypted Secret Service session.
+`clients/desktop/system_store.rs` used `secret-service 5.2` for its Linux
+capability probe, identity slots, and encrypted Secret Service session.
 That release still depends on `zbus 5`; zbus 5 depends on the separately retired
 `zvariant`, `zbus_names` and `zvariant_derive` crates. A version-only update of
 `secret-service` cannot clear the three Scorecard findings. The replacement

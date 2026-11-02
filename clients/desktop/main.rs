@@ -810,9 +810,7 @@ fn main() {
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            tray::show(app)
-        }));
+        .plugin(tray::one_instance());
     #[cfg(unix)]
     let builder = builder
         .on_permission_request(safety::camera_permission)

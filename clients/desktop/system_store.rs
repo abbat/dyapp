@@ -3,9 +3,8 @@ mod platform {
     use std::collections::HashMap;
     use std::fmt::Write;
 
+    use dbus_secret_service::{EncryptionType, Error, SecretService};
     use dyapp_identity::Identity;
-    use secret_service::blocking::SecretService;
-    use secret_service::{EncryptionType, Error};
     use zeroize::Zeroizing;
 
     fn attributes(slot: &str) -> HashMap<&str, &str> {
@@ -68,7 +67,7 @@ mod platform {
     fn map_service_error(error: Error) -> Unavailable {
         match error {
             Error::Locked => Unavailable::Locked,
-            Error::Prompt | Error::PromptDisconnected => Unavailable::AccessDenied,
+            Error::Prompt => Unavailable::AccessDenied,
             _ => Unavailable::NoService,
         }
     }
@@ -209,6 +208,66 @@ mod platform {
             delete_slot(slot).unwrap();
             assert!(load_slot(slot).unwrap().is_none());
             delete_slot(slot).unwrap();
+        }
+
+        /// secret-tool stores what secret-service 5.2 did: same attributes, label and hex text.
+        #[test]
+        fn controlled_item_of_the_old_backend_loads_unchanged() {
+            use std::io::Write as _;
+            use std::process::{Command, Stdio};
+
+            if std::env::var_os("DYAPP_TEST_SECRET_SERVICE").is_none() {
+                return;
+            }
+            let slot = "controlled-old-item";
+            let query = ["application", "dyapp", "kind", "identity", "slot", slot];
+            let identity = Identity::generate();
+            let stored = encode_identity(&identity);
+            let mut tool = Command::new("secret-tool")
+                .args(["store", "--label=DYApp identity"])
+                .args(query)
+                .stdin(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let mut input = tool.stdin.take().unwrap();
+            input.write_all(stored.as_bytes()).unwrap();
+            drop(input);
+            assert!(tool.wait().unwrap().success());
+            assert_eq!(
+                load_slot(slot).unwrap().unwrap().peer_id(),
+                identity.peer_id()
+            );
+            let lookup = Command::new("secret-tool")
+                .arg("lookup")
+                .args(query)
+                .output()
+                .unwrap();
+            assert_eq!(lookup.stdout, stored.as_bytes());
+            delete_slot(slot).unwrap();
+        }
+
+        /// tests/scripts/linux-test.sh runs this alone, last: the locked case locks the keyring.
+        #[test]
+        fn controlled_service_out_of_reach_refuses_every_operation() {
+            let state = std::env::var("DYAPP_TEST_SECRET_SERVICE").unwrap_or_default();
+            let expected = match state.as_str() {
+                "absent" => Unavailable::NoService,
+                "locked" => {
+                    SecretService::connect(EncryptionType::Dh)
+                        .unwrap()
+                        .get_default_collection()
+                        .unwrap()
+                        .lock()
+                        .unwrap();
+                    Unavailable::Locked
+                }
+                _ => return,
+            };
+            let slot = "controlled-test";
+            assert_eq!(probe(), Err(expected));
+            assert!(load_slot(slot).is_err());
+            assert!(save_slot(slot, &Identity::generate()).is_err());
+            assert!(delete_slot(slot).is_err());
         }
 
         #[test]

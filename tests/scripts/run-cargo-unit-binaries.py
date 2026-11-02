@@ -1,4 +1,7 @@
-"""Execute the nonempty unit test inventory prepared by cargo test --no-run."""
+"""Execute the nonempty unit test inventory prepared by cargo test --no-run.
+
+Arguments after the inventory go to every test binary, such as a name filter.
+"""
 import json
 import subprocess
 import sys
@@ -27,6 +30,7 @@ for executable in sorted(executables):
     inventory = listed.stdout
     if not any(line.endswith(": test") for line in inventory.splitlines()):
         raise RuntimeError(f"Empty unit suite: {executable}")
-    status = subprocess.run([executable], check=False).returncode
+    status = subprocess.run([executable, *sys.argv[2:]],
+                            check=False).returncode
     if status:
         raise SystemExit(128 - status if status < 0 else status)

@@ -52,7 +52,9 @@ A successful probe cannot guarantee that a later write will succeed if account s
 
 ## Verification
 
-Linux unit tests use a controlled GNOME Keyring in a D-Bus session; Windows CI tests the real
+Linux unit tests use a controlled GNOME Keyring in a D-Bus session: they also load an item that
+`secret-tool` stored the way the old `secret-service` backend did, and check every operation with
+the service absent and with the collection locked. Windows CI tests the real
 Credential Manager with a separate test credential and checks `Local` persistence. The desktop
 smoke creates and reopens each storage mode in an isolated profile, compares Peer IDs and runs
 the pseudo-locale and hidden-screen checks. Provider loss after selection must show an error,

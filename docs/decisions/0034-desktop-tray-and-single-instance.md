@@ -19,17 +19,19 @@ single-instance support.
   `org.kde.StatusNotifierWatcher` has an owner on the session bus. Without a host, or without the
   appindicator library, the tray settings are off and closing the window quits; when the host
   goes away the hidden window is shown again.
-- They depend on `tauri-plugin-single-instance`, Tauri's official plugin: a second launch shows
-  and focuses the running window and exits. It uses a D-Bus name on Linux and a named mutex on
-  Windows.
+- A second launch shows and focuses the running window and exits. The Windows client uses
+  `tauri-plugin-single-instance`, Tauri's official plugin, with a named mutex. The Linux client
+  owns the session bus name `com.dyapp.SingleInstance` itself and serves one `Show` method there
+  (`clients/desktop/tray.rs`): the plugin requires zbus 5, whose retired crates the Linux lockfile
+  must not carry ([migration](../design/linux-secret-service-migration.md)).
 - Both are pinned to exact versions like the other desktop dependencies.
 
 ## Consequences
 
 - The window can always be reached: through the tray, a second launch, or the returning window
   when the tray host goes away.
-- `zbus` is already in the dependency tree through Tauri's Linux stack, so it adds no new code
-  owner; the single-instance plugin adds a small crate maintained by the Tauri team.
+- The Linux client carries about 40 lines for the bus name, covered by the desktop smoke; the
+  Windows client adds a small plugin crate maintained by the Tauri team.
 - The Docker smoke drives the tray with a fake host (`tests/scripts/fake-tray.py`); real panels
   are checked by hand.
 - Single instance is per user session: two users on one machine each get their own app.

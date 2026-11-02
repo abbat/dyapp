@@ -44,10 +44,10 @@ therefore does not cover a child directory. Each reviewed exception needs a reas
 scan source (no fixed version reachable, a code path the project never takes). cargo-deny keeps
 its own list in `deny.toml`. The Linux and Windows client locks link `dyapp-client`, so their
 OSV files repeat the workspace's paste, proc-macro-error2, libcrux-kem and crypto-bigint entries;
-the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstrap`) and accepts
-the unmaintained zvariant, zbus_names and zvariant_derive: secret-service 5.2, the key store
-backend, still needs zbus 5, while zbus 6 absorbs those crates. The Windows lock lists the same three
-through tauri-plugin-single-instance, whose zbus dependency is Linux-only and never compiled there.
+the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstrap`). The Windows
+lock accepts the unmaintained zvariant, zbus_names and zvariant_derive through
+tauri-plugin-single-instance, whose zbus 5 dependency is Linux-only and never compiled there; the
+Linux lock has none of them, as zbus 6 absorbs those crates.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.
@@ -90,8 +90,9 @@ scored 7.0 with four findings: `RUSTSEC-2026-0387` is the
 `crypto-bigint 0.5.5` timing vulnerability pulled in by OpenMLS's
 `p256 0.13`/`elliptic-curve 0.13` dependencies. The other three
 (`RUSTSEC-2026-0370`, `-0371`, `-0372`) mark the separate `zvariant`,
-`zbus_names` and `zvariant_derive` crates as unmaintained; the Linux client's
-`secret-service 5.2` depends on `zbus 5`, which still uses them. A fixed
+`zbus_names` and `zvariant_derive` crates as unmaintained; the Linux client
+dropped them with `zbus 5`, see the
+[Secret Service migration](../design/linux-secret-service-migration.md). A fixed
 `crypto-bigint` requires the `0.7.6` series, while the current OpenMLS crypto
 and credential crates still require `p256 0.13`. The maintainer accepted a
 temporary, advisory-specific exception for `RUSTSEC-2026-0387` on 2026-10-24;

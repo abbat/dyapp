@@ -57,10 +57,8 @@ unsupported Secret Service implementations. Secret Service returns the stored se
 the application: this is protection at rest, not a non-exportable hardware key.
 Both platform backends add direct dependencies and lockfile changes. The real backend
 must create and reopen the same Peer ID in Linux and Windows CI before its option ships.
-A controlled Linux test must also read an identity item written by the previous
-`secret-service` backend without rewriting it. The `dbus-secret-service` migration is
-planned; the current Linux binary still uses `secret-service 5.2` until that compatibility
-test and the new dependency build pass.
+A controlled Linux test also reads an identity item written outside the client, with the
+attributes, label and hex value of the previous `secret-service` backend, without rewriting it.
 A temporary provider failure must leave the existing identity recoverable and must not
 silently create a new one.
 The per-identity layout permits independently chosen file and system storage, but its directory
