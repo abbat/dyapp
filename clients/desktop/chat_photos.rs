@@ -1,0 +1,127 @@
+//! The original of one chat photo, fetched on a tap. It stays in memory: the page keeps it for the
+//! open chat and nothing decrypted reaches the disk.
+
+use crate::{chats, profile};
+use dyapp_client::attachment::{self, Attachment};
+use dyapp_client::Error;
+use dyapp_identity::network::{self, Settings};
+use dyapp_identity::Identity;
+use dyapp_p2p_net::proto::Status;
+use image::ImageFormat;
+use std::io::Cursor;
+use std::path::Path;
+
+/// The most pixels the page may decode. A 6 MiB original can claim gigabytes of decoded image, and
+/// the header states the size before any decoding.
+const MAX_PIXELS: u64 = 64_000_000;
+
+fn stored(
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+    author: &str,
+    id: &[u8; 16],
+) -> Result<Attachment, String> {
+    chats::open_visible_chat(dir, identity, peer_id)?
+        .current_chat_attachments(peer_id)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .find(|photo| photo.key.author == author && photo.key.id == *id)
+        .map(|photo| photo.message.attachment)
+        .ok_or_else(|| "notFound".into())
+}
+
+fn fits(width: u32, height: u32) -> bool {
+    u64::from(width) * u64::from(height) <= MAX_PIXELS
+}
+
+/// Refuses anything but a JPEG or PNG whose header is within the bound.
+fn check_image(bytes: &[u8]) -> Result<(), String> {
+    let reader = image::ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| e.to_string())?;
+    if !matches!(reader.format(), Some(ImageFormat::Jpeg | ImageFormat::Png)) {
+        return Err("corrupted".into());
+    }
+    let (width, height) = reader.into_dimensions().map_err(|_| "corrupted")?;
+    if !fits(width, height) {
+        return Err("corrupted".into());
+    }
+    Ok(())
+}
+
+/// The page's code for a failed fetch. Anything else is a transport or node failure to retry.
+fn code(error: Error) -> String {
+    match error {
+        Error::Status(Status::NotFound) => "notFound".into(),
+        Error::Attachment(_) => "corrupted".into(),
+        error => error.to_string(),
+    }
+}
+
+async fn original(
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+    author: &str,
+    id: &[u8; 16],
+) -> Result<Vec<u8>, String> {
+    let photo = stored(dir, identity, peer_id, author, id)?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut nodes = profile::reachable(&active).await?;
+    if nodes.is_empty() {
+        return Err("notConnected".into());
+    }
+    let bytes = attachment::fetch(&mut nodes, &photo).await.map_err(code)?;
+    check_image(&bytes)?;
+    Ok(bytes)
+}
+
+/// Downloads, opens and checks one photo; a tap may fetch a stranger's. Errors are `notFound` when
+/// no node holds it, `corrupted` when it fails its checks, `notConnected` or a retryable message.
+#[tauri::command]
+pub(crate) async fn chat_photo_original(
+    state: tauri::State<'_, crate::IdentityState>,
+    peer_id: String,
+    author: String,
+    id: [u8; 16],
+) -> Result<tauri::ipc::Response, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        tauri::async_runtime::block_on(original(&dir, &identity, &peer_id, &author, &id))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{check_image, code, fits, Error, ImageFormat, Status};
+    use image::RgbImage;
+    use std::io::Cursor;
+
+    #[test]
+    fn only_a_real_image_within_the_bound_passes() {
+        let mut png = Cursor::new(Vec::new());
+        RgbImage::new(3, 2)
+            .write_to(&mut png, ImageFormat::Png)
+            .unwrap();
+        assert_eq!(check_image(png.get_ref()), Ok(()));
+        assert_eq!(check_image(b"not an image"), Err("corrupted".into()));
+        assert!(fits(8_000, 8_000));
+        assert!(!fits(8_001, 8_000));
+        assert!(!fits(u32::MAX, u32::MAX));
+    }
+
+    #[test]
+    fn a_missing_or_broken_original_gets_its_own_code() {
+        assert_eq!(code(Error::Status(Status::NotFound)), "notFound");
+        assert_eq!(code(Error::Attachment("x")), "corrupted");
+        assert_ne!(code(Error::Timeout), "notFound");
+    }
+}

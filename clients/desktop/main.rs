@@ -11,6 +11,7 @@ use slots::{Opened, Slot};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
+mod chat_photos;
 #[path = "chats.rs"]
 mod chats;
 mod clipboard;
@@ -911,6 +912,7 @@ fn main() {
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,
+            chat_photos::chat_photo_original,
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
             chats::presence::announce_presence,

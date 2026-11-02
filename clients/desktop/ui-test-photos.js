@@ -1,5 +1,5 @@
 // A photo in a chat: the list row, the placeholder, the blur until Show or acceptance, expiry, an
-// undecodable preview and the text actions a photo must not offer.
+// undecodable preview, the text actions a photo must not offer and the tap on the original.
 const checkChatPhoto = async () => {
   const source = document.createElement('canvas');
   source.width = 8;
@@ -8,13 +8,16 @@ const checkChatPhoto = async () => {
   paint.fillStyle = '#c03030';
   paint.fillRect(0, 0, 8, 8);
   const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
-  const preview = [...new Uint8Array(await jpeg.arrayBuffer())];
+  const original = await jpeg.arrayBuffer();
+  const preview = [...new Uint8Array(original)];
   const peer = 'e'.repeat(64);
   const photo = { mime: 'image/jpeg', width: 400, height: 200, size: 2048, preview, hoursLeft: 5 };
   const entry = (author, id, shape) => ({ groupId: [1], author, id: Array(16).fill(id), text: null,
     edited: false, deleted: false, unread: false, forwarded: false, delivery: null, read: false,
     sentAtMs: 1000, photo: shape });
   let state = 'requestReceived';
+  const downloads = ['notConnected', original, 'notFound'];
+  let fetched = null;
   const messages = [entry(peer, 1, photo)];
   const call = (command, args) => {
     if (command === 'chat_rows') {
@@ -23,6 +26,11 @@ const checkChatPhoto = async () => {
     }
     if (command === 'chat_history') {
       return Promise.resolve({ state, messages, activeRecently: false });
+    }
+    if (command === 'chat_photo_original') {
+      fetched = args;
+      const next = downloads.shift();
+      return typeof next === 'string' ? Promise.reject(next) : Promise.resolve(next);
     }
     if (command === 'contact_names') {
       return Promise.resolve(args.peerIds.map((peerId) => ({ peerId, name: '', verified: null })));
@@ -52,8 +60,8 @@ const checkChatPhoto = async () => {
   }
   if (!box.classList.contains('blurred')) throw new Error('a stranger preview was not blurred');
   await shot('chat-photo-blurred');
-  box.querySelector('button').click();
-  if (box.classList.contains('blurred') || box.querySelector('button')
+  box.querySelector('.photo-show').click();
+  if (box.classList.contains('blurred') || box.querySelector('.photo-show')
     || document.activeElement !== canvas) {
     throw new Error('Show did not reveal the preview and keep the focus');
   }
@@ -69,7 +77,7 @@ const checkChatPhoto = async () => {
   if (!incoming.textContent.includes(strings['chats.photoExpired'])) {
     throw new Error('no expired label');
   }
-  if (own.querySelector('canvas') || !own.textContent.includes('image/jpeg')) {
+  if (!own.querySelector('canvas').hidden || !own.textContent.includes('image/jpeg')) {
     throw new Error('an undecodable preview did not leave the placeholder');
   }
   const words = ['chats.edit', 'chats.delete', 'chats.forward'].map((key) => strings[key]);
@@ -77,6 +85,43 @@ const checkChatPhoto = async () => {
   if (buttons.some((button) => words.includes(button.textContent))) {
     throw new Error('a photo offered a text action');
   }
+  if (incoming.querySelector('.photo-download')) throw new Error('expired, yet offered');
+
+  const button = own.querySelector('.photo-download');
+  const finished = (expected) => new Promise((resolve) => {
+    const seen = () => own.querySelector('.photo-status').textContent === expected;
+    const check = () => { if (seen()) resolve(); else setTimeout(check, 10); };
+    check();
+  });
+  button.click();
+  await finished(strings['chats.photoFailed']);
+  if (fetched.id[0] !== 2 || fetched.author !== current.peerId || !button.isConnected) {
+    throw new Error('a failed fetch left no retry');
+  }
+  button.click();
+  await finished('');
+  const shown = own.querySelector('canvas');
+  if (shown.hidden || shown.width !== 8 || own.querySelector('.photo-download')) {
+    throw new Error('the original was not shown at its real size');
+  }
+  await shot('chat-photo-original');
+  await openChat(peer, call);
+  const kept = document.querySelectorAll('#chat-messages .chat-photo')[1];
+  await kept.ready;
+  if (kept.querySelector('canvas').width !== 8 || kept.querySelector('.photo-download')) {
+    throw new Error('a redraw lost the original');
+  }
+  messages.splice(1, 1, entry(current.peerId, 3, { ...photo, preview: [], hoursLeft: null }));
+  await openChat(peer, call);
+  const gone = document.querySelectorAll('#chat-messages .chat-photo')[1];
+  gone.querySelector('.photo-download').click();
+  const missing = () => gone.querySelector('.photo-status').textContent
+    === strings['chats.photoGone'];
+  await new Promise((resolve) => {
+    const check = () => { if (missing()) resolve(); else setTimeout(check, 10); };
+    check();
+  });
+  if (gone.querySelector('.photo-download')) throw new Error('a missing original offered a retry');
   document.getElementById('chat-back').click();
   await window.showChats(() => Promise.resolve([]));
 };

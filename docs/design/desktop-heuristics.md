@@ -293,6 +293,26 @@ needs no color to read (H6, and WCAG 1.4.1). Its absence says nothing, and it sh
 is the coarseness the design asks for (H2). A send that fails stays silent and retries on the next
 focus, because the user did nothing to act on (H9). No open H1–H10 finding.
 
+### Chat photo original review (2026-11-02)
+
+Scope: Download original in a chat bubble, its progress and three outcomes, in EN and RU.
+
+1. Visibility of system status: Downloading… replaces silence, and the button is disabled for the
+   fetch. The status line is a live region.
+2. Match with the real world: "No longer available" says what happened without node terms.
+3. User control: leaving the chat drops the result; a late answer draws nothing.
+4. Consistency: the same quiet button and caption as Show photo.
+5. Error prevention: an expired photo offers no download, and a blurred one offers it only after
+   Show photo, so the tap order follows what the user can already see.
+6. Recognition: each outcome is written in the bubble it belongs to.
+7. Flexibility: a keyboard reaches the button in reading order.
+8. Minimalism: the button disappears once the original is shown or cannot return.
+9. Error recovery: a network failure keeps the button and says to try again; a permanent failure
+   removes it, so no retry can fail the same way.
+10. Help: no help is needed beyond the status line.
+
+No open findings.
+
 ### Chat photos review (2026-11-02)
 
 Scope: a photo in a chat, its list row and the blur before acceptance, in EN and RU, light and dark.

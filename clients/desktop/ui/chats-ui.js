@@ -206,10 +206,21 @@ const chatPreview = (message) => !message ? window.strings['chats.noMessages']
   : message.deleted ? window.strings['chats.deleted']
     : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
       message.photo ? window.strings['chats.photo'] : message.text || ''}`;
-// The page's CSP admits no image URLs, so a local preview is decoded onto a canvas.
-const drawPreview = async (canvas, preview) => {
-  const blob = new Blob([new Uint8Array(preview)], { type: 'image/jpeg' });
-  const bitmap = await createImageBitmap(blob);
+// The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
+const PREVIEW_SIDE = 240;
+const ORIGINAL_SIDE = 480;
+const MAX_KEPT_ORIGINALS = 16;
+// Decrypted originals of the open chat, so a redraw keeps them. Memory only, dropped on leaving it.
+const photoOriginals = new Map();
+let photoOriginalsPeer = null;
+const fitCanvas = (canvas, width, height, side) => {
+  const scale = Math.min(1, side / Math.max(width, height));
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+};
+const drawPhoto = async (canvas, bytes, mime, side) => {
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
+  if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 };
@@ -221,40 +232,91 @@ const photoCaption = (photo) => {
   }
   return parts.join(' · ');
 };
+const photoKey = (message) => `${message.author}:${message.id}`;
+const photoError = (code) => window.strings[{
+  notFound: 'chats.photoGone', corrupted: 'chats.photoBroken',
+}[code] || 'chats.photoFailed'];
+const photoButton = (key, name, click) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `btn quiet ${name}`;
+  button.textContent = window.strings[key];
+  button.addEventListener('click', click);
+  return button;
+};
+const downloadOriginal = async (message, peerId, box, canvas, button, call) => {
+  const generation = identityGeneration;
+  const key = photoKey(message);
+  const status = box.querySelector('.photo-status');
+  const { mime } = message.photo;
+  button.disabled = true;
+  status.textContent = window.strings['chats.photoDownloading'];
+  try {
+    const bytes = await call('chat_photo_original', {
+      peerId, author: message.author, id: message.id,
+    });
+    if (!identityCurrent(generation) || photoOriginalsPeer !== peerId) return;
+    await drawPhoto(canvas, bytes, mime, ORIGINAL_SIDE);
+    if (photoOriginals.size >= MAX_KEPT_ORIGINALS) {
+      photoOriginals.delete(photoOriginals.keys().next().value);
+    }
+    photoOriginals.set(key, bytes);
+    canvas.hidden = false;
+    button.remove();
+    status.textContent = '';
+  } catch (error) {
+    // A rejected decode is not a string: the bytes passed the checks but the page cannot show them.
+    const code = typeof error === 'string' ? error : 'corrupted';
+    status.textContent = photoError(code);
+    if (code === 'notFound' || code === 'corrupted') button.remove();
+    else button.disabled = false;
+  }
+};
 // The placeholder always names the photo; a preview that cannot be decoded just leaves it alone.
-const photoBubble = (photo, blurred) => {
+const photoBubble = (message, peerId, blurred, call) => {
+  const { photo } = message;
   const box = document.createElement('span');
   box.className = 'chat-photo';
   const caption = document.createElement('span');
   caption.className = 'caption';
   caption.textContent = photoCaption(photo);
-  box.append(caption);
-  if (!photo.preview.length) return box;
+  const status = document.createElement('span');
+  status.className = 'caption photo-status';
+  status.setAttribute('role', 'status');
   const canvas = document.createElement('canvas');
-  const scale = 240 / Math.max(photo.width, photo.height);
-  canvas.width = Math.max(1, Math.round(photo.width * scale));
-  canvas.height = Math.max(1, Math.round(photo.height * scale));
+  fitCanvas(canvas, photo.width, photo.height, PREVIEW_SIDE);
   canvas.tabIndex = -1;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', window.strings['chats.photo']);
-  box.prepend(canvas);
-  const show = document.createElement('button');
-  if (blurred) {
-    box.classList.add('blurred');
-    show.type = 'button';
-    show.className = 'btn quiet';
-    show.textContent = window.strings['chats.photoShow'];
-    show.addEventListener('click', () => {
-      box.classList.remove('blurred');
-      show.remove();
-      canvas.focus();
-    });
-    box.append(show);
+  box.append(canvas, caption, status);
+  const kept = photoOriginals.get(photoKey(message));
+  if (kept) {
+    box.ready = drawPhoto(canvas, kept, photo.mime, ORIGINAL_SIDE);
+    return box;
   }
-  box.ready = drawPreview(canvas, photo.preview).catch(() => {
-    canvas.remove();
+  const download = photoButton('chats.photoDownload', 'photo-download', () => downloadOriginal(
+    message, peerId, box, canvas, download, call));
+  const offerDownload = () => { if (photo.hoursLeft !== 0) box.append(download); };
+  const show = photoButton('chats.photoShow', 'photo-show', () => {
+    box.classList.remove('blurred');
     show.remove();
+    offerDownload();
+    canvas.focus();
   });
+  if (blurred && photo.preview.length) {
+    box.classList.add('blurred');
+    box.append(show);
+  } else offerDownload();
+  canvas.hidden = !photo.preview.length;
+  box.ready = photo.preview.length ? drawPhoto(canvas, new Uint8Array(photo.preview), 'image/jpeg')
+    .catch(() => {
+      canvas.hidden = true;
+      if (box.classList.contains('blurred')) {
+        show.remove();
+        box.classList.remove('blurred');
+        offerDownload();
+      }
+    }) : Promise.resolve();
   return box;
 };
 const chatRow = (row) => {
@@ -346,6 +408,8 @@ const acknowledgeDevice = async (call = invoke) => {
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
   chatOpenRequest += 1;
+  photoOriginals.clear();
+  photoOriginalsPeer = null;
   showNewDevice(null);
   closeClear();
   closeEdit();
@@ -389,6 +453,8 @@ const openChat = async (peerId, call = invoke) => {
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
   if (newDevicePeer !== peerId) showNewDevice(null);
+  if (photoOriginalsPeer !== peerId) photoOriginals.clear();
+  photoOriginalsPeer = peerId;
   activeChat = null;
   updateComposer();
   chatsMessage('chats.loading');
@@ -415,8 +481,8 @@ const openChat = async (peerId, call = invoke) => {
         forwarded.textContent = `${window.strings['chats.forwarded']} · `;
         item.append(forwarded);
       }
-      item.append(message.photo ? photoBubble(message.photo,
-        message.author !== current.peerId && history.state !== 'open') : body);
+      item.append(message.photo ? photoBubble(message, peerId,
+        message.author !== current.peerId && history.state !== 'open', call) : body);
       const hosts = chatLinkHosts(message.deleted ? '' : message.text);
       if (hosts.length) {
         const host = document.createElement('span');

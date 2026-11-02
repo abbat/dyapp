@@ -127,11 +127,11 @@ pub fn chat_history(
     })
 }
 
-fn open_visible_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Store, String> {
-    if peer_id == identity.peer_id() {
+pub(crate) fn open_visible_chat(dir: &Path, me: &Identity, peer_id: &str) -> Result<Store, String> {
+    if peer_id == me.peer_id() {
         return Err("ownPeer".into());
     }
-    let store = open(dir, identity)?;
+    let store = open(dir, me)?;
     if store.blocked(peer_id).map_err(|e| e.to_string())? {
         return Err("blocked".into());
     }

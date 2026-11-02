@@ -1516,6 +1516,7 @@ dependencies = [
  "dyapp-identity",
  "dyapp-p2p-net",
  "dyapp-profile",
+ "image",
  "keyring-core",
  "qrcodegen",
  "quircs",
@@ -2986,6 +2987,8 @@ dependencies = [
  "num-traits",
  "png 0.18.1",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

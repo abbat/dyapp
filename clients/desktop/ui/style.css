@@ -226,6 +226,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
   background: var(--line); }
 .chat-photo.blurred canvas { filter: blur(12px); }
 .chat-photo .caption { display: block; }
+.chat-photo canvas[hidden], .chat-photo .photo-status:empty { display: none; }
 .msg-menu { display: flex; justify-content: flex-end; gap: var(--space-1); }
 .msg-menu .btn { min-height: 28px; padding: 0 var(--space-2); font: var(--text-caption); }
 .composer { display: flex; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-4); }

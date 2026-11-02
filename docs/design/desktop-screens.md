@@ -243,8 +243,10 @@ empty first-message detail; after one send it becomes a sent request and disable
 A received photo shows its local preview over a caption with its type, size and, in the last day
 of the 168-hour node retention, the time left of the original. Without a preview, or with one that
 cannot be decoded, the caption stands alone. Before the conversation is accepted, a preview stays
-blurred until Show photo. Photos offer no edit, delete or forward. Fetching the original and the
-states of a failed fetch remain planned, like sending photos. Profile photos remain planned for
+blurred until Show photo. Photos offer no edit, delete or forward. Download original fetches it on a tap and shows it at
+up to 480 pixels. It stays in memory while the chat is open, so nothing decrypted reaches the disk.
+A failed fetch offers a retry; an original no node holds shows "No longer available", and one that
+fails its checks "This photo cannot be shown". Automatic download and sending photos remain planned. Profile photos remain planned for
 this UI. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation

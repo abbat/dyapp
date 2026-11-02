@@ -101,6 +101,8 @@ reads and opens it on receipt. Recipients never release the blob: every device o
 MLS member and the first release would drop it for the others, so it expires after the node's
 retention. `attachment::auto_download` downloads a contact's original without a tap only on an
 unmetered network (or in the "always" mode) and a stranger's only on a tap;
+The desktop `chat_photo_original` command fetches one original on a tap and checks its real
+dimensions from the header before the page decodes it, at most 64 megapixels.
 `attachment::hours_left` gives the "N more hours" label for the last day of the 168 h retention. A request holds 1 to 1,920 asks (30 days for
 64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
 to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.
