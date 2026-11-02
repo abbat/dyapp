@@ -175,6 +175,7 @@ mod tests {
 
     #[test]
     fn photos_enter_the_draft_within_limits_and_leave_after_a_publish() {
+        assert_eq!(MAX_PHOTO_BYTES, 1_048_576);
         let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         assert!(!store.has_profile_photos().unwrap());
         for (full, thumbnail) in [
