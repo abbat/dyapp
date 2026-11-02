@@ -33,8 +33,9 @@ fn sealed(
 }
 
 /// The page's code for a node refusal; anything else is shown as it is.
-fn code(error: session::Error) -> String {
+pub(super) fn code(error: session::Error) -> String {
     match error {
+        session::Error::Client(Error::Status(Status::NotFound)) => "peerUnavailable".into(),
         session::Error::Client(Error::Status(Status::Full)) => "full".into(),
         session::Error::Client(Error::Status(Status::TooLarge)) => "tooLarge".into(),
         error => error.to_string(),
@@ -143,6 +144,7 @@ mod tests {
         let refused = |status| code(session::Error::Client(Error::Status(status)));
         assert_eq!(refused(Status::Full), "full");
         assert_eq!(refused(Status::TooLarge), "tooLarge");
+        assert_eq!(refused(Status::NotFound), "peerUnavailable");
         assert_ne!(refused(Status::Denied), "full");
     }
 }

@@ -237,7 +237,7 @@ pub async fn send_text(
             &seal_key,
         )
         .await
-        .map_err(|e| e.to_string())
+        .map_err(send_photo::code)
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {

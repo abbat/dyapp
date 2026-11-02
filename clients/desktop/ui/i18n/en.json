@@ -369,6 +369,7 @@
   "chats.sent": "Sent to the network node.",
   "chats.queued": "Saved on this computer. Network delivery is pending.",
   "chats.sendFailed": "Message was not sent:",
+  "chats.peerUnavailable": "This person cannot get new chats right now. Your message is kept here; try again later.",
   "chats.tooLong": "Message exceeds 64 KiB.",
   "chats.rename": "Name this contact",
   "chats.renameLabel": "Name on this computer",

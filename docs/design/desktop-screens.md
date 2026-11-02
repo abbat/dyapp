@@ -243,6 +243,7 @@ rows after mailbox refresh even if that refresh or the network-backed **Liked yo
 Opening a row shows its current message history and marks incoming messages read on this device; Back returns to the list.
 The Linux detail now lets a received request reply and an open conversation send text.
 A sent request shows a disabled composer until the peer replies or a match opens the chat.
+A first message to a peer with no KeyPackage on the node keeps the draft and says to try later.
 A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it
 in history and reports pending delivery. A verified Found profile's Message action opens an
 empty first-message detail; after one send it becomes a sent request and disables the composer.

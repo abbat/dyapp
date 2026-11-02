@@ -403,6 +403,19 @@ of a like that failed to send but stays stored.
 
 Findings: none open.
 
+### Unavailable peer review (2026-11-02)
+
+Scope: the composer status when a first message finds no KeyPackage for the peer.
+
+- Visibility of system status: the status says nothing went out and that the state is temporary.
+- Match with the real world: it speaks of new chats, not of keys or nodes.
+- User control: the draft stays in the composer, so a later retry takes one press.
+- Consistency: the same composer status line as every other send result.
+- Error prevention: nothing is staged, so a retry cannot duplicate the message.
+- Help with errors: it replaces the raw node reply with what to do next.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

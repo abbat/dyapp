@@ -321,7 +321,8 @@ The revision is the previous one plus one, floored at the Unix time so a wiped s
 still supersedes what a node holds. The profile save waits for the confirmation and
 reports its failure. The device certificate is fixed for the life of a store, so a new
 certificate arrives with a store that has no saved publication.
-A node refuses the package of a device its current profile no longer lists.
+A node refuses the package of a device its current profile no longer lists. An invite
+that finds no package keeps the draft and tells the person to try again later.
 
 The current fetch API has no non-consuming stock count, so the client cannot know when
 ordinary stock is low. The last-resort package keeps new invitations possible after

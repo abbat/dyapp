@@ -85,6 +85,15 @@ const checkChatProjection = async () => {
     throw new Error('failed send lost the unstaged draft');
   }
   await sendChatText((command) => {
+    if (command === 'send_chat_text') return Promise.reject('peerUnavailable');
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message] });
+    throw new Error(`unexpected unavailable send command: ${command}`);
+  });
+  if (chatInput.value !== 'keep draft'
+    || chatComposeStatus.textContent !== window.strings['chats.peerUnavailable']) {
+    throw new Error('an invite without stock did not say so or lost the draft');
+  }
+  await sendChatText((command) => {
     if (command === 'send_chat_text') return Promise.reject('nodeFailed');
     if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [message, reply] });
     if (command === 'mark_chat_read') return Promise.resolve(0);

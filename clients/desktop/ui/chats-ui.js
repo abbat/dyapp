@@ -749,7 +749,8 @@ const sendChatText = async (call = invoke) => {
   const text = chatInput.value;
   await sendInChat((peerId) => call('send_chat_text', { peerId, text }),
     () => { chatInput.value = ''; },
-    (error) => `${window.strings['chats.sendFailed']} ${error}`, call);
+    (error) => (error === 'peerUnavailable' ? window.strings['chats.peerUnavailable']
+      : `${window.strings['chats.sendFailed']} ${error}`), call);
 };
 document.getElementById('chat-composer').addEventListener('submit', (event) => {
   event.preventDefault();

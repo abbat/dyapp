@@ -51,7 +51,7 @@ const preparePhoto = async (file) => {
 const photoSendError = (code) => {
   const key = { full: 'chats.photoFull', tooLarge: 'chats.photoTooLarge',
     unsupported: 'chats.photoUnsupported', corrupted: 'chats.photoUnsupported',
-    notConnected: 'chats.notConnected' }[code];
+    notConnected: 'chats.notConnected', peerUnavailable: 'chats.peerUnavailable' }[code];
   return key ? window.strings[key] : `${window.strings['chats.sendFailed']} ${code}`;
 };
 const sendChatPhoto = async (file, call = invoke) => {
