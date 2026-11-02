@@ -38,7 +38,7 @@ fn fits(width: u32, height: u32) -> bool {
 }
 
 /// Refuses anything but a JPEG or PNG whose header is within the bound.
-fn check_image(bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn check_image(bytes: &[u8]) -> Result<(), String> {
     let reader = image::ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|e| e.to_string())?;

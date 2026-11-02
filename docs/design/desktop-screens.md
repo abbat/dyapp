@@ -11,7 +11,8 @@ shell with the Profile, Search, Chats, Network and Settings areas and both first
 Chats now shows local requests, conversations and text history with send, Edit, Delete and Clear
 controls; remaining chat actions and the switcher are planned. Its controller is
 `clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
-cards and place lookup. [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
+cards and place lookup; `chats-photo-send.js` follows it and sends a picked photo.
+[v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
 contracts.
 
 `make quality` checks that every ID and state in backticks on this page is an id or a
@@ -323,6 +324,7 @@ over a direct path.
 | Delete | `msg-delete` | Opens `delete-dialog` |
 | Typing | `chat-typing` | |
 | Message | `chat-input` | |
+| Attach photo | `chat-attach` | Open conversations only; picks a JPEG or PNG and sends it at once. It goes without its metadata, at most 2560 px, and a refusal stays in the composer status |
 | Send | `chat-send` | Disabled while the box is empty |
 
 `chat-clear-dialog` confirms Clear chat: the messages are deleted from this computer only, the

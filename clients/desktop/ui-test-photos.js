@@ -1,5 +1,6 @@
 // A photo in a chat: the list row, the placeholder, the blur until Show or acceptance, expiry, an
-// undecodable preview, the text actions a photo must not offer and the tap on the original.
+// undecodable preview, the text actions a photo must not offer, the tap on the original and
+// sending a photo without its metadata.
 const checkChatPhoto = async () => {
   const source = document.createElement('canvas');
   source.width = 8;
@@ -19,6 +20,8 @@ const checkChatPhoto = async () => {
   const downloads = ['notConnected', original, 'notFound'];
   let fetched = null;
   let autoAllowed = false;
+  const sends = [];
+  let sent = null;
   const messages = [entry(peer, 1, photo)];
   const call = (command, args) => {
     if (command === 'chat_rows') {
@@ -29,6 +32,11 @@ const checkChatPhoto = async () => {
       return Promise.resolve({ state, messages, activeRecently: false });
     }
     if (command === 'chat_photo_auto') return Promise.resolve(autoAllowed);
+    if (command === 'send_chat_photo') {
+      sent = args;
+      const refusal = sends.shift();
+      return refusal ? Promise.reject(refusal) : Promise.resolve(Array(16).fill(9));
+    }
     if (command === 'chat_photo_original') {
       fetched = args;
       const next = downloads.shift();
@@ -62,6 +70,7 @@ const checkChatPhoto = async () => {
   }
   if (!box.classList.contains('blurred')) throw new Error('a stranger preview was not blurred');
   await shot('chat-photo-blurred');
+  if (!document.getElementById('chat-attach').hidden) throw new Error('a request offered Attach');
   box.querySelector('.photo-show').click();
   if (box.classList.contains('blurred') || box.querySelector('.photo-show')
     || document.activeElement !== canvas) {
@@ -142,6 +151,31 @@ const checkChatPhoto = async () => {
   await openChat(peer, call);
   await seen(() => waiting().querySelector('canvas').width === 8);
   if (downloads.length) throw new Error('the allowed photo was not fetched');
+
+  if (document.getElementById('chat-attach').hidden) throw new Error('an open chat hid Attach');
+  const secret = [...new TextEncoder().encode('GPS-SECRET')];
+  const plain = [...new Uint8Array(original)];
+  const tagged = new File([new Uint8Array([...plain.slice(0, 2), 0xff, 0xe1, 0, secret.length + 2,
+    ...secret, ...plain.slice(2)])], 'a.jpg', { type: 'image/jpeg' });
+  await sendChatPhoto(tagged, call);
+  const holds = (bytes) => bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
+  if (sent.peerId !== peer || sent.width !== 8 || sent.photo[0] !== 0xff || !sent.preview.length) {
+    throw new Error(`the photo was not sent: ${sent.width}`);
+  }
+  if (holds(sent.photo) || holds(sent.preview)) throw new Error('the metadata left the computer');
+  const status = document.getElementById('chat-compose-status');
+  const refused = async (file, key) => {
+    await sendChatPhoto(file, call);
+    if (status.textContent !== strings[key]) throw new Error(`no ${key}: ${status.textContent}`);
+  };
+  sends.push('full');
+  await refused(tagged, 'chats.photoFull');
+  sends.push('notConnected');
+  await refused(tagged, 'chats.notConnected');
+  await refused(new File(['GIF89a'], 'a.gif', { type: 'image/gif' }), 'chats.photoUnsupported');
+  await refused(new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
+    'chats.photoUnsupported');
+  if (document.getElementById('chat-attach').disabled) throw new Error('Attach stayed off');
   document.getElementById('chat-back').click();
   await window.showChats(() => Promise.resolve([]));
 

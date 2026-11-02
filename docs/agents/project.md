@@ -120,6 +120,13 @@ capture per port across restarts. Raw failure evidence includes node-port header
 - Production Rust has a fixed `unwrap`/`expect`/`panic!` budget per crate. Return `Result` for
   anything a peer or user controls; an `allow` does not hide a counted site
   ([explicit panic budgets](../development/code-quality.md#explicit-panic-budgets)).
+- Backticked IDs and states in `docs/design/desktop-screens.md` must exist in
+  `clients/desktop/prototype/index.html`, with strings in `prototype/strings.js`.
+- On Linux Tauri IPC uses `postMessage`, so a raw body gains nothing: byte arrays go as JSON
+  (`Array.from`), as `scan_contact_qr` does. Sync commands run on the main thread, and a window call
+  such as `is_focused` waits on it: never make one while holding the `Sessions` lock.
+- `make fmt` skips `clients/`; check those files with `rustfmt --check --edition 2021`. `make test`
+  and CI differ in detail: `gh run download <id> -n core-check-output` holds the nextest output.
 
 ## Rules for agents
 

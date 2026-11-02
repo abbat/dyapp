@@ -95,8 +95,11 @@ previews: each of `n` images gets
 `attachment::preview_budget(n)`, min(24 KiB, 64 KiB / n). `Session::send_attachment` uploads the
 sealed blob to the first node that takes it before it stages the message. One attachment is one
 blob, so its sealed size is capped by the node media limit of 6 MiB: there is no split into
-several blobs and the client does not check the size first. Planned: apps compress larger media
-or refuse it before upload. `attachment::fetch`
+several blobs. `Session::send_attachment_to` sends into the pair's joined group of an open
+conversation only. The Linux composer re-encodes a picked JPEG or PNG on a canvas to a JPEG of at
+most 2560 px and 6,000,000 bytes, stepping down to 1280 px, with a preview of at most 24 KiB, and
+`send_chat_photo` seals and sends them. Size handling on the other apps is planned.
+`attachment::fetch`
 reads and opens it on receipt. Recipients never release the blob: every device of the chat is an
 MLS member and the first release would drop it for the others, so it expires after the node's
 retention. `attachment::auto_download` downloads a contact's original without a tap only on an

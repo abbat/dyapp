@@ -344,7 +344,10 @@
             <label for="chat-input" data-i18n="chats.message"></label>
             <textarea id="chat-input" rows="3" maxlength="65536"></textarea>
             <p id="chat-compose-status" class="caption" role="status"></p>
-            <div class="actions"><button id="chat-send" class="btn primary" type="submit"
+            <input id="chat-photo-input" type="file" accept="image/png,image/jpeg" hidden>
+            <div class="actions"><button id="chat-attach" class="btn quiet" type="button"
+              data-i18n="chats.attach" hidden></button>
+              <button id="chat-send" class="btn primary" type="submit"
               data-i18n="chats.send" disabled></button></div>
           </form>
         </div>
@@ -615,6 +618,7 @@
   <script src="remove.js"></script>
   <script src="search.js"></script>
   <script src="chats-ui.js"></script>
+  <script src="chats-photo-send.js"></script>
   <script src="network.js"></script>
 </body>
 </html>

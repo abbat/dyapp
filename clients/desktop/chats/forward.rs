@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 use dyapp_client::chat::MAX_TEXT_BYTES;
 use dyapp_client::session::Session;
 use dyapp_client::store::messages::ChatMessage;
-use dyapp_client::store::Conversation;
+use dyapp_client::store::{Conversation, Store};
+use dyapp_client::Node;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
@@ -32,34 +33,17 @@ fn source_text(
         .ok_or("unknownMessage".into())
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "source and target are distinct chat identities"
-)]
-async fn forward(
+/// The Session, node and sealing key for a send into `target_peer`, once the chat is open and
+/// unblocked and both profiles are published.
+pub(super) async fn open_session(
     cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,
     identity: &Identity,
     device_key: &Identity,
-    source_peer: &str,
-    source_group: &[u8],
-    source_author: &str,
-    source_message: [u8; 16],
+    store: Store,
     target_peer: &str,
-) -> Result<[u8; 16], String> {
-    if source_peer == target_peer || target_peer == identity.peer_id() {
-        return Err("invalidTarget".into());
-    }
-    let mut store = super::open_visible_chat(dir, identity, source_peer)?;
-    let text = source_text(
-        &store
-            .current_chat_messages(source_peer)
-            .map_err(|e| e.to_string())?,
-        source_group,
-        source_author,
-        source_message,
-    )?;
+) -> Result<(Session, Node, zeroize::Zeroizing<[u8; 32]>), String> {
     if store.blocked(target_peer).map_err(|e| e.to_string())? {
         return Err("blocked".into());
     }
@@ -85,7 +69,7 @@ async fn forward(
         return Err("unpublished".into());
     }
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
+    let session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     if !own
         .profile
@@ -94,6 +78,39 @@ async fn forward(
     {
         return Err("unpublished".into());
     }
+    Ok((session, node, seal_key))
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "source and target are distinct chat identities"
+)]
+async fn forward(
+    cache: &Mutex<ProfileCache>,
+    root: &Path,
+    dir: &Path,
+    identity: &Identity,
+    device_key: &Identity,
+    source_peer: &str,
+    source_group: &[u8],
+    source_author: &str,
+    source_message: [u8; 16],
+    target_peer: &str,
+) -> Result<[u8; 16], String> {
+    if source_peer == target_peer || target_peer == identity.peer_id() {
+        return Err("invalidTarget".into());
+    }
+    let store = super::open_visible_chat(dir, identity, source_peer)?;
+    let text = source_text(
+        &store
+            .current_chat_messages(source_peer)
+            .map_err(|e| e.to_string())?,
+        source_group,
+        source_author,
+        source_message,
+    )?;
+    let (mut session, mut node, seal_key) =
+        open_session(cache, root, dir, identity, device_key, store, target_peer).await?;
     session
         .send_forwarded_text_to(
             std::slice::from_mut(&mut node),

@@ -153,6 +153,9 @@ late result after switching identity. The link-host smoke checks IDN punycode, a
 spoof and absence of clickable links or previews in a message request.
 The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
 classic scripts have established their shared page scope.
+The chat photo smoke sends a JPEG with an added EXIF segment and checks that neither the photo nor
+the preview given to `send_chat_photo` holds it, then checks the full, offline and unsupported
+states and that a request offers no Attach photo.
 The same case reopens a peer card and checks that old
 likes and block responses cannot change the new card or its controls. It also delays the old
 safety panel, camera capture and sensitive copy across a switch; an already active camera stream

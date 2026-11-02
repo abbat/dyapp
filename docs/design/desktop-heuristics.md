@@ -367,6 +367,23 @@ Scope: the desktop notice when mail arrives and the window has no focus.
 Findings: none open. A click does nothing yet because the notice has no action; opening the app
 from it is planned with the choice of notice content, and the tray and the launcher still open it.
 
+### Sending a chat photo review (2026-11-02)
+
+Scope: the Attach photo button of an open conversation and its failure states.
+
+- Visibility of system status: the composer status shows Sending while the photo is prepared and
+  sent, and the photo then appears in the chat with its delivery mark.
+- Match with the real world: the system file picker, filtered to JPEG and PNG.
+- User control: the picker's Cancel sends nothing. A sent photo has no Delete yet, which matches
+  the existing rule that a photo offers no text actions; removing one is a separate feature.
+- Consistency: the same quiet button, status line and queued result as a text send.
+- Error prevention: the button appears only where a photo can be sent, so a request never offers
+  it, and photos keep no metadata without the user having to think about it.
+- Help with errors: too many waiting, too large, wrong format and no connection each say what
+  happened; a draft in the box survives every outcome.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

@@ -24,6 +24,9 @@ const updateComposer = () => {
   const bytes = new TextEncoder().encode(chatInput.value).length;
   chatInput.disabled = !writable;
   chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
+  const attach = document.getElementById('chat-attach');
+  attach.hidden = activeChat?.state !== 'open';
+  attach.disabled = !writable;
   document.getElementById('chat-first-notice').hidden = !waiting;
   document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';
   document.getElementById('chat-block').hidden = activeChat?.state === 'requestReceived';
@@ -701,10 +704,10 @@ const clearChat = async (call = invoke) => {
   await openChat(target.peerId, call);
 };
 clearConfirm.addEventListener('click', () => { window.chatCleared = clearChat(); });
-const sendChatText = async (call = invoke) => {
-  if (!activeChat || chatSending || chatSend.disabled) return;
+// One send of the open chat: holds the composer, tells a queued message from a failed one and
+// redraws. `sent` runs before the redraw; `failure` words an unstaged error.
+const sendInChat = async (send, sent, failure, call) => {
   const { peerId, messages } = activeChat;
-  const text = chatInput.value;
   const generation = identityGeneration;
   const request = chatOpenRequest;
   const currentSend = () => identityCurrent(generation) && request === chatOpenRequest
@@ -716,7 +719,7 @@ const sendChatText = async (call = invoke) => {
   let result = 'sent';
   let errorText = '';
   try {
-    await call('send_chat_text', { peerId, text });
+    await send(peerId);
   } catch (error) {
     errorText = String(error);
     // A failed node delivery may already have committed the text and its retryable outbox.
@@ -729,16 +732,23 @@ const sendChatText = async (call = invoke) => {
   if (!currentSend()) return;
   chatSending = false;
   if (result === 'failed') {
-    chatComposeStatus.textContent = `${window.strings['chats.sendFailed']} ${errorText}`;
+    chatComposeStatus.textContent = failure(errorText);
     updateComposer();
     return;
   }
-  chatInput.value = '';
+  sent();
   updateComposer();
   await openChat(peerId, call);
   if (identityCurrent(generation) && activeChat?.peerId === peerId) {
     chatComposeStatus.textContent = window.strings[`chats.${result}`];
   }
+};
+const sendChatText = async (call = invoke) => {
+  if (!activeChat || chatSending || chatSend.disabled) return;
+  const text = chatInput.value;
+  await sendInChat((peerId) => call('send_chat_text', { peerId, text }),
+    () => { chatInput.value = ''; },
+    (error) => `${window.strings['chats.sendFailed']} ${error}`, call);
 };
 document.getElementById('chat-composer').addEventListener('submit', (event) => {
   event.preventDefault();

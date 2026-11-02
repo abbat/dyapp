@@ -920,6 +920,7 @@ fn main() {
             chat_photos::set_auto_download_mode,
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
+            chats::send_photo::send_chat_photo,
             chats::presence::announce_presence,
             chats::names::contact_names,
             chats::names::set_contact_name,

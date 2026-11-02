@@ -26,6 +26,8 @@ pub(crate) mod operations;
 pub(crate) mod presence;
 #[path = "chats/reads.rs"]
 mod reads;
+#[path = "chats/send_photo.rs"]
+pub(crate) mod send_photo;
 #[path = "chats/view.rs"]
 mod view;
 pub use view::{ChatHistoryView, ChatRowView, ChatState, MessageView};

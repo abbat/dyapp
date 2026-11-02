@@ -56,4 +56,26 @@ impl Session {
         .await?;
         Ok(id)
     }
+
+    /// [`Session::send_attachment`] into the pair's canonical joined group, which must be an open
+    /// conversation: an attachment never opens a message request.
+    pub async fn send_attachment_to(
+        &mut self,
+        nodes: &mut [Node],
+        identity: &Identity,
+        peer_id: &str,
+        attachment: &Attachment,
+        blob: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<[u8; 16], Error> {
+        let group_id = self.pair_group(peer_id).ok_or(Error::UnknownGroup)?;
+        if self.store.blocked(peer_id)? {
+            return Err(crate::store::Error::BlockedPeer.into());
+        }
+        if self.store.conversation(peer_id)? != crate::store::Conversation::Open {
+            return Err(Error::ConversationNotOpen);
+        }
+        self.send_attachment(nodes, identity, &group_id, attachment, blob, seal_key)
+            .await
+    }
 }

@@ -131,10 +131,10 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     sent.preview = b"preview".to_vec();
     sent.mime = "image/jpeg".into();
     let sent_id = alice_session
-        .send_attachment(
+        .send_attachment_to(
             from_mut(&mut alice.node),
             &alice.identity,
-            &group_id,
+            &bob_owner,
             &sent,
             &blob,
             &SEAL,
