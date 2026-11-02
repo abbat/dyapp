@@ -153,7 +153,7 @@ const who = (element, id, reason, caption) => {
   avatar.setAttribute('aria-hidden', 'true');
   const name = document.createElement(id ? 'code' : 'span');
   name.textContent = id ? peerLabel(element, id) : reasonText(reason);
-  avatar.textContent = id ? name.textContent.slice(1, 3) : '!';
+  avatar.textContent = id ? window.shortPeer(id).slice(1, 3) : '!';
   const note = document.createElement('span');
   note.className = 'caption';
   note.textContent = caption;
@@ -598,6 +598,7 @@ const placeInput = document.getElementById('profile-place');
 const profilePlace = placePicker(placeCountry, placeInput,
   document.getElementById('profile-places'), () => placeCountry.value);
 const profileDraft = () => ({
+  name: document.getElementById('profile-name').value,
   ...Object.fromEntries(scaleFields.map((scale) => [
     camel(scale.key), Number(document.getElementById(
       `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`).value),
@@ -685,6 +686,7 @@ const showProfile = async (call = invoke) => {
       option.textContent = name;
       return option;
     }));
+  document.getElementById('profile-name').value = view.draft.name;
   placeCountry.value = view.draft.country;
   const place = view.draft.place && await call('place_name', {
     country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
@@ -729,6 +731,7 @@ const publicFacts = (draft, place) => {
 // The same fields as lines, or the empty notice.
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
+  if (draft.name) fields.unshift(`${window.strings['profile.name']}: ${draft.name}`);
   return fields.length ? fields : [window.strings['profile.empty']];
 };
 const listItems = (values) => values.map((value) => {
@@ -740,7 +743,10 @@ const saveProfile = async (call = invoke) => {
   if (!profileForm.reportValidity()) return null;
   const generation = identityGeneration;
   const view = await call('save_profile', { draft: profileDraft() })
-    .catch((error) => { if (identityCurrent(generation)) throw error; return null; });
+    .catch((error) => {
+      if (!identityCurrent(generation)) return null;
+      throw String(error) === 'invalidName' ? window.strings['profile.nameInvalid'] : error;
+    });
   if (!identityCurrent(generation) || !view) return null;
   showAge(view);
   profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');

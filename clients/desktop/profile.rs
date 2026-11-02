@@ -16,7 +16,7 @@ use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::{seed, Protocols};
-use dyapp_profile::{CivilDate, Profile};
+use dyapp_profile::{is_clean_text, CivilDate, Profile, MAX_FIELD_CHARS};
 
 /// Profile proof of work a publish computes: the default search-node minimum, until clients
 /// take it from node hints.
@@ -56,6 +56,9 @@ impl ProfileState {
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Draft {
+    /// The optional public name.
+    #[serde(default)]
+    pub name: String,
     pub gender: u32,
     pub orientation: u32,
     pub relationship_goal: u32,
@@ -190,6 +193,7 @@ impl From<&Profile> for Draft {
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
+            name: profile.name.clone(),
             country: profile.country.clone(),
             place: profile.place.clone(),
         }
@@ -269,8 +273,13 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
     if !places::known(&draft.country, &draft.place) {
         return Err("invalid place".into());
     }
+    let name = draft.name.trim();
+    if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
+        return Err("invalidName".into());
+    }
     let store = open(dir, identity)?;
     let profile = Profile {
+        name: name.to_owned(),
         gender: draft.gender,
         orientation: draft.orientation,
         relationship_goal: draft.relationship_goal,
@@ -514,6 +523,23 @@ mod tests {
         assert_eq!((yearless.ages, yearless.problem), (None, None));
         let child = save(&dir, &alice, woman(Some(2025))).unwrap();
         assert_eq!(child.problem, Some("underage"));
+    }
+
+    #[test]
+    fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        let named = |name: String| Draft {
+            name,
+            ..woman(None)
+        };
+        let saved = save(&dir, &alice, named("  Anna  ".into())).unwrap();
+        assert_eq!(saved.draft.name, "Anna");
+        assert_eq!(load(&dir, &alice).unwrap().draft.name, "Anna");
+        for name in ["x".repeat(MAX_FIELD_CHARS + 1), "An\u{202E}na".into()] {
+            let error = save(&dir, &alice, named(name));
+            assert_eq!(error, Err("invalidName".into()));
+        }
+        assert_eq!(load(&dir, &alice).unwrap().draft.name, "Anna");
     }
 
     #[test]

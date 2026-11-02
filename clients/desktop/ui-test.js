@@ -574,6 +574,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chatChecks.checkChatRead();
       await presenceChecks.checkChatPresence();
       await nameChecks.checkContactNames();
+      await nameChecks.checkPublicName();
       await chatChecks.checkChatForwarded();
       await chatChecks.checkChatForwardAction();
       await chatChecks.checkChatLinkHosts();

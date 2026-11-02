@@ -11,6 +11,7 @@ window.peerName = (id) => {
 };
 // A failed read keeps the last names: every peer still shows at least its short Peer ID.
 const loadPeerNames = async (peerIds, call) => {
+  if (!peerIds.length) return;
   const generation = identityGeneration;
   try {
     const names = await call('contact_names', { peerIds });

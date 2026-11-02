@@ -72,4 +72,63 @@ const checkContactNames = async () => {
   }
   await window.showChats(() => Promise.resolve([]));
 };
-globalThis.uiSmokeNames = Object.freeze({ checkContactNames });
+
+// The public name: the editor, the publish list and how a second client's card and view show it.
+const checkPublicName = async () => {
+  await openArea('profile-area');
+  const input = document.getElementById('profile-name');
+  const before = input.value;
+  input.value = 'Anna';
+  if (profileDraft().name !== 'Anna') throw new Error('the draft lost the public name');
+  input.value = before;
+  await shot('profile-public-name');
+  const fields = publicFields({ name: 'Anna', birthYear: null, birthMonth: null, birthDay: null });
+  if (fields[0] !== `${window.strings['profile.name']}: Anna`) {
+    throw new Error('the publish list left out the public name');
+  }
+  let refused = '';
+  await saveProfile(() => Promise.reject('invalidName')).catch((error) => { refused = error; });
+  if (refused !== window.strings['profile.nameInvalid']) {
+    throw new Error(`a refused public name was not explained: ${refused}`);
+  }
+
+  await openArea('search-area');
+  const peer = 'd'.repeat(64);
+  let verified = false;
+  const found = { peerId: peer, version: 1, place: '',
+    draft: { name: 'Anna', birthYear: null, birthMonth: null, birthDay: null, country: '' } };
+  const call = (command, args) => {
+    if (command === 'search_profiles') {
+      return Promise.resolve({ profiles: [found], offered: [], partial: false, failures: [] });
+    }
+    if (command === 'contact_names') {
+      return Promise.resolve(args.peerIds.map((peerId) => ({ peerId, name: 'Anna', verified })));
+    }
+    if (command === 'confirm_contact') { verified = true; return Promise.resolve(found); }
+    if (command === 'unverify_contact') { verified = false; return Promise.resolve(); }
+    return Promise.resolve(0);
+  };
+  await runSearch(call);
+  const card = liveRow('search-results', peer);
+  const marked = (mark) => card.textContent.includes(`Anna · ${window.strings[mark]}`);
+  if (!marked('peer.unverified')) throw new Error(`no unverified card: ${card.textContent}`);
+  if (card.querySelector('.avatar').textContent !== shortPeerId(peer, knownPeers).slice(1, 3)) {
+    throw new Error('the avatar left the short Peer ID');
+  }
+  await shot('search-public-name');
+  openFound(found, card, call);
+  const title = document.getElementById('view-title');
+  const peerShort = shortPeerId(peer, knownPeers);
+  if (!title.textContent.startsWith('Anna') || !title.textContent.endsWith(peerShort)
+    || document.getElementById('view-peer').textContent !== peerShort) {
+    throw new Error(`the view lost the name or the Peer ID: ${title.textContent}`);
+  }
+  await confirmContact(call);
+  if (!marked('peer.verified')) throw new Error('the card did not follow the mark');
+  await removeMark(call);
+  if (!marked('peer.unverified')) throw new Error('the card did not follow the removed mark');
+  document.getElementById('view-back').click();
+  clearSearch();
+  document.dispatchEvent(new Event('dyapp:identity-change'));
+};
+globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName });

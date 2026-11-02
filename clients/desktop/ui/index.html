@@ -146,6 +146,10 @@
         <form id="profile" novalidate>
           <div class="card">
             <h2 data-i18n="profile.basics"></h2>
+            <div class="field"><label for="profile-name" data-i18n="profile.name"></label>
+              <input id="profile-name" type="text" maxlength="64" autocomplete="off"
+                aria-describedby="profile-name-hint">
+              <p id="profile-name-hint" class="caption" data-i18n="profile.nameHint"></p></div>
             <div id="profile-basics" class="grid"></div>
             <h2 data-i18n="profile.birth"></h2>
             <div class="grid">

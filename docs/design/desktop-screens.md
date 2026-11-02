@@ -101,6 +101,7 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | Status | `profile-status` | Draft, published with version, or hidden |
 | Hide from search | `profile-hidden` | Switch |
 | Hidden notice | `profile-hidden-notice` | Only while hidden |
+| Public name | `profile-name` | Optional, at most 64 characters, no hidden symbols |
 | Gender | `profile-gender` | |
 | Looking for | `profile-goal` | |
 | Birth year, month, day | `birth-year`, `birth-month`, `birth-day` | Month and day optional |
@@ -270,7 +271,8 @@ chat and mark read for the active identity.
 `chat`: one conversation with a match. The prototype's peer avatar and profile link remain planned.
 A peer is shown by the local name if it has one, else by its public name with "Verified" or "Not
 verified" and the short Peer ID, else by the short Peer ID; the full ID stays in the title. This
-holds in the list, the header, messages and the forward list. A public name needs the peer's
+holds in the list, the header, messages, the forward list, search cards and the profile view. A
+public name needs the peer's
 profile in the in-memory cache, so after a restart it returns with the next search or chat fetch.
 "Active recently" is shown under the peer, and no online or last-seen time is shown. The current Linux message
 status is pending, accepted by a node, received by one peer device, or read when the peer sent an

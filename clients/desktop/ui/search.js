@@ -154,9 +154,10 @@ const showVerified = (verified) => {
   document.getElementById('view-unverify').hidden = !verified;
 };
 const showFound = (found) => {
-  const short = peerLabel(document.getElementById('view-peer'), found.peerId);
+  const short = window.shortPeer(found.peerId);
+  peerLabel(document.getElementById('view-peer'), found.peerId);
   document.getElementById('view-peer').textContent = short;
-  document.getElementById('view-title').textContent = short;
+  document.getElementById('view-title').textContent = window.peerName(found.peerId);
   document.querySelector('#view-photos .main').textContent = short.slice(1, 3);
   document.getElementById('view-summary').textContent = summaryText(found);
   document.getElementById('view-fields').replaceChildren(...publicFacts(found.draft, found.place)
@@ -344,6 +345,7 @@ const confirmContact = (call = invoke) => {
     showSafetyStatus('view.safety.confirm.done');
     document.getElementById('view-unverify').focus();
     const [placed] = await withPlaces([fresh]).catch(() => [{ ...fresh, place: found.place }]);
+    await loadPeerNames([found.peerId], call);
     if (!currentView()) return;
     Object.assign(found, placed);
     showFound(found);
@@ -357,17 +359,21 @@ const confirmContact = (call = invoke) => {
   });
 };
 const removeMark = (call = invoke) => {
-  const { found } = viewed;
+  const { found, card } = viewed;
   const generation = identityGeneration;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-unverify');
   button.disabled = true;
-  return call('unverify_contact', { peerId: found.peerId }).then(() => {
+  return call('unverify_contact', { peerId: found.peerId }).then(async () => {
     if (!currentView()) return;
     button.disabled = false;
     showVerified(false);
     showSafetyStatus('view.safety.confirm.removed');
     document.getElementById('view-confirm').focus();
+    await loadPeerNames([found.peerId], call);
+    if (!currentView()) return;
+    showFound(found);
+    card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
   }, () => {
     if (!currentView()) return;
     button.disabled = false;
@@ -602,6 +608,8 @@ const runSearch = async (call = invoke) => {
     const found = await withPlaces(result.profiles);
     if (!identityCurrent(generation)) return;
     knownPeers = [...new Set([...knownPeers, ...result.profiles.map((item) => item.peerId)])];
+    await loadPeerNames(found.map((item) => item.peerId), call);
+    if (!identityCurrent(generation)) return;
     showSearchFilters(result.offered);
     searchResults.replaceChildren(...found.map((item, index) => resultCard(item, `result-${index + 1}`)));
     const count = String(found.length);

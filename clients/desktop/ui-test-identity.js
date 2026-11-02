@@ -167,13 +167,14 @@ const checkStaleSearchAndChats = async () => {
   const readyState = current;
   await openArea('search-area');
   let finishOld;
-  const oldSearch = runSearch(() => new Promise((resolve) => { finishOld = resolve; }));
+  const noNames = (run) => (command) => (command === 'contact_names' ? Promise.resolve([]) : run());
+  const oldSearch = runSearch(noNames(() => new Promise((resolve) => { finishOld = resolve; })));
   if (!searchBusy) throw new Error('old search did not start');
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
   await openArea('search-area');
   let finishCurrent;
-  const newSearch = runSearch(() => new Promise((resolve) => { finishCurrent = resolve; }));
+  const newSearch = runSearch(noNames(() => new Promise((resolve) => { finishCurrent = resolve; })));
   finishOld({ profiles: [], offered: [], partial: false, failures: [] });
   await oldSearch;
   if (!searchBusy || document.getElementById('search-status').textContent
@@ -417,7 +418,8 @@ const checkStaleProfileLoad = async () => {
   const oldPlace = showProfile((command) => {
     if (command === 'profile_scales' || command === 'place_countries') return Promise.resolve([]);
     if (command === 'load_profile') return Promise.resolve({
-      draft: { country: 'DE', place: '1', birthYear: null, birthMonth: null, birthDay: null },
+      draft: { name: '', country: 'DE', place: '1', birthYear: null, birthMonth: null,
+        birthDay: null },
       searchMinutes: null, published: 0, hidden: false, ages: null,
     });
     return new Promise((resolve) => { finishPlace = resolve; });

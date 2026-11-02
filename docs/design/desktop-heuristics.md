@@ -237,6 +237,17 @@ so focus moves to the composer, or to Back when the composer is disabled (H3). A
 mail pass does not flicker the notice, because it is toggled only by the flag (H4). No open H1–H10
 finding.
 
+### Public name review (2026-11-02)
+
+Read `profile-area`, `publish-dialog`, search cards and `profile-view` against H1–H10 in English and
+Russian. A field for a name invites people to think it proves identity (H2, severity 2): the hint
+says anyone who finds the profile sees it and that it proves nothing, and the label says it is
+optional. The publish list names it first, so the user sees it before consenting (H1). A card or
+view title with the name alone would invite trust (H5, severity 3): both carry the mark and short
+Peer ID, the view keeps the full ID, and the facts list does not repeat the name unmarked. The mark
+follows a confirmed or removed verification at once (H1). A refused name says what to change (H9).
+No open H1–H10 finding.
+
 ### Contact names review (2026-11-02)
 
 Read the chat list, header, messages, forward list and `chat-rename-dialog` against H1–H10 in English
