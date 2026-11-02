@@ -192,7 +192,9 @@ and ACKs every pending ID of that mailbox. An original text already received is 
 before a later delete; a repeated original is ACKed again without restoring deleted text. If an
 authenticated delete is staged before its original at the Store boundary, that original keeps the
 deleted placeholder and gains its own ACK intent. An offline recipient cannot ACK unread ciphertext.
-Gap and unknown-owner envelopes stay unrecorded and unacked; a refused envelope stores only a marker,
+Gap and unknown-owner envelopes stay unrecorded and unacked; an envelope from a device the held
+profile does not list counts as unknown-owner, since that profile may predate a link, and waits for
+a newer profile or for the node to expire it. A refused envelope stores only a marker,
 keeps the previous MLS snapshot and reopens it. Only one-to-one groups are accepted for now, and the replica cross-check does not use this path yet.
 Node tests run two such sessions against a mailbox node: one covers restarts and injected storage
 faults at both boundaries, and another stages edit and terminal delete while offline, reopens the
@@ -285,7 +287,9 @@ Pending → Sent → Delivered → Read
 `dyapp/device-certificate/v1` label, the certified MLS key equal to the leaf's signature key, and
 the certificate listed in the owner's profile among those the caller passes (the newest it holds).
 Every call above takes those profiles, so a device dropped from the list is refused as a sender or
-new leaf, and `Group::remove_revoked` commits its removal. The owner's other device also closes
+new leaf, and `Group::remove_revoked` commits its removal. `Group::missing_devices` names the
+devices an owner lists without a leaf in the group, and `Group::add` commits them with a Welcome
+([ADR 0040](../decisions/0040-device-linking.md)). The owner's other device also closes
 the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
 signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
 `dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and

@@ -34,9 +34,10 @@ pub enum Error {
     /// A member's credential is not a device certificate for its MLS signature key.
     #[error("MLS credential does not chain to an identity")]
     Credential,
-    /// The member's certificate is not in its owner's profile among those given.
+    /// The certificate is not in the profile given for the owner with this Peer ID: the device was
+    /// dropped, or was linked after that profile. Only a newer profile tells them apart.
     #[error("device is not in its owner's current profile")]
-    Revoked,
+    Revoked(String),
     /// The owner with this Peer ID has no profile among those given: fetch it and retry.
     #[error("owner's profile is not held")]
     UnknownOwner(String),
@@ -95,7 +96,7 @@ pub fn verify_member(
     match profiles.iter().find(|owner| owner.peer_id == peer_id) {
         None => Err(Error::UnknownOwner(peer_id)),
         Some(owner) if owner.profile.devices.contains(&certificate) => Ok(peer_id),
-        Some(_) => Err(Error::Revoked),
+        Some(_) => Err(Error::Revoked(peer_id)),
     }
 }
 
@@ -455,6 +456,50 @@ impl Group {
                 device_key(&signed)
             })
             .collect()
+    }
+
+    /// Device mailbox keys `owner` lists that have no leaf here: own devices linked since the
+    /// group began, which a member adds with [`Self::add`].
+    pub fn missing_devices(&self, owner: &VerifiedProfile) -> Result<Vec<Vec<u8>>, Error> {
+        let joined = self
+            .group
+            .members()
+            .map(|member| device_key(&certified(&member.credential, &member.signature_key)?.1))
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(owner
+            .profile
+            .devices
+            .iter()
+            .map(device_key)
+            .collect::<Result<Vec<_>, Error>>()?
+            .into_iter()
+            .filter(|key| !joined.contains(key))
+            .collect())
+    }
+
+    /// Adds the devices of `packages`, each checked as in [`Device::create_group`]; returns the
+    /// commit for the members and the Welcome for the new devices.
+    pub fn add(
+        &mut self,
+        device: &Device,
+        packages: &[Vec<u8>],
+        profiles: &[VerifiedProfile],
+    ) -> Result<(Vec<u8>, Vec<u8>), Error> {
+        let packages = packages
+            .iter()
+            .map(|package| device.verify_key_package(package, profiles))
+            .collect::<Result<Vec<_>, Error>>()?;
+        let (commit, welcome, _) = self
+            .group
+            .add_members(&device.provider, &device.signer, &packages)
+            .map_err(mls)?;
+        self.group
+            .merge_pending_commit(&device.provider)
+            .map_err(mls)?;
+        Ok((
+            commit.to_bytes().map_err(mls)?,
+            welcome.to_bytes().map_err(mls)?,
+        ))
     }
 
     /// Removes every other member [`verify_member`] refuses with `profiles`; returns the commit

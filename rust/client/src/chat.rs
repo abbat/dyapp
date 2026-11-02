@@ -552,6 +552,28 @@ pub fn create(
     Ok((group, deliveries))
 }
 
+/// Adds the devices of `packages` from [`key_packages`] to `group`: the commit for its members,
+/// the Welcome for the new devices.
+pub fn add(
+    group: &mut Group,
+    device: &Device,
+    packages: &[(Vec<u8>, Vec<u8>)],
+    profiles: &[VerifiedProfile],
+) -> Result<Vec<Delivery>, Error> {
+    let keys: Vec<Vec<u8>> = packages
+        .iter()
+        .map(|(_, package)| package.clone())
+        .collect();
+    let (commit, welcome) = group.add(device, &keys, profiles)?;
+    let mut deliveries = to_members(group, &commit)?;
+    deliveries.retain(|delivery| !packages.iter().any(|(new, _)| *new == delivery.mailbox));
+    deliveries.extend(packages.iter().map(|(mailbox, _)| Delivery {
+        mailbox: mailbox.clone(),
+        mls: welcome.clone(),
+    }));
+    Ok(deliveries)
+}
+
 /// Pads and encrypts `body` for every other device in `group`.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
     let floor = match body {
@@ -668,7 +690,9 @@ pub(crate) fn apply(
 ) -> Result<Option<Event>, Error> {
     let Some(id) = mls::group_of(bytes)? else {
         let group = match device.join(bytes, profiles) {
-            Err(mls::Error::UnknownOwner(owner)) => return Ok(Some(Event::UnknownOwner(owner))),
+            Err(mls::Error::UnknownOwner(owner) | mls::Error::Revoked(owner)) => {
+                return Ok(Some(Event::UnknownOwner(owner)));
+            }
             joined => joined?,
         };
         let id = group.id().to_vec();
@@ -682,7 +706,9 @@ pub(crate) fn apply(
         return Ok(Some(Event::Gap(id)));
     }
     let received = match group.process(device, bytes, profiles) {
-        Err(mls::Error::UnknownOwner(owner)) => return Ok(Some(Event::UnknownOwner(owner))),
+        Err(mls::Error::UnknownOwner(owner) | mls::Error::Revoked(owner)) => {
+            return Ok(Some(Event::UnknownOwner(owner)));
+        }
         received => received?,
     };
     Ok(Some(match received {

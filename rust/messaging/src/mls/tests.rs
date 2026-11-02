@@ -171,7 +171,7 @@ fn welcome_from_an_unknown_owner_keeps_the_key_package() {
     let dropped = [profile(&alice, &[]), profile(&bob, &[&bob_device])];
     assert!(matches!(
         bob_device.join(&welcome, &dropped),
-        Err(Error::Revoked)
+        Err(Error::Revoked(_))
     ));
     assert!(bob_device.join(&welcome, &profiles).is_err());
 }
@@ -227,7 +227,7 @@ fn key_package_of_an_unlisted_device_is_rejected() {
             &[package],
             &[profile(&alice, &[&alice_device]), profile(&bob, &[&other])]
         ),
-        Err(Error::Revoked)
+        Err(Error::Revoked(_))
     ));
 }
 
@@ -409,7 +409,7 @@ fn revoked_device_is_refused_and_removed() {
     let sealed = laptop_group.encrypt(&bob_laptop, b"from a thief").unwrap();
     assert!(matches!(
         alice_group.process(&alice_device, &sealed, &revoked),
-        Err(Error::Revoked)
+        Err(Error::Revoked(_))
     ));
     let commit = alice_group
         .remove_revoked(&alice_device, &revoked)
@@ -422,6 +422,69 @@ fn revoked_device_is_refused_and_removed() {
     assert_eq!(phone_group.members().unwrap().len(), 2);
     let sealed = alice_group.encrypt(&alice_device, b"after").unwrap();
     assert!(laptop_group.process(&bob_laptop, &sealed, &both).is_err());
+}
+
+#[test]
+fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
+    let mut p = pair();
+    let laptop = Device::new(&p.alice, [8; 32], 1).unwrap();
+    let linked = [
+        profile(&p.alice, &[&p.alice_device, &laptop]),
+        profile(&p.bob, &[&p.bob_device]),
+    ];
+    assert!(p
+        .alice_group
+        .missing_devices(&p.profiles[0])
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        p.alice_group.missing_devices(&linked[0]).unwrap(),
+        vec![laptop.device_key().unwrap()]
+    );
+    let package = laptop.key_package(false).unwrap();
+    assert!(p
+        .alice_group
+        .add(&p.alice_device, std::slice::from_ref(&package), &p.profiles)
+        .is_err());
+
+    let (commit, welcome) = p
+        .alice_group
+        .add(&p.alice_device, &[package], &linked)
+        .unwrap();
+    assert!(p
+        .alice_group
+        .missing_devices(&linked[0])
+        .unwrap()
+        .is_empty());
+    // Decrypting the refused commit spends its secret, so the retry starts from the seal.
+    let sealed_bob = p.bob_device.seal(&[3; 32]).unwrap();
+    let epoch = p.bob_group.epoch();
+    assert!(matches!(
+        p.bob_group.process(&p.bob_device, &commit, &p.profiles),
+        Err(Error::Revoked(owner)) if owner == linked[0].peer_id
+    ));
+    assert_eq!(p.bob_group.epoch(), epoch);
+    let bob_device = Device::open(&sealed_bob, &[3; 32]).unwrap();
+    let mut bob_group = Group::load(&bob_device, p.bob_group.id())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        bob_group.process(&bob_device, &commit, &linked).unwrap(),
+        Received::Commit
+    );
+
+    let mut laptop_group = laptop.join(&welcome, &linked).unwrap();
+    assert_eq!(laptop_group.members().unwrap().len(), 3);
+    let sealed = bob_group.encrypt(&bob_device, b"both").unwrap();
+    for (group, device) in [
+        (&mut p.alice_group, &p.alice_device),
+        (&mut laptop_group, &laptop),
+    ] {
+        assert!(matches!(
+            group.process(device, &sealed, &linked).unwrap(),
+            Received::Message { plaintext, .. } if plaintext == b"both"
+        ));
+    }
 }
 
 #[test]

@@ -306,7 +306,15 @@ mod tests {
         fields.sort_unstable();
         assert_eq!(
             fields,
-            ["height", "hoursLeft", "kept", "mime", "preview", "size", "width"]
+            [
+                "height",
+                "hoursLeft",
+                "kept",
+                "mime",
+                "preview",
+                "size",
+                "width"
+            ]
         );
         assert_eq!(json["photo"]["preview"], serde_json::json!([7, 8]));
         for secret in ["201", "202", "203", "204"] {

@@ -388,8 +388,9 @@ const RECEIVE_PAGES: usize = 8;
 /// `Session::receive_page`, knowing the cached profiles and the published own one, until the
 /// mailbox ends, `RECEIVE_PAGES` is reached or `stop` reports an identity transition. An envelope
 /// from an owner not cached, such as the Welcome of a first like, gets that owner's profile from
-/// the node and is applied on a pass from the head after the last page; one still unknown waits
-/// in the mailbox without hiding the pages behind it. Returns how many events changed a chat.
+/// the node and is applied on a pass from the head after the last page, as does one from a device
+/// the held profile does not list, once a newer profile lists it. One still unknown waits in the
+/// mailbox without hiding the pages behind it. Returns how many events changed a chat.
 /// Errors are `notConnected` or a node or storage message; earlier pages stay committed.
 pub async fn receive(
     cache: &Mutex<ProfileCache>,
@@ -438,18 +439,24 @@ pub async fn receive(
             match event {
                 Event::UnknownOwner(peer) => {
                     if let Ok(verified) = node.get_profile(&peer).await {
+                        let newer = cached
+                            .get(&peer)
+                            .is_none_or(|held| held.profile.version < verified.profile.version);
                         cache
                             .lock()
                             .map_err(|e| e.to_string())?
                             .accept_if_current(epoch, verified.clone());
-                        from_head |= cached.accept(verified).is_ok();
+                        from_head |= cached.accept(verified).is_ok() && newer;
                     }
                 }
                 Event::Gap(_) | Event::Refused(_) => {}
                 _ => changed += 1,
             }
         }
-        if !session.next_page(more, from_head).map_err(|e| e.to_string())? {
+        if !session
+            .next_page(more, from_head)
+            .map_err(|e| e.to_string())?
+        {
             break;
         }
     }
