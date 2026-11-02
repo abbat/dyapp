@@ -158,3 +158,22 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
     assert!(session.chat_message(&own).unwrap().is_none());
     assert!(session.due_outbound(0).unwrap().is_empty());
 }
+
+#[test]
+fn only_a_resolved_profile_sends_the_next_page_to_the_head() {
+    let (identity, device_key) = (Identity::generate(), Identity::generate());
+    let store = Store::open(&crate::store::tests::temp_db_path(), &identity).unwrap();
+    let session = Session::open_or_create(store, &identity, &device_key, &[5; 32]).unwrap();
+    let node = libp2p::PeerId::random();
+    session.store.save_mailbox_cursor(node, &[1]).unwrap();
+
+    assert!(!session.next_page(false, false).unwrap());
+    assert!(session.next_page(true, false).unwrap());
+    assert_eq!(
+        session.store.mailbox_cursor_for(node).unwrap(),
+        Some(vec![1])
+    );
+
+    assert!(session.next_page(false, true).unwrap());
+    assert_eq!(session.store.mailbox_cursor_for(node).unwrap(), None);
+}

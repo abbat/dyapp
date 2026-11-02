@@ -125,7 +125,7 @@ pub(crate) fn open_visible_chat(dir: &Path, me: &Identity, peer_id: &str) -> Res
 
 /// Clear this peer's entire device-local history while retaining its conversation state.
 pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
-    let store = open_visible_chat(dir, identity, peer_id)?;
+    let mut store = open_visible_chat(dir, identity, peer_id)?;
     let removed = store.clear_chat_pair(peer_id).map_err(|e| e.to_string())?;
     store.sweep_originals(dir).map_err(|e| e.to_string())?;
     Ok(removed)

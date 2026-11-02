@@ -197,12 +197,7 @@ mod tests {
     fn a_sweep_drops_unknown_files_then_the_least_recently_used() {
         let dir = folder();
         let bytes = [7; 1024];
-        let photos = [
-            photo(&bytes),
-            photo(&bytes),
-            photo(&bytes),
-            photo(&bytes),
-        ];
+        let photos = [photo(&bytes), photo(&bytes), photo(&bytes), photo(&bytes)];
         let now = SystemTime::now();
         for (age, photo) in (1..).zip(&photos) {
             keep(&dir, &[1; 32], photo, &bytes).unwrap();
