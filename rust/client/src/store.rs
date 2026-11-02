@@ -1,5 +1,6 @@
 //! Versioned, identity-bound local SQLite store. The app supplies its private absolute path.
 
+use crate::attachment::AutoDownload;
 use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
 use dyapp_messaging::hlc::Timestamp;
@@ -229,7 +230,35 @@ impl Store {
         self.set_setting_flag("profile_hidden", hidden)
     }
 
+    /// The user's choice for downloading originals without a tap; absent means by network.
+    pub fn auto_download(&self) -> Result<AutoDownload, Error> {
+        match self.setting_byte("auto_download")? {
+            None | Some(0) => Ok(AutoDownload::ByNetwork),
+            Some(1) => Ok(AutoDownload::Always),
+            Some(2) => Ok(AutoDownload::OnTap),
+            _ => Err(Error::InvalidSetting),
+        }
+    }
+
+    /// Persist the choice for downloading originals without a tap.
+    pub fn set_auto_download(&self, mode: AutoDownload) -> Result<(), Error> {
+        let value = match mode {
+            AutoDownload::ByNetwork => 0,
+            AutoDownload::Always => 1,
+            AutoDownload::OnTap => 2,
+        };
+        self.set_setting_byte("auto_download", value)
+    }
+
     fn setting_flag(&self, key: &str) -> Result<bool, Error> {
+        match self.setting_byte(key)? {
+            None | Some(0) => Ok(false),
+            Some(1) => Ok(true),
+            _ => Err(Error::InvalidSetting),
+        }
+    }
+
+    fn setting_byte(&self, key: &str) -> Result<Option<u8>, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db
             .query_row(
@@ -239,18 +268,21 @@ impl Store {
             )
             .optional()?;
         match value {
-            None => Ok(false),
-            Some((1, value)) if value == [0] => Ok(false),
-            Some((1, value)) if value == [1] => Ok(true),
+            None => Ok(None),
+            Some((1, value)) if value.len() == 1 => Ok(Some(value[0])),
             _ => Err(Error::InvalidSetting),
         }
     }
 
     fn set_setting_flag(&self, key: &str, enabled: bool) -> Result<(), Error> {
+        self.set_setting_byte(key, u8::from(enabled))
+    }
+
+    fn set_setting_byte(&self, key: &str, value: u8) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
              ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
-            params![key, [u8::from(enabled)]],
+            params![key, [value]],
         )?;
         Ok(())
     }
@@ -557,7 +589,7 @@ PRAGMA user_version = 1;
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{Error, InboxKey, InboxKind, Store, VERSION};
+    use super::{AutoDownload, Error, InboxKey, InboxKind, Store, VERSION};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -644,6 +676,11 @@ pub(crate) mod tests {
         assert!(!store.send_profile_views().unwrap());
         assert!(store.send_typing().unwrap() && store.notifications().unwrap());
         assert!(!store.passed(&peer).unwrap());
+        assert_eq!(store.auto_download().unwrap(), AutoDownload::ByNetwork);
+        for mode in [AutoDownload::Always, AutoDownload::OnTap] {
+            store.set_auto_download(mode).unwrap();
+            assert_eq!(store.auto_download().unwrap(), mode);
+        }
         store.set_send_profile_views(true).unwrap();
         store.set_send_typing(false).unwrap();
         store.set_notifications(false).unwrap();

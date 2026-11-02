@@ -246,7 +246,10 @@ cannot be decoded, the caption stands alone. Before the conversation is accepted
 blurred until Show photo. Photos offer no edit, delete or forward. Download original fetches it on a tap and shows it at
 up to 480 pixels. It stays in memory while the chat is open, so nothing decrypted reaches the disk.
 A failed fetch offers a retry; an original no node holds shows "No longer available", and one that
-fails its checks "This photo cannot be shown". Automatic download and sending photos remain planned. Profile photos remain planned for
+fails its checks "This photo cannot be shown". In an open chat with an accepted person, originals
+also download by themselves under Settings → Photos: unless the network is metered or unknown (the
+default), always, or only on request. A switch to an unmetered network picks up what waited at the
+next mail pass. Sending photos remains planned. Profile photos remain planned for
 this UI. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation

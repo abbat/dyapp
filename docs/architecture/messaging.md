@@ -100,9 +100,13 @@ or refuse it before upload. `attachment::fetch`
 reads and opens it on receipt. Recipients never release the blob: every device of the chat is an
 MLS member and the first release would drop it for the others, so it expires after the node's
 retention. `attachment::auto_download` downloads a contact's original without a tap only on an
-unmetered network (or in the "always" mode) and a stranger's only on a tap;
-The desktop `chat_photo_original` command fetches one original on a tap and checks its real
-dimensions from the header before the page decodes it, at most 64 megapixels.
+unmetered network (or in the "always" mode) and a stranger's only on a tap.
+The desktop `chat_photo_original` command fetches one original and checks its real dimensions from
+the header before the page decodes it, at most 64 megapixels. On each mail pass of an open chat the
+page asks `chat_photo_auto` whether waiting originals may download: Linux reads NetworkManager's
+`Metered` property over the system bus, and any other platform or an unavailable service counts as
+metered. The automatic path covers only the open chat, and originals stay in memory, so a photo not
+opened within the retention still loses its original.
 `attachment::hours_left` gives the "N more hours" label for the last day of the 168 h retention. A request holds 1 to 1,920 asks (30 days for
 64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
 to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.

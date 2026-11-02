@@ -1,8 +1,10 @@
 //! The original of one chat photo, fetched on a tap. It stays in memory: the page keeps it for the
-//! open chat and nothing decrypted reaches the disk.
+//! open chat and nothing decrypted reaches the disk. The automatic path asks [`chat_photo_auto`]
+//! and then fetches through the same command.
 
 use crate::{chats, profile};
-use dyapp_client::attachment::{self, Attachment};
+use dyapp_client::attachment::{self, Attachment, AutoDownload};
+use dyapp_client::store::Conversation;
 use dyapp_client::Error;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -99,9 +101,104 @@ pub(crate) async fn chat_photo_original(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// NetworkManager's connection is known or guessed unmetered. Anything else, a missing service
+/// included, counts as metered.
+#[cfg(unix)]
+async fn metered() -> bool {
+    const MANAGER: &str = "org.freedesktop.NetworkManager";
+    let state = async {
+        let bus = zbus::Connection::system().await?;
+        let reply = bus
+            .call_method(
+                Some(MANAGER),
+                "/org/freedesktop/NetworkManager",
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &(MANAGER, "Metered"),
+            )
+            .await?;
+        let value: zbus::zvariant::OwnedValue = reply.body().deserialize()?;
+        u32::try_from(value).map_err(zbus::Error::from)
+    };
+    // NMMetered: NO is 2 and GUESS_NO is 4.
+    !matches!(state.await, Ok(2 | 4))
+}
+
+/// No source of this yet: an unknown network counts as metered.
+#[cfg(not(unix))]
+async fn metered() -> bool {
+    true
+}
+
+/// Whether the open chat's originals may download without a tap now. Called again on each mail
+/// pass, so a switch to an unmetered network picks up what waited.
+#[tauri::command]
+pub(crate) async fn chat_photo_auto(
+    state: tauri::State<'_, crate::IdentityState>,
+    peer_id: String,
+) -> Result<bool, String> {
+    let (mode, contact) = {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        let store = chats::open_visible_chat(dir, identity, &peer_id)?;
+        let mode = store.auto_download().map_err(|e| e.to_string())?;
+        let conversation = store.conversation(&peer_id).map_err(|e| e.to_string())?;
+        (mode, conversation == Conversation::Open)
+    };
+    Ok(attachment::auto_download(mode, metered().await, contact))
+}
+
+const MODES: [AutoDownload; 3] = [
+    AutoDownload::ByNetwork,
+    AutoDownload::Always,
+    AutoDownload::OnTap,
+];
+
+fn mode_name(mode: AutoDownload) -> &'static str {
+    match mode {
+        AutoDownload::ByNetwork => "byNetwork",
+        AutoDownload::Always => "always",
+        AutoDownload::OnTap => "onTap",
+    }
+}
+
+fn parse_mode(name: &str) -> Result<AutoDownload, String> {
+    MODES
+        .into_iter()
+        .find(|mode| mode_name(*mode) == name)
+        .ok_or_else(|| "unknown mode".into())
+}
+
+/// Settings → Photos: this identity's choice on this device.
+#[tauri::command]
+pub(crate) fn auto_download_mode(
+    state: tauri::State<'_, crate::IdentityState>,
+) -> Result<&'static str, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    chats::open(dir, identity)?
+        .auto_download()
+        .map(mode_name)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub(crate) fn set_auto_download_mode(
+    state: tauri::State<'_, crate::IdentityState>,
+    mode: String,
+) -> Result<(), String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    chats::open(dir, identity)?
+        .set_auto_download(parse_mode(&mode)?)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{check_image, code, fits, Error, ImageFormat, Status};
+    use super::{
+        check_image, code, fits, mode_name, parse_mode, Error, ImageFormat, Status, MODES,
+    };
     use image::RgbImage;
     use std::io::Cursor;
 
@@ -116,6 +213,14 @@ mod tests {
         assert!(fits(8_000, 8_000));
         assert!(!fits(8_001, 8_000));
         assert!(!fits(u32::MAX, u32::MAX));
+    }
+
+    #[test]
+    fn every_mode_keeps_its_name_for_the_page() {
+        for mode in MODES {
+            assert_eq!(parse_mode(mode_name(mode)), Ok(mode));
+        }
+        assert!(parse_mode("sometimes").is_err());
     }
 
     #[test]

@@ -293,6 +293,24 @@ needs no color to read (H6, and WCAG 1.4.1). Its absence says nothing, and it sh
 is the coarseness the design asks for (H2). A send that fails stays silent and retries on the next
 focus, because the user did nothing to act on (H9). No open H1–H10 finding.
 
+### Automatic photo download review (2026-11-02)
+
+Scope: Settings → Photos and the automatic fetch in an open chat, in EN and RU.
+
+1. Visibility of system status: an automatic fetch shows the same Downloading… line as a tap.
+2. Match with the real world: the choices name the situation ("metered or unknown"), not a policy.
+3. User control: Only when I ask turns it off, and it saves at once like Privacy.
+4. Consistency: the card, radios and error line follow Settings → Privacy.
+5. Error prevention: people not accepted never download by themselves, in any mode.
+6. Recognition: all three choices are visible with the selected one marked.
+7. Flexibility: a tap still works in every mode.
+8. Minimalism: one question, one hint.
+9. Error recovery: a failed automatic fetch keeps the Download button; a failed save shows the
+   storage error and the next change retries.
+10. Help: the hint says what happens after 7 days and that originals are not saved here.
+
+No open findings.
+
 ### Chat photo original review (2026-11-02)
 
 Scope: Download original in a chat bubble, its progress and three outcomes, in EN and RU.

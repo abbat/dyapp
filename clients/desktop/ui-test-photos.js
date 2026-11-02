@@ -18,6 +18,7 @@ const checkChatPhoto = async () => {
   let state = 'requestReceived';
   const downloads = ['notConnected', original, 'notFound'];
   let fetched = null;
+  let autoAllowed = false;
   const messages = [entry(peer, 1, photo)];
   const call = (command, args) => {
     if (command === 'chat_rows') {
@@ -27,6 +28,7 @@ const checkChatPhoto = async () => {
     if (command === 'chat_history') {
       return Promise.resolve({ state, messages, activeRecently: false });
     }
+    if (command === 'chat_photo_auto') return Promise.resolve(autoAllowed);
     if (command === 'chat_photo_original') {
       fetched = args;
       const next = downloads.shift();
@@ -122,7 +124,36 @@ const checkChatPhoto = async () => {
     check();
   });
   if (gone.querySelector('.photo-download')) throw new Error('a missing original offered a retry');
+
+  // Policy off leaves the button; a later pass that allows it fetches once, without a tap.
+  downloads.push(original);
+  messages.splice(1, 1, entry(current.peerId, 4, { ...photo, preview: [], hoursLeft: null }));
+  await openChat(peer, call);
+  const waiting = () => document.querySelectorAll('#chat-messages .chat-photo')[1];
+  const seen = (check) => new Promise((resolve) => {
+    const again = () => { if (check()) resolve(); else setTimeout(again, 10); };
+    again();
+  });
+  await new Promise((resolve) => { setTimeout(resolve, 50); });
+  if (!waiting().querySelector('.photo-download') || fetched.id[0] === 4) {
+    throw new Error('a refused policy still fetched');
+  }
+  autoAllowed = true;
+  await openChat(peer, call);
+  await seen(() => waiting().querySelector('canvas').width === 8);
+  if (downloads.length) throw new Error('the allowed photo was not fetched');
   document.getElementById('chat-back').click();
   await window.showChats(() => Promise.resolve([]));
+
+  await openArea('settings');
+  await window.photoModeShown;
+  const mode = (value) => document.querySelector(`input[name="photo-mode"][value="${value}"]`);
+  if (!mode('byNetwork').checked) throw new Error('the photo mode did not default to by network');
+  mode('onTap').click();
+  await window.photoModeSaved;
+  if (await invoke('auto_download_mode') !== 'onTap') throw new Error('the photo mode was not saved');
+  await shot('settings-photos');
+  mode('byNetwork').click();
+  await window.photoModeSaved;
 };
 globalThis.uiSmokePhotos = Object.freeze({ checkChatPhoto });

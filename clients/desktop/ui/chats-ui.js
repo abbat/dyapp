@@ -213,6 +213,17 @@ const MAX_KEPT_ORIGINALS = 16;
 // Decrypted originals of the open chat, so a redraw keeps them. Memory only, dropped on leaving it.
 const photoOriginals = new Map();
 let photoOriginalsPeer = null;
+// The bubble drawn last for each photo of the open chat, the fetches running and the automatic
+// tries already made.
+const photoBoxes = new Map();
+const photoFetches = new Set();
+const photoAutoTried = new Set();
+let photoAutoRunning = false;
+const forgetPhotos = () => {
+  photoOriginals.clear();
+  photoBoxes.clear();
+  photoAutoTried.clear();
+};
 const fitCanvas = (canvas, width, height, side) => {
   const scale = Math.min(1, side / Math.max(width, height));
   canvas.width = Math.max(1, Math.round(width * scale));
@@ -244,37 +255,41 @@ const photoButton = (key, name, click) => {
   button.addEventListener('click', click);
   return button;
 };
-const downloadOriginal = async (message, peerId, box, canvas, button, call) => {
+// A mail pass redraws the chat under a running fetch, so results go to the bubble of that moment.
+const downloadOriginal = async (message, peerId, call) => {
   const generation = identityGeneration;
   const key = photoKey(message);
-  const status = box.querySelector('.photo-status');
+  if (photoFetches.has(key) || photoOriginals.has(key)) return;
   const { mime } = message.photo;
-  button.disabled = true;
-  status.textContent = window.strings['chats.photoDownloading'];
+  const latest = () => (identityCurrent(generation) && photoOriginalsPeer === peerId
+    ? photoBoxes.get(key) : null);
+  photoFetches.add(key);
+  latest()?.showFetching();
   try {
     const bytes = await call('chat_photo_original', {
       peerId, author: message.author, id: message.id,
     });
-    if (!identityCurrent(generation) || photoOriginalsPeer !== peerId) return;
-    await drawPhoto(canvas, bytes, mime, ORIGINAL_SIDE);
+    const box = latest();
+    if (!box) return;
+    await drawPhoto(box.canvas, bytes, mime, ORIGINAL_SIDE);
     if (photoOriginals.size >= MAX_KEPT_ORIGINALS) {
       photoOriginals.delete(photoOriginals.keys().next().value);
     }
     photoOriginals.set(key, bytes);
-    canvas.hidden = false;
-    button.remove();
-    status.textContent = '';
+    box.canvas.hidden = false;
+    box.showResult('', false);
   } catch (error) {
     // A rejected decode is not a string: the bytes passed the checks but the page cannot show them.
     const code = typeof error === 'string' ? error : 'corrupted';
-    status.textContent = photoError(code);
-    if (code === 'notFound' || code === 'corrupted') button.remove();
-    else button.disabled = false;
+    latest()?.showResult(photoError(code), code !== 'notFound' && code !== 'corrupted');
+  } finally {
+    photoFetches.delete(key);
   }
 };
 // The placeholder always names the photo; a preview that cannot be decoded just leaves it alone.
 const photoBubble = (message, peerId, blurred, call) => {
   const { photo } = message;
+  const key = photoKey(message);
   const box = document.createElement('span');
   box.className = 'chat-photo';
   const caption = document.createElement('span');
@@ -289,14 +304,30 @@ const photoBubble = (message, peerId, blurred, call) => {
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', window.strings['chats.photo']);
   box.append(canvas, caption, status);
-  const kept = photoOriginals.get(photoKey(message));
+  box.canvas = canvas;
+  photoBoxes.set(key, box);
+  const kept = photoOriginals.get(key);
   if (kept) {
     box.ready = drawPhoto(canvas, kept, photo.mime, ORIGINAL_SIDE);
     return box;
   }
-  const download = photoButton('chats.photoDownload', 'photo-download', () => downloadOriginal(
-    message, peerId, box, canvas, download, call));
-  const offerDownload = () => { if (photo.hoursLeft !== 0) box.append(download); };
+  const fetchPhoto = () => downloadOriginal(message, peerId, call);
+  const download = photoButton('chats.photoDownload', 'photo-download', fetchPhoto);
+  box.showFetching = () => {
+    download.disabled = true;
+    status.textContent = window.strings['chats.photoDownloading'];
+  };
+  box.showResult = (text, retry) => {
+    status.textContent = text;
+    download.disabled = false;
+    if (!retry) download.remove();
+  };
+  const offerDownload = () => {
+    if (photo.hoursLeft === 0 || photoOriginals.has(key)) return;
+    box.append(download);
+    if (photoFetches.has(key)) box.showFetching();
+    else box.fetchPhoto = fetchPhoto;
+  };
   const show = photoButton('chats.photoShow', 'photo-show', () => {
     box.classList.remove('blurred');
     show.remove();
@@ -319,6 +350,49 @@ const photoBubble = (message, peerId, blurred, call) => {
     }) : Promise.resolve();
   return box;
 };
+// What the policy allows on this network, latest first, one at a time, among as many photos as
+// stay in memory. Asked only while something waits. A refusal forgets the tries, so a switch to an
+// unmetered network retries a failed fetch.
+const fetchAllowedPhotos = async (peerId, call) => {
+  const waiting = () => [...photoBoxes].filter(([, box]) => box.isConnected)
+    .slice(-MAX_KEPT_ORIGINALS).reverse()
+    .filter(([key, box]) => box.fetchPhoto && !photoAutoTried.has(key));
+  if (photoAutoRunning || !waiting().length) return;
+  photoAutoRunning = true;
+  try {
+    if (!(await call('chat_photo_auto', { peerId }).catch(() => false))) {
+      photoAutoTried.clear();
+      return;
+    }
+    for (const [key, box] of waiting()) {
+      if (photoOriginalsPeer !== peerId) return;
+      photoAutoTried.add(key);
+      await box.fetchPhoto();
+    }
+  } finally {
+    photoAutoRunning = false;
+  }
+};
+// Settings → Photos: stored per identity on this device, saved on every change.
+const photoModeInputs = () => [...document.querySelectorAll('input[name="photo-mode"]')];
+const photoModeError = document.getElementById('photo-mode-error');
+const showPhotoMode = async (call = invoke) => {
+  const generation = identityGeneration;
+  const mode = await call('auto_download_mode').catch(() => null);
+  if (!identityCurrent(generation)) return;
+  photoModeError.hidden = mode !== null;
+  for (const input of photoModeInputs()) input.checked = input.value === mode;
+};
+document.getElementById('photo-mode').addEventListener('change', (event) => {
+  const generation = identityGeneration;
+  window.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
+    () => { if (identityCurrent(generation)) photoModeError.hidden = true; },
+    () => { if (identityCurrent(generation)) photoModeError.hidden = false; },
+  );
+});
+document.addEventListener('dyapp:area-change', (event) => {
+  if (event.detail === 'settings') window.photoModeShown = showPhotoMode();
+});
 const chatRow = (row) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -408,7 +482,7 @@ const acknowledgeDevice = async (call = invoke) => {
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
   chatOpenRequest += 1;
-  photoOriginals.clear();
+  forgetPhotos();
   photoOriginalsPeer = null;
   showNewDevice(null);
   closeClear();
@@ -453,7 +527,7 @@ const openChat = async (peerId, call = invoke) => {
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
   if (newDevicePeer !== peerId) showNewDevice(null);
-  if (photoOriginalsPeer !== peerId) photoOriginals.clear();
+  if (photoOriginalsPeer !== peerId) forgetPhotos();
   photoOriginalsPeer = peerId;
   activeChat = null;
   updateComposer();
@@ -534,6 +608,7 @@ const openChat = async (peerId, call = invoke) => {
       }
       return item;
     }));
+    fetchAllowedPhotos(peerId, call);
     const cleared = clearedPeer === peerId && !history.messages.length;
     document.getElementById('chat-cleared').hidden = !cleared;
     if (!history.messages.length && !cleared) chatMessages.textContent = window.strings['chats.noMessages'];

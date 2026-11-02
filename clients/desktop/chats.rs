@@ -71,7 +71,7 @@ impl BlockResult {
     }
 }
 
-fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
+pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
 

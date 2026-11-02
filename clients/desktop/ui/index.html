@@ -434,6 +434,19 @@
           <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="privacy.hint"></p>
         </form>
+        <form id="photo-mode" class="card" novalidate>
+          <h2 data-i18n="settings.photos"></h2>
+          <fieldset><legend data-i18n="photos.mode"></legend>
+            <label class="choice"><input type="radio" name="photo-mode" value="byNetwork">
+              <span data-i18n="photos.byNetwork"></span></label>
+            <label class="choice"><input type="radio" name="photo-mode" value="always">
+              <span data-i18n="photos.always"></span></label>
+            <label class="choice"><input type="radio" name="photo-mode" value="onTap">
+              <span data-i18n="photos.onTap"></span></label>
+          </fieldset>
+          <p id="photo-mode-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
+          <p class="caption" data-i18n="photos.hint"></p>
+        </form>
         <div id="usage" class="card" hidden>
           <h2 data-i18n="usage.title"></h2>
           <table class="rows"><tbody>
