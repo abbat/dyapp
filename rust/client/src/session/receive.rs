@@ -274,7 +274,7 @@ impl Session {
                 ),
                 _ => false,
             }
-            || self.stray_in_own_group(&event);
+            || self.misplaced(&event);
         // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
         if let Event::Interaction {
             group,
@@ -317,6 +317,24 @@ impl Session {
                 match self.store.receive_presence(sender, *hlc, wall_ms) {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         event = Event::Refused("presence from the future".into());
+                    }
+                    applied => {
+                        applied?;
+                    }
+                }
+            }
+        }
+        // A replay changes nothing: the newest change wins.
+        if let Event::Message {
+            body: Body::PeerChange { peer, hlc, change },
+            ..
+        } = &event
+        {
+            if !blocked {
+                let wall_ms = crate::now() * 1000;
+                match self.store.receive_peer_change(peer, change, *hlc, wall_ms) {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        event = Event::Refused("change from the future".into());
                     }
                     applied => {
                         applied?;
@@ -383,14 +401,16 @@ impl Session {
                 }
                 let (kind, payload) = match &event {
                     _ if blocked => (InboxKind::StateChange, Vec::new()),
-                    // Token, presence and read bodies are acted on, not shown in history.
+                    // Token, presence, read and own change bodies are acted on, not shown in
+                    // history.
                     Event::Message {
                         body:
                             Body::TokenRequest(_)
                             | Body::TokenAnswer(_)
                             | Body::Receipt(_)
                             | Body::Presence { .. }
-                            | Body::Read { .. },
+                            | Body::Read { .. }
+                            | Body::PeerChange { .. },
                         ..
                     } => (InboxKind::StateChange, Vec::new()),
                     Event::Message {

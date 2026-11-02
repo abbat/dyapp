@@ -95,7 +95,7 @@ These are the logical tables. Exact SQL and indexes belong to the storage implem
 | `view_days` | UTC days on which one profile viewed another | One sent view per peer per day; received views are recorded regardless of the send setting. |
 | `held_tokens` | Own token key per owner mailbox and UTC day, sealed, and the owner's signed WriteToken | `(mailbox, epoch)` is unique; a retry returns the same key. |
 | `issued_tokens` | Token keys this profile signed, per contact, with a revoked bit | `(mailbox, token key, epoch)` belongs to one contact. |
-| `peers` | Local block and mute flags, a local contact name and the device keys a verified contact listed per peer identity | Never published or included in a signal; absent means neither flag, no name and unverified. The local name, at most 64 characters of clean text, replaces the profile's public name; the public name is shown with the verified or unverified mark. A profile listing a device not seen at verification clears the mark until the safety number or QR code is compared again ([ADR 0004](../decisions/0004-identity-keys.md)). |
+| `peers` | Local block and mute flags, a local contact name and the device keys a verified contact listed per peer identity | Never published or included in a signal; shared with own devices in their private group, with an HLC per block, mute and name; absent means neither flag, no name and unverified. The local name, at most 64 characters of clean text, replaces the profile's public name; the public name is shown with the verified or unverified mark. A profile listing a device not seen at verification clears the mark until the safety number or QR code is compared again ([ADR 0004](../decisions/0004-identity-keys.md)). |
 | `presence` | Per peer identity, when presence was last sent and the latest received presence HLC | Sent at most hourly to an unblocked match; received presence from a blocked peer or non-match is dropped before its HLC is observed ([presence](presence.md)). |
 | `read_marks` | Per chat group and peer, the latest peer text a read receipt was sent for and the latest own text the peer has read | Order is `chat_messages` row order; a mark only moves forward, and a receipt from a blocked peer or naming an unknown text is dropped ([read receipts](read-receipts.md)). |
 
@@ -124,7 +124,8 @@ network-wide ban. Public fields remain fetchable by known Peer ID while merely h
 A linked device starts from a copy of the local state: peers (blocks, mutes, contact names, seen
 devices, verified marks), likes in both directions, passes, the interaction clock and the hidden
 flag ([ADR 0040](../decisions/0040-device-linking.md)). The clock goes past every copied row, so
-later events are not lost to last-writer-wins. A device list change keeps a hidden profile hidden:
+later events are not lost to last-writer-wins. Later blocks, mutes, names and passes travel in the
+private group of own devices ([chats and matches](chats-and-matches.md#own-devices)). A device list change keeps a hidden profile hidden:
 it publishes to profile storage and holds a newer tombstone for search.
 
 Signed-record sequence for one identity (each record is owner-signed):

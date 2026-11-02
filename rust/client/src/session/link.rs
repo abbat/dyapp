@@ -2,8 +2,9 @@
 //! the owner's devices ([ADR 0040](../../../../docs/decisions/0040-device-linking.md)).
 
 use super::{prepare, Error, Session};
-use crate::chat::{self, Body, Event};
+use crate::chat::{self, Body, Event, PeerChange};
 use crate::{mailbox, scores, Node, PreparedEnvelope};
+use dyapp_identity::Identity;
 use dyapp_messaging::mls::Group;
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
@@ -13,8 +14,8 @@ use dyapp_profile::VerifiedProfile;
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {
-    /// The group changes reach the other own devices through. Two devices can start one each, so
-    /// every device sends in the lowest ID and accepts from any.
+    /// The lowest ID of the groups changes reach the other own devices through. Two devices can
+    /// start one each, so every device sends in all of them and accepts from any.
     pub fn own_group(&self) -> Option<Vec<u8>> {
         self.own_groups().map(Group::id).min().map(<[u8]>::to_vec)
     }
@@ -32,9 +33,84 @@ impl Session {
         self.own_groups().any(|group| group.id() == id)
     }
 
-    /// Whether `event` is anything but a receipt in an own group, which holds no conversation.
-    pub(super) fn stray_in_own_group(&self, event: &Event) -> bool {
+    /// Make `change` about `peer` here and tell the other own devices, in the one commit that
+    /// stages the send. With no own group it stays here. A write no node takes now waits in the
+    /// outbox for [`Self::retry_due`].
+    pub async fn change_peer(
+        &mut self,
+        nodes: &mut [Node],
+        peer: &str,
+        change: PeerChange,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        if !change.valid(peer) {
+            return Err(crate::store::Error::InvalidName.into());
+        }
+        let hlc = self.store.tick(crate::now() * 1000)?;
+        let groups: Vec<_> = self.own_groups().map(|g| g.id().to_vec()).collect();
+        if groups.is_empty() {
+            self.store.apply_peer_change(peer, &change, hlc)?;
+            return Ok(());
+        }
+        let body = Body::PeerChange {
+            peer: peer.to_owned(),
+            hlc: hlc.into(),
+            change,
+        };
+        for group in groups {
+            match self.send_body(nodes, &group, &body, seal_key).await {
+                Err(Error::Client(_)) | Ok(()) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
+
+    /// Sign `contact` no more tokens and revoke those it holds through the first node that
+    /// answers.
+    pub(super) async fn revoke_tokens(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        contact: &str,
+    ) -> Result<(), Error> {
+        let keys = self
+            .store
+            .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
+        if keys.is_empty() {
+            return Ok(());
+        }
+        scores::first(&mut self.scores, nodes, Node::peer, async |node| {
+            node.revoke_tokens(device_key, &keys).await
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// [`Self::revoke_tokens`] for a block another own device made: each device issued its own
+    /// tokens. With no node to tell, the tokens stay marked revoked and the rest of the mailbox
+    /// page goes on.
+    pub(super) async fn revoke_after_own_block(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        contact: &str,
+    ) -> Result<(), Error> {
+        match self.revoke_tokens(nodes, device_key, contact).await {
+            Err(Error::Client(_)) | Ok(()) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Whether `event` does not belong where it arrived: an own change outside an own group, or
+    /// anything but a receipt or an own change in one, which holds no conversation.
+    pub(super) fn misplaced(&self, event: &Event) -> bool {
         match event {
+            Event::Message {
+                group,
+                body: Body::PeerChange { .. },
+                ..
+            } => !self.is_own_group(group),
             Event::Message {
                 body: Body::Receipt(_),
                 ..

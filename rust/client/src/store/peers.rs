@@ -1,14 +1,20 @@
-//! Local block and mute flags, contact names and verified marks per peer identity; never
-//! published or signalled.
+//! Local block and mute flags, contact names, passes and verified marks per peer identity. Never
+//! published; only the owner's other devices hear of them, and the newest change wins there.
 
+use super::likes::{load_hlc, save_hlc};
 use super::{Error, Store};
+use crate::chat::PeerChange;
+use crate::PreparedEnvelope;
+use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use dyapp_profile::{is_clean_text, DeviceCertificate, VerifiedProfile, MAX_FIELD_CHARS};
 use prost::Message as _;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::types::Value;
+use rusqlite::{params, Connection, OptionalExtension};
 
 // `seen_devices`: the device keys of the newest profile seen or verified, 32 bytes each; NULL
 // before the first. `seen_version`: that profile's version. `verified`: the safety number or QR
 // code was compared for those keys. `new_device`: a profile added a device, until acknowledged.
+// `blocked_hlc`, `muted_hlc`, `name_hlc`: the HLC of the newest change shared with own devices.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `peers` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
@@ -18,7 +24,10 @@ CREATE TABLE `peers` (
     `seen_devices` BLOB,
     `seen_version` INTEGER,
     `verified` INTEGER NOT NULL DEFAULT 0 CHECK (`verified` IN (0, 1)),
-    `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1))
+    `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1)),
+    `blocked_hlc` INTEGER NOT NULL DEFAULT 0,
+    `muted_hlc` INTEGER NOT NULL DEFAULT 0,
+    `name_hlc` INTEGER NOT NULL DEFAULT 0
 ) STRICT;
 ";
 
@@ -38,7 +47,105 @@ pub enum ContactName {
     Unnamed,
 }
 
+/// Write `change` unless a newer one about `peer_id` is held. Returns whether it applied.
+fn apply_change(
+    db: &Connection,
+    peer_id: &str,
+    change: &PeerChange,
+    at: Timestamp,
+) -> Result<bool, Error> {
+    let (column, stamp, value) = match change {
+        PeerChange::Blocked(on) => ("blocked", "blocked_hlc", Value::from(*on)),
+        PeerChange::Muted(on) => ("muted", "muted_hlc", Value::from(*on)),
+        PeerChange::Name(name) => ("local_name", "name_hlc", Value::from(name.clone())),
+        PeerChange::Passed(on) => return write_pass(db, peer_id, *on, at),
+    };
+    let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
+    // `column` and `stamp` are the literals above, never caller input.
+    let changed = db.execute(
+        &format!(
+            "INSERT INTO `peers` (`peer_id`, `{column}`, `{stamp}`) VALUES (?1, ?2, ?3)
+             ON CONFLICT (`peer_id`) DO UPDATE SET `{column}` = excluded.`{column}`,
+             `{stamp}` = excluded.`{stamp}`
+             WHERE excluded.`{stamp}` > `peers`.`{stamp}`"
+        ),
+        params![peer_id, value, at],
+    )?;
+    Ok(changed != 0)
+}
+
+fn write_pass(db: &Connection, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
+    let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
+    let changed = db.execute(
+        "INSERT INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`) VALUES (?1, ?2, ?3)
+         ON CONFLICT (`peer_id`) DO UPDATE SET `passed` = excluded.`passed`,
+         `updated_hlc` = excluded.`updated_hlc`
+         WHERE excluded.`updated_hlc` > `pass_history`.`updated_hlc`",
+        params![peer_id, i64::from(passed), at],
+    )?;
+    Ok(changed != 0)
+}
+
 impl Store {
+    /// Set or undo a local pass. An older event cannot overwrite a newer one.
+    /// Returns whether the stored state changed.
+    pub fn set_pass(&self, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
+        write_pass(&self.db, peer_id, passed, at)
+    }
+
+    /// The next own clock value.
+    pub fn tick(&mut self, wall_ms: u64) -> Result<Timestamp, Error> {
+        let at = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
+        let tx = self.db.transaction()?;
+        save_hlc(&tx, at)?;
+        tx.commit()?;
+        Ok(at)
+    }
+
+    /// Apply `change`, made here at `at`, on a device with no own group to send it in.
+    pub fn apply_peer_change(
+        &self,
+        peer_id: &str,
+        change: &PeerChange,
+        at: Timestamp,
+    ) -> Result<(), Error> {
+        apply_change(&self.db, peer_id, change, at).map(drop)
+    }
+
+    /// Apply `change`, made here at `hlc`, in the commit that stages it for the own devices.
+    pub fn stage_peer_change(
+        &mut self,
+        peer_id: &str,
+        change: &PeerChange,
+        hlc: u64,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
+        let tx = self.db.transaction()?;
+        apply_change(&tx, peer_id, change, Timestamp::from(hlc))?;
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Apply `change` from another own device and move the clock past it, unless a newer change
+    /// is held. Returns whether it applied.
+    pub fn receive_peer_change(
+        &mut self,
+        peer_id: &str,
+        change: &PeerChange,
+        hlc: u64,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        let at = Timestamp::from(hlc);
+        let tx = self.db.transaction()?;
+        let clock = HybridClock::resume(load_hlc(&tx)?);
+        save_hlc(&tx, clock.observe_at(at, wall_ms)?)?;
+        let changed = apply_change(&tx, peer_id, change, at)?;
+        tx.commit()?;
+        Ok(changed)
+    }
+
     /// Block or unblock `peer_id` on this profile.
     pub fn set_blocked(&self, peer_id: &str, blocked: bool) -> Result<(), Error> {
         self.set_flag("blocked", peer_id, blocked)
@@ -246,9 +353,76 @@ mod tests {
     use super::super::tests::temp_db_path;
     use super::super::{Error, Store};
     use super::ContactName;
+    use crate::chat::PeerChange;
+    use crate::prepare_put;
     use dyapp_identity::{key_hash, Identity};
+    use dyapp_messaging::hlc::Timestamp;
     use dyapp_messaging::mls::Device;
     use dyapp_profile::{Profile, VerifiedProfile};
+
+    #[test]
+    fn the_newest_change_from_any_own_device_wins() {
+        let at = |ms| u64::from(Timestamp::new(ms, 0));
+        let wall = 1_000_000;
+        let alice = Identity::generate();
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        for (new, old) in [
+            (PeerChange::Blocked(true), PeerChange::Blocked(false)),
+            (PeerChange::Muted(true), PeerChange::Muted(false)),
+            (PeerChange::Passed(true), PeerChange::Passed(false)),
+            (
+                PeerChange::Name("New".to_owned()),
+                PeerChange::Name("Old".to_owned()),
+            ),
+        ] {
+            assert!(store.receive_peer_change("bob", &new, at(2_000), wall).unwrap());
+            for stamp in [at(1_000), at(2_000)] {
+                assert!(!store.receive_peer_change("bob", &old, stamp, wall).unwrap());
+            }
+        }
+        assert!(store.blocked("bob").unwrap());
+        assert!(store.muted("bob").unwrap());
+        assert_eq!(store.passed_peers().unwrap(), ["bob"]);
+        assert_eq!(store.local_name("bob").unwrap(), "New");
+
+        let unblock = PeerChange::Blocked(false);
+        assert!(store.receive_peer_change("bob", &unblock, at(3_000), wall).unwrap());
+        assert!(!store.blocked("bob").unwrap());
+        assert!(matches!(
+            store.receive_peer_change("bob", &PeerChange::Blocked(true), at(wall * 10), wall),
+            Err(Error::ClockSkew(_))
+        ));
+        assert!(!store.blocked("bob").unwrap());
+        assert!(u64::from(store.tick(0).unwrap()) > at(3_000));
+
+        // A linked device keeps the stamps, so a change older than the copy stays refused.
+        let mut linked = Store::open(&temp_db_path(), &alice).unwrap();
+        linked.import_link_state(&store.link_state().unwrap()).unwrap();
+        let block = PeerChange::Blocked(true);
+        assert!(!linked.receive_peer_change("bob", &block, at(2_500), wall).unwrap());
+        assert!(!linked.blocked("bob").unwrap());
+    }
+
+    #[test]
+    fn an_own_change_applies_and_stages_in_one_commit() {
+        let alice = Identity::generate();
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let at = store.tick(1_000).unwrap();
+        store
+            .apply_peer_change("bob", &PeerChange::Muted(true), at)
+            .unwrap();
+        assert!(store.muted("bob").unwrap());
+
+        let write = prepare_put(&[7; 32], vec![1]).unwrap();
+        let hlc = store.tick(1_001).unwrap().into();
+        let change = PeerChange::Blocked(true);
+        store
+            .stage_peer_change("bob", &change, hlc, b"sealed", std::slice::from_ref(&write))
+            .unwrap();
+        assert!(store.blocked("bob").unwrap());
+        assert_eq!(store.sealed_device().unwrap(), Some(b"sealed".to_vec()));
+        assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+    }
 
     #[test]
     fn block_and_mute_are_independent_and_survive_reopen() {

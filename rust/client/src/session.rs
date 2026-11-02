@@ -213,17 +213,7 @@ impl Session {
         contact: &str,
     ) -> Result<(), Error> {
         self.store.set_blocked(contact, true)?;
-        let keys = self
-            .store
-            .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
-        if keys.is_empty() {
-            return Ok(());
-        }
-        scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-            node.revoke_tokens(device_key, &keys).await
-        })
-        .await?;
-        Ok(())
+        self.revoke_tokens(nodes, device_key, contact).await
     }
 
     /// Unblock `contact`. Revoked keys stay revoked; it gets tokens again for days it asks anew.
@@ -300,6 +290,9 @@ impl Session {
                     .stage_read(group_id, peer, *up_to, &sealed, &writes)?;
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
+            } else if let Body::PeerChange { peer, hlc, change } = body {
+                self.store
+                    .stage_peer_change(peer, change, *hlc, &sealed, &writes)?;
             } else if body.attachment_message().is_some()
                 || matches!(
                     body,
@@ -938,6 +931,14 @@ impl Session {
                     }
                 }
                 Ok(None)
+            }
+            Event::Message {
+                ref group,
+                body: Body::PeerChange { ref peer, .. },
+                ..
+            } if self.is_own_group(group) && self.store.blocked(peer)? => {
+                self.revoke_after_own_block(nodes, device_key, peer).await?;
+                Ok(Some(event))
             }
             Event::Joined(group) => {
                 if !self.is_own_group(&group) {

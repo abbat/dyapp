@@ -329,10 +329,7 @@ impl Store {
 
     /// Set or undo a local pass at the next own clock value. Returns whether the state changed.
     pub fn pass(&mut self, peer_id: &str, passed: bool, wall_ms: u64) -> Result<bool, Error> {
-        let at = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
-        let tx = self.db.transaction()?;
-        save_hlc(&tx, at)?;
-        tx.commit()?;
+        let at = self.tick(wall_ms)?;
         self.set_pass(peer_id, passed, at)
     }
 }

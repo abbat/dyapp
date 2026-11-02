@@ -20,9 +20,9 @@ mod link_state;
 mod mailbox_cursor;
 pub mod messages;
 mod notice;
-mod own_devices;
 pub mod originals;
 mod outbox;
+mod own_devices;
 mod peers;
 mod presence;
 mod profile_draft;
@@ -316,20 +316,6 @@ impl Store {
             Some(1) => Ok(true),
             _ => Err(Error::InvalidSetting),
         }
-    }
-
-    /// Set or undo a local pass. An older event cannot overwrite a newer one.
-    /// Returns whether the stored state changed.
-    pub fn set_pass(&self, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
-        let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
-        let changed = self.db.execute(
-            "INSERT INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`) VALUES (?1, ?2, ?3)
-             ON CONFLICT (`peer_id`) DO UPDATE SET `passed` = excluded.`passed`,
-             `updated_hlc` = excluded.`updated_hlc`
-             WHERE excluded.`updated_hlc` > `pass_history`.`updated_hlc`",
-            params![peer_id, i64::from(passed), at],
-        )?;
-        Ok(changed != 0)
     }
 
     /// Commit a new sealed MLS snapshot and exact mailbox writes before any network send.
@@ -848,6 +834,28 @@ pub(crate) mod tests {
             store.load_groups(&opened),
             Err(Error::GroupMismatch)
         ));
+    }
+
+    #[test]
+    fn the_owner_catalogs_a_group_of_only_own_devices() {
+        let path = temp_db_path();
+        let (identity, first, _) = person();
+        let second = Device::new(&identity, Identity::generate().public_key(), 2).unwrap();
+        let profile = Profile {
+            version: 2,
+            devices: vec![first.certificate().clone(), second.certificate().clone()],
+            ..Default::default()
+        }
+        .sign(&identity);
+        let profile = dyapp_profile::verify(&profile).unwrap();
+        let package = second.key_package(false).unwrap();
+        let (group, _) = first
+            .create_group(&[package], std::slice::from_ref(&profile))
+            .unwrap();
+        let mut store = Store::open(&path, &identity).unwrap();
+        let sealed = first.seal(&[9; 32]).unwrap();
+        store.stage_group(&group, &profile, &sealed, &[]).unwrap();
+        assert_eq!(store.load_groups(&first).unwrap()[0].1, profile.peer_id);
     }
 
     #[test]

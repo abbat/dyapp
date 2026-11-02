@@ -1,7 +1,7 @@
 use super::{
     apply_all, message, pad, unpad, AttachmentMessage, AttachmentWire, Body, Delivery, Event,
-    Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TEXT_BYTES, MAX_TOKENS,
-    MIN_PADDED_BYTES,
+    PeerChange, Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TEXT_BYTES,
+    MAX_TOKENS, MIN_PADDED_BYTES,
 };
 use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
 use crate::interactions::{Interaction, Kind};
@@ -333,6 +333,56 @@ fn token_bodies_are_strict() {
         assert!(Body::decode(&bad.encode()).is_err());
     }
     assert!(Body::decode(&[3, 0xff]).is_err());
+}
+
+#[test]
+fn peer_changes_are_strict() {
+    let peer = "ab".repeat(32);
+    let body = |change| Body::PeerChange {
+        peer: peer.clone(),
+        hlc: 7,
+        change,
+    };
+    let longest = "n".repeat(64);
+    for change in [
+        PeerChange::Blocked(true),
+        PeerChange::Blocked(false),
+        PeerChange::Muted(true),
+        PeerChange::Muted(false),
+        PeerChange::Passed(true),
+        PeerChange::Passed(false),
+        PeerChange::Name(String::new()),
+        PeerChange::Name(longest.clone()),
+    ] {
+        assert!(body(change.clone()).encode()[2..10] == 7u64.to_be_bytes());
+        assert!(Body::decode(&body(change.clone()).encode()).ok() == Some(body(change)));
+    }
+    let good = body(PeerChange::Blocked(true)).encode();
+    let with = |at: usize, byte: u8| {
+        let mut bytes = good.clone();
+        bytes[at] = byte;
+        bytes
+    };
+    for bad in [
+        with(1, 0),
+        with(1, 5),
+        with(10, b'g'),
+        with(74, 2),
+        good[..good.len() - 1].to_vec(),
+        good[..9].to_vec(),
+        [good.as_slice(), &[1]].concat(),
+        body(PeerChange::Name(format!("{longest}n"))).encode(),
+        body(PeerChange::Name("a\u{202e}b".to_owned())).encode(),
+        [
+            &body(PeerChange::Name(String::new())).encode()[..],
+            &[0xff],
+        ]
+        .concat(),
+    ] {
+        assert!(Body::decode(&bad).is_err());
+    }
+    assert!(!PeerChange::Muted(true).valid("ab"));
+    assert!(PeerChange::Muted(true).valid(&peer));
 }
 
 #[test]

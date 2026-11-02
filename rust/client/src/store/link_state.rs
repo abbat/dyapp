@@ -37,6 +37,12 @@ struct Peer {
     verified: bool,
     #[prost(bool, tag = "8")]
     new_device: bool,
+    #[prost(int64, tag = "9")]
+    blocked_hlc: i64,
+    #[prost(int64, tag = "10")]
+    muted_hlc: i64,
+    #[prost(int64, tag = "11")]
+    name_hlc: i64,
 }
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -70,7 +76,7 @@ impl Store {
     pub fn link_state(&self) -> Result<Vec<u8>, Error> {
         let mut peers = self.db.prepare(
             "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
-                    `verified`, `new_device`
+                    `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`
              FROM `peers` ORDER BY `peer_id`",
         )?;
         let peers = peers.query_map([], |row| {
@@ -83,6 +89,9 @@ impl Store {
                 seen_version: row.get(5)?,
                 verified: row.get(6)?,
                 new_device: row.get(7)?,
+                blocked_hlc: row.get(8)?,
+                muted_hlc: row.get(9)?,
+                name_hlc: row.get(10)?,
             })
         })?;
         let mut likes = self.db.prepare(
@@ -124,8 +133,10 @@ impl Store {
     pub fn import_link_state(&mut self, state: &[u8]) -> Result<(), Error> {
         let state = LinkState::decode(state).map_err(|_| Error::InvalidSetting)?;
         let rows = state.likes.iter().map(|like| like.hlc);
+        let peers = state.peers.iter();
         let newest = rows
             .chain(state.passes.iter().map(|pass| pass.updated_hlc))
+            .chain(peers.flat_map(|peer| [peer.blocked_hlc, peer.muted_hlc, peer.name_hlc]))
             .max()
             .and_then(|row| u64::try_from(row).ok())
             .unwrap_or(0);
@@ -134,8 +145,9 @@ impl Store {
         for peer in &state.peers {
             tx.execute(
                 "INSERT OR REPLACE INTO `peers` (`peer_id`, `blocked`, `muted`, `local_name`,
-                     `seen_devices`, `seen_version`, `verified`, `new_device`)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                     `seen_devices`, `seen_version`, `verified`, `new_device`, `blocked_hlc`,
+                     `muted_hlc`, `name_hlc`)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     peer.peer_id,
                     peer.blocked,
@@ -144,7 +156,10 @@ impl Store {
                     peer.seen_devices,
                     peer.seen_version,
                     peer.verified,
-                    peer.new_device
+                    peer.new_device,
+                    peer.blocked_hlc,
+                    peer.muted_hlc,
+                    peer.name_hlc
                 ],
             )?;
         }

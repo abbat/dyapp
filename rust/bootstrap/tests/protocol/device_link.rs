@@ -2,7 +2,7 @@
 //! catches up instead of falling out of the group.
 use super::chat::{store_path, Person};
 use super::*;
-use dyapp_client::chat::{self, Body, Event};
+use dyapp_client::chat::{self, Body, Event, PeerChange};
 use dyapp_client::interactions::Kind;
 use dyapp_client::link::{Code, Invite};
 use dyapp_client::publish::{self, Failure};
@@ -357,6 +357,42 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
     for held_here in [&first_session, &second_session] {
         assert!(held_here.store().chat_rows().unwrap().is_empty());
     }
+
+    // A change on one device reaches the other, in both directions.
+    let bob = "ab".repeat(32);
+    for change in [
+        PeerChange::Blocked(true),
+        PeerChange::Muted(true),
+        PeerChange::Passed(true),
+        PeerChange::Name("Bobby".into()),
+    ] {
+        first_session
+            .change_peer(from_mut(&mut first.node), &bob, change, &SEAL)
+            .await
+            .unwrap();
+    }
+    second_session
+        .receive(from_mut(&mut second.node), &second.device_key, &held, &SEAL)
+        .await
+        .unwrap();
+    let synced = second_session.store();
+    assert!(synced.blocked(&bob).unwrap() && synced.muted(&bob).unwrap());
+    assert_eq!(synced.passed_peers().unwrap(), [bob.clone()]);
+    assert_eq!(synced.local_name(&bob).unwrap(), "Bobby");
+    second_session
+        .change_peer(
+            from_mut(&mut second.node),
+            &bob,
+            PeerChange::Blocked(false),
+            &SEAL,
+        )
+        .await
+        .unwrap();
+    first_session
+        .receive(from_mut(&mut first.node), &first.device_key, &held, &SEAL)
+        .await
+        .unwrap();
+    assert!(!first_session.store().blocked(&bob).unwrap());
 
     // It survives a restart.
     drop(second_session);

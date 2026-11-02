@@ -22,7 +22,7 @@ a node.
 | Own like | none, liked, unliked | Latest own like/unlike event |
 | Peer like | none, liked, unliked | Latest received like/unlike event |
 | Conversation | none, request sent, request received, open, closed | Pair group texts and matches |
-| Block | off, on | Local only (`Store::set_blocked`) |
+| Block | off, on | Own devices only, newest change wins (`Session::change_peer`) |
 
 A **match** is derived, never stored: both likes are liked. The screens show the pair as:
 
@@ -71,7 +71,7 @@ What can be undone:
 | --- | --- | --- |
 | Clear chat | Own history of the pair | Nothing; the chat stays as it was |
 | Unlike ending a match | Closes the chat for both; erases the unliker's copy only | A new match; the erased copy does not return |
-| Block | Local: no traffic, tokens revoked; the peer is not told | Unblock; texts dropped meanwhile do not return |
+| Block | On own devices: no traffic, tokens revoked; the peer is not told | Unblock; texts dropped meanwhile do not return |
 | Ignore a request (planned) | A silent local block | Unblock |
 | Report | None in this release; the design keeps room for it | |
 | Profile tombstone | Final for the signed profile | Nothing; a node can forget it after its TTL ([bootstrap](../architecture/bootstrap.md)) |
@@ -164,7 +164,10 @@ texts and derives the same conversation state, and an own like or unlike applies
 in the group. Own devices also share a private group that never shows as a chat:
 `Session::join_own_devices` starts it once the profile lists a second device, the first device by
 mailbox at once and each later one an hour after the previous. If two start, every device sends in
-the lowest ID and accepts from any. The cases:
+all of them and accepts from any. `Session::change_peer` sends a block, mute, contact name or pass
+there as `Body::PeerChange`: the HLC of each field decides, so an older event never overwrites a
+newer one and a repeat changes nothing. A device that hears a block revokes the peer's tokens too.
+The desktop client does not call it yet (planned). The cases:
 
 1. Two own devices send a first text at once: each makes a group, the canonical rule merges them;
    the recipient keeps the first text it receives and drops the other, which stays Sent, never
@@ -174,7 +177,8 @@ the lowest ID and accepts from any. The cases:
 3. A like from one own device and an unlike from another: the ledger order decides. An unlike
    closes the chat and erases the copy on each own device as it receives the event.
 4. A device offline during a match: it shows Liked you until the own like arrives from its mailbox.
-5. Block on one device: local until device sync; the other device still shows the chat.
+5. Block on one device: the others apply it when the change arrives from their mailbox; until
+   then they still show the chat.
 
 ## Tests for the implementation
 

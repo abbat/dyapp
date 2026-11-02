@@ -14,7 +14,7 @@ use crate::scores::Scores;
 use crate::{mailbox, Envelope, Error, Node};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{self, Device, Group, Received};
-use dyapp_profile::{DeviceCertificate, VerifiedProfile};
+use dyapp_profile::{is_clean_text, DeviceCertificate, VerifiedProfile, MAX_FIELD_CHARS};
 use prost::Message as _;
 
 /// The smallest padded plaintext.
@@ -26,6 +26,7 @@ pub const MAX_SIGNAL_BYTES: usize = 1024;
 /// Maximum text bytes in a chat text or edit, before MLS padding.
 pub const MAX_TEXT_BYTES: usize = 64 * 1024;
 const MESSAGE_ID_BYTES: usize = 16;
+const PEER_ID_CHARS: usize = 64;
 const OPERATION_HEADER_BYTES: usize = 2 * MESSAGE_ID_BYTES + 8;
 // The big-endian plaintext length that starts a padded plaintext.
 const LENGTH_BYTES: usize = 4;
@@ -87,6 +88,30 @@ pub enum Event {
     Refused(String),
 }
 
+/// A local decision about a peer that the owner's devices share.
+#[derive(Clone, PartialEq, Eq)]
+pub enum PeerChange {
+    /// Blocked or unblocked.
+    Blocked(bool),
+    /// Muted or unmuted.
+    Muted(bool),
+    /// Passed in search or the pass undone.
+    Passed(bool),
+    /// The local contact name; empty removes it.
+    Name(String),
+}
+
+impl PeerChange {
+    /// Whether `peer` is a Peer ID and a name fits the rules of a local contact name.
+    pub fn valid(&self, peer: &str) -> bool {
+        let name_fits = match self {
+            Self::Name(name) => name.chars().count() <= MAX_FIELD_CHARS && is_clean_text(name),
+            _ => true,
+        };
+        name_fits && peer.len() == PEER_ID_CHARS && peer.bytes().all(|c| c.is_ascii_hexdigit())
+    }
+}
+
 /// What an application message carries: the first plaintext byte names the kind, so a chat text
 /// is never read as an interaction.
 #[derive(Clone, PartialEq, Eq)]
@@ -143,6 +168,15 @@ pub enum Body {
     Read {
         /// Logical ID of the latest text seen.
         up_to: [u8; 16],
+    },
+    /// Another device of this owner changed a local decision about `peer`, tag 13.
+    PeerChange {
+        /// The Peer ID the decision is about.
+        peer: String,
+        /// HLC of the change: the newest wins.
+        hlc: u64,
+        /// The decision.
+        change: PeerChange,
     },
 }
 
@@ -333,6 +367,16 @@ impl Body {
             .concat(),
             Self::Presence { hlc } => [&[10], &hlc.to_be_bytes()[..]].concat(),
             Self::Read { up_to } => [&[11], up_to.as_slice()].concat(),
+            Self::PeerChange { peer, hlc, change } => {
+                let (kind, value) = match change {
+                    PeerChange::Blocked(on) => (1, vec![u8::from(*on)]),
+                    PeerChange::Muted(on) => (2, vec![u8::from(*on)]),
+                    PeerChange::Passed(on) => (3, vec![u8::from(*on)]),
+                    PeerChange::Name(name) => (4, name.clone().into_bytes()),
+                };
+                let head = [&[13, kind], hlc.to_be_bytes().as_slice()].concat();
+                [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
+            }
         }
     }
 
@@ -354,6 +398,7 @@ impl Body {
                     text: text.to_vec(),
                 })
             }
+            Some((13, body)) => peer_change(body).ok_or(Error::Reply("bad peer change")),
             Some((2, event)) => Interaction::decode(event)
                 .map(Self::Interaction)
                 .map_err(|_| Error::Reply("bad interaction")),
@@ -572,6 +617,31 @@ pub fn add(
         mls: welcome.clone(),
     }));
     Ok(deliveries)
+}
+
+/// A tag 13 body: kind, HLC, Peer ID, then a flag or a name.
+fn peer_change(body: &[u8]) -> Option<Body> {
+    let (&kind, rest) = body.split_first()?;
+    let (hlc, rest) = rest.split_first_chunk::<8>()?;
+    let (peer, value) = rest.split_first_chunk::<PEER_ID_CHARS>()?;
+    let flag = match value {
+        [0] => Some(false),
+        [1] => Some(true),
+        _ => None,
+    };
+    let change = match kind {
+        1 => PeerChange::Blocked(flag?),
+        2 => PeerChange::Muted(flag?),
+        3 => PeerChange::Passed(flag?),
+        4 => PeerChange::Name(String::from_utf8(value.to_vec()).ok()?),
+        _ => return None,
+    };
+    let peer = String::from_utf8(peer.to_vec()).ok()?;
+    change.valid(&peer).then_some(Body::PeerChange {
+        peer,
+        hlc: u64::from_be_bytes(*hlc),
+        change,
+    })
 }
 
 /// Pads and encrypts `body` for every other device in `group`.
