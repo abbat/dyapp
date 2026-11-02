@@ -4,6 +4,10 @@ all_features = true
 # cargo-mutants does not run for dyapp-client mutants. Review by 2026-12-25: issue #26.
 exclude_re = [
     "Session::(finish_link|block|send_message|send_text_to|send_attachment|interact|interact_with|send_body|retry_due|deliver|refill|request_tokens|control|receive|key_packages|publish_key_packages|own_group|own_groups|is_own_group|misplaced|join_own_devices|remove_dropped_devices|stage_commit|change_peer|revoke_tokens|revoke_after_own_block|revoked_or)\\b",
+    # Fetches and sends on a live node; the device_link protocol test covers it.
+    "replace Session::stage_add\\b",
+    # No two members of a group share a device key, so `<=` is the same as `<`.
+    "replace < with <= in Group::remove_turn",
     # Closes a mailbox on a live node; the device_link protocol test covers it.
     "(in|replace) revoke_device\\b",
     # FFI chat paths with a live node or a stored chat row; the ffi_chats protocol tests cover them.
