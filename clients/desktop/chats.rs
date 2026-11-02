@@ -112,6 +112,7 @@ pub fn chat_history(
         .map(Into::into)
         .collect();
     reads::project_reads(&store, peer_id, &identity.peer_id(), &mut messages)?;
+    view::mark_expiry(&mut messages, presence::now_ms()?);
     let state = store
         .conversation(peer_id)
         .map_err(|e| e.to_string())?

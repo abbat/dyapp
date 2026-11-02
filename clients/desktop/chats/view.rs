@@ -1,5 +1,6 @@
 //! Local chat projection converted to desktop JSON without exposing internal request IDs.
 
+use dyapp_client::attachment::{hours_left, layout_size};
 use dyapp_client::store::messages::{ChatAttachment, ChatItem, ChatMessage, DeliveryState};
 use dyapp_client::store::Conversation;
 
@@ -49,10 +50,12 @@ impl From<DeliveryState> for DeliveryView {
 #[serde(rename_all = "camelCase")]
 pub struct PhotoView {
     pub mime: String,
-    /// The sender's claim, only to reserve layout space.
+    /// The sender's claimed shape with its aspect ratio clamped, only to reserve layout space.
     pub width: u32,
     pub height: u32,
     pub size: u64,
+    /// Whole hours until nodes drop the original, set in history once under a day remains.
+    pub hours_left: Option<u32>,
     /// The bounded JPEG preview, empty in a list row and when the sender gave none.
     pub preview: Vec<u8>,
 }
@@ -104,6 +107,7 @@ impl From<ChatAttachment> for MessageView {
     fn from(photo: ChatAttachment) -> Self {
         let sent_at_ms = Some(photo.sent_at_ms());
         let attachment = photo.message.attachment;
+        let (width, height) = layout_size(attachment.width, attachment.height);
         Self {
             group_id: photo.key.group,
             author: photo.key.author,
@@ -118,9 +122,10 @@ impl From<ChatAttachment> for MessageView {
             sent_at_ms,
             photo: Some(PhotoView {
                 mime: attachment.mime,
-                width: attachment.width,
-                height: attachment.height,
+                width,
+                height,
                 size: attachment.size,
+                hours_left: None,
                 preview: attachment.preview,
             }),
         }
@@ -132,6 +137,19 @@ impl From<ChatItem> for MessageView {
         match item {
             ChatItem::Text(message) => message.into(),
             ChatItem::Attachment(photo) => photo.into(),
+        }
+    }
+}
+
+const HOUR_MS: i64 = 3_600_000;
+
+/// Label the photos of a history with the time left of their originals.
+pub(super) fn mark_expiry(views: &mut [MessageView], now_ms: u64) {
+    for view in views {
+        if let (Some(photo), Some(sent)) = (&mut view.photo, view.sent_at_ms) {
+            // Round up, so that 0 means gone and not the last hour. HLC wall time and the clock
+            // both fit i64 for millions of years.
+            photo.hours_left = hours_left(sent as i64 + HOUR_MS - 1, now_ms as i64);
         }
     }
 }
@@ -174,7 +192,7 @@ pub struct ChatHistoryView {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_item, DeliveryView, MessageView};
+    use super::{last_item, mark_expiry, DeliveryView, MessageView};
     use dyapp_client::attachment::Attachment;
     use dyapp_client::chat::AttachmentMessage;
     use dyapp_client::store::messages::{ChatAttachment, MessageKey};
@@ -216,13 +234,31 @@ mod tests {
         let photo_json = json["photo"].as_object().unwrap();
         let mut fields: Vec<_> = photo_json.keys().map(String::as_str).collect();
         fields.sort_unstable();
-        assert_eq!(fields, ["height", "mime", "preview", "size", "width"]);
+        assert_eq!(
+            fields,
+            ["height", "hoursLeft", "mime", "preview", "size", "width"]
+        );
         assert_eq!(json["photo"]["preview"], serde_json::json!([7, 8]));
         for secret in ["201", "202", "203", "204"] {
             assert!(
                 !json.to_string().contains(secret),
                 "{secret} reached the page"
             );
+        }
+    }
+
+    #[test]
+    fn only_the_last_day_of_a_photo_is_labelled() {
+        let hour = 3_600_000;
+        let mut views = [MessageView::from(photo())];
+        for (now, left) in [
+            (5, None),
+            (5 + 163 * hour, Some(5)),
+            (5 + 168 * hour - 1, Some(1)),
+            (5 + 168 * hour, Some(0)),
+        ] {
+            mark_expiry(&mut views, now);
+            assert_eq!(views[0].photo.as_ref().unwrap().hours_left, left);
         }
     }
 

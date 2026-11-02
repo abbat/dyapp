@@ -221,6 +221,11 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .msg.out { align-self: flex-end; background: var(--accent-soft); border-color: transparent; }
 .msg.deleted { font-style: italic; color: var(--muted); background: transparent; border-style: dashed; }
 .msg .meta { display: block; font: var(--text-caption); color: var(--muted); }
+.chat-photo { display: block; overflow: hidden; }
+.chat-photo canvas { display: block; max-width: 100%; height: auto; border-radius: var(--radius);
+  background: var(--line); }
+.chat-photo.blurred canvas { filter: blur(12px); }
+.chat-photo .caption { display: block; }
 .msg-menu { display: flex; justify-content: flex-end; gap: var(--space-1); }
 .msg-menu .btn { min-height: 28px; padding: 0 var(--space-2); font: var(--text-caption); }
 .composer { display: flex; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-4); }

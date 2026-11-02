@@ -969,6 +969,7 @@ fn main() {
                         include_str!("ui-test-chats.js"),
                         include_str!("ui-test-presence.js"),
                         include_str!("ui-test-names.js"),
+                        include_str!("ui-test-photos.js"),
                         include_str!("ui-test-guards.js"),
                         include_str!("ui-test.js")
                     ))

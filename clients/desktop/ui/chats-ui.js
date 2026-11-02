@@ -204,7 +204,59 @@ const chatLinkHosts = (text) => {
 };
 const chatPreview = (message) => !message ? window.strings['chats.noMessages']
   : message.deleted ? window.strings['chats.deleted']
-    : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${message.text || ''}`;
+    : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
+      message.photo ? window.strings['chats.photo'] : message.text || ''}`;
+// The page's CSP admits no image URLs, so a local preview is decoded onto a canvas.
+const drawPreview = async (canvas, preview) => {
+  const blob = new Blob([new Uint8Array(preview)], { type: 'image/jpeg' });
+  const bitmap = await createImageBitmap(blob);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+};
+const photoCaption = (photo) => {
+  const parts = [window.strings['chats.photo'], photo.mime, sizeText(photo.size)];
+  if (photo.hoursLeft === 0) parts.push(window.strings['chats.photoExpired']);
+  else if (photo.hoursLeft) {
+    parts.push(window.strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
+  }
+  return parts.join(' · ');
+};
+// The placeholder always names the photo; a preview that cannot be decoded just leaves it alone.
+const photoBubble = (photo, blurred) => {
+  const box = document.createElement('span');
+  box.className = 'chat-photo';
+  const caption = document.createElement('span');
+  caption.className = 'caption';
+  caption.textContent = photoCaption(photo);
+  box.append(caption);
+  if (!photo.preview.length) return box;
+  const canvas = document.createElement('canvas');
+  const scale = 240 / Math.max(photo.width, photo.height);
+  canvas.width = Math.max(1, Math.round(photo.width * scale));
+  canvas.height = Math.max(1, Math.round(photo.height * scale));
+  canvas.tabIndex = -1;
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', window.strings['chats.photo']);
+  box.prepend(canvas);
+  const show = document.createElement('button');
+  if (blurred) {
+    box.classList.add('blurred');
+    show.type = 'button';
+    show.className = 'btn quiet';
+    show.textContent = window.strings['chats.photoShow'];
+    show.addEventListener('click', () => {
+      box.classList.remove('blurred');
+      show.remove();
+      canvas.focus();
+    });
+    box.append(show);
+  }
+  box.ready = drawPreview(canvas, photo.preview).catch(() => {
+    canvas.remove();
+    show.remove();
+  });
+  return box;
+};
 const chatRow = (row) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -363,7 +415,8 @@ const openChat = async (peerId, call = invoke) => {
         forwarded.textContent = `${window.strings['chats.forwarded']} · `;
         item.append(forwarded);
       }
-      item.append(body);
+      item.append(message.photo ? photoBubble(message.photo,
+        message.author !== current.peerId && history.state !== 'open') : body);
       const hosts = chatLinkHosts(message.deleted ? '' : message.text);
       if (hosts.length) {
         const host = document.createElement('span');
@@ -384,7 +437,7 @@ const openChat = async (peerId, call = invoke) => {
         edited.textContent = ` (${window.strings['chats.edited']})`;
         item.append(edited);
       }
-      if (message.author === current.peerId && !message.deleted) {
+      if (message.author === current.peerId && !message.deleted && !message.photo) {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'btn quiet';

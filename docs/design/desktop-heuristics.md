@@ -293,6 +293,27 @@ needs no color to read (H6, and WCAG 1.4.1). Its absence says nothing, and it sh
 is the coarseness the design asks for (H2). A send that fails stays silent and retries on the next
 focus, because the user did nothing to act on (H9). No open H1–H10 finding.
 
+### Chat photos review (2026-11-02)
+
+Scope: a photo in a chat, its list row and the blur before acceptance, in EN and RU, light and dark.
+
+1. Visibility of system status: the caption names the type and size at once, the canvas holds the
+   space while decoding, and the last day of retention shows the hours left.
+2. Match with the real world: "Photo" and "original expires in 5 h"; the MIME type is the only raw
+   term and stays secondary in the caption.
+3. User control: Show photo is one click; a redraw of the history blurs again, which is the safe
+   default for a preview the user has not accepted.
+4. Consistency: the caption and quiet button reuse chat styles; the list row uses the same word as
+   the bubble and keeps the Forwarded prefix.
+5. Error prevention: text actions are absent on a photo, so no action can fail on one.
+6. Recognition: the blurred state has a visible action, not a hidden click on the image.
+7. Flexibility: Show photo is a normal button; focus moves to the preview, not to the page start.
+8. Minimalism: a list row carries no preview, only the word.
+9. Error recovery: an undecodable preview falls back to the caption with no error to dismiss.
+10. Help: the caption states the time left, so no separate explanation is needed.
+
+No open findings.
+
 ### Accepted exceptions
 
 None.
