@@ -21,6 +21,8 @@ mod file_store;
 mod identity_gate;
 mod identity_runtime;
 use identity_runtime::{describe, respond, IdentityState};
+#[path = "link.rs"]
+mod link;
 #[path = "network.rs"]
 mod network;
 // The node library is Unix-only, so Windows builds without it (ADR 0030).
@@ -284,7 +286,10 @@ async fn create_identity(
     .map_err(|error| error.to_string())
     .and_then(|result| result);
     match result {
-        Ok((slot, identity)) => respond(Opened::Ready(slot, identity), transition),
+        Ok((slot, identity)) => {
+            app.state::<link::Links>().made(&slot.id);
+            respond(Opened::Ready(slot, identity), transition)
+        }
         Err(error) => {
             IdentityState::reconcile(recover_dir, transition).await?;
             Err(error)
@@ -818,6 +823,7 @@ fn main() {
         .manage(ProfileState::default())
         .manage(search::SearchState::default())
         .manage(chats::Sessions::default())
+        .manage(link::Links::default())
         .manage(window::WindowState::default())
         .manage(tray::Tray::default())
         .setup(|app| {
@@ -884,6 +890,10 @@ fn main() {
             safety::scan_contact_qr,
             clipboard::copy_safety_number,
             clipboard::clear_safety_clipboard,
+            link::start_link,
+            link::cancel_link,
+            link::poll_link,
+            link::link_pending,
             chats::own::check_link_code,
             chats::own::list_devices,
             chats::own::send_link,

@@ -11,7 +11,7 @@ use dyapp_client::link::Code;
 use dyapp_client::places;
 use dyapp_client::publish::{self, Block};
 use dyapp_client::search;
-use dyapp_client::session::Session;
+use dyapp_client::session::{self, Session};
 use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
@@ -579,6 +579,33 @@ async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<
     let mut reached = search::connect_search_nodes(node, protocols, SEARCH_NODES).await;
     let _ = search::publish_due(store, &mut reached.nodes, unix_now()?).await;
     Ok(())
+}
+
+/// Finishes the link of the identity in `dir` when one is pending; see `Session::finish_link`.
+/// Errors are `notConnected`, `revoked` or a node or storage message, and the next pass retries.
+pub async fn finish_link(
+    root: &Path,
+    dir: &Path,
+    identity: &Identity,
+    device: &Identity,
+) -> Result<(), String> {
+    let store = open(dir, identity)?;
+    if store.link_pending().map_err(|e| e.to_string())?.is_none() {
+        return Ok(());
+    }
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = connect(&active).await?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
+    let now = unix_now()?;
+    Session::finish_link(store, &mut node, identity, device, KEY_PACKAGES, &seal_key, now)
+        .await
+        .map_err(|error| match error {
+            session::Error::Revoked => crate::chats::own::REVOKED.to_owned(),
+            error => error.to_string(),
+        })?;
+    send_held(&open(dir, identity)?, &mut node, &active).await
 }
 
 /// Sends a held profile whose search window has ended (see `send_held`) and returns the view.

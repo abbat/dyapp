@@ -398,6 +398,7 @@ pub async fn receive(
     device_key: &Identity,
     stop: impl Fn() -> bool,
 ) -> Result<usize, String> {
+    crate::profile::finish_link(root, dir, identity, device_key).await?;
     let store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     let own = match own.version {

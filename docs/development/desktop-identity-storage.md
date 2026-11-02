@@ -105,6 +105,11 @@ failure; if a usable provider confirms no key, require an explicit retry or remo
 generate a second key simply because an incomplete slot was found. Reject symlinked slot
 directories and files, malformed slot names and ambiguous duplicate credentials.
 
+A linked identity takes the same path: `slots::adopt` reserves a slot in the storage mode of the
+slot the link ran in, then adds the device key, the network settings and the record's state before
+marking it `ready`. A failure leaves the prior selection. The slot the wizard made in this run only
+to reach a node is then removed, unless it has a profile draft; any other slot stays selectable.
+
 `active-profile` is replaced by a flushed temporary file and same-directory rename. A failed
 write leaves the prior selection; a missing or corrupt pointer opens the picker, except when
 exactly one usable slot exists. Selection does not copy a key or change its backend. Before

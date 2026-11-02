@@ -327,13 +327,20 @@ of the profile leaves the mailbox open, and a node cannot forge a profile. Catch
 identity through the path of a manual removal, and says why. Devices in Settings lists the newest
 profile's devices, or the saved draft's while no node answers, and revokes with the Tauri command
 `revoke_device`. It also sends the record to a new device, after the owner confirms a pasted code.
-The screen of the new device and the Android wipe are planned.
+The screens of the new device and the Android wipe are planned.
 
 A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
 `Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code
 erases the X25519 key on the next look. `publish::adopt` then restores the owner's local state on a
 fresh store, takes the newest profile with its photos as the draft, and `publish::relist` adds the
-device. Storing the identity key under the platform store comes with the linking screen.
+device.
+
+The Linux client's commands `start_link` and `poll_link` hold the device key and the one-use key in
+memory, so a restart before the record just asks for a new code. A record becomes a new slot, in the
+storage mode of the slot the wait ran in, with the identity key, the device key, the network
+settings and the record's state in a `link_pending` setting. The mailbox no longer holds the record
+then, so `Session::finish_link` repeats `adopt`, the relist and the KeyPackages from that row on
+every catch-up pass, skipping a relist that reached the node, and clears the row last.
 
 openmls keeps its state in memory. `Device::seal(key)` returns all of it (the signature key, unused
 KeyPackages and every group) as nonce ‖ ChaCha20-Poly1305 ciphertext under a 32-byte key the client
