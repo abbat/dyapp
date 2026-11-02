@@ -3,8 +3,9 @@
 How a client publishes, fetches and keeps public profile photos. The wire format is in
 [protobuf-schema.md](../architecture/protobuf-schema.md); node rules are in
 [bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
-publishing, and the desktop has the editor. The viewing below and the keep refresh of step 4 are
-planned on every client, and the editor is planned on Android and Apple.
+publishing, and the desktop has the editor and shows photos on search and liked cards and in
+`profile-view`. Photos on chat rows and identity avatars, viewing on Android and Apple, the editor
+there, and the keep refresh of step 4 are planned.
 
 ## Limits
 
@@ -43,14 +44,17 @@ limits are checked where the blob enters the store; the desktop checks pixels be
 
 ## Viewing
 
-Lists and results fetch thumbnails; `profile-view` fetches full images. `get_media` checks each
-blob against its hash, and the core applies the size and pixel bounds before the page decodes it.
+Lists and results fetch the first thumbnail; `profile-view` fetches all thumbnails and full
+images. `get_media` checks each blob against its hash, and the desktop commands apply the size and
+pixel bounds before the page decodes it. One command fills the cache over one set of connections
+and another reads a blob from it, so a page of cards connects once.
 The page draws to a canvas, because the content security policy blocks `data:` and `blob:` images.
 
 Other people's photos stay in memory, in a least-recently-used cache of 256 thumbnails and 8 full
 images: at most about 10 MiB, nothing about whom the user looked at on disk, and no eviction job.
-The cost is a refetch after a restart. Under Settings → Photos, a metered or unknown network
-shows thumbnails and loads a full image on a tap, as chat originals do.
+The cost is a refetch after a restart. A change of identity or network empties it. Under
+Settings → Photos, a metered or unknown network shows thumbnails and loads a full image on a tap,
+as chat originals do.
 
 ## States
 

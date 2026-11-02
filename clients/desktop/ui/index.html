@@ -264,7 +264,12 @@
         <div id="profile-view" hidden>
           <button id="view-back" class="btn quiet back" type="button"><svg class="icon"
             aria-hidden="true"><use href="#i-back"/></svg><span data-i18n="view.back"></span></button>
-          <div id="view-photos" class="gallery"><div class="main avatar" aria-hidden="true"></div></div>
+          <div id="view-photos" class="gallery">
+            <div class="main avatar" tabindex="-1" aria-hidden="true"></div>
+            <div class="thumbs"></div>
+            <button id="view-photo-load" class="btn quiet" type="button" data-i18n="view.photoLoad"
+              hidden></button>
+          </div>
           <h1 id="view-title"></h1>
           <p id="view-summary" class="muted"></p>
           <p id="view-verified" class="notice" data-i18n="view.safety.verified" hidden></p>
@@ -647,6 +652,7 @@
   <script src="chats-ui.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>
+  <script src="peer-photos.js"></script>
   <script src="network.js"></script>
 </body>
 </html>

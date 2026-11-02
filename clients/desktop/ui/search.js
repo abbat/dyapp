@@ -92,7 +92,7 @@ const genderText = (draft) => {
 };
 const summaryText = (found) => [genderText(found.draft), ageText(found.draft), found.place]
   .filter(Boolean).join(' · ');
-// Cards show the letters of the short ID until profiles carry photos; nothing marks a
+// Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
 // self-declared claim as verified.
 const resultCard = (found, id) => {
   const button = document.createElement('button');
@@ -160,7 +160,6 @@ const showFound = (found) => {
   peerLabel(document.getElementById('view-peer'), found.peerId);
   document.getElementById('view-peer').textContent = short;
   document.getElementById('view-title').textContent = window.peerName(found.peerId);
-  document.querySelector('#view-photos .main').textContent = short.slice(1, 3);
   document.getElementById('view-summary').textContent = summaryText(found);
   document.getElementById('view-fields').replaceChildren(...publicFacts(found.draft, found.place)
     .flatMap(([label, value]) => {
@@ -197,6 +196,7 @@ const openFound = (found, card, call = invoke) => {
   call('peer_likes', { peerId: found.peerId })
     .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
   showFound(found);
+  window.peerPhotosShown = window.showFoundPhotos(found, call);
   searchMain.hidden = true;
   profileView.hidden = false;
   document.getElementById('view-back').focus();
@@ -380,6 +380,7 @@ const confirmContact = (call = invoke) => {
     Object.assign(found, placed);
     showFound(found);
     card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
+    window.showCardPhotos([found], [card], call);
   }, (error) => {
     if (!currentView()) return;
     const key = `view.safety.confirm.${error}`;
@@ -404,6 +405,7 @@ const removeMark = (call = invoke) => {
     if (!currentView()) return;
     showFound(found);
     card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
+    window.showCardPhotos([found], [card], call);
   }, () => {
     if (!currentView()) return;
     button.disabled = false;
@@ -642,6 +644,7 @@ const runSearch = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     showSearchFilters(result.offered);
     searchResults.replaceChildren(...found.map((item, index) => resultCard(item, `result-${index + 1}`)));
+    window.showCardPhotos(found, [...searchResults.children], call);
     const count = String(found.length);
     if (result.partial || result.failures.length) {
       searchMessage('search.partial', count);

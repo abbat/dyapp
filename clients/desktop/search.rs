@@ -14,6 +14,7 @@ use dyapp_p2p_net::search_results::Filter;
 use dyapp_p2p_net::{proto, Protocols};
 use dyapp_profile::{CivilDate, VerifiedProfile};
 
+use crate::peer_photos::PhotoCache;
 use crate::profile::{self, Draft};
 
 /// Search providers one search asks.
@@ -29,6 +30,7 @@ pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
 pub struct ProfileCache {
     epoch: u64,
     profiles: Profiles,
+    pub photos: PhotoCache,
 }
 
 impl ProfileCache {
@@ -51,6 +53,7 @@ impl ProfileCache {
     pub fn clear(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
         self.profiles = Profiles::default();
+        self.photos = PhotoCache::default();
     }
 }
 
@@ -194,6 +197,8 @@ impl From<SearchFailure> for Failure {
 pub struct Found {
     pub peer_id: String,
     pub draft: Draft,
+    /// The full image of each photo in `draft.photos`, empty where a photo has none.
+    pub full_photos: Vec<Vec<u8>>,
     pub version: u64,
 }
 
@@ -202,6 +207,12 @@ impl From<&VerifiedProfile> for Found {
         Self {
             peer_id: found.peer_id.clone(),
             draft: Draft::from(&found.profile),
+            full_photos: found
+                .profile
+                .photos
+                .iter()
+                .map(|photo| photo.full.first().cloned().unwrap_or_default())
+                .collect(),
             version: found.profile.version,
         }
     }

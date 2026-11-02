@@ -910,6 +910,7 @@ window.showChats = async (call = invoke) => {
     if (!currentChats()) return;
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
     likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
+    window.showCardPhotos(found, [...likedList.children], call);
     document.getElementById('chats-liked-count').textContent = String(found.length);
     if (receiveError === 'notConnected') chatsMessage('chats.notConnected');
     else if (receiveError) chatsMessage('chats.receiveFailed', receiveError);

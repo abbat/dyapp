@@ -579,6 +579,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await nameChecks.checkPublicName();
       await photoChecks.checkChatPhoto();
       await photoChecks.checkProfilePhotos();
+      await photoChecks.checkPeerPhotos();
       await chatChecks.checkChatForwarded();
       await chatChecks.checkChatForwardAction();
       await chatChecks.checkChatLinkHosts();

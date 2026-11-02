@@ -167,7 +167,11 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .facts dd { margin: 0; }
 .result { display: flex; gap: var(--space-3); align-items: flex-start; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft);
-  color: var(--accent); display: grid; place-items: center; font-weight: 600; flex: none; }
+  color: var(--accent); display: grid; place-items: center; font-weight: 600; flex: none;
+  position: relative; }
+/* A photo covers the letters, which stay if it never arrives. */
+.avatar canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  border-radius: inherit; }
 .who { display: flex; gap: var(--space-3); align-items: center; }
 .badge { background: var(--accent); color: var(--accent-text); border-radius: 10px; min-width: 20px;
   padding: 0 6px; font: 600 0.75rem/20px var(--font); text-align: center; flex: none; }
@@ -186,12 +190,15 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 /* Without photos the gallery shows the letters of the short ID. */
 .gallery .main.avatar { width: auto; height: auto; font-size: 3rem; }
 .gallery .thumbs { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
-.gallery .thumbs span { width: 56px; height: 56px; border-radius: var(--radius); }
+.gallery .thumbs span, .gallery .thumbs button { width: 56px; height: 56px; border-radius: var(--radius); }
+.gallery .thumbs button { border: 0; padding: 0; font: inherit; cursor: pointer; }
 .gallery .thumbs [aria-current] { box-shadow: 0 0 0 2px var(--accent); }
 .btn svg.icon { width: 18px; height: 18px; vertical-align: -4px; margin-right: var(--space-1); }
 .btn.liked { color: var(--danger); border-color: var(--danger); }
 .btn.liked svg.icon { fill: currentColor; }
 .gallery .main { margin-inline: auto; }
+.gallery .main canvas { object-fit: contain; }
+#view-photo-load { display: block; margin: var(--space-2) auto 0; }
 .gallery .thumbs { justify-content: center; }
 .view-actions { margin-top: 0; }
 /* Own photos in the profile editor. */

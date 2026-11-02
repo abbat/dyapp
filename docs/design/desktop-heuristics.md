@@ -440,6 +440,25 @@ dialog and the status line states.
 
 Findings: none open.
 
+### Peer photo viewing review (2026-11-02)
+
+- Visibility of system status: letters stay until a photo is drawn, Load full photo reads Loading…
+  and is disabled during its fetch, and the current thumbnail is marked.
+- Match with the real world: the button says "full photo", the word Settings → Photos now uses too.
+- User control: nothing forces a download on a metered network; a tap asks for one photo only.
+- Consistency: the gallery follows the setting that chat originals use, and cards keep the avatar
+  place and size they had with letters.
+- Error prevention: the last profile's photo is cleared before the next profile's first await, so
+  a photo never shows under another name.
+- Recognition: thumbnails are visible buttons named "Photo N of M"; a single photo shows no row.
+- Flexibility: thumbnails and the load button work from the keyboard, and focus moves to the photo
+  once it loads.
+- Minimalist design: no spinner on cards and no message for a missing photo; the letters say enough.
+- Help with errors: a failed tap says the photo did not load and offers the button again with focus
+  on it.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

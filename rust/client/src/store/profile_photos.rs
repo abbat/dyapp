@@ -20,7 +20,8 @@ fn key(hash: &[u8]) -> String {
     format!("{PREFIX}{hex}")
 }
 
-fn fits(jpeg: &[u8], limit: usize) -> bool {
+/// Whether `jpeg` is within `limit` and starts as a JPEG; a blob from a node passes this too.
+pub fn fits(jpeg: &[u8], limit: usize) -> bool {
     jpeg.len() <= limit && jpeg.starts_with(&[0xFF, 0xD8, 0xFF])
 }
 

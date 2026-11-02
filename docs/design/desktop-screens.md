@@ -189,7 +189,7 @@ node reply is best effort, not network-wide removal.
 | Control | ID | Notes |
 | --- | --- | --- |
 | Back to results | `view-back` | |
-| Photos | `view-photos` | Gallery with thumbnails under it |
+| Photos | `view-photos` | Gallery with thumbnails under it; on a metered or unknown network `view-photo-load` loads the full photo |
 | Peer ID | `view-peer` | Short ID |
 | Copy | `copy-view-peer` | Copies the full ID |
 | Compare safety number | `view-safety` | Opens `view-safety-panel` with grouped `view-safety-number` from both Peer IDs |

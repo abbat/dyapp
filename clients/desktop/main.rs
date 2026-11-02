@@ -34,6 +34,8 @@ mod notify;
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
+#[path = "peer_photos.rs"]
+mod peer_photos;
 #[path = "profile_photos.rs"]
 mod profile_photos;
 mod safety;
@@ -876,6 +878,9 @@ fn main() {
             search_places,
             load_profile,
             save_profile,
+            peer_photos::fetch_peer_photos,
+            peer_photos::peer_photo,
+            peer_photos::peer_photo_auto,
             profile_photos::add_profile_photo,
             profile_photos::remove_profile_photo,
             profile_photos::move_profile_photo,
