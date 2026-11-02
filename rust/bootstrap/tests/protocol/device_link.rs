@@ -3,6 +3,7 @@
 use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
+use dyapp_client::publish::{self, Failure};
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use std::slice::from_mut;
@@ -158,4 +159,74 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
             Event::Message { body: Body::Text { text, .. }, .. } if text == b"to both"
         )));
     }
+}
+
+#[tokio::test]
+async fn a_device_that_missed_an_edit_never_overwrites_it() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let owner = alice.identity.peer_id();
+    let held = alice.node.get_profile(&owner).await.unwrap().profile;
+    let laptop = Store::open(&store_path("publish-laptop"), &alice.identity).unwrap();
+    let phone = Store::open(&store_path("publish-phone"), &alice.identity).unwrap();
+
+    let edit = |year, base: &Profile| Profile {
+        birth_year: Some(year),
+        ..base.clone()
+    };
+    let edited = publish::publish(
+        &laptop,
+        &mut alice.node,
+        &alice.identity,
+        &edit(1990, &held),
+    )
+    .await
+    .unwrap();
+
+    // The phone never saw that edit: it takes the newer profile and the node keeps it.
+    let failure = publish::publish(&phone, &mut alice.node, &alice.identity, &edit(1991, &held))
+        .await
+        .unwrap_err();
+    assert!(matches!(failure, Failure::Missed), "{failure}");
+    assert_eq!(phone.profile_draft().unwrap().unwrap(), edited);
+    assert_eq!(
+        alice.node.get_profile(&owner).await.unwrap().profile,
+        edited
+    );
+
+    // Publishing from what it took keeps the device list, and a lost reply is not a conflict.
+    let draft = edit(1991, &edited);
+    let next = publish::publish(&phone, &mut alice.node, &alice.identity, &draft)
+        .await
+        .unwrap();
+    assert_eq!(next.version, edited.version + 1);
+    assert_eq!(next.devices, held.devices);
+    assert_eq!(
+        publish::publish(&phone, &mut alice.node, &alice.identity, &draft)
+            .await
+            .unwrap(),
+        next
+    );
+
+    // A node behind what this device has seen is not trusted with a publish.
+    laptop.own_profile_age(next.version + 1, 1_000).unwrap();
+    let failure = publish::publish(&laptop, &mut alice.node, &alice.identity, &next)
+        .await
+        .unwrap_err();
+    assert!(matches!(failure, Failure::Node(_)), "{failure}");
+    assert_eq!(alice.node.get_profile(&owner).await.unwrap().profile, next);
+
+    // A withdrawal goes past everything, from a draft however old.
+    let kept = publish::withdraw(&laptop, &mut alice.node, &alice.identity, &edited)
+        .await
+        .unwrap();
+    assert_eq!(kept.version, next.version + 2);
+    let tombstone = alice.node.get_profile(&owner).await.unwrap().profile;
+    assert!(tombstone.deleted);
+    assert_eq!(tombstone.version, kept.version);
 }

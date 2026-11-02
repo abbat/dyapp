@@ -9,27 +9,7 @@ const KEY: &str = "own_profile_seen";
 impl Store {
     /// Seconds since this device first saw own profile `version` or a newer one, 0 the first time.
     pub fn own_profile_age(&self, version: u64, now: u64) -> Result<u64, Error> {
-        let row: Option<(u32, Vec<u8>)> = self
-            .db
-            .query_row(
-                "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
-                [KEY],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()?;
-        let seen = match row {
-            None => None,
-            Some((1, value)) => {
-                let value: [u8; 16] = value.try_into().map_err(|_| Error::InvalidSetting)?;
-                let (held, at) = value.split_at(8);
-                Some((
-                    u64::from_be_bytes(held.try_into().unwrap_or_default()),
-                    u64::from_be_bytes(at.try_into().unwrap_or_default()),
-                ))
-            }
-            Some(_) => return Err(Error::InvalidSetting),
-        };
-        if let Some((held, at)) = seen {
+        if let Some((held, at)) = self.own_profile_row()? {
             if held >= version {
                 return Ok(now.saturating_sub(at));
             }
@@ -42,6 +22,34 @@ impl Store {
         )?;
         Ok(0)
     }
+
+    /// The newest own profile version this device has seen, 0 before the first.
+    pub fn own_profile_seen(&self) -> Result<u64, Error> {
+        Ok(self.own_profile_row()?.map_or(0, |(version, _)| version))
+    }
+
+    fn own_profile_row(&self) -> Result<Option<(u64, u64)>, Error> {
+        let row: Option<(u32, Vec<u8>)> = self
+            .db
+            .query_row(
+                "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
+                [KEY],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        match row {
+            None => Ok(None),
+            Some((1, value)) => {
+                let value: [u8; 16] = value.try_into().map_err(|_| Error::InvalidSetting)?;
+                let (held, at) = value.split_at(8);
+                Ok(Some((
+                    u64::from_be_bytes(held.try_into().unwrap_or_default()),
+                    u64::from_be_bytes(at.try_into().unwrap_or_default()),
+                )))
+            }
+            Some(_) => Err(Error::InvalidSetting),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -53,7 +61,9 @@ mod tests {
         let identity = Identity::generate();
         let path = std::env::temp_dir().join(format!("dyapp-own-seen-{}.db", identity.peer_id()));
         let store = super::Store::open(&path, &identity).unwrap();
+        assert_eq!(store.own_profile_seen().unwrap(), 0);
         assert_eq!(store.own_profile_age(3, 1_000).unwrap(), 0);
+        assert_eq!(store.own_profile_seen().unwrap(), 3);
         assert_eq!(store.own_profile_age(3, 1_400).unwrap(), 400);
         assert_eq!(store.own_profile_age(2, 1_500).unwrap(), 500);
         assert_eq!(store.own_profile_age(4, 1_600).unwrap(), 0);

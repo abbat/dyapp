@@ -767,6 +767,11 @@ const profileFailure = (error) => {
   if (code === 'cancelled') return profileMessage('profile.cancelled');
   if (code.startsWith('blocked: ')) return profileMessage(`profile.problem.${code.slice(9)}`);
   if (['notConnected', 'full'].includes(code)) return profileMessage(`profile.${code}`);
+  // The saved draft is now what the other device published.
+  if (code === 'changed') {
+    return showProfile().then(() => profileMessage('profile.changed'),
+      (failed) => profileMessage('profile.publishFailed', String(failed)));
+  }
   profileMessage('profile.publishFailed', code);
 };
 profileForm.addEventListener('input', () => { if (!profileBusy) profileMessage('profile.draft'); });
@@ -836,7 +841,7 @@ const confirmPublish = async (call = invoke) => {
     showHidden(published);
     profileMessage('profile.published', String(published.published));
   } catch (error) {
-    if (identityCurrent(generation)) profileFailure(error);
+    if (identityCurrent(generation)) await profileFailure(error);
   } finally {
     clearInterval(timer);
     if (identityCurrent(generation)) {

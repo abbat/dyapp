@@ -400,6 +400,10 @@ no package is silently extended by a profile heartbeat. If all ordinary packages
 holders are unreachable, use the last-resort package; if it too is absent, first contact waits
 for refill. Node eviction and malicious withholding remain denial-of-service risks.
 
+Two devices sign one profile, so a client fetches the owner's profile before each publish. A
+newer one replaces the local draft and the publish stops, so the owner sees it first; a node
+behind the newest version this device has seen is refused.
+
 Removing a device means publishing a higher-version profile without its certificate. Nodes
 refuse new package publications for it and stop serving its packages after they learn the new
 version; clients reject its packages and remove it from MLS groups as soon as they learn the new

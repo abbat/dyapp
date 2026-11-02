@@ -578,6 +578,25 @@ States: `chats` and `chat-menu` in both languages at 440 and 1280 px.
 
 Findings: none open.
 
+### Publish conflict review (2026-11-02)
+
+States: `profile` after a publish that met a newer own profile, by the UI test (no prototype state:
+the screen is the same form with one status line).
+
+1. Visibility: the status line says what happened and the form already shows the newest profile.
+2. Real world: "another device" is the owner's word; versions stay out of the text.
+3. Control: nothing was published, so nothing needs undoing; the owner edits and publishes again.
+4. Consistency: the same status line as every other publish failure.
+5. Error prevention: the form reloads, so a second click on Publish cannot overwrite the other edit.
+6. Recognition: the reloaded form is the state to compare with, so nothing has to be remembered.
+7. Flexibility: not applicable, one outcome.
+8. Minimalism: one sentence and no new control.
+9. Error recovery: the sentence names the next step. An unpublished edit is replaced, so it says to
+   make the change again; if the reload itself fails, the publish failure line shows the reason.
+10. Help: the sentence is the explanation.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

@@ -323,6 +323,13 @@ const checkProfilePhotos = async () => {
   profileFailure('full');
   if (status.textContent !== strings['profile.full']) throw new Error('a full node was not named');
   await showProfile();
+  const kept = document.getElementById('birth-year').value;
+  document.getElementById('birth-year').value = '1971';
+  await profileFailure('changed');
+  if (status.textContent !== strings['profile.changed']
+    || document.getElementById('birth-year').value !== kept) {
+    throw new Error('a profile from another device was not shown in place of the edit');
+  }
 };
 // Other people's photos: lists ask only for thumbnails, the view for full images under the download
 // setting, and a refused blob keeps the letters and is asked for again on the next view.

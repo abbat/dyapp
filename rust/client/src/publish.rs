@@ -78,7 +78,10 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 }
 
 /// Publish `draft` (version: the last one published) to `node` at the next version and read it
-/// back. Succeeds only when the signed readback equals the published profile, which is then
+/// back. A profile another device published first is never overwritten: it replaces the saved
+/// draft and the publish fails with [`Failure::Missed`]. A node holding less than this device has
+/// seen is refused, since it may have lost a device list change.
+/// Succeeds only when the signed readback equals the published profile, which is then
 /// saved as the draft and held for search ([`Store::hold_search_profile`]); on failure the draft
 /// is unchanged and the publish may be retried. A hidden profile is shown again. Photos reach the
 /// node first, so the profile never lists a blob the node has refused; blobs the published profile
@@ -93,6 +96,21 @@ pub async fn publish(
         version: draft.version + 1,
         ..draft.clone()
     };
+    let held = newest(node, identity).await?;
+    let seen = held.as_ref().map_or(0, |held| held.version);
+    if store.own_profile_seen()? > seen.max(draft.version) {
+        return Err(Error::Reply("the node holds an older own profile").into());
+    }
+    if let Some(held) = held {
+        // Hiding moves the draft past the live profile, so an equal version came from elsewhere,
+        // unless it is the tombstone `withdraw` left here.
+        let ours = Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits);
+        let foreign = held.version == draft.version && held != ours && store.profile_hidden()?;
+        if held != next && (held.version > draft.version || foreign) {
+            store.save_profile_draft(&held)?;
+            return Err(Failure::Missed);
+        }
+    }
     let hashes = photo_hashes(&next);
     if !hashes.is_empty() || store.has_profile_photos()? {
         upload_photos(store, node, identity, next.version, &hashes).await?;
@@ -103,6 +121,15 @@ pub async fn publish(
     store.hold_search_profile(&profile.sign(identity))?;
     store.set_profile_hidden(false)?;
     Ok(profile)
+}
+
+// The owner's profile at `node`, if it has one.
+async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
+    match node.get_profile(&identity.peer_id()).await {
+        Ok(held) => Ok(Some(held.profile)),
+        Err(Error::Status(Status::NotFound)) => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
@@ -207,7 +234,9 @@ pub async fn withdraw(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    let next = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
+    let held = newest(node, identity).await?.map_or(0, |held| held.version);
+    let version = draft.version.max(held).max(store.own_profile_seen()?) + 1;
+    let next = Profile::tombstone(version, draft.pow_nonce, draft.pow_bits);
     let tombstone = send(node, identity, next).await?;
     if store.has_profile_photos()? {
         // Best effort: an unrefreshed list expires with the owner's inactivity anyway.
@@ -223,23 +252,14 @@ pub async fn withdraw(
     Ok(draft)
 }
 
-// Publish `profile` to `node` and read it back; a newer version held there moves it past that.
-async fn send(
-    node: &mut Node,
-    identity: &Identity,
-    mut profile: Profile,
-) -> Result<Profile, Error> {
+// Publish `profile` to `node` and read it back. Refused as stale unless the node holds this same
+// profile, from a publish whose reply was lost.
+async fn send(node: &mut Node, identity: &Identity, profile: Profile) -> Result<Profile, Error> {
     let peer_id = identity.peer_id();
     match node.publish_profile(profile.sign(identity)).await {
         Ok(()) => {}
-        // A lost reply to this same publish, or a newer version from another device.
-        Err(Error::Status(Status::Stale)) => {
-            let held = node.get_profile(&peer_id).await?.profile;
-            if held != profile {
-                profile.version = held.version + 1;
-                node.publish_profile(profile.sign(identity)).await?;
-            }
-        }
+        Err(Error::Status(Status::Stale))
+            if node.get_profile(&peer_id).await?.profile == profile => {}
         Err(error) => return Err(error),
     }
     if node.get_profile(&peer_id).await?.profile != profile {
@@ -248,7 +268,7 @@ async fn send(
     Ok(profile)
 }
 
-/// Why [`publish`] failed; both are retryable.
+/// Why [`publish`] failed; all are retryable.
 #[derive(Debug, thiserror::Error)]
 pub enum Failure {
     /// The node refused, did not answer, or read back something else.
@@ -257,6 +277,10 @@ pub enum Failure {
     /// The published profile could not be saved locally.
     #[error(transparent)]
     Store(#[from] store::Error),
+    /// Another device published first. Its profile is now the saved draft, so the owner sees it
+    /// before publishing again; unpublished edits on this device give way to it.
+    #[error("the profile changed on another device")]
+    Missed,
 }
 
 #[cfg(test)]
@@ -487,10 +511,13 @@ mod tests {
                 .profile
                 .deleted
         );
+        // Its own tombstone is no conflict: the kept draft comes back.
+        let back = publish(&store, &mut node, &alice, &removed).await.unwrap();
+        assert_eq!((back.version, back.gender), (5, shown.gender));
     }
 
     #[tokio::test]
-    async fn a_newer_version_from_another_device_is_superseded() {
+    async fn a_newer_version_from_another_device_replaces_the_draft() {
         let alice = Identity::generate();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
@@ -499,14 +526,14 @@ mod tests {
             gender: dyapp_profile::Gender::Man.code(),
             ..Profile::default()
         };
-        *held.lock().unwrap() = Some(other.sign(&alice));
-        let published = publish(&store, &mut node, &alice, &draft(None, None, None))
-            .await
-            .unwrap();
-        assert_eq!(
-            (published.version, published.gender),
-            (6, dyapp_profile::Gender::Woman.code())
-        );
+        let record = other.sign(&alice);
+        *held.lock().unwrap() = Some(record.clone());
+        assert!(matches!(
+            publish(&store, &mut node, &alice, &draft(None, None, None)).await,
+            Err(Failure::Missed)
+        ));
+        assert_eq!(store.profile_draft().unwrap(), Some(other));
+        assert_eq!(held.lock().unwrap().clone(), Some(record));
     }
 
     #[test]

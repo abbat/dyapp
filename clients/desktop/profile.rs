@@ -377,6 +377,7 @@ pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
 fn publish_code(failure: publish::Failure) -> String {
     match failure {
         publish::Failure::Node(dyapp_client::Error::Status(Status::Full)) => "full".into(),
+        publish::Failure::Missed => "changed".into(),
         failure => failure.to_string(),
     }
 }
