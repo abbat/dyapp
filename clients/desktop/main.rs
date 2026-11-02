@@ -914,6 +914,8 @@ fn main() {
             chat_photos::chat_photo_auto,
             chat_photos::auto_download_mode,
             chat_photos::set_auto_download_mode,
+            chat_photos::kept_originals_mib,
+            chat_photos::set_kept_originals_mib,
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
             chats::send_photo::send_chat_photo,

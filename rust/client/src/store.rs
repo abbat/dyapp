@@ -18,6 +18,7 @@ mod last_resort;
 mod likes;
 mod mailbox_cursor;
 pub mod messages;
+pub mod originals;
 mod outbox;
 mod peers;
 mod presence;

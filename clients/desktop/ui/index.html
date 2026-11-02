@@ -477,6 +477,14 @@
             <label class="choice"><input type="radio" name="photo-mode" value="onTap">
               <span data-i18n="photos.onTap"></span></label>
           </fieldset>
+          <fieldset><legend data-i18n="photos.keep"></legend>
+            <label class="choice"><input type="radio" name="photo-keep" value="0">
+              <span data-i18n="photos.keepOff"></span></label>
+            <label class="choice"><input type="radio" name="photo-keep" value="256">
+              <span data-i18n="photos.keep256"></span></label>
+            <label class="choice"><input type="radio" name="photo-keep" value="1024">
+              <span data-i18n="photos.keep1024"></span></label>
+          </fieldset>
           <p id="photo-mode-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="photos.hint"></p>
         </form>
@@ -605,6 +613,14 @@
       <button id="chat-clear-confirm" class="btn danger" type="button" data-i18n="chats.clear"></button>
     </div>
   </dialog>
+  <dialog id="photo-keep-dialog" class="modal" aria-labelledby="photo-keep-title" hidden>
+    <h2 id="photo-keep-title" data-i18n="photos.keepEraseTitle"></h2>
+    <p data-i18n="photos.keepEraseWarning"></p>
+    <div class="actions">
+      <button id="photo-keep-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="photo-keep-confirm" class="btn danger" type="button" data-i18n="photos.keepErase"></button>
+    </div>
+  </dialog>
   <dialog id="verify-dialog" class="modal" aria-labelledby="verify-title" hidden>
     <h2 id="verify-title" data-i18n="verify.title"></h2>
     <p data-i18n="verify.text"></p>
@@ -658,6 +674,7 @@
   <script src="remove.js"></script>
   <script src="search.js"></script>
   <script src="chats-ui.js"></script>
+  <script src="photo-settings.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>
   <script src="peer-photos.js"></script>

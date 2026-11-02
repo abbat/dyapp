@@ -87,10 +87,9 @@ pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
     (width as u32, height as u32)
 }
 
-/// Encrypts `plaintext` under a fresh key; returns its [`Attachment`] and the blob to upload.
-pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
-    let key = random()?;
-    let cipher = Aes256Gcm::new(&key.into());
+// Chunked AES-256-GCM. `key` must not seal different bytes twice: the nonces are the chunk indexes.
+pub(crate) fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, Error> {
+    let cipher = Aes256Gcm::new(key.into());
     let count = plaintext.len().div_ceil(CHUNK_BYTES).max(1);
     let mut blob = Vec::with_capacity(plaintext.len() + count * TAG_BYTES);
     for index in 0..count {
@@ -103,6 +102,13 @@ pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
             .map_err(|_| Error::Attachment("encryption failed"))?;
         blob.extend_from_slice(&sealed);
     }
+    Ok(blob)
+}
+
+/// Encrypts `plaintext` under a fresh key; returns its [`Attachment`] and the blob to upload.
+pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
+    let key = random()?;
+    let blob = encrypt(&key, plaintext)?;
     let attachment = Attachment {
         key,
         plaintext_sha256: sha256(plaintext),
@@ -123,7 +129,15 @@ pub fn open(attachment: &Attachment, blob: &[u8]) -> Result<Vec<u8>, Error> {
     if sha256(blob) != attachment.blob_sha256 {
         return Err(Error::Attachment("blob hash mismatch"));
     }
-    let cipher = Aes256Gcm::new(&attachment.key.into());
+    let plaintext = decrypt(&attachment.key, blob)?;
+    if sha256(&plaintext) != attachment.plaintext_sha256 {
+        return Err(Error::Attachment("plaintext hash mismatch"));
+    }
+    Ok(plaintext)
+}
+
+pub(crate) fn decrypt(key: &[u8; 32], blob: &[u8]) -> Result<Vec<u8>, Error> {
+    let cipher = Aes256Gcm::new(key.into());
     let chunks: Vec<&[u8]> = blob.chunks(CHUNK_BYTES + TAG_BYTES).collect();
     if chunks.is_empty() {
         return Err(Error::Attachment("empty blob"));
@@ -136,9 +150,6 @@ pub fn open(attachment: &Attachment, blob: &[u8]) -> Result<Vec<u8>, Error> {
             .decrypt(&nonce(index), Payload { msg: chunk, aad })
             .map_err(|_| Error::Attachment("chunk does not decrypt"))?;
         plaintext.extend_from_slice(&opened);
-    }
-    if sha256(&plaintext) != attachment.plaintext_sha256 {
-        return Err(Error::Attachment("plaintext hash mismatch"));
     }
     Ok(plaintext)
 }

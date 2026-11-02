@@ -240,6 +240,7 @@ const drawPhoto = async (canvas, bytes, mime, side) => {
 };
 const photoCaption = (photo) => {
   const parts = [window.strings['chats.photo'], photo.mime, sizeText(photo.size)];
+  if (photo.kept) return parts.join(' · ');
   if (photo.hoursLeft === 0) parts.push(window.strings['chats.photoExpired']);
   else if (photo.hoursLeft) {
     parts.push(window.strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
@@ -308,6 +309,7 @@ const photoBubble = (message, peerId, blurred, call) => {
   canvas.setAttribute('aria-label', window.strings['chats.photo']);
   box.append(canvas, caption, status);
   box.canvas = canvas;
+  box.kept = photo.kept;
   photoBoxes.set(key, box);
   const kept = photoOriginals.get(key);
   if (kept) {
@@ -326,7 +328,7 @@ const photoBubble = (message, peerId, blurred, call) => {
     if (!retry) download.remove();
   };
   const offerDownload = () => {
-    if (photo.hoursLeft === 0 || photoOriginals.has(key)) return;
+    if ((photo.hoursLeft === 0 && !photo.kept) || photoOriginals.has(key)) return;
     box.append(download);
     if (photoFetches.has(key)) box.showFetching();
     else box.fetchPhoto = fetchPhoto;
@@ -355,7 +357,7 @@ const photoBubble = (message, peerId, blurred, call) => {
 };
 // What the policy allows on this network, latest first, one at a time, among as many photos as
 // stay in memory. Asked only while something waits. A refusal forgets the tries, so a switch to an
-// unmetered network retries a failed fetch.
+// unmetered network retries a failed fetch. A kept original opens either way: it costs no network.
 const fetchAllowedPhotos = async (peerId, call) => {
   const waiting = () => [...photoBoxes].filter(([, box]) => box.isConnected)
     .slice(-MAX_KEPT_ORIGINALS).reverse()
@@ -363,11 +365,9 @@ const fetchAllowedPhotos = async (peerId, call) => {
   if (photoAutoRunning || !waiting().length) return;
   photoAutoRunning = true;
   try {
-    if (!(await call('chat_photo_auto', { peerId }).catch(() => false))) {
-      photoAutoTried.clear();
-      return;
-    }
-    for (const [key, box] of waiting()) {
+    const allowed = await call('chat_photo_auto', { peerId }).catch(() => false);
+    if (!allowed) photoAutoTried.clear();
+    for (const [key, box] of waiting().filter(([, item]) => allowed || item.kept)) {
       if (photoOriginalsPeer !== peerId) return;
       photoAutoTried.add(key);
       await box.fetchPhoto();
@@ -376,26 +376,6 @@ const fetchAllowedPhotos = async (peerId, call) => {
     photoAutoRunning = false;
   }
 };
-// Settings → Photos: stored per identity on this device, saved on every change.
-const photoModeInputs = () => [...document.querySelectorAll('input[name="photo-mode"]')];
-const photoModeError = document.getElementById('photo-mode-error');
-const showPhotoMode = async (call = invoke) => {
-  const generation = identityGeneration;
-  const mode = await call('auto_download_mode').catch(() => null);
-  if (!identityCurrent(generation)) return;
-  photoModeError.hidden = mode !== null;
-  for (const input of photoModeInputs()) input.checked = input.value === mode;
-};
-document.getElementById('photo-mode').addEventListener('change', (event) => {
-  const generation = identityGeneration;
-  window.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
-    () => { if (identityCurrent(generation)) photoModeError.hidden = true; },
-    () => { if (identityCurrent(generation)) photoModeError.hidden = false; },
-  );
-});
-document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail === 'settings') window.photoModeShown = showPhotoMode();
-});
 const chatRow = (row) => {
   const button = document.createElement('button');
   button.type = 'button';

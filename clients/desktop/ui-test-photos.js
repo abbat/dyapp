@@ -152,6 +152,18 @@ const checkChatPhoto = async () => {
   await seen(() => waiting().querySelector('canvas').width === 8);
   if (downloads.length) throw new Error('the allowed photo was not fetched');
 
+  // A kept original needs no node: no expiry in its caption, and it opens under any policy.
+  autoAllowed = false;
+  downloads.push(original);
+  messages.splice(1, 1, entry(current.peerId, 5, {
+    ...photo, preview: [], hoursLeft: 0, kept: true,
+  }));
+  await openChat(peer, call);
+  if (waiting().textContent.includes(strings['chats.photoExpired'])) {
+    throw new Error('a kept original showed as expired');
+  }
+  await seen(() => waiting().querySelector('canvas').width === 8);
+
   if (document.getElementById('chat-attach').hidden) throw new Error('an open chat hid Attach');
   const secret = [...new TextEncoder().encode('GPS-SECRET')];
   const plain = [...new Uint8Array(original)];
@@ -189,6 +201,25 @@ const checkChatPhoto = async () => {
   await shot('settings-photos');
   mode('byNetwork').click();
   await window.photoModeSaved;
+
+  const keep = (value) => document.querySelector(`input[name="photo-keep"][value="${value}"]`);
+  const dialog = document.getElementById('photo-keep-dialog');
+  if (!keep(256).checked) throw new Error('kept originals did not default to 256 MiB');
+  keep(1024).click();
+  await window.photoModeSaved;
+  if (dialog.open || await invoke('kept_originals_mib') !== 1024) {
+    throw new Error('a higher limit was not saved at once');
+  }
+  keep(256).click();
+  if (!dialog.open) throw new Error('a lower limit did not ask first');
+  document.getElementById('photo-keep-cancel').click();
+  await seen(() => keep(1024).checked);
+  if (await invoke('kept_originals_mib') !== 1024) throw new Error('Cancel changed the limit');
+  keep(256).click();
+  document.getElementById('photo-keep-confirm').click();
+  await window.photoModeSaved;
+  await seen(() => keep(256).checked);
+  if (await invoke('kept_originals_mib') !== 256) throw new Error('the lower limit was not saved');
 };
 // The profile editor: the status line for a bad file, adding, the limit at six, moving with focus
 // kept, removal behind its dialog, the form busy state, and the photo line of the publish dialog.

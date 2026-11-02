@@ -1,10 +1,11 @@
-//! The original of one chat photo, fetched on a tap. It stays in memory: the page keeps it for the
-//! open chat and nothing decrypted reaches the disk. The automatic path asks [`chat_photo_auto`]
+//! The original of one chat photo, fetched on a tap. The page keeps it for the open chat, and this
+//! device keeps it sealed in [`originals`] up to the limit in Settings, so the same command answers
+//! from there after a restart or the nodes' retention. The automatic path asks [`chat_photo_auto`]
 //! and then fetches through the same command.
 
 use crate::{chats, profile};
 use dyapp_client::attachment::{self, Attachment, AutoDownload};
-use dyapp_client::store::Conversation;
+use dyapp_client::store::{originals, Conversation};
 use dyapp_client::Error;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -62,6 +63,7 @@ fn code(error: Error) -> String {
 }
 
 async fn original(
+    root: &Path,
     dir: &Path,
     identity: &Identity,
     peer_id: &str,
@@ -69,6 +71,10 @@ async fn original(
     id: &[u8; 16],
 ) -> Result<Vec<u8>, String> {
     let photo = stored(dir, identity, peer_id, author, id)?;
+    let seal_key = crate::sealing_key(root, dir, &chats::open(dir, identity)?)?;
+    if let Some(bytes) = originals::read(dir, &seal_key, &photo) {
+        return Ok(bytes);
+    }
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
@@ -78,13 +84,34 @@ async fn original(
     }
     let bytes = attachment::fetch(&mut nodes, &photo).await.map_err(code)?;
     check_image(&bytes)?;
+    // The photo is on screen either way, and a later tap fetches it again while nodes hold it.
+    if let Err(error) = keep(dir, identity, &seal_key, &photo, &bytes) {
+        eprintln!("original not kept: {error}");
+    }
     Ok(bytes)
 }
 
-/// Downloads, opens and checks one photo; a tap may fetch a stranger's. Errors are `notFound` when
+fn keep(
+    dir: &Path,
+    identity: &Identity,
+    seal_key: &[u8; 32],
+    photo: &Attachment,
+    bytes: &[u8],
+) -> Result<(), String> {
+    let store = chats::open(dir, identity)?;
+    if store.kept_originals_mib().map_err(|e| e.to_string())? > 0 {
+        originals::keep(dir, seal_key, photo, bytes).map_err(|e| e.to_string())?;
+        store.sweep_originals(dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Answers from a kept original, or downloads, opens and checks one photo; a tap may fetch a
+/// stranger's. Errors are `notFound` when
 /// no node holds it, `corrupted` when it fails its checks, `notConnected` or a retryable message.
 #[tauri::command]
 pub(crate) async fn chat_photo_original(
+    app: tauri::AppHandle,
     state: tauri::State<'_, crate::IdentityState>,
     peer_id: String,
     author: String,
@@ -92,9 +119,10 @@ pub(crate) async fn chat_photo_original(
 ) -> Result<tauri::ipc::Response, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
+    let root = crate::config_dir(&app)?;
     let bytes = tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        tauri::async_runtime::block_on(original(&dir, &identity, &peer_id, &author, &id))
+        tauri::async_runtime::block_on(original(&root, &dir, &identity, &peer_id, &author, &id))
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -192,6 +220,33 @@ pub(crate) fn set_auto_download_mode(
     chats::open(dir, identity)?
         .set_auto_download(parse_mode(&mode)?)
         .map_err(|e| e.to_string())
+}
+
+/// Settings → Photos: the limit for originals kept on this device, in MiB.
+#[tauri::command]
+pub(crate) fn kept_originals_mib(
+    state: tauri::State<'_, crate::IdentityState>,
+) -> Result<u32, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    chats::open(dir, identity)?
+        .kept_originals_mib()
+        .map_err(|e| e.to_string())
+}
+
+/// A lower limit erases what no longer fits at once.
+#[tauri::command]
+pub(crate) fn set_kept_originals_mib(
+    state: tauri::State<'_, crate::IdentityState>,
+    mib: u32,
+) -> Result<(), String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = chats::open(dir, identity)?;
+    store
+        .set_kept_originals_mib(mib)
+        .map_err(|e| e.to_string())?;
+    store.sweep_originals(dir).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

@@ -307,7 +307,7 @@ Scope: Settings → Photos and the automatic fetch in an open chat, in EN and RU
 8. Minimalism: one question, one hint.
 9. Error recovery: a failed automatic fetch keeps the Download button; a failed save shows the
    storage error and the next change retries.
-10. Help: the hint says what happens after 7 days and that originals are not saved here.
+10. Help: the hint says what happens after 7 days and how opened originals are kept here.
 
 No open findings.
 
@@ -499,6 +499,26 @@ Findings: none open.
 - Accessibility: a thumbnail drawn with a photo no longer holds hidden letters, and one without a
   photo says its letters first, so the spoken name always contains the visible text.
 - Consistency: the thumbnails look the same; only their names changed.
+
+Findings: none open.
+
+### Kept originals review (2026-11-02)
+
+1. Visibility of system status: a kept photo drops the expiry from its caption and opens by itself;
+   the limit shows as the selected radio.
+2. Match with the real world: sizes use the same units as message sizes, and the choice names what
+   is kept ("opened originals") and where ("on this computer").
+3. User control: Cancel in the dialog restores the selected limit; a higher limit saves at once.
+4. Consistency: a fieldset and radios beside the download mode, and the danger dialog of Clear chat.
+5. Error prevention: a lower limit erases at once and past the retention for good, so it asks first
+   and focuses Cancel.
+6. Recognition: all three limits are visible.
+7. Flexibility: the default works without a visit to Settings.
+8. Minimalism: no per-chat choice and no cache browser; the hint and the dialog each say one thing.
+9. Error recovery: a failed save shows the storage error and restores the saved limit; a torn file
+   counts as not kept, and the photo downloads again while nodes hold it.
+10. Help: the hint covers where originals stay, the limit and Clear chat; the dialog says why the
+    erasure cannot be undone.
 
 Findings: none open.
 

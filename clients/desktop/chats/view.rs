@@ -2,7 +2,9 @@
 
 use dyapp_client::attachment::{hours_left, layout_size};
 use dyapp_client::store::messages::{ChatAttachment, ChatItem, ChatMessage, DeliveryState};
+use dyapp_client::store::originals;
 use dyapp_client::store::Conversation;
+use std::path::Path;
 
 /// Conversation states exposed to the desktop without the request's internal message ID.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
@@ -56,6 +58,11 @@ pub struct PhotoView {
     pub size: u64,
     /// Whole hours until nodes drop the original, set in history once under a day remains.
     pub hours_left: Option<u32>,
+    /// This device keeps the original, so it opens without a node; set in history.
+    pub kept: bool,
+    /// Finds the kept original. Stays in the backend.
+    #[serde(skip)]
+    pub blob: [u8; 32],
     /// The bounded JPEG preview, empty in a list row and when the sender gave none.
     pub preview: Vec<u8>,
 }
@@ -126,6 +133,8 @@ impl From<ChatAttachment> for MessageView {
                 height,
                 size: attachment.size,
                 hours_left: None,
+                kept: false,
+                blob: attachment.blob_sha256,
                 preview: attachment.preview,
             }),
         }
@@ -143,10 +152,11 @@ impl From<ChatItem> for MessageView {
 
 const HOUR_MS: i64 = 3_600_000;
 
-/// Label the photos of a history with the time left of their originals.
-pub(super) fn mark_expiry(views: &mut [MessageView], now_ms: u64) {
+/// Label the photos of a history with the time left of their originals and those kept here.
+pub(super) fn mark_photos(views: &mut [MessageView], now_ms: u64, dir: &Path) {
     for view in views {
         if let (Some(photo), Some(sent)) = (&mut view.photo, view.sent_at_ms) {
+            photo.kept = originals::is_kept(dir, &photo.blob);
             // Round up, so that 0 means gone and not the last hour. HLC wall time and the clock
             // both fit i64 for millions of years.
             photo.hours_left = hours_left(sent as i64 + HOUR_MS - 1, now_ms as i64);
@@ -192,10 +202,11 @@ pub struct ChatHistoryView {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_item, mark_expiry, DeliveryView, MessageView};
+    use super::{last_item, mark_photos, DeliveryView, MessageView};
     use dyapp_client::attachment::Attachment;
     use dyapp_client::chat::AttachmentMessage;
     use dyapp_client::store::messages::{ChatAttachment, MessageKey};
+    use std::path::Path;
 
     #[test]
     fn message_view_keeps_legacy_time_absent_and_uses_safe_wall_time() {
@@ -264,7 +275,7 @@ mod tests {
         fields.sort_unstable();
         assert_eq!(
             fields,
-            ["height", "hoursLeft", "mime", "preview", "size", "width"]
+            ["height", "hoursLeft", "kept", "mime", "preview", "size", "width"]
         );
         assert_eq!(json["photo"]["preview"], serde_json::json!([7, 8]));
         for secret in ["201", "202", "203", "204"] {
@@ -285,7 +296,7 @@ mod tests {
             (5 + 168 * hour - 1, Some(1)),
             (5 + 168 * hour, Some(0)),
         ] {
-            mark_expiry(&mut views, now);
+            mark_photos(&mut views, now, Path::new("/nonexistent"));
             assert_eq!(views[0].photo.as_ref().unwrap().hours_left, left);
         }
     }

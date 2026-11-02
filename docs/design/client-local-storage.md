@@ -64,6 +64,14 @@ Session receive commits allowed attachments with the sealed MLS snapshot, inbox 
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS
 snapshot and exact outbox writes together before network delivery.
+Originals of photos this device opened live beside the Store, in `originals/` of the identity's
+folder, one file per blob hash (`store::originals`). The Store holds each attachment's key in the
+clear, so a file is sealed anew under a key derived from the identity's sealing secret and the blob
+hash, and a read checks it against the descriptor's plaintext hash; a torn or foreign file is
+removed. `Store::sweep_originals` runs after each keep, Clear chat and limit change: it removes files
+no `chat_attachments` row names, then the least recently read past the `kept_originals` setting
+(off, 256 MiB by default, or 1 GiB). Removing an identity removes the folder.
+
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
 

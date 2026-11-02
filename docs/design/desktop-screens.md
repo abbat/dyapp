@@ -257,10 +257,13 @@ A send error keeps an unstaged draft; if the text was already staged locally, th
 in history and reports pending delivery. A verified Found profile's Message action opens an
 empty first-message detail; after one send it becomes a sent request and disables the composer.
 A received photo shows its local preview over a caption with its type, size and, in the last day
-of the 168-hour node retention, the time left of the original. Without a preview, or with one that
+of the 168-hour node retention, the time left of the original, unless this computer keeps it. Without a preview, or with one that
 cannot be decoded, the caption stands alone. Before the conversation is accepted, a preview stays
 blurred until Show photo. Photos offer no edit, delete or forward. Download original fetches it on a tap and shows it at
-up to 480 pixels. It stays in memory while the chat is open, so nothing decrypted reaches the disk.
+up to 480 pixels. An opened original stays sealed on this computer up to the limit in Settings →
+Photos (do not keep, 256 MiB by default, or 1 GiB), the longest unopened leaving first, and such a
+photo opens by itself in any download mode, past the retention too. A lower limit asks first, then
+erases what no longer fits at once; Clear chat erases the chat's originals.
 A failed fetch offers a retry; an original no node holds shows "No longer available", and one that
 fails its checks "This photo cannot be shown". In an open chat with an accepted person, originals
 also download by themselves under Settings → Photos: unless the network is metered or unknown (the

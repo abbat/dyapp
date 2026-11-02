@@ -184,6 +184,7 @@ mod tests {
             .all(|item| !item.unread));
         assert_eq!(store.clear_chat(&first).unwrap(), 4);
         assert_eq!(store.current_chat_attachments(&peer).unwrap().len(), 1);
+        assert_eq!(store.attachment_blobs().unwrap().len(), 1);
         assert!(store.due_outbound(0).unwrap().is_empty());
         assert!(!store
             .stage_chat_inbound(

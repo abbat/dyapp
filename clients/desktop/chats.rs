@@ -116,7 +116,7 @@ pub fn chat_history(
         .map(Into::into)
         .collect();
     reads::project_reads(&store, peer_id, &identity.peer_id(), &mut messages)?;
-    view::mark_expiry(&mut messages, presence::now_ms()?);
+    view::mark_photos(&mut messages, presence::now_ms()?, dir);
     let state = store
         .conversation(peer_id)
         .map_err(|e| e.to_string())?
@@ -147,9 +147,10 @@ pub(crate) fn open_visible_chat(dir: &Path, me: &Identity, peer_id: &str) -> Res
 
 /// Clear this peer's entire device-local history while retaining its conversation state.
 pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
-    open_visible_chat(dir, identity, peer_id)?
-        .clear_chat_pair(peer_id)
-        .map_err(|e| e.to_string())
+    let store = open_visible_chat(dir, identity, peer_id)?;
+    let removed = store.clear_chat_pair(peer_id).map_err(|e| e.to_string())?;
+    store.sweep_originals(dir).map_err(|e| e.to_string())?;
+    Ok(removed)
 }
 
 /// Mark current incoming texts in every group of a visible pair read on this device only.
