@@ -169,7 +169,7 @@
   "profile.placeTitle": "Where you live",
   "profile.more": "More about you (optional)",
   "profile.hide": "Hide from search",
-  "profile.hideHint": "Take a break without losing your draft.",
+  "profile.hideHint": "Take a break without losing your draft. Anyone with your Peer ID can still open your profile, and copies already fetched remain.",
   "profile.hiddenNotice": "Your profile is hidden. Turn the switch off to publish the saved draft again.",
   "profile.status.hidden": "Hidden from search. Your draft stays saved.",
   "profile.status.hidePending": "Hiding from search is pending. Your draft stays saved.",

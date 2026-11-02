@@ -116,6 +116,15 @@ established profiles in this bucket are subsampled before named places; newcomer
 remain subject to their separate quota ([search](../architecture/bootstrap.md#search)).
 Omitting a place therefore reduces discoverability; it does not hide the public profile.
 
+Hide from search is a pause, not erasure
+([ADR 0036](../decisions/0036-search-visibility.md)): it takes the profile out of new search
+results once a search node accepts the withdrawal, and showing the profile again reverses it. It
+protects against strangers browsing search, for example after harassment. It does not guarantee
+anything against someone who already knows the Peer ID, who can still open the public profile and
+send a request, against copies already fetched, or against old or malicious nodes. Existing chats,
+likes and requests keep working. Hiding from known contacts is not offered, because the app imports
+no contacts; a separate identity per context is the stronger separation.
+
 The whole profile is public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 every published field, including birth-date parts, location and optional sensitive fields

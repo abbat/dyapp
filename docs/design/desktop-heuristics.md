@@ -502,6 +502,23 @@ Findings: none open.
 
 Findings: none open.
 
+### Hide from search review (2026-11-02)
+
+Only the hint changed: it now says what the switch does not do.
+
+1. Visibility of system status: unchanged, the status line separates pending from hidden.
+2. Match with the real world: "take a break" names the purpose; Peer ID is the term of Settings.
+3. User control: unchanged, the switch reverses it and the draft stays.
+4. Consistency: a caption under the switch, as elsewhere in the profile.
+5. Error prevention: the hint rules out reading a pause as erasure before the switch is used.
+6. Recognition: the limit stays visible beside the control.
+7. Flexibility: unchanged.
+8. Minimalism: one sentence added, no dialog, because the action is reversible.
+9. Error recovery: unchanged, a failed withdrawal stays pending and retryable.
+10. Help: the hint is the help; the limits are in the [privacy](../security/privacy.md) page.
+
+Findings: none open.
+
 ### Kept originals review (2026-11-02)
 
 1. Visibility of system status: a kept photo drops the expiry from its caption and opens by itself;

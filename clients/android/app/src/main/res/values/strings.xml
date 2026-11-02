@@ -255,7 +255,7 @@
     <string name="profile_publishing">Publishing and verifying the result…</string>
     <string name="profile_published">Published profile verified</string>
     <string name="profile_hide">Hide from search</string>
-    <string name="profile_hide_hint">Take a break without losing your draft.</string>
+    <string name="profile_hide_hint">Take a break without losing your draft. Anyone with your Peer ID can still open your profile, and copies already fetched remain.</string>
     <string name="profile_hidden_notice">Your profile is hidden. Turn the switch off to publish the saved draft again.</string>
     <string name="profile_published_version">Version: %1$s</string>
     <string name="profile_publish_error_underage">The saved birth date may indicate an age below 18.</string>

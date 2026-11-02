@@ -96,7 +96,8 @@ previous network and its status.
 
 ## Profile
 
-`profile`: the draft with **Hide from search**. `profile-hidden`: the switch is on, a tombstone is
+`profile`: the draft with **Hide from search**, whose hint says a known Peer ID still opens the
+profile and fetched copies remain. `profile-hidden`: the switch is on, a tombstone is
 published and a notice explains how to return. `profile-dark`: the same screen in the dark theme.
 
 | Control | ID | Notes |
