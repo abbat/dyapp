@@ -342,7 +342,7 @@ over a direct path.
 | Closed notice | `chat-closed-notice` | `chat-closed` only |
 | New-device notice | `chat-new-device-notice` | `chat-new-device` only; stays until acknowledged |
 | I understand | `chat-new-device-ack` | Ends the notice, keeps the mark off |
-| History notice | `chat-linked-notice` | `chat-linked` only: a linked device reads a chat from the moment it joined |
+| History notice | `chat-linked-notice` | `chat-linked` only: every chat of a device that joined by a link, which reads it from that moment |
 | Request notice | `chat-request-notice` | `chat-request` only |
 | Block | `request-block` | In the request notice |
 | Message actions | `msg-menu` | Edit and Delete on own messages |

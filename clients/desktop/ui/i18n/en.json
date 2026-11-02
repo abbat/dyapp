@@ -383,6 +383,7 @@
   "chats.requestNotice": "Replying opens the conversation.",
   "chats.closedNotice": "You no longer match, so this chat is closed. A new match reopens it.",
   "chats.newDevice": "This person's profile lists a new device, and they are not marked verified. Unless they told you about it, open their profile from Search and compare the safety number.",
+  "chats.linked": "This device reads this chat from the moment it joined. Earlier messages stay on your other devices.",
   "chats.newDevice.ack": "I understand",
   "chats.newDevice.failed": "Could not dismiss the notice. Try again.",
   "chats.message": "Message",

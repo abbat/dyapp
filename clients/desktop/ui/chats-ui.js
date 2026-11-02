@@ -450,6 +450,13 @@ const showNewDevice = (peerId) => {
   newDeviceNotice.hidden = peerId === null;
 };
 // A failed read keeps what is shown; the next mail pass asks again.
+const linkedDevice = async (call) => {
+  try {
+    return await call('linked_device') === true;
+  } catch {
+    return false;
+  }
+};
 const newDeviceFlag = async (peerId, call) => {
   try {
     return await call('contact_new_device', { peerId });
@@ -538,6 +545,9 @@ const openChat = async (peerId, call = invoke) => {
     const newDevice = await newDeviceFlag(peerId, call);
     if (!currentChat()) return;
     if (newDevice !== null) showNewDevice(newDevice === true ? peerId : null);
+    const linked = await linkedDevice(call);
+    if (!currentChat()) return;
+    document.getElementById('chat-linked-notice').hidden = !linked;
     chatMessages.replaceChildren(...history.messages.map((message) => {
       const item = document.createElement('p');
       item.className = message.author === current.peerId ? 'msg out' : 'msg';

@@ -894,6 +894,7 @@ fn main() {
             link::cancel_link,
             link::poll_link,
             link::link_pending,
+            link::linked_device,
             chats::own::check_link_code,
             chats::own::list_devices,
             chats::own::send_link,

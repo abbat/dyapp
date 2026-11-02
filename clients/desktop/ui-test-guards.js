@@ -858,8 +858,26 @@ const checkLinkScreen = async () => {
     throw new Error('an unpublished identity cannot link this computer');
   }
 };
+// Every chat of a linked device says where its history starts; no chat of a first device does.
+const checkLinkedNotice = async () => {
+  const notice = document.getElementById('chat-linked-notice');
+  const peer = 'cd'.repeat(32);
+  const call = (linked) => (command) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [] });
+    if (command === 'linked_device') return Promise.resolve(linked);
+    return Promise.resolve(false);
+  };
+  await openArea('chats');
+  await openChat(peer, call(true));
+  if (notice.hidden) throw new Error('a chat on a linked device has no history notice');
+  await shot('chat-linked');
+  await openChat(peer, call(false));
+  if (!notice.hidden) throw new Error('a chat on a first device says it is linked');
+  closeChat();
+};
 globalThis.uiSmokeGuards = Object.freeze({
   checkLinkScreen,
+  checkLinkedNotice,
   checkStaleSettingsInventory, checkStaleNode, checkStaleTray, checkStaleRemovePreparation,
   checkStaleWithdrawal, checkDeviceRevoked, checkDevices, checkLinkCode, checkStaleLaunchConnection, checkStaleNetworkForm,
   checkStaleNetworkCheck, checkStaleCopy, checkStalePlaceSuggestions, removeOpened,

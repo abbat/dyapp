@@ -7,6 +7,9 @@ use rusqlite::{params, OptionalExtension};
 
 /// The `settings` row of a record's state until the linked device has listed itself.
 const PENDING: &str = "link_pending";
+/// The `settings` row of a device that joined by a link. It outlives the link: chats here start
+/// at that moment, for good.
+const LINKED: &str = "linked_device";
 
 #[derive(Clone, PartialEq, prost::Message)]
 struct LinkState {
@@ -79,6 +82,11 @@ impl Store {
     /// mailbox no longer holds the record, so a failed step must not lose it.
     pub fn set_link_pending(&self, state: &[u8]) -> Result<(), Error> {
         self.db.execute(
+            "INSERT OR IGNORE INTO `settings` (`key`, `format_version`, `value`)
+             VALUES (?1, 1, x'')",
+            [LINKED],
+        )?;
+        self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
              ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
             params![PENDING, state],
@@ -101,6 +109,15 @@ impl Store {
             Some((1, state)) => Ok(Some(state)),
             Some(_) => Err(Error::InvalidSetting),
         }
+    }
+
+    /// Whether this device joined by a link, so holds no history from before that.
+    pub fn is_linked_device(&self) -> Result<bool, Error> {
+        Ok(self.db.query_row(
+            "SELECT EXISTS (SELECT 1 FROM `settings` WHERE `key` = ?1)",
+            [LINKED],
+            |row| row.get(0),
+        )?)
     }
 
     /// Ends a link: the state now lives in the tables it was imported to.
@@ -240,6 +257,7 @@ mod tests {
     fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
         let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         assert_eq!(store.link_pending().unwrap(), None);
+        assert!(!store.is_linked_device().unwrap());
         store.set_link_pending(b"first").unwrap();
         store.set_link_pending(b"state").unwrap();
         assert_eq!(store.link_pending().unwrap().unwrap(), b"state");
@@ -253,6 +271,7 @@ mod tests {
         assert!(matches!(store.link_pending(), Err(Error::InvalidSetting)));
         store.clear_link_pending().unwrap();
         assert_eq!(store.link_pending().unwrap(), None);
+        assert!(store.is_linked_device().unwrap());
     }
 
     #[test]

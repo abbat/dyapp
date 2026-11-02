@@ -100,6 +100,15 @@ pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, Stri
     Ok(pending.is_some())
 }
 
+/// Whether the open identity came to this computer by a link.
+#[tauri::command]
+pub fn linked_device(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active();
+    let store = crate::profile::open(dir, identity)?;
+    store.is_linked_device().map_err(|e| e.to_string())
+}
+
 async fn receive(pending: &mut Pending, now: u64) -> Result<Option<Linked>, String> {
     let active = network::load(&pending.dir, Settings::Active)
         .map_err(|e| e.to_string())?
