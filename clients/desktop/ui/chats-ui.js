@@ -319,6 +319,12 @@ document.addEventListener('dyapp:identity-change', () => {
   likedList.replaceChildren();
   document.getElementById('chats-liked-count').textContent = '0';
 });
+// The next view or mail pass retries a receipt that did not go out.
+const sendRead = async (peerId, call) => {
+  try {
+    await call('send_read_receipts', { peerId });
+  } catch { /* the page shows nothing for a background receipt */ }
+};
 const openChat = async (peerId, call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
@@ -357,10 +363,11 @@ const openChat = async (peerId, call = invoke) => {
         host.textContent = ` · ${window.strings['chats.linkHost']}: ${hosts.join(', ')}`;
         item.append(host);
       }
-      if (message.author === current.peerId && message.delivery) {
+      const status = message.read ? 'read' : message.delivery;
+      if (message.author === current.peerId && status) {
         const delivery = document.createElement('span');
         delivery.className = 'caption';
-        delivery.textContent = ` · ${window.strings[`chats.delivery.${message.delivery}`] || ''}`;
+        delivery.textContent = ` · ${window.strings[`chats.delivery.${status}`] || ''}`;
         item.append(delivery);
       }
       if (message.edited && !message.deleted) {
@@ -413,9 +420,11 @@ const openChat = async (peerId, call = invoke) => {
     chatOverview.hidden = true;
     chatDetail.hidden = false;
     chatsMessage('chats.ready');
-    if (history.state === 'none') return;
+    // A mail pass behind a hidden window is not reading; visibilitychange re-runs this.
+    if (history.state === 'none' || document.hidden) return;
     await call('mark_chat_read', { peerId });
     if (!currentChat()) return;
+    window.chatRead = sendRead(peerId, call);
     const rows = await call('chat_rows');
     if (!currentChat()) return;
     renderChatRows(rows);
@@ -716,6 +725,9 @@ window.mailUpdated = async (changed, call = invoke) => {
     window.chatsDone = window.showChats(call);
   }
 };
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) window.mailUpdated(0);
+});
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));

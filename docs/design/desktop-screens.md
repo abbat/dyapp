@@ -246,6 +246,10 @@ warns that the peer, nodes, other devices and backups may keep copies. The local
 terminal placeholder after deletion, including when network delivery remains pending. Own
 messages show a persisted pending, accepted-by-node or received-by-one-device label; node
 acceptance does not imply peer delivery, and none of these labels claims the message was read.
+A live own text covered by the peer's read receipt shows Read instead. The label appears only if
+the peer turned receipts on, so its absence says nothing; see
+[read receipts](read-receipts.md). Opening a chat counts as reading only while the window is
+visible.
 Received forwarded text has a Forwarded label in history and the Chats list preview; the author
 shown is the verified MLS sender. The desktop forward command validates a live source text and
 an open target conversation before sending. Forward opens a picker of other open chats, allows

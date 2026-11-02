@@ -6,8 +6,8 @@ members, never stored on nodes beyond mailbox delivery, and each can be turned o
 Implemented in the Rust client: the read receipt wire body (`Body::Read` in
 `rust/client/src/chat.rs`, sent with the signal class and never shown in history), the
 setting and read marks in the store (`rust/client/src/store/reads.rs`), and sending with
-`Session::mark_read` and applying in `Session::receive`. Planned: the app UI, and typing
-indicators.
+`Session::mark_read` and applying in `Session::receive`. The desktop sends receipts and
+shows the read mark. Planned: the other apps, and typing indicators.
 
 Read receipts are distinct from delivery receipts (`Body::Receipt`, tag 5,
 [messaging](../architecture/messaging.md)): a delivery receipt says a device committed envelopes
@@ -59,6 +59,11 @@ recorded the texts; the author's own texts are recorded in the order they were s
 retried like any outbox write, gets no delivery receipt itself and has no expiry: a late read
 mark is still true.
 
+The desktop sends only for an accepted conversation, so a message request learns nothing until
+the user replies, and only while the window is visible. A mail pass behind a hidden window leaves
+the messages unread and sends nothing; returning to the window reads them. With nothing due,
+which is always the case while the setting is off, the desktop opens no node connection.
+
 ### Receiving
 
 The receiver drops a read receipt from a blocked peer and from a sender that is not a member of
@@ -68,6 +73,10 @@ never notifies and never changes the messages.
 
 ### Limits
 
+- The desktop sees a window as hidden only when the system reports it: minimized on most desktops,
+  but a window fully covered by another may still count as visible.
+- An edited or deleted own message shows no read mark even when the receipt covers its ID: the
+  receipt cannot say that the peer saw the edit.
 - Only the reading device sends; the user's other devices do not learn what was read until
   device sync exists.
 - Group chats are out of scope: only one-to-one groups are accepted now.

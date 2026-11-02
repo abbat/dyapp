@@ -917,6 +917,7 @@ fn main() {
             chats::operations::delete_chat_text,
             chats::commands::clear_chat,
             chats::commands::mark_chat_read,
+            chats::commands::send_read_receipts,
             privacy_settings,
             set_privacy,
             blocked_peers,

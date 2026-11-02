@@ -683,6 +683,44 @@ const checkChatLinkHosts = async () => {
   }
   document.getElementById('chat-back').click();
 };
+const checkChatRead = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = '5'.repeat(64);
+  const own = { author: current.peerId, groupId: [1], text: 'seen', deleted: false, edited: false,
+    delivery: 'nodeAccepted', sentAtMs: null };
+  const messages = [{ ...own, id: [1], read: true }, { ...own, id: [2], text: 'later', read: false }];
+  const sent = [];
+  const call = (command) => {
+    sent.push(command);
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages });
+    return Promise.resolve(command === 'chat_rows' ? [] : 0);
+  };
+  Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+  await openChat(peer, call);
+  const [seen, later] = chatMessages.querySelectorAll('.msg');
+  const delivered = window.strings['chats.delivery.nodeAccepted'];
+  if (!seen.textContent.includes(window.strings['chats.delivery.read'])
+    || seen.textContent.includes(delivered) || !later.textContent.includes(delivered)
+    || later.textContent.includes(window.strings['chats.delivery.read'])) {
+    throw new Error('read mark is not on the covered text alone');
+  }
+  if (sent.includes('mark_chat_read') || sent.includes('send_read_receipts')) {
+    throw new Error('a hidden window counted as reading');
+  }
+  delete document.hidden;
+  const shown = window.mailUpdated;
+  let pass;
+  window.mailUpdated = (changed) => { pass = shown(changed, call); };
+  document.dispatchEvent(new Event('visibilitychange'));
+  window.mailUpdated = shown;
+  await pass;
+  await window.chatRead;
+  if (!sent.includes('mark_chat_read') || !sent.includes('send_read_receipts')) {
+    throw new Error('returning to the window did not read the chat');
+  }
+  document.getElementById('chat-back').click();
+};
 // Mail from the other client arrives on a later Chats refresh, so live checks poll for it.
 const livePoll = async (check, what) => {
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -826,7 +864,13 @@ const peerSteps = {
   },
   'chat-open': async (peer) => {
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('reply text'), 'the reply');
+    const privacy = await invoke('privacy_settings');
+    await invoke('set_privacy', { privacy: { ...privacy, sendReadReceipts: true } });
     await liveOpen(liveRow('chat-list', peer));
+    await window.chatRead;
+    if (await invoke('send_read_receipts', { peerId: peer }) !== 0) {
+      throw new Error('the read receipt is still due');
+    }
     liveState('open');
     if (chatInput.disabled) throw new Error('the reply left the composer disabled');
     await liveSend('later text');
@@ -866,6 +910,11 @@ const peerSteps = {
       || shownText.includes('gone text')) {
       throw new Error(`edit or delete did not arrive: ${shownText}`);
     }
+    const replied = [...chatMessages.querySelectorAll('.msg')]
+      .find((item) => item.textContent.includes('reply text'));
+    if (!replied?.textContent.includes(window.strings['chats.delivery.read'])) {
+      throw new Error('the read receipt left no mark on the reply');
+    }
     document.getElementById('chat-clear').click();
     if (!clearDialog.open) throw new Error('Clear asked for no confirmation');
     document.getElementById('chat-clear-confirm').click();
@@ -880,6 +929,12 @@ const peerSteps = {
   'chat-block': async (peer) => {
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('after clear'), 'the text after Clear');
     await liveOpen(liveRow('chat-list', peer));
+    const { messages } = await invoke('chat_history', { peerId: peer });
+    // The peer opened these with the default setting, and this side's setting survived a restart.
+    if (messages.some((message) => message.read)
+      || !(await invoke('privacy_settings')).sendReadReceipts) {
+      throw new Error('default-off read receipts or the setting went wrong');
+    }
     document.getElementById('chat-block').click();
     await window.chatBlocked;
     const status = document.getElementById('chats-status').textContent;
@@ -910,5 +965,5 @@ const checkPeerStep = (kind, peer) => peerSteps[kind](peer);
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
   checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction, checkChatLinkHosts,
-  checkNewDevice, checkPeerStep,
+  checkNewDevice, checkChatRead, checkPeerStep,
 });

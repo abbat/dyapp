@@ -237,6 +237,18 @@ so focus moves to the composer, or to Back when the composer is disabled (H3). A
 mail pass does not flicker the notice, because it is toggled only by the flag (H4). No open H1–H10
 finding.
 
+### Read mark review (2026-11-02)
+
+Read `chats.delivery.read` against H1–H10 in English and Russian; it reuses the delivery caption,
+so the smoke audits it at 440 and 1280 px with the chat detail. A chat left open behind a hidden
+window would tell the peer it was read (H1, severity 4, a false claim to another person): a hidden
+window neither marks read nor sends a receipt. An old receipt on a text edited later would claim
+the peer saw the new wording (H1, severity 3): edited and deleted texts show no Read. A missing
+label could read as "not read" (H2, severity 2): Read replaces the delivery label only when a
+receipt exists, and the docs state that absence says nothing. A receipt that fails stays silent
+and retries, because the user did nothing to act on (H9). A message request sends nothing (H5). No
+open H1–H10 finding.
+
 ### Accepted exceptions
 
 None.

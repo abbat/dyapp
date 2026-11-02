@@ -136,7 +136,11 @@ Delete smoke checks the best-effort warning, Cancel, own-message placeholder, re
 an unstaged error, pending delivery after staging and a stale identity result. The delivery
 smoke renders only own status, refreshes node acceptance after a catch-up pass with no new text,
 checks the device-received label after reopening, and checks that a pass failed after commit
-still shows the committed row once. Store tests cover persistence across restart
+still shows the committed row once. The read smoke checks that Read replaces the delivery label
+on the covered text only, that a hidden window neither marks read nor sends a receipt, and that
+returning to the window does both; the two-client steps check a receipt sent after turning the
+setting on, its mark after a restart and silence at the default. Store tests cover persistence
+across restart
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
 and leaves ordinary text unmarked; the Linux smoke runs in English and Russian. Rust tests cover

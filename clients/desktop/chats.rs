@@ -20,6 +20,8 @@ use crate::search::{self, Found, ProfileCache};
 pub(crate) mod forward;
 #[path = "chats/operations.rs"]
 pub(crate) mod operations;
+#[path = "chats/reads.rs"]
+mod reads;
 #[path = "chats/view.rs"]
 mod view;
 pub use view::{ChatHistoryView, ChatRowView, ChatState, MessageView};
@@ -95,12 +97,13 @@ pub fn chat_history(
     if store.blocked(peer_id).map_err(|e| e.to_string())? {
         return Err("blocked".into());
     }
-    let messages = store
+    let mut messages: Vec<MessageView> = store
         .current_chat_messages(peer_id)
         .map_err(|e| e.to_string())?
         .into_iter()
         .map(Into::into)
         .collect();
+    reads::project_reads(&store, peer_id, &identity.peer_id(), &mut messages)?;
     let state = store
         .conversation(peer_id)
         .map_err(|e| e.to_string())?
@@ -611,6 +614,30 @@ pub mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Send the read receipts the shown chat owes; see `reads`.
+    #[tauri::command]
+    pub(crate) async fn send_read_receipts(
+        app: tauri::AppHandle,
+        state: tauri::State<'_, crate::IdentityState>,
+        sessions: tauri::State<'_, super::Sessions>,
+        peer_id: String,
+    ) -> Result<usize, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active().clone();
+        let root = crate::config_dir(&app)?;
+        let sessions = Arc::clone(&sessions.0);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _lease = lease;
+            let _session = sessions.lock().map_err(|e| e.to_string())?;
+            let device = crate::device_key(&root, &dir, &identity)?;
+            tauri::async_runtime::block_on(super::reads::send_read_receipts(
+                &root, &dir, &identity, &device, &peer_id,
+            ))
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
     /// The like state with a peer; see `likes`.
     #[tauri::command]
     pub(crate) fn peer_likes(
@@ -711,7 +738,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn temp_dir() -> std::path::PathBuf {
+    pub(super) fn temp_dir() -> std::path::PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

@@ -56,6 +56,8 @@ pub struct MessageView {
     pub unread: bool,
     pub forwarded: bool,
     pub delivery: Option<DeliveryView>,
+    /// The peer's read receipt covers this own text; set for history only.
+    pub read: bool,
     /// Original wall time for timed text; legacy tag-1 text has no timestamp.
     pub sent_at_ms: Option<u64>,
 }
@@ -75,6 +77,7 @@ impl From<ChatMessage> for MessageView {
             unread: message.unread,
             forwarded: message.forwarded,
             delivery: message.delivery.map(Into::into),
+            read: false,
             sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
         }
     }
