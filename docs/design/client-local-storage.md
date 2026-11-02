@@ -121,6 +121,12 @@ profile-store tombstone refuses later versions; nodes retain tombstones for thei
 TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent
 network-wide ban. Public fields remain fetchable by known Peer ID while merely hidden.
 
+A linked device starts from a copy of the local state: peers (blocks, mutes, contact names, seen
+devices, verified marks), likes in both directions, passes, the interaction clock and the hidden
+flag ([ADR 0040](../decisions/0040-device-linking.md)). The clock goes past every copied row, so
+later events are not lost to last-writer-wins. A device list change keeps a hidden profile hidden:
+it publishes to profile storage and holds a newer tombstone for search.
+
 Signed-record sequence for one identity (each record is owner-signed):
 
 | Action | Profile store | Search index | Local state |

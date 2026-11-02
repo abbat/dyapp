@@ -16,6 +16,7 @@ mod conversations;
 mod inbox;
 mod last_resort;
 mod likes;
+mod link_state;
 mod mailbox_cursor;
 pub mod messages;
 mod notice;
