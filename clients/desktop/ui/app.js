@@ -437,6 +437,7 @@ const showSettings = () => {
   window.trayShown = setTray(null);
   window.privacyShown = showPrivacy();
   window.blockedShown = showBlocked();
+  window.passedShown = window.showPassed();
   return showSettingsIdentities();
 };
 

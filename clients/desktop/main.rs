@@ -603,22 +603,6 @@ fn set_privacy(
     privacy::save(dir, identity, privacy)
 }
 
-/// Peers the open identity blocked on this device.
-#[tauri::command]
-fn blocked_peers(state: tauri::State<'_, IdentityState>) -> Result<Vec<String>, String> {
-    let lease = state.lease()?;
-    let (identity, dir) = lease.active();
-    privacy::blocked(dir, identity)
-}
-
-/// Unblocks a peer on this device; see `privacy::unblock`.
-#[tauri::command]
-fn unblock_peer(state: tauri::State<'_, IdentityState>, peer_id: String) -> Result<(), String> {
-    let lease = state.lease()?;
-    let (identity, dir) = lease.active();
-    privacy::unblock(dir, identity, &peer_id)
-}
-
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -931,8 +915,10 @@ fn main() {
             chats::commands::send_read_receipts,
             privacy_settings,
             set_privacy,
-            blocked_peers,
-            unblock_peer,
+            privacy::commands::blocked_peers,
+            privacy::commands::unblock_peer,
+            privacy::commands::passed_peers,
+            privacy::commands::pass_peer,
             #[cfg(unix)]
             node_usage_commands::load_node_settings,
             #[cfg(unix)]

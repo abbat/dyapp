@@ -167,7 +167,11 @@ nothing is shown as verified. Before a match the hint says one message can be se
 `profile-view-match`: a mutual like adds the match notice, Like becomes Liked (aria-pressed), and
 pressing it opens `unlike-dialog`; confirming sends the unlike, which ends the match for both.
 Block hides the peer from local search and chats, sits apart from Like as a quiet button under
-the fields, and is undone in Settings. It also removes the peer from the Liked you list. The
+the fields, and is undone in Settings. It also removes the peer from the Liked you list. A like
+that fails to send but stays stored says it goes out later; the catch-up pass retries it. Pass, a
+quiet button beside Block, hides the peer from this device's later search and Liked you lists and
+sends no signal. It replaces Like, is not offered while a like stands, and is undone in the same
+place (`view-unpass`) or in Settings; chats and mail are not affected. The
 desktop command persists the local block before trying to revoke issued write tokens through one
 node. Search reports whether revocation was unneeded, still pending, or confirmed by that node.
 Settings offers Retry token revocation for each blocked peer. After reopening, the network
@@ -190,6 +194,7 @@ node reply is best effort, not network-wide removal.
 | Like | `view-like` | `view-unlike` (Liked) after a match |
 | Fields | `view-fields` | Looking for, children, interests, languages |
 | Claims note | `view-claims` | Written by the owner; nobody checks it |
+| Pass | `view-pass` | Quiet, beside Block; `view-unpass` after a pass |
 | Block | `view-block` | Quiet, under the fields |
 
 `profile-view-safety` is the expanded comparison panel. `profile-view-verified` is the same panel after a
@@ -250,7 +255,7 @@ A failed fetch offers a retry; an original no node holds shows "No longer availa
 fails its checks "This photo cannot be shown". In an open chat with an accepted person, originals
 also download by themselves under Settings → Photos: unless the network is metered or unknown (the
 default), always, or only on request. A switch to an unmetered network picks up what waited at the
-next mail pass. Sending photos remains planned. Profile photos remain planned for
+next mail pass. The composer sends one photo at a time. Profile photos remain planned for
 this UI. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation
@@ -369,6 +374,8 @@ sending off never stops receiving.
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |
+| Passed people | `passed` | Avatar and short Peer ID per row |
+| Undo pass | `unpass-1` | Per passed row |
 | Theme | `theme-system`, `theme-light`, `theme-dark` | System by default |
 | Language | `language` | |
 | Send profile views | `send-views` | Off |

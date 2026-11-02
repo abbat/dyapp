@@ -338,7 +338,7 @@ search providers asked: 0 of 3</pre>
         <p class="caption" id="view-claims" data-t="view.claims"></p>
       </div>
       <!-- Block sits apart from Like so a slip does not hit it; Settings can undo it. -->
-      <div class="actions"><button type="button" class="btn quiet" id="view-block" data-t="view.block"></button></div>
+      <div class="actions"><button type="button" class="btn quiet" id="view-pass" data-t="view.pass"></button><button type="button" class="btn quiet" id="view-unpass" data-t="view.unpass" hidden></button><button type="button" class="btn quiet" id="view-block" data-t="view.block"></button></div>
     </section>
 
     <!-- Chats: likes, message requests and conversations of the active identity only. -->
@@ -426,6 +426,14 @@ search providers asked: 0 of 3</pre>
             <td><button type="button" class="btn" id="unblock-1" data-t="settings.unblock"></button></td></tr>
         </table>
         <p class="caption" data-t="settings.blocked.hint"></p>
+      </div>
+      <div class="card" id="passed">
+        <h2 data-t="settings.passed"></h2>
+        <table class="rows">
+          <tr><td class="who"><span class="avatar" aria-hidden="true">3c</span><code>@3c81d0</code></td>
+            <td><button type="button" class="btn" id="unpass-1" data-t="settings.unpass"></button></td></tr>
+        </table>
+        <p class="caption" data-t="settings.passed.hint"></p>
       </div>
       <div class="card">
         <h2 data-t="settings.appearance"></h2>

@@ -45,6 +45,8 @@ pub struct Likes {
     pub ours: bool,
     /// Both like each other.
     pub matched: bool,
+    /// This profile passes on the peer on this device.
+    pub passed: bool,
 }
 
 /// Network revocation is only confirmed by the node reached in this attempt.
@@ -243,12 +245,22 @@ fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
     Ok(Likes {
         ours: likes.ours,
         matched: likes.matched(),
+        passed: store.passed(peer_id).map_err(|e| e.to_string())?,
     })
 }
 
 /// The like state with `peer_id`.
 pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, String> {
     likes_in(&open(dir, identity)?, peer_id)
+}
+
+/// Passes on `peer_id` or undoes that, on this device only; no signal goes out.
+pub fn pass(dir: &Path, identity: &Identity, peer_id: &str, passed: bool) -> Result<Likes, String> {
+    let mut store = open(dir, identity)?;
+    store
+        .pass(peer_id, passed, presence::now_ms()?)
+        .map_err(|e| e.to_string())?;
+    likes_in(&store, peer_id)
 }
 
 /// Persist a local block before trying to revoke this profile's issued write tokens. A retry
@@ -831,7 +843,8 @@ mod tests {
             likes(&dir, &alice, &stranger),
             Ok(Likes {
                 ours: false,
-                matched: false
+                matched: false,
+                passed: false
             })
         );
     }

@@ -1,5 +1,5 @@
-//! The open identity's local privacy settings and blocked peers, kept in its client store and
-//! never published. Turning sending off never stops receiving.
+//! The open identity's local privacy settings, blocked and passed peers, kept in its client store
+//! and never published. Turning sending off never stops receiving.
 
 use std::path::Path;
 
@@ -62,6 +62,61 @@ pub fn unblock(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), Str
     open(dir, identity)?
         .set_blocked(peer_id, false)
         .map_err(|e| e.to_string())
+}
+
+/// Peers passed on this device, by Peer ID.
+pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
+    open(dir, identity)?
+        .passed_peers()
+        .map_err(|e| e.to_string())
+}
+
+pub mod commands {
+    use crate::chats::{self, Likes};
+    use crate::identity_runtime::IdentityState;
+
+    /// Peers the open identity blocked on this device.
+    #[tauri::command]
+    pub(crate) fn blocked_peers(
+        state: tauri::State<'_, IdentityState>,
+    ) -> Result<Vec<String>, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::blocked(dir, identity)
+    }
+
+    /// Unblocks a peer on this device; see `privacy::unblock`.
+    #[tauri::command]
+    pub(crate) fn unblock_peer(
+        state: tauri::State<'_, IdentityState>,
+        peer_id: String,
+    ) -> Result<(), String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::unblock(dir, identity, &peer_id)
+    }
+
+    /// Peers the open identity passed on this device.
+    #[tauri::command]
+    pub(crate) fn passed_peers(
+        state: tauri::State<'_, IdentityState>,
+    ) -> Result<Vec<String>, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::passed(dir, identity)
+    }
+
+    /// Passes on a peer or undoes that; see `chats::pass`.
+    #[tauri::command]
+    pub(crate) fn pass_peer(
+        state: tauri::State<'_, IdentityState>,
+        peer_id: String,
+        passed: bool,
+    ) -> Result<Likes, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        chats::pass(dir, identity, &peer_id, passed)
+    }
 }
 
 #[cfg(test)]

@@ -213,7 +213,7 @@ impl From<&VerifiedProfile> for Found {
 pub struct Results {
     /// Field numbers every reached node filters on and the client checks, ascending.
     pub offered: Vec<u32>,
-    /// Verified matches in no set order, without blocked peers.
+    /// Verified matches in no set order, without blocked or passed peers.
     pub profiles: Vec<Found>,
     /// Coverage may be incomplete.
     pub partial: bool,
@@ -222,7 +222,7 @@ pub struct Results {
 }
 
 /// Searches up to `limit` hits per node (0 means 50) of up to 3 search providers of the active
-/// network, with the publish proof-of-work minimum and without blocked peers; `age` is an
+/// network, with the publish proof-of-work minimum and without blocked or passed peers; `age` is an
 /// inclusive range of years, checked against public birth dates today; no conditions asks for a
 /// sample; `employer` then narrows the verified results on this device. Each call connects
 /// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
@@ -237,7 +237,8 @@ pub async fn search(
     let employer = Employer::from(query.employer.clone());
     let conditions = query.conditions(profile::today()?)?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
-    let blocked = store.blocked_peers().map_err(|e| e.to_string())?;
+    let mut hidden = store.blocked_peers().map_err(|e| e.to_string())?;
+    hidden.extend(store.passed_peers().map_err(|e| e.to_string())?);
     let own = profile::stored(&store)?;
     // Capture the context before loading settings: activation saves settings and advances this
     // epoch under the same cache lock.
@@ -257,7 +258,7 @@ pub async fn search(
         limit,
         profile::POW_BITS,
         &seen,
-        &blocked,
+        &hidden,
     )
     .await;
     employer.retain(&mut results.profiles);

@@ -98,6 +98,8 @@ reports the token revocation state, then unblocks it and checks that the list cl
 search and Liked you blocking flow remains for later UI coverage. A second identity joins the
 same loopback node, and each step below relaunches its client, so state read back survived a
 restart: the first identity's Like appears in the second's Liked you only and leaves with Unlike;
+a pass takes a liker out of Liked you and search until Settings undoes it; a text sent after two
+likes made a match reaches the other client;
 the first text arrives as a request and a second one is refused until the reply opens the chat;
 an edit and a delete reach the peer; Clear removes only the local history and the chat stays
 writable; Block hides the chat, refuses local send and history, and the blocked peer's next text

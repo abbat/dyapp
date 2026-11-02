@@ -384,6 +384,25 @@ Scope: the Attach photo button of an open conversation and its failure states.
 
 Findings: none open.
 
+### Pass and pending like review (2026-11-02)
+
+Scope: Pass and its undo in the profile view, the Passed people list in Settings, and the status
+of a like that failed to send but stays stored.
+
+- Visibility of system status: the status line says a pass happened and what it hides; a stored
+  like now says it goes out later instead of reporting that it was not sent.
+- Match with the real world: Pass is the common word for declining a profile, and the status says
+  plainly that the other person is not told.
+- User control: the open profile offers Undo pass at once, and Settings lists every pass with its
+  own undo, so leaving the profile loses nothing.
+- Consistency: the same quiet button as Block and the same row layout as Blocked people.
+- Error prevention: Pass is not offered while a like stands, and it sits apart from Like, so one
+  slip cannot pass on someone just liked. A pass is reversible, so it needs no confirmation.
+- Recognition: Passed people sits beside Blocked people under Settings.
+- Help with errors: a pass that cannot be saved states the storage error in the same status line.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

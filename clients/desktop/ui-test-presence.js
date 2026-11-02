@@ -51,6 +51,23 @@ const checkChatPresence = async () => {
   const failed = shown(() => { throw new Error('offline'); });
   await failed;
 };
+// A failed send that stayed stored is pending; one that left nothing stored remains a failure.
+const checkLikePending = async () => {
+  const peerId = '7'.repeat(64);
+  const found = { peerId, draft: { attributes: {} } };
+  const card = document.createElement('button');
+  searchResults.append(card);
+  for (const [ours, expected] of [[true, 'view.like.pending'], [false, 'view.like.notConnected']]) {
+    openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+    await sendLike(true, (command) => (command === 'like_peer' ? Promise.reject('notConnected')
+      : Promise.resolve({ ours, matched: false })));
+    if (viewStatus.textContent !== window.strings[expected]) {
+      throw new Error(`failed like shows ${viewStatus.textContent}`);
+    }
+  }
+  closeFound();
+  card.remove();
+};
 const liveMatched = async (peer) => (await invoke('peer_likes', { peerId: peer })).matched;
 const presenceSteps = {
   'presence-like': async (peer) => {
@@ -58,6 +75,32 @@ const presenceSteps = {
     await liveLikes(peer, false);
     document.getElementById('view-like').click();
     await window.likeDone;
+  },
+  'presence-pass': async (peer) => {
+    await liveChats(() => liveRow('chats-liked-list', peer), 'the like to pass');
+    liveRow('chats-liked-list', peer).click();
+    document.getElementById('view-pass').click();
+    await window.passDone;
+    if (document.getElementById('view-unpass').hidden || !document.getElementById('view-like').hidden) {
+      throw new Error('the pass left the profile actions unchanged');
+    }
+    document.getElementById('view-back').click();
+    await liveChats(() => !liveRow('chats-liked-list', peer), 'the pass');
+    if (document.getElementById('chats-liked-count').textContent !== '0') {
+      throw new Error('Liked you still counts the passed peer');
+    }
+    await openArea('search-area');
+    document.getElementById('run-search').click();
+    await window.searchDone;
+    if (document.querySelector(`#search-results [data-peer-id="${peer}"]`)) {
+      throw new Error('search showed the passed peer');
+    }
+    await openArea('settings');
+    await window.passedShown;
+    document.getElementById('unpass-1').click();
+    await window.passedShown;
+    if (document.getElementById('passed-none').hidden) throw new Error('undo kept the pass');
+    await liveChats(() => liveRow('chats-liked-list', peer), 'the undone pass');
   },
   'presence-match': async (peer) => {
     await liveChats(() => liveRow('chats-liked-list', peer), 'the second like');
@@ -83,5 +126,17 @@ const presenceSteps = {
     await liveOpen(liveRow('chat-list', peer));
     if (document.getElementById('chat-presence').hidden) throw new Error('chat has no presence mark');
   },
+  'match-send': async (peer) => {
+    await liveFound(peer);
+    document.getElementById('view-message').click();
+    await Promise.all([window.chatOpened, window.chatsDone]);
+    liveState('open');
+    await liveSend('match text');
+  },
+  'match-received': async (peer) => {
+    await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('match text'), 'the text');
+  },
 };
-globalThis.uiSmokePresence = Object.freeze({ checkChatPresence, presenceSteps });
+globalThis.uiSmokePresence = Object.freeze({
+  checkChatPresence, checkLikePending, presenceSteps,
+});

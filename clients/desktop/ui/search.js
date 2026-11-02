@@ -111,9 +111,11 @@ const withPlaces = (profiles) => Promise.all(profiles.map(async (profile) => ({
 })));
 const viewStatus = document.getElementById('view-status');
 const showLikes = (likes) => {
-  document.getElementById('view-like').hidden = likes.ours;
+  document.getElementById('view-like').hidden = likes.ours || likes.passed;
   document.getElementById('view-unlike').hidden = !likes.ours;
   document.getElementById('view-match').hidden = !likes.matched;
+  document.getElementById('view-pass').hidden = likes.ours || likes.passed;
+  document.getElementById('view-unpass').hidden = !likes.passed;
 };
 let viewed = null;
 let safetyScanToken = 0;
@@ -204,7 +206,7 @@ const closeFound = () => {
   document.getElementById('view-message').disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;
-  if (viewed?.card.isConnected) viewed.card.focus();
+  if (viewed?.card.isConnected && !viewed.card.hidden) viewed.card.focus();
   viewed = null;
 };
 document.getElementById('view-back').addEventListener('click', () => {
@@ -233,9 +235,13 @@ const sendLike = async (liked, call = invoke) => {
     const code = String(error);
     viewStatus.textContent = window.strings[`view.like.${code}`]
       ?? `${window.strings['view.like.failed']} ${code}`;
-    // A failed send can still be staged, so the stored state decides the button.
-    call('peer_likes', { peerId: found.peerId })
-      .then((likes) => { if (currentView()) showLikes(likes); }, () => {});
+    // A failed send can still be staged, so the stored state decides the button and says that
+    // the catch-up pass will retry it.
+    await call('peer_likes', { peerId: found.peerId }).then((likes) => {
+      if (!currentView()) return;
+      showLikes(likes);
+      if (likes.ours === liked) viewStatus.textContent = window.strings['view.like.pending'];
+    }, () => {});
   } finally {
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
@@ -255,6 +261,30 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
   unlikeDialog.close();
   window.likeDone = sendLike(false);
 });
+// A pass stays on this device: the card leaves its list at once and the open profile can undo it.
+const sendPass = async (passed, call = invoke) => {
+  const { found, card } = viewed;
+  const generation = identityGeneration;
+  const currentView = () => identityCurrent(generation) && viewed?.found === found;
+  try {
+    const likes = await call('pass_peer', { peerId: found.peerId, passed });
+    if (!currentView()) return;
+    showLikes(likes);
+    card.hidden = passed;
+    if (card.closest('#chats-liked-list')) {
+      document.getElementById('chats-liked-count').textContent = String(document
+        .querySelectorAll('#chats-liked-list [data-peer-id]:not([hidden])').length);
+    }
+    viewStatus.textContent = window.strings[passed ? 'view.passed' : 'view.unpassed'];
+  } catch (error) {
+    if (currentView()) viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
+  }
+};
+for (const [id, passed] of [['view-pass', true], ['view-unpass', false]]) {
+  document.getElementById(id).addEventListener('click', () => {
+    window.passDone = sendPass(passed);
+  });
+}
 copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
   () => viewed.found.peerId);
 const copySafety = (call = invoke) => {

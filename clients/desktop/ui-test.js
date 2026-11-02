@@ -574,6 +574,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chatChecks.checkNewDevice();
       await chatChecks.checkChatRead();
       await presenceChecks.checkChatPresence();
+      await presenceChecks.checkLikePending();
       await nameChecks.checkContactNames();
       await nameChecks.checkPublicName();
       await photoChecks.checkChatPhoto();

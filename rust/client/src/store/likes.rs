@@ -269,7 +269,7 @@ impl Store {
         })
     }
 
-    /// The "Liked you" peers: each likes this profile, is not liked back and is not blocked, in
+    /// The "Liked you" peers: each likes this profile, is not liked back, blocked or passed, in
     /// Peer ID order.
     pub fn liked_by(&self) -> Result<Vec<String>, Error> {
         let mut query = self.db.prepare(
@@ -279,12 +279,34 @@ impl Store {
                  AND `ours`.`target` = `theirs`.`sender` AND `ours`.`liked` = 1)
              AND NOT EXISTS (SELECT 1 FROM `peers` WHERE `peers`.`peer_id` = `theirs`.`sender`
                  AND `peers`.`blocked` = 1)
+             AND NOT EXISTS (SELECT 1 FROM `pass_history` WHERE `peer_id` = `theirs`.`sender`
+                 AND `passed` = 1)
              ORDER BY `theirs`.`sender`",
         )?;
         let peers = query
             .query_map([&self.owner_peer_id], |row| row.get(0))?
             .collect::<Result<_, _>>()?;
         Ok(peers)
+    }
+
+    /// The peers this profile currently passes on, in Peer ID order.
+    pub fn passed_peers(&self) -> Result<Vec<String>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `peer_id` FROM `pass_history` WHERE `passed` = 1 ORDER BY `peer_id`",
+        )?;
+        let peers = query
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        Ok(peers)
+    }
+
+    /// Set or undo a local pass at the next own clock value. Returns whether the state changed.
+    pub fn pass(&mut self, peer_id: &str, passed: bool, wall_ms: u64) -> Result<bool, Error> {
+        let at = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
+        let tx = self.db.transaction()?;
+        save_hlc(&tx, at)?;
+        tx.commit()?;
+        self.set_pass(peer_id, passed, at)
     }
 }
 
@@ -425,6 +447,22 @@ mod tests {
         assert_eq!(store.liked_by().unwrap(), std::slice::from_ref(d));
         put(&mut store, d, &a, b"p", event(Kind::Unlike, 5, 12));
         assert!(store.liked_by().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_pass_leaves_liked_you_until_it_is_undone() {
+        let alice = Identity::generate();
+        let a = alice.peer_id();
+        let b = Identity::generate().peer_id();
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        put(&mut store, &b, &a, b"p", event(Kind::Like, 1, 10));
+        assert!(store.pass(&b, true, 1_000).unwrap());
+        assert!(store.liked_by().unwrap().is_empty());
+        assert_eq!(store.passed_peers().unwrap(), std::slice::from_ref(&b));
+        // An undo in the same millisecond still moves forward.
+        assert!(store.pass(&b, false, 1_000).unwrap());
+        assert_eq!(store.liked_by().unwrap(), std::slice::from_ref(&b));
+        assert!(store.passed_peers().unwrap().is_empty());
     }
 
     #[test]

@@ -295,8 +295,10 @@
             <dl id="view-fields" class="facts"></dl>
             <p id="view-claims" class="caption" data-i18n="view.claims"></p>
           </div>
-          <!-- Block sits apart from Like so a slip does not hit it. -->
-          <div class="actions"><button id="view-block" class="btn quiet" type="button"
+          <!-- Pass and Block sit apart from Like so a slip does not hit them. -->
+          <div class="actions"><button id="view-pass" class="btn quiet" type="button"
+            data-i18n="view.pass"></button><button id="view-unpass" class="btn quiet" type="button"
+            data-i18n="view.unpass" hidden></button><button id="view-block" class="btn quiet" type="button"
             data-i18n="view.block"></button></div>
         </div>
       </section>
@@ -398,6 +400,12 @@
           <p id="blocked-none" class="muted" data-i18n="settings.blocked.none"></p>
           <p id="blocked-revoke-status" class="notice" role="status" aria-live="polite"></p>
           <p class="caption" data-i18n="settings.blocked.hint"></p>
+        </div>
+        <div id="passed" class="card">
+          <h2 data-i18n="settings.passed"></h2>
+          <table class="rows"><tbody id="passed-list"></tbody></table>
+          <p id="passed-none" class="muted" data-i18n="settings.passed.none"></p>
+          <p class="caption" data-i18n="settings.passed.hint"></p>
         </div>
         <div class="card">
           <h2 data-i18n="settings.appearance"></h2>
@@ -615,6 +623,7 @@
   </dialog>
   <script src="peer-names.js"></script>
   <script src="app.js"></script>
+  <script src="passes.js"></script>
   <script src="remove.js"></script>
   <script src="search.js"></script>
   <script src="chats-ui.js"></script>
