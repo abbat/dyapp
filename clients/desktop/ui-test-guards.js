@@ -741,9 +741,51 @@ const checkDevices = async () => {
     throw new Error('disconnect did not report its result');
   }
 };
+// A pasted code with stubbed commands: nothing is sent before the confirmation.
+const checkLinkCode = async () => {
+  const code = document.getElementById('device-code-dialog');
+  const confirm = document.getElementById('device-confirm-dialog');
+  const problem = document.getElementById('device-code-problem');
+  const invalid = document.getElementById('device-code-invalid');
+  const refuse = (reason) => () => Promise.reject(reason);
+  document.getElementById('device-link').click();
+  if (!code.open || document.activeElement.id !== 'device-code') {
+    throw new Error('link code dialog did not open');
+  }
+  codeField.value = 'dyapp-link:1:code';
+  await checkCode(refuse('bad'));
+  if (invalid.hidden || !code.open) throw new Error('a bad code gave no message');
+  await checkCode(refuse('expired'));
+  if (!invalid.hidden || problem.textContent !== window.strings['devices.code.expired']) {
+    throw new Error('an expired code gave no message');
+  }
+  const sent = [];
+  await checkCode((command) => {
+    sent.push(command);
+    return Promise.resolve();
+  });
+  if (code.open || !confirm.open || document.activeElement.id !== 'device-confirm-cancel'
+    || sent.join() !== 'check_link_code') {
+    throw new Error(`code did not reach the confirmation: ${sent}`);
+  }
+  await sendLink(refuse('notConnected'));
+  if (confirm.open || !code.open
+    || problem.textContent !== window.strings['devices.code.offline']) {
+    throw new Error('a failed send did not return to the code');
+  }
+  code.close();
+  await sendLink((command, args) => {
+    sent.push(command, args.code);
+    return Promise.resolve();
+  });
+  if (sent.join() !== 'check_link_code,send_link,dyapp-link:1:code'
+    || document.getElementById('devices-status').textContent !== window.strings['devices.sent']) {
+    throw new Error(`send sent ${sent}`);
+  }
+};
 globalThis.uiSmokeGuards = Object.freeze({
   checkStaleSettingsInventory, checkStaleNode, checkStaleTray, checkStaleRemovePreparation,
-  checkStaleWithdrawal, checkDeviceRevoked, checkDevices, checkStaleLaunchConnection, checkStaleNetworkForm,
+  checkStaleWithdrawal, checkDeviceRevoked, checkDevices, checkLinkCode, checkStaleLaunchConnection, checkStaleNetworkForm,
   checkStaleNetworkCheck, checkStaleCopy, checkStalePlaceSuggestions, removeOpened,
   testSeeds, connection, connectNetwork, checkNetwork, cancelNetwork, checkWrongNetwork,
   checkNetworkInSettings, checkSettingsLanguage, expectPrivacy, checkPrivacy,

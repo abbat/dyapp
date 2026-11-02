@@ -522,5 +522,18 @@
   "disconnect.text": "It stops getting your chats and deletes this identity when it next connects. Your contacts see that the device left.",
   "disconnect.action": "Disconnect",
   "disconnect.offline": "No node answered, so the device stays connected. Check the network and retry.",
-  "devices.gone": "Device disconnected."
+  "devices.gone": "Device disconnected.",
+  "devices.link": "Link a new device…",
+  "devices.sent": "Sent. The new device appears here once it finishes.",
+  "devices.code.title": "Link a new device",
+  "devices.code.text": "On the new device choose Link to an identity I already use, then paste its code here.",
+  "devices.code.label": "Code from the new device",
+  "devices.code.next": "Continue",
+  "devices.code.expired": "This code expired. Show a new one on the new device.",
+  "devices.code.bad": "This is not a link code. Copy the whole code from the new device.",
+  "devices.confirm.title": "Give this device full control?",
+  "devices.confirm.text": "It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back.",
+  "devices.confirm.warn": "Go on only if you hold that device and started this link yourself. If someone sent you this code, stop.",
+  "devices.confirm.action": "Give full control",
+  "devices.code.offline": "No node answered, so nothing was sent. Check the network and try again."
 }

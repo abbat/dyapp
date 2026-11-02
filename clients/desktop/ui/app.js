@@ -54,7 +54,7 @@ let current = null;
 // Shows one section (or none, the boot page) with its status line.
 const show = (section, status) => {
   if (removeDialog.open) removeDialog.close();
-  document.getElementById('disconnect').close();
+  window.closeDeviceDialogs?.();
   document.getElementById('boot').hidden = Boolean(section);
   for (const each of sections) each.hidden = each !== section;
   // Ready keeps identity actions in Settings; recovery has no other way out.

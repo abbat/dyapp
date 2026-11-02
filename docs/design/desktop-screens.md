@@ -422,9 +422,9 @@ sending off never stops receiving.
 | Add identity | `settings-create` | Under the no-backup line |
 | Devices | `devices` | Short device key per row, this computer first and without Disconnect; the hint says what a disconnected device can still do; hidden while the identity lists no device |
 | Disconnect | `device-disconnect` | Per other device, opens `disconnect-dialog`; the app numbers the IDs `device-disconnect-N` |
-| Link a new device | `device-link` | Opens `device-code-dialog`; planned in the client |
+| Link a new device | `device-link` | Opens `device-code-dialog` |
 | Link this computer to another identity | `device-join` | Opens `link-show`; planned in the client |
-| Device status | `devices-status` | Polite live region: `devices-sent` (planned), or that a device was disconnected |
+| Device status | `devices-status` | Polite live region: `devices-sent`, or that a device was disconnected |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |
 | Unblock | `unblock-1` | Per blocked row |
@@ -468,12 +468,13 @@ decided on the other device, and says why the identity left this computer.
 link code is planned. `device-code-error` is an expired code and `device-code-bad` text that is
 no code. Continue opens `device-confirm-dialog`, which says what full control means and sends
 nothing until it is confirmed. `devices-sent` follows: the new device appears in the list when it
-finishes.
+finishes. A send that fails returns to `device-code-dialog` with the code kept and the cause in
+`device-code-problem`, which also says when no node answered.
 
 | Control | ID | Notes |
 | --- | --- | --- |
 | Code from the new device | `device-code` | Focused |
-| Expired | `device-code-problem` | `device-code-error` only |
+| Expired | `device-code-problem` | `device-code-error`, or no node took the record |
 | Not a code | `device-code-invalid` | `device-code-bad` only |
 | Cancel | `device-code-cancel` | |
 | Continue | `device-code-next` | Primary |

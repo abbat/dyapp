@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use dyapp_client::link::Code;
 use dyapp_client::places;
 use dyapp_client::publish::{self, Block};
 use dyapp_client::search;
@@ -518,6 +519,35 @@ pub async fn revoke_device(
     view(&dropped, today()?, Some(&store))
 }
 
+/// The link code in `text`: `bad` when it is none, `expired` when it is too old.
+fn link_code(text: &str, now: u64) -> Result<Code, String> {
+    let text = text.trim();
+    Code::parse(text, 0).map_err(|_| "bad")?;
+    Ok(Code::parse(text, now).map_err(|_| "expired")?)
+}
+
+/// Checks a pasted link code before the owner is asked to give that device full control.
+pub fn check_link_code(text: &str) -> Result<(), String> {
+    link_code(text, unix_now()?).map(|_| ())
+}
+
+/// Sends this identity's key and local state to the device that showed the code in `text`, after
+/// the owner confirmed it. Errors as in [`check_link_code`], or `notConnected` with no network.
+pub async fn send_link(dir: &Path, identity: &Identity, text: &str) -> Result<(), String> {
+    let now = unix_now()?;
+    let code = link_code(text, now)?;
+    let state = open(dir, identity)?
+        .link_state()
+        .map_err(|e| e.to_string())?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = connect(&active).await?;
+    code.send(&mut node, identity, &state, now)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Publishes a final tombstone to profile storage before identity removal and holds it for search.
 /// With no responding profile node, the caller offers Retry or Remove anyway.
 pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {
@@ -572,6 +602,19 @@ pub async fn send_search(dir: &Path, identity: &Identity) -> Result<View, String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_link_code_is_told_apart_from_an_expired_one_and_from_other_text() {
+        let code = Code {
+            public: [1; 32],
+            mailbox: [2; 32],
+            expires_at: 100,
+        };
+        let text = format!(" {}\n", code.text());
+        assert_eq!(link_code(&text, 99), Ok(code));
+        assert_eq!(link_code(&text, 100), Err("expired".to_string()));
+        assert_eq!(link_code("dyapp-contact:1:ab", 99), Err("bad".to_string()));
+    }
 
     fn temp_dir() -> std::path::PathBuf {
         let nanos = SystemTime::now()

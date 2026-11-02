@@ -416,6 +416,7 @@
           <table class="rows"><tbody id="devices-list"></tbody></table>
           <p id="devices-status" class="notice" role="status" aria-live="polite"></p>
           <p class="caption" data-i18n="devices.hint"></p>
+          <div class="actions"><button id="device-link" class="btn" type="button" data-i18n="devices.link"></button></div>
         </div>
         <div id="blocked" class="card">
           <h2 data-i18n="settings.blocked"></h2>
@@ -575,6 +576,27 @@
       <button id="disconnect-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
       <button id="disconnect-action" class="btn danger" type="button" data-i18n="disconnect.action"></button>
       <button id="disconnect-retry" class="btn danger" type="button" data-i18n="recovery.retry" hidden></button>
+    </div>
+  </dialog>
+  <dialog id="device-code-dialog" class="modal" aria-labelledby="device-code-title" hidden>
+    <h2 id="device-code-title" data-i18n="devices.code.title"></h2>
+    <p data-i18n="devices.code.text"></p>
+    <div class="field"><label for="device-code" data-i18n="devices.code.label"></label>
+      <textarea id="device-code" rows="3" spellcheck="false"></textarea></div>
+    <p id="device-code-problem" class="notice error" role="alert"></p>
+    <p id="device-code-invalid" class="notice error" role="alert" data-i18n="devices.code.bad" hidden></p>
+    <div class="actions">
+      <button id="device-code-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="device-code-next" class="btn primary" type="button" data-i18n="devices.code.next"></button>
+    </div>
+  </dialog>
+  <dialog id="device-confirm-dialog" class="modal" aria-labelledby="device-confirm-title" hidden>
+    <h2 id="device-confirm-title" data-i18n="devices.confirm.title"></h2>
+    <p data-i18n="devices.confirm.text"></p>
+    <p class="notice warn" data-i18n="devices.confirm.warn"></p>
+    <div class="actions">
+      <button id="device-confirm-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+      <button id="device-confirm-action" class="btn danger" type="button" data-i18n="devices.confirm.action"></button>
     </div>
   </dialog>
   <dialog id="revoked" class="modal" aria-labelledby="revoked-title" hidden>

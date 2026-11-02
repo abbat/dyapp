@@ -162,6 +162,29 @@ pub(crate) async fn revoke_device(
     .map_err(|e| e.to_string())?
 }
 
+/// See `profile::check_link_code`.
+#[tauri::command]
+pub(crate) fn check_link_code(code: String) -> Result<(), String> {
+    crate::profile::check_link_code(&code)
+}
+
+/// Sends the active identity to a new device; see `profile::send_link`.
+#[tauri::command]
+pub(crate) async fn send_link(
+    state: tauri::State<'_, IdentityState>,
+    code: String,
+) -> Result<(), String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    // The client store is not `Sync`, as in `crate::publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        tauri::async_runtime::block_on(crate::profile::send_link(&dir, &identity, &code))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// [`change_peer`] for a command of the active identity, under the session lock.
 pub(crate) async fn command(
     app: &tauri::AppHandle,

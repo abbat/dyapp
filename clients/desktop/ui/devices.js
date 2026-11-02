@@ -1,4 +1,5 @@
-// Settings > Devices: the devices of the open identity and the disconnect dialog.
+// Settings > Devices: the devices of the open identity, the disconnect dialog and sending the
+// identity to a new device.
 const devicesCard = document.getElementById('devices');
 const devicesList = document.getElementById('devices-list');
 const devicesStatus = document.getElementById('devices-status');
@@ -8,6 +9,13 @@ const disconnectAction = document.getElementById('disconnect-action');
 const disconnectRetry = document.getElementById('disconnect-retry');
 const disconnectCancel = document.getElementById('disconnect-cancel');
 const disconnectButtons = [disconnectCancel, disconnectAction, disconnectRetry];
+const codeDialog = document.getElementById('device-code-dialog');
+const codeField = document.getElementById('device-code');
+const codeProblem = document.getElementById('device-code-problem');
+const codeInvalid = document.getElementById('device-code-invalid');
+const confirmDialog = document.getElementById('device-confirm-dialog');
+const confirmCancel = document.getElementById('device-confirm-cancel');
+const confirmAction = document.getElementById('device-confirm-action');
 let disconnecting = null;
 let disconnected = false;
 let devicesRead = 0;
@@ -98,7 +106,64 @@ disconnectDialog.addEventListener('close', () => {
   disconnectDialog.hidden = true;
   window.devicesShown = showDevices();
 });
-// Escape waits for a running disconnect, like Cancel, so its result is not lost.
+const openCode = (problem = '') => {
+  codeProblem.textContent = problem && window.strings[problem];
+  codeInvalid.hidden = true;
+  codeDialog.hidden = false;
+  codeDialog.showModal();
+  codeField.focus();
+};
+// Nothing leaves this computer before the confirmation: Continue only reads the code.
+const checkCode = async (call = invoke) => {
+  const generation = identityGeneration;
+  codeProblem.textContent = '';
+  codeInvalid.hidden = true;
+  const failure = await call('check_link_code', { code: codeField.value }).then(() => '', String);
+  if (!identityCurrent(generation)) return;
+  if (failure === 'expired') {
+    codeProblem.textContent = window.strings['devices.code.expired'];
+  } else if (failure) {
+    codeInvalid.hidden = false;
+  } else {
+    codeDialog.close();
+    confirmDialog.hidden = false;
+    confirmDialog.showModal();
+    confirmCancel.focus();
+  }
+};
+const sendLink = async (call = invoke) => {
+  const generation = identityGeneration;
+  confirmCancel.disabled = true;
+  confirmAction.disabled = true;
+  const failure = await call('send_link', { code: codeField.value }).then(() => '', String);
+  confirmCancel.disabled = false;
+  confirmAction.disabled = false;
+  if (!identityCurrent(generation)) return;
+  confirmDialog.close();
+  if (failure) openCode(failure === 'expired' ? 'devices.code.expired' : 'devices.code.offline');
+  else devicesStatus.textContent = window.strings['devices.sent'];
+};
+window.closeDeviceDialogs = () => {
+  for (const dialog of [disconnectDialog, codeDialog, confirmDialog]) dialog.close();
+};
+for (const dialog of [codeDialog, confirmDialog]) {
+  dialog.addEventListener('close', () => { dialog.hidden = true; });
+}
+document.getElementById('device-link').addEventListener('click', () => {
+  codeField.value = '';
+  devicesStatus.textContent = '';
+  openCode();
+});
+document.getElementById('device-code-cancel').addEventListener('click', () => codeDialog.close());
+document.getElementById('device-code-next').addEventListener('click', () => {
+  window.codeChecked = checkCode();
+});
+confirmCancel.addEventListener('click', () => confirmDialog.close());
+confirmAction.addEventListener('click', () => { window.linkSent = sendLink(); });
+// Escape waits for a running step, like Cancel, so its result is not lost.
+confirmDialog.addEventListener('cancel', (event) => {
+  if (confirmCancel.disabled) event.preventDefault();
+});
 disconnectDialog.addEventListener('cancel', (event) => {
   if (disconnectCancel.disabled) event.preventDefault();
 });
