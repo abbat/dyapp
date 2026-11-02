@@ -107,7 +107,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   possible age and country, and opens the found profile; Cancel abandons the answer while the node
   call runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
-- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`. On
+- Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`, and
+  `chat-muted` (planned on Android) on a muted peer's row. On
   Android both top rows always show, with a count from local data, and expand their lists in place.
   Liked you fetches the verified profiles when it opens and each opens the found profile, so a peer
   no node returns counts but has no row. Message requests stay out of the chat list and open the
@@ -143,7 +144,8 @@ first and returns to the first section, as any activity relaunch does.
   button.
 - Chat, `chat`, `chat-closed`, `chat-first`, `chat-request`, `chat-menu`, `chat-clear-dialog`,
   `chat-cleared` and `delete-dialog`: `chat-back`, `chat-profile`, `chat-more` with
-  `chat-clear` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own message),
+  `chat-clear`, `chat-mute` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own
+  message),
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
   dialogs. Android has `chat`, `chat-closed`, `chat-first` and `chat-request` with `chat-back`,
   `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,

@@ -561,6 +561,23 @@ States: `chat-closed` and `unlike-dialog` in both languages at 440 and 1280 px.
 
 Findings: none open.
 
+### Mute review (2026-11-02)
+
+States: `chats` and `chat-menu` in both languages at 440 and 1280 px.
+
+1. Visibility: a muted row carries the word Muted, and the action names the opposite state.
+2. Real world: "Mute notifications" says what is silenced; the row mark is the same word.
+3. Control: one click in the same place undoes it, without a dialog.
+4. Consistency: the same action row and caption style as Name this contact and Active recently.
+5. Error prevention: nothing is lost by a wrong click, so no confirmation stands in the way.
+6. Recognition: the state shows on the row without opening the chat.
+7. Flexibility: not applicable, one peer and one flag.
+8. Minimalism: one action and one word; mail, unread counts and the badge stay as they were.
+9. Error recovery: a failed write says so under the composer and changes neither label nor row.
+10. Help: the action's name is the explanation.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

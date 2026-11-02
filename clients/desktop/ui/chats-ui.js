@@ -32,9 +32,12 @@ const updateComposer = () => {
   document.getElementById('chat-closed-notice').hidden = !closed;
   document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';
   document.getElementById('chat-block').hidden = activeChat?.state === 'requestReceived';
-  for (const id of ['chat-block', 'request-block', 'chat-clear']) {
+  for (const id of ['chat-block', 'request-block', 'chat-clear', 'chat-mute']) {
     document.getElementById(id).disabled = chatSending || chatBlocking;
   }
+  const mute = document.getElementById('chat-mute');
+  mute.dataset.i18n = activeChat?.muted ? 'chats.unmute' : 'chats.mute';
+  mute.textContent = window.strings[mute.dataset.i18n];
   if (bytes > 65536) chatComposeStatus.textContent = window.strings['chats.tooLong'];
 };
 chatInput.addEventListener('input', () => {
@@ -401,6 +404,12 @@ const chatRow = (row) => {
     active.textContent = window.strings['chats.active'];
     content.append(document.createTextNode(' '), active);
   }
+  if (row.muted) {
+    const muted = document.createElement('span');
+    muted.className = 'caption';
+    muted.textContent = window.strings['chats.muted'];
+    content.append(document.createTextNode(' '), muted);
+  }
   const preview = document.createElement('span');
   preview.className = 'caption ellipsis';
   preview.textContent = chatPreview(row.lastMessage);
@@ -611,6 +620,7 @@ const openChat = async (peerId, call = invoke) => {
     activeChat = { peerId, ...history };
     document.getElementById('chat-clear').hidden = history.state === 'none';
     document.getElementById('chat-rename').hidden = history.state === 'none';
+    document.getElementById('chat-mute').hidden = history.state === 'none';
     updateComposer();
     chatOverview.hidden = true;
     chatDetail.hidden = false;
@@ -664,6 +674,29 @@ const blockChat = async (call = invoke) => {
 for (const id of ['chat-block', 'request-block']) {
   document.getElementById(id).addEventListener('click', () => { window.chatBlocked = blockChat(); });
 }
+const muteChat = async (call = invoke) => {
+  if (!activeChat) return;
+  const { peerId } = activeChat;
+  const muted = !activeChat.muted;
+  const generation = identityGeneration;
+  try {
+    await call('set_muted', { peerId, muted });
+  } catch (error) {
+    if (identityCurrent(generation) && activeChat?.peerId === peerId) {
+      chatComposeStatus.textContent = `${window.strings['chats.muteFailed']} ${String(error)}`;
+    }
+    return;
+  }
+  if (!identityCurrent(generation)) return;
+  // Invalidate a mailbox refresh that started before the flag was written.
+  chatsRequest += 1;
+  renderChatRows(visibleChatRows.map((row) => (row.peerId === peerId ? { ...row, muted } : row)), call);
+  if (activeChat?.peerId !== peerId) return;
+  activeChat.muted = muted;
+  chatComposeStatus.textContent = '';
+  updateComposer();
+};
+document.getElementById('chat-mute').addEventListener('click', () => { window.chatMuted = muteChat(); });
 const clearChat = async (call = invoke) => {
   const target = clearTarget;
   if (!target || clearBusy) return;

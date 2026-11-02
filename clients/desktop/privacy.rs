@@ -1,5 +1,5 @@
-//! The open identity's local privacy settings, blocked and passed peers, kept in its client store
-//! and never published. Turning sending off never stops receiving.
+//! The open identity's local privacy settings, blocked, muted and passed peers, kept in its client
+//! store and never published. Turning sending off never stops receiving.
 
 use std::path::Path;
 
@@ -76,6 +76,18 @@ pub fn unblock(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), Str
         .map_err(|e| e.to_string())
 }
 
+/// Mutes `peer_id` or ends that: only notices change, never the mail or the unread counts.
+pub fn set_muted(
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+    muted: bool,
+) -> Result<(), String> {
+    open(dir, identity)?
+        .set_muted(peer_id, muted)
+        .map_err(|e| e.to_string())
+}
+
 /// Peers passed on this device, by Peer ID.
 pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
     open(dir, identity)?
@@ -86,6 +98,27 @@ pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
 pub mod commands {
     use crate::chats::{self, Likes};
     use crate::identity_runtime::IdentityState;
+
+    /// The open identity's privacy settings; see `privacy::load`.
+    #[tauri::command]
+    pub(crate) fn privacy_settings(
+        state: tauri::State<'_, IdentityState>,
+    ) -> Result<super::Privacy, String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::load(dir, identity)
+    }
+
+    /// Stores the open identity's privacy settings; see `privacy::save`.
+    #[tauri::command]
+    pub(crate) fn set_privacy(
+        state: tauri::State<'_, IdentityState>,
+        privacy: super::Privacy,
+    ) -> Result<(), String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::save(dir, identity, privacy)
+    }
 
     /// Peers the open identity blocked on this device.
     #[tauri::command]
@@ -106,6 +139,18 @@ pub mod commands {
         let lease = state.lease()?;
         let (identity, dir) = lease.active();
         super::unblock(dir, identity, &peer_id)
+    }
+
+    /// Mutes a peer on this device or ends that; see `privacy::set_muted`.
+    #[tauri::command]
+    pub(crate) fn set_muted(
+        state: tauri::State<'_, IdentityState>,
+        peer_id: String,
+        muted: bool,
+    ) -> Result<(), String> {
+        let lease = state.lease()?;
+        let (identity, dir) = lease.active();
+        super::set_muted(dir, identity, &peer_id, muted)
     }
 
     /// Peers the open identity passed on this device.

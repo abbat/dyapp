@@ -588,25 +588,6 @@ async fn search_profiles(
     .map_err(|e| e.to_string())?
 }
 
-/// The open identity's privacy settings; see `privacy::load`.
-#[tauri::command]
-fn privacy_settings(state: tauri::State<'_, IdentityState>) -> Result<privacy::Privacy, String> {
-    let lease = state.lease()?;
-    let (identity, dir) = lease.active();
-    privacy::load(dir, identity)
-}
-
-/// Stores the open identity's privacy settings; see `privacy::save`.
-#[tauri::command]
-fn set_privacy(
-    state: tauri::State<'_, IdentityState>,
-    privacy: privacy::Privacy,
-) -> Result<(), String> {
-    let lease = state.lease()?;
-    let (identity, dir) = lease.active();
-    privacy::save(dir, identity, privacy)
-}
-
 /// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
 #[tauri::command]
 fn pseudo_locale() -> bool {
@@ -927,10 +908,11 @@ fn main() {
             chats::commands::clear_chat,
             chats::commands::mark_chat_read,
             chats::commands::send_read_receipts,
-            privacy_settings,
-            set_privacy,
+            privacy::commands::privacy_settings,
+            privacy::commands::set_privacy,
             privacy::commands::blocked_peers,
             privacy::commands::unblock_peer,
+            privacy::commands::set_muted,
             privacy::commands::passed_peers,
             privacy::commands::pass_peer,
             #[cfg(unix)]

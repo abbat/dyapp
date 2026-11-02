@@ -296,7 +296,7 @@ chat and mark read for the active identity.
 | --- | --- | --- |
 | Liked you | `chats-liked` | With count |
 | Message requests | `chats-requests` | With count |
-| Conversations | `chat-list` | Rows `chat-1`, `chat-2`; a row leads with the peer's first thumbnail while their profile is in memory, otherwise the letters, and shows "Active recently" for a match |
+| Conversations | `chat-list` | Rows `chat-1`, `chat-2`; `chat-muted` marks a muted peer's row; a row leads with the peer's first thumbnail while their profile is in memory, otherwise the letters, and shows "Active recently" for a match |
 
 `chat`: one conversation with a match. The prototype's peer avatar and profile link remain planned.
 A peer is shown by the local name if it has one, else by its public name with "Verified" or "Not
@@ -335,6 +335,7 @@ over a direct path.
 | More | `chat-more` | Opens `chat-menu` |
 | Name this contact | `chat-rename` | In the menu, opens `chat-rename-dialog` |
 | Clear chat | `chat-clear` | In the menu |
+| Mute notifications | `chat-mute` | In the menu, reads Unmute notifications while muted |
 | Block | `chat-block` | In the menu |
 | First-message notice | `chat-first-notice` | `chat-first` only |
 | Closed notice | `chat-closed-notice` | `chat-closed` only |

@@ -47,6 +47,13 @@ names and the destination after any `user@` prefix. Malformed URLs remain plain 
 helps reveal a misleading link but does not establish that the destination is trustworthy.
 Other app surfaces have not yet adopted this display.
 
+## Mute
+
+Linux Chats can mute a peer from the chat. Muting only stops desktop notices for that peer's
+messages, requests and likes: mail is still received, stays unread and counts in the Chats badge,
+and the peer can tell nothing changed. The flag is stored in the local client store on this
+device and is never published or synced. Android muting is planned.
+
 ## Retention
 
 ### Safety-number clipboard

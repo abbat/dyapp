@@ -30,7 +30,7 @@ mod reads;
 pub(crate) mod send_photo;
 #[path = "chats/view.rs"]
 mod view;
-pub use view::{ChatHistoryView, ChatRowView, MessageView};
+pub use view::{BlockResult, ChatHistoryView, ChatRowView, MessageView, Revocation};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
@@ -49,32 +49,6 @@ pub struct Likes {
     pub passed: bool,
 }
 
-/// Network revocation is only confirmed by the node reached in this attempt.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Revocation {
-    NotNeeded,
-    Pending,
-    Confirmed,
-}
-
-/// Local block always remains effective when network revocation is pending.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BlockResult {
-    pub revocation: Revocation,
-    pub detail: Option<String>,
-}
-
-impl BlockResult {
-    fn pending(detail: impl ToString) -> Self {
-        Self {
-            revocation: Revocation::Pending,
-            detail: Some(detail.to_string()),
-        }
-    }
-}
-
 pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
@@ -87,6 +61,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
         if store.blocked(&row.peer_id).map_err(|e| e.to_string())? {
             continue;
         }
+        let muted = store.muted(&row.peer_id).map_err(|e| e.to_string())?;
         rows.push(ChatRowView {
             active_recently: store
                 .active_recently(&row.peer_id, now)
@@ -95,6 +70,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
             state: row.state.into(),
             last_message: view::last_item(row.last_message, row.last_attachment),
             unread_count: row.unread_count,
+            muted,
         });
     }
     Ok(rows)
@@ -124,10 +100,12 @@ pub fn chat_history(
     let active_recently = store
         .active_recently(peer_id, presence::now_ms()?)
         .map_err(|e| e.to_string())?;
+    let muted = store.muted(peer_id).map_err(|e| e.to_string())?;
     Ok(ChatHistoryView {
         state,
         messages,
         active_recently,
+        muted,
     })
 }
 

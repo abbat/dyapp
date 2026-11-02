@@ -131,4 +131,47 @@ const checkPublicName = async () => {
   clearSearch();
   document.dispatchEvent(new Event('dyapp:identity-change'));
 };
-globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName });
+// Mute: the action and the row follow the stored flag, and a refusal leaves both alone.
+const checkChatMute = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const peer = 'd'.repeat(64);
+  let muted = false;
+  let refuse = null;
+  const call = (command, args) => {
+    if (command === 'chat_rows') {
+      return Promise.resolve([{ peerId: peer, state: 'open', lastMessage: null, unreadCount: 1,
+        activeRecently: false, muted }]);
+    }
+    if (command === 'chat_history') {
+      return Promise.resolve({ state: 'open', messages: [], activeRecently: false, muted });
+    }
+    if (command === 'contact_names') {
+      return Promise.resolve([{ peerId: peer, name: '', verified: null }]);
+    }
+    if (command === 'set_muted') {
+      if (refuse) return Promise.reject(refuse);
+      ({ muted } = args);
+    }
+    return Promise.resolve(0);
+  };
+  await window.showChats(call);
+  await openChat(peer, call);
+  const button = document.getElementById('chat-mute');
+  const shows = (key, mark) => button.textContent === window.strings[key]
+    && liveRow('chat-list', peer).textContent.includes(window.strings['chats.muted']) === mark;
+  if (!shows('chats.mute', false)) throw new Error('an unmuted chat looks muted');
+  await muteChat(call);
+  if (!muted || !shows('chats.unmute', true)) throw new Error('Mute did not show');
+  refuse = 'disk full';
+  await muteChat(call);
+  if (!muted || !shows('chats.unmute', true) || !chatComposeStatus.textContent.includes(refuse)) {
+    throw new Error('a refused unmute did not explain itself');
+  }
+  refuse = null;
+  await muteChat(call);
+  if (muted || !shows('chats.mute', false)) throw new Error('Unmute did not show');
+  document.getElementById('chat-back').click();
+  document.dispatchEvent(new Event('dyapp:identity-change'));
+};
+globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName, checkChatMute });

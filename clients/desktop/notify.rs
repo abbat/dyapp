@@ -13,17 +13,25 @@ use tauri::{AppHandle, Manager};
 /// The most of a message a notice shows; the rest waits in the app.
 const BODY_CHARS: usize = 200;
 
-/// Rows without blocked peers, and unanswered likes, so own, dropped and blocked mail never counts.
+/// Rows and unanswered likes without blocked or muted peers, so own, dropped, blocked and muted mail
+/// never counts.
 fn waiting(dir: &Path, identity: &Identity) -> Result<(Vec<ChatRow>, usize), String> {
     let store = crate::chats::open(dir, identity)?;
+    let quiet = |peer: &str| -> Result<bool, String> {
+        Ok(store.blocked(peer).map_err(|e| e.to_string())?
+            || store.muted(peer).map_err(|e| e.to_string())?)
+    };
     let mut rows = Vec::new();
     for row in store.chat_rows().map_err(|e| e.to_string())? {
-        if !store.blocked(&row.peer_id).map_err(|e| e.to_string())? {
+        if !quiet(&row.peer_id)? {
             rows.push(row);
         }
     }
-    let likes = store.liked_by().map_err(|e| e.to_string())?;
-    Ok((rows, likes.len()))
+    let mut likes = 0;
+    for peer in store.liked_by().map_err(|e| e.to_string())? {
+        likes += usize::from(!quiet(&peer)?);
+    }
+    Ok((rows, likes))
 }
 
 /// The newest row with more unread items than before.
@@ -239,6 +247,37 @@ mod tests {
             last_attachment: None,
             unread_count,
         }
+    }
+
+    #[test]
+    fn a_muted_peer_never_counts() {
+        use dyapp_client::interactions::{Interaction, Kind};
+
+        let dir = std::env::temp_dir().join(format!("dyapp-notify-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (me, peer) = (Identity::generate(), Identity::generate());
+        let (me_id, peer_id) = (me.peer_id().to_string(), peer.peer_id().to_string());
+        let like = |store: &mut dyapp_client::store::Store, sender: &str, target: &str, n: u8| {
+            let kind = Kind::Like;
+            let (event_id, hlc) = ([n; 16], u64::from(n) << 16);
+            let interaction = Interaction { kind, event_id, hlc };
+            store
+                .apply_interaction(sender, target, &[n; 32], interaction)
+                .unwrap();
+        };
+        let counts = || {
+            let (rows, likes) = waiting(&dir, &me).unwrap();
+            (rows.len(), likes)
+        };
+        let mut store = crate::chats::open(&dir, &me).unwrap();
+        like(&mut store, &peer_id, &me_id, 1);
+        assert_eq!(counts(), (0, 1));
+        store.set_muted(&peer_id, true).unwrap();
+        assert_eq!(counts(), (0, 0));
+        like(&mut store, &me_id, &peer_id, 2);
+        assert_eq!(counts(), (0, 0));
+        store.set_muted(&peer_id, false).unwrap();
+        assert_eq!(counts(), (1, 0));
     }
 
     fn shown(mode: NoticeContent, state: Conversation) -> (String, String) {

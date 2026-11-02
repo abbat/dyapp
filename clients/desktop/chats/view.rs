@@ -6,6 +6,32 @@ use dyapp_client::store::originals;
 use dyapp_client::store::Conversation;
 use std::path::Path;
 
+/// Network revocation is only confirmed by the node reached in this attempt.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Revocation {
+    NotNeeded,
+    Pending,
+    Confirmed,
+}
+
+/// Local block always remains effective when network revocation is pending.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockResult {
+    pub revocation: Revocation,
+    pub detail: Option<String>,
+}
+
+impl BlockResult {
+    pub(super) fn pending(detail: impl ToString) -> Self {
+        Self {
+            revocation: Revocation::Pending,
+            detail: Some(detail.to_string()),
+        }
+    }
+}
+
 /// Conversation states exposed to the desktop without the request's internal message ID.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,6 +217,8 @@ pub struct ChatRowView {
     pub last_message: Option<MessageView>,
     pub unread_count: usize,
     pub active_recently: bool,
+    /// Mail from this peer adds no notice; see `notify::waiting`.
+    pub muted: bool,
 }
 
 /// One peer's current conversation, including an empty chat after Clear chat.
@@ -200,6 +228,7 @@ pub struct ChatHistoryView {
     pub state: ChatState,
     pub messages: Vec<MessageView>,
     pub active_recently: bool,
+    pub muted: bool,
 }
 
 #[cfg(test)]
