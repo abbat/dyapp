@@ -2,8 +2,9 @@
 
 How a client publishes, fetches and keeps public profile photos. The wire format is in
 [protobuf-schema.md](../architecture/protobuf-schema.md); node rules are in
-[bootstrap.md](../architecture/bootstrap.md#signed-profile). No client implements this yet; this
-page is the plan the desktop follows first.
+[bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
+publishing; no client has the editor or the viewing below yet, and the keep refresh of step 4 is
+planned. The desktop follows this page first.
 
 ## Limits
 
@@ -29,12 +30,16 @@ then shows the node's `FULL` reply and keeps the photo local.
 3. Publishing sends `keep` with every hash of the draft, puts each blob the node reports missing,
    then publishes the profile. A failure before the profile publish leaves the previous profile
    valid. A photo removed from the draft leaves the store and the keep list with that publish, so
-   a reader of the older profile briefly sees the placeholder.
+   a reader of the older profile briefly sees the placeholder. Withdrawing the identity sends an
+   empty keep after the tombstone.
 4. The catch-up pass refreshes the keep with a newer signed `time`, at most once a day, and puts
    back whatever it reports missing, so photos outlive node churn while the owner is active.
 
-`keep` uses the profile `version`. The store holds own photos until they are removed, so a repair
-needs no original file.
+`keep` uses the profile `version`. A node refuses a different list at an equal version, which a
+failed publish can leave behind, so the client then moves one version past it. The store holds own
+photos until a publish drops them, so a repair needs no original file. The bare JPEG and byte
+limits are checked where the blob enters the store; the desktop checks pixels before that, because
+`rust/client` has no image decoder.
 
 ## Viewing
 

@@ -61,6 +61,10 @@ impl Schedule {
             .map(|(_, missing)| *missing)
     }
 
+    pub(crate) fn forget(&mut self, hash: &[u8]) {
+        self.recent.remove(hash);
+    }
+
     pub(crate) fn finish(&mut self, hash: &[u8], missing: bool) {
         if let Some((_, value)) = self.recent.get_mut(hash) {
             *value = missing;

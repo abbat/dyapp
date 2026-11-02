@@ -270,7 +270,8 @@ resent from the sender's retry queue.
   At most four keep repairs run, each for fifteen seconds, processing one payload at a time.
   A key is inventoried once per rolling hour, with up to 4096 keys and owner cursors tracked
   in memory; later visits reuse that result or wait for capacity. Successful uploads clear a
-  cached missing result. Restarts reset the schedule. Repair reserves request and bounded reply
+  cached missing result, and a blob this node removes loses its cached result, so listing it again
+  reports it missing. Restarts reset the schedule. Repair reserves request and bounded reply
   bytes in the same 75 % traffic budget as assembly, with the shared two-per-peer/sixteen-node
   media queue. Timeout/budget failures may conservatively request a client reupload.
 - **Mailbox.** A watching fetch makes the node the repairer for that mailbox: it sends the ids it

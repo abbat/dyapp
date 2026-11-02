@@ -80,7 +80,9 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 /// Publish `draft` (version: the last one published) to `node` at the next version and read it
 /// back. Succeeds only when the signed readback equals the published profile, which is then
 /// saved as the draft and held for search ([`Store::hold_search_profile`]); on failure the draft
-/// is unchanged and the publish may be retried. A hidden profile is shown again.
+/// is unchanged and the publish may be retried. A hidden profile is shown again. Photos reach the
+/// node first, so the profile never lists a blob the node has refused; blobs the published profile
+/// no longer lists then leave the store.
 pub async fn publish(
     store: &Store,
     node: &mut Node,
@@ -91,11 +93,55 @@ pub async fn publish(
         version: draft.version + 1,
         ..draft.clone()
     };
+    let hashes = photo_hashes(&next);
+    if !hashes.is_empty() || store.has_profile_photos()? {
+        upload_photos(store, node, identity, next.version, &hashes).await?;
+    }
     let profile = send(node, identity, next).await?;
     store.save_profile_draft(&profile)?;
+    store.retain_profile_photos(&hashes)?;
     store.hold_search_profile(&profile.sign(identity))?;
     store.set_profile_hidden(false)?;
     Ok(profile)
+}
+
+fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
+    let mut hashes: Vec<Vec<u8>> = profile
+        .photos
+        .iter()
+        .flat_map(|photo| photo.full.iter().chain([&photo.thumbnail]).cloned())
+        .collect();
+    hashes.sort();
+    hashes.dedup();
+    hashes
+}
+
+// Replace the node's list with `hashes` and put what it lacks. The node refuses another list at an
+// equal version, and a failed publish may leave one there, so a refusal moves past both that and
+// any newer profile.
+async fn upload_photos(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    version: u64,
+    hashes: &[Vec<u8>],
+) -> Result<(), Failure> {
+    let missing = match node.keep_media(identity, version, hashes.to_vec()).await {
+        Err(Error::Status(Status::Stale)) => {
+            let held = node.get_profile(&identity.peer_id()).await;
+            let held = held.map_or(0, |held| held.profile.version);
+            node.keep_media(identity, held.max(version) + 1, hashes.to_vec())
+                .await?
+        }
+        missing => missing?,
+    };
+    for hash in missing {
+        let blob = store
+            .profile_photo(&hash)?
+            .ok_or(Error::Reply("kept photo is not in the store"))?;
+        node.put_media(&identity.peer_id(), blob).await?;
+    }
+    Ok(())
 }
 
 /// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary
@@ -124,6 +170,10 @@ pub async fn withdraw(
 ) -> Result<Profile, Failure> {
     let next = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
     let tombstone = send(node, identity, next).await?;
+    if store.has_profile_photos()? {
+        // Best effort: an unrefreshed list expires with the owner's inactivity anyway.
+        let _ = upload_photos(store, node, identity, tombstone.version, &[]).await;
+    }
     let draft = Profile {
         version: tombstone.version,
         ..draft.clone()

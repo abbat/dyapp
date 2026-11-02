@@ -22,6 +22,7 @@ mod outbox;
 mod peers;
 mod presence;
 mod profile_draft;
+pub mod profile_photos;
 mod reads;
 mod search_publish;
 mod tokens;
@@ -54,6 +55,9 @@ pub enum Error {
     /// A stored setting has an unsupported format or value.
     #[error("client store setting is invalid")]
     InvalidSetting,
+    /// A photo is not a JPEG within its size, or the profile has no room or no such photo.
+    #[error("profile photo refused")]
+    PhotoRefused,
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,

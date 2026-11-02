@@ -55,6 +55,12 @@ impl Replicas {
         mut response: proto::MediaResponse,
         now: Instant,
     ) {
+        // A blob written before its removal is missing again if the owner lists it anew.
+        if let Some(Ok(removed)) = service.media.as_ref().map(|media| media.take_removed()) {
+            for hash in removed {
+                self.media_repaired.forget(&hash);
+            }
+        }
         let keep = proto::MediaKeep::decode(record.payload.as_slice()).unwrap();
         for hash in &keep.hashes {
             if service.listed(hash) {

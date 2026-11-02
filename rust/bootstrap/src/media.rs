@@ -51,7 +51,12 @@ pub struct MediaStore {
     cache: PathBuf,
     // ponytail: one connection; puts hold it while the file is written (1 MiB at most).
     db: Mutex<Connection>,
+    // ponytail: dropped past MAX_REMOVED; a node then trusts an old repair for up to its interval.
+    removed: Mutex<Vec<Vec<u8>>>,
 }
+
+/// Most removed hashes waiting for the node to read them.
+const MAX_REMOVED: usize = 4096;
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -201,6 +206,7 @@ impl MediaStore {
             dir: data,
             cache: dir.join("cache"),
             db,
+            removed: Mutex::default(),
         })
     }
 
@@ -625,10 +631,19 @@ impl MediaStore {
     }
 
     fn remove(&self, hashes: Vec<Vec<u8>>) -> Result<()> {
+        let mut removed = lock(&self.removed)?;
         for hash in hashes {
             remove_file(&self.path(&hash))?;
+            if removed.len() < MAX_REMOVED {
+                removed.push(hash);
+            }
         }
         Ok(())
+    }
+
+    /// The hashes removed since the last call, so the node stops trusting what it knew of them.
+    pub fn take_removed(&self) -> Result<Vec<Vec<u8>>> {
+        Ok(std::mem::take(&mut *lock(&self.removed)?))
     }
 
     /// Keeps an assembled blob for the next pieces; `now` in Unix seconds.

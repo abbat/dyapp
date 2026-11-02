@@ -4,6 +4,7 @@ use super::*;
 use dyapp_client::attachment;
 use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::interactions::Kind;
+use dyapp_client::publish;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 use dyapp_client::Error;
@@ -19,6 +20,67 @@ async fn media_node() -> Multiaddr {
         config.limits.require_write_tokens = false;
     })
     .await
+}
+
+#[tokio::test]
+async fn profile_photos_reach_readers_and_leave_with_the_profile() {
+    let address = media_node().await;
+    let connect = || {
+        dyapp_client::Node::connect(
+            address.clone(),
+            std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
+        )
+    };
+    let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
+    let owner = Identity::generate();
+    let store = Store::open(&store_path("profile-photos"), &owner).unwrap();
+    let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
+
+    let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
+    let published = publish::publish(&store, &mut node, &owner, &draft)
+        .await
+        .unwrap();
+    let seen = reader.get_profile(&owner.peer_id()).await.unwrap().profile;
+    assert_eq!(seen.photos, published.photos);
+    let photo = &seen.photos[0];
+    let hash: [u8; 32] = photo.full[0].clone().try_into().unwrap();
+    let small: [u8; 32] = photo.thumbnail.clone().try_into().unwrap();
+    assert_eq!(reader.get_media(&hash).await.unwrap(), full);
+    assert_eq!(reader.get_media(&small).await.unwrap(), thumbnail);
+
+    // A republish finds the blobs held; a failed publish left another list at the next version.
+    let published = publish::publish(&store, &mut node, &owner, &published)
+        .await
+        .unwrap();
+    let left = vec![published.photos[0].thumbnail.clone()];
+    node.keep_media(&owner, published.version + 1, left)
+        .await
+        .unwrap();
+
+    let draft = store.remove_profile_photo(0).unwrap();
+    assert!(store.has_profile_photos().unwrap());
+    publish::publish(&store, &mut node, &owner, &draft)
+        .await
+        .unwrap();
+    assert!(!store.has_profile_photos().unwrap());
+    assert!(matches!(
+        reader.get_media(&hash).await,
+        Err(Error::Status(Status::NotFound))
+    ));
+
+    // Withdrawing takes the photos off the node with the profile.
+    let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
+    let published = publish::publish(&store, &mut node, &owner, &draft)
+        .await
+        .unwrap();
+    assert_eq!(reader.get_media(&hash).await.unwrap(), full);
+    publish::withdraw(&store, &mut node, &owner, &published)
+        .await
+        .unwrap();
+    assert!(matches!(
+        reader.get_media(&hash).await,
+        Err(Error::Status(Status::NotFound))
+    ));
 }
 
 #[tokio::test]
