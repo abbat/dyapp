@@ -272,20 +272,27 @@ impl Session {
                 _ => false,
             };
         // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
-        // shortcut: another device of this owner sent it; it waits for device sync.
         if let Event::Interaction {
+            group,
             sender,
             device,
             event: interaction,
-            ..
         } = &event
         {
-            if !blocked && sender != self.store.owner_peer_id() {
+            if !blocked {
                 let wall_ms = crate::now() * 1000;
-                match self
-                    .store
-                    .receive_interaction(sender, device, *interaction, wall_ms)
-                {
+                // Another device of this owner sent it to the other owner of the group.
+                let own = sender == self.store.owner_peer_id();
+                let applied = match self.partner(group) {
+                    Some(peer) if own => {
+                        self.store
+                            .receive_own_interaction(&peer, device, *interaction, wall_ms)
+                    }
+                    _ => self
+                        .store
+                        .receive_interaction(sender, device, *interaction, wall_ms),
+                };
+                match applied {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         event = Event::Refused("interaction from the future".into());
                     }

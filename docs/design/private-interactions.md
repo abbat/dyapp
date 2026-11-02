@@ -25,7 +25,7 @@ There are no optional fields or trailing bytes in v1. The sender and target iden
 the verified MLS group and mailbox binding, not untrusted payload fields. The receiver accepts
 only application messages from current verified group members in a group that identifies exactly
 the intended two profile identities. Events from another device of the local identity update the
-local side after device sync. The codec must not allow a signal to change the state of a third
+local side. The codec must not allow a signal to change the state of a third
 profile. A group may contain several devices of either identity. A view uses the same layout but
 never affects likes or matches.
 
@@ -63,8 +63,8 @@ HLC value. Processing and state sealing precede mailbox acknowledgement and noti
 
 Separate devices of one identity can issue concurrent events. The ordering above gives every
 device the same result once they have the same events, but an offline device can supersede another
-device's action. The UI must show the reconciled state after device sync; the store and delivery
-tasks must replicate the event stream to the owner's other devices. A missing or evicted signal
+device's action. The UI shows the reconciled state as the events arrive through the pair group, whose
+members are the owner's other devices too. A missing or evicted signal
 can delay or prevent convergence until retry or later reconciliation; the sender cannot erase a
 notification the peer already saw. The local own state changes immediately; remote match status
 is provisional until delivery is acknowledged. No bootstrap node decides or stores a match.
@@ -95,7 +95,7 @@ an unnecessary preference signal.
 The codec covers the binary round-trip and malformed-input part of fixture 1. `Session::interact`
 and `Session::receive` connect the codec, store and short-padded signal delivery; the protocol
 test covers match, unlike, replayed put, offline retry and daily view. Concurrent own devices
-(fixture 5) wait for device sync; the Linux desktop Search and Liked you views show likes.
+(fixture 5) converge through the pair group; the Linux desktop Search and Liked you views show likes.
 `Session::interact` commits the local event, sealed MLS state and encrypted outbox together
 before sending; offline retry after a restart reuses the exact staged signal. A local block refuses new outgoing like, unlike and view
 signals at draft and commit time, before any outbox write. A prior delivered like is not erased by

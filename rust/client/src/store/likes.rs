@@ -155,14 +155,38 @@ impl Store {
         if self.blocked(sender)? {
             return Ok(false);
         }
+        let owner = self.owner_peer_id.clone();
+        self.observe_interaction(sender, &owner, device, event, wall_ms)
+    }
+
+    /// Apply an event another device of this owner sent to `peer`, as if it were made here: an
+    /// unlike closes the chat and erases this copy. The same guard applies.
+    pub fn receive_own_interaction(
+        &mut self,
+        peer: &str,
+        device: &[u8],
+        event: Interaction,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        let owner = self.owner_peer_id.clone();
+        self.observe_interaction(&owner, peer, device, event, wall_ms)
+    }
+
+    fn observe_interaction(
+        &mut self,
+        sender: &str,
+        target: &str,
+        device: &[u8],
+        event: Interaction,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
         let tx = self.db.transaction()?;
         let hlc = Timestamp::from(event.hlc);
         let clock = HybridClock::resume(load_hlc(&tx)?);
         save_hlc(&tx, clock.observe_at(hlc, wall_ms)?)?;
-        let owner = self.owner_peer_id.as_str();
-        let changed = Self::apply(&tx, owner, sender, owner, device, event)?;
+        let changed = Self::apply(&tx, &self.owner_peer_id, sender, target, device, event)?;
         if event.kind == Kind::View {
-            record_view(&tx, sender, owner, hlc)?;
+            record_view(&tx, sender, target, hlc)?;
         }
         tx.commit()?;
         Ok(changed)

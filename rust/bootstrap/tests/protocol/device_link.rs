@@ -3,10 +3,11 @@
 use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
+use dyapp_client::interactions::Kind;
 use dyapp_client::link::{Code, Invite};
 use dyapp_client::publish::{self, Failure};
 use dyapp_client::session::Session;
-use dyapp_client::store::Store;
+use dyapp_client::store::{Conversation, Store};
 use std::slice::from_mut;
 
 const SEAL: [u8; 32] = [6; 32];
@@ -160,6 +161,49 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
             Event::Message { body: Body::Text { text, .. }, .. } if text == b"to both"
         )));
     }
+
+    // A like and an unlike from the phone hold on the laptop too, with the chat and its copy.
+    bob_session
+        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    laptop_session
+        .receive(
+            from_mut(&mut laptop.node),
+            &laptop.device_key,
+            &linked,
+            &SEAL,
+        )
+        .await
+        .unwrap();
+    assert!(laptop_session.likes(&bob_owner).unwrap().matched());
+    assert_eq!(
+        laptop_session.conversation(&bob_owner).unwrap(),
+        Conversation::Open
+    );
+    alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::Unlike, &SEAL)
+        .await
+        .unwrap();
+    laptop_session
+        .receive(
+            from_mut(&mut laptop.node),
+            &laptop.device_key,
+            &linked,
+            &SEAL,
+        )
+        .await
+        .unwrap();
+    assert!(!laptop_session.likes(&bob_owner).unwrap().ours);
+    assert_eq!(
+        laptop_session.conversation(&bob_owner).unwrap(),
+        Conversation::Closed
+    );
+    assert!(laptop_session.store().chat_rows().unwrap().is_empty());
 }
 
 #[tokio::test]

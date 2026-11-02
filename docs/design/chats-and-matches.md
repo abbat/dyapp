@@ -160,18 +160,17 @@ commit. Retries reuse the staged bytes, as for every chat write.
 ## Own devices
 
 All devices of both identities are members of the pair group, so every own device sees the same
-texts and derives the same conversation state. Likes reach own devices only with the planned
-device sync ([ADR 0040](../decisions/0040-device-linking.md)). The cases:
+texts and derives the same conversation state, and an own like or unlike applies on every device
+in the group. The cases:
 
 1. Two own devices send a first text at once: each makes a group, the canonical rule merges them;
    the recipient keeps the first text it receives and drops the other, which stays Sent, never
    Delivered, on the second device.
 2. One own device sends the request and another replies to a peer text: both see the group, so
    both show the chat as open.
-3. A like from one own device and an unlike from another: the ledger order decides. Until device
-   sync, an unlike closes the chat and erases the copy on the device that made it; the other own
-   device closes it on the peer's side only when it sees the event.
-4. A device offline during a match: it shows Liked you until device sync brings the own like.
+3. A like from one own device and an unlike from another: the ledger order decides. An unlike
+   closes the chat and erases the copy on each own device as it receives the event.
+4. A device offline during a match: it shows Liked you until the own like arrives from its mailbox.
 5. Block on one device: local until device sync; the other device still shows the chat.
 
 ## Tests for the implementation

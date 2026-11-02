@@ -135,7 +135,8 @@ events of one identity. `Session::interact` creates an own like, unlike or view 
 owner of a group, commits the event with sealed MLS state and exact outbox bytes, then sends it,
 so a failed put retries the same event even after restart;
 `Session::receive` applies a received one to the ledger before acking it, refuses one from the
-future and skips one from another own device until device sync exists. `Session::likes` reads the
+future and applies one from another own device as its own, against the other owner of the group.
+`Session::likes` reads the
 match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the
 signal class.
 The Linux desktop Search and Liked you views show likes; other platform UI remains planned.
