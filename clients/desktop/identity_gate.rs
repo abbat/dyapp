@@ -89,6 +89,7 @@ impl<T> Lease<T> {
     }
 
     /// The selected identity's generation when this command was admitted.
+    #[cfg(test)]
     pub fn generation(&self) -> u64 {
         self.generation
     }

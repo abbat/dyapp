@@ -373,7 +373,7 @@ pub async fn publish(
     attested: bool,
     bits: u32,
 ) -> Result<View, String> {
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     let mut draft = stored(&store)?;
     let today = today()?;
     publish::check(&draft, attested, today).map_err(blocked)?;

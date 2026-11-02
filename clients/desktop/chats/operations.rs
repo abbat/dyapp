@@ -59,7 +59,7 @@ async fn operate(
             return Err("invalidText".into());
         }
     }
-    let mut store = super::open(dir, identity)?;
+    let store = super::open(dir, identity)?;
     validate_target(&store, identity, peer_id, group_id, message_id)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?

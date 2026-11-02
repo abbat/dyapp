@@ -30,7 +30,7 @@ mod reads;
 pub(crate) mod send_photo;
 #[path = "chats/view.rs"]
 mod view;
-pub use view::{ChatHistoryView, ChatRowView, ChatState, MessageView};
+pub use view::{ChatHistoryView, ChatRowView, MessageView};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
@@ -198,7 +198,7 @@ pub async fn send_text(
     if text.is_empty() || text.len() > dyapp_client::chat::MAX_TEXT_BYTES {
         return Err("invalidText".into());
     }
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     if store.blocked(peer_id).map_err(|e| e.to_string())? {
         return Err("blocked".into());
     }
@@ -260,7 +260,7 @@ pub async fn block(
     peer_id: &str,
 ) -> Result<BlockResult, String> {
     search::block(dir, identity, peer_id)?;
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     let today = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| error.to_string())?
@@ -325,7 +325,7 @@ pub async fn like(
 ) -> Result<Likes, String> {
     let (epoch, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
     let peer = profiles.get(peer_id).cloned().ok_or("unknownPeer")?;
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     if own.version == 0 {
         return Err("unpublished".into());
@@ -408,7 +408,7 @@ pub async fn receive(
     device_key: &Identity,
     stop: impl Fn() -> bool,
 ) -> Result<usize, String> {
-    let mut store = open(dir, identity)?;
+    let store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     let own = match own.version {
         0 => None,
@@ -864,7 +864,7 @@ mod tests {
         assert_eq!(chat_rows(&dir, &alice).unwrap().len(), 1);
         let row = &chat_rows(&dir, &alice).unwrap()[0];
         assert_eq!(row.peer_id, bob_id);
-        assert_eq!(row.state, ChatState::Open);
+        assert_eq!(row.state, view::ChatState::Open);
         assert_eq!(row.last_message, None);
         assert_eq!(row.unread_count, 0);
         assert!(chat_history(&dir, &alice, &bob_id)
