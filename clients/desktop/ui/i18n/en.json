@@ -535,5 +535,20 @@
   "devices.confirm.text": "It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back.",
   "devices.confirm.warn": "Go on only if you hold that device and started this link yourself. If someone sent you this code, stop.",
   "devices.confirm.action": "Give full control",
-  "devices.code.offline": "No node answered, so nothing was sent. Check the network and try again."
+  "devices.code.offline": "No node answered, so nothing was sent. Check the network and try again.",
+  "wizard.link": "Link to an identity I already use",
+  "link.steps": "Link this computer",
+  "link.intro": "Show this code to your other device. On a device that has your identity, open Settings, then Devices, and choose Link a new device. Both devices must use the same network.",
+  "link.qr": "QR code of this link",
+  "link.code": "Or copy the code",
+  "link.waiting": "Waiting for your other device. This code works for five minutes.",
+  "link.offline": "No node answers. Still trying.",
+  "link.expired": "This code expired, and nothing was shared. Show a new one to go on.",
+  "link.new": "Show a new code",
+  "link.finishing": "Your identity arrived. Finishing the link…",
+  "link.done.title": "This computer is linked",
+  "link.done.text": "It now holds this identity. Chats start from now on; earlier messages stay on your other devices.",
+  "link.done.pending": "The network has not accepted this computer yet. The app keeps trying while it is open, and contacts can reach it after that.",
+  "link.open": "Open identity",
+  "devices.join": "Link this computer to another identity…"
 }

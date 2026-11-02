@@ -46,6 +46,7 @@ const chooseStorage = async (mode, seed) => {
   }
   if (!document.getElementById('no-backup').textContent
     || !document.getElementById('setup-step').textContent) throw new Error('step or backup line missing');
+  if (document.getElementById('link-identity').hidden) throw new Error('first run offers no link');
   await shot('setup');
   const before = (await invokeTest('list_identities')).length;
   choice.click();

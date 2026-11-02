@@ -47,6 +47,7 @@
       <p id="no-backup" class="caption" data-i18n="setup.noBackup"></p>
       <div class="actions">
         <button id="setup-cancel" class="btn" type="button" data-i18n="page.cancel" hidden></button>
+        <button id="link-identity" class="btn" type="button" data-i18n="wizard.link"></button>
         <button id="create-identity" class="btn primary" type="button" data-i18n="setup.create"></button>
       </div>
     </div>
@@ -81,9 +82,38 @@
     </div>
   </main>
   <!-- Step 2 borrows the Peer ID and the Network form from the shell while it shows. -->
+  <main id="link" class="page" hidden>
+    <div class="card">
+      <div id="link-wait">
+        <h1 data-i18n="link.steps"></h1>
+        <div id="link-shown">
+          <p data-i18n="link.intro"></p>
+          <canvas id="link-qr" class="safety-qr" role="img" data-i18n-label="link.qr"></canvas>
+          <p class="caption"><span data-i18n="link.code"></span>
+            <button id="copy-link-code" class="btn quiet" type="button" data-i18n="action.copy"></button>
+            <code id="link-code" class="full-id"></code></p>
+        </div>
+        <p id="link-status" class="notice" role="status" aria-live="polite"></p>
+        <div id="link-actions" class="actions">
+          <button id="link-cancel" class="btn" type="button" data-i18n="page.cancel"></button>
+          <button id="link-new" class="btn primary" type="button" data-i18n="link.new" hidden></button>
+        </div>
+      </div>
+      <div id="link-done" hidden>
+        <h1 data-i18n="link.done.title"></h1>
+        <p id="link-peer" class="who"></p>
+        <p data-i18n="link.done.text"></p>
+        <p id="link-pending" class="notice warn" data-i18n="link.done.pending" hidden></p>
+        <div class="actions">
+          <button id="link-open" class="btn primary" type="button" data-i18n="link.open"></button>
+        </div>
+      </div>
+    </div>
+  </main>
   <main id="wizard-network" class="page" hidden>
     <div class="card">
-      <div class="steps" data-i18n="setup.step2"></div>
+      <div id="wizard-step" class="steps" data-i18n="setup.step2"></div>
+      <div id="wizard-link-step" class="steps" data-i18n="link.steps" hidden></div>
       <h1 data-i18n="setup.network.title"></h1>
       <p class="muted" data-i18n="setup.network.intro"></p>
       <p id="wizard-peer" class="caption"><span data-i18n="storage.peerId"></span>
@@ -282,7 +312,7 @@
             <p id="view-safety-number" class="safety-number"></p>
             <button id="copy-safety-number" class="btn quiet" type="button"
               data-i18n="view.safety.copy"></button>
-            <canvas id="view-safety-qr" class="safety-qr" role="img"></canvas>
+            <canvas id="view-safety-qr" class="safety-qr" role="img" data-i18n-label="view.safety.qr"></canvas>
             <div class="actions"><button id="view-safety-select" class="btn" type="button"
               data-i18n="view.safety.image"></button>
               <button id="view-safety-camera" class="btn" type="button"
@@ -392,6 +422,7 @@
           <ol id="seed-rows"></ol>
           <div class="actions">
             <button id="skip-network" class="btn start" type="button" data-i18n="setup.skip" hidden></button>
+            <button id="link-network-cancel" class="btn start" type="button" data-i18n="page.cancel" hidden></button>
             <button id="cancel-check" class="btn" type="button" data-i18n="network.cancel" hidden></button>
             <button id="check-connection" class="btn primary" type="submit" data-i18n="network.check"></button>
           </div>
@@ -410,6 +441,7 @@
             <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
           </div>
           <p class="caption" data-i18n="backup.none"></p>
+          <p><button id="device-join" class="btn quiet" type="button" data-i18n="devices.join"></button></p>
         </div>
         <div id="devices" class="card" hidden>
           <h2 data-i18n="devices.title"></h2>
@@ -722,6 +754,7 @@
   <script src="remove.js"></script>
   <script src="devices.js"></script>
   <script src="search.js"></script>
+  <script src="link.js"></script>
   <script src="chats-ui.js"></script>
   <script src="photo-settings.js"></script>
   <script src="chats-photo-send.js"></script>

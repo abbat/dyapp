@@ -139,7 +139,9 @@ const check = async (call = invoke) => {
     showConnection('connected', rows.name);
     // A node that waited for a network starts on it now.
     call('apply_node').catch(() => {});
+    const linking = !linkNetworkCancel.hidden;
     leaveWizard();
+    if (linking) startLink();
   } catch (error) {
     if (!live()) return;
     const [code, ...reason] = String(error).split(': ');
@@ -180,12 +182,19 @@ cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 const peerCode = document.getElementById('peer-id');
 const peerCard = peerCode.parentElement;
 const skipNetwork = document.getElementById('skip-network');
+const linkNetworkCancel = document.getElementById('link-network-cancel');
+// `on` is 'link' for the step of a link: that identity is about to go, so no Peer ID and no Skip.
 const wizardStep = (on) => {
+  const linking = on === 'link';
   (on ? document.getElementById('wizard-peer') : peerCard).append(peerCode);
   (on ? document.getElementById('wizard-form') : document.getElementById('network-area'))
     .append(network);
   network.classList.toggle('card', !on);
-  skipNetwork.hidden = !on;
+  skipNetwork.hidden = !on || linking;
+  linkNetworkCancel.hidden = !linking;
+  document.getElementById('wizard-peer').hidden = linking;
+  document.getElementById('wizard-step').hidden = linking;
+  document.getElementById('wizard-link-step').hidden = !linking;
 };
 const leaveWizard = () => {
   if (wizardNetwork.hidden) return;
@@ -193,6 +202,7 @@ const leaveWizard = () => {
   show(identity, 'status.ready');
 };
 skipNetwork.addEventListener('click', leaveWizard);
+linkNetworkCancel.addEventListener('click', leaveWizard);
 copyFrom(document.getElementById('copy-peer-id'), peerCode);
 copyFrom(document.getElementById('copy-network-details'),
   document.getElementById('network-error-details'));

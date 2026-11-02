@@ -38,6 +38,7 @@ const identity = document.getElementById('identity');
 const systemChoice = document.getElementById('system-choice');
 const fileChoice = document.getElementById('file-choice');
 const createIdentity = document.getElementById('create-identity');
+const linkIdentity = document.getElementById('link-identity');
 const storageError = document.getElementById('storage-error');
 const bootActions = document.getElementById('boot-actions');
 const bootRetry = document.getElementById('boot-retry');
@@ -47,7 +48,7 @@ const removeIdentity = document.getElementById('remove-identity');
 const removeDialog = document.getElementById('remove');
 const wizardNetwork = document.getElementById('wizard-network');
 const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery'), wizardNetwork];
+  document.getElementById('recovery'), wizardNetwork, document.getElementById('link')];
 // The opened identity or recovery state the remove dialog acts on.
 let current = null;
 
@@ -64,6 +65,8 @@ const show = (section, status) => {
     && ['missing', 'incomplete', 'deleting'].includes(current?.reason));
   // Setup and the picker opened from an open identity can go back to it.
   for (const id of ['setup-cancel', 'picker-cancel']) document.getElementById(id).hidden = !current;
+  // An open identity links from Settings, with its network.
+  linkIdentity.hidden = Boolean(current);
   storageError.hidden = true;
   bootActions.hidden = true;
   ready.textContent = window.strings[status];
@@ -933,6 +936,7 @@ async function render(state, generation = identityGeneration, fresh = false) {
   systemChoice.disabled = state.systemAvailable !== 'true';
   fileChoice.disabled = false;
   createIdentity.disabled = false;
+  linkIdentity.disabled = false;
   (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
   document.getElementById('system-reason').textContent = systemChoice.disabled
     ? window.strings[state.systemReason] : '';
@@ -940,12 +944,14 @@ async function render(state, generation = identityGeneration, fresh = false) {
   return state;
 }
 
-// A new identity opens on the network step of the wizard.
-createIdentity.addEventListener('click', () => {
+// A new identity opens on the network step of the wizard, whichever way it goes on from there.
+const create = (wizard) => {
   const mode = systemChoice.checked ? 'system' : 'file';
-  for (const each of [systemChoice, fileChoice, createIdentity]) each.disabled = true;
-  act(invoke('create_identity', { mode }), true);
-});
+  for (const each of [systemChoice, fileChoice, createIdentity, linkIdentity]) each.disabled = true;
+  act(invoke('create_identity', { mode }), wizard);
+};
+createIdentity.addEventListener('click', () => create(true));
+linkIdentity.addEventListener('click', () => create('link'));
 copyFrom(document.getElementById('copy-recovery-details'),
   document.getElementById('recovery-details'));
 switchIdentity.addEventListener('click', () => act({ status: 'picker' }));

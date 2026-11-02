@@ -387,12 +387,14 @@ belongs to an identity. **Link to an identity I already use** therefore makes an
 then opens `wizard-network-link`: the network step without the Peer ID, as that identity is about
 to go, and with Cancel (`link-network-cancel`) in place of Skip, which keeps that identity as an
 ordinary one. **Link this computer to another identity** in Settings skips both and
-uses the current network.
+uses the current network, which is why setup opened from an open identity has no link button. It
+sits with the identities, not in Devices, as an unpublished identity has no Devices card.
 
 `link-show` shows the code as a QR code and as text and waits five minutes. `link-offline` is the
 same page while no node answers. `link-expired` drops the code and offers a new one: nothing was
 shared. Cancel, here and in these two states, leaves the identity the wizard made, ready to use.
-`link-finishing` follows when the record arrives and has no Cancel, as the key is already here.
+`link-finishing` follows when the record arrives and has no Cancel, as the key is already here: a
+Cancel that lost the race to the record lands here too.
 `link-done` names the identity joined and says chats start now. `link-done-pending`
 adds that the network has not accepted this computer yet; the app keeps trying while it is open.
 The identity the wizard made is erased at this point, and it was never published.
@@ -420,10 +422,10 @@ sending off never stops receiving.
 | Identities | `settings-identities` | Avatar, short Peer ID, Active or storage kind |
 | Remove | `settings-remove`, `settings-remove-2` | Per identity row; the client has it in the active row only, removing another identity is planned |
 | Add identity | `settings-create` | Under the no-backup line |
+| Link this computer to another identity | `device-join` | Below it; opens `link-show` |
 | Devices | `devices` | Short device key per row, this computer first and without Disconnect; the hint says what a disconnected device can still do; hidden while the identity lists no device |
 | Disconnect | `device-disconnect` | Per other device, opens `disconnect-dialog`; the app numbers the IDs `device-disconnect-N` |
 | Link a new device | `device-link` | Opens `device-code-dialog` |
-| Link this computer to another identity | `device-join` | Opens `link-show`; planned in the client |
 | Device status | `devices-status` | Polite live region: `devices-sent`, or that a device was disconnected |
 | Blocked people | `blocked` | Avatar and short Peer ID per row |
 | Retry token revocation | Implemented in desktop UI | Per blocked row; status is announced below the list |

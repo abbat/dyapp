@@ -327,7 +327,7 @@ of the profile leaves the mailbox open, and a node cannot forge a profile. Catch
 identity through the path of a manual removal, and says why. Devices in Settings lists the newest
 profile's devices, or the saved draft's while no node answers, and revokes with the Tauri command
 `revoke_device`. It also sends the record to a new device, after the owner confirms a pasted code.
-The screens of the new device and the Android wipe are planned.
+The Android screens and wipe are planned.
 
 A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
 `Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code

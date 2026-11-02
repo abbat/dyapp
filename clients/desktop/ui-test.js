@@ -606,6 +606,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await guardChecks.checkDeviceRevoked();
       await guardChecks.checkDevices();
       await guardChecks.checkLinkCode();
+      await guardChecks.checkLinkScreen();
       await guardChecks.checkStaleLaunchConnection();
       await guardChecks.checkStaleNetworkForm();
       await guardChecks.checkStaleNetworkCheck();

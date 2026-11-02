@@ -312,15 +312,13 @@ const copySafety = (call = invoke) => {
 document.getElementById('copy-safety-number').addEventListener('click', () => {
   window.safetyCopied = copySafety();
 });
-const drawContactQr = ({ size, modules }) => {
+const drawContactQr = ({ size, modules }, canvas = document.getElementById('view-safety-qr')) => {
   if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
     throw new Error('invalid contact QR matrix');
   }
-  const canvas = document.getElementById('view-safety-qr');
   const scale = 6;
   canvas.width = (size + 8) * scale;
   canvas.height = canvas.width;
-  canvas.setAttribute('aria-label', window.strings['view.safety.qr']);
   const context = canvas.getContext('2d');
   context.fillStyle = '#fff';
   context.fillRect(0, 0, canvas.width, canvas.height);
