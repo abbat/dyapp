@@ -504,6 +504,17 @@ impl Session {
             .iter()
             .find(|profile| profile.peer_id == peer)
             .ok_or(Error::UnknownGroup)?;
+        self.stage_new_group(peer, packages, profiles, seal_key)
+    }
+
+    /// Stage a Welcome for a new group made from `packages` and cataloged under `peer`.
+    fn stage_new_group(
+        &mut self,
+        peer: &VerifiedProfile,
+        packages: &[(Vec<u8>, Vec<u8>)],
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+    ) -> Result<(Vec<u8>, Vec<PreparedEnvelope>), Error> {
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
         let staged = (|| -> Result<_, Error> {
             let (group, welcome) = chat::create(device, packages, profiles)?;
@@ -929,7 +940,9 @@ impl Session {
                 Ok(None)
             }
             Event::Joined(group) => {
-                self.request_tokens(nodes, &group, seal_key).await?;
+                if !self.is_own_group(&group) {
+                    self.request_tokens(nodes, &group, seal_key).await?;
+                }
                 Ok(Some(Event::Joined(group)))
             }
             event => Ok(Some(event)),

@@ -349,10 +349,7 @@ impl Store {
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
     ) -> Result<(), Error> {
-        if group.id().is_empty()
-            || peer.peer_id == self.owner_peer_id
-            || !group.members()?.contains(&peer.peer_id)
-        {
+        if group.id().is_empty() || !self.belongs(group, &peer.peer_id)? {
             return Err(Error::GroupConflict);
         }
         self.stage_outbound_inner(
@@ -361,6 +358,17 @@ impl Store {
             writes,
             true,
         )
+    }
+
+    /// Whether `group` fits its catalog entry: `peer_id` is a member, or the owner when the group
+    /// holds only the owner's devices.
+    fn belongs(&self, group: &Group, peer_id: &str) -> Result<bool, Error> {
+        let members = group.members()?;
+        Ok(if peer_id == self.owner_peer_id {
+            members.iter().all(|member| member == peer_id)
+        } else {
+            members.iter().any(|member| member == peer_id)
+        })
     }
 
     /// IDs needed to reopen every conversation from the saved Device snapshot.
@@ -378,7 +386,7 @@ impl Store {
             .into_iter()
             .map(|(id, peer_id)| {
                 let group = Group::load(device, &id)?.ok_or(Error::GroupMismatch)?;
-                if peer_id == self.owner_peer_id || !group.members()?.contains(&peer_id) {
+                if !self.belongs(&group, &peer_id)? {
                     return Err(Error::GroupMismatch);
                 }
                 Ok((group, peer_id))

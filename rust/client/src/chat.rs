@@ -734,7 +734,7 @@ pub(crate) fn apply(
     }))
 }
 
-fn device_mailbox(certificate: &SignedRecord) -> Result<Vec<u8>, Error> {
+pub(crate) fn device_mailbox(certificate: &SignedRecord) -> Result<Vec<u8>, Error> {
     let certificate = DeviceCertificate::decode(certificate.payload.as_slice())
         .map_err(|_| Error::Reply("bad device certificate"))?;
     let key: [u8; 32] = certificate

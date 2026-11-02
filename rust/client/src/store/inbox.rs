@@ -47,7 +47,7 @@ impl Store {
         if sealed_device.is_empty() {
             return Err(Error::EmptyMlsState);
         }
-        if joined.is_some_and(|(id, peer_id)| id.is_empty() || peer_id == self.owner_peer_id) {
+        if joined.is_some_and(|(id, _)| id.is_empty()) {
             return Err(Error::GroupConflict);
         }
         let tx = self.db.transaction()?;

@@ -161,7 +161,10 @@ commit. Retries reuse the staged bytes, as for every chat write.
 
 All devices of both identities are members of the pair group, so every own device sees the same
 texts and derives the same conversation state, and an own like or unlike applies on every device
-in the group. The cases:
+in the group. Own devices also share a private group that never shows as a chat:
+`Session::join_own_devices` starts it once the profile lists a second device, the first device by
+mailbox at once and each later one an hour after the previous. If two start, every device sends in
+the lowest ID and accepts from any. The cases:
 
 1. Two own devices send a first text at once: each makes a group, the canonical rule merges them;
    the recipient keeps the first text it receives and drops the other, which stays Sent, never

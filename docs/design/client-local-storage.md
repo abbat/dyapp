@@ -222,8 +222,9 @@ may the UI show the event or `Node::ack` the ID. On a storage failure, neither s
 invalidate/reopen the in-memory session.
 `Session::receive` implements this per envelope; the batch `chat::receive`/`apply_all` must not be
 wired to `stage_inbound`, because it applies several MLS mutations before returning ACK IDs. A
-Welcome's group and its single other owner enter the catalog in the same commit; a group with any
-other membership is refused until multi-device sync or group chats exist.
+Welcome's group and its single other owner enter the catalog in the same commit. The group of only
+the owner's own devices enters it under the owner and never shows as a chat; a group with any other
+membership is refused until group chats exist.
 
 `Event::Gap` and `Event::UnknownOwner` stay unacknowledged and unrecorded until the missing commit
 or verified profile arrives. Unknown group messages likewise remain in the mailbox. Refused

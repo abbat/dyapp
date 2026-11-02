@@ -237,7 +237,10 @@ impl Session {
         };
         let mut peer = None;
         if let Event::Joined(id) = &event {
-            peer = self.partner(id);
+            peer = self.partner(id).or_else(|| {
+                self.is_own_group(id)
+                    .then(|| self.store.owner_peer_id().to_owned())
+            });
             match &peer {
                 None => event = Event::Refused("not a one-to-one conversation".into()),
                 Some(owner) if self.store.blocked(owner)? => {
@@ -270,7 +273,8 @@ impl Session {
                     Conversation::None | Conversation::RequestReceived(_) | Conversation::Closed
                 ),
                 _ => false,
-            };
+            }
+            || self.stray_in_own_group(&event);
         // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
         if let Event::Interaction {
             group,
@@ -421,8 +425,7 @@ impl Session {
     }
 
     /// The one other owner in a joined group.
-    // shortcut: a group of only this owner's devices or of three owners is refused; revisit
-    // when multi-device sync or group chats exist.
+    // shortcut: a group of three owners is refused; revisit when group chats exist.
     pub(super) fn partner(&self, id: &[u8]) -> Option<String> {
         let group = self.groups.iter().find(|group| group.id() == id)?;
         let mut others = group.members().ok()?;

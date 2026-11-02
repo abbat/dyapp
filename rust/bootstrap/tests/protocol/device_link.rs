@@ -277,6 +277,95 @@ async fn a_device_that_missed_an_edit_never_overwrites_it() {
 }
 
 #[tokio::test]
+async fn own_devices_share_a_group_that_is_not_a_chat() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let phone = Person::new(&address).await;
+    let owner = phone.identity.peer_id();
+    let identity = Identity::from_secret(&phone.identity.secret());
+    let laptop = Person::device(&address, identity, 2).await;
+    let mut devices = [phone, laptop];
+    devices.sort_by_key(Person::mailbox);
+    let [mut first, mut second] = devices;
+    let profile = Profile {
+        version: 2,
+        devices: vec![
+            first.device.certificate().clone(),
+            second.device.certificate().clone(),
+        ],
+        ..Default::default()
+    };
+    first
+        .node
+        .publish_profile(profile.sign(&first.identity))
+        .await
+        .unwrap();
+    for person in [&mut first, &mut second] {
+        chat::publish_key_packages(
+            &mut person.node,
+            &person.device_key,
+            &person.device,
+            &owner,
+            1,
+        )
+        .await
+        .unwrap();
+    }
+    let own = first.node.get_profile(&owner).await.unwrap();
+    let held = [own.clone()];
+    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let mut first_session = session(&first, "own-first");
+    let second_path = store_path("own-second");
+    let mut store = Store::open(&second_path, &second.identity).unwrap();
+    store
+        .stage_outbound(&second.device.seal(&SEAL).unwrap(), &[])
+        .unwrap();
+    let mut second_session = Session::open(store, &SEAL).unwrap();
+
+    // Only the first device by mailbox starts it; the second waits for its turn.
+    assert!(!second_session
+        .join_own_devices(from_mut(&mut second.node), &own, now, &SEAL)
+        .await
+        .unwrap());
+    assert!(first_session
+        .join_own_devices(from_mut(&mut first.node), &own, now, &SEAL)
+        .await
+        .unwrap());
+    let group = first_session.own_group().unwrap();
+    let events = second_session
+        .receive(from_mut(&mut second.node), &second.device_key, &held, &SEAL)
+        .await
+        .unwrap();
+    assert!(
+        matches!(events.as_slice(), [Event::Joined(id)] if *id == group),
+        "{events:?}"
+    );
+    assert_eq!(second_session.own_group().as_ref(), Some(&group));
+    // A later turn does not start another, and it is no chat on either device.
+    assert!(!second_session
+        .join_own_devices(from_mut(&mut second.node), &own, now + 86_400, &SEAL)
+        .await
+        .unwrap());
+    first_session
+        .receive(from_mut(&mut first.node), &first.device_key, &held, &SEAL)
+        .await
+        .unwrap();
+    for held_here in [&first_session, &second_session] {
+        assert!(held_here.store().chat_rows().unwrap().is_empty());
+    }
+
+    // It survives a restart.
+    drop(second_session);
+    let store = Store::open(&second_path, &second.identity).unwrap();
+    let reopened = Session::open(store, &SEAL).unwrap();
+    assert_eq!(reopened.own_group(), Some(group));
+}
+
+#[tokio::test]
 async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     const NOW: u64 = 1_000_000;
     let address = start_config(|config| {
