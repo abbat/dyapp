@@ -12,12 +12,12 @@ of step 4. Viewing, the editor and the keep refresh on Android and Apple are pla
 | Limit | Value | Why |
 |-------|-------|-----|
 | Photos a client publishes | 6 | The schema allows 16; six fit the quota below with room for chats |
-| Full image | One JPEG blob, at most 512 KiB, long side 1600 px, then 1280 px | Enough for a full-screen view; stays a whole-copy blob |
+| Full image | One JPEG blob, at most 1 MiB, long side 2048 px, then 1600 px, then 1280 px | Enough for a full-screen view; stays a whole-copy blob |
 | Thumbnail | One JPEG blob, at most 24 KiB, long side at most 320 px | The existing `Photo.thumbnail` rule |
 | Picked file | JPEG or PNG, at most 64 MiB and 64 megapixels | The bounds chat photos already use |
 
-The node bills a whole-copy blob at five times its size, so a photo at the limit costs 2.6 MiB and
-six cost 15.7 MiB. `limits.media_per_owner_mb` therefore defaults to 32: chat attachments share
+The node bills a whole-copy blob at five times its size, so a photo at the limit costs 5.1 MiB and
+six cost 30.7 MiB. `limits.media_per_owner_mb` therefore defaults to 64: chat attachments share
 the quota, and one sharded 6 MiB chat photo costs about 9 MiB. An operator may set less; the client
 then shows the node's `FULL` reply and keeps the photo local.
 

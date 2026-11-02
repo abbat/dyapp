@@ -8,8 +8,8 @@ use rusqlite::{params, OptionalExtension};
 
 /// Most photos this client publishes; the schema allows more, the node quota does not.
 pub const MAX_PROFILE_PHOTOS: usize = 6;
-/// Largest full image, small enough to stay a whole-copy blob.
-pub const MAX_PHOTO_BYTES: usize = 512 * 1024;
+/// Largest full image: `media.shard_threshold`, the largest whole-copy blob.
+pub const MAX_PHOTO_BYTES: usize = 1024 * 1024;
 /// Largest thumbnail.
 pub const MAX_THUMBNAIL_BYTES: usize = 24 * 1024;
 

@@ -2,9 +2,9 @@
 // scope. Every change runs with the form busy: a proof-of-work step saves the draft it read, so a
 // change made during one would be lost.
 const MAX_PROFILE_PHOTOS = 6;
-const PROFILE_PHOTO_SIDES = [1600, 1280];
+const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
 const PROFILE_PHOTO_QUALITIES = [0.85, 0.7, 0.55];
-const MAX_PROFILE_PHOTO_BYTES = 512 * 1024;
+const MAX_PROFILE_PHOTO_BYTES = 1024 * 1024;
 const PROFILE_TILE_SIDE = 320;
 const profilePhotoGrid = document.getElementById('profile-photos');
 const profilePhotoAdd = document.getElementById('profile-photo-add');
