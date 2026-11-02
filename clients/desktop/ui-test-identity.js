@@ -142,6 +142,25 @@ const checkStaleRender = async () => {
   if (document.getElementById('picker').hidden) throw new Error('stale identity response rendered');
   await act(Promise.resolve(readyState));
   if (document.getElementById('identity').hidden) throw new Error('ready view not restored');
+  // A failure that arrives after a later transition stays silent.
+  let failOld;
+  const oldFailure = act(new Promise((_, reject) => { failOld = reject; }));
+  await act(Promise.resolve({ status: 'picker' }));
+  failOld(new Error('refused'));
+  await oldFailure;
+  if (document.getElementById('picker').hidden) throw new Error('stale failure rendered');
+  await act(Promise.resolve(readyState));
+  // A failed switch or removal offers a way back to the identity the backend kept.
+  const retry = document.getElementById('boot-retry');
+  await act(Promise.reject(new Error('refused')));
+  const actions = document.getElementById('boot-actions');
+  if (document.getElementById('storage-error').hidden || actions.hidden
+    || document.activeElement !== retry) throw new Error('failed change left no way out');
+  retry.click();
+  await waitFor('identity');
+  if (document.getElementById('peer-id').textContent !== readyState.peerId || !actions.hidden) {
+    throw new Error('retry did not reopen the kept identity');
+  }
 };
 // A result from an old identity must not paint or unlock controls for a newer one.
 const checkStaleSearchAndChats = async () => {

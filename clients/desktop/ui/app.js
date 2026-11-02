@@ -39,6 +39,8 @@ const systemChoice = document.getElementById('system-choice');
 const fileChoice = document.getElementById('file-choice');
 const createIdentity = document.getElementById('create-identity');
 const storageError = document.getElementById('storage-error');
+const bootActions = document.getElementById('boot-actions');
+const bootRetry = document.getElementById('boot-retry');
 
 const switchIdentity = document.getElementById('switch-identity');
 const removeIdentity = document.getElementById('remove-identity');
@@ -62,6 +64,7 @@ const show = (section, status) => {
   // Setup and the picker opened from an open identity can go back to it.
   for (const id of ['setup-cancel', 'picker-cancel']) document.getElementById(id).hidden = !current;
   storageError.hidden = true;
+  bootActions.hidden = true;
   ready.textContent = window.strings[status];
 };
 
@@ -71,6 +74,8 @@ const showError = () => {
   document.getElementById('boot-loading').hidden = true;
   storageError.textContent = window.strings['storage.error'];
   storageError.hidden = false;
+  bootActions.hidden = false;
+  bootRetry.focus();
 };
 
 const reasonText = (reason) => window.strings[`recovery.${reason}`]
@@ -966,6 +971,13 @@ document.getElementById('add-identity')
   .addEventListener('click', () => act(invoke('storage_options')));
 document.getElementById('retry')
   .addEventListener('click', () => act(invoke('identity_state')));
+// A failed switch or removal keeps the backend's selection, but stopped its node; rendering the
+// reread state restarts that node.
+bootRetry.addEventListener('click', () => {
+  show(null, 'status.loading');
+  document.getElementById('boot-loading').hidden = false;
+  act(invoke('identity_state'));
+});
 
 const startupGeneration = identityGeneration;
 window.identityShown = window.stringsShown

@@ -62,7 +62,10 @@ before updating shared option IDs or validity.
   an unrelated identity.
 - Removal uses the same exclusive transition before deleting any slot files. It verifies that
   the requested slot and confirmed Peer ID still match, drains operations for that slot, stops
-  its node, then calls the slot removal path. A failed removal leaves a recoverable state.
+  its node, then calls the slot removal path. A failed removal reopens only the persisted
+  selection, or leaves nothing open when that slot is gone. The page then shows the storage
+  error with Retry, which rereads the identity state, renders it and restarts its node; a failed
+  switch or creation takes the same way back.
 - A cache entry or completion belongs to one slot and active network. Clearing the cache after
   the drain is sufficient for the first implementation; later concurrent slots may use a keyed
   cache. Activating a different network invalidates the old verified profile cache too.

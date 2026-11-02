@@ -30,7 +30,7 @@
   "storage.file.warning": "Kept unencrypted: anyone who can read this file can copy your identity key. Protect your user profile and backups.",
   "storage.file.backup": "After closing the app, back up the whole folder containing this key. Keep the copy private.",
   "storage.peerId": "Your Peer ID",
-  "storage.error": "Check the selected storage and restart the app. Your identity was not replaced.",
+  "storage.error": "Could not finish this action. Check the selected storage and try again.",
   "identity.switch": "Switch or add an identity",
   "identity.add": "Add a new identity",
   "identity.remove": "Remove this identity…",

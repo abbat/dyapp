@@ -194,6 +194,18 @@ its retry label and asks for the confirmations again (H9). While running, only t
 cancelled and the dialog cannot be dismissed, so an attempt never continues unseen (H3). No open
 H1–H10 finding.
 
+### Boot error recovery review (2026-11-02)
+
+Read the boot error, loading and Ready states and the privacy error against H1–H10 in English and
+Russian; layout at 440 and 1280 px comes from the shared card and `.actions` rules, not a new
+render. A failed start, switch, creation or removal used to end on the boot card with no control
+and a line saying to restart the app (H3, H9, severity 3): the card now has Retry, focused on
+arrival, which rereads the state and restarts the node of the kept identity. Retry first sat loose
+in the card (H4, severity 1) and now uses `.actions` like every other card. The error line claimed
+the identity was not replaced, which is false after a removal that fails past erasing the key (H2,
+H9, severity 2): it now says only that the action did not finish and what to check. No open H1–H10
+finding.
+
 ### Accepted exceptions
 
 None.

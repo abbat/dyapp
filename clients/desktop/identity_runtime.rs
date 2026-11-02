@@ -224,6 +224,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn failed_removal_reopens_the_selection_and_never_another_identity() {
+        let root = std::env::temp_dir().join(format!(
+            "dyapp-reconcile-{}",
+            Identity::generate().peer_id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let (other, _) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+        let (slot, identity) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+        let peer_id = identity.peer_id();
+        let state = IdentityState::new();
+        state
+            .start_transition()
+            .unwrap()
+            .commit(Some((Arc::new(identity), slot.dir.clone())))
+            .unwrap();
+        let paused = state.lease().unwrap();
+        let draining = tokio::spawn(IdentityState::drain(state.start_transition().unwrap()));
+        tokio::task::yield_now().await;
+        assert!(!draining.is_finished());
+        drop(paused);
+        let transition = draining.await.unwrap().unwrap();
+        assert!(
+            slots::remove(&root, &slot.id, Some("wrong"), &crate::load, &crate::erase).is_err()
+        );
+        IdentityState::reconcile(root.clone(), transition)
+            .await
+            .unwrap();
+        assert_eq!(state.lease().unwrap().active().1, slot.dir);
+
+        // The selected slot is gone: the other identity stays closed until the person picks it.
+        let transition = state.start_transition().unwrap();
+        slots::remove(
+            &root,
+            &slot.id,
+            Some(peer_id.as_str()),
+            &crate::load,
+            &crate::erase,
+        )
+        .unwrap();
+        IdentityState::reconcile(root.clone(), transition)
+            .await
+            .unwrap();
+        assert!(matches!(state.0.lease(), Err(GateError::NoActive)));
+        assert!(other.dir.exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn selection_waits_for_a_paused_lease_and_failed_selection_rolls_back() {
         let state = IdentityState::new();
         let first = Identity::generate();

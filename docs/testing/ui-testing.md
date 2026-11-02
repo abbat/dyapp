@@ -114,9 +114,10 @@ identity, checks that Cancel receives focus in the removal dialog, cancels remov
 confirms removal and relaunches to
 verify the surviving identity and Settings inventory. In the add-identity case, it also pauses an
 old identity response, shows the newer picker, resumes the old response, and checks the picker
-remains visible before returning to Ready. It then pauses old Search and Chats requests,
-starts current requests after returning to Ready, and checks that late old results cannot
-change current status or busy controls. A Chats refresh after a background pass that is paused
+remains visible before returning to Ready. A late failure leaves the picker alone too, and a
+current failure shows the storage error with Retry, which reopens the kept identity. It then
+pauses old Search and Chats requests, starts current requests after returning to Ready, and
+checks that late old results cannot change current status or busy controls. A Chats refresh after a background pass that is paused
 across an identity change does not render its rows. The two-client scenario waits for a runtime
 catch-up pass with Chats closed and checks that the mail reached the local history. The Chats smoke also renders local request and conversation
 rows through mocked commands while the node is unavailable, marks request rows until a reply,
