@@ -237,6 +237,16 @@ so focus moves to the composer, or to Back when the composer is disabled (H3). A
 mail pass does not flicker the notice, because it is toggled only by the flag (H4). No open H1–H10
 finding.
 
+### Never-verified notice review (2026-11-02)
+
+Read `chat-new-device` and `chats.newDevice` against H1–H10 in English and Russian for a contact
+that was never verified. The old text said a verified mark was removed, which is false for such a
+contact (H1, H2, severity 3): the text now says the person is not marked verified, which holds for
+both cases, and "again" went from the next step. A notice on every profile read would train users
+to dismiss it (H8, severity 3): each change raises one notice, and a first contact and an older
+profile raise none. A legitimate link still raises it, because only the contact can tell the two
+apart, so the text says what to do unless they told you (H9). No open H1–H10 finding.
+
 ### Read mark review (2026-11-02)
 
 Read `chats.delivery.read` against H1–H10 in English and Russian; it reuses the delivery caption,

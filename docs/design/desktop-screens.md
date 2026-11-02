@@ -274,14 +274,18 @@ separate peer read receipt and remain planned. An edited message says so, a dele
 placeholder, and Edit and Delete apply to live own messages with best-effort delivery.
 `chat-first`: to a non-match, one message is sent and the composer stays disabled
 until a reply or a match. `chat-request`: an incoming message from a non-match, with Reply through
-the composer or Block. `chat-new-device`: a profile no older than the verified one lists a device
-that was not there at verification. The store clears the mark and raises a per-contact flag in one
+the composer or Block. `chat-new-device`: a profile no older than the newest one seen lists a device
+that was not there, whether or not the contact was ever verified. The first profile seen of a
+contact only records its devices. The store clears any mark and raises a per-contact flag in one
 statement, so the notice survives a restart, and only `chat-new-device-ack` or a new verification
-ends it; the chat stays usable meanwhile. Acknowledging does not restore the mark. The page reads
+ends it; the chat stays usable meanwhile. Acknowledging does not restore the mark. A legitimate
+link and a stolen key look the same, so a link does raise the notice; the devices count as seen
+when it is raised, so several links before the user looks show one notice and a read of the same
+profile raises none. A device that a newer profile removed is new again when it returns. The page
+reads
 the flag through `contact_new_device` when a chat opens and on each mail pass; a failed read keeps
 what is shown. An older profile changes nothing, and an answer for another chat or an earlier
-identity shows nothing. Only a contact with a stored mark can raise the notice, and only once a
-fresh profile reached this session's cache from search, a send or a mail pass.
+identity shows nothing. The check runs only once a fresh profile reached this session's cache from search, a send or a mail pass.
 "Anna is typing…" shows for 10 seconds after the last typing signal, only
 over a direct path.
 

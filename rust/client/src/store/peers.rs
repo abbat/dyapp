@@ -6,17 +6,18 @@ use dyapp_profile::{is_clean_text, DeviceCertificate, VerifiedProfile, MAX_FIELD
 use prost::Message as _;
 use rusqlite::{params, OptionalExtension};
 
-// `verified_devices`: the device keys the contact listed when it was verified, 32 bytes each;
-// NULL is unverified. `verified_version`: the profile version those keys came from.
-// `new_device`: a later profile added a device to a verified contact, until acknowledged.
+// `seen_devices`: the device keys of the newest profile seen or verified, 32 bytes each; NULL
+// before the first. `seen_version`: that profile's version. `verified`: the safety number or QR
+// code was compared for those keys. `new_device`: a profile added a device, until acknowledged.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `peers` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
     `blocked` INTEGER NOT NULL DEFAULT 0 CHECK (`blocked` IN (0, 1)),
     `muted` INTEGER NOT NULL DEFAULT 0 CHECK (`muted` IN (0, 1)),
     `local_name` TEXT NOT NULL DEFAULT '',
-    `verified_devices` BLOB,
-    `verified_version` INTEGER,
+    `seen_devices` BLOB,
+    `seen_version` INTEGER,
+    `verified` INTEGER NOT NULL DEFAULT 0 CHECK (`verified` IN (0, 1)),
     `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1))
 ) STRICT;
 ";
@@ -103,55 +104,76 @@ impl Store {
     /// a fresh check, so it also ends a new-device notice.
     pub fn set_verified(&self, profile: &VerifiedProfile) -> Result<(), Error> {
         self.db.execute(
-            "INSERT INTO `peers` (`peer_id`, `verified_devices`, `verified_version`)
-             VALUES (?1, ?2, ?3)
+            "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`, `verified`)
+             VALUES (?1, ?2, ?3, 1)
              ON CONFLICT (`peer_id`) DO UPDATE SET
-                 `verified_devices` = excluded.`verified_devices`,
-                 `verified_version` = excluded.`verified_version`,
+                 `seen_devices` = excluded.`seen_devices`,
+                 `seen_version` = excluded.`seen_version`,
+                 `verified` = 1,
                  `new_device` = 0",
             params![profile.peer_id, device_keys(profile), version(profile)],
         )?;
         Ok(())
     }
 
-    /// Whether the owner of `profile` is verified. A profile older than the verified one proves
-    /// nothing; any other that lists an unseen device clears the mark and raises the new-device
-    /// notice in one statement.
+    /// Whether the owner of `profile` is verified, after comparing it with the devices seen. The
+    /// first profile only records them, and an older one proves nothing. Any other that lists an
+    /// unseen device clears the mark and raises the new-device notice in one statement, and those
+    /// devices count as seen, so one link raises one notice. A newer profile replaces what was
+    /// seen, so a removed device that returns is new again; one of the same version adds to it, so
+    /// two signed forks cannot raise the notice in turn.
     pub fn verified(&self, profile: &VerifiedProfile) -> Result<bool, Error> {
-        let known: Option<(Vec<u8>, i64)> = self
+        let known: Option<(Vec<u8>, i64, bool)> = self
             .db
             .query_row(
-                "SELECT `verified_devices`, `verified_version` FROM `peers`
-                 WHERE `peer_id` = ?1 AND `verified_devices` IS NOT NULL",
+                "SELECT `seen_devices`, `seen_version`, `verified` FROM `peers`
+                 WHERE `peer_id` = ?1 AND `seen_devices` IS NOT NULL",
                 [&profile.peer_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let Some((known, known_version)) = known else {
+        let (devices, version) = (device_keys(profile), version(profile));
+        let Some((seen, seen_version, verified)) = known else {
+            self.db.execute(
+                "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT (`peer_id`) DO UPDATE SET
+                     `seen_devices` = excluded.`seen_devices`,
+                     `seen_version` = excluded.`seen_version`",
+                params![profile.peer_id, devices, version],
+            )?;
             return Ok(false);
         };
-        let current = device_keys(profile);
-        if version(profile) < known_version
-            || current
-                .chunks(32)
-                .all(|key| known.chunks(32).any(|seen| seen == key))
-        {
-            return Ok(true);
+        let added: Vec<u8> = devices
+            .chunks(32)
+            .filter(|key| !seen.chunks(32).any(|known| known == *key))
+            .flatten()
+            .copied()
+            .collect();
+        let unchanged = added.is_empty();
+        if version < seen_version || (version == seen_version && unchanged) {
+            return Ok(verified);
         }
+        let devices = if version == seen_version {
+            [seen, added].concat()
+        } else {
+            devices
+        };
+        let verified = verified && unchanged;
         self.db.execute(
             "UPDATE `peers`
-             SET `verified_devices` = NULL, `verified_version` = NULL, `new_device` = 1
+             SET `seen_devices` = ?2, `seen_version` = ?3, `verified` = ?4,
+                 `new_device` = `new_device` OR ?5
              WHERE `peer_id` = ?1",
-            [&profile.peer_id],
+            params![profile.peer_id, devices, version, verified, !unchanged],
         )?;
-        Ok(false)
+        Ok(verified)
     }
 
-    /// Take the verified mark off `peer_id`.
+    /// Take the verified mark off `peer_id`. The devices seen stay, so the notice still works.
     pub fn clear_verified(&self, peer_id: &str) -> Result<(), Error> {
         self.db.execute(
-            "UPDATE `peers` SET `verified_devices` = NULL, `verified_version` = NULL
-             WHERE `peer_id` = ?1",
+            "UPDATE `peers` SET `verified` = 0 WHERE `peer_id` = ?1",
             [peer_id],
         )?;
         Ok(())
@@ -348,18 +370,10 @@ mod tests {
         let verified = bob_at(&bob_id, &[1], 5);
         let peer = verified.peer_id.clone();
 
-        // With no mark there is nothing to lose, and an older profile proves no change.
-        assert!(!store.verified(&bob_at(&bob_id, &[2], 6)).unwrap());
-        assert!(!store.new_device(&peer).unwrap());
+        // An older profile proves no change.
         store.set_verified(&verified).unwrap();
         assert!(store.verified(&bob_at(&bob_id, &[2], 4)).unwrap());
         assert!(!store.new_device(&peer).unwrap());
-
-        // A mark taken back by hand has nothing to change either.
-        store.clear_verified(&peer).unwrap();
-        assert!(!store.verified(&bob_at(&bob_id, &[2], 6)).unwrap());
-        assert!(!store.new_device(&peer).unwrap());
-        store.set_verified(&verified).unwrap();
 
         // The same version with another device is a signed fork, not stale data.
         let added = bob_at(&bob_id, &[2], 5);
@@ -379,5 +393,57 @@ mod tests {
         store.set_verified(&added).unwrap();
         assert!(store.verified(&added).unwrap());
         assert!(!store.new_device(&peer).unwrap());
+    }
+
+    #[test]
+    fn a_contact_never_verified_gets_the_notice_once_per_change() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let store = Store::open(&path, &alice).unwrap();
+        let bob_id = Identity::generate();
+        let first = bob_at(&bob_id, &[1], 5);
+        let peer = first.peer_id.clone();
+
+        // A first contact and an older profile raise nothing, across a restart too.
+        assert!(!store.verified(&first).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(!store.verified(&bob_at(&bob_id, &[2], 4)).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+
+        // A newer profile raises a notice that survives a restart and marks nothing verified.
+        let added = bob_at(&bob_id, &[2], 6);
+        assert!(!store.verified(&added).unwrap());
+        assert!(store.new_device(&peer).unwrap());
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(store.new_device(&peer).unwrap());
+        assert!(!store.verified(&added).unwrap());
+
+        // The acknowledged change stays quiet, however often the profile is read.
+        store.acknowledge_new_device(&peer).unwrap();
+        assert!(!store.verified(&added).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+
+        // The next link is a new change, even with the mark taken back by hand.
+        let mut linked = added.clone();
+        linked.profile.version = 7;
+        let more = bob_at(&bob_id, &[3], 7).profile.devices;
+        linked.profile.devices.extend(more);
+        store.set_verified(&added).unwrap();
+        store.clear_verified(&peer).unwrap();
+        assert!(!store.verified(&linked).unwrap());
+        assert!(store.new_device(&peer).unwrap());
+        store.acknowledge_new_device(&peer).unwrap();
+
+        // A device removed by a newer profile is new again when it returns.
+        let mut removed = added.clone();
+        removed.profile.version = 8;
+        assert!(!store.verified(&removed).unwrap());
+        assert!(!store.new_device(&peer).unwrap());
+        linked.profile.version = 9;
+        assert!(!store.verified(&linked).unwrap());
+        assert!(store.new_device(&peer).unwrap());
     }
 }

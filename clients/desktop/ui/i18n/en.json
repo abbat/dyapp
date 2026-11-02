@@ -350,7 +350,7 @@
   "chats.state.open": "Conversation",
   "chats.firstNotice": "One message is waiting for a reply. You can write again after the peer replies or you match.",
   "chats.requestNotice": "Replying opens the conversation.",
-  "chats.newDevice": "This person's profile lists a new device, so the verified mark was removed. Unless they told you about it, open their profile from Search and compare the safety number again.",
+  "chats.newDevice": "This person's profile lists a new device, and they are not marked verified. Unless they told you about it, open their profile from Search and compare the safety number.",
   "chats.newDevice.ack": "I understand",
   "chats.newDevice.failed": "Could not dismiss the notice. Try again.",
   "chats.message": "Message",
