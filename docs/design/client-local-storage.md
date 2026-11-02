@@ -253,7 +253,7 @@ and reconciliation remain separate work.
 | WebView timer | Reuses the existing Chats poll. | Suspension and slot switching can delay or misroute work. |
 | Always-running service | Can attempt delivery while the app is closed. | Adds platform permissions, battery cost and lifecycle complexity without a portable guarantee. |
 
-### Planned mailbox pagination
+### Mailbox pagination
 
 Bootstrap now accepts an optional cursor in the owner-signed `Fetch` and returns the
 last emitted position in `MailboxResponse`. A cursor encodes a version, envelope class
@@ -274,11 +274,14 @@ after the page's per-envelope commits, ACK and receipt attempts; it returns
 events and whether another page is due. A crash before cursor save replays a
 page through inbox deduplication. A crash after save resumes after the
 committed page. If the node changes, the client clears the cursor and starts from
-the head; sequence numbers have no meaning across holders. Use a small page (at most
-20 records per catch-up pass), and schedule another pass while `more` is true. Before
-starting each next envelope or page, check the active-slot transition flag; never
-interrupt an MLS/Store transaction. Once `more` is false, clear the cursor and
-start the next scheduled check from the head, which also finds inserts with reused
+the head; sequence numbers have no meaning across holders. A page holds at most 20
+records. The desktop mailbox poll reads up to eight pages per call while `more` is
+true, and the next poll resumes from the saved cursor. It checks the active-slot
+transition flag before each page and never interrupts an MLS/Store transaction.
+A per-envelope stop within a page is planned. An envelope from an unknown owner stays
+unacknowledged without hiding later pages; once a fetched profile may resolve it, the
+same call returns to the head after the last page. Once `more` is false, the cursor is cleared
+and the next scheduled check starts from the head, which also finds inserts with reused
 or earlier sequence numbers. Deletion or eviction of the cursor row does not
 invalidate the strict `>` position query. A new message inserted behind the cursor
 is reached on a later head pass. A non-advancing or malformed cursor is an error,

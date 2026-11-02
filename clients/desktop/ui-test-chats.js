@@ -461,6 +461,17 @@ const checkChatDelivery = async () => {
     throw new Error('device receipt status did not survive reopening');
   }
   document.getElementById('chat-back').click();
+  // A lost ACK rejects the poll after the commit; the committed row still appears, once.
+  const committed = [{ peerId: peer, state: 'open', lastMessage: theirs, unreadCount: 1 }];
+  await pollMailbox((command) => {
+    if (command === 'receive_mail') return Promise.reject('ack failed');
+    if (command === 'chat_rows') return Promise.resolve(committed);
+    throw new Error(`unexpected poll command: ${command}`);
+  });
+  if (document.querySelectorAll('#chat-list button').length !== 1
+    || !chatList.textContent.includes('incoming')) {
+    throw new Error('a poll error hid the committed message');
+  }
 };
 const checkChatForwarded = async () => {
   await openArea('chats-area');

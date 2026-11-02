@@ -135,7 +135,7 @@ Mailbox fetch returns at most 100 records, a `more` flag and a cursor for the la
 record. The owner-signed `Fetch` accepts that cursor to continue past unresolved
 records while preserving message-before-signal order. An empty cursor keeps the old
 first-page behavior; malformed cursors return `INVALID`. The cursor is local to one
-holder. Client use is planned in the [pagination contract](../design/client-local-storage.md#planned-mailbox-pagination).
+holder. Clients follow the [pagination contract](../design/client-local-storage.md#mailbox-pagination).
 
 Gossipsub topics `/dyapp/profiles/<n>`, n = H(identity) mod 16, carry `SignedRecord`s and
 heartbeats between search nodes only ([Search](#search)); the search role has its own Kademlia,

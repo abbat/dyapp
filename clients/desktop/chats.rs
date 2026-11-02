@@ -368,17 +368,24 @@ pub async fn liked_you(
     Ok(found)
 }
 
-/// Fetches this device's mailbox on the active network and applies it with `Session::receive`,
-/// knowing the cached profiles and the published own one. An envelope from an owner not cached,
-/// such as the Welcome of a first like, gets that owner's profile from the node and is applied
-/// on a second pass; one still unknown waits in the mailbox for the next call. Returns how many
-/// events changed a chat. Errors are `notConnected` or a node or storage message.
+/// Mailbox pages one `receive` call reads; the saved cursor lets the next call go on from there.
+// ponytail: the next call waits for the poll, schedule it at once if a long backlog feels slow.
+const RECEIVE_PAGES: usize = 8;
+
+/// Fetches this device's mailbox on the active network and applies it page by page with
+/// `Session::receive_page`, knowing the cached profiles and the published own one, until the
+/// mailbox ends, `RECEIVE_PAGES` is reached or `stop` reports an identity transition. An envelope
+/// from an owner not cached, such as the Welcome of a first like, gets that owner's profile from
+/// the node and is applied on a pass from the head after the last page; one still unknown waits
+/// in the mailbox without hiding the pages behind it. Returns how many events changed a chat.
+/// Errors are `notConnected` or a node or storage message; earlier pages stay committed.
 pub async fn receive(
     cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,
     identity: &Identity,
     device_key: &Identity,
+    stop: impl Fn() -> bool,
 ) -> Result<usize, String> {
     let mut store = open(dir, identity)?;
     let own = profile::stored(&store)?;
@@ -399,11 +406,15 @@ pub async fn receive(
         .map_err(|e| e.to_string())?;
     retry_outbox(&mut session, &mut node, &seal_key).await?;
     let mut changed = 0;
-    for _ in 0..2 {
+    let mut from_head = false;
+    for _ in 0..RECEIVE_PAGES {
+        if stop() {
+            break;
+        }
         let mut profiles = cached.all().to_vec();
         profiles.extend(own.clone());
-        let events = session
-            .receive(
+        let (events, more) = session
+            .receive_page(
                 std::slice::from_mut(&mut node),
                 device_key,
                 &profiles,
@@ -411,7 +422,6 @@ pub async fn receive(
             )
             .await
             .map_err(|e| e.to_string())?;
-        let mut fetched = false;
         for event in events {
             match event {
                 Event::UnknownOwner(peer) => {
@@ -420,14 +430,14 @@ pub async fn receive(
                             .lock()
                             .map_err(|e| e.to_string())?
                             .accept_if_current(epoch, verified.clone());
-                        fetched |= cached.accept(verified).is_ok();
+                        from_head |= cached.accept(verified).is_ok();
                     }
                 }
                 Event::Gap(_) | Event::Refused(_) => {}
                 _ => changed += 1,
             }
         }
-        if !fetched {
+        if !more && !std::mem::take(&mut from_head) {
             break;
         }
     }
@@ -666,10 +676,12 @@ pub mod commands {
         let sessions = Arc::clone(&sessions.0);
         // The client store is not `Sync`, as in `crate::publish_profile`.
         tauri::async_runtime::spawn_blocking(move || {
-            let _lease = lease;
             let _session = sessions.lock().map_err(|e| e.to_string())?;
             let device = crate::device_key(&root, &dir, &identity)?;
-            tauri::async_runtime::block_on(super::receive(&cache, &root, &dir, &identity, &device))
+            let stop = || lease.transitioning().unwrap_or(true);
+            tauri::async_runtime::block_on(super::receive(
+                &cache, &root, &dir, &identity, &device, stop,
+            ))
         })
         .await
         .map_err(|e| e.to_string())?
@@ -747,7 +759,7 @@ mod tests {
         );
         assert_eq!(liked_you(&cache, &dir, &alice).await, Ok(Vec::new()));
         assert_eq!(
-            receive(&cache, &dir, &dir, &alice, &device).await,
+            receive(&cache, &dir, &dir, &alice, &device, || false).await,
             Err("notConnected".into())
         );
         assert_eq!(

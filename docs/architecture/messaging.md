@@ -207,11 +207,10 @@ next cursor when a node reports more. Legacy `Node::fetch` still returns its fir
 page and `more` without requiring cursor support. `Session::receive_page` now
 processes at most 20 records through the existing per-envelope commit, ACK and
 receipt path, then saves the node-bound cursor or clears it at the end. Its
-caller must schedule another pass when `more` is true. The desktop still calls
-legacy `Session::receive`, so an unacknowledgeable Gap or unknown-owner record
-in a full first page can prevent later records from being seen. The
-[planned client pagination](../design/client-local-storage.md#planned-mailbox-pagination)
-still needs desktop continuation and an unresolved-first-page test.
+caller must schedule another pass when `more` is true. The desktop poll does
+so, so an unacknowledgeable Gap or unknown-owner record in a full first page
+no longer hides later records; see
+[client pagination](../design/client-local-storage.md#mailbox-pagination).
 Cross-replica union is separate work.
 
 **What exists vs planned:**

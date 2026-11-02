@@ -656,15 +656,22 @@ window.showChats = async (call = invoke) => {
     else chatsMessage('chats.failed', code);
   }
 };
-// The mailbox is polled in the background; failures stay quiet, the next poll retries.
+// The mailbox is polled in the background; failures stay quiet, the next poll retries. A failure
+// can follow a commit, such as a lost ACK, so the list still follows the local projection.
 const pollMailbox = async (call = invoke) => {
   const generation = identityGeneration;
-  const changed = await call('receive_mail').catch(() => 0);
+  const changed = await call('receive_mail').catch(() => null);
   if (!identityCurrent(generation) || document.getElementById('chats-area').hidden) return;
   // Retry and signed receipts can change delivery status without a new visible chat event.
   if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
     && !chatSending && !chatBlocking) {
     await openChat(activeChat.peerId, call);
+  } else if (changed === null) {
+    const request = chatsRequest;
+    const rows = await call('chat_rows').catch(() => null);
+    // An unchanged list is left alone so an offline poll cannot take keyboard focus from a row.
+    if (rows && identityCurrent(generation) && request === chatsRequest
+      && JSON.stringify(rows) !== JSON.stringify(visibleChatRows)) renderChatRows(rows);
   } else if (changed) {
     window.chatsDone = window.showChats(call);
   }

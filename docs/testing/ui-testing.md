@@ -133,7 +133,8 @@ retained unstaged draft, pending delivery for a staged edit and a late identity 
 Delete smoke checks the best-effort warning, Cancel, own-message placeholder, retained text on
 an unstaged error, pending delivery after staging and a stale identity result. The delivery
 smoke renders only own status, refreshes node acceptance during a mailbox poll with no new text,
-and checks the device-received label after reopening. Store tests cover persistence across restart
+checks the device-received label after reopening, and checks that a poll rejected after commit
+still shows the committed row once. Store tests cover persistence across restart
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
 and leaves ordinary text unmarked; the Linux smoke runs in English and Russian. Rust tests cover
