@@ -6,6 +6,94 @@ use dyapp_client::store::Store;
 use dyapp_client::{prepare_put, Node};
 use std::sync::Arc;
 
+/// A restart empties the profile cache, so a backlog's first page waits for its sender's profile.
+/// Reading on before going back would open later texts first and lose that page for good.
+#[tokio::test]
+async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.require_write_tokens = false;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let mut bob = Person::new(&address).await;
+    let bob_owner = bob.identity.peer_id();
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 2)
+        .await
+        .unwrap();
+    let bob_profile = bob.node.get_profile(&bob_owner).await.unwrap();
+    let alice_profile = alice
+        .node
+        .get_profile(&alice.identity.peer_id())
+        .await
+        .unwrap();
+    let bob_path = protocol_build_path("bob-backlog").with_extension("sqlite3");
+    let seal_key = [7; 32];
+    Store::open(&bob_path, &bob.identity)
+        .unwrap()
+        .stage_outbound(&bob.device.seal(&seal_key).unwrap(), &[])
+        .unwrap();
+    let mailbox = alice.mailbox();
+    let (mut group, welcome) = chat::invite(
+        &mut alice.node,
+        &alice.device,
+        &mailbox,
+        &[alice_profile.clone(), bob_profile.clone()],
+    )
+    .await
+    .unwrap();
+    chat::send(&mut alice.node, &welcome).await.unwrap();
+    let mut session =
+        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &seal_key).unwrap();
+    let (joined, _) = session
+        .receive_page(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &[alice_profile.clone(), bob_profile.clone()],
+            &seal_key,
+        )
+        .await
+        .unwrap();
+    assert!(joined.iter().any(|event| matches!(event, Event::Joined(_))));
+
+    for i in 0..45u8 {
+        let body = Body::text_with_id([i + 1; 16], vec![i]);
+        let text = chat::message(&mut group, &alice.device, &body).unwrap();
+        chat::send(&mut alice.node, &text).await.unwrap();
+    }
+
+    let mut profiles = vec![bob_profile];
+    for _ in 0..8 {
+        let (events, more) = session
+            .receive_page(
+                std::slice::from_mut(&mut bob.node),
+                &bob.device_key,
+                &profiles,
+                &seal_key,
+            )
+            .await
+            .unwrap();
+        let mut resolved = false;
+        for event in events {
+            match event {
+                Event::Refused(why) => panic!("refused: {why}"),
+                Event::UnknownOwner(_) if !resolved => {
+                    profiles.push(alice_profile.clone());
+                    resolved = true;
+                }
+                _ => {}
+            }
+        }
+        if !session.next_page(more, resolved).unwrap() {
+            break;
+        }
+    }
+    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
+    assert!(remaining.is_empty() && !more);
+}
+
 #[tokio::test]
 async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switch() {
     let configure = |config: &mut NodeConfig| {

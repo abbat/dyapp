@@ -77,6 +77,17 @@ impl Session {
         Err(last.into())
     }
 
+    /// Whether [`Self::receive_page`] is due again after a page that reported `more`. Once a
+    /// profile resolved, the next page is the head: the owner's earlier texts wait there, and
+    /// opening later ones first would push them past the ratchet's out-of-order window, refused
+    /// for good. A resolved owner never stops a page again, so this cannot stall the mailbox.
+    pub fn next_page(&self, more: bool, resolved: bool) -> Result<bool, Error> {
+        if resolved {
+            self.store.clear_mailbox_cursor()?;
+        }
+        Ok(more || resolved)
+    }
+
     async fn process_page(
         &mut self,
         nodes: &mut [Node],

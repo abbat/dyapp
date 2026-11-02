@@ -294,7 +294,8 @@ true, and the next pass resumes from the saved cursor. It checks the active-slot
 transition flag before each page and never interrupts an MLS/Store transaction.
 A per-envelope stop within a page is planned. An envelope from an unknown owner stays
 unacknowledged without hiding later pages; once a fetched profile may resolve it, the
-same call returns to the head after the last page. Once `more` is false, the cursor is cleared
+same call returns to the head at once, before later texts of that owner can open and push the
+earlier ones past the ratchet's out-of-order window. Once `more` is false, the cursor is cleared
 and the next scheduled check starts from the head, which also finds inserts with reused
 or earlier sequence numbers. Deletion or eviction of the cursor row does not
 invalidate the strict `>` position query. A new message inserted behind the cursor

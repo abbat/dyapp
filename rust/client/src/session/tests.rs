@@ -395,6 +395,44 @@ fn a_message_from_an_owner_not_yet_fetched_waits_and_opens_with_the_profile() {
     ));
 }
 
+/// Why a pass goes back to the head as soon as a profile resolves: past the ratchet's small
+/// out-of-order window an earlier text can no longer be opened.
+#[test]
+fn a_text_opened_after_many_later_ones_is_refused() {
+    let seal_key = [7; 32];
+    let Invite {
+        mut session,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+        ..
+    } = bob_invited(&temp_path(), &seal_key);
+    session
+        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+        .unwrap();
+    let texts: Vec<_> = (0..25u8)
+        .map(|i| {
+            let body = Body::text_with_id([i + 1; 16], vec![b'a' + i]);
+            chat::message(&mut group, &alice, &body).unwrap().remove(0)
+        })
+        .collect();
+    assert!(matches!(
+        session.stage_envelope(&key(2), &texts[0].mls, &[], &seal_key),
+        Ok(Some(Event::UnknownOwner(_)))
+    ));
+    // Later texts of an unanswered request may go unshown; they still advance the ratchet.
+    for (i, text) in texts.iter().enumerate().skip(20) {
+        session
+            .stage_envelope(&key(i as u8 + 2), &text.mls, &profiles, &seal_key)
+            .unwrap();
+    }
+    assert!(matches!(
+        session.stage_envelope(&key(2), &texts[0].mls, &profiles, &seal_key),
+        Ok(Some(Event::Refused(_)))
+    ));
+}
+
 #[test]
 fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     let path = temp_path();

@@ -440,11 +440,11 @@ pub async fn receive(
         .map_err(|e| e.to_string())?;
     retry_outbox(&mut session, &mut node, &seal_key).await?;
     let mut changed = 0;
-    let mut from_head = false;
     for _ in 0..RECEIVE_PAGES {
         if stop() {
             break;
         }
+        let mut from_head = false;
         let mut profiles = cached.all().to_vec();
         profiles.extend(own.clone());
         let (events, more) = session
@@ -471,7 +471,7 @@ pub async fn receive(
                 _ => changed += 1,
             }
         }
-        if !more && !std::mem::take(&mut from_head) {
+        if !session.next_page(more, from_head).map_err(|e| e.to_string())? {
             break;
         }
     }
