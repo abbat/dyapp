@@ -197,6 +197,34 @@ mod tests {
     use dyapp_client::chat::AttachmentMessage;
     use dyapp_client::store::messages::{ChatAttachment, MessageKey};
 
+    #[test]
+    fn message_view_keeps_legacy_time_absent_and_uses_safe_wall_time() {
+        use dyapp_client::store::messages::{ChatMessage, CurrentMessage};
+        let message = |original_hlc, forwarded| ChatMessage {
+            key: MessageKey {
+                group: vec![1],
+                author: "peer".into(),
+                id: [2; 16],
+            },
+            current: CurrentMessage {
+                text: Some(b"hello".to_vec()),
+                edited: false,
+                deleted: false,
+            },
+            original_hlc,
+            unread: true,
+            forwarded,
+            delivery: None,
+        };
+        assert_eq!(MessageView::from(message(None, false)).sent_at_ms, None);
+        let timed = MessageView::from(message(Some((1_700_000_000_000u64 << 16).into()), true));
+        assert_eq!(timed.sent_at_ms, Some(1_700_000_000_000));
+        assert_eq!(timed.text.as_deref(), Some("hello"));
+        assert!(timed.forwarded);
+        assert_eq!(serde_json::to_value(&timed).unwrap()["forwarded"], true);
+        assert!(timed.unread);
+    }
+
     fn photo() -> ChatAttachment {
         ChatAttachment {
             key: MessageKey {

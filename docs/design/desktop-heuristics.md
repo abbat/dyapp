@@ -352,6 +352,21 @@ Scope: a photo in a chat, its list row and the blur before acceptance, in EN and
 
 No open findings.
 
+### New mail notice review (2026-11-02)
+
+Scope: the desktop notice when mail arrives and the window has no focus.
+
+- Visibility of system status: a notice appears only when something waits and the window would
+  not show it; a focused window already shows the chat list.
+- Match with the real world: "New message" in the UI language; a like uses the same words so the
+  lock screen does not reveal the kind of event.
+- User control: the existing New messages and likes setting turns it off, and a later notice
+  replaces the earlier one, so a long absence leaves one notice.
+- Error prevention: no name or message text can reach the lock screen by default.
+
+Findings: none open. A click does nothing yet because the notice has no action; opening the app
+from it is planned with the choice of notice content, and the tray and the launcher still open it.
+
 ### Accepted exceptions
 
 None.

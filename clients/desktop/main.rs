@@ -28,6 +28,8 @@ mod network;
 #[path = "node.rs"]
 mod node;
 mod node_usage_commands;
+#[path = "notify.rs"]
+mod notify;
 #[path = "privacy.rs"]
 mod privacy;
 #[path = "profile.rs"]
@@ -742,7 +744,7 @@ fn quit(app: tauri::AppHandle) {
 async fn set_tray(
     app: tauri::AppHandle,
     prefs: Option<tray::Prefs>,
-    labels: [String; 2],
+    labels: [String; 3],
 ) -> tray::State {
     tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
 }

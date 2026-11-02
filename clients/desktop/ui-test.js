@@ -501,7 +501,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       // persisted: the setting survived a relaunch; vanish: the host goes away, the window returns.
       const kind = step.slice('tray:'.length);
       if (kind === 'quit') return undefined;
-      const labels = [window.strings['tray.open'], window.strings['tray.quit']];
+      const labels = ['tray.open', 'tray.quit', 'notice.newMessage'].map((key) => window.strings[key]);
       const tray = async (check) => {
         for (let i = 0; i < 30; i += 1) {
           const now = await invokeTest('set_tray', { prefs: null, labels });

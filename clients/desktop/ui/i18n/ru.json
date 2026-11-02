@@ -43,6 +43,7 @@
   "tray.unavailable": "В этом сеансе рабочего стола нет системного трея.",
   "tray.open": "Открыть",
   "tray.quit": "Выйти",
+  "notice.newMessage": "Новое сообщение",
   "usage.title": "Хранилище",
   "usage.identityDir": "Папка идентичностей",
   "usage.messages": "Сообщения",

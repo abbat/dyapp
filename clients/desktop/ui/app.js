@@ -267,7 +267,7 @@ const trayShow = document.getElementById('tray-show');
 const trayClose = document.getElementById('tray-close');
 const setTray = async (prefs, call = invoke) => {
   const generation = identityGeneration;
-  const labels = [window.strings['tray.open'], window.strings['tray.quit']];
+  const labels = ['tray.open', 'tray.quit', 'notice.newMessage'].map((key) => window.strings[key]);
   const tray = await call('set_tray', { prefs, labels });
   if (!identityCurrent(generation)) return tray;
   trayShow.checked = tray.show;

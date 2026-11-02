@@ -37,8 +37,8 @@ pub struct State {
 struct Inner {
     prefs: Option<Prefs>,
     available: bool,
-    /// Open and Quit in the UI language; the icon waits for them.
-    labels: Option<[String; 2]>,
+    /// Open, Quit and the notice text in the UI language; the icon waits for them.
+    labels: Option<[String; 3]>,
     shown: bool,
 }
 
@@ -72,7 +72,7 @@ pub fn set(
     app: &AppHandle,
     config: Option<&Path>,
     prefs: Option<Prefs>,
-    labels: [String; 2],
+    labels: [String; 3],
 ) -> State {
     let tray = app.state::<Tray>();
     let mut inner = tray.lock();
@@ -106,7 +106,7 @@ fn apply(app: &AppHandle, tray: &Tray, inner: &mut Inner, rebuild: bool) {
         app.remove_tray_by_id(ID);
         inner.shown = false;
     }
-    if let (Some([open, quit]), false) = (labels, inner.shown) {
+    if let (Some([open, quit, _]), false) = (labels, inner.shown) {
         inner.shown = build(app, &open, &quit).is_ok();
     }
     let close = inner.prefs.is_some_and(|prefs| prefs.close_to_tray);
@@ -132,6 +132,13 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
         builder = builder.icon(icon.clone());
     }
     builder.build(app).map(drop)
+}
+
+/// The text of a new-mail notice, once the page has given it.
+pub fn notice_text(app: &AppHandle) -> Option<String> {
+    let tray = app.state::<Tray>();
+    let inner = tray.lock();
+    inner.labels.as_ref().map(|[_, _, notice]| notice.clone())
 }
 
 pub fn show(app: &AppHandle) {

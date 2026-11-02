@@ -43,6 +43,7 @@
   "tray.unavailable": "No system tray is running in this desktop session.",
   "tray.open": "Open",
   "tray.quit": "Quit",
+  "notice.newMessage": "New message",
   "usage.title": "Storage",
   "usage.identityDir": "Identity folder",
   "usage.messages": "Messages",

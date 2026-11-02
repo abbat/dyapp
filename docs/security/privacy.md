@@ -148,7 +148,15 @@ profile ID, conversation or message ID, message content, or event type. After wa
 fetches encrypted data over its normal connection and decides locally whether to notify the
 user. The provider still sees the destination device token and push timing, and may correlate
 these with its own records; an empty payload does not hide that metadata. Push transport,
-provider choice, token registration and local notification behavior are not implemented yet.
+provider choice and token registration are not implemented yet.
+
+### Local notices
+
+The Linux desktop client sends the session's notification server one notice when a mail pass
+leaves more unread items or unanswered likes and the window has no focus. It holds only the fixed
+"New message" text, so a lock screen shows neither the name nor the message, and it replaces the
+previous notice. The setting turns it off. Showing the name or text as a choice, the other
+platforms and a click that opens the app are planned.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

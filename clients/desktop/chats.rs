@@ -722,9 +722,11 @@ pub mod commands {
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = crate::device_key(&root, &dir, &identity)?;
         let stop = || lease.transitioning().unwrap_or(true);
-        tauri::async_runtime::block_on(super::receive(
-            &cache, &root, &dir, &identity, &device, stop,
-        ))
+        crate::notify::around_pass(app, &dir, &identity, || {
+            tauri::async_runtime::block_on(super::receive(
+                &cache, &root, &dir, &identity, &device, stop,
+            ))
+        })
     }
 
     /// Runs passes from the runtime, because a hidden page's timers can be suspended, and tells
@@ -891,34 +893,6 @@ mod tests {
         assert_eq!(chat_history(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Err("blocked".into()));
-    }
-
-    #[test]
-    fn message_view_keeps_legacy_time_absent_and_uses_safe_wall_time() {
-        use dyapp_client::store::messages::{ChatMessage, CurrentMessage, MessageKey};
-        let message = |original_hlc, forwarded| ChatMessage {
-            key: MessageKey {
-                group: vec![1],
-                author: "peer".into(),
-                id: [2; 16],
-            },
-            current: CurrentMessage {
-                text: Some(b"hello".to_vec()),
-                edited: false,
-                deleted: false,
-            },
-            original_hlc,
-            unread: true,
-            forwarded,
-            delivery: None,
-        };
-        assert_eq!(MessageView::from(message(None, false)).sent_at_ms, None);
-        let timed = MessageView::from(message(Some((1_700_000_000_000u64 << 16).into()), true));
-        assert_eq!(timed.sent_at_ms, Some(1_700_000_000_000));
-        assert_eq!(timed.text.as_deref(), Some("hello"));
-        assert!(timed.forwarded);
-        assert_eq!(serde_json::to_value(&timed).unwrap()["forwarded"], true);
-        assert!(timed.unread);
     }
 
     #[tokio::test]
