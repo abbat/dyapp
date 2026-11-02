@@ -884,6 +884,7 @@ fn main() {
             safety::scan_contact_qr,
             clipboard::copy_safety_number,
             clipboard::clear_safety_clipboard,
+            chats::own::revoke_device,
             chats::commands::block_peer,
             chats::commands::peer_likes,
             chats::commands::like_peer,

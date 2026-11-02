@@ -38,7 +38,7 @@
 </svg>
 
 <!-- First run: full-window wizard, step 1 creates the identity, step 2 the network (skippable). -->
-<main class="page" data-on="wizard-identity">
+<main class="page" data-on="wizard-identity revoked-dialog">
   <div class="card">
     <div class="steps" data-t="wizard.step1"></div>
     <h1 data-t="wizard.identity.title"></h1>
@@ -624,6 +624,17 @@ search providers asked: 0 of 3</pre>
         <button type="button" class="btn" id="remove-retry" data-t="action.retry"></button>
         <button type="button" class="btn danger" id="remove-anyway" data-t="remove.anyway"></button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- After a revocation the wipe is done; only the reason is left to say. -->
+<div class="modal-scrim" data-on="revoked-dialog">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="revoked-title">
+    <h2 id="revoked-title" data-t="revoked.title"></h2>
+    <p data-t="revoked.text"></p>
+    <div class="actions">
+      <button type="button" class="btn focus" id="revoked-ok" data-t="revoked.ok"></button>
     </div>
   </div>
 </div>

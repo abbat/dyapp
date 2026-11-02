@@ -635,6 +635,28 @@ mod tests {
     }
 
     #[test]
+    fn remove_leaves_no_file_of_the_identity() {
+        let root = temp_root();
+        let key = std::cell::Cell::new(None);
+        let save = |_: &Slot, identity: &Identity| {
+            key.set(Some(*identity.secret()));
+            Ok::<_, String>(())
+        };
+        let load = |_: &Slot| Ok::<_, String>(key.get().map(|secret| Identity::from_secret(&secret)));
+        let (slot, alice) = create(&root, "file", &save, &load).unwrap();
+        for name in REMOVABLE {
+            fs::write(slot.dir.join(name), "secret").unwrap();
+        }
+        let erase = |_: &Slot| {
+            key.set(None);
+            Ok::<_, String>(())
+        };
+        remove(&root, &slot.id, Some(&alice.peer_id()), &load, &erase).unwrap();
+        assert!(!slot.dir.exists());
+        assert!(!root.join("profiles").join(format!(".{}.removed", slot.id)).exists());
+    }
+
+    #[test]
     fn remove_erases_only_the_confirmed_key() {
         use std::cell::{Cell, RefCell};
         use std::collections::HashMap;

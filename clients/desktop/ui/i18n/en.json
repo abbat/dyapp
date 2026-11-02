@@ -509,5 +509,8 @@
   "privacy.hint": "These settings stay on this computer and apply to this identity only.",
   "remove.text": "Its profile is withdrawn from search first. The key is deleted from this computer.",
   "remove.offline": "No node accepted the withdrawal. The profile disappears from search by itself within 30 days.",
-  "remove.anyway": "Remove anyway"
+  "remove.anyway": "Remove anyway",
+  "revoked.title": "This computer was disconnected from the identity",
+  "revoked.text": "One of your other devices disconnected it, so the key, chats and matches of this identity were deleted here. The identity stays on your other devices.",
+  "revoked.ok": "OK"
 }

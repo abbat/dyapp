@@ -240,10 +240,17 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         .receive(from_mut(second_node), key, &dropped, &SEAL)
         .await
         .unwrap();
-    assert!(events.iter().any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
+    assert!(events
+        .iter()
+        .any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
     assert_eq!(
         second
-            .remove_dropped_devices(from_mut(second_node), &dropped, now + ADD_TURN_SECONDS, &SEAL)
+            .remove_dropped_devices(
+                from_mut(second_node),
+                &dropped,
+                now + ADD_TURN_SECONDS,
+                &SEAL
+            )
             .await
             .unwrap(),
         0
@@ -475,19 +482,17 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
     let alice_session = session(&alice, "revoke-alice");
-    let laptop = Person::device(
-        &address,
-        Identity::from_secret(&alice.identity.secret()),
-        2,
-    )
-    .await;
-    let laptop_session = session(&laptop, "revoke-laptop");
+    let mut laptop =
+        Person::device(&address, Identity::from_secret(&alice.identity.secret()), 2).await;
+    let mut laptop_session = session(&laptop, "revoke-laptop");
     let laptop_key = laptop.device_key.public_key();
 
     // Both devices list themselves, with the bindings that close their mailboxes.
     let mut draft = alice.node.get_profile(&owner).await.unwrap().profile;
-    draft.device_owners =
-        vec![dyapp_client::owner_binding(&alice.device_key, &alice.identity.public_key())];
+    draft.device_owners = vec![dyapp_client::owner_binding(
+        &alice.device_key,
+        &alice.identity.public_key(),
+    )];
     let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
     laptop_session.list_self(&mut draft, binding).unwrap();
     let store = alice_session.store();
@@ -497,19 +502,36 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
     assert!(!laptop_session.own_device_revoked(&listed).unwrap());
     assert!(alice.node.fetch(&laptop.device_key).await.is_ok());
 
+    // A refusal alone wipes nothing while the newest profile lists the device.
+    let refused =
+        || dyapp_client::session::Error::Client(dyapp_client::Error::Status(Status::Refused));
+    let error = laptop_session.revoked_or(&mut laptop.node, refused()).await;
+    assert!(
+        matches!(error, dyapp_client::session::Error::Client(_)),
+        "{error}"
+    );
+
     // A profile without a binding for the device closes nothing and changes nothing.
     let failure =
         publish::revoke_device(store, &mut alice.node, &alice.identity, &listed, &[9; 32])
             .await
             .unwrap_err();
     assert!(matches!(failure, Failure::Node(_)), "{failure}");
-    assert_eq!(alice.node.get_profile(&owner).await.unwrap().profile, listed);
+    assert_eq!(
+        alice.node.get_profile(&owner).await.unwrap().profile,
+        listed
+    );
 
     // The first device drops the laptop: the node refuses its mailbox and lists only the first.
-    let dropped =
-        publish::revoke_device(store, &mut alice.node, &alice.identity, &listed, &laptop_key)
-            .await
-            .unwrap();
+    let dropped = publish::revoke_device(
+        store,
+        &mut alice.node,
+        &alice.identity,
+        &listed,
+        &laptop_key,
+    )
+    .await
+    .unwrap();
     assert_eq!(dropped.version, listed.version + 1);
     assert_eq!(dropped.devices, [alice.device.certificate().clone()]);
     assert_eq!(
@@ -526,6 +548,18 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
     let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
     assert!(laptop_session.list_self(&mut draft, binding).is_err());
     assert_eq!(draft, dropped);
+
+    // The closed mailbox and the signed profile together tell the laptop to wipe itself.
+    let error = laptop_session
+        .receive_page(from_mut(&mut laptop.node), &laptop.device_key, &[], &SEAL)
+        .await
+        .err()
+        .unwrap();
+    let error = laptop_session.revoked_or(&mut laptop.node, error).await;
+    assert!(
+        matches!(error, dyapp_client::session::Error::Revoked),
+        "{error}"
+    );
 }
 
 #[tokio::test]
@@ -605,7 +639,11 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
 
     // The profile stays hidden, and the node serves both devices.
     let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
-    publish::list_device(&mut draft, laptop.device.certificate().clone(), binding.clone());
+    publish::list_device(
+        &mut draft,
+        laptop.device.certificate().clone(),
+        binding.clone(),
+    );
     let hidden = publish::relist(&store, &mut laptop.node, &alice.identity, &draft)
         .await
         .unwrap();

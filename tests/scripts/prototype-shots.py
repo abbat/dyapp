@@ -28,6 +28,7 @@ DESKTOP = [
     "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
     "delete-dialog",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
+    "revoked-dialog",
 ]
 ANDROID = [
     "lock-setup", "lock-unlock",

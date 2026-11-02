@@ -57,6 +57,21 @@ const removeNow = () => {
   current = null;
   return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
 };
+const revokedDialog = document.getElementById('revoked');
+revokedDialog.addEventListener('close', () => { revokedDialog.hidden = true; });
+document.getElementById('revoked-ok').addEventListener('click', () => revokedDialog.close());
+// The runtime found the device of `slot` revoked. Nothing is asked: the owner already decided on
+// another device, and the profile stays theirs, so there is no tombstone either. A failed removal
+// shows the error screen; a pass tries again once the identity opens.
+window.deviceRevoked = async (slot, remove = removeNow) => {
+  if (current?.slot !== slot) return;
+  for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+  const state = await remove();
+  if (state?.status === 'error') return;
+  revokedDialog.hidden = false;
+  revokedDialog.showModal();
+  document.getElementById('revoked-ok').focus();
+};
 // The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
 const withdrawThenRemove = async (call = invoke, remove = removeNow) => {
   const generation = identityGeneration;

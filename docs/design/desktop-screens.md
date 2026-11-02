@@ -418,3 +418,12 @@ nodes' profile lifetime and offers Retry or Remove anyway.
 | Remove identity | `remove-action` | Right |
 | Retry | `remove-retry` | Offline only |
 | Remove anyway | `remove-anyway` | Offline only |
+
+`revoked-dialog` appears over the next state, the picker or the wizard, when a catch-up found that
+another device of the owner revoked this one. The identity is already gone: the node refused the
+mailbox and the owner's newest profile dropped this device. It asks nothing, because the owner
+decided on the other device, and says why the identity left this computer.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| OK | `revoked-ok` | Focused, closes the notice |

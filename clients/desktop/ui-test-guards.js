@@ -159,6 +159,25 @@ const checkStaleRemovePreparation = async () => {
   if (!removeDialog.open) throw new Error('current removal dialog did not open');
   removeDialog.close();
 };
+// A revocation of another slot wipes nothing; the active slot's closes dialogs and says why.
+const checkDeviceRevoked = async () => {
+  await showRemove((command) => Promise.resolve(command === 'list_identities' ? [] : null));
+  let removed = 0;
+  const remove = async () => { removed += 1; };
+  await window.deviceRevoked('another slot', remove);
+  if (removed || !removeDialog.open) throw new Error('another slot was wiped');
+  await window.deviceRevoked(current.slot, async () => {
+    removed += 1;
+    return { status: 'error' };
+  });
+  if (removed !== 1 || removeDialog.open || revokedDialog.open) {
+    throw new Error('a failed wipe claimed success');
+  }
+  await window.deviceRevoked(current.slot, remove);
+  if (removed !== 2 || !revokedDialog.open) throw new Error('a wipe did not say why');
+  document.getElementById('revoked-ok').click();
+  if (revokedDialog.open || !revokedDialog.hidden) throw new Error('the notice stayed open');
+};
 // An old withdrawal cannot remove the new identity or switch its dialog to Offline.
 const checkStaleWithdrawal = async () => {
   const readyState = current;
@@ -680,7 +699,7 @@ const checkPrivacy = async (restarted) => {
 };
 globalThis.uiSmokeGuards = Object.freeze({
   checkStaleSettingsInventory, checkStaleNode, checkStaleTray, checkStaleRemovePreparation,
-  checkStaleWithdrawal, checkStaleLaunchConnection, checkStaleNetworkForm,
+  checkStaleWithdrawal, checkDeviceRevoked, checkStaleLaunchConnection, checkStaleNetworkForm,
   checkStaleNetworkCheck, checkStaleCopy, checkStalePlaceSuggestions, removeOpened,
   testSeeds, connection, connectNetwork, checkNetwork, cancelNetwork, checkWrongNetwork,
   checkNetworkInSettings, checkSettingsLanguage, expectPrivacy, checkPrivacy,

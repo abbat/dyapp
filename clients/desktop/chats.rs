@@ -388,7 +388,8 @@ const RECEIVE_PAGES: usize = 8;
 /// the node and is applied on a pass from the head after the last page, as does one from a device
 /// the held profile does not list, once a newer profile lists it. One still unknown waits in the
 /// mailbox without hiding the pages behind it. Returns how many events changed a chat.
-/// Errors are `notConnected` or a node or storage message; earlier pages stay committed.
+/// Errors are `notConnected`, [`own::REVOKED`] or a node or storage message; earlier pages stay
+/// committed.
 pub async fn receive(
     cache: &Mutex<ProfileCache>,
     root: &Path,
@@ -414,7 +415,7 @@ pub async fn receive(
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
-    retry_outbox(&mut session, &mut node, &seal_key).await?;
+    own::retry_outbox(&mut session, &mut node, &seal_key).await?;
     let mut changed = 0;
     for _ in 0..RECEIVE_PAGES {
         if stop() {
@@ -423,15 +424,18 @@ pub async fn receive(
         let mut from_head = false;
         let mut profiles = cached.all().to_vec();
         profiles.extend(own.clone());
-        let (events, more) = session
+        let page = session
             .receive_page(
                 std::slice::from_mut(&mut node),
                 device_key,
                 &profiles,
                 &seal_key,
             )
-            .await
-            .map_err(|e| e.to_string())?;
+            .await;
+        let (events, more) = match page {
+            Ok(page) => page,
+            Err(error) => return Err(own::pass_error(&session, &mut node, error).await),
+        };
         for event in events {
             match event {
                 Event::UnknownOwner(peer) => {
@@ -469,6 +473,7 @@ pub async fn receive(
     let _ = dyapp_client::publish::refresh_photos(session.store(), &mut node, identity, now).await;
     // A stale copy from a node must not bring back a device the owner dropped.
     if let Ok(newest) = node.get_profile(&identity.peer_id()).await {
+        let _ = session.own_device_revoked(&newest.profile);
         if own.is_none_or(|own| own.profile.version <= newest.profile.version) {
             let _ = cached.accept(newest.clone());
             own::refresh_contact(cache, epoch, session.store(), &mut node, &mut cached, now).await;
@@ -486,24 +491,6 @@ pub async fn receive(
         }
     }
     Ok(changed)
-}
-
-// A catch-up pass resumes exact staged writes after a failed send or restart. Session owns
-// outbox backoff; this path never drafts another text.
-async fn retry_outbox(
-    session: &mut Session,
-    node: &mut dyapp_client::Node,
-    seal_key: &[u8; 32],
-) -> Result<(), String> {
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_millis();
-    let now_ms = i64::try_from(now_ms).map_err(|e| e.to_string())?;
-    session
-        .retry_due(std::slice::from_mut(node), now_ms, seal_key)
-        .await
-        .map_err(|e| e.to_string())
 }
 
 async fn refill_if_due(
@@ -746,11 +733,13 @@ pub mod commands {
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = crate::device_key(&root, &dir, &identity)?;
         let stop = || lease.transitioning().unwrap_or(true);
-        crate::notify::around_pass(app, &dir, &identity, || {
+        let passed = crate::notify::around_pass(app, &dir, &identity, || {
             tauri::async_runtime::block_on(super::receive(
                 &cache, &root, &dir, &identity, &device, stop,
             ))
-        })
+        });
+        super::own::wipe_if_revoked(app, &dir, &passed);
+        passed
     }
 
     /// Runs passes from the runtime, because a hidden page's timers can be suspended, and tells

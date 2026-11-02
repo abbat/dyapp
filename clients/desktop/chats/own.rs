@@ -1,14 +1,17 @@
-//! Blocks, mutes, contact names and passes, which the owner's devices share.
+//! Blocks, mutes, contact names and passes, which the owner's devices share, and a device leaving
+//! the owner's list.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::chat::PeerChange;
 use dyapp_client::profiles::Profiles;
-use dyapp_client::session::Session;
+use dyapp_client::session::{Error, Session};
 use dyapp_client::store::Store;
 use dyapp_client::Node;
 use dyapp_identity::Identity;
+use tauri::Manager;
 
 use super::{open, Sessions};
 use crate::search::ProfileCache;
@@ -73,6 +76,70 @@ pub async fn refresh_contact(
         }
         let _ = cached.accept(verified);
     }
+}
+
+// A catch-up pass resumes exact staged writes after a failed send or restart. Session owns
+// outbox backoff; this path never drafts another text.
+pub(super) async fn retry_outbox(
+    session: &mut Session,
+    node: &mut Node,
+    seal_key: &[u8; 32],
+) -> Result<(), String> {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis();
+    let now_ms = i64::try_from(now_ms).map_err(|e| e.to_string())?;
+    session
+        .retry_due(std::slice::from_mut(node), now_ms, seal_key)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// The failure of a catch-up pass that found this device revoked.
+pub const REVOKED: &str = "revoked";
+
+/// The pass's failure for `error` from reading the mailbox; see `Session::revoked_or`.
+pub(super) async fn pass_error(session: &Session, node: &mut Node, error: Error) -> String {
+    match session.revoked_or(node, error).await {
+        Error::Revoked => REVOKED.to_owned(),
+        error => error.to_string(),
+    }
+}
+
+/// Tells the page to wipe the slot at `dir` after a pass that ended in [`REVOKED`]. The page checks
+/// the slot, as another identity may open first. The legacy slot's folder is the config folder,
+/// which names no slot, so the page leaves it alone: `slots::remove` refuses it anyway.
+pub(super) fn wipe_if_revoked(app: &tauri::AppHandle, dir: &Path, passed: &Result<usize, String>) {
+    if !passed.as_ref().is_err_and(|error| error == REVOKED) {
+        return;
+    }
+    let slot = dir.file_name().map(|name| name.to_string_lossy());
+    if let (Some(page), Some(slot)) = (app.get_webview_window("main"), slot) {
+        let slot = serde_json::Value::from(slot.as_ref());
+        let _ = page.eval(format!("window.deviceRevoked?.({slot})"));
+    }
+}
+
+/// Revokes the owner's device with the mailbox key `device_key`; see `profile::revoke_device`.
+#[tauri::command]
+pub(crate) async fn revoke_device(
+    state: tauri::State<'_, IdentityState>,
+    device_key: Vec<u8>,
+) -> Result<crate::profile::View, String> {
+    let lease = state.lease()?;
+    let (identity, dir) = lease.active().clone();
+    // The client store is not `Sync`, as in `crate::publish_profile`.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lease = lease;
+        tauri::async_runtime::block_on(crate::profile::revoke_device(
+            &dir,
+            &identity,
+            &device_key,
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// [`change_peer`] for a command of the active identity, under the session lock.

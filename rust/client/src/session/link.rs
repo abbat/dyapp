@@ -6,7 +6,7 @@ use crate::chat::{self, Body, Delivery, Event, PeerChange};
 use crate::{mailbox, publish, scores, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
-use dyapp_p2p_net::proto::EnvelopeClass;
+use dyapp_p2p_net::proto::{EnvelopeClass, Status};
 use dyapp_profile::{Profile, VerifiedProfile};
 
 /// How long each device earlier in [`Group::add_turn`] or [`Group::remove_turn`] gets to commit
@@ -35,6 +35,22 @@ impl Session {
         }
         publish::list_device(draft, self.certificate()?, binding);
         Ok(())
+    }
+
+    /// [`Error::Revoked`] when `error`, from reading the mailbox, is the node's refusal and the
+    /// owner's newest profile on `node` revokes this device; anything else stays `error`. It takes
+    /// both, because the caller wipes the device: a fork of the profile leaves the mailbox open, and
+    /// a node cannot sign a profile.
+    pub async fn revoked_or(&self, node: &mut Node, error: Error) -> Error {
+        if !matches!(error, Error::Client(crate::Error::Status(Status::Refused))) {
+            return error;
+        }
+        match node.get_profile(self.store.owner_peer_id()).await {
+            Ok(newest) if matches!(self.own_device_revoked(&newest.profile), Ok(true)) => {
+                Error::Revoked
+            }
+            _ => error,
+        }
     }
 
     /// The lowest ID of the groups changes reach the other own devices through. Two devices can

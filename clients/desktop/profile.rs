@@ -458,6 +458,25 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
     view(&hidden, today()?, Some(&store))
 }
 
+/// Closes the mailbox of the device with the key `device_key` and relists the profile without it;
+/// see `publish::revoke_device`. Errors as in [`publish`]; a failed step may be retried.
+pub async fn revoke_device(
+    dir: &Path,
+    identity: &Identity,
+    device_key: &[u8],
+) -> Result<View, String> {
+    let store = open(dir, identity)?;
+    let draft = stored(&store)?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = connect(&active).await?;
+    let dropped = publish::revoke_device(&store, &mut node, identity, &draft, device_key)
+        .await
+        .map_err(publish_code)?;
+    view(&dropped, today()?, Some(&store))
+}
+
 /// Publishes a final tombstone to profile storage before identity removal and holds it for search.
 /// With no responding profile node, the caller offers Retry or Remove anyway.
 pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {

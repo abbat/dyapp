@@ -318,8 +318,13 @@ known to list it (`device_listed` in `settings`) leaves it out. A new device was
 older copy from a node proves nothing, and a withdrawn profile lists no device at all, so none of
 them count. `Session::list_self` refuses to list a revoked device, so a draft taken from the newest
 profile cannot bring it back. The owner's identity key is on every device, so this holds the app to
-the rule and does not stop a stolen device. The linking screen and the wipe itself are planned with
-the client apps.
+the rule and does not stop a stolen device.
+
+The Linux client wipes a revoked device. When a node refuses its mailbox, `Session::revoked_or`
+fetches the newest own profile, and only a refusal together with that signed profile counts: a fork
+of the profile leaves the mailbox open, and a node cannot forge a profile. Catch-up then removes the
+identity through the path of a manual removal, and says why. Revoking starts from the Tauri command
+`revoke_device`. The Devices and linking screens, and the Android wipe, are planned.
 
 A link record crosses in the new device's own mailbox: `Code::send` puts the sealed parts there and
 `Invite::receive` reads them without MLS, among anything else the mailbox holds. An expired code

@@ -71,7 +71,7 @@ are not designed yet.
 
 States with no finding: `wizard-identity`, `picker`, `publish-dialog`, `publish-progress`,
 `network-checking`, `search`, `profile-view`, `chat-menu`, `chat-clear-dialog`, `chat-cleared`,
-`switcher`, `menu`, `remove-offline`.
+`switcher`, `menu`, `remove-offline`, `revoked-dialog`.
 
 ### Shipped UI
 
