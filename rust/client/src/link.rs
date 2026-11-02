@@ -213,7 +213,9 @@ impl Invite {
             if record.len() != usize::from(count) {
                 continue;
             }
-            let Ok(opened) = self.key.open(&record.into_values().collect::<Vec<_>>().concat())
+            let Ok(opened) = self
+                .key
+                .open(&record.into_values().collect::<Vec<_>>().concat())
             else {
                 continue;
             };

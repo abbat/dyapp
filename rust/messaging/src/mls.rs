@@ -563,8 +563,7 @@ impl Group {
             .group
             .members()
             .filter(|member| {
-                member.index != own
-                    && dropped(&member.credential, &member.signature_key, profiles)
+                member.index != own && dropped(&member.credential, &member.signature_key, profiles)
             })
             .map(|member| member.index)
             .collect();

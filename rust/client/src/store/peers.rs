@@ -375,7 +375,9 @@ mod tests {
                 PeerChange::Name("Old".to_owned()),
             ),
         ] {
-            assert!(store.receive_peer_change("bob", &new, at(2_000), wall).unwrap());
+            assert!(store
+                .receive_peer_change("bob", &new, at(2_000), wall)
+                .unwrap());
             for stamp in [at(1_000), at(2_000)] {
                 assert!(!store.receive_peer_change("bob", &old, stamp, wall).unwrap());
             }
@@ -386,7 +388,9 @@ mod tests {
         assert_eq!(store.local_name("bob").unwrap(), "New");
 
         let unblock = PeerChange::Blocked(false);
-        assert!(store.receive_peer_change("bob", &unblock, at(3_000), wall).unwrap());
+        assert!(store
+            .receive_peer_change("bob", &unblock, at(3_000), wall)
+            .unwrap());
         assert!(!store.blocked("bob").unwrap());
         assert!(matches!(
             store.receive_peer_change("bob", &PeerChange::Blocked(true), at(wall * 10), wall),
@@ -397,9 +401,13 @@ mod tests {
 
         // A linked device keeps the stamps, so a change older than the copy stays refused.
         let mut linked = Store::open(&temp_db_path(), &alice).unwrap();
-        linked.import_link_state(&store.link_state().unwrap()).unwrap();
+        linked
+            .import_link_state(&store.link_state().unwrap())
+            .unwrap();
         let block = PeerChange::Blocked(true);
-        assert!(!linked.receive_peer_change("bob", &block, at(2_500), wall).unwrap());
+        assert!(!linked
+            .receive_peer_change("bob", &block, at(2_500), wall)
+            .unwrap());
         assert!(!linked.blocked("bob").unwrap());
     }
 

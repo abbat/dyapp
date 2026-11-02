@@ -396,11 +396,7 @@ fn peer_changes_are_strict() {
         [good.as_slice(), &[1]].concat(),
         body(PeerChange::Name(format!("{longest}n"))).encode(),
         body(PeerChange::Name("a\u{202e}b".to_owned())).encode(),
-        [
-            &body(PeerChange::Name(String::new())).encode()[..],
-            &[0xff],
-        ]
-        .concat(),
+        [&body(PeerChange::Name(String::new())).encode()[..], &[0xff]].concat(),
     ] {
         assert!(Body::decode(&bad).is_err());
     }

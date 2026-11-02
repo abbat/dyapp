@@ -405,7 +405,10 @@ fn revoked_device_is_refused_and_removed() {
 
     // A member whose owner has no profile here stays: an empty cache says nothing about it.
     let unknown = [profile(&alice, &[&alice_device])];
-    assert_eq!(alice_group.remove_turn(&alice_device, &unknown).unwrap(), None);
+    assert_eq!(
+        alice_group.remove_turn(&alice_device, &unknown).unwrap(),
+        None
+    );
     assert_eq!(
         alice_group.remove_revoked(&alice_device, &unknown).unwrap(),
         None
@@ -417,10 +420,12 @@ fn revoked_device_is_refused_and_removed() {
         profile(&bob, &[&bob_phone]),
     ];
     assert_eq!(
-        alice_group.remove_turn(&alice_device, &revoked).unwrap(), Some(1)
+        alice_group.remove_turn(&alice_device, &revoked).unwrap(),
+        Some(1)
     );
     assert_eq!(
-        phone_group.remove_turn(&bob_phone, &revoked).unwrap(), Some(0)
+        phone_group.remove_turn(&bob_phone, &revoked).unwrap(),
+        Some(0)
     );
     let sealed = laptop_group.encrypt(&bob_laptop, b"from a thief").unwrap();
     assert!(matches!(

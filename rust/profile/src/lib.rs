@@ -212,7 +212,8 @@ impl Profile {
             listed.insert(device);
         }
         let binds = |signed: &SignedRecord| {
-            <[u8; 32]>::try_from(signed.public_key.as_slice()).is_ok_and(|key| listed.contains(&key))
+            <[u8; 32]>::try_from(signed.public_key.as_slice())
+                .is_ok_and(|key| listed.contains(&key))
                 && signed.payload == owner_key
                 && signed.verify(Domain::DeviceOwner).is_ok()
         };
