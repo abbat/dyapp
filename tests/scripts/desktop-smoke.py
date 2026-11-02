@@ -266,7 +266,8 @@ def smoke(executable, flows=True):
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
         file = ["--ui-test-file"]
-        second = case("mixed-add", [*file, "--ui-test-step=add"], profile)
+        second = case("mixed-add", [*file, "--ui-test-step=add"], profile,
+                      timeout=300)
         if second == first:
             raise RuntimeError("added identity reused the Peer ID")
         added = (root / "active-profile").read_text().strip()
@@ -286,7 +287,7 @@ def smoke(executable, flows=True):
                 profile) != second:
             raise RuntimeError("picked identity was not reopened")
         remove("remove-ready", profile, added, first)
-        case("readd", [*file, "--ui-test-step=add"], profile)
+        case("readd", [*file, "--ui-test-step=add"], profile, timeout=300)
         added = (root / "active-profile").read_text().strip()
         key = root / "profiles" / added / "identity.key"
         key.write_bytes(b"not a key\n")

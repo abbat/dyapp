@@ -574,7 +574,9 @@ to eight compiler errors from its JSON manifest into the mapped failure output. 
 include only the failed app invocation output, so the expected `--break-ui` rejection is not
 mistaken for a regression. Prepared Rust unit binaries retain their actual failure exit code
 (including 101) and reject empty inventories. Add `--raw` to `linux-test.sh`,
-`desktop-smoke.py` or `run-cargo-unit-binaries.py` for direct diagnostic mode.
+`desktop-smoke.py` or `run-cargo-unit-binaries.py` for direct diagnostic mode. A desktop page
+check that does not finish in 100 s fails with its own name, so a stub that never answers is
+not reported only as a process timeout; the two `add` cases allow 300 s for the whole step.
 
 Apple hosted tests and core builds also use mapped results, with raw logs in the
 native artifacts. `apple-test-in-ci.sh` keeps its exit-2 rejection outside approved

@@ -537,6 +537,7 @@ const openChat = async (peerId, call = invoke) => {
   chatsMessage('chats.loading');
   try {
     const history = await call('chat_history', { peerId });
+    if (!currentChat()) return;
     await loadPeerNames([peerId], call);
     if (!currentChat()) return;
     const newDevice = await newDeviceFlag(peerId, call);
@@ -899,6 +900,7 @@ window.showChats = async (call = invoke) => {
     if (currentChats()) chatsMessage('chats.rowsFailed', String(error));
     return;
   }
+  if (!currentChats()) return;
   await loadPeerNames(rows.map((row) => row.peerId), call);
   if (!currentChats()) return;
   renderChatRows(rows);

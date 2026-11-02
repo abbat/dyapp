@@ -1,10 +1,10 @@
 // Desktop UI smoke: network, profile, connected fixtures and step dispatch.
-const identityChecks = globalThis.uiSmokeIdentity;
-const chatChecks = globalThis.uiSmokeChats;
-const presenceChecks = globalThis.uiSmokePresence;
-const nameChecks = globalThis.uiSmokeNames;
-const photoChecks = globalThis.uiSmokePhotos;
-const guardChecks = globalThis.uiSmokeGuards;
+const identityChecks = window.timedChecks(globalThis.uiSmokeIdentity);
+const chatChecks = window.timedChecks(globalThis.uiSmokeChats);
+const presenceChecks = window.timedChecks(globalThis.uiSmokePresence);
+const nameChecks = window.timedChecks(globalThis.uiSmokeNames);
+const photoChecks = window.timedChecks(globalThis.uiSmokePhotos);
+const guardChecks = window.timedChecks(globalThis.uiSmokeGuards);
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
   document.getElementById('node-enabled').checked = enabled;

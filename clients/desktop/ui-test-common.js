@@ -3,6 +3,19 @@ const invokeTest = window.__TAURI__.core.invoke;
 window.fail = (error) => invokeTest('ui_test_result', {
   passed: false, peerId: '', reason: String(error),
 });
+// A check that never settles fails by name instead of as a silent process timeout. The timers are
+// kept here because some checks replace the global ones.
+const CHECK_LIMIT_MS = 100000;
+const { setTimeout: startTimer, clearTimeout: stopTimer } = globalThis;
+window.timedChecks = (checks) => Object.fromEntries(Object.entries(checks).map(([name, check]) => [
+  name,
+  typeof check !== 'function' ? check : async (...args) => {
+    let timer;
+    const limit = new Promise((_, reject) => {
+      timer = startTimer(() => reject(new Error(`${name} did not finish`)), CHECK_LIMIT_MS);
+    });
+    try { return await Promise.race([check(...args), limit]); } finally { stopTimer(timer); }
+  }]));
 const frames = () => new Promise((resolve) => {
   requestAnimationFrame(() => requestAnimationFrame(resolve));
 });
