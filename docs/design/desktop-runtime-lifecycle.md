@@ -20,11 +20,14 @@ settings, clears verified profiles and advances the profile-cache epoch under on
 repeat activation of the same settings retains the cache. Search and chat work captures that
 epoch before loading network settings and does not cache a result after activation changes it.
 The WebView advances an identity generation when a transition starts. Its identity renderer,
-Search and Chats discard late responses after the generation changes; a mailbox poll cannot
-schedule a Chats refresh for another identity. The poll's backend stops before the next mailbox
-page once a transition starts, which bounds how long its lease delays the switch. A failed poll
-still redraws the list from the local projection, because the failure can follow a commit, such
-as a lost ACK; the committed message then appears once and the next poll retries the ACK. Viewed-peer likes, block, safety-number, QR and
+Search and Chats discard late responses after the generation changes. A
+[catch-up pass](client-local-storage.md#catch-up-runtime) runs in a runtime thread and stops
+before the next mailbox page once a transition starts, which bounds how long its lease delays
+the switch. Its page notification carries no chat data, so the page re-reads rows for its
+current identity, and a refresh that started under an old identity discards its rows. A failed
+pass still redraws the list from the local projection, because the failure can follow a commit,
+such as a lost ACK; the committed message then appears once and the next pass retries the ACK.
+Viewed-peer likes, block, safety-number, QR and
 camera, profile load/save, publish and hide callbacks also discard old completions. Profile
 search-wait, publish-elapsed, usage and traffic timers stop at an identity transition; late
 results do not repaint the new editor, storage card or status bar. Privacy Settings load and

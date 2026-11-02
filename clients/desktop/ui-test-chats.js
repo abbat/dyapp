@@ -448,7 +448,7 @@ const checkChatDelivery = async () => {
     throw new Error('pending own message or peer delivery status rendered incorrectly');
   }
   delivery = 'nodeAccepted';
-  await pollMailbox(call);
+  await window.mailUpdated(0, call);
   if (!chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])
     || chatMessages.textContent.includes(window.strings['chats.delivery.pending'])) {
     throw new Error('node acceptance did not refresh an open chat');
@@ -461,16 +461,15 @@ const checkChatDelivery = async () => {
     throw new Error('device receipt status did not survive reopening');
   }
   document.getElementById('chat-back').click();
-  // A lost ACK rejects the poll after the commit; the committed row still appears, once.
+  // A lost ACK fails the pass after the commit; the committed row still appears, once.
   const committed = [{ peerId: peer, state: 'open', lastMessage: theirs, unreadCount: 1 }];
-  await pollMailbox((command) => {
-    if (command === 'receive_mail') return Promise.reject('ack failed');
+  await window.mailUpdated(null, (command) => {
     if (command === 'chat_rows') return Promise.resolve(committed);
-    throw new Error(`unexpected poll command: ${command}`);
+    throw new Error(`unexpected refresh command: ${command}`);
   });
   if (document.querySelectorAll('#chat-list button').length !== 1
     || !chatList.textContent.includes('incoming')) {
-    throw new Error('a poll error hid the committed message');
+    throw new Error('a failed pass hid the committed message');
   }
 };
 const checkChatForwarded = async () => {
@@ -776,6 +775,16 @@ const peerSteps = {
     await window.chatDeleted;
     if (chatComposeStatus.textContent !== window.strings['chats.deleteSent']) {
       throw new Error(`delete shows ${chatComposeStatus.textContent}`);
+    }
+  },
+  // Nothing here opens Chats or asks for a pass, so the mail can only come from the runtime job.
+  'catch-up': async (peer) => {
+    await new Promise((resolve) => {
+      const shown = window.mailUpdated;
+      window.mailUpdated = (count) => { shown(count); resolve(); };
+    });
+    if (!(await liveHistory(peer)).includes('edited text')) {
+      throw new Error('the background pass stored no mail');
     }
   },
   'chat-clear': async (peer) => {

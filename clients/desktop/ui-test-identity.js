@@ -189,13 +189,15 @@ const checkStaleSearchAndChats = async () => {
 
   await openArea('chats-area');
   await window.chatsDone;
-  let finishPoll;
-  const oldPoll = pollMailbox(() => new Promise((resolve) => { finishPoll = resolve; }));
+  let finishRows;
+  const oldRefresh = window.mailUpdated(null, () => new Promise((resolve) => {
+    finishRows = resolve;
+  }));
   await act(Promise.resolve({ status: 'picker' }));
-  const chatsDone = window.chatsDone;
-  finishPoll(1);
-  await oldPoll;
-  if (window.chatsDone !== chatsDone) throw new Error('old poll scheduled a Chats refresh');
+  const shownRows = chatList.childElementCount;
+  finishRows([{ peerId: '6'.repeat(64), state: 'open', lastMessage: null, unreadCount: 0 }]);
+  await oldRefresh;
+  if (chatList.childElementCount !== shownRows) throw new Error('old refresh rendered Chats rows');
   await act(Promise.resolve(readyState));
 };
 // Even reopening the same card object for a new identity cannot admit an old peer response.

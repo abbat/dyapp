@@ -216,36 +216,34 @@ reopen the last snapshot, and prove the unsent/outstanding envelope can be proce
 duplicate display or premature ACK. They must also restart after a committed send, retry exact
 signed bytes, and restart after a committed receive before ACK.
 
-### Planned catch-up runtime
+### Catch-up runtime
 
-The platform runtime owns one catch-up job per active identity slot, sharing that slot's
-`Session` lock with foreground chat commands. On desktop the job must hold the
-[active-slot lease](desktop-runtime-lifecycle.md) through its blocking worker and network
-calls. The WebView only requests an immediate pass and renders committed events; its timer
-cannot own delivery because hidden views may be suspended. Mobile runtimes use the same
-foreground contract when the app opens or resumes; OS background opportunities are
-best-effort and are not a delivery guarantee.
+The platform runtime owns one catch-up job, sharing the active slot's `Session` lock with
+foreground chat commands. On desktop a runtime thread runs a pass every 60 seconds under the
+[active-slot lease](desktop-runtime-lifecycle.md), held through its network calls, because a
+hidden view's timers may be suspended. Mobile runtimes (planned) use the same foreground
+contract when the app opens or resumes; OS background opportunities are best-effort and are
+not a delivery guarantee.
 
-Start a pass after the slot opens, when connectivity returns, when the app resumes or Chats
-opens, and when a due outbox deadline arrives. A pass calls `retry_due`, then
-`receive` and pending ACK handling for the active device; it schedules the next due
-outbox write and a bounded mailbox check (the desktop currently polls every 60 seconds).
-Keep only one pass per slot. A network failure schedules another pass with a bounded,
-jittered delay; the durable outbox keeps its own per-envelope backoff, so restarting the
-app may check connectivity immediately without rewriting send deadlines. Use the
-client's existing 15-second per-request timeout and cap each pass's work so switching
-can drain it. Never abort after an MLS mutation before its Store transaction settles.
-A UI event is emitted only from a committed inbox row and carries the slot generation,
-so a late result cannot render under another identity.
+The desktop WebView requests an immediate pass when Chats opens, and after each runtime pass
+it re-reads the rows of its current identity. That notification carries only a changed-event
+count, or null after a failure, so a late pass has nothing to render under another identity.
+It is a direct script call rather than a Tauri event, which would need a capability that the
+desktop does not grant.
 
-The first implementation can make one mailbox fetch per pass. It is **not** complete
-backlog recovery: `Session::receive_page` now processes one bounded page through
-the durable inbox and ACK path, but the desktop still calls legacy
-`Session::receive`, which discards `more`. An unresolved first-page envelope can
-hide later mail even across repeated desktop passes;
-[the pagination checkpoint](../architecture/messaging.md#catch-up-checkpoints)
-must wire continuation before claiming eventual catch-up. Cross-replica union
-and reconciliation remain separate work.
+A pass calls `retry_due`, then reads mailbox pages through the durable inbox and ACK path. The
+first runtime pass runs one period after launch. Slot open, reconnect, resume and due outbox
+deadlines have no wake of their own: each waits for the next pass, at most 60 seconds, unless
+Chats opens first. A failed pass waits for the same fixed period without jitter. The durable
+outbox keeps its own per-envelope backoff, so a restart does not rewrite send deadlines. Each
+network request uses the client's 15-second timeout, and a pass stops before the next page
+once a switch starts, so the switch can drain it without aborting an MLS mutation before its
+Store transaction settles.
+
+Each pass reads up to eight pages and a resolved unknown owner restarts from the head, so an
+unresolved first-page envelope cannot hide later mail; see
+[client pagination](#mailbox-pagination). Cross-replica union and reconciliation remain
+separate work.
 
 | Owner | Benefit | Cost |
 |---|---|---|
@@ -275,8 +273,8 @@ events and whether another page is due. A crash before cursor save replays a
 page through inbox deduplication. A crash after save resumes after the
 committed page. If the node changes, the client clears the cursor and starts from
 the head; sequence numbers have no meaning across holders. A page holds at most 20
-records. The desktop mailbox poll reads up to eight pages per call while `more` is
-true, and the next poll resumes from the saved cursor. It checks the active-slot
+records. The desktop catch-up pass reads up to eight pages per call while `more` is
+true, and the next pass resumes from the saved cursor. It checks the active-slot
 transition flag before each page and never interrupts an MLS/Store transaction.
 A per-envelope stop within a page is planned. An envelope from an unknown owner stays
 unacknowledged without hiding later pages; once a fetched profile may resolve it, the

@@ -38,8 +38,8 @@ swapped for its replacement in the outbox in one commit before it is put again.
 `TokenRequest` and asks back, and stores a `TokenAnswer`; these bodies are kept as state changes,
 not history, and are not returned to the app. When an incoming reply or match opens a chat,
 `Session::receive` asks again because the join request may have been dropped while pending.
-The desktop mailbox poll calls `Session::refill` when its persisted due time arrives, at most
-once per 24 hours after success. A failed attempt stays due for the next poll; another request
+The desktop catch-up pass calls `Session::refill` when its persisted due time arrives, at most
+once per 24 hours after success. A failed attempt stays due for the next pass; another request
 reuses the saved token keys, recovering a lost earlier request. Other app adapters still need
 this schedule. Nodes
 default to `limits.require_write_tokens`, so a contact's tokened write passes a mailbox whose
@@ -153,7 +153,7 @@ the caller's nodes, e.g. one per replica key: a put tries them lowest penalty fi
 ([scores](bootstrap.md#replication-and-repair)), the node that accepted the write last tried
 last, and each failure counts against its node; `receive` fetches from the first that answers. A
 receipt for a later write to the same mailbox counts against the node that accepted a
-still-waiting earlier one, which is resent at once. The Linux desktop's minute mailbox poll
+still-waiting earlier one, which is resent at once. The Linux desktop's minute catch-up pass
 calls `Session::retry_due` before receiving mail, under the active identity lease and the shared
 Sessions lock; due writes are retried after reconnect or restart without drafting new text.
 For a staged own text, edit or delete, the outbox now records the logical message ID and the
@@ -165,7 +165,7 @@ at least one device. A late receipt for an older text or edit cannot change the 
 Those states survive restart and outbox removal. Chat writes have no expiry before acceptance;
 an accepted write given up after 30 days still has the factual node-accepted status. Linux
 Chats reads these persisted states for its own-message labels after reopening and refreshes an
-open chat on the minute mailbox poll, including a receipt with no new visible text.
+open chat after the minute catch-up pass, including a receipt with no new visible text.
 The desktop app also uses this adapter for likes, token refill, and own-message edit/delete
 commands. Edit/delete validate peer, group and logical message ID against the local projection
 before opening a Session. Linux Chats exposes Edit and Delete for own live text; other
@@ -191,14 +191,13 @@ digest-only receiver inbox records. See the
 The [session recovery contract](../design/client-local-storage.md#session-recovery-contract)
 specifies that a storage error invalidates the current in-memory MLS session, and that receive
 must process one envelope per transaction before UI display or ACK; `Session::receive` is that
-adapter, and the desktop mailbox poll calls it.
+adapter, and the desktop catch-up pass calls its paged form.
 
 ### Catch-up checkpoints
 
-The [planned catch-up runtime](../design/client-local-storage.md#planned-catch-up-runtime)
-will own due outbox sends, mailbox fetches and ACK retries for the active slot. The
-desktop currently fetches on Chats visits and a 60-second UI timer; it does not call
-`Session::retry_due`. The runtime job and active-slot lease wiring are pending.
+The desktop [catch-up runtime](../design/client-local-storage.md#catch-up-runtime) owns due
+outbox sends, mailbox fetches and ACK retries for the active slot: a runtime thread runs a
+pass every minute, and Chats requests one when it opens. Mobile runtimes are planned.
 
 Mailbox fetch can now return a cursor after at most 100 records ordered by class and
 insertion sequence. `Node::fetch_page` signs a fresh challenge with an explicit
@@ -207,7 +206,7 @@ next cursor when a node reports more. Legacy `Node::fetch` still returns its fir
 page and `more` without requiring cursor support. `Session::receive_page` now
 processes at most 20 records through the existing per-envelope commit, ACK and
 receipt path, then saves the node-bound cursor or clears it at the end. Its
-caller must schedule another pass when `more` is true. The desktop poll does
+caller must schedule another pass when `more` is true. The desktop pass does
 so, so an unacknowledgeable Gap or unknown-owner record in a full first page
 no longer hides later records; see
 [client pagination](../design/client-local-storage.md#mailbox-pagination).
@@ -215,7 +214,8 @@ Cross-replica union is separate work.
 
 **What exists vs planned:**
 
-- Durable outbox and retries: `rust/client` `Session`; no background worker yet
+- Durable outbox and retries: `rust/client` `Session`; the desktop runtime drives them, a mobile
+  worker is planned
 - Hybrid logical clock timestamps with a peer-ID tie-break for ordering
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
   planned

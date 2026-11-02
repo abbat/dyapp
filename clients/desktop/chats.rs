@@ -445,7 +445,7 @@ pub async fn receive(
     Ok(changed)
 }
 
-// The mailbox poll resumes exact staged writes after a failed send or restart. Session owns
+// A catch-up pass resumes exact staged writes after a failed send or restart. Session owns
 // outbox backoff; this path never drafts another text.
 async fn retry_outbox(
     session: &mut Session,
@@ -468,7 +468,7 @@ async fn refill_if_due(
     node: &mut dyapp_client::Node,
     seal_key: &[u8; 32],
 ) -> Result<(), String> {
-    // The mailbox poll runs every minute. A failed refill stays due for the next poll.
+    // A catch-up pass runs every minute. A failed refill stays due for the next pass.
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
@@ -494,8 +494,15 @@ async fn refill_if_due(
 /// `Sessions` on its blocking thread.
 pub mod commands {
     use std::sync::Arc;
+    use std::time::Duration;
+
+    use tauri::Manager;
 
     use crate::search::{Found, SearchState};
+
+    // ponytail: one fixed cadence, also the bound for reconnect, resume and due retries; add
+    // wake sources if a minute of delivery delay becomes the complaint.
+    const CATCH_UP_PERIOD: Duration = Duration::from_secs(60);
 
     /// Locally blocks a Peer ID and reports this attempt's network token revocation.
     #[tauri::command]
@@ -661,30 +668,41 @@ pub mod commands {
         .map_err(|e| e.to_string())?
     }
 
-    /// Fetches and applies this device's mailbox; see `receive`.
-    #[tauri::command]
-    pub(crate) async fn receive_mail(
-        app: tauri::AppHandle,
-        state: tauri::State<'_, crate::IdentityState>,
-        searching: tauri::State<'_, SearchState>,
-        sessions: tauri::State<'_, super::Sessions>,
-    ) -> Result<usize, String> {
-        let lease = state.lease()?;
+    // One pass for the active slot; see `receive`. The lease and `Sessions` lock serialize it
+    // with every other pass and chat command, and a switch waits for it to return.
+    fn catch_up(app: &tauri::AppHandle) -> Result<usize, String> {
+        let lease = app.state::<crate::IdentityState>().lease()?;
         let (identity, dir) = lease.active().clone();
-        let root = crate::config_dir(&app)?;
-        let cache = Arc::clone(&searching.0);
-        let sessions = Arc::clone(&sessions.0);
+        let root = crate::config_dir(app)?;
+        let cache = Arc::clone(&app.state::<SearchState>().0);
+        let sessions = Arc::clone(&app.state::<super::Sessions>().0);
+        let _session = sessions.lock().map_err(|e| e.to_string())?;
+        let device = crate::device_key(&root, &dir, &identity)?;
+        let stop = || lease.transitioning().unwrap_or(true);
+        tauri::async_runtime::block_on(super::receive(
+            &cache, &root, &dir, &identity, &device, stop,
+        ))
+    }
+
+    /// Runs passes from the runtime, because a hidden page's timers can be suspended, and tells
+    /// the page to re-read its own identity's rows; the call carries only a count.
+    pub(crate) fn watch_mail(app: tauri::AppHandle) {
+        std::thread::spawn(move || loop {
+            std::thread::sleep(CATCH_UP_PERIOD);
+            let changed = catch_up(&app).map_or("null".to_string(), |count| count.to_string());
+            if let Some(page) = app.get_webview_window("main") {
+                let _ = page.eval(format!("window.mailUpdated?.({changed})"));
+            }
+        });
+    }
+
+    /// Runs a pass now, for a page that needs fresh mail.
+    #[tauri::command]
+    pub(crate) async fn receive_mail(app: tauri::AppHandle) -> Result<usize, String> {
         // The client store is not `Sync`, as in `crate::publish_profile`.
-        tauri::async_runtime::spawn_blocking(move || {
-            let _session = sessions.lock().map_err(|e| e.to_string())?;
-            let device = crate::device_key(&root, &dir, &identity)?;
-            let stop = || lease.transitioning().unwrap_or(true);
-            tauri::async_runtime::block_on(super::receive(
-                &cache, &root, &dir, &identity, &device, stop,
-            ))
-        })
-        .await
-        .map_err(|e| e.to_string())?
+        tauri::async_runtime::spawn_blocking(move || catch_up(&app))
+            .await
+            .map_err(|e| e.to_string())?
     }
 }
 

@@ -513,7 +513,8 @@ def smoke(executable, flows=True):
                     (bob, "liked-you"), (alice, "unlike"),
                     (bob, "liked-gone"), (alice, "chat-first"),
                     (bob, "chat-reply"), (alice, "chat-open"),
-                    (bob, "chat-clear"), (alice, "chat-block"),
+                    (bob, "catch-up"), (bob, "chat-clear"),
+                    (alice, "chat-block"),
                     (bob, "chat-after-block"), (alice, "chat-blocked")):
                 case(f"peers-{step}",
                      [*file, f"--ui-test-step=peer:{step}:{peer}"], root,

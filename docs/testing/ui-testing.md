@@ -116,8 +116,9 @@ verify the surviving identity and Settings inventory. In the add-identity case, 
 old identity response, shows the newer picker, resumes the old response, and checks the picker
 remains visible before returning to Ready. It then pauses old Search and Chats requests,
 starts current requests after returning to Ready, and checks that late old results cannot
-change current status or busy controls. A paused old mailbox poll cannot schedule a Chats
-refresh after the identity changes. The Chats smoke also renders local request and conversation
+change current status or busy controls. A Chats refresh after a background pass that is paused
+across an identity change does not render its rows. The two-client scenario waits for a runtime
+catch-up pass with Chats closed and checks that the mail reached the local history. The Chats smoke also renders local request and conversation
 rows through mocked commands while the node is unavailable, marks request rows until a reply,
 opens history and marks incoming text read locally, and checks Back returns to the list. Mocked
 send checks the reply transition,
@@ -132,8 +133,8 @@ only on live own text, current text in the editor, Cancel, refreshed text and ed
 retained unstaged draft, pending delivery for a staged edit and a late identity result. The
 Delete smoke checks the best-effort warning, Cancel, own-message placeholder, retained text on
 an unstaged error, pending delivery after staging and a stale identity result. The delivery
-smoke renders only own status, refreshes node acceptance during a mailbox poll with no new text,
-checks the device-received label after reopening, and checks that a poll rejected after commit
+smoke renders only own status, refreshes node acceptance after a catch-up pass with no new text,
+checks the device-received label after reopening, and checks that a pass failed after commit
 still shows the committed row once. Store tests cover persistence across restart
 and ignore receipts for a superseded message generation. The forwarded-text smoke checks a
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,

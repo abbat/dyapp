@@ -656,12 +656,12 @@ window.showChats = async (call = invoke) => {
     else chatsMessage('chats.failed', code);
   }
 };
-// The mailbox is polled in the background; failures stay quiet, the next poll retries. A failure
-// can follow a commit, such as a lost ACK, so the list still follows the local projection.
-const pollMailbox = async (call = invoke) => {
+// The runtime reports each background pass: its changed-event count, or null after a failure,
+// which stays quiet because the next pass retries. A failure can follow a commit, such as a lost
+// ACK, so the list still follows the local projection.
+window.mailUpdated = async (changed, call = invoke) => {
   const generation = identityGeneration;
-  const changed = await call('receive_mail').catch(() => null);
-  if (!identityCurrent(generation) || document.getElementById('chats-area').hidden) return;
+  if (document.getElementById('chats-area').hidden) return;
   // Retry and signed receipts can change delivery status without a new visible chat event.
   if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
     && !chatSending && !chatBlocking) {
@@ -676,7 +676,6 @@ const pollMailbox = async (call = invoke) => {
     window.chatsDone = window.showChats(call);
   }
 };
-setInterval(pollMailbox, 60000);
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));
