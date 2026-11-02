@@ -60,6 +60,9 @@ pub enum Error {
     /// The local database failed.
     #[error(transparent)]
     Store(#[from] crate::store::Error),
+    /// A profile publish failed; retry it.
+    #[error(transparent)]
+    Publish(#[from] crate::publish::Failure),
 }
 
 /// One profile's restored MLS device, group handles and durable mailbox queue.

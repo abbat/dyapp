@@ -3,6 +3,7 @@
 
 use super::{prepare, Error, Session};
 use crate::chat::{self, Body, Delivery, Event, PeerChange};
+use crate::store::Store;
 use crate::{mailbox, publish, scores, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
@@ -14,6 +15,45 @@ use dyapp_profile::{Profile, VerifiedProfile};
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {
+    /// Finishes the link whose state [`Store::set_link_pending`] kept: takes the state and the
+    /// newest profile, lists this device, relists and publishes its KeyPackages. Returns whether a
+    /// link was pending. Every step may repeat, so after any failure the caller retries, and a
+    /// publish that lost a race or met the profile limit is a normal reason to. The row goes last.
+    pub async fn finish_link(
+        mut store: Store,
+        node: &mut Node,
+        identity: &Identity,
+        device_key: &Identity,
+        key_packages: usize,
+        seal_key: &[u8; 32],
+        now: u64,
+    ) -> Result<bool, Error> {
+        let Some(state) = store.link_pending()? else {
+            return Ok(false);
+        };
+        let mut draft = publish::adopt(&mut store, node, identity, &state, now).await?;
+        let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
+        // A retry must not spend a profile version when the last relist reached the node.
+        if draft.devices.contains(&session.certificate()?) {
+            session.store.note_device_listed(draft.version)?;
+        } else {
+            let binding = crate::owner_binding(device_key, &identity.public_key());
+            session.list_self(&mut draft, binding)?;
+            let listed = publish::relist(&session.store, node, identity, &draft).await?;
+            session.store.note_device_listed(listed.version)?;
+        }
+        if session.store.last_resort()?.is_none() {
+            session
+                .publish_key_packages(node, device_key, key_packages, seal_key)
+                .await?;
+        }
+        session
+            .keep_last_resort(node, device_key, now, seal_key)
+            .await?;
+        session.store.clear_link_pending()?;
+        Ok(true)
+    }
+
     /// Whether `newest`, an own profile, revokes this device: a version past the last one known to
     /// list it leaves it out. A new device was never listed and an older copy proves nothing. A
     /// withdrawn profile lists no device at all, so it says nothing about this one. A profile that

@@ -3,7 +3,10 @@
 use super::likes::{load_hlc, save_hlc};
 use super::{Error, Store};
 use prost::Message as _;
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
+
+/// The `settings` row of a record's state until the linked device has listed itself.
+const PENDING: &str = "link_pending";
 
 #[derive(Clone, PartialEq, prost::Message)]
 struct LinkState {
@@ -72,6 +75,41 @@ struct Pass {
 }
 
 impl Store {
+    /// Keeps a received record's `state` until [`crate::session::Session::finish_link`] ends: the
+    /// mailbox no longer holds the record, so a failed step must not lose it.
+    pub fn set_link_pending(&self, state: &[u8]) -> Result<(), Error> {
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
+            params![PENDING, state],
+        )?;
+        Ok(())
+    }
+
+    /// The state of a link this device has not finished.
+    pub fn link_pending(&self) -> Result<Option<Vec<u8>>, Error> {
+        let row: Option<(i64, Vec<u8>)> = self
+            .db
+            .query_row(
+                "SELECT `format_version`, `value` FROM `settings` WHERE `key` = ?1",
+                [PENDING],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        match row {
+            None => Ok(None),
+            Some((1, state)) => Ok(Some(state)),
+            Some(_) => Err(Error::InvalidSetting),
+        }
+    }
+
+    /// Ends a link: the state now lives in the tables it was imported to.
+    pub fn clear_link_pending(&self) -> Result<(), Error> {
+        self.db
+            .execute("DELETE FROM `settings` WHERE `key` = ?1", [PENDING])?;
+        Ok(())
+    }
+
     /// This store's local state as the bytes of a link record.
     pub fn link_state(&self) -> Result<Vec<u8>, Error> {
         let mut peers = self.db.prepare(
@@ -197,6 +235,25 @@ mod tests {
     use super::*;
     use crate::interactions::Kind;
     use dyapp_identity::Identity;
+
+    #[test]
+    fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
+        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        assert_eq!(store.link_pending().unwrap(), None);
+        store.set_link_pending(b"first").unwrap();
+        store.set_link_pending(b"state").unwrap();
+        assert_eq!(store.link_pending().unwrap().unwrap(), b"state");
+        store
+            .db
+            .execute(
+                "UPDATE `settings` SET `format_version` = 2 WHERE `key` = ?1",
+                [PENDING],
+            )
+            .unwrap();
+        assert!(matches!(store.link_pending(), Err(Error::InvalidSetting)));
+        store.clear_link_pending().unwrap();
+        assert_eq!(store.link_pending().unwrap(), None);
+    }
 
     #[test]
     fn a_fresh_store_takes_the_owners_state_and_later_events_win() {

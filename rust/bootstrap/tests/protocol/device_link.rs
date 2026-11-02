@@ -658,3 +658,94 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
         (live.version + 2, false, 2)
     );
 }
+
+#[tokio::test]
+async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version() {
+    const NOW: u64 = 1_000_000;
+    const PACKAGES: usize = 2;
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut alice = Person::new(&address).await;
+    let owner = alice.identity.peer_id();
+    let device_key = Identity::generate();
+    let copy = Identity::from_secret(&alice.identity.secret());
+    let path = store_path("finish-laptop");
+    let mut laptop = Person::device(&address, copy, 2).await;
+    let identity = Identity::from_secret(&alice.identity.secret());
+    let store = Store::open(&path, &identity).unwrap();
+    assert!(!Session::finish_link(
+        store,
+        &mut laptop.node,
+        &identity,
+        &device_key,
+        PACKAGES,
+        &SEAL,
+        NOW
+    )
+    .await
+    .unwrap());
+
+    // A step fails: no profile answers, and the state stays for the next pass.
+    let store = Store::open(&path, &identity).unwrap();
+    let phone = Store::open(&store_path("finish-phone"), &identity).unwrap();
+    phone.set_blocked("bob", true).unwrap();
+    store
+        .set_link_pending(&phone.link_state().unwrap())
+        .unwrap();
+    let stranger = Identity::generate();
+    assert!(Session::finish_link(
+        store,
+        &mut laptop.node,
+        &stranger,
+        &device_key,
+        PACKAGES,
+        &SEAL,
+        NOW
+    )
+    .await
+    .is_err());
+
+    let store = Store::open(&path, &identity).unwrap();
+    assert!(store.link_pending().unwrap().is_some());
+    let live = alice.node.get_profile(&owner).await.unwrap().profile;
+    assert!(Session::finish_link(
+        store,
+        &mut laptop.node,
+        &identity,
+        &device_key,
+        PACKAGES,
+        &SEAL,
+        NOW
+    )
+    .await
+    .unwrap());
+    let listed = alice.node.get_profile(&owner).await.unwrap().profile;
+    assert_eq!(listed.version, live.version + 1);
+    assert_eq!(listed.devices.len(), live.devices.len() + 1);
+
+    // Everything is done but the row: a repeat ends it and leaves the profile alone.
+    let store = Store::open(&path, &identity).unwrap();
+    assert!(store.link_pending().unwrap().is_none());
+    assert!(store.blocked("bob").unwrap());
+    assert!(store.device_listed().unwrap() >= listed.version);
+    store
+        .set_link_pending(&phone.link_state().unwrap())
+        .unwrap();
+    assert!(Session::finish_link(
+        store,
+        &mut laptop.node,
+        &identity,
+        &device_key,
+        PACKAGES,
+        &SEAL,
+        NOW
+    )
+    .await
+    .unwrap());
+    let served = alice.node.get_profile(&owner).await.unwrap().profile;
+    assert_eq!(served.version, listed.version);
+}
