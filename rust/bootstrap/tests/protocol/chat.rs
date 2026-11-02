@@ -491,9 +491,24 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     assert_eq!(events, vec![Event::Joined(group.id().to_vec())]);
     bob.node.ack(&bob.device_key, ids).await.unwrap();
 
-    // Alice drops Carol; the first node hides the commit, which only the second one holds.
+    // Carol withdraws her device, so Alice drops her; the first node hides the commit, which only
+    // the second one holds.
+    let withdrawn = Profile {
+        version: 2,
+        ..Default::default()
+    };
+    carol
+        .node
+        .publish_profile(withdrawn.sign(&carol.identity))
+        .await
+        .unwrap();
+    profiles[2] = alice
+        .node
+        .get_profile(&carol.identity.peer_id())
+        .await
+        .unwrap();
     let commit = group
-        .remove_revoked(&alice.device, &profiles[..2])
+        .remove_revoked(&alice.device, &profiles)
         .unwrap()
         .unwrap();
     let mut second = Person::device(&addresses[1], Identity::generate(), 1)

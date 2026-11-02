@@ -687,7 +687,7 @@ mod tests {
         };
         let load = |_: &Slot| Ok::<_, String>(key.get().map(|secret| Identity::from_secret(&secret)));
         let (slot, alice) = create(&root, "file", &save, &load).unwrap();
-        for name in REMOVABLE {
+        for name in REMOVABLE.iter().filter(|name| !["storage-mode", "state"].contains(name)) {
             fs::write(slot.dir.join(name), "secret").unwrap();
         }
         let erase = |_: &Slot| {
