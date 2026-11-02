@@ -21,10 +21,10 @@ from untrusted bootstrap nodes, so a man in the middle is possible.
   is the device list in the profile, so every chat with the contact shows a new device, and a
   verified contact loses its verified mark until it is checked again.
 - **No private-key sync through any cloud or server.** A user may manually make an offline copy
-  of a file-backed desktop identity folder. The app does not export keys from platform credential
-  stores or manage the security of that copy.
-- **A new device is linked from an existing device**: it receives keys and history from it and
-  joins the user's MLS groups.
+  of a file-backed desktop identity folder. The app does not manage the security of that copy, and it
+  exports a key from a platform credential store only into a link record.
+- **A new device is linked from an existing device**: it receives the identity key, never history,
+  and joins the user's MLS groups ([ADR 0040](0040-device-linking.md)).
 
 ## Consequences
 

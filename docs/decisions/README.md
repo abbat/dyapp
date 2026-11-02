@@ -75,5 +75,6 @@ fails only the push that carries it.
 | [0036](0036-search-visibility.md) | Search visibility is separate from profile deletion |
 | [0037](0037-chat-list-order.md) | Chat text carries original HLC; unread is local state |
 | [0039](0039-sensitive-safety-clipboard.md) | Sensitive safety-number clipboard on desktop |
+| [0040](0040-device-linking.md) | Device linking without history |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

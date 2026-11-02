@@ -37,8 +37,8 @@ media is different: full copies are expensive, and a node should hold no object 
   sender's IP group. A blocked contact's token keys are revoked by a signed `revoke` that
   replicas forward and repair. Details:
   [Bootstrap: Mailbox envelope](../architecture/bootstrap.md#mailbox-envelope).
-- **History lives on devices.** A new device gets it from a linked device
-  ([ADR 0004](0004-identity-keys.md)), not from bootstrap.
+- **History lives on devices.** A new device starts without it: neither bootstrap nor a linked
+  device hands it over ([ADR 0040](0040-device-linking.md)).
 - **Messages, MLS commits and profiles are replicated whole** to R = 5 points, replica *i* at the
   nodes closest to H(key ‖ i) ([ADR 0008](0008-sybil-and-eclipse-defences.md)). A record survives
   the loss of any 4 replicas, and hiding it needs 5 eclipsed points.

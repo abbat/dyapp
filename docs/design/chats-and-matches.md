@@ -161,7 +161,7 @@ commit. Retries reuse the staged bytes, as for every chat write.
 
 All devices of both identities are members of the pair group, so every own device sees the same
 texts and derives the same conversation state. Likes reach own devices only with the planned
-device sync of the interaction design. The cases:
+device sync ([ADR 0040](../decisions/0040-device-linking.md)). The cases:
 
 1. Two own devices send a first text at once: each makes a group, the canonical rule merges them;
    the recipient keeps the first text it receives and drops the other, which stays Sent, never
