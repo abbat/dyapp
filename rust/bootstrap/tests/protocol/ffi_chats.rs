@@ -102,7 +102,7 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
         likes(true, false)
     );
     assert!(bob.receive().unwrap() > 0);
-    assert_eq!(bob.liked_you().unwrap(), [alice_id.clone()]);
+    assert_eq!(bob.liked_you().unwrap(), std::slice::from_ref(&alice_id));
     assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(false, false));
 
     assert_eq!(bob.like(alice_id.clone(), true).unwrap(), likes(true, true));

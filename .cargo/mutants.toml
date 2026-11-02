@@ -7,7 +7,7 @@ exclude_re = [
     # FFI chat paths with a live node or a stored chat row; the ffi_chats protocol tests cover them.
     "ChatSession::(chat_rows|liked_you)\\b",
     "replace (\\|\\| with &&|== with !=) in ChatSession::send_text",
-    "in (own_profile|apply_mailbox)\\b",
+    "(in|replace) (own_profile|apply_mailbox)\\b",
     # Any other error needs a client.db the owner cannot stat, which root in CI always can.
     "replace match guard .* with true in profile_visibility",
     # `<=` only waits longer: the result is truncated to `max`. The guard matters only for a late
