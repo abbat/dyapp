@@ -940,6 +940,8 @@ mod chat_ack_failure;
 mod chat_edits;
 #[path = "protocol/chat_pagination.rs"]
 mod chat_pagination;
+#[path = "protocol/device_link.rs"]
+mod device_link;
 
 #[path = "protocol/last_resort.rs"]
 mod last_resort;

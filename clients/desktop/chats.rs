@@ -470,6 +470,17 @@ pub async fn receive(
     // Best effort like the package above; it tries again the next day.
     let now = dyapp_client::now();
     let _ = dyapp_client::publish::refresh_photos(session.store(), &mut node, identity, now).await;
+    // A stale copy from a node must not bring back a device the owner dropped.
+    if let Ok(newest) = node.get_profile(&identity.peer_id()).await {
+        if own.is_none_or(|own| own.profile.version <= newest.profile.version) {
+            let mut profiles = cached.all().to_vec();
+            profiles.push(newest.clone());
+            let nodes = std::slice::from_mut(&mut node);
+            let _ = session
+                .add_own_devices(nodes, &newest, &profiles, now, &seal_key)
+                .await;
+        }
+    }
     Ok(changed)
 }
 

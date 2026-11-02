@@ -477,6 +477,20 @@ impl Group {
             .collect())
     }
 
+    /// How many of `owner`'s devices with a leaf here sort before `device`: the devices that get
+    /// to add a missing device first, so that two commits do not fork the group.
+    pub fn add_turn(&self, device: &Device, owner: &VerifiedProfile) -> Result<u64, Error> {
+        let own = device.device_key()?;
+        let mut turn = 0;
+        for member in self.group.members() {
+            let (peer_id, certificate) = certified(&member.credential, &member.signature_key)?;
+            if peer_id == owner.peer_id && device_key(&certificate)? < own {
+                turn += 1;
+            }
+        }
+        Ok(turn)
+    }
+
     /// Adds the devices of `packages`, each checked as in [`Device::create_group`]; returns the
     /// commit for the members and the Welcome for the new devices.
     pub fn add(

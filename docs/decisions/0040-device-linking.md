@@ -41,7 +41,9 @@ requires, so a device can be removed from groups and its mailbox closed.
    itself added at a higher version, and publishes KeyPackages.
 5. The existing device sees the new certificate and adds the device to every pair group. A device
    that finds a listed own device missing from a group it holds does the same, so a link survives
-   the first device going offline.
+   the first device going offline. Two commits on one epoch fork a group for good and no server
+   orders them, so own devices take turns by device key: the first in a group adds at once, and
+   each later one waits an hour longer since it first saw that profile.
 
 **History.** A linked device reads chats from the moment it joins. It gets no earlier messages or
 media keys, and says so in each chat.
@@ -68,7 +70,11 @@ device from groups. The dropped device wipes its keys and state on learning this
   confirms, so the flow starts only from Devices and names the consequence before it sends.
 - Linking is limited by the node's one profile update per 10 minutes and the profile proof of work.
 - Contacts see a new-device notice and a verified contact loses the mark, as for any device change.
-- A contact with a stale profile refuses the new leaf until it fetches the newer one.
+- A contact with a stale profile holds the commit that adds the new leaf until it fetches the
+  newer one. Mail from a device truly dropped waits the same way, until the node expires it.
+- Turns delay a link by an hour for each earlier own device that stays offline. They do not cover
+  an earlier device returning exactly as a later turn commits, or a contact committing to the
+  group at that moment: such a fork stays possible.
 - X25519 sealing may add a direct dependency, recorded when it lands.
 - History transfer stays possible later and needs its own decision.
 

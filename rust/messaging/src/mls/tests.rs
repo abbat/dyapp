@@ -465,9 +465,7 @@ fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
     ));
     assert_eq!(p.bob_group.epoch(), epoch);
     let bob_device = Device::open(&sealed_bob, &[3; 32]).unwrap();
-    let mut bob_group = Group::load(&bob_device, p.bob_group.id())
-        .unwrap()
-        .unwrap();
+    let mut bob_group = Group::load(&bob_device, p.bob_group.id()).unwrap().unwrap();
     assert_eq!(
         bob_group.process(&bob_device, &commit, &linked).unwrap(),
         Received::Commit
@@ -475,6 +473,13 @@ fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
 
     let mut laptop_group = laptop.join(&welcome, &linked).unwrap();
     assert_eq!(laptop_group.members().unwrap().len(), 3);
+    let (first, second) = if laptop.device_key().unwrap() < p.alice_device.device_key().unwrap() {
+        (&laptop, &p.alice_device)
+    } else {
+        (&p.alice_device, &laptop)
+    };
+    assert_eq!(laptop_group.add_turn(first, &linked[0]).unwrap(), 0);
+    assert_eq!(laptop_group.add_turn(second, &linked[0]).unwrap(), 1);
     let sealed = bob_group.encrypt(&bob_device, b"both").unwrap();
     for (group, device) in [
         (&mut p.alice_group, &p.alice_device),

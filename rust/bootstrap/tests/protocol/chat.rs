@@ -30,7 +30,7 @@ impl Person {
     }
 
     /// A device `generation` of `identity`, not yet in any published profile.
-    async fn device(address: &Multiaddr, identity: Identity, generation: u64) -> Self {
+    pub(super) async fn device(address: &Multiaddr, identity: Identity, generation: u64) -> Self {
         let device_key = Identity::generate();
         let device = Device::new(&identity, device_key.public_key(), generation).unwrap();
         let node = dyapp_client::Node::connect(

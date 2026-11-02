@@ -19,6 +19,7 @@ mod likes;
 mod mailbox_cursor;
 pub mod messages;
 mod notice;
+mod own_devices;
 pub mod originals;
 mod outbox;
 mod peers;

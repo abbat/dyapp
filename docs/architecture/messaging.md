@@ -289,7 +289,12 @@ the certificate listed in the owner's profile among those the caller passes (the
 Every call above takes those profiles, so a device dropped from the list is refused as a sender or
 new leaf, and `Group::remove_revoked` commits its removal. `Group::missing_devices` names the
 devices an owner lists without a leaf in the group, and `Group::add` commits them with a Welcome
-([ADR 0040](../decisions/0040-device-linking.md)). The owner's other device also closes
+([ADR 0040](../decisions/0040-device-linking.md)). `Session::add_own_devices` does this for every
+group after a mailbox pass: `Group::add_turn` orders the owner's devices in a group by device key,
+and each waits `ADD_TURN_SECONDS` per earlier device, counted from when it first saw that profile
+(`own_profile_seen` in `settings`), since two commits on one epoch would fork the group. The
+desktop client takes the owner's profile from a node, ignoring one older than its own copy. The
+owner's other device also closes
 the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
 signed at linking ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
 `dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and
