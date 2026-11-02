@@ -50,9 +50,11 @@ const thumbButton = (canvas, index, count, letters) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'avatar';
-  button.textContent = letters;
-  button.setAttribute('aria-label', peerPhotoLabel(index, count));
+  const label = peerPhotoLabel(index, count);
+  // The name must hold any text on the button, so the letters stay only in place of a photo.
+  button.setAttribute('aria-label', canvas ? label : `${letters}: ${label}`);
   if (canvas) button.append(canvas);
+  else button.textContent = letters;
   return button;
 };
 

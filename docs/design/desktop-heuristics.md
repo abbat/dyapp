@@ -494,6 +494,14 @@ The `notice-content` choice under the notifications switch in `settings`, and th
 
 Findings: none open.
 
+### Peer photo thumbnail name review (2026-11-02)
+
+- Accessibility: a thumbnail drawn with a photo no longer holds hidden letters, and one without a
+  photo says its letters first, so the spoken name always contains the visible text.
+- Consistency: the thumbnails look the same; only their names changed.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.
