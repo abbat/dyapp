@@ -22,8 +22,9 @@ pub(crate) mod forward;
 pub(crate) mod names;
 #[path = "chats/operations.rs"]
 pub(crate) mod operations;
-#[path = "chats/reads.rs"]
+#[path = "chats/presence.rs"]
 pub(crate) mod presence;
+#[path = "chats/reads.rs"]
 mod reads;
 #[path = "chats/view.rs"]
 mod view;
