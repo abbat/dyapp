@@ -599,6 +599,9 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step.startsWith('connect:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await connectNetwork(step.slice('connect:'.length));
+    } else if (step.startsWith('peer:')) {
+      if (state.status !== 'ready') throw new Error('identity not reopened');
+      await chatChecks.checkPeerStep(...step.slice('peer:'.length).split(':'));
     } else if (step.startsWith('launch:')) {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await window.connectionShown;

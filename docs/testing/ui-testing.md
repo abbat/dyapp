@@ -95,7 +95,13 @@ rejects malformed and oversized buffers, and records bounded frame counts and ag
 `desktop-ui-results.json`. Xvfb checks correctness only; it is not a performance benchmark.
 The shared Linux/Windows desktop smoke blocks a known Peer ID in Settings, checks that Retry
 reports the token revocation state, then unblocks it and checks that the list clears. The native
-search and Liked you blocking flow remains for later UI coverage. The shared Linux/Windows
+search and Liked you blocking flow remains for later UI coverage. A second identity joins the
+same loopback node, and each step below relaunches its client, so state read back survived a
+restart: the first identity's Like appears in the second's Liked you only and leaves with Unlike;
+the first text arrives as a request and a second one is refused until the reply opens the chat;
+an edit and a delete reach the peer; Clear removes only the local history and the chat stays
+writable; Block hides the chat, refuses local send and history, and the blocked peer's next text
+is not stored even after Unblock. The shared Linux/Windows
 desktop smoke measures the Peer ID text at narrow and
 wide layout widths: it must wrap when space is tight and return to one line
 when space grows, without changing the identifier. Its final check also runs the short Peer ID

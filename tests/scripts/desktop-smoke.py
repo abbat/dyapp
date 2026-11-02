@@ -505,6 +505,19 @@ def smoke(executable, flows=True):
                     "publishing the second client changed its Peer ID")
             check_profile_readback(node, seed, other_peer, env, peer_root)
             check_profile_readback(node, seed, peer_id, env, storage)
+            # Two identities on one node. Every step relaunches its client,
+            # so state it reads back survived a restart.
+            alice, bob = (profile, other_peer), (peer_root, peer_id)
+            for (root, peer), step in (
+                    (alice, "like"), (alice, "like-restart"),
+                    (bob, "liked-you"), (alice, "unlike"),
+                    (bob, "liked-gone"), (alice, "chat-first"),
+                    (bob, "chat-reply"), (alice, "chat-open"),
+                    (bob, "chat-clear"), (alice, "chat-block"),
+                    (bob, "chat-after-block"), (alice, "chat-blocked")):
+                case(f"peers-{step}",
+                     [*file, f"--ui-test-step=peer:{step}:{peer}"], root,
+                     timeout=180)
             # A first run that connects on the wizard's network step.
             with tempfile.TemporaryDirectory(dir=reports) as fresh:
                 case("wizard-connect",
