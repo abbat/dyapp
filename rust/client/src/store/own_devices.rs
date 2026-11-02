@@ -1,10 +1,11 @@
-//! When this device first saw the owner's newest profile: the clock of the turns that keep two own
-//! devices from adding a linked device at once.
+//! When this device first saw the owner's newest profile or a dropped device in a group: the clocks
+//! of the turns that keep two devices from committing to a group at once.
 
 use super::{Error, Store};
 use rusqlite::{params, OptionalExtension};
 
 const KEY: &str = "own_profile_seen";
+const DROPPED: &str = "dropped_leaf_seen/";
 
 impl Store {
     /// Seconds since this device first saw own profile `version` or a newer one, 0 the first time.
@@ -26,6 +27,37 @@ impl Store {
     /// The newest own profile version this device has seen, 0 before the first.
     pub fn own_profile_seen(&self) -> Result<u64, Error> {
         Ok(self.own_profile_row()?.map_or(0, |(version, _)| version))
+    }
+
+    /// Seconds since this device first saw a dropped device in `group`, 0 the first time.
+    pub fn dropped_leaf_age(&self, group: &[u8], now: u64) -> Result<u64, Error> {
+        let key = format!("{DROPPED}{}", crate::link::hex(group));
+        let held: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT `value` FROM `settings` WHERE `key` = ?1",
+                [&key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(held) = held {
+            let at: [u8; 8] = held.try_into().map_err(|_| Error::InvalidSetting)?;
+            return Ok(now.saturating_sub(u64::from_be_bytes(at)));
+        }
+        self.db.execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)",
+            params![key, now.to_be_bytes()],
+        )?;
+        Ok(0)
+    }
+
+    /// Stops the clock of `group`: its next dropped device starts one of its own.
+    pub fn forget_dropped_leaf(&self, group: &[u8]) -> Result<(), Error> {
+        self.db.execute(
+            "DELETE FROM `settings` WHERE `key` = ?1",
+            [format!("{DROPPED}{}", crate::link::hex(group))],
+        )?;
+        Ok(())
     }
 
     fn own_profile_row(&self) -> Result<Option<(u64, u64)>, Error> {
@@ -68,5 +100,12 @@ mod tests {
         assert_eq!(store.own_profile_age(2, 1_500).unwrap(), 500);
         assert_eq!(store.own_profile_age(4, 1_600).unwrap(), 0);
         assert_eq!(store.own_profile_age(4, 1_601).unwrap(), 1);
+        let (one, two) = (b"one".as_slice(), b"two".as_slice());
+        assert_eq!(store.dropped_leaf_age(one, 2_000).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(two, 2_100).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(one, 2_500).unwrap(), 500);
+        store.forget_dropped_leaf(one).unwrap();
+        assert_eq!(store.dropped_leaf_age(one, 2_600).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(two, 2_600).unwrap(), 500);
     }
 }

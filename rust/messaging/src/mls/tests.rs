@@ -379,7 +379,8 @@ fn certified_commit_advances_the_epoch() {
 #[test]
 fn revoked_device_is_refused_and_removed() {
     let (alice, alice_device) = device();
-    let (bob, bob_phone) = device();
+    let bob = Identity::generate();
+    let bob_phone = Device::new(&bob, [6; 32], 1).unwrap();
     let bob_laptop = Device::new(&bob, [8; 32], 1).unwrap();
     let both = [
         profile(&alice, &[&alice_device]),
@@ -400,12 +401,27 @@ fn revoked_device_is_refused_and_removed() {
         alice_group.remove_revoked(&alice_device, &both).unwrap(),
         None
     );
+    assert_eq!(alice_group.remove_turn(&alice_device, &both).unwrap(), None);
+
+    // A member whose owner has no profile here stays: an empty cache says nothing about it.
+    let unknown = [profile(&alice, &[&alice_device])];
+    assert_eq!(alice_group.remove_turn(&alice_device, &unknown).unwrap(), None);
+    assert_eq!(
+        alice_group.remove_revoked(&alice_device, &unknown).unwrap(),
+        None
+    );
 
     // Bob loses the laptop and publishes a profile without it.
     let revoked = [
         profile(&alice, &[&alice_device]),
         profile(&bob, &[&bob_phone]),
     ];
+    assert_eq!(
+        alice_group.remove_turn(&alice_device, &revoked).unwrap(), Some(1)
+    );
+    assert_eq!(
+        phone_group.remove_turn(&bob_phone, &revoked).unwrap(), Some(0)
+    );
     let sealed = laptop_group.encrypt(&bob_laptop, b"from a thief").unwrap();
     assert!(matches!(
         alice_group.process(&alice_device, &sealed, &revoked),

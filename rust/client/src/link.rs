@@ -17,7 +17,7 @@ const HEADER_LEN: usize = ID_LEN + 4;
 /// Leaves room for the envelope around a part: a node takes 100 KiB.
 const PART_DATA: usize = 90 * 1024;
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 

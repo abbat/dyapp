@@ -470,14 +470,18 @@ pub async fn receive(
     // A stale copy from a node must not bring back a device the owner dropped.
     if let Ok(newest) = node.get_profile(&identity.peer_id()).await {
         if own.is_none_or(|own| own.profile.version <= newest.profile.version) {
-            let mut profiles = cached.all().to_vec();
-            profiles.push(newest.clone());
+            let _ = cached.accept(newest.clone());
+            own::refresh_contact(cache, epoch, session.store(), &mut node, &mut cached, now).await;
+            let profiles = cached.all().to_vec();
             let nodes = std::slice::from_mut(&mut node);
             let _ = session
                 .join_own_devices(nodes, &newest, now, &seal_key)
                 .await;
             let _ = session
                 .add_own_devices(nodes, &newest, &profiles, now, &seal_key)
+                .await;
+            let _ = session
+                .remove_dropped_devices(nodes, &profiles, now, &seal_key)
                 .await;
         }
     }

@@ -100,6 +100,15 @@ pub fn verify_member(
     }
 }
 
+/// Whether the owner's profile in `profiles` no longer lists this member. An owner with no profile
+/// there says nothing: an empty cache must not empty a group.
+fn dropped(credential: &Credential, signature_key: &[u8], profiles: &[VerifiedProfile]) -> bool {
+    matches!(
+        verify_member(credential, signature_key, profiles),
+        Err(Error::Revoked(_))
+    )
+}
+
 fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, Error> {
     verify_member(leaf.credential(), leaf.signature_key().as_slice(), profiles)
 }
@@ -491,6 +500,31 @@ impl Group {
         Ok(turn)
     }
 
+    /// How many members that stay sort before this device, or `None` if `profiles` drops no other
+    /// member: the members that get to [`Self::remove_revoked`] first, so that two commits do not
+    /// fork the group. A contact counts too, since a group of a contact and a lost device has no
+    /// own device left.
+    pub fn remove_turn(
+        &self,
+        device: &Device,
+        profiles: &[VerifiedProfile],
+    ) -> Result<Option<u64>, Error> {
+        let own = device.device_key()?;
+        let own_leaf = self.group.own_leaf_index();
+        let (mut turn, mut revoked) = (0, false);
+        for member in self.group.members() {
+            if member.index == own_leaf {
+                continue;
+            }
+            if dropped(&member.credential, &member.signature_key, profiles) {
+                revoked = true;
+            } else if device_key(&certified(&member.credential, &member.signature_key)?.1)? < own {
+                turn += 1;
+            }
+        }
+        Ok(revoked.then_some(turn))
+    }
+
     /// Adds the devices of `packages`, each checked as in [`Device::create_group`]; returns the
     /// commit for the members and the Welcome for the new devices.
     pub fn add(
@@ -516,8 +550,9 @@ impl Group {
         ))
     }
 
-    /// Removes every other member [`verify_member`] refuses with `profiles`; returns the commit
-    /// to send to the group, or `None` if all members are still listed.
+    /// Removes every other member whose owner's profile in `profiles` no longer lists it, leaving
+    /// a member with no profile there; returns the commit to send to the group, or `None` if there
+    /// is no such member.
     pub fn remove_revoked(
         &mut self,
         device: &Device,
@@ -529,7 +564,7 @@ impl Group {
             .members()
             .filter(|member| {
                 member.index != own
-                    && verify_member(&member.credential, &member.signature_key, profiles).is_err()
+                    && dropped(&member.credential, &member.signature_key, profiles)
             })
             .map(|member| member.index)
             .collect();

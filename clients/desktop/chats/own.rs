@@ -1,13 +1,17 @@
 //! Blocks, mutes, contact names and passes, which the owner's devices share.
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use dyapp_client::chat::PeerChange;
+use dyapp_client::profiles::Profiles;
 use dyapp_client::session::Session;
+use dyapp_client::store::Store;
+use dyapp_client::Node;
 use dyapp_identity::Identity;
 
 use super::{open, Sessions};
+use crate::search::ProfileCache;
 use crate::IdentityState;
 
 /// Makes `change` about `peer_id` here and, once the owner's devices share a group, stages it for
@@ -42,6 +46,33 @@ pub async fn change_peer(
         .change_peer(&mut [], peer_id, change, &seal_key)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Refreshes one contact's profile, the next in turn, since nothing else shows that a contact
+/// dropped a device that stays silent. One request per catch-up: `now` picks the contact, so a lost
+/// device of a contact goes within as many minutes as there are chats.
+// ponytail: stateless round robin, a stored cursor if a skipped contact ever matters.
+pub async fn refresh_contact(
+    cache: &Mutex<ProfileCache>,
+    epoch: u64,
+    store: &Store,
+    node: &mut Node,
+    cached: &mut Profiles,
+    now: u64,
+) {
+    let owner = store.owner_peer_id();
+    let mut peers: Vec<_> = store.known_groups().unwrap_or_default();
+    peers.retain(|(_, peer)| peer != owner);
+    let turn = usize::try_from(now / 60).unwrap_or_default();
+    let Some((_, peer)) = peers.get(turn.checked_rem(peers.len()).unwrap_or_default()) else {
+        return;
+    };
+    if let Ok(verified) = node.get_profile(peer).await {
+        if let Ok(mut shared) = cache.lock() {
+            shared.accept_if_current(epoch, verified.clone());
+        }
+        let _ = cached.accept(verified);
+    }
 }
 
 /// [`change_peer`] for a command of the active identity, under the session lock.

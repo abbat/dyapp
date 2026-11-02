@@ -8,9 +8,12 @@ use dyapp_client::link::{Code, Invite};
 use dyapp_client::publish::{self, Failure};
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
+use dyapp_profile::verify;
 use std::slice::from_mut;
 
 const SEAL: [u8; 32] = [6; 32];
+/// One device's turn to commit to a group.
+const ADD_TURN_SECONDS: u64 = 3600;
 
 fn session(person: &Person, name: &str) -> Session {
     let path = store_path(name);
@@ -204,6 +207,66 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         Conversation::Closed
     );
     assert!(laptop_session.store().chat_rows().unwrap().is_empty());
+
+    // The owner drops the laptop: the member first by device key commits, the other waits its turn.
+    let profile = Profile {
+        version: 3,
+        devices: vec![alice.device.certificate().clone()],
+        ..Default::default()
+    };
+    let dropped = verify(&profile.sign(&alice.identity)).unwrap();
+    let dropped = vec![dropped, held[1].clone()];
+    let alice_first = alice.device_key.public_key() < bob.device_key.public_key();
+    let now = now + ADD_TURN_SECONDS;
+    assert_eq!(
+        bob_session
+            .remove_dropped_devices(from_mut(&mut bob.node), &dropped, now, &SEAL)
+            .await
+            .unwrap(),
+        usize::from(!alice_first)
+    );
+    assert_eq!(
+        alice_session
+            .remove_dropped_devices(from_mut(&mut alice.node), &dropped, now, &SEAL)
+            .await
+            .unwrap(),
+        usize::from(alice_first)
+    );
+    let (second, second_node, key) = match alice_first {
+        true => (&mut bob_session, &mut bob.node, &bob.device_key),
+        false => (&mut alice_session, &mut alice.node, &alice.device_key),
+    };
+    let events = second
+        .receive(from_mut(second_node), key, &dropped, &SEAL)
+        .await
+        .unwrap();
+    assert!(events.iter().any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
+    assert_eq!(
+        second
+            .remove_dropped_devices(from_mut(second_node), &dropped, now + ADD_TURN_SECONDS, &SEAL)
+            .await
+            .unwrap(),
+        0
+    );
+    alice_session
+        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .await
+        .unwrap();
+    bob_session
+        .receive(from_mut(&mut bob.node), &bob.device_key, &dropped, &SEAL)
+        .await
+        .unwrap();
+    assert!(bob_session.likes(&owner).unwrap().theirs);
+    laptop_session
+        .receive(
+            from_mut(&mut laptop.node),
+            &laptop.device_key,
+            &linked,
+            &SEAL,
+        )
+        .await
+        .unwrap();
+    assert!(!laptop_session.likes(&bob_owner).unwrap().ours);
 }
 
 #[tokio::test]

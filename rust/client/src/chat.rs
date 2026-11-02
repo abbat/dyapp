@@ -619,6 +619,18 @@ pub fn add(
     Ok(deliveries)
 }
 
+/// Removes the members `profiles` no longer lists from `group`: the commit for the other members.
+pub fn remove(
+    group: &mut Group,
+    device: &Device,
+    profiles: &[VerifiedProfile],
+) -> Result<Vec<Delivery>, Error> {
+    match group.remove_revoked(device, profiles)? {
+        Some(commit) => to_members(group, &commit),
+        None => Ok(Vec::new()),
+    }
+}
+
 /// A tag 13 body: kind, HLC, Peer ID, then a flag or a name.
 fn peer_change(body: &[u8]) -> Option<Body> {
     let (&kind, rest) = body.split_first()?;
@@ -656,7 +668,7 @@ pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<De
     to_members(group, &message)
 }
 
-/// The deliveries of `commit`, e.g. from [`Group::remove_revoked`], to the group's other devices.
+/// The deliveries of `commit` to the group's other devices.
 pub fn to_members(group: &Group, commit: &[u8]) -> Result<Vec<Delivery>, Error> {
     group
         .peer_device_keys()?

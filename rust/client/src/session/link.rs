@@ -2,15 +2,15 @@
 //! the owner's devices ([ADR 0040](../../../../docs/decisions/0040-device-linking.md)).
 
 use super::{prepare, Error, Session};
-use crate::chat::{self, Body, Event, PeerChange};
+use crate::chat::{self, Body, Delivery, Event, PeerChange};
 use crate::{mailbox, scores, Node, PreparedEnvelope};
 use dyapp_identity::Identity;
-use dyapp_messaging::mls::Group;
+use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::EnvelopeClass;
 use dyapp_profile::VerifiedProfile;
 
-/// How long each own device earlier in [`Group::add_turn`] gets to add a linked device first. Two
-/// commits on one epoch fork a group for good, and no server orders them.
+/// How long each device earlier in [`Group::add_turn`] or [`Group::remove_turn`] gets to commit
+/// first. Two commits on one epoch fork a group for good, and no server orders them.
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {
@@ -214,6 +214,36 @@ impl Session {
         Ok(added)
     }
 
+    /// Remove the devices `profiles` no longer lists from every group here whose turn has come;
+    /// returns how many groups were committed to. Run it after the mailbox, so a commit from an
+    /// earlier turn is seen first.
+    pub async fn remove_dropped_devices(
+        &mut self,
+        nodes: &mut [Node],
+        profiles: &[VerifiedProfile],
+        now: u64,
+        seal_key: &[u8; 32],
+    ) -> Result<usize, Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let mut due = Vec::new();
+        for group in &self.groups {
+            let Some(turn) = group.remove_turn(device, profiles)? else {
+                self.store.forget_dropped_leaf(group.id())?;
+                continue;
+            };
+            let wait = turn.saturating_mul(ADD_TURN_SECONDS);
+            if self.store.dropped_leaf_age(group.id(), now)? >= wait {
+                due.push(group.id().to_vec());
+            }
+        }
+        for group in &due {
+            let remove = |group: &mut Group, device: &Device| chat::remove(group, device, profiles);
+            let writes = self.stage_commit(group, seal_key, remove)?;
+            self.send_staged(nodes, writes, seal_key).await?;
+        }
+        Ok(due.len())
+    }
+
     /// Commit the new MLS state and the exact commit and Welcome writes before the first request.
     fn stage_add(
         &mut self,
@@ -222,6 +252,17 @@ impl Session {
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
     ) -> Result<Vec<PreparedEnvelope>, Error> {
+        self.stage_commit(group_id, seal_key, |group, device| {
+            chat::add(group, device, packages, profiles)
+        })
+    }
+
+    fn stage_commit(
+        &mut self,
+        group_id: &[u8],
+        seal_key: &[u8; 32],
+        commit: impl FnOnce(&mut Group, &Device) -> Result<Vec<Delivery>, crate::Error>,
+    ) -> Result<Vec<PreparedEnvelope>, Error> {
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
         let group = self
             .groups
@@ -229,7 +270,7 @@ impl Session {
             .find(|group| group.id() == group_id)
             .ok_or(Error::UnknownGroup)?;
         let staged = (|| {
-            let deliveries = chat::add(group, device, packages, profiles)?;
+            let deliveries = commit(group, device)?;
             let writes = prepare(&self.store, deliveries, EnvelopeClass::Message, seal_key)?;
             self.store
                 .stage_outbound(&device.seal(seal_key)?, &writes)?;

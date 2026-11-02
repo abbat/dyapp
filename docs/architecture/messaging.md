@@ -296,8 +296,17 @@ group after a mailbox pass, the group of only the owner's devices included, whic
 that group). `Group::add_turn` orders the owner's devices in a group by device key,
 and each waits `ADD_TURN_SECONDS` per earlier device, counted from when it first saw that profile
 (`own_profile_seen` in `settings`), since two commits on one epoch would fork the group. The
-desktop client takes the owner's profile from a node, ignoring one older than its own copy. The
-owner's other device also closes
+desktop client takes the owner's profile from a node, ignoring one older than its own copy.
+
+A device a newer profile no longer lists leaves every group the same way: `Group::remove_turn` orders
+the members that stay by device key, contacts included, since a group of a contact and a lost device
+has no own device left. Each waits `ADD_TURN_SECONDS` per earlier member, counted from when it first
+saw the dropped device in that group (`dropped_leaf_seen/` in `settings`), and then commits with
+`Session::remove_dropped_devices`. A member whose owner has no held profile stays, since an empty
+cache says nothing. The desktop client refreshes one contact's profile per catch-up, in turn. If a
+stale node copy drops a device by mistake, its owner's device adds it back.
+
+The owner's other device also closes
 the dropped device's mailbox with an identity-signed `revoke` carrying the owner binding the device
 signed, which the profile keeps ([bootstrap](bootstrap.md#mailbox-envelope)), so nodes stop serving it.
 `dyapp_client::owner_binding` signs that binding, `Node::close_mailbox` sends the close, and

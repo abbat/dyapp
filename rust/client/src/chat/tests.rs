@@ -1,7 +1,7 @@
 use super::{
-    apply_all, message, pad, unpad, AttachmentMessage, AttachmentWire, Body, Delivery, Event,
-    PeerChange, Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS, MAX_TEXT_BYTES,
-    MAX_TOKENS, MIN_PADDED_BYTES,
+    apply_all, message, pad, remove, unpad, AttachmentMessage, AttachmentWire, Body, Delivery,
+    Event, PeerChange, Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS,
+    MAX_TEXT_BYTES, MAX_TOKENS, MIN_PADDED_BYTES,
 };
 use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
 use crate::interactions::{Interaction, Kind};
@@ -30,6 +30,29 @@ fn envelope(id: u8, ciphertext: Vec<u8>) -> Envelope {
         sender_key: Vec::new(),
         ciphertext,
     }
+}
+
+#[test]
+fn removing_a_dropped_device_commits_to_those_that_stay() {
+    let (_, alice, alice_profile) = person();
+    let (bob_identity, bob, bob_profile) = person();
+    let (_, carol, carol_profile) = person();
+    let mut profiles = [alice_profile, bob_profile, carol_profile];
+    let packages = [
+        bob.key_package(false).unwrap(),
+        carol.key_package(false).unwrap(),
+    ];
+    let (mut group, _) = alice.create_group(&packages, &profiles).unwrap();
+    assert!(remove(&mut group, &alice, &profiles).unwrap().is_empty());
+    let dropped = Profile {
+        version: 2,
+        ..Default::default()
+    };
+    profiles[1] = dyapp_profile::verify(&dropped.sign(&bob_identity)).unwrap();
+    let deliveries = remove(&mut group, &alice, &profiles).unwrap();
+    assert_eq!(deliveries.len(), 1);
+    let carol_key = carol.device_key().unwrap().try_into().unwrap();
+    assert_eq!(deliveries[0].mailbox, crate::mailbox(&carol_key));
 }
 
 #[test]
