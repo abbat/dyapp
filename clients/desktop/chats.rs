@@ -18,6 +18,8 @@ use crate::search::{self, Found, ProfileCache};
 
 #[path = "chats/forward.rs"]
 pub(crate) mod forward;
+#[path = "chats/names.rs"]
+pub(crate) mod names;
 #[path = "chats/operations.rs"]
 pub(crate) mod operations;
 #[path = "chats/reads.rs"]

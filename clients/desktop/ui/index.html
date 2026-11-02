@@ -320,6 +320,7 @@
           <h2 id="chat-peer"></h2>
           <p id="chat-presence" class="caption" data-i18n="chats.active" hidden></p>
           <div class="actions">
+            <button id="chat-rename" class="btn quiet" type="button" data-i18n="chats.rename"></button>
             <button id="chat-block" class="btn quiet" type="button" data-i18n="view.block"></button>
             <button id="chat-clear" class="btn quiet" type="button" data-i18n="chats.clear"></button>
           </div>
@@ -511,6 +512,19 @@
       </div>
     </form>
   </dialog>
+  <dialog id="chat-rename-dialog" class="modal" aria-labelledby="chat-rename-title" hidden>
+    <h2 id="chat-rename-title" data-i18n="chats.rename"></h2>
+    <form id="chat-rename-form">
+      <label for="chat-rename-input" data-i18n="chats.renameLabel"></label>
+      <input id="chat-rename-input" type="text" maxlength="64" aria-describedby="chat-rename-hint">
+      <p id="chat-rename-hint" class="caption" data-i18n="chats.renameHint"></p>
+      <p id="chat-rename-error" class="notice error" role="alert" hidden></p>
+      <div class="actions">
+        <button id="chat-rename-cancel" class="btn" type="button" data-i18n="remove.cancel"></button>
+        <button id="chat-rename-save" class="btn primary" type="submit" data-i18n="chats.renameSave"></button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="chat-delete-dialog" class="modal" aria-labelledby="chat-delete-title" hidden>
     <h2 id="chat-delete-title" data-i18n="chats.deleteTitle"></h2>
     <p data-i18n="chats.deleteWarning"></p>
@@ -579,6 +593,7 @@
         data-i18n="publish.confirm" disabled></button>
     </div>
   </dialog>
+  <script src="peer-names.js"></script>
   <script src="app.js"></script>
   <script src="remove.js"></script>
   <script src="search.js"></script>

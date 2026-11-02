@@ -139,10 +139,11 @@ const knowPeers = (items) => {
   knownPeers = items.filter((item) => item.peerId).map((item) => item.peerId);
   return items;
 };
+window.shortPeer = (id) => shortPeerId(id, knownPeers);
 const peerLabel = (element, id) => {
   Object.assign(element.dataset, { peerId: id });
   element.title = id;
-  return shortPeerId(id, knownPeers);
+  return window.peerName(id);
 };
 
 // An identity as an avatar, its short ID (or why it cannot open) and a caption under it.

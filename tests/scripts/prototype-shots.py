@@ -24,7 +24,8 @@ DESKTOP = [
     "profile-view", "profile-view-safety", "verify-dialog",
     "profile-view-verified", "profile-view-match", "unlike-dialog",
     "chats", "chat", "chat-first", "chat-request", "chat-new-device",
-    "chat-menu", "chat-clear-dialog", "chat-cleared", "delete-dialog",
+    "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
+    "delete-dialog",
     "settings", "switcher", "menu", "remove-dialog", "remove-offline",
 ]
 ANDROID = [

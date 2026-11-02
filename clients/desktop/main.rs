@@ -914,6 +914,8 @@ fn main() {
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
             chats::presence::announce_presence,
+            chats::names::contact_names,
+            chats::names::set_contact_name,
             chats::operations::edit_chat_text,
             chats::operations::delete_chat_text,
             chats::commands::clear_chat,
@@ -966,6 +968,7 @@ fn main() {
                         include_str!("ui-test-identity.js"),
                         include_str!("ui-test-chats.js"),
                         include_str!("ui-test-presence.js"),
+                        include_str!("ui-test-names.js"),
                         include_str!("ui-test-guards.js"),
                         include_str!("ui-test.js")
                     ))

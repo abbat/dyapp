@@ -237,6 +237,18 @@ so focus moves to the composer, or to Back when the composer is disabled (H3). A
 mail pass does not flicker the notice, because it is toggled only by the flag (H4). No open H1–H10
 finding.
 
+### Contact names review (2026-11-02)
+
+Read the chat list, header, messages, forward list and `chat-rename-dialog` against H1–H10 in English
+and Russian. A public name is the peer's own claim, so `Bank Support` alone would invite trust (H2,
+H5, severity 3): it always carries its mark and short Peer ID, and only a name the user gave stands
+alone. The Russian mark "Проверен" is the masculine short form, which matches the existing "Контакт
+ещё не проверен" because it describes the contact, not the person. A refused name would have shown
+a raw error (H9, severity 2): it now says what to change, and the dialog keeps the text. Removing a
+name had no visible way (H3, severity 2): the hint says an empty field removes it. Saving updates
+the row and header at once (H1), and the hint says the name stays private (H2). No open H1–H10
+finding.
+
 ### Never-verified notice review (2026-11-02)
 
 Read `chat-new-device` and `chats.newDevice` against H1–H10 in English and Russian for a contact

@@ -156,7 +156,7 @@ const openForward = (message) => {
   forwardSelect.replaceChildren(...targets.map((row) => {
     const option = document.createElement('option');
     option.value = row.peerId;
-    option.textContent = shortPeerId(row.peerId, knownPeers);
+    option.textContent = window.peerName(row.peerId);
     return option;
   }));
   forwardConfirm.disabled = !targets.length;
@@ -297,6 +297,7 @@ const closeChat = () => {
   showNewDevice(null);
   closeClear();
   closeEdit();
+  closeRename();
   closeDelete();
   closeForward();
   activeChat = null;
@@ -341,6 +342,7 @@ const openChat = async (peerId, call = invoke) => {
   chatsMessage('chats.loading');
   try {
     const history = await call('chat_history', { peerId });
+    await loadPeerNames([peerId], call);
     if (!currentChat()) return;
     const newDevice = await newDeviceFlag(peerId, call);
     if (!currentChat()) return;
@@ -351,7 +353,7 @@ const openChat = async (peerId, call = invoke) => {
       if (message.deleted) item.classList.add('deleted');
       const label = document.createElement('b');
       label.textContent = message.author === current.peerId ?
-        window.strings['chats.you'] : shortPeerId(peerId, knownPeers);
+        window.strings['chats.you'] : window.peerName(peerId);
       const body = document.createElement('span');
       body.textContent = message.deleted ? window.strings['chats.deleted'] : message.text || '';
       item.append(label, document.createTextNode(': '));
@@ -423,6 +425,7 @@ const openChat = async (peerId, call = invoke) => {
     document.getElementById('chat-presence').hidden = !history.activeRecently;
     activeChat = { peerId, ...history };
     document.getElementById('chat-clear').hidden = history.state === 'none';
+    document.getElementById('chat-rename').hidden = history.state === 'none';
     updateComposer();
     chatOverview.hidden = true;
     chatDetail.hidden = false;
@@ -692,6 +695,7 @@ window.showChats = async (call = invoke) => {
     if (currentChats()) chatsMessage('chats.rowsFailed', String(error));
     return;
   }
+  await loadPeerNames(rows.map((row) => row.peerId), call);
   if (!currentChats()) return;
   renderChatRows(rows);
   try {

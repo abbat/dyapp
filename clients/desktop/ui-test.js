@@ -2,6 +2,7 @@
 const identityChecks = globalThis.uiSmokeIdentity;
 const chatChecks = globalThis.uiSmokeChats;
 const presenceChecks = globalThis.uiSmokePresence;
+const nameChecks = globalThis.uiSmokeNames;
 const guardChecks = globalThis.uiSmokeGuards;
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
@@ -572,6 +573,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await chatChecks.checkNewDevice();
       await chatChecks.checkChatRead();
       await presenceChecks.checkChatPresence();
+      await nameChecks.checkContactNames();
       await chatChecks.checkChatForwarded();
       await chatChecks.checkChatForwardAction();
       await chatChecks.checkChatLinkHosts();

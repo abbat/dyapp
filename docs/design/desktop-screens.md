@@ -239,7 +239,7 @@ A sent request shows a disabled composer until the peer replies or a match opens
 A send error keeps an unstaged draft; if the text was already staged locally, the UI shows it
 in history and reports pending delivery. A verified Found profile's Message action opens an
 empty first-message detail; after one send it becomes a sent request and disables the composer.
-Profile names/photos remain planned for this UI. An own, live text can be edited; the dialog
+Profile photos remain planned for this UI. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation
 warns that the peer, nodes, other devices and backups may keep copies. The local history shows a
@@ -267,10 +267,14 @@ chat and mark read for the active identity.
 | Message requests | `chats-requests` | With count |
 | Conversations | `chat-list` | Rows `chat-1`, `chat-2`; a row shows "Active recently" for a match |
 
-`chat`: one conversation with a match. The prototype's peer avatar/name link remains planned;
+`chat`: one conversation with a match. The prototype's peer avatar and profile link remain planned.
+A peer is shown by the local name if it has one, else by its public name with "Verified" or "Not
+verified" and the short Peer ID, else by the short Peer ID; the full ID stays in the title. This
+holds in the list, the header, messages and the forward list. A public name needs the peer's
+profile in the in-memory cache, so after a restart it returns with the next search or chat fetch.
 "Active recently" is shown under the peer, and no online or last-seen time is shown. The current Linux message
-status is pending, accepted by a node, or received by one peer device. Read marks require a
-separate peer read receipt and remain planned. An edited message says so, a deleted one leaves a
+status is pending, accepted by a node, received by one peer device, or read when the peer sent an
+opt-in read receipt. An edited message says so, a deleted one leaves a
 placeholder, and Edit and Delete apply to live own messages with best-effort delivery.
 `chat-first`: to a non-match, one message is sent and the composer stays disabled
 until a reply or a match. `chat-request`: an incoming message from a non-match, with Reply through
@@ -295,6 +299,7 @@ over a direct path.
 | Peer | `chat-profile` | Opens the found profile |
 | Presence | `chat-presence` | "Active recently" |
 | More | `chat-more` | Opens `chat-menu` |
+| Name this contact | `chat-rename` | In the menu, opens `chat-rename-dialog` |
 | Clear chat | `chat-clear` | In the menu |
 | Block | `chat-block` | In the menu |
 | First-message notice | `chat-first-notice` | `chat-first` only |
@@ -318,6 +323,16 @@ same chat, empty, with a note; the match and the chat row stay.
 | Cancel | `chat-clear-cancel` | Left, focused |
 | Clear chat | `chat-clear-confirm` | Right |
 | Cleared note | `chat-cleared-note` | `chat-cleared` only |
+
+`chat-rename-dialog` sets a name only this identity sees; it is stored locally and never published
+or sent. It replaces the public name everywhere, and an empty field removes it. A name of more than
+64 characters or with hidden symbols is refused with an explanation.
+
+| Control | ID | Notes |
+| --- | --- | --- |
+| Name | `chat-rename-input` | Starts from the local name |
+| Cancel | `chat-rename-cancel` | Left |
+| Save name | `chat-rename-save` | Right |
 
 `delete-dialog` confirms deleting an own message for both; deletion is best effort.
 
