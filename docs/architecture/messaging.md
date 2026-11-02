@@ -269,7 +269,8 @@ Pending → Sent → Delivered → Read
   identity-signed `DeviceCertificate` for the profile's device list; the signed certificate is the
   device's MLS basic credential.
 - `Device::key_package(last_resort)` returns a KeyPackage valid for 30 days; a single-use one works
-  for one Welcome only.
+  for one Welcome only. `Session::keep_last_resort` keeps a reusable one published and replaces it
+  after 20 days ([recovery boundary](../design/client-local-storage.md)).
 - `Device::create_group(key_packages)` checks each KeyPackage (signature, suite 0x0001, current and
   at most 30 days long, certified credential) and returns the group with the Welcome for them;
   `Device::join(welcome)` checks the suite and every member's credential.

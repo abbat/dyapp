@@ -731,6 +731,17 @@ pub(crate) mod tests {
             store.send_profile_views(),
             Err(Error::InvalidSetting)
         ));
+        store
+            .db
+            .execute(
+                "UPDATE `settings` SET `value` = ?1 WHERE `key` = ?2",
+                rusqlite::params![vec![1_u8, 1], "send_profile_views"],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.send_profile_views(),
+            Err(Error::InvalidSetting)
+        ));
     }
 
     fn person() -> (Identity, Device, VerifiedProfile) {
