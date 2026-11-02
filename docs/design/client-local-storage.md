@@ -52,8 +52,10 @@ key. A database with a missing sealing secret fails closed instead of silently c
 
 `current_chat_items` merges a pair's texts and attachments: legacy texts first in arrival order,
 then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across both
-kinds and sets `last_attachment` when a photo is newer than the last text. Apps still read
-`last_message`, so the desktop and mobile lists do not show photos yet.
+kinds and sets `last_attachment` when a photo is newer than the last text. The desktop chat JSON
+carries a photo as an entry with `photo` set: MIME type, claimed size, plaintext size and the
+bounded preview, which a list row leaves empty. It never carries the key or the release secret.
+Mobile apps still read `last_message`, and the desktop page does not draw photos yet.
 
 Attachment bodies carry a message-scoped logical ID and HLC. The Store has a separate
 `chat_attachments` projection for verified descriptors, keyed by group, author and logical ID;

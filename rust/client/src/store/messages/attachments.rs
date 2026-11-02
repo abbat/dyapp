@@ -2,6 +2,7 @@
 
 use super::{Body, ChatMessage, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::chat::AttachmentMessage;
+use dyapp_messaging::hlc::Timestamp;
 use rusqlite::{params, OptionalExtension, Row, Transaction};
 use std::collections::HashMap;
 
@@ -42,6 +43,11 @@ impl ChatMessage {
 }
 
 impl ChatAttachment {
+    /// The sender's authenticated wall time.
+    pub fn sent_at_ms(&self) -> u64 {
+        Timestamp::from(self.message.hlc).wall_ms()
+    }
+
     pub(crate) fn order(&self) -> ItemOrder<'_> {
         let MessageKey { group, author, id } = &self.key;
         (self.message.hlc, author.as_str(), id, group.as_slice())

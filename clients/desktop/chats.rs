@@ -89,7 +89,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
                 .map_err(|e| e.to_string())?,
             peer_id: row.peer_id,
             state: row.state.into(),
-            last_message: row.last_message.map(Into::into),
+            last_message: view::last_item(row.last_message, row.last_attachment),
             unread_count: row.unread_count,
         });
     }
@@ -106,7 +106,7 @@ pub fn chat_history(
         return Err("blocked".into());
     }
     let mut messages: Vec<MessageView> = store
-        .current_chat_messages(peer_id)
+        .current_chat_items(peer_id)
         .map_err(|e| e.to_string())?
         .into_iter()
         .map(Into::into)

@@ -117,6 +117,7 @@ mod tests {
             delivery: None,
             read: false,
             sent_at_ms: None,
+            photo: None,
         }
     }
 
