@@ -395,6 +395,11 @@
     <string name="profile_field_employment_status">Employment status</string>
     <string name="profile_field_fitness_level">Fitness level</string>
     <string name="profile_field_zodiac">Zodiac sign</string>
+    <string name="profile_field_smoking">Smoking</string>
+    <string name="profile_field_drinking">Drinking</string>
+    <string name="profile_field_tattoos">Tattoos</string>
+    <string name="profile_field_marital_status">Marital status</string>
+    <string name="profile_field_pets">Pets</string>
     <string name="profile_value_gender_Woman">Woman</string>
     <string name="profile_value_gender_Man">Man</string>
     <string name="profile_value_gender_NonBinary">Non-binary</string>
@@ -440,4 +445,18 @@
     <string name="profile_value_zodiac_Capricorn">Capricorn</string>
     <string name="profile_value_zodiac_Aquarius">Aquarius</string>
     <string name="profile_value_zodiac_Pisces">Pisces</string>
+    <string name="profile_value_smoking_No">No</string>
+    <string name="profile_value_smoking_Sometimes">Sometimes</string>
+    <string name="profile_value_smoking_Yes">Yes</string>
+    <string name="profile_value_drinking_No">No</string>
+    <string name="profile_value_drinking_Sometimes">Sometimes</string>
+    <string name="profile_value_drinking_Yes">Yes</string>
+    <string name="profile_value_tattoos_None">None</string>
+    <string name="profile_value_tattoos_Hidden">Hidden</string>
+    <string name="profile_value_tattoos_Visible">Visible</string>
+    <string name="profile_value_marital_status_NeverMarried">Never married</string>
+    <string name="profile_value_marital_status_Married">Married</string>
+    <string name="profile_value_marital_status_Divorced">Divorced</string>
+    <string name="profile_value_pets_No">No</string>
+    <string name="profile_value_pets_Yes">Yes</string>
 </resources>

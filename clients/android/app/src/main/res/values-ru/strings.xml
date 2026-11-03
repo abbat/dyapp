@@ -394,6 +394,11 @@
     <string name="profile_field_employment_status">Занятость</string>
     <string name="profile_field_fitness_level">Физическая активность</string>
     <string name="profile_field_zodiac">Знак зодиака</string>
+    <string name="profile_field_smoking">Курение</string>
+    <string name="profile_field_drinking">Алкоголь</string>
+    <string name="profile_field_tattoos">Татуировки</string>
+    <string name="profile_field_marital_status">Семейное положение</string>
+    <string name="profile_field_pets">Домашние животные</string>
     <string name="profile_value_gender_Woman">Женщина</string>
     <string name="profile_value_gender_Man">Мужчина</string>
     <string name="profile_value_gender_NonBinary">Небинарный</string>
@@ -439,4 +444,18 @@
     <string name="profile_value_zodiac_Capricorn">Козерог</string>
     <string name="profile_value_zodiac_Aquarius">Водолей</string>
     <string name="profile_value_zodiac_Pisces">Рыбы</string>
+    <string name="profile_value_smoking_No">Нет</string>
+    <string name="profile_value_smoking_Sometimes">Иногда</string>
+    <string name="profile_value_smoking_Yes">Да</string>
+    <string name="profile_value_drinking_No">Нет</string>
+    <string name="profile_value_drinking_Sometimes">Иногда</string>
+    <string name="profile_value_drinking_Yes">Да</string>
+    <string name="profile_value_tattoos_None">Нет</string>
+    <string name="profile_value_tattoos_Hidden">Скрытые</string>
+    <string name="profile_value_tattoos_Visible">На виду</string>
+    <string name="profile_value_marital_status_NeverMarried">Не было брака</string>
+    <string name="profile_value_marital_status_Married">В браке</string>
+    <string name="profile_value_marital_status_Divorced">В разводе</string>
+    <string name="profile_value_pets_No">Нет</string>
+    <string name="profile_value_pets_Yes">Есть</string>
 </resources>

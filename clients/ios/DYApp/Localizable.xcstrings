@@ -1469,6 +1469,120 @@
         }
       }
     },
+    "profile.field.smoking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Smoking" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Курение" } }
+      }
+    },
+    "profile.field.drinking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Drinking" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Алкоголь" } }
+      }
+    },
+    "profile.field.tattoos": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Tattoos" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Татуировки" } }
+      }
+    },
+    "profile.field.marital_status": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Marital status" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Семейное положение" } }
+      }
+    },
+    "profile.field.pets": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pets" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Домашние животные" } }
+      }
+    },
+    "profile.value.smoking.No": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет" } }
+      }
+    },
+    "profile.value.smoking.Sometimes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sometimes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Иногда" } }
+      }
+    },
+    "profile.value.smoking.Yes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Yes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Да" } }
+      }
+    },
+    "profile.value.drinking.No": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет" } }
+      }
+    },
+    "profile.value.drinking.Sometimes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sometimes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Иногда" } }
+      }
+    },
+    "profile.value.drinking.Yes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Yes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Да" } }
+      }
+    },
+    "profile.value.tattoos.None": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "None" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет" } }
+      }
+    },
+    "profile.value.tattoos.Hidden": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Hidden" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Скрытые" } }
+      }
+    },
+    "profile.value.tattoos.Visible": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Visible" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "На виду" } }
+      }
+    },
+    "profile.value.marital_status.NeverMarried": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Never married" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не было брака" } }
+      }
+    },
+    "profile.value.marital_status.Married": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Married" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В браке" } }
+      }
+    },
+    "profile.value.marital_status.Divorced": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Divorced" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В разводе" } }
+      }
+    },
+    "profile.value.pets.No": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет" } }
+      }
+    },
+    "profile.value.pets.Yes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Yes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Есть" } }
+      }
+    },
     "profile.value.gender.Woman": {
       "localizations": {
         "en": {
