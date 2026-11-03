@@ -121,6 +121,19 @@ class IdentitySettingsTests {
     private fun stored() = RustBridge.withChats(active()) { it.notice() }
 
     @Test
+    fun undoPassEmptiesThePassedPeopleList() {
+        compose.shownPeerId()
+        val peer = "ab".repeat(32)
+        RustBridge.withChats(active()) { it.setPassed(peer, true) }
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("passed-none").assertDoesNotExist()
+        click("unpass-1")
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("passed-none").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("unpass-1").assertDoesNotExist()
+        check(RustBridge.withChats(active()) { it.passedPeers() }.isEmpty()) { "Undo pass was not stored" }
+    }
+
+    @Test
     fun theConnectionChipOpensTheNetworkEditorAndSettingsReturn() {
         compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()

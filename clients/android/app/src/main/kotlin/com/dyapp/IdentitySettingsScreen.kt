@@ -31,8 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * The Settings section: the identities on this device, the lock row with [lockMode], the new-mail
- * notice, the theme and language and the version.
+ * The Settings section: the identities on this device, the lock row with [lockMode], the passed
+ * people, the new-mail notice, the theme and language and the version.
  * Add changes the active slot through [act]; Lock opens its screen through [onLock]. Switching and the
  * network live in the identity menu, the connection chip and the Network tab.
  */
@@ -52,6 +52,7 @@ internal fun IdentitySettingsScreen(
     ) {
         IdentityList(slots, active, act)
         LockRow(lockMode, onLock)
+        PassedCard(active)
         NoticeCard(active)
         AppearanceCard()
         Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))

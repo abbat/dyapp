@@ -23,6 +23,7 @@ Object.assign(STRINGS.en, {
   'lock.current': 'Current PIN',
   'lock.change': 'Change PIN',
   'lock.turnOff': 'Turn off PIN',
+  'settings.passed.hint': 'A pass hides someone from your search and Liked you. They are not told.',
 });
 Object.assign(STRINGS.ru, {
   'nav.back': 'Назад',
@@ -47,4 +48,5 @@ Object.assign(STRINGS.ru, {
   'lock.current': 'Текущий PIN',
   'lock.change': 'Сменить PIN',
   'lock.turnOff': 'Отключить PIN',
+  'settings.passed.hint': 'Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Человек об этом не узнает.',
 });

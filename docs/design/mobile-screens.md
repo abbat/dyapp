@@ -119,7 +119,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
 - Linking a phone to an identity and the Devices list are planned; the desktop screens define the
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
-  `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `theme` (`theme-system`,
+  `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `passed` (`unpass-1`,
+  `passed-none`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`)
@@ -129,7 +130,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
   offers Retry, Remove anyway and Cancel. A key that does not open cannot sign a withdrawal, so
   removing that identity skips it. Android Settings has the identity rows, the lock
-  row, the `privacy` card with only `message-notifications` and `notice-content` (on and "New
+  row, the `passed` card (Undo pass shows the person in search and Liked you again; a failed read
+  or undo keeps the last list and says so), the `privacy` card with only `message-notifications` and `notice-content` (on and "New
   message" only by default; turning it on asks for the notification permission on Android 13+, and
   while Android blocks notices a caption says so and Allow asks again or opens the app's
   notification settings; `notice-content` is disabled while off, keeps its choice, and names the

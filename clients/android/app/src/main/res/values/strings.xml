@@ -39,6 +39,11 @@
     <string name="view_passed">Passed. They are hidden from your search and Liked you, and they are not told.</string>
     <string name="view_unpassed">Pass undone. They can appear in your search and Liked you again.</string>
     <string name="view_pass_failed">The pass was not saved.</string>
+    <string name="settings_passed">Passed people</string>
+    <string name="settings_unpass">Undo pass</string>
+    <string name="settings_passed_none">You have not passed on anyone.</string>
+    <string name="settings_passed_hint">A pass hides someone from your search and Liked you. They are not told.</string>
+    <string name="settings_passed_failed">The passed people could not be read or changed. Try again.</string>
     <string name="view_loading">Loading the profile…</string>
     <string name="view_not_found">No node returned this profile: it may be hidden or withdrawn.</string>
     <string name="view_load_failed">The profile could not be loaded.</string>

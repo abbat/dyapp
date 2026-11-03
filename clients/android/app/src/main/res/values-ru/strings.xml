@@ -38,6 +38,11 @@
     <string name="view_passed">Пропущено. Человек скрыт из вашего поиска и списка «Вы понравились» и об этом не узнает.</string>
     <string name="view_unpassed">Пропуск отменён. Человек снова может появиться в поиске и списке «Вы понравились».</string>
     <string name="view_pass_failed">Пропуск не сохранён.</string>
+    <string name="settings_passed">Пропущенные люди</string>
+    <string name="settings_unpass">Отменить пропуск</string>
+    <string name="settings_passed_none">Вы никого не пропускали.</string>
+    <string name="settings_passed_hint">Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Человек об этом не узнает.</string>
+    <string name="settings_passed_failed">Не удалось прочитать или изменить список пропущенных. Повторите.</string>
     <string name="view_loading">Загрузка профиля…</string>
     <string name="view_not_found">Ни один узел не вернул этот профиль: возможно, его скрыли или сняли с публикации.</string>
     <string name="view_load_failed">Не удалось загрузить профиль.</string>
