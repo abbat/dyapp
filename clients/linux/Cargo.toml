@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.99"
 
 [dependencies]
-tauri = { version = "=2.12.3", features = ["tray-icon"] }
+tauri = { version = "=2.12.4", features = ["tray-icon"] }
 tauri-plugin-clipboard-manager = "=2.5.0"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-client = { path = "../../rust/client" }
@@ -26,7 +26,7 @@ image = { version = "=0.25.10", default-features = false, features = ["jpeg", "p
 tokio = { version = "1", features = ["macros", "rt", "time"] }
 
 [build-dependencies]
-tauri-build = { version = "=2.7.2", features = [] }
+tauri-build = { version = "=2.7.3", features = [] }
 
 [features]
 default = ["custom-protocol"]
