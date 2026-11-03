@@ -1,6 +1,5 @@
 package com.dyapp
 
-import android.Manifest
 import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -8,7 +7,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import uniffi.dyapp.ChatSession
 
 private const val MAIL_CHANNEL = "mail"
@@ -49,14 +47,19 @@ internal fun mailNotice(context: Context): Notification {
 }
 
 /**
- * Shows [mailNotice] unless the app is on screen. Without the notification permission (asked on
- * API 33+ by the planned notice setting) nothing shows.
+ * Whether Android shows this app's notices: on API 33+ this is false until the user grants the
+ * notification permission, on older releases until they turn the app's notices off.
+ */
+internal fun noticesAllowed(context: Context) =
+    context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
+
+/**
+ * Shows [mailNotice] unless the app is on screen. While Android blocks notices nothing shows; the
+ * Settings notice card asks for them.
  */
 internal fun postMailNotice(context: Context) {
     val state = ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }
     if (state.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
-    if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-        return
-    }
+    if (!noticesAllowed(context)) return
     context.getSystemService(NotificationManager::class.java).notify(MAIL_NOTICE_ID, mailNotice(context))
 }

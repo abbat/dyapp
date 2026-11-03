@@ -8,6 +8,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import kotlin.concurrent.thread
+import uniffi.dyapp.ChatNotice
 
 internal const val MAIL_JOB_ID = 1
 
@@ -41,7 +42,7 @@ internal fun receiveMail(context: Context) {
         val more = RustBridge.withChats(opened) {
             val before = noticeCount(it)
             it.receive()
-            noticeCount(it) > before
+            noticeCount(it) > before && it.notice() != ChatNotice.OFF
         }
         if (more) postMailNotice(context)
     }.onFailure { Log.i("dyapp", "Background receive failed: ${it.javaClass.simpleName}") }

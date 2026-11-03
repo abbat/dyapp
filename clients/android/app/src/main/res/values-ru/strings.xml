@@ -66,6 +66,12 @@
     <string name="chats_muted">Без уведомлений</string>
     <string name="notice_channel">Новые сообщения</string>
     <string name="notice_new_message">Новое сообщение</string>
+    <string name="settings_notices">Уведомления</string>
+    <string name="notice_toggle">Новые сообщения и лайки</string>
+    <string name="notice_toggle_hint">Уведомление говорит только «Новое сообщение», даже на экране блокировки.</string>
+    <string name="notice_blocked">Android не разрешает DYApp показывать уведомления.</string>
+    <string name="notice_allow">Разрешить</string>
+    <string name="notice_failed">Не удалось прочитать или сохранить настройку уведомлений. Попробуйте ещё раз.</string>
     <string name="msg_menu">Действия с сообщением</string>
     <string name="chat_edit">Изменить</string>
     <string name="chat_delete">Удалить</string>

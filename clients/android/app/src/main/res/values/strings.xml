@@ -67,6 +67,12 @@
     <string name="chats_muted">Muted</string>
     <string name="notice_channel">New messages</string>
     <string name="notice_new_message">New message</string>
+    <string name="settings_notices">Notifications</string>
+    <string name="notice_toggle">New messages and likes</string>
+    <string name="notice_toggle_hint">A notice says only \"New message\", even on the lock screen.</string>
+    <string name="notice_blocked">Android does not let DYApp show notifications.</string>
+    <string name="notice_allow">Allow</string>
+    <string name="notice_failed">The notification setting could not be read or saved. Try again.</string>
     <string name="msg_menu">Message actions</string>
     <string name="chat_edit">Edit</string>
     <string name="chat_delete">Delete</string>

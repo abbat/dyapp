@@ -191,9 +191,10 @@ even while the app lock is on, because that lock covers only the screens. When a
 more unread items or unanswered likes from peers that are not muted and the app is not on screen,
 it posts the same fixed "New message" notice, replacing the previous one, as a private
 notification whose lock-screen version shows only the app name; a tap opens the app behind its
-lock. Nothing shows without the notification permission, which Android 13 and later grant at run
-time; the app does not ask for it yet. The notice setting is planned on Android, so the name and
-text never show there.
+lock. Settings can turn the notice off per identity; turning it on asks for the notification
+permission, which Android 13 and later grant at run time, and while Android blocks notices the
+card says so and offers Allow. Adding the name and text is planned on Android, so they never show
+there yet.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

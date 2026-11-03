@@ -128,8 +128,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
   offers Retry, Remove anyway and Cancel. A key that does not open cannot sign a withdrawal, so
   removing that identity skips it. Android Settings has the identity rows, the lock
-  row, the theme and language, and the version; a block list, privacy and node settings have no
-  Android feature yet and are planned. It switches identities only in the identity menu.
+  row, the `privacy` card with only `message-notifications` (on by default; turning it on asks for
+  the notification permission on Android 13+, and while Android blocks notices a caption says so
+  and Allow asks again or opens the app's notification settings), the theme and language, and the
+  version; a block list, the other privacy settings, the notice content choice and node settings
+  are planned on Android. It switches identities only in the identity menu.
 
 The theme and language follow the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state. On Android a picked theme applies at once. A picked

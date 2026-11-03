@@ -1,6 +1,8 @@
 package com.dyapp
 
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
@@ -16,6 +18,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
+import uniffi.dyapp.ChatNotice
 
 class IdentitySettingsTests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -83,6 +86,28 @@ class IdentitySettingsTests {
         check(active().peerId == first) { "Removing another identity changed the active one" }
         check(!PlatformKeyStore.exists(other.slot.alias)) { "The removed identity kept its key" }
         check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows)
+    }
+
+    @Test
+    fun theNoticeSwitchIsStoredPerIdentity() {
+        compose.shownPeerId()
+        compose.onNodeWithTag("nav-settings").performClick()
+        val switch = compose.onNodeWithTag("message-notifications").performScrollTo()
+        fun waitFor(on: Boolean) = compose.waitUntil(5_000) {
+            runCatching { if (on) switch.assertIsOn() else switch.assertIsOff() }.isSuccess
+        }
+        // On by default; the emulator allows notices, so nothing asks for them.
+        waitFor(true)
+        compose.onNodeWithTag("notice-blocked").assertDoesNotExist()
+        switch.performClick()
+        waitFor(false)
+        check(RustBridge.withChats(active()) { it.notice() } == ChatNotice.OFF) { "Off was not stored" }
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithTag("nav-settings").performClick()
+        waitFor(false)
+        switch.performScrollTo().performClick()
+        waitFor(true)
+        check(RustBridge.withChats(active()) { it.notice() } == ChatNotice.FIXED) { "On was not stored" }
     }
 
     @Test
