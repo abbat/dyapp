@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -23,10 +24,12 @@ class ChatMenuTests {
     private var blocks = 0
 
     private var mutes = 0
+    private var renames = 0
 
     private fun show(state: ChatState, messages: List<ChatMessage> = emptyList(), muted: Boolean = false) =
         compose.setContent {
-            val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 }, onMute = { mutes += 1 })
+            val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 }, onMute = { mutes += 1 },
+                onRename = { renames += 1 })
             ChatContent("peer-abcdef", "me", ChatHistory(state, messages, muted), form, actions)
         }
 
@@ -85,6 +88,24 @@ class ChatMenuTests {
         compose.onNodeWithTag("request-block", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("block-confirm").performClick()
         compose.runOnIdle { assertEquals(1, blocks) }
+    }
+
+    @Test
+    fun renameSavesTheTypedNameAndShowsWhyItFailed() {
+        show(ChatState.OPEN)
+        compose.onNodeWithTag("chat-more").performClick()
+        compose.onNodeWithTag("chat-rename").performClick()
+        compose.onNodeWithTag("chat-rename-input").performTextInput("Robin")
+        compose.onNodeWithTag("chat-rename-save").performClick()
+        compose.runOnIdle {
+            assertEquals(1, renames)
+            assertEquals("Robin", form.renaming.value)
+            form.renameError = ChatStatus(R.string.rename_invalid, null)
+        }
+        compose.onNodeWithTag("chat-rename-error").assertExists()
+        compose.onNodeWithTag("chat-rename-cancel").performClick()
+        compose.onNodeWithTag("chat-rename-dialog").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(null, form.renameError) }
     }
 
     @Test

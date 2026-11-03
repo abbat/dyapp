@@ -88,6 +88,12 @@
     <string name="chats_muted">Без уведомлений</string>
     <string name="contact_public_verified">%1$s · Проверен · %2$s</string>
     <string name="contact_public_unverified">%1$s · Не проверен · %2$s</string>
+    <string name="rename">Назвать контакт</string>
+    <string name="rename_label">Имя на этом телефоне</string>
+    <string name="rename_hint">Это имя видите только вы. Оставьте поле пустым, чтобы убрать его.</string>
+    <string name="rename_save">Сохранить имя</string>
+    <string name="rename_invalid">Используйте до 64 символов без скрытых знаков.</string>
+    <string name="rename_failed">Не удалось сохранить имя: %1$s</string>
     <string name="notice_channel">Новые сообщения</string>
     <string name="notice_new_message">Новое сообщение</string>
     <string name="settings_notices">Приватность и уведомления</string>

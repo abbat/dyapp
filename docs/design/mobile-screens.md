@@ -115,7 +115,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
   chat. A chat row and the chat header name the peer by the desktop rule
   ([contact names](desktop-screens.md)): the local name; else the public name, Verified or Not
   verified and the short Peer ID; else the short Peer ID; with the main photo once fetched. The
-  row opens the chat. Renaming on Android is planned. The app receives
+  row opens the chat. `chat-rename` in the chat menu names the peer on this device. The app receives
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
@@ -167,8 +167,11 @@ first and returns to the first section, as any activity relaunch does.
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
   dialogs. Android has `chat`, `chat-closed`, `chat-first` and `chat-request` with `chat-back`,
   `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,
-  `chat-input` and `chat-send`, plus `chat-more` with `chat-clear`, `chat-mute` and `chat-block`,
-  `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear. A request hides
+  `chat-input` and `chat-send`, plus `chat-more` with `chat-rename`, `chat-clear`, `chat-mute` and
+  `chat-block`, `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear.
+  `chat-rename` opens `chat-rename-dialog`: `chat-rename-input` starts from the local name, an
+  empty one removes it, `chat-rename-save` saves and every row and the header read it again,
+  `chat-rename-cancel` closes, and a line in the dialog says why a name was refused. A request hides
   `chat-block` and offers `request-block` on its notice instead. Unlike the desktop, a block asks
   first in a confirmation dialog, because the chat closes and Unblock sits in Settings; after a
   block the chat closes and a note on Chats says the outcome, with the details when the revocation

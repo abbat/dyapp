@@ -40,6 +40,7 @@ import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRevocation
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.ContactNameView
 
 /** What the chat's controls do: the screen wires them to the feed, tests count the calls. */
 @Suppress("LongParameterList") // One callback per control; the class is what bundles them.
@@ -51,6 +52,7 @@ internal class ChatActions(
     val onBlock: () -> Unit,
     val onDelete: () -> Unit = {},
     val onMute: () -> Unit = {},
+    val onRename: () -> Unit = {},
 )
 
 /** Which confirmation the chat shows; saved, so a rotation keeps it open. */
@@ -66,12 +68,13 @@ internal fun rememberChatForm(): ChatForm {
     val editing = rememberSaveable { mutableStateOf<String?>(null) }
     val deleting = rememberSaveable { mutableStateOf<String?>(null) }
     val held = rememberSaveable { mutableStateOf("") }
-    return remember { ChatForm(draft, dialog, editing, deleting, held) }
+    val renaming = rememberSaveable { mutableStateOf<String?>(null) }
+    return remember { ChatForm(draft, dialog, editing, deleting, held, renaming) }
 }
 
 /** `chat-more` and its menu; the dialogs belong to the screen, which [ChatForm.dialog] opens. */
 @Composable
-internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, onMute: () -> Unit) {
+internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, name: ContactNameView?, onMute: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     val state = history?.state
     Box {
@@ -79,6 +82,12 @@ internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, onMute: () -> U
             Icon(painterResource(R.drawable.ic_more), stringResource(R.string.chat_more))
         }
         DropdownMenu(open, { open = false }, Modifier.testTag("chat-menu")) {
+            // The input starts from the local name; a public name is the peer's own claim.
+            DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = {
+                open = false
+                form.renameError = null
+                form.renaming.value = name?.takeIf { it.verified == null }?.name.orEmpty()
+            }, Modifier.testTag("chat-rename"))
             DropdownMenuItem(text = { Text(stringResource(R.string.chat_clear)) },
                 onClick = { open = false; form.dialog.value = ChatDialog.CLEAR }, Modifier.testTag(CLEAR))
             // A request offers `request-block` on its notice instead, as the desktop does.
@@ -107,6 +116,7 @@ internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
             cancel) { cancel(); actions.onBlock() }
         null -> Unit
     }
+    if (form.renaming.value != null) RenameDialog(form, actions.onRename)
     if (form.deleting.value != null) {
         val cancelDelete = { form.deleting.value = null }
         Confirm("delete", R.string.delete_title, listOf(R.string.delete_text), R.string.chat_delete, cancelDelete) {

@@ -46,6 +46,7 @@ import uniffi.dyapp.ChatDelivery
 import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.ContactNameView
 
 private const val STATUS_TAG = "chat-status"
 private const val META_SEPARATOR = " | "
@@ -56,8 +57,8 @@ internal class ChatStatus(val text: Int, val details: String?)
 
 /**
  * The composer and the menus' state: [draft], the open [dialog], the [editing] and [deleting] targets as
- * [messageKey]s and the [held] draft survive recreation; a change in flight, its last outcome and the
- * cleared note do not.
+ * [messageKey]s, the [held] draft and the name typed in [renaming] survive recreation; a change in
+ * flight, its last outcome and the cleared note do not.
  */
 internal class ChatForm(
     val draft: MutableState<String>,
@@ -65,9 +66,13 @@ internal class ChatForm(
     val editing: MutableState<String?> = mutableStateOf(null),
     val deleting: MutableState<String?> = mutableStateOf(null),
     val held: MutableState<String> = mutableStateOf(""),
+    val renaming: MutableState<String?> = mutableStateOf(null),
 ) {
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
+
+    /** Why the last name in [renaming] was not saved. */
+    var renameError by mutableStateOf<ChatStatus?>(null)
 
     /** A clear, block or delete in flight; the menus wait for it. */
     var busy by mutableStateOf(false)
@@ -105,6 +110,7 @@ internal fun ChatScreen(
     var history by remember { mutableStateOf<ChatHistory?>(null) }
     val form = rememberChatForm()
     val scope = rememberCoroutineScope()
+    val photos = LocalPeerPhotos.current
     LaunchedEffect(feed.version) {
         withContext(Dispatchers.IO) { runCatching { feed.history(peer) } }
             .onSuccess { shown ->
@@ -114,9 +120,7 @@ internal fun ChatScreen(
                 // stop in the background, so receipts go out only while the chat is on screen.
                 withContext(Dispatchers.IO) { feed.markRead(peer) }
             }
-            .onFailure {
-                if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString())
-            }
+            .onFailure { if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString()) }
     }
     BackHandler(onBack = onBack)
     val actions = ChatActions(
@@ -126,6 +130,7 @@ internal fun ChatScreen(
         onClear = { scope.clearChat(form, feed, peer) },
         onBlock = { scope.blockPeer(form, feed, peer, onBack) },
         onMute = { history?.let { scope.mutePeer(form, feed, peer, !it.muted) } },
+        onRename = { scope.renamePeer(form, feed, peer, photos) },
         onDelete = {
             history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
         },
@@ -145,8 +150,10 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
     val edited = history?.messages.orEmpty().byKey(form.editing.value)
     val ready = form.editing.value == null ||
         edited != null && changeable(edited, me) && edited.text != form.draft.value
+    FetchPeerProfiles(listOf(peer))
+    val name = rememberContactNames(listOf(peer))[peer]
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("chat")) {
-        ChatBackBar(peer, actions) { ChatMoreMenu(form, history, actions.onMute) }
+        ChatBackBar(peer, name, actions) { ChatMoreMenu(form, history, name, actions.onMute) }
         ChatStateNotice(state, form)
         ChatThread(me, history, form, Modifier.weight(1f))
         Column(Modifier.padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {
@@ -161,9 +168,7 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
 }
 
 @Composable
-private fun ChatBackBar(peer: String, actions: ChatActions, menu: @Composable () -> Unit) {
-    FetchPeerProfiles(listOf(peer))
-    val name = rememberContactNames(listOf(peer))[peer]
+private fun ChatBackBar(peer: String, name: ContactNameView?, actions: ChatActions, menu: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         IconButton(onClick = actions.onBack, Modifier.testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.nav_chats))

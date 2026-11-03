@@ -135,6 +135,10 @@ internal class ChatFeed(private val opened: Opened.Ready) {
     fun mute(peer: String, muted: Boolean): Result<Unit> =
         runCatching { RustBridge.withChats(opened) { it.setMuted(peer, muted) } }.also { read() }
 
+    /** Names [peer] on this device only; an empty [name] removes the name. */
+    fun rename(peer: String, name: String): Result<Unit> =
+        runCatching { RustBridge.withChats(opened) { it.setContactName(peer, name) } }
+
     /** Blocks [peer]; the rows read after it leave the peer out, and [lists] keeps the outcome. */
     fun block(peer: String): Result<ChatBlock> =
         runCatching { RustBridge.withChats(opened) { it.block(peer) } }

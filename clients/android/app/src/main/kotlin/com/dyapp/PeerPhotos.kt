@@ -73,6 +73,11 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
     /** The verified profiles of [peers], cached for names and photos; null without a searcher. Off the UI thread. */
     fun profiles(peers: List<String>): List<FoundProfile>? = searcher?.profiles(peers)?.also { fetched += 1 }
 
+    /** Makes the shown names read again, after a local name changed. */
+    fun reread() {
+        fetched += 1
+    }
+
     /** How the screens name each of [peers]; empty without a searcher. Off the UI thread. */
     fun names(peers: List<String>): List<ContactNameView> =
         searcher?.let { found -> RustBridge.withKey(opened) { _, key -> found.contactNames(key, peers) } }.orEmpty()
