@@ -8,7 +8,7 @@ use crate::store::{LastResort, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
-use dyapp_p2p_net::proto::EnvelopeClass;
+use dyapp_p2p_net::proto::{EnvelopeClass, Status};
 use dyapp_profile::VerifiedProfile;
 
 /// A last-resort KeyPackage is replaced this long after its publication, ahead of its 30-day
@@ -139,7 +139,8 @@ impl Session {
 
     /// Make `count` single-use KeyPackages, commit the snapshot holding their private keys, then
     /// publish them through `node` under the mailbox key `device_key`. Publish after the profile
-    /// that lists this device; a failed publish leaves only unused keys sealed.
+    /// that lists this device; a failed publish leaves only unused keys sealed. A node that holds
+    /// its full stock already replies `Full`, which ends the batch as done.
     pub async fn publish_key_packages(
         &mut self,
         node: &mut Node,
@@ -154,8 +155,13 @@ impl Session {
         self.store.stage_outbound(&device.seal(seal_key)?, &[])?;
         let owner = self.store.owner_peer_id().to_owned();
         for package in packages {
-            node.publish_key_package(device_key, &owner, package, false, 0)
-                .await?;
+            match node
+                .publish_key_package(device_key, &owner, package, false, 0)
+                .await
+            {
+                Err(crate::Error::Status(Status::Full)) => break,
+                result => result?,
+            }
         }
         Ok(())
     }

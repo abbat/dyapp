@@ -602,6 +602,32 @@ fn heal(path: &std::path::Path) {
         .unwrap();
 }
 
+// Every profile publish adds a batch, so a full stock on the node ends one as done.
+#[tokio::test]
+async fn key_packages_past_a_full_stock_publish_as_done() {
+    use dyapp_client::session::Session;
+
+    let address = start_config(|config| {
+        config.roles = vec![Role::Store];
+        config.limits.requests_per_second = 1000;
+        config.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut bob = Person::new(&address).await;
+    let (path, key) = (store_path("full-stock"), [3; 32]);
+    Store::open(&path, &bob.identity)
+        .unwrap()
+        .stage_outbound(&bob.device.seal(&key).unwrap(), &[])
+        .unwrap();
+    let mut session = Session::open(Store::open(&path, &bob.identity).unwrap(), &key).unwrap();
+    for _ in 0..6 {
+        session
+            .publish_key_packages(&mut bob.node, &bob.device_key, 4, &key)
+            .await
+            .unwrap();
+    }
+}
+
 #[tokio::test]
 async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     use dyapp_client::session::{Error, Session};
