@@ -8,9 +8,10 @@ and the open identity's avatars and in `profile-view`, and its catch-up pass run
 of step 4. The FFI exposes the draft photo commands, runs the keep refresh in
 `ChatSession::receive`, and fetches other people's photos into `ProfileSearcher`'s memory cache.
 The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `PhotoPrep.kt`),
-and Android shows other people's photos on search results and in the profile page
-(`PeerPhotos.kt`). Android photos on liked cards, chat rows and the own avatar, and viewing and
-the editor on Apple, are planned.
+and Android shows other people's photos on search results, liked cards and the profile page
+(`PeerPhotos.kt`) and the draft's main photo on the own avatar. Android chat rows have neither
+names nor photos yet, so their photos are planned with contact names; viewing and the editor on
+Apple are planned.
 
 ## Limits
 

@@ -172,7 +172,7 @@ private fun ShellTopBar(opened: Opened.Ready, current: Section, open: (StartTarg
             val identities = stringResource(R.string.settings_identities)
             IconButton(onClick = onSwitch,
                 Modifier.testTag("identity-switcher").semantics { contentDescription = identities }) {
-                Avatar(opened.peerId)
+                Avatar(opened.peerId, rememberOwnPhoto(opened))
             }
         },
     )

@@ -134,6 +134,7 @@ private fun LikedList(liked: List<String>, fetch: Result<List<FoundProfile>>?, o
 @Composable
 private fun LikedProfiles(liked: List<String>, found: List<FoundProfile>, open: (FoundProfile) -> Unit) {
     val shown = found.filter { it.peerId in liked }
+    FetchCardPhotos(shown)
     for ((index, profile) in shown.withIndex()) {
         SearchResultRow(profile, "liked-${index + 1}") { open(profile) }
     }

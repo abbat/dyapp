@@ -25,7 +25,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -57,6 +59,9 @@ import uniffi.dyapp.removeProfilePhoto
 /** The schema allows 16; six fit the node quota with room for chats. */
 internal const val MAX_PROFILE_PHOTOS = 6
 
+// Counts photo changes in the editor, so the own avatar reads the draft again after one.
+private var photoEdits by mutableIntStateOf(0)
+
 /** The draft's photos as shown: one decoded thumbnail per photo, null when it cannot be read. */
 private class PhotosState(val opened: Opened.Ready) {
     var photos by mutableStateOf<List<ImageBitmap?>>(emptyList())
@@ -70,7 +75,7 @@ private class PhotosState(val opened: Opened.Ready) {
         status = R.string.profile_photo_working.takeIf { done != null }
         scope.launch {
             withContext(Dispatchers.IO) { runCatching { thumbnails(opened, change()) } }
-                .fold({ photos = it; status = done }, { status = photoError(it) })
+                .fold({ photos = it; status = done; photoEdits += 1 }, { status = photoError(it) })
             busy = false
         }
     }
@@ -87,6 +92,17 @@ private fun thumbnails(opened: Opened.Ready, hashes: List<ByteArray>): List<Imag
                 ?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
         }
     }
+
+/** The draft's main photo for the own avatar; null without photos, so the letters show. */
+@Composable
+internal fun rememberOwnPhoto(opened: Opened.Ready): ImageBitmap? {
+    val photo by produceState<ImageBitmap?>(null, opened.slot.id, photoEdits) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { thumbnails(opened, locked(opened, ::profilePhotos).take(1)).firstOrNull() }.getOrNull()
+        }
+    }
+    return photo
+}
 
 private fun added(context: Context, opened: Opened.Ready, uri: Uri): List<ByteArray> {
     val photo = preparePhoto(readPicked(context, uri))

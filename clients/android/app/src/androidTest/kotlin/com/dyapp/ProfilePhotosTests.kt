@@ -5,6 +5,7 @@ import android.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -77,5 +78,23 @@ class ProfilePhotosTests {
         compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
         compose.onNodeWithContentDescription(string(R.string.profile_photo_label, 5, 5)).assertExists()
+    }
+
+    // The shell read the draft before the seed, so the avatar shows the photo only after an edit.
+    @Test
+    fun theOwnAvatarShowsTheMainPhotoAfterAnEdit() {
+        compose.skipNetworkEntry()
+        seed(2)
+        compose.onNodeWithTag("nav-profile").performClick()
+        compose.waitUntil(READBACK_WAIT_MS) {
+            compose.onAllNodes(hasTestTag("profile-photo-1")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performClick()
+        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        val avatar = hasTestTag("avatar-photo") and hasAnyAncestor(hasTestTag("identity-switcher"))
+        // The switcher button merges its content, so the photo is found in the unmerged tree.
+        compose.waitUntil(READBACK_WAIT_MS) {
+            compose.onAllNodes(avatar, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }
