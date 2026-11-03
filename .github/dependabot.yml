@@ -31,6 +31,10 @@ updates:
       # cargo-deny rejects the new duplicates. Revisit when those dependencies move.
       - dependency-name: aes-gcm
         versions: [">=0.11.0"]
+      # The Windows client reuses the sysinfo that libp2p-memory-connection-limits locks;
+      # a newer one adds a second copy. Revisit when libp2p moves.
+      - dependency-name: sysinfo
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       # libp2p crates must move together, majors included.
       libp2p:

@@ -170,7 +170,9 @@ Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub
 patch updates into one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Cargo ignores
 libc 0.2.190 (`nix` fails to build for iOS against it), argon2 0.6+ (it needs blake2 0.11,
 while snow in libp2p noise still pins 0.10), and aes-gcm 0.11+ (snow and webrtc still require
-RustCrypto 0.10); the latter two introduce duplicates rejected by `cargo deny`. Review these
+RustCrypto 0.10); the latter two introduce duplicates rejected by `cargo deny`. It also skips
+minor and major sysinfo updates: the Windows client reuses the version libp2p locks
+([ADR 0035](../decisions/0035-windows-free-disk-space.md)). Review these
 temporary ignores when the upstream dependencies move. Dependabot also applies these version
 ignores to security-update PRs for the excluded versions. A Gradle PR needs its
 [verification metadata](build.md#gradle-dependency-verification) regenerated. Vulnerability alerts and Dependabot
