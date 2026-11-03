@@ -176,6 +176,8 @@ const checkDeviceRevoked = async () => {
   await window.deviceRevoked(current.slot, remove);
   if (removed !== 2 || !revokedDialog.open) throw new Error('a wipe did not say why');
   document.getElementById('revoked-ok').click();
+  // The close event, which hides the dialog, comes on a later task.
+  await new Promise((resolve) => { setTimeout(resolve, 0); });
   if (revokedDialog.open || !revokedDialog.hidden) throw new Error('the notice stayed open');
 };
 // An old withdrawal cannot remove the new identity or switch its dialog to Offline.
