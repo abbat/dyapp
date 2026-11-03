@@ -36,10 +36,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatBlock
+import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRevocation
+import uniffi.dyapp.ChatState
 
 /** What the chat's controls do: the screen wires them to the feed, tests count the calls. */
+@Suppress("LongParameterList") // One callback per control; the class is what bundles them.
 internal class ChatActions(
     val onSend: () -> Unit,
     val onProfile: () -> Unit,
@@ -47,6 +50,7 @@ internal class ChatActions(
     val onClear: () -> Unit,
     val onBlock: () -> Unit,
     val onDelete: () -> Unit = {},
+    val onMute: () -> Unit = {},
 )
 
 /** Which confirmation the chat shows; saved, so a rotation keeps it open. */
@@ -67,8 +71,9 @@ internal fun rememberChatForm(): ChatForm {
 
 /** `chat-more` and its menu; the dialogs belong to the screen, which [ChatForm.dialog] opens. */
 @Composable
-internal fun ChatMoreMenu(form: ChatForm, showBlock: Boolean) {
+internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, onMute: () -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val state = history?.state
     Box {
         IconButton({ open = true }, Modifier.testTag("chat-more"), enabled = !form.busy) {
             Icon(painterResource(R.drawable.ic_more), stringResource(R.string.chat_more))
@@ -77,9 +82,15 @@ internal fun ChatMoreMenu(form: ChatForm, showBlock: Boolean) {
             DropdownMenuItem(text = { Text(stringResource(R.string.chat_clear)) },
                 onClick = { open = false; form.dialog.value = ChatDialog.CLEAR }, Modifier.testTag(CLEAR))
             // A request offers `request-block` on its notice instead, as the desktop does.
-            if (showBlock) {
+            if (state != ChatState.REQUEST_RECEIVED) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_block)) },
                     onClick = { open = false; form.dialog.value = ChatDialog.BLOCK }, Modifier.testTag("chat-block"))
+            }
+            // As on desktop, a peer with no chat yet has nothing to mute.
+            if (history != null && state != ChatState.NONE) {
+                val label = if (history.muted) R.string.chat_unmute else R.string.chat_mute
+                DropdownMenuItem(text = { Text(stringResource(label)) },
+                    onClick = { open = false; onMute() }, Modifier.testTag("chat-mute"))
             }
         }
     }
@@ -172,6 +183,17 @@ internal fun CoroutineScope.clearChat(form: ChatForm, feed: ChatFeed, peer: Stri
         withContext(Dispatchers.IO) { feed.clear(peer) }
             .onSuccess { form.cleared = true; form.status = null }
             .onFailure { form.status = ChatStatus(R.string.chat_clear_failed, it.toString()) }
+        form.busy = false
+    }
+}
+
+/** Mutes or unmutes the peer; the history read after it relabels the item, a failure says why. */
+internal fun CoroutineScope.mutePeer(form: ChatForm, feed: ChatFeed, peer: String, muted: Boolean) {
+    form.busy = true
+    launch {
+        withContext(Dispatchers.IO) { feed.mute(peer, muted) }
+            .onSuccess { form.status = null }
+            .onFailure { form.status = ChatStatus(R.string.chat_mute_failed, it.toString()) }
         form.busy = false
     }
 }

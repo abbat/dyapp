@@ -60,6 +60,10 @@
     <string name="chat_cleared">Переписка очищена на этом устройстве</string>
     <string name="chat_clear_failed">Не удалось очистить переписку.</string>
     <string name="chat_block_failed">Не удалось заблокировать человека.</string>
+    <string name="chat_mute">Отключить уведомления</string>
+    <string name="chat_unmute">Включить уведомления</string>
+    <string name="chat_mute_failed">Не удалось изменить уведомления для этого человека.</string>
+    <string name="chats_muted">Без уведомлений</string>
     <string name="msg_menu">Действия с сообщением</string>
     <string name="chat_edit">Изменить</string>
     <string name="chat_delete">Удалить</string>

@@ -168,6 +168,7 @@ private fun ChatListRow(row: ChatRow, modifier: Modifier) {
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             chatTime(row.lastMessage?.sentAtMs)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
             if (row.unreadCount > 0uL) UnreadBadge(row.unreadCount, Modifier)
+            if (row.muted) Caption(stringResource(R.string.chats_muted), Modifier.testTag("chat-muted"))
         }
     }
 }

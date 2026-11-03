@@ -61,6 +61,10 @@
     <string name="chat_cleared">Chat cleared on this device</string>
     <string name="chat_clear_failed">This chat could not be cleared.</string>
     <string name="chat_block_failed">This person could not be blocked.</string>
+    <string name="chat_mute">Mute notifications</string>
+    <string name="chat_unmute">Unmute notifications</string>
+    <string name="chat_mute_failed">The notifications for this person could not be changed.</string>
+    <string name="chats_muted">Muted</string>
     <string name="msg_menu">Message actions</string>
     <string name="chat_edit">Edit</string>
     <string name="chat_delete">Delete</string>

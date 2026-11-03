@@ -124,6 +124,7 @@ internal fun ChatScreen(
         onBack = onBack,
         onClear = { scope.clearChat(form, feed, peer) },
         onBlock = { scope.blockPeer(form, feed, peer, onBack) },
+        onMute = { history?.let { scope.mutePeer(form, feed, peer, !it.muted) } },
         onDelete = {
             history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
         },
@@ -144,7 +145,7 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
     val ready = form.editing.value == null ||
         edited != null && changeable(edited, me) && edited.text != form.draft.value
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("chat")) {
-        ChatBackBar(peer, actions) { ChatMoreMenu(form, state != ChatState.REQUEST_RECEIVED) }
+        ChatBackBar(peer, actions) { ChatMoreMenu(form, history, actions.onMute) }
         ChatStateNotice(state, form)
         ChatThread(me, history, form, Modifier.weight(1f))
         Column(Modifier.padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {

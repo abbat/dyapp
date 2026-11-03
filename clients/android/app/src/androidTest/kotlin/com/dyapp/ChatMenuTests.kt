@@ -2,9 +2,11 @@ package com.dyapp
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -20,9 +22,28 @@ class ChatMenuTests {
     private var clears = 0
     private var blocks = 0
 
-    private fun show(state: ChatState, messages: List<ChatMessage> = emptyList()) = compose.setContent {
-        val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 })
-        ChatContent("peer-abcdef", "me", ChatHistory(state, messages, false), form, actions)
+    private var mutes = 0
+
+    private fun show(state: ChatState, messages: List<ChatMessage> = emptyList(), muted: Boolean = false) =
+        compose.setContent {
+            val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 }, onMute = { mutes += 1 })
+            ChatContent("peer-abcdef", "me", ChatHistory(state, messages, muted), form, actions)
+        }
+
+    @Test
+    fun muteNamesWhatItWillDoAndNeedsAChat() {
+        show(ChatState.OPEN, muted = true)
+        compose.onNodeWithTag("chat-more").performClick()
+        compose.onNodeWithTag("chat-mute").assertTextEquals(
+            InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.chat_unmute)).performClick()
+        compose.runOnIdle { assertEquals(1, mutes) }
+    }
+
+    @Test
+    fun aPeerWithNoChatHasNoMute() {
+        show(ChatState.NONE)
+        compose.onNodeWithTag("chat-more").performClick()
+        compose.onNodeWithTag("chat-mute").assertDoesNotExist()
     }
 
     @Test

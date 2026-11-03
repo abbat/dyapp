@@ -108,7 +108,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
   call runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.
 - Chats, `chats`: `chats-liked`, `chats-requests`, `chat-list` with `chat-1` and `chat-2`, and
-  `chat-muted` (planned on Android) on a muted peer's row. On
+  `chat-muted` on a muted peer's row. On
   Android both top rows always show, with a count from local data, and expand their lists in place.
   Liked you fetches the verified profiles when it opens and each opens the found profile, so a peer
   no node returns counts but has no row. Message requests stay out of the chat list and open the
@@ -151,7 +151,7 @@ first and returns to the first section, as any activity relaunch does.
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
   dialogs. Android has `chat`, `chat-closed`, `chat-first` and `chat-request` with `chat-back`,
   `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,
-  `chat-input` and `chat-send`, plus `chat-more` with `chat-clear` and `chat-block`,
+  `chat-input` and `chat-send`, plus `chat-more` with `chat-clear`, `chat-mute` and `chat-block`,
   `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear. A request hides
   `chat-block` and offers `request-block` on its notice instead. Unlike the desktop, a block asks
   first in a confirmation dialog, because Android has no block list to undo it from yet; after a
@@ -162,7 +162,10 @@ first and returns to the first section, as any activity relaunch does.
   text into `chat-input` under a line that says an edit is open, with a cancel that gives back
   the text typed before it; Send saves the edit and stays off for an unchanged text. Delete asks
   in `delete-dialog` with `delete-confirm`. A change stored on the device whose delivery failed
-  says it is pending, and a failure says why. `chat-mute` is planned. It opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
+  says it is pending, and a failure says why. `chat-mute` reads Mute or Unmute notifications and
+  hides while the peer has no chat; Android has no notifications yet, so it changes only the flag,
+  which the owner's other devices also get. It opens from a Chats row and from `view-message` on
+  the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that
   message, and an own message reads Pending until a node takes it, Sent, then Delivered.
 
