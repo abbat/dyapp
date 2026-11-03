@@ -1,5 +1,6 @@
 //! Verified profile search on the selected identity folder's active network.
 
+use crate::peer_photos::PhotoCache;
 use crate::profile_draft::database;
 use crate::profile_network::{active_network, connect};
 use crate::profile_publish::{today, POW_BITS};
@@ -173,9 +174,11 @@ pub struct ProfileSearchResult {
 /// UI thread.
 #[derive(uniffi::Object)]
 pub struct ProfileSearcher {
-    dir: PathBuf,
-    runtime: tokio::runtime::Runtime,
+    pub(crate) dir: PathBuf,
+    pub(crate) runtime: tokio::runtime::Runtime,
     cache: Mutex<Profiles>,
+    /// Other people's photos in memory; see `peer_photos`.
+    pub(crate) photos: Mutex<PhotoCache>,
 }
 
 #[uniffi::export]
@@ -192,6 +195,7 @@ impl ProfileSearcher {
             dir: dir.into(),
             runtime,
             cache: Mutex::new(Profiles::default()),
+            photos: Mutex::default(),
         }))
     }
 

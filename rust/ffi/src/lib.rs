@@ -21,6 +21,8 @@ pub use network::{
     load_network, save_network_draft, CheckError, ConnectionCheck, NetworkFile, NetworkSettings,
     SeedRow,
 };
+mod peer_photos;
+pub use peer_photos::peer_photo_auto;
 mod pin;
 pub use pin::{hash_app_pin, verify_app_pin};
 mod profile_draft;

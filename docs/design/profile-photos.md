@@ -5,8 +5,9 @@ How a client publishes, fetches and keeps public profile photos. The wire format
 [bootstrap.md](../architecture/bootstrap.md#signed-profile). `rust/client` implements storing and
 publishing, and the desktop has the editor and shows photos on search and liked cards, chat rows
 and the open identity's avatars and in `profile-view`, and its catch-up pass runs the keep refresh
-of step 4. The FFI exposes the draft photo commands and runs the keep refresh in
-`ChatSession::receive`. Viewing and the editor on Android and Apple are planned.
+of step 4. The FFI exposes the draft photo commands, runs the keep refresh in
+`ChatSession::receive`, and fetches other people's photos into `ProfileSearcher`'s memory cache.
+Viewing and the editor on Android and Apple are planned.
 
 ## Limits
 
