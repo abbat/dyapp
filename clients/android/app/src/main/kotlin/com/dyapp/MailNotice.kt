@@ -7,25 +7,53 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import uniffi.dyapp.ChatNotice
+import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatSession
+import uniffi.dyapp.ChatState
 
 private const val MAIL_CHANNEL = "mail"
 
 // One fixed id, so each notice replaces the previous one.
 internal const val MAIL_NOTICE_ID = 1
 
+// The most of a message a notice shows; the rest waits in the app.
+private const val NOTICE_TEXT_CHARS = 200L
+
 /** What a notice counts, as on desktop: unread items and unanswered likes, muted peers left out. */
-internal fun noticeCount(chats: ChatSession): ULong {
-    val (muted, rows) = chats.chatRows().partition { it.muted }
+internal fun noticeCount(chats: ChatSession, all: List<ChatRow> = chats.chatRows()): ULong {
+    val (muted, rows) = all.partition { it.muted }
     val mutedPeers = muted.mapTo(HashSet()) { it.peerId }
     return chatsBadge(rows) + chats.likedYou().count { it !in mutedPeers }.toULong()
 }
 
+/** The sender's short Peer ID and, for [ChatNotice.TEXT], the message a notice adds. */
+internal data class NoticeLines(val sender: String, val text: String?)
+
 /**
- * The notice with the fixed "New message" text only, so a lock screen shows neither a name nor a
- * message; the public version for a secure lock screen carries just the app name.
+ * The lines [notice] allows for the newest unmuted row with more unread than in [before]; null keeps
+ * the fixed text. Only an open chat adds them: a request or a like would put a stranger's words on
+ * the screen unasked.
  */
-internal fun mailNotice(context: Context): Notification {
+internal fun noticeLines(notice: ChatNotice, before: List<ChatRow>, after: List<ChatRow>): NoticeLines? {
+    val adds = notice == ChatNotice.NAME || notice == ChatNotice.TEXT
+    // ponytail: the FFI row has no attachment, so a newer unread attachment shows the last unread text.
+    val row = after.firstOrNull { row ->
+        !row.muted && row.unreadCount > before.find { it.peerId == row.peerId }?.unreadCount ?: 0uL
+    }?.takeIf { adds && it.state == ChatState.OPEN } ?: return null
+    val text = row.lastMessage?.takeIf { notice == ChatNotice.TEXT && it.unread }?.text
+    return NoticeLines(shortPeerId(row.peerId), text?.let(::oneLine)?.ifBlank { null })
+}
+
+// At most NOTICE_TEXT_CHARS code points on one line: a peer chooses this text.
+private fun oneLine(text: String) = text.codePoints().limit(NOTICE_TEXT_CHARS).toArray()
+    .joinToString("") { if (Character.isISOControl(it)) " " else String(Character.toChars(it)) }
+
+/**
+ * The notice: the fixed "New message" text, or the [lines] the setting allows. The public version
+ * for a secure lock screen carries just the app name, whatever the setting.
+ */
+internal fun mailNotice(context: Context, lines: NoticeLines? = null): Notification {
     val manager = context.getSystemService(NotificationManager::class.java)
     val name = context.getString(R.string.notice_channel)
     manager.createNotificationChannel(NotificationChannel(MAIL_CHANNEL, name, NotificationManager.IMPORTANCE_DEFAULT))
@@ -38,7 +66,8 @@ internal fun mailNotice(context: Context): Notification {
         .build()
     return Notification.Builder(context, MAIL_CHANNEL)
         .setSmallIcon(R.drawable.ic_launcher_monochrome)
-        .setContentTitle(context.getString(R.string.notice_new_message))
+        .setContentTitle(lines?.sender ?: context.getString(R.string.notice_new_message))
+        .setContentText(lines?.let { it.text ?: context.getString(R.string.notice_new_message) })
         .setVisibility(Notification.VISIBILITY_PRIVATE)
         .setPublicVersion(public)
         .setContentIntent(tap)
@@ -57,9 +86,9 @@ internal fun noticesAllowed(context: Context) =
  * Shows [mailNotice] unless the app is on screen. While Android blocks notices nothing shows; the
  * Settings notice card asks for them.
  */
-internal fun postMailNotice(context: Context) {
+internal fun postMailNotice(context: Context, lines: NoticeLines?) {
     val state = ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }
     if (state.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
     if (!noticesAllowed(context)) return
-    context.getSystemService(NotificationManager::class.java).notify(MAIL_NOTICE_ID, mailNotice(context))
+    context.getSystemService(NotificationManager::class.java).notify(MAIL_NOTICE_ID, mailNotice(context, lines))
 }

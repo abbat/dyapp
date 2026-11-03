@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -38,10 +39,20 @@ import uniffi.dyapp.ChatNotice
 
 private val announced = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
 
+// The content choices in order, with their test tags and labels.
+private val contents = listOf(
+    Triple(ChatNotice.FIXED, "notice-fixed", R.string.notice_content_fixed),
+    Triple(ChatNotice.NAME, "notice-name", R.string.notice_content_name),
+    Triple(ChatNotice.TEXT, "notice-text", R.string.notice_content_text),
+)
+
 // What the card shows for one identity.
 private class NoticeState(allowed: Boolean) {
-    // Null while loading or when the store does not open: the switch stays disabled.
+    // Null while loading or when the store does not open: the controls stay disabled.
     var on by mutableStateOf<Boolean?>(null)
+
+    // Kept while off, so a turn-on brings the earlier choice back.
+    var content by mutableStateOf(ChatNotice.FIXED)
     var failed by mutableStateOf(false)
     var allowed by mutableStateOf(allowed)
 
@@ -53,14 +64,15 @@ private fun permissionDialogFits(context: Context, asked: Boolean) =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !asked &&
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
-// True when on, null when the store does not open.
+// The switch and the content, or null when the store does not open.
 private suspend fun loadNotice(active: Opened.Ready) = withContext(Dispatchers.IO) {
-    runCatching { RustBridge.withChats(active) { it.notice() != ChatNotice.OFF } }.getOrNull()
+    runCatching {
+        RustBridge.withChats(active) { (it.notice() != ChatNotice.OFF) to it.noticeContent() }
+    }.getOrNull()
 }
 
-// On stores the fixed text; false when the store refused.
-private suspend fun saveNotice(active: Opened.Ready, on: Boolean) = withContext(Dispatchers.IO) {
-    val notice = if (on) ChatNotice.FIXED else ChatNotice.OFF
+// False when the store refused.
+private suspend fun saveNotice(active: Opened.Ready, notice: ChatNotice) = withContext(Dispatchers.IO) {
     runCatching { RustBridge.withChats(active) { it.setNotice(notice) } }.isSuccess
 }
 
@@ -88,9 +100,10 @@ private fun rememberAllow(state: NoticeState): () -> Unit {
 }
 
 /**
- * The Settings card that turns the new-mail notice on or off for the active identity. Turning it on
- * asks for the notification permission on Android 13+; while Android blocks notices the card says
- * so and Allow asks again or, once asked, opens the app's notification settings.
+ * The Settings card that turns the new-mail notice on or off for the active identity and picks
+ * what it shows. Turning it on asks for the notification permission on Android 13+; while Android
+ * blocks notices the card says so and Allow asks again or, once asked, opens the app's notification
+ * settings.
  */
 @Composable
 internal fun NoticeCard(active: Opened.Ready) {
@@ -99,35 +112,52 @@ internal fun NoticeCard(active: Opened.Ready) {
     val state = remember(active.slot.id) { NoticeState(noticesAllowed(context)) }
     val allow = rememberAllow(state)
     LaunchedEffect(active.slot.id) {
-        state.on = loadNotice(active)
-        state.failed = state.on == null
+        val loaded = loadNotice(active)
+        state.failed = loaded == null
+        loaded?.let { (on, content) ->
+            state.content = content
+            state.on = on
+        }
     }
-    NoticeCardContent(state, allow) { turnOn ->
+    NoticeCardContent(state, allow) { on, content ->
         scope.launch {
-            val saved = saveNotice(active, turnOn)
+            val saved = saveNotice(active, if (on) content else ChatNotice.OFF)
             state.failed = !saved
-            if (saved) state.on = turnOn
-            if (saved && turnOn && !state.allowed) allow()
+            if (saved) {
+                state.on = on
+                state.content = content
+            }
+            if (saved && on && !state.allowed) allow()
         }
     }
 }
 
 @Composable
-private fun NoticeCardContent(state: NoticeState, allow: () -> Unit, toggle: (Boolean) -> Unit) =
+private fun NoticeContentChoice(chosen: ChatNotice, enabled: Boolean, pick: (ChatNotice) -> Unit) =
+    Column(Modifier.selectableGroup().testTag("notice-content")) {
+        Text(stringResource(R.string.notice_content))
+        contents.forEach { (content, tag, label) ->
+            ChoiceRow(tag, label, content == chosen, enabled) { pick(content) }
+        }
+        Caption(stringResource(R.string.notice_content_hint))
+    }
+
+@Composable
+private fun NoticeCardContent(state: NoticeState, allow: () -> Unit, save: (Boolean, ChatNotice) -> Unit) =
     FormCard(Modifier.testTag("privacy")) {
         CardTitle(R.string.settings_notices)
         val checked = state.on == true
         Row(
-            Modifier.fillMaxWidth().testTag("message-notifications")
-                .toggleable(checked, enabled = state.on != null, role = Role.Switch, onValueChange = toggle),
+            Modifier.fillMaxWidth().testTag("message-notifications").toggleable(
+                checked, enabled = state.on != null, role = Role.Switch,
+                onValueChange = { save(it, state.content) }
+            ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.notice_toggle))
-                Caption(stringResource(R.string.notice_toggle_hint))
-            }
+            Text(stringResource(R.string.notice_toggle), Modifier.weight(1f))
             Switch(checked, onCheckedChange = null)
         }
+        NoticeContentChoice(state.content, enabled = checked) { save(true, it) }
         if (state.failed) {
             Caption(stringResource(R.string.notice_failed), Modifier.testTag("notice-error").then(announced))
         }

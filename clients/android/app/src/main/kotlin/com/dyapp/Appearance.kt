@@ -112,13 +112,16 @@ internal fun AppearanceCard() {
     }
 }
 
+/** One radio row of a [selectableGroup]; the whole row picks. */
 @Composable
-private fun ChoiceRow(tag: String, label: Int, selected: Boolean, onPick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().testTag(tag).selectable(selected, role = Role.RadioButton, onClick = onPick)
+@Suppress("LongParameterList") // A radio row needs its tag, label, both states and the pick.
+internal fun ChoiceRow(tag: String, label: Int, selected: Boolean, enabled: Boolean = true, onPick: () -> Unit) = Row(
+    Modifier.fillMaxWidth().testTag(tag)
+        .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onPick)
         .padding(vertical = 8.dp),
     Arrangement.spacedBy(12.dp),
     Alignment.CenterVertically
 ) {
-    RadioButton(selected, onClick = null)
+    RadioButton(selected, onClick = null, enabled = enabled)
     Text(stringResource(label))
 }

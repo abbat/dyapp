@@ -3,6 +3,7 @@ package com.dyapp
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
@@ -99,16 +100,25 @@ class IdentitySettingsTests {
         // On by default; the emulator allows notices, so nothing asks for them.
         waitFor(true)
         compose.onNodeWithTag("notice-blocked").assertDoesNotExist()
-        switch.performClick()
+        compose.onNodeWithTag("notice-fixed").assertIsSelected()
+        click("notice-text")
+        compose.waitUntil(5_000) { stored() == ChatNotice.TEXT }
+        switch.performScrollTo().performClick()
         waitFor(false)
-        check(RustBridge.withChats(active()) { it.notice() } == ChatNotice.OFF) { "Off was not stored" }
+        check(stored() == ChatNotice.OFF) { "Off was not stored" }
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("nav-settings").performClick()
         waitFor(false)
+        // Off keeps the choice, disabled, and a turn-on brings it back.
+        compose.onNodeWithTag("notice-text").performScrollTo().assertIsSelected().assertIsNotEnabled()
         switch.performScrollTo().performClick()
         waitFor(true)
-        check(RustBridge.withChats(active()) { it.notice() } == ChatNotice.FIXED) { "On was not stored" }
+        check(stored() == ChatNotice.TEXT) { "On lost the content choice" }
+        click("notice-fixed")
+        compose.waitUntil(5_000) { stored() == ChatNotice.FIXED }
     }
+
+    private fun stored() = RustBridge.withChats(active()) { it.notice() }
 
     @Test
     fun theConnectionChipOpensTheNetworkEditorAndSettingsReturn() {

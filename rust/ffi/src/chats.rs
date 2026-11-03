@@ -558,6 +558,7 @@ mod tests {
         chats.set_notice(ChatNotice::Text).unwrap();
         chats.set_notice(ChatNotice::Off).unwrap();
         assert_eq!(chats.notice().unwrap(), ChatNotice::Off);
+        assert_eq!(chats.notice_content().unwrap(), ChatNotice::Text);
         chats.set_notice(ChatNotice::Name).unwrap();
         assert_eq!(chats.notice().unwrap(), ChatNotice::Name);
         chats.block(peer.clone()).unwrap();

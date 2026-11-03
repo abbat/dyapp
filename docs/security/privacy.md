@@ -189,12 +189,15 @@ runs at most every 15 minutes when a network is up, and Doze and App Standby def
 The nodes therefore see receives while the app is not open, and the job opens the identity key
 even while the app lock is on, because that lock covers only the screens. When a receive leaves
 more unread items or unanswered likes from peers that are not muted and the app is not on screen,
-it posts the same fixed "New message" notice, replacing the previous one, as a private
-notification whose lock-screen version shows only the app name; a tap opens the app behind its
-lock. Settings can turn the notice off per identity; turning it on asks for the notification
-permission, which Android 13 and later grant at run time, and while Android blocks notices the
-card says so and offers Allow. Adding the name and text is planned on Android, so they never show
-there yet.
+it posts one notice, replacing the previous one, as a private notification whose version for a
+secure lock screen shows only the app name; a tap opens the app behind its lock. By default it
+holds the fixed "New message" text. Settings can turn the notice off per identity, or add the
+sender's short Peer ID (Android has no names), or that ID and up to 200 characters of the
+message with control characters turned into spaces, under the same open-chat rule as Linux;
+they then reach the system notification service and show on an unlocked screen or a lock screen
+without a PIN, pattern or password. Turning the notice on asks for the notification permission,
+which Android 13 and later grant at run time, and while Android blocks notices the card says so
+and offers Allow.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

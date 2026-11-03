@@ -69,7 +69,11 @@
     <string name="notice_new_message">New message</string>
     <string name="settings_notices">Notifications</string>
     <string name="notice_toggle">New messages and likes</string>
-    <string name="notice_toggle_hint">A notice says only \"New message\", even on the lock screen.</string>
+    <string name="notice_content">What a notice shows</string>
+    <string name="notice_content_fixed">Only \"New message\"</string>
+    <string name="notice_content_name">The sender\'s short ID</string>
+    <string name="notice_content_text">The ID and the message</string>
+    <string name="notice_content_hint">An ID or a message shows while the screen is unlocked; a lock screen with a PIN, pattern or password shows only DYApp. Requests and likes never show them.</string>
     <string name="notice_blocked">Android does not let DYApp show notifications.</string>
     <string name="notice_allow">Allow</string>
     <string name="notice_failed">The notification setting could not be read or saved. Try again.</string>

@@ -31,4 +31,18 @@ class MailJobTests {
         assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
         assertNotNull(notice.contentIntent)
     }
+
+    @Test
+    fun theSettingAddsTheSenderAndTextButNotOnASecureLockScreen() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val named = mailNotice(context, NoticeLines("@abc", null))
+        assertEquals("@abc", named.extras.getString(Notification.EXTRA_TITLE))
+        val fixed = context.getString(R.string.notice_new_message)
+        assertEquals(fixed, named.extras.getCharSequence(Notification.EXTRA_TEXT))
+        val notice = mailNotice(context, NoticeLines("@abc", "hi"))
+        assertEquals("hi", notice.extras.getCharSequence(Notification.EXTRA_TEXT))
+        val public = checkNotNull(notice.publicVersion)
+        assertEquals(context.getString(R.string.app_name), public.extras.getString(Notification.EXTRA_TITLE))
+        assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
+    }
 }

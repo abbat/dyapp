@@ -26,7 +26,14 @@ impl ChatSession {
         if !store.notifications().map_err(failed)? {
             return Ok(ChatNotice::Off);
         }
-        Ok(match store.notice_content().map_err(failed)? {
+        drop(session);
+        self.notice_content()
+    }
+
+    /// What a notice shows once on, kept while notices are off; never [`ChatNotice::Off`].
+    pub fn notice_content(&self) -> Result<ChatNotice, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        Ok(match session.store().notice_content().map_err(failed)? {
             NoticeContent::Fixed => ChatNotice::Fixed,
             NoticeContent::Name => ChatNotice::Name,
             NoticeContent::Text => ChatNotice::Text,

@@ -68,7 +68,11 @@
     <string name="notice_new_message">Новое сообщение</string>
     <string name="settings_notices">Уведомления</string>
     <string name="notice_toggle">Новые сообщения и лайки</string>
-    <string name="notice_toggle_hint">Уведомление говорит только «Новое сообщение», даже на экране блокировки.</string>
+    <string name="notice_content">Что показывать в уведомлении</string>
+    <string name="notice_content_fixed">Только «Новое сообщение»</string>
+    <string name="notice_content_name">Короткий ID отправителя</string>
+    <string name="notice_content_text">ID и текст сообщения</string>
+    <string name="notice_content_hint">ID и текст видны на разблокированном экране; экран блокировки с PIN-кодом, графическим ключом или паролем показывает только DYApp. В запросах и симпатиях их нет.</string>
     <string name="notice_blocked">Android не разрешает DYApp показывать уведомления.</string>
     <string name="notice_allow">Разрешить</string>
     <string name="notice_failed">Не удалось прочитать или сохранить настройку уведомлений. Попробуйте ещё раз.</string>

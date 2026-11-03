@@ -39,12 +39,16 @@ class MailJob : JobService() {
 internal fun receiveMail(context: Context) {
     runCatching {
         val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return
-        val more = RustBridge.withChats(opened) {
-            val before = noticeCount(it)
+        RustBridge.withChats(opened) {
+            val old = it.chatRows()
+            val before = noticeCount(it, old)
             it.receive()
-            noticeCount(it) > before && it.notice() != ChatNotice.OFF
+            val new = it.chatRows()
+            val notice = it.notice()
+            if (noticeCount(it, new) > before && notice != ChatNotice.OFF) {
+                postMailNotice(context, noticeLines(notice, old, new))
+            }
         }
-        if (more) postMailNotice(context)
     }.onFailure { Log.i("dyapp", "Background receive failed: ${it.javaClass.simpleName}") }
 }
 
