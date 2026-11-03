@@ -116,6 +116,7 @@ jobs:
         with:
           name: release-size-android
           path: |
+            build/release-check-output/
             build/android-release/check-output/
             build/android-release/*.json
             build/android-release/build.log
