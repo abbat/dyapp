@@ -95,7 +95,8 @@ internal fun AppShell(
     } else if (chat != null) {
         ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
     } else {
-        ShellFrame(slots, opened, section, lockMode, act, open, feed, { chatPeer = it }, openFound) {
+        val openChat = { peer: String -> feed.lists.blocked = null; chatPeer = peer }
+        ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, openFound) {
             SearchScreen(search, { open(StartTarget.NETWORK) }, openFound)
         }
     }

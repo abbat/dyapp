@@ -151,9 +151,14 @@ first and returns to the first section, as any activity relaunch does.
   `chat-input`, `chat-send`, `request-block`; `chat-clear-confirm` and `delete-confirm` in the
   dialogs. Android has `chat`, `chat-closed`, `chat-first` and `chat-request` with `chat-back`,
   `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,
-  `chat-input` and `chat-send`; the
-  menus, dialogs and blocking are planned, so the request notice does not offer a block yet. It
-  opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
+  `chat-input` and `chat-send`, plus `chat-more` with `chat-clear` and `chat-block`,
+  `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear. A request hides
+  `chat-block` and offers `request-block` on its notice instead. Unlike the desktop, a block asks
+  first in a confirmation dialog, because Android has no block list to undo it from yet; after a
+  block the chat closes and a note on Chats says the outcome, with the details when the revocation
+  is still pending. Opening a chat
+  marks its texts read, without a read receipt. `chat-mute`, `msg-menu` and `delete-dialog` are
+  planned. It opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that
   message, and an own message reads Pending until a node takes it, Sent, then Delivered.
 

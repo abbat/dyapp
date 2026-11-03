@@ -17,6 +17,20 @@ import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatState
 
+/** A text in a chat test's history. */
+internal fun message(author: String, text: String, delivery: ChatDelivery? = null) = ChatMessage(
+    groupId = byteArrayOf(0),
+    author = author,
+    id = byteArrayOf(1),
+    text = text,
+    edited = false,
+    deleted = false,
+    unread = false,
+    forwarded = false,
+    delivery = delivery,
+    sentAtMs = null,
+)
+
 class ChatScreenTests {
     @get:Rule
     val compose = createComposeRule()
@@ -28,22 +42,10 @@ class ChatScreenTests {
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
-    private fun message(author: String, text: String, delivery: ChatDelivery? = null) = ChatMessage(
-        groupId = byteArrayOf(0),
-        author = author,
-        id = byteArrayOf(1),
-        text = text,
-        edited = false,
-        deleted = false,
-        unread = false,
-        forwarded = false,
-        delivery = delivery,
-        sentAtMs = null,
-    )
-
     private fun show(state: ChatState?, messages: List<ChatMessage> = emptyList()) = compose.setContent {
         val history = state?.let { ChatHistory(it, messages) }
-        ChatContent("peer-abcdef", "me", history, form, { sends += 1 }, { profiles += 1 }, { backs += 1 })
+        val actions = ChatActions({ sends += 1 }, { profiles += 1 }, { backs += 1 }, {}, {})
+        ChatContent("peer-abcdef", "me", history, form, actions)
     }
 
     @Test

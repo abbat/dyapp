@@ -55,7 +55,7 @@ internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatF
     produceState(known?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Loading, attempt) {
         if (value !is ProfileLoad.Shown) {
             value = ProfileLoad.Loading
-            value = withContext(Dispatchers.IO) { runCatching { feed.profile(peer) } }.fold(
+            value = withContext(Dispatchers.IO) { runCatching { feed.profiles(listOf(peer)).firstOrNull() } }.fold(
                 { found -> found?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Missing },
                 { ProfileLoad.Failed(profileLoadStatus(it)) },
             )

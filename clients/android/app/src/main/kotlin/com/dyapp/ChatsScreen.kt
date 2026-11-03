@@ -62,6 +62,7 @@ internal fun ChatsContent(
 ) {
     val (requests, conversations) = rows.partition { it.state == ChatState.REQUEST_RECEIVED }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("chats")) {
+        lists.blocked?.let { BlockedNote(it) }
         ExpandableRow("chats-liked", R.string.chats_liked, R.string.chats_liked_text, liked.size, lists.likedOpen) {
             lists.likedOpen = !lists.likedOpen
         }

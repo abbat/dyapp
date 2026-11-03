@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,10 +55,20 @@ private const val COMPOSER_MAX_LINES = 5
 /** A line under the thread: a failure carries [details] and keeps the draft; a queued send has none. */
 internal class ChatStatus(val text: Int, val details: String?)
 
-/** The composer: [draft] survives recreation, a send in flight and its last outcome do not. */
-internal class ChatForm(val draft: MutableState<String>) {
+/**
+ * The composer and the menu's state: [draft] and the open [dialog] survive recreation; a send, clear
+ * or block in flight, its last outcome and the cleared note do not.
+ */
+internal class ChatForm(
+    val draft: MutableState<String>,
+    val dialog: MutableState<ChatDialog?> = mutableStateOf(null),
+) {
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
+
+    /** A clear or a block in flight; the menu waits for it. */
+    var busy by mutableStateOf(false)
+    var cleared by mutableStateOf(false)
 }
 
 /**
@@ -75,66 +86,72 @@ internal fun ChatScreen(
 ) {
     var history by remember { mutableStateOf<ChatHistory?>(null) }
     val draft = rememberSaveable { mutableStateOf("") }
-    val form = remember { ChatForm(draft) }
+    val dialog = rememberSaveable { mutableStateOf<ChatDialog?>(null) }
+    val form = remember { ChatForm(draft, dialog) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(feed.version) {
         withContext(Dispatchers.IO) { runCatching { feed.history(peer) } }
             .onSuccess { shown ->
                 if (history == null) form.status = null
                 history = shown
+                // Opening reads the chat, and so does a text received while it stays open.
+                if (shown.messages.any { it.unread }) withContext(Dispatchers.IO) { feed.markRead(peer) }
             }
             .onFailure {
                 if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString())
             }
     }
     BackHandler(onBack = onBack)
-    val send = { scope.sendDraft(form, feed, peer, history?.messages.orEmpty()) }
-    ChatContent(peer, opened.peerId, history, form, send, onProfile, onBack)
+    val actions = ChatActions(
+        onSend = { scope.sendDraft(form, feed, peer, history?.messages.orEmpty()) },
+        onProfile = onProfile,
+        onBack = onBack,
+        onClear = { scope.clearChat(form, feed, peer) },
+        onBlock = { scope.blockPeer(form, feed, peer, onBack) },
+    )
+    ChatContent(peer, opened.peerId, history, form, actions)
 }
 
-/** The chat as shown: the state's notices, the thread and the composer. */
+/**
+ * The chat as shown: the state's notices, the thread, the composer and the menu's dialogs. Stateless,
+ * so that tests drive every chat state without a network.
+ */
 @Composable
-@Suppress("LongParameterList") // Stateless so that tests drive every chat state without a network.
-internal fun ChatContent(
-    peer: String,
-    me: String,
-    history: ChatHistory?,
-    form: ChatForm,
-    onSend: () -> Unit,
-    onProfile: () -> Unit,
-    onBack: () -> Unit,
-) {
+@Suppress("LongParameterList") // Who talks, what is shown, what is typed and what the controls do.
+internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: ChatForm, actions: ChatActions) {
     val state = history?.state
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("chat")) {
-        ChatBackBar(peer, onProfile, onBack)
-        ChatStateNotice(state)
-        ChatThread(me, history?.messages.orEmpty(), Modifier.weight(1f))
+        ChatBackBar(peer, actions) { ChatMoreMenu(form, state != ChatState.REQUEST_RECEIVED) }
+        ChatStateNotice(state, form)
+        ChatThread(me, history?.messages.orEmpty(), form.cleared, Modifier.weight(1f))
         Column(Modifier.padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {
             if (state == ChatState.REQUEST_SENT) Caption(stringResource(R.string.chat_first_wait))
             ChatStatusLine(form)
             if (chatTooLong(form.draft.value)) Caption(stringResource(R.string.chat_too_long))
         }
-        ChatComposer(state, form, onSend)
+        ChatComposer(state, form, actions.onSend)
     }
+    ChatConfirm(form, actions)
 }
 
 @Composable
-private fun ChatBackBar(peer: String, onProfile: () -> Unit, onBack: () -> Unit) {
-    Row(Modifier.padding(8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
-        IconButton(onClick = onBack, Modifier.testTag("chat-back")) {
+private fun ChatBackBar(peer: String, actions: ChatActions, menu: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
+        IconButton(onClick = actions.onBack, Modifier.testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.nav_chats))
         }
-        Row(Modifier.testTag("chat-profile").clickable(onClick = onProfile), Arrangement.spacedBy(8.dp),
-            Alignment.CenterVertically) {
+        Row(Modifier.weight(1f).testTag("chat-profile").clickable(onClick = actions.onProfile),
+            Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
             Avatar(peer)
             Text(shortPeerId(peer), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
         }
+        menu()
     }
 }
 
 // The one-message rule matters before that message too, so it also shows in a new conversation.
 @Composable
-private fun ChatStateNotice(state: ChatState?) {
+private fun ChatStateNotice(state: ChatState?, form: ChatForm) {
     val modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
     when (state) {
         ChatState.NONE, ChatState.REQUEST_SENT ->
@@ -142,7 +159,11 @@ private fun ChatStateNotice(state: ChatState?) {
         ChatState.REQUEST_RECEIVED -> Surface(
             modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.tertiaryContainer
         ) {
-            Text(stringResource(R.string.chat_request_notice), Modifier.padding(12.dp).testTag("chat-request-notice"))
+            Column(Modifier.padding(12.dp).testTag("chat-request-notice"), Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.chat_request_notice))
+                OutlinedButton({ form.dialog.value = ChatDialog.BLOCK }, Modifier.testTag("request-block"),
+                    enabled = !form.busy) { Text(stringResource(R.string.chat_block)) }
+            }
         }
         ChatState.CLOSED ->
             Caption(stringResource(R.string.chat_closed_notice), modifier.testTag("chat-closed-notice"))
@@ -151,15 +172,19 @@ private fun ChatStateNotice(state: ChatState?) {
 }
 
 @Composable
-private fun ChatThread(me: String, messages: List<ChatMessage>, modifier: Modifier) {
+private fun ChatThread(me: String, messages: List<ChatMessage>, cleared: Boolean, modifier: Modifier) {
     val list = rememberLazyListState()
-    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) list.scrollToItem(messages.lastIndex) }
+    // The cleared note comes first, so the last message is one item further.
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) list.scrollToItem(messages.lastIndex + if (cleared) 1 else 0)
+    }
     LazyColumn(
         modifier.fillMaxWidth().testTag("chat-thread"),
         state = list,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (cleared) item { Caption(stringResource(R.string.chat_cleared), Modifier.testTag("chat-cleared-note")) }
         items(messages) { ChatBubble(it, it.author == me) }
     }
 }

@@ -9,6 +9,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import uniffi.dyapp.ChatBlock
+import uniffi.dyapp.ChatRevocation
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
 import uniffi.dyapp.FoundProfile
@@ -49,6 +51,19 @@ class ChatsScreenTests {
 
     private fun count(tag: String, value: String) =
         compose.onNodeWithTag("$tag-count", useUnmergedTree = true).assertTextEquals(value)
+
+    @Test
+    fun aBlockSaysItsOutcome() {
+        lists.blocked = ChatBlock(ChatRevocation.CONFIRMED, null)
+        show()
+        compose.onNodeWithTag("chats-blocked-note").assertTextEquals(string(R.string.chats_blocked_confirmed))
+        compose.runOnIdle { lists.blocked = ChatBlock(ChatRevocation.PENDING, "notConnected") }
+        compose.onNodeWithTag("chats-blocked-note").assertTextEquals(string(R.string.chats_blocked_pending))
+        compose.onNodeWithText(string(R.string.details)).performClick()
+        compose.onNodeWithTag("chats-blocked-details").assertTextEquals("notConnected")
+        compose.runOnIdle { lists.blocked = null }
+        compose.onNodeWithTag("chats-blocked-note").assertDoesNotExist()
+    }
 
     @Test
     fun bothRowsShowLocalCountsAndStayClosedUntilOpened() {

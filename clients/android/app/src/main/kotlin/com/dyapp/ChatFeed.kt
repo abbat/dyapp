@@ -14,6 +14,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.ChatBlock
 import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
@@ -30,12 +31,16 @@ internal class ChatsLists {
 
     /** The last fetch of the Liked you profiles; null until the first one ends. */
     var likedProfiles by mutableStateOf<Result<List<FoundProfile>>?>(null)
+
+    /** The last block from a chat, said on the section until another chat opens. */
+    var blocked by mutableStateOf<ChatBlock?>(null)
 }
 
 /**
  * This identity's chat rows; the shell owns them because the tab badge shows on every section.
  * The blocking calls belong on IO.
  */
+@Suppress("TooManyFunctions") // One per chat call the screens make through the bridge.
 internal class ChatFeed(private val opened: Opened.Ready) {
     var rows by mutableStateOf(emptyList<ChatRow>())
         private set
@@ -65,9 +70,6 @@ internal class ChatFeed(private val opened: Opened.Ready) {
 
     fun likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
 
-    /** The verified profile of [peer] from the network; null when no node returns one. */
-    fun profile(peer: String) = RustBridge.withChats(opened) { it.profiles(listOf(peer)).firstOrNull() }
-
     /** The verified profiles of [peers]; a peer no node returns is left out. */
     fun profiles(peers: List<String>) = RustBridge.withChats(opened) { it.profiles(peers) }
 
@@ -87,6 +89,25 @@ internal class ChatFeed(private val opened: Opened.Ready) {
             sendStatus(failed, stagedNew(before, after, opened.peerId))
         }
     }
+
+    /**
+     * Marks [peer]'s texts read; only a change reads the rows, so a failure cannot loop through an
+     * open chat's reload. No read receipt is sent.
+     */
+    fun markRead(peer: String) {
+        val marked = runCatching { RustBridge.withChats(opened) { it.markRead(peer) } }.getOrDefault(0u)
+        if (marked > 0u) read()
+    }
+
+    /** Clears the chat with [peer] on this device only, then reads the rows. */
+    fun clear(peer: String): Result<UInt> =
+        runCatching { RustBridge.withChats(opened) { it.clearChat(peer) } }.also { read() }
+
+    /** Blocks [peer]; the rows read after it leave the peer out, and [lists] keeps the outcome. */
+    fun block(peer: String): Result<ChatBlock> =
+        runCatching { RustBridge.withChats(opened) { it.block(peer) } }
+            .onSuccess { lists.blocked = it }
+            .also { read() }
 
     // shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
     // hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
