@@ -158,7 +158,10 @@ pointer, a missing file key, and removal of a ready file slot and of a slot whos
 into a fresh app config, then checks the Peer ID and draft after reopening. On Linux it also
 copies a system-backed slot's app files into a fresh home and Secret Service session and checks
 that missing-key recovery appears without a replacement identity. A locked provider, removal of
-a system-store key through the UI and duplicate restore are not covered yet.
+a system-store key through the UI and duplicate restore are not covered yet. Under
+`DYAPP_TEST_SECRET_SERVICE=1`, before each case the script checks the default collection: a
+gnome-keyring that died mid-suite comes back locked through D-Bus activation, so a locked one
+is replaced with an unlocked daemon (`--replace --unlock`).
 
 This layout favors directory discovery over a single registry: it survives interrupted
 registry writes and exposes incomplete slots, at the cost of visible local metadata and a

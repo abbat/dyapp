@@ -49,6 +49,29 @@ def display_diagnostics():
     return "\n".join(lines)[:4096]
 
 
+def unlock_keyring():
+    """A gnome-keyring that dies mid-suite comes back locked through D-Bus
+    activation, and --unlock cannot unlock a running daemon: replace it with
+    an unlocked one. Only a locked one: a concurrent case may be using it."""
+    if os.environ.get("DYAPP_TEST_SECRET_SERVICE") != "1":
+        return
+    locked = subprocess.run(
+        ["busctl", "--user", "get-property", "org.freedesktop.secrets",
+         "/org/freedesktop/secrets/aliases/default",
+         "org.freedesktop.Secret.Collection", "Locked"],
+        capture_output=True, text=True, timeout=30, check=False)
+    if locked.stdout.strip() != "b true":
+        return
+    print("Secret Service collection locked; replacing gnome-keyring",
+          file=sys.stderr)
+    # The daemon it starts keeps any pipe open: no captured output.
+    subprocess.run(
+        ["gnome-keyring-daemon", "--replace", "--unlock",
+         "--components=secrets"],
+        input=b"dyapp-ci-test-keyring", stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, timeout=30, check=False)
+
+
 def run(arguments, timeout=60, env=None):
     # Output goes to files, not pipes: WebKit helpers inherit it, and
     # sandboxed ones (bwrap --new-session) escape killpg, so waiting for
@@ -185,6 +208,8 @@ def smoke(executable, flows=True):
     def case(name, extra, profile, broken=False, peer=True, timeout=120,
              launcher=(), extra_env=None):
         arguments = [*launcher, executable, "--ui-test", *extra]
+        if not launcher:
+            unlock_keyring()
         if os.environ.get("DYAPP_SMOKE_RU") == "1":
             arguments.append("--ui-test-ru")
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
