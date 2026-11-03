@@ -13,7 +13,7 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
 }
 
 /// 600 profiles: places p0..p5 in "DE", ages 20..79 on 2026-10-25, interest "chess" on every 3rd, gender
-/// "f" on every 2nd, education level `i % 7`, one photo on every 4th.
+/// "f" on every 2nd, education level `i % 7 * 10`, one photo on every 4th.
 /// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
 const SIX: [&str; 6] = [
     "2950159", "2911298", "2867714", "2886242", "2925533", "2825297",
@@ -40,7 +40,7 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             } else {
                 dyapp_profile::Gender::Man.code()
             },
-            education_level: u32::try_from(i % 7).unwrap(),
+            education_level: u32::try_from(i % 7 * 10).unwrap(),
             photos: if i % 4 == 0 {
                 vec![dyapp_profile::Photo::default()]
             } else {
@@ -110,7 +110,7 @@ fn virtual_age_condition_contains_the_whole_birth_interval() {
 fn query_filters_least_education() {
     let (index, _) = population();
     let found = index
-        .query(&[cond(27, Op::Range, vec![5, 6], vec![])], 200, 10_000)
+        .query(&[cond(27, Op::Range, vec![50, 60], vec![])], 200, 10_000)
         .unwrap()
         .unwrap();
     assert_eq!(found.applied, vec![27]);
@@ -127,10 +127,10 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
         orientation: 5,
         relationship_goal: 5,
         role_preference: 3,
-        career_ambition: 3,
-        financial_philosophy: 3,
+        career_ambition: 30,
+        financial_philosophy: 30,
         employment_status: 6,
-        fitness_level: 4,
+        fitness_level: 40,
         zodiac: 12,
         ..Profile::default()
     };
@@ -165,6 +165,44 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
             scale.ordered
         );
     }
+}
+
+#[test]
+fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range() {
+    use dyapp_profile::{CareerAmbition, EducationLevel, Gender};
+    let index = index();
+    let (newer, profile, record) = signed(
+        &Identity::generate(),
+        Profile {
+            version: 1,
+            gender: Gender::MAX + 1,
+            career_ambition: CareerAmbition::MAX + 10,
+            education_level: EducationLevel::MAX + 10,
+            ..Profile::default()
+        },
+    );
+    index.put(&newer, &profile, &record, 0, true).unwrap();
+    let (between, profile, record) = signed(
+        &Identity::generate(),
+        Profile {
+            version: 1,
+            career_ambition: 15,
+            education_level: 45,
+            ..Profile::default()
+        },
+    );
+    index.put(&between, &profile, &record, 0, true).unwrap();
+    let hits = |field, op, values: &[i64]| {
+        let query = [cond(field, op, values.to_vec(), vec![])];
+        let found = index.query(&query, 10, 100).unwrap().unwrap();
+        found.hits.iter().map(|hit| hit.0).collect::<Vec<_>>()
+    };
+    // Stored, yet in no filter; asking for it is no error, so a newer client's query still runs.
+    assert!(hits(Gender::FIELD, Op::Eq, &[i64::from(Gender::MAX + 1)]).is_empty());
+    assert!(hits(CareerAmbition::FIELD, Op::Range, &[20, 40]).is_empty());
+    assert!(hits(27, Op::Eq, &[70]).is_empty());
+    assert_eq!(hits(CareerAmbition::FIELD, Op::Range, &[10, 20]), [between]);
+    assert_eq!(hits(27, Op::Range, &[40, 50]), [between]);
 }
 
 #[test]

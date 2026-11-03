@@ -115,11 +115,9 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     };
     let n = values.len();
     if let Some(scale) = scale(c.field) {
+        // No upper limit: a newer client may ask for a value this node does not know yet.
         if (op == Op::Range && !scale.ordered)
-            || (op != Op::Unspecified
-                && c.ints
-                    .iter()
-                    .any(|&value| value < 1 || value > i64::from(scale.max)))
+            || (op != Op::Unspecified && c.ints.iter().any(|&value| value < 1))
         {
             return Err(());
         }

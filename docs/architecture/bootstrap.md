@@ -512,7 +512,8 @@ fetch reveal device count and contact interest to store nodes; no private direct
   first release, a new indexed field bumps the index version; the node builds the new generation
   next to the old one, keeps answering from the old one and switches when the new one is ready
   ([generations](#storage-on-a-node)). Before v0.0.1 the format stays at version 1 and already
-  includes all nine categorical scales as INTEGER columns (zero stored as NULL),
+  includes all nine categorical scales as INTEGER columns (zero and a code above the scale's
+maximum, from a newer client, stored as NULL),
   `education_level`, photo count, and earliest/latest possible birth dates.
   Development indexes from earlier prototypes may need a manual reset.
   A derived `digest` table stores, per (topic, bucket), the XOR of
@@ -558,8 +559,9 @@ fetch reveal device count and contact interest to store nodes; no private direct
   numeric genders, orientations, goals, family roles, employment statuses and zodiac signs as
   value lists, career ambition, financial philosophy and fitness as lists or inclusive ranges,
   children, least education level, with a photo, active since a day, country, places and income,
-  the last two only with a country); zero or an out-of-scale value is invalid, and ranges on
-  unordered categories are invalid; income matches when the
+  the last two only with a country); it refuses zero or a code not on the scale. A node finds a
+  value below 1 or a range on an unordered category `INVALID`, while a value above its known
+  maximum is valid and simply matches nothing, so a newer client's query still runs; income matches when the
   profile's range overlaps the wanted one
   (`income_from ≤ max`, `income_to ≥ min`). Field 1000 (`search_results::ACTIVE_DAY`, listed in
   `search_fields`) is no `Profile` field: it is the UTC day of the key's `heartbeat` time, its
@@ -932,13 +934,14 @@ optional birth year, month and day); every public field is optional by design
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
 - `version` ≥ 1 and greater than the stored version for that peer ID (otherwise `STALE`);
 - content is sane: country is an ISO 3166-1 alpha-2 code, income range not reversed,
-  `education_level` at most 6, each categorical scale from 0 (unpublished) through
-  its shared maximum, each supplied birth component in range
+  each supplied birth component in range
   and together describing a possible Gregorian date; place at most 1024 characters,
   other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
-  carries no other field but the proof of work (`pow_nonce`, `pow_bits`).
+  carries no other field but the proof of work (`pow_nonce`, `pow_bits`). `education_level` and
+  the categorical scales take any value, so a code added by a later release reaches old nodes
+  ([ADR 0028](../decisions/0028-ordered-education-level.md)).
 
 Deletion publishes a tombstone with a higher version. While it is retained, a store node
 refuses every later profile version, and `get` returns the tombstone so peers learn of the

@@ -4,7 +4,10 @@
 use crate::error::Result;
 use crate::storage::{self, lock, storage_error};
 use dyapp_identity::SignedRecord;
-use dyapp_profile::Profile;
+use dyapp_profile::{
+    stated, CareerAmbition, EducationLevel, EmploymentStatus, FinancialPhilosophy, FitnessLevel,
+    Gender, Orientation, Profile, RelationshipGoal, RolePreference, Zodiac,
+};
 use prost::Message;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::collections::HashMap;
@@ -131,10 +134,6 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
     Ok(())
 }
 
-fn nonzero(value: u32) -> Option<u32> {
-    (value != 0).then_some(value)
-}
-
 /// Inserts the typed rows of a live profile with random rank `r` and counts its place.
 fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Result<()> {
     let place = crate::places::canonical(&p.country, &p.place);
@@ -152,17 +151,17 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             p.income_to.and_then(sql),
             p.has_kids,
             p.wants_more_kids,
-            nonzero(p.relationship_goal),
-            nonzero(p.career_ambition),
-            nonzero(p.education_level),
-            nonzero(p.orientation),
-            nonzero(p.role_preference),
-            nonzero(p.zodiac),
-            nonzero(p.financial_philosophy),
-            nonzero(p.employment_status),
-            nonzero(p.fitness_level),
+            stated(p.relationship_goal, RelationshipGoal::MAX),
+            stated(p.career_ambition, CareerAmbition::MAX),
+            stated(p.education_level, EducationLevel::MAX),
+            stated(p.orientation, Orientation::MAX),
+            stated(p.role_preference, RolePreference::MAX),
+            stated(p.zodiac, Zodiac::MAX),
+            stated(p.financial_philosophy, FinancialPhilosophy::MAX),
+            stated(p.employment_status, EmploymentStatus::MAX),
+            stated(p.fitness_level, FitnessLevel::MAX),
             place,
-            nonzero(p.gender),
+            stated(p.gender, Gender::MAX),
             i64::try_from(p.photos.len()).ok(),
             r,
             birth.map(|b| b.earliest.yyyymmdd()),

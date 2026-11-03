@@ -280,7 +280,10 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         (dyapp_profile::FitnessLevel::FIELD, draft.fitness_level),
         (dyapp_profile::Zodiac::FIELD, draft.zodiac),
     ] {
-        if value > dyapp_profile::scale(field).expect("closed scale").max {
+        if !dyapp_profile::scale(field)
+            .expect("closed scale")
+            .knows(value)
+        {
             return Err("invalid profile scale".into());
         }
     }

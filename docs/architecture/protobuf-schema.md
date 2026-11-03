@@ -42,7 +42,8 @@ as received, so a node keeps fields it does not understand.
 
 Every field is public ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
 anything private is end-to-end encrypted and never sent as a profile field. Empty strings, zero
-categorical scales and unset optionals mean "not published". Tag 3 is reserved after removing the unreleased
+categorical scales and unset optionals mean "not published"; a scale code above the known maximum
+verifies and counts as not stated ([ADR 0028](../decisions/0028-ordered-education-level.md)). Tag 3 is reserved after removing the unreleased
 integer `age` field. Three independent optional fields publish `birth_year`
 (tag 33), `birth_month` (34) and `birth_day` (35). All may be absent; a year is
 needed to derive age, while month and day may be published without one. Explicit

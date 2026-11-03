@@ -36,8 +36,6 @@ pub enum Error {
 pub const MAX_PLACE_CHARS: usize = 1024;
 /// Longest accepted short text field, in Unicode code points.
 pub const MAX_FIELD_CHARS: usize = 64;
-/// Highest `education_level`, a doctorate.
-pub const MAX_EDUCATION_LEVEL: u32 = 6;
 /// Most `interests` a profile lists; each is at most `MAX_FIELD_CHARS` long.
 pub const MAX_INTERESTS: usize = 32;
 /// Most photos a profile links.
@@ -58,8 +56,9 @@ mod birth_date;
 pub use birth_date::{BirthBounds, CivilDate};
 mod scales;
 pub use scales::{
-    scale, CareerAmbition, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
-    Orientation, RelationshipGoal, RolePreference, Scale, ScaleOption, Zodiac, SCALES,
+    scale, stated, CareerAmbition, EducationLevel, EmploymentStatus, FinancialPhilosophy,
+    FitnessLevel, Gender, Orientation, RelationshipGoal, RolePreference, Scale, ScaleOption,
+    Zodiac, SCALES,
 };
 
 impl Profile {
@@ -125,24 +124,6 @@ impl Profile {
         if let (Some(from), Some(to)) = (self.income_from, self.income_to) {
             if from > to {
                 return Err(Error::Invalid("income range is reversed"));
-            }
-        }
-        if self.education_level > MAX_EDUCATION_LEVEL {
-            return Err(Error::Invalid("education level is not on the scale"));
-        }
-        for (value, maximum) in [
-            (self.gender, Gender::MAX),
-            (self.orientation, Orientation::MAX),
-            (self.relationship_goal, RelationshipGoal::MAX),
-            (self.role_preference, RolePreference::MAX),
-            (self.career_ambition, CareerAmbition::MAX),
-            (self.financial_philosophy, FinancialPhilosophy::MAX),
-            (self.employment_status, EmploymentStatus::MAX),
-            (self.fitness_level, FitnessLevel::MAX),
-            (self.zodiac, Zodiac::MAX),
-        ] {
-            if value > maximum {
-                return Err(Error::Invalid("categorical field is not on the scale"));
             }
         }
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
@@ -817,11 +798,6 @@ mod tests {
         profile.profession = "high\u{200B}".into();
         assert!(verify(&profile.sign(&owner)).is_err());
         let mut profile = sample(1);
-        profile.education_level = MAX_EDUCATION_LEVEL;
-        assert!(verify(&profile.sign(&owner)).is_ok());
-        profile.education_level += 1;
-        assert!(verify(&profile.sign(&owner)).is_err());
-        let mut profile = sample(1);
         profile.interests = vec!["x".repeat(MAX_FIELD_CHARS); MAX_INTERESTS];
         assert!(verify(&profile.sign(&owner)).is_ok());
         profile.interests.push("chess".into());
@@ -841,7 +817,7 @@ mod tests {
     }
 
     #[test]
-    fn closed_scales_accept_zero_and_reject_unknown_values() {
+    fn verify_takes_scale_codes_from_a_newer_client() {
         fn field(profile: &mut Profile, tag: u32) -> &mut u32 {
             match tag {
                 36 => &mut profile.gender,
@@ -862,15 +838,12 @@ mod tests {
             *field(&mut profile, scale.field) = scale.max;
             assert!(verify(&profile.sign(&owner)).is_ok(), "{}", scale.key);
             *field(&mut profile, scale.field) = scale.max + 1;
-            assert_eq!(
-                verify(&profile.sign(&owner)),
-                Err(Error::Invalid("categorical field is not on the scale")),
-                "{}",
-                scale.key
-            );
+            assert!(verify(&profile.sign(&owner)).is_ok(), "{}", scale.key);
             *field(&mut profile, scale.field) = 0;
             assert!(verify(&profile.sign(&owner)).is_ok(), "{}", scale.key);
         }
+        profile.education_level = EducationLevel::MAX + 1;
+        assert!(verify(&profile.sign(&owner)).is_ok());
         assert!(verify(&Profile::tombstone(2, 0, 0).sign(&owner)).is_ok());
     }
 

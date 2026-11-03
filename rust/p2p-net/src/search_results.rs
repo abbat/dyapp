@@ -4,8 +4,9 @@
 use crate::proto::{Condition, Op};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::{
-    scale, CareerAmbition, CivilDate, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
-    Orientation, Profile, RelationshipGoal, RolePreference, VerifiedProfile, Zodiac,
+    scale, stated, CareerAmbition, CivilDate, EducationLevel, EmploymentStatus,
+    FinancialPhilosophy, FitnessLevel, Gender, Orientation, Profile, RelationshipGoal,
+    RolePreference, VerifiedProfile, Zodiac,
 };
 use std::collections::HashMap;
 
@@ -77,10 +78,6 @@ enum Value<'a> {
     Strings(Vec<&'a str>),
 }
 
-fn nonzero(value: u32) -> Option<i64> {
-    (value != 0).then_some(i64::from(value))
-}
-
 /// Field numbers as in `search::COLUMNS` on the node; `None` for a field queries cannot use.
 fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
     fn text(v: &str) -> Option<Value<'_>> {
@@ -88,27 +85,28 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
     }
     let int = |v: Option<i64>| Some(Value::Ints(v.into_iter().collect()));
     let wide = |v: Option<u64>| int(v.map(|v| i64::try_from(v).unwrap_or(i64::MAX)));
+    let code = |v: u32, maximum: u32| int(stated(v, maximum).map(i64::from));
     match field {
         4 => text(&profile.country),
         6 => wide(profile.income_from),
         7 => wide(profile.income_to),
         8 => int(profile.has_kids.map(i64::from)),
         9 => int(profile.wants_more_kids.map(i64::from)),
-        RelationshipGoal::FIELD => int(nonzero(profile.relationship_goal)),
-        CareerAmbition::FIELD => int(nonzero(profile.career_ambition)),
-        Orientation::FIELD => int(nonzero(profile.orientation)),
-        RolePreference::FIELD => int(nonzero(profile.role_preference)),
-        Zodiac::FIELD => int(nonzero(profile.zodiac)),
-        FinancialPhilosophy::FIELD => int(nonzero(profile.financial_philosophy)),
-        EmploymentStatus::FIELD => int(nonzero(profile.employment_status)),
-        FitnessLevel::FIELD => int(nonzero(profile.fitness_level)),
+        RelationshipGoal::FIELD => code(profile.relationship_goal, RelationshipGoal::MAX),
+        CareerAmbition::FIELD => code(profile.career_ambition, CareerAmbition::MAX),
+        Orientation::FIELD => code(profile.orientation, Orientation::MAX),
+        RolePreference::FIELD => code(profile.role_preference, RolePreference::MAX),
+        Zodiac::FIELD => code(profile.zodiac, Zodiac::MAX),
+        FinancialPhilosophy::FIELD => code(profile.financial_philosophy, FinancialPhilosophy::MAX),
+        EmploymentStatus::FIELD => code(profile.employment_status, EmploymentStatus::MAX),
+        FitnessLevel::FIELD => code(profile.fitness_level, FitnessLevel::MAX),
         19 => Some(Value::Strings(
             profile.interests.iter().map(String::as_str).collect(),
         )),
         20 => text(&profile.place),
         21 => int(i64::try_from(profile.photos.len()).ok()),
-        Gender::FIELD => int(nonzero(profile.gender)),
-        27 => int(Some(profile.education_level.into())),
+        Gender::FIELD => code(profile.gender, Gender::MAX),
+        EducationLevel::FIELD => code(profile.education_level, EducationLevel::MAX),
         _ => None,
     }
 }
@@ -143,8 +141,7 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
             let wants = &c.ints;
             if let Some(scale) = scale(c.field) {
                 if (op == Op::Range && !scale.ordered)
-                    || (op != Op::Unspecified
-                        && wants.iter().any(|&v| v < 1 || v > i64::from(scale.max)))
+                    || (op != Op::Unspecified && wants.iter().any(|&v| v < 1))
                 {
                     return false;
                 }
@@ -221,7 +218,7 @@ pub struct Filter {
     pub places: Vec<String>,
     /// Inclusive; matches a profile whose own income range overlaps it. Needs `country`.
     pub income: Option<(u64, u64)>,
-    /// Least `education_level`, from 1 to 6; a profile that leaves it unset does not match.
+    /// Least `education_level`, an `EducationLevel` code; a profile that leaves it unset does not match.
     pub min_education: Option<u32>,
     /// Only profiles with at least one photo.
     pub with_photo: bool,
@@ -238,7 +235,7 @@ pub enum FilterError {
     NeedsCountry,
     /// A range whose lower bound is above its upper one.
     EmptyRange,
-    /// Zero or a value above the categorical scale's maximum.
+    /// Zero or a value that is not on the categorical scale.
     InvalidScale,
     /// More than 16 conditions in one node query.
     TooManyConditions,
@@ -287,10 +284,14 @@ impl Filter {
             out.push(ints(7, Op::Range, vec![wide(min), i64::MAX]));
         }
         if let Some(min) = self.min_education {
-            if !(1..=6).contains(&min) {
+            if EducationLevel::from_code(min).is_none() {
                 return Err(FilterError::EmptyRange);
             }
-            out.push(ints(27, Op::Range, vec![min.into(), 6]));
+            out.push(ints(
+                EducationLevel::FIELD,
+                Op::Range,
+                vec![min.into(), EducationLevel::MAX.into()],
+            ));
         }
         if self.with_photo {
             out.push(ints(21, Op::Range, vec![1, i64::MAX]));
@@ -329,8 +330,8 @@ impl Filter {
             if values.len() > MAX_IN_VALUES {
                 return Err(FilterError::TooManyValues);
             }
-            let maximum = scale(field).ok_or(FilterError::InvalidScale)?.max;
-            if values.iter().any(|&v| v == 0 || v > maximum) {
+            let known = scale(field).ok_or(FilterError::InvalidScale)?;
+            if values.iter().any(|&v| v == 0 || !known.knows(v)) {
                 return Err(FilterError::InvalidScale);
             }
             if !values.is_empty() {
@@ -347,7 +348,7 @@ impl Filter {
             (FitnessLevel::FIELD, &self.fitness_levels),
         ] {
             let Some(selection) = selection else { continue };
-            let maximum = scale(field).ok_or(FilterError::InvalidScale)?.max;
+            let known = scale(field).ok_or(FilterError::InvalidScale)?;
             let (op, values) = match selection {
                 ScaleSelection::Any(values) => {
                     if values.is_empty() || values.len() > MAX_IN_VALUES {
@@ -362,7 +363,7 @@ impl Filter {
                     (Op::Range, vec![*min, *max])
                 }
             };
-            if values.iter().any(|&v| v == 0 || v > maximum) {
+            if values.iter().any(|&v| v == 0 || !known.knows(v)) {
                 return Err(FilterError::InvalidScale);
             }
             out.push(ints(field, op, values.into_iter().map(i64::from).collect()));
@@ -461,6 +462,23 @@ mod tests {
     }
 
     #[test]
+    fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range() {
+        let p = Profile {
+            career_ambition: CareerAmbition::MAX + 10,
+            education_level: EducationLevel::MAX + 10,
+            fitness_level: 15,
+            ..Profile::default()
+        };
+        let hits = |field, op, ints: &[i64]| matches(&condition(field, op, ints, &[]), &p);
+        let above = i64::from(CareerAmbition::MAX + 10);
+        assert!(!hits(CareerAmbition::FIELD, Op::Eq, &[above]));
+        assert!(!hits(CareerAmbition::FIELD, Op::Range, &[10, above]));
+        assert!(!hits(27, Op::Eq, &[70]));
+        assert!(hits(FitnessLevel::FIELD, Op::Range, &[10, 20]));
+        assert!(!hits(FitnessLevel::FIELD, Op::Range, &[20, 40]));
+    }
+
+    #[test]
     fn every_field_and_op_is_checked() {
         let p = Profile {
             birth_year: Some(1996),
@@ -480,26 +498,26 @@ mod tests {
             interests: vec!["chess".into(), "go".into()],
             place: "f20".into(),
             gender: Gender::Woman.code(),
-            education_level: 4,
+            education_level: EducationLevel::Specialist.code(),
             photos: vec![dyapp_profile::Photo::default()],
             ..Profile::default()
         };
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
             matches(&condition(field, op, ints, strings), &p)
         };
-        for (field, v) in [(6, 10), (7, i64::MAX), (8, 1), (9, 0), (21, 1), (27, 4)] {
+        for (field, v) in [(6, 10), (7, i64::MAX), (8, 1), (9, 0), (21, 1), (27, 40)] {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
             assert!(!hits(field, Op::Eq, &[v - 1], &[]), "{field}");
         }
         for (field, v) in [
             (RelationshipGoal::FIELD, 2),
-            (CareerAmbition::FIELD, 3),
+            (CareerAmbition::FIELD, 30),
             (Orientation::FIELD, 3),
             (RolePreference::FIELD, 2),
             (Zodiac::FIELD, 1),
-            (FinancialPhilosophy::FIELD, 1),
+            (FinancialPhilosophy::FIELD, 10),
             (EmploymentStatus::FIELD, 4),
-            (FitnessLevel::FIELD, 4),
+            (FitnessLevel::FIELD, 40),
             (Gender::FIELD, 1),
         ] {
             assert!(hits(field, Op::Eq, &[v], &[]), "{field}");
@@ -511,16 +529,16 @@ mod tests {
             assert!(hits(field, Op::Eq, &[], &[v]), "{field}");
             assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
         }
-        let sixteen: Vec<i64> = (0..16).collect();
-        let seventeen: Vec<i64> = (0..17).collect();
+        let sixteen: Vec<i64> = (0..16).map(|i| i * 10).collect();
+        let seventeen: Vec<i64> = (0..17).map(|i| i * 10).collect();
         assert!(hits(27, Op::Unspecified, &[], &[]));
-        assert!(!hits(27, Op::Eq, &[4, 5], &[]));
-        assert!(hits(27, Op::In, &[3, 4], &[]));
+        assert!(!hits(27, Op::Eq, &[40, 50], &[]));
+        assert!(hits(27, Op::In, &[30, 40], &[]));
         assert!(!hits(27, Op::In, &[], &[]));
         assert!(hits(27, Op::In, &sixteen, &[]));
         assert!(!hits(27, Op::In, &seventeen, &[]));
-        assert!(hits(27, Op::Range, &[3, 5], &[]));
-        assert!(!hits(27, Op::Range, &[3, 4, 5], &[]));
+        assert!(hits(27, Op::Range, &[30, 50], &[]));
+        assert!(!hits(27, Op::Range, &[30, 40, 50], &[]));
         let mut sixteen = vec!["other"; 15];
         sixteen.push("DE");
         let mut seventeen = sixteen.clone();
@@ -552,7 +570,7 @@ mod tests {
             place: "2950159".into(),
             income_from: Some(40_000),
             income_to: Some(60_000),
-            education_level: 4,
+            education_level: EducationLevel::Specialist.code(),
             photos: vec![dyapp_profile::Photo {
                 full: vec![vec![1; 32]],
                 thumbnail: vec![2; 32],
@@ -573,7 +591,7 @@ mod tests {
             country: "DE".into(),
             places: strings(&["2950159"]),
             income: Some((55_000, u64::MAX)),
-            min_education: Some(3),
+            min_education: Some(EducationLevel::Bachelor.code()),
             with_photo: true,
             active_since: Some(86_400 * 3 - 1),
             ..Filter::default()
@@ -697,7 +715,7 @@ mod tests {
             ..Filter::default()
         };
         assert_eq!(open(poor), FilterError::EmptyRange);
-        for min in [0, 7] {
+        for min in [0, 15, 70] {
             let level = Filter {
                 min_education: Some(min),
                 ..Filter::default()
@@ -729,7 +747,14 @@ mod tests {
         }
         assert_eq!(
             open(Filter {
-                career_ambitions: Some(ScaleSelection::Range(3, 1)),
+                career_ambitions: Some(ScaleSelection::Range(10, 15)),
+                ..Filter::default()
+            }),
+            FilterError::InvalidScale
+        );
+        assert_eq!(
+            open(Filter {
+                career_ambitions: Some(ScaleSelection::Range(30, 10)),
                 ..Filter::default()
             }),
             FilterError::EmptyRange

@@ -95,7 +95,7 @@ impl PublicProfileDraft {
         ] {
             let scale = dyapp_profile::scale(field)
                 .ok_or_else(|| CoreError::Failed("unknown profile scale".into()))?;
-            if value > scale.max {
+            if !scale.knows(value) {
                 return Err(CoreError::Failed("invalid profile scale".into()));
             }
         }
@@ -262,6 +262,11 @@ mod tests {
             ..Default::default()
         };
         assert!(save_profile_draft(dir.clone(), owner.clone(), invalid).is_err());
+        let between = PublicProfileDraft {
+            career_ambition: 15,
+            ..Default::default()
+        };
+        assert!(save_profile_draft(dir.clone(), owner.clone(), between).is_err());
         let impossible = PublicProfileDraft {
             birth_year: Some(1900),
             birth_month: Some(2),
