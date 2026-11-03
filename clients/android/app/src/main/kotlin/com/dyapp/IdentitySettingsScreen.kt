@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The Settings section: the identities on this device, the lock row with [lockMode], the blocked
- * and passed people, the new-mail notice, the theme and language and the version.
+ * and passed people, the new-mail notice, the theme and language, updates and the version.
  * Add changes the active slot through [act]; Lock opens its screen through [onLock]. Switching and the
  * network live in the identity menu, the connection chip and the Network tab.
  */
@@ -56,6 +56,7 @@ internal fun IdentitySettingsScreen(
         PassedCard(active)
         NoticeCard(active)
         AppearanceCard()
+        UpdatesCard()
         Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))
     }
 }

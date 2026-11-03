@@ -186,6 +186,16 @@
     <string name="settings_key_store">Хранилище ключей Android</string>
     <string name="settings_active_key">Активная · Хранилище ключей Android</string>
     <string name="settings_version">Версия %1$s</string>
+    <string name="settings_updates">Обновления</string>
+    <string name="update_interval">Проверять обновления</string>
+    <string name="update_6h">Каждые 6 часов</string>
+    <string name="update_12h">Каждые 12 часов</string>
+    <string name="update_24h">Каждые 24 часа</string>
+    <string name="update_7d">Каждые 7 дней</string>
+    <string name="update_check">Проверить сейчас</string>
+    <string name="update_last_check">Последняя успешная проверка: %1$s</string>
+    <string name="update_never">Никогда</string>
+    <string name="update_not_published">Обновления для этой платформы пока не опубликованы.</string>
     <string name="settings_network_active">Активная сеть: %1$s</string>
     <string name="settings_network_public">публичная</string>
     <string name="settings_network_none">Активной сети пока нет.</string>

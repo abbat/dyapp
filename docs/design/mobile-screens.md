@@ -128,7 +128,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`)
-  and `node` (`node-enabled`). `remove-dialog` and `remove-offline`
+  `node` (`node-enabled`) and `updates` (`update-6h`, `update-12h`, `update-24h`, `update-7d`,
+  `update-state`, `update-check`). `remove-dialog` and `remove-offline`
   confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
   `remove-action`, `remove-cancel-offline`, `remove-retry` and `remove-anyway`. A published profile
   is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
@@ -140,7 +141,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   message" only by default; turning it on asks for the notification permission on Android 13+, and
   while Android blocks notices a caption says so and Allow asks again or opens the app's
   notification settings; `notice-content` is disabled while off, keeps its choice, and names the
-  sender by short Peer ID), the theme and language, and the version; the other
+  sender by short Peer ID), the theme and language, the `updates` card and the version. Until the
+  verified update feed is live, the `updates` card shows the intervals with 24 hours selected, Last
+  successful check: Never and "Updates for this platform are not published yet.", all disabled; it
+  sends no request and saves nothing. Update checks and the update notice are planned. The other
   privacy settings and node settings are planned on Android. It switches identities only in the
   identity menu.
 

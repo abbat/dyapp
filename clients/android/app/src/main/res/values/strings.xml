@@ -187,6 +187,16 @@
     <string name="settings_key_store">Android Keystore</string>
     <string name="settings_active_key">Active · Android Keystore</string>
     <string name="settings_version">Version %1$s</string>
+    <string name="settings_updates">Updates</string>
+    <string name="update_interval">Check for updates</string>
+    <string name="update_6h">Every 6 hours</string>
+    <string name="update_12h">Every 12 hours</string>
+    <string name="update_24h">Every 24 hours</string>
+    <string name="update_7d">Every 7 days</string>
+    <string name="update_check">Check now</string>
+    <string name="update_last_check">Last successful check: %1$s</string>
+    <string name="update_never">Never</string>
+    <string name="update_not_published">Updates for this platform are not published yet.</string>
     <string name="settings_network_active">Active network: %1$s</string>
     <string name="settings_network_public">public</string>
     <string name="settings_network_none">No active network yet.</string>

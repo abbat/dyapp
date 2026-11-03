@@ -432,6 +432,18 @@ search providers asked: 0 of 3</pre>
         <label class="choice"><input type="checkbox" id="node-enabled"><span data-t="settings.node.enable"></span></label>
         <p class="caption" data-t="settings.node.hint"></p>
       </div>
+      <div class="card" id="updates">
+        <h2 data-t="settings.updates"></h2>
+        <fieldset><legend data-t="update.interval"></legend>
+          <label class="choice"><input type="radio" name="update" id="update-6h" disabled><span data-t="update.6h"></span></label>
+          <label class="choice"><input type="radio" name="update" id="update-12h" disabled><span data-t="update.12h"></span></label>
+          <label class="choice"><input type="radio" name="update" id="update-24h" checked disabled><span data-t="update.24h"></span></label>
+          <label class="choice"><input type="radio" name="update" id="update-7d" disabled><span data-t="update.7d"></span></label>
+        </fieldset>
+        <p class="caption" data-t="update.lastNever"></p>
+        <p class="caption" id="update-state" data-t="update.notPublished"></p>
+        <button type="button" class="btn" id="update-check" disabled data-t="update.check"></button>
+      </div>
       <p class="caption" data-t="settings.version"></p>
     </section>
 
