@@ -283,6 +283,10 @@
     <string name="remove_action">Удалить личность</string>
     <string name="remove_cancel">Отмена</string>
     <string name="profile_basics">О себе</string>
+    <string name="profile_name">Публичное имя (необязательно)</string>
+    <string name="profile_name_hint">Это имя видит каждый, кто найдёт ваш профиль. Оно не подтверждает, кто вы.</string>
+    <string name="profile_name_row">Публичное имя</string>
+    <string name="profile_name_invalid">В публичном имени используйте до 64 символов без скрытых знаков.</string>
     <string name="profile_birth">Дата рождения</string>
     <string name="profile_birth_part_year">Год</string>
     <string name="profile_birth_part_month">Месяц</string>

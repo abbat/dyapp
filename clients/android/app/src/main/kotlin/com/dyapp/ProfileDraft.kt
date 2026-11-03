@@ -24,8 +24,12 @@ private const val EMPLOYMENT_STATUS = "employment_status"
 private const val FITNESS_LEVEL = "fitness_level"
 private const val ZODIAC = "zodiac"
 
-/** Scale, birth and place values by key, and the ISO country code or empty. */
-internal data class ProfileDraft(val values: Map<String, Int> = emptyMap(), val country: String = "")
+/** Scale, birth and place values by key, the ISO country code or empty, and the optional public name. */
+internal data class ProfileDraft(
+    val values: Map<String, Int> = emptyMap(),
+    val country: String = "",
+    val name: String = "",
+)
 
 private fun validValue(key: String, value: Int, country: String, scales: List<ProfileScale>) = when (key) {
     in BIRTH_KEYS -> true
@@ -53,7 +57,7 @@ private fun readDraft(file: File, scales: List<ProfileScale>): ProfileDraft {
 internal fun ProfileDraft.record(): PublicProfileDraft {
     fun code(key: String) = (values[key] ?: 0).toUInt()
     return PublicProfileDraft(
-        gender = code(GENDER), orientation = code(ORIENTATION),
+        name = name, gender = code(GENDER), orientation = code(ORIENTATION),
         relationshipGoal = code(RELATIONSHIP_GOAL), rolePreference = code(ROLE_PREFERENCE),
         careerAmbition = code(CAREER_AMBITION), financialPhilosophy = code(FINANCIAL_PHILOSOPHY),
         employmentStatus = code(EMPLOYMENT_STATUS), fitnessLevel = code(FITNESS_LEVEL),
@@ -72,7 +76,7 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
     val optional = listOf(BIRTH_YEAR to birthYear, BIRTH_MONTH to birthMonth, BIRTH_DAY to birthDay,
         PLACE to place.toUIntOrNull())
     val values = scales.filter { it.second != 0u } + optional.mapNotNull { (key, value) -> value?.let { key to it } }
-    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country)
+    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name)
 }
 
 /** This identity's `client.db` draft; an older `profile-draft.json` is imported once and kept. */

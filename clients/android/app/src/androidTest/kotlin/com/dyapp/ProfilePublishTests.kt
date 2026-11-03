@@ -15,12 +15,16 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
 
 private const val PUBLISH_WAIT_MS = 30_000L
 internal const val READBACK_WAIT_MS = 120_000L
+
+// The core's limit on a profile text field.
+private const val PUBLIC_NAME_CHARS = 64
 
 private fun ComposeTestRule.eligibility(id: Int) = waitForText("profile-publish-eligibility", id)
 
@@ -84,6 +88,26 @@ class ProfilePublishTests {
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsEnabled()
+    }
+
+    private fun saveName(name: String, status: Int) {
+        compose.onNodeWithTag("profile-name").performScrollTo().performTextReplacement(name)
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
+    }
+
+    @Test
+    fun aPublicNameIsTrimmedOnSaveAndARefusedOneSaysWhy() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-profile").performClick()
+        saveName("x".repeat(PUBLIC_NAME_CHARS + 1), R.string.profile_name_invalid)
+        saveName("  Anna  ", R.string.profile_saved)
+        compose.openPublish()
+        val row = compose.activity.getString(R.string.profile_preview_row, string(R.string.profile_name_row), "Anna")
+        compose.onNodeWithTag("preview-name").performScrollTo().assertTextEquals(row)
+        compose.onNodeWithTag("profile-cancel").performClick()
+        // Later tests start without a public name.
+        saveName("", R.string.profile_saved)
     }
 
     @Test

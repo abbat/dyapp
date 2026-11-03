@@ -86,9 +86,10 @@ Nothing is created in its place.
 
 The IDs inside each section are the desktop ones; only the frame differs.
 
-- Profile, `profile` and `profile-hidden`: the form (`profile-hidden`, `profile-gender`,
-  `profile-goal`, `birth-year`, `birth-month`, `birth-day`, `profile-country`, `profile-place`,
-  `profile-more`), `profile-save` and `profile-publish`. `publish-dialog` and
+- Profile, `profile` and `profile-hidden`: the form (`profile-hidden`, `profile-name`,
+  `profile-gender`, `profile-goal`, `birth-year`, `birth-month`, `birth-day`, `profile-country`,
+  `profile-place`, `profile-more`), `profile-save` and `profile-publish`. The optional public
+  name is trimmed on save, and a refused one leaves the saved draft unchanged. `publish-dialog` and
   `publish-progress` show `profile-public-fields`, `profile-attested`, `profile-disclosure`,
   `profile-cancel` and `profile-publish-confirm`. On Android the `profile-hidden` switch
   turns on once a profile was published and needs an answering node; off opens the publish dialog

@@ -284,6 +284,10 @@
     <string name="remove_action">Remove identity</string>
     <string name="remove_cancel">Cancel</string>
     <string name="profile_basics">About you</string>
+    <string name="profile_name">Public name (optional)</string>
+    <string name="profile_name_hint">Anyone who finds your profile sees this name. It is never proof of who you are.</string>
+    <string name="profile_name_row">Public name</string>
+    <string name="profile_name_invalid">Use up to 64 characters with no hidden symbols for the public name.</string>
     <string name="profile_birth">Birth date</string>
     <string name="profile_birth_part_year">Year</string>
     <string name="profile_birth_part_month">Month</string>

@@ -41,14 +41,19 @@ private fun birthRows(saved: Map<String, Int>) = listOf(BIRTH_YEAR to R.string.p
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
-/** The public rows of [draft]: scales, place, birth parts and the possible age. */
+/** The public rows of [draft]: the public name, scales, place, birth parts and the possible age. */
 @Composable
 internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
     val birth = birthRows(saved)
-    if (fields.isEmpty() && places.isEmpty() && birth.isEmpty()) Text(stringResource(R.string.profile_preview_empty))
+    if (draft.name.isNotEmpty()) {
+        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), draft.name),
+            Modifier.testTag("preview-name"))
+    } else if (fields.isEmpty() && places.isEmpty() && birth.isEmpty()) {
+        Text(stringResource(R.string.profile_preview_empty))
+    }
     for ((scale, choice) in fields) {
         Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
             label(context, "value.$scale.$choice")))

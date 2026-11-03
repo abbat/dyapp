@@ -9,9 +9,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -55,15 +57,18 @@ fun ProfileDraftScreen(opened: Opened.Ready) {
     ProfileDraftForm(opened, scales, loaded.getOrThrow())
 }
 
-private fun saveEdits(opened: Opened.Ready, values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs): Int {
+// [edited] holds the scales and the name; [birth] and [place] replace its birth and place values.
+private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthInputs, place: PlaceInputs): Int {
     val parts = parseBirthParts(birth.year, birth.month, birth.day)
     val picked = place.place?.let { mapOf(PLACE to it) }.orEmpty()
-    val kept = values.filterKeys { it !in BIRTH_KEYS && it != PLACE }
+    val kept = edited.values.filterKeys { it !in BIRTH_KEYS && it != PLACE }
     return when {
         parts == null -> R.string.profile_birth_invalid
         place.unknown -> R.string.profile_place_unknown
-        else -> runCatching { saveDraft(opened, ProfileDraft(kept + parts + picked, place.country)) }
-            .fold({ R.string.profile_saved }, { R.string.profile_save_failed })
+        else -> runCatching { saveDraft(opened, edited.copy(values = kept + parts + picked, country = place.country)) }
+            .fold({ R.string.profile_saved }, {
+                if ("invalidName" in it.toString()) R.string.profile_name_invalid else R.string.profile_save_failed
+            })
     }
 }
 
@@ -75,13 +80,14 @@ private fun ProfileDraftForm(
 ) {
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
+    val name = remember(opened.slot.id) { mutableStateOf(saved.name) }
     val lang = placeLang()
     val place = remember(opened.slot.id) {
         PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
     }
     val (basics, more) = remember(scales) { scales.partition { it.key in BASIC_SCALES } }
     val visibility = remember(opened.slot.id) { loadVisibility(opened) }
-    val edits = inputs(values, birth, place)
+    val edits = inputs(values, birth, place) + name.value
     var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
     val unsaved = edits != savedEdits
     Column(
@@ -91,18 +97,27 @@ private fun ProfileDraftForm(
     ) {
         HideCard(opened, visibility, unsaved)
         PhotosCard(opened)
-        BasicsCard(basics, values, birth)
+        BasicsCard(basics, values, birth, name)
         PlaceCard(place)
         MoreScales(more, values)
         SaveAndPublish(opened, scales, visibility, unsaved) {
-            saveEdits(opened, values, birth, place).also { if (it == R.string.profile_saved) savedEdits = edits }
+            saveEdits(opened, ProfileDraft(values, name = name.value), birth, place)
+                .also { if (it == R.string.profile_saved) savedEdits = edits }
         }
     }
 }
 
 @Composable
-private fun BasicsCard(scales: List<ProfileScale>, values: MutableMap<String, Int>, birth: BirthInputs) = FormCard {
+private fun BasicsCard(
+    scales: List<ProfileScale>,
+    values: MutableMap<String, Int>,
+    birth: BirthInputs,
+    name: MutableState<String>,
+) = FormCard {
     CardTitle(R.string.profile_basics)
+    OutlinedTextField(name.value, { name.value = it }, Modifier.fillMaxWidth().testTag("profile-name"),
+        label = { Text(stringResource(R.string.profile_name)) },
+        supportingText = { Text(stringResource(R.string.profile_name_hint)) }, singleLine = true)
     ScalePickers(scales, values)
     CardTitle(R.string.profile_birth)
     BirthDateFields(birth)

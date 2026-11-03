@@ -9,6 +9,9 @@ use std::sync::Arc;
 /// Editable public profile fields. Zero leaves any categorical field unpublished.
 #[derive(Clone, Debug, Default, PartialEq, Eq, uniffi::Record)]
 pub struct PublicProfileDraft {
+    /// Optional public name, empty when unset; saving trims it.
+    #[uniffi(default = "")]
+    pub name: String,
     /// Self-declared gender.
     pub gender: u32,
     /// Self-declared orientation.
@@ -42,6 +45,7 @@ pub struct PublicProfileDraft {
 impl From<&Profile> for PublicProfileDraft {
     fn from(profile: &Profile) -> Self {
         Self {
+            name: profile.name.clone(),
             gender: profile.gender,
             orientation: profile.orientation,
             relationship_goal: profile.relationship_goal,
@@ -62,6 +66,12 @@ impl From<&Profile> for PublicProfileDraft {
 
 impl PublicProfileDraft {
     fn validate(&self) -> Result<(), CoreError> {
+        let name = self.name.trim();
+        if name.chars().count() > dyapp_profile::MAX_FIELD_CHARS
+            || !dyapp_profile::is_clean_text(name)
+        {
+            return Err(CoreError::Failed("invalidName".into()));
+        }
         for (field, value) in [
             (dyapp_profile::Gender::FIELD, self.gender),
             (dyapp_profile::Orientation::FIELD, self.orientation),
@@ -104,6 +114,7 @@ impl PublicProfileDraft {
     }
 
     pub(crate) fn apply_to(&self, profile: &mut Profile) {
+        self.name.trim().clone_into(&mut profile.name);
         profile.gender = self.gender;
         profile.orientation = self.orientation;
         profile.relationship_goal = self.relationship_goal;
@@ -218,6 +229,26 @@ mod tests {
         );
         let saved = store.profile_draft().unwrap().unwrap();
         assert_eq!((saved.version, saved.pow_bits), (7, 4));
+    }
+
+    #[test]
+    fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
+        let dir = temp_dir();
+        let owner = IdentityKey::generate();
+        let named = |name: String| PublicProfileDraft {
+            name,
+            ..Default::default()
+        };
+        save_profile_draft(dir.clone(), owner.clone(), named("  Anna  ".into())).unwrap();
+        let saved = load_profile_draft(dir.clone(), owner.clone()).unwrap();
+        assert_eq!(saved.unwrap().name, "Anna");
+        let long = "x".repeat(dyapp_profile::MAX_FIELD_CHARS + 1);
+        for name in [long, "An\u{202E}na".into()] {
+            let error = save_profile_draft(dir.clone(), owner.clone(), named(name));
+            assert!(matches!(error, Err(CoreError::Failed(code)) if code == "invalidName"));
+        }
+        let saved = load_profile_draft(dir, owner).unwrap();
+        assert_eq!(saved.unwrap().name, "Anna");
     }
 
     #[test]
