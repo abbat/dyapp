@@ -82,6 +82,13 @@ message Profile {
   uint32 tattoos = 50;
   uint32 marital_status = 51;
   uint32 pets = 52;
+  // `Gender` codes the owner is looking for, without zero or repeats, at most 16.
+  repeated uint32 seeking_genders = 53;
+  // Partner age bounds the owner is looking for, each 18 to 120, from not above to.
+  optional uint32 seeking_age_from = 54;
+  optional uint32 seeking_age_to = 55;
+  // The owner is not looking now, and so states none of the three fields above.
+  bool not_looking = 56;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

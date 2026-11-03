@@ -62,6 +62,18 @@ pub struct PublicProfileDraft {
     /// Pets.
     #[uniffi(default = 0)]
     pub pets: u32,
+    /// Gender codes the owner is looking for.
+    #[uniffi(default = [])]
+    pub seeking_genders: Vec<u32>,
+    /// Lowest partner age, 18 to 120.
+    #[uniffi(default = None)]
+    pub seeking_age_from: Option<u32>,
+    /// Highest partner age, 18 to 120.
+    #[uniffi(default = None)]
+    pub seeking_age_to: Option<u32>,
+    /// Not looking now; saving drops the three fields above.
+    #[uniffi(default = false)]
+    pub not_looking: bool,
 }
 
 impl From<&Profile> for PublicProfileDraft {
@@ -89,6 +101,10 @@ impl From<&Profile> for PublicProfileDraft {
             tattoos: profile.tattoos,
             marital_status: profile.marital_status,
             pets: profile.pets,
+            seeking_genders: profile.seeking_genders.clone(),
+            seeking_age_from: profile.seeking_age_from,
+            seeking_age_to: profile.seeking_age_to,
+            not_looking: profile.not_looking,
         }
     }
 }
@@ -106,6 +122,16 @@ impl PublicProfileDraft {
         }
         if !dyapp_profile::valid_about(self.about.trim()) {
             return Err(CoreError::Failed("invalidAbout".into()));
+        }
+        let genders = dyapp_profile::scale(dyapp_profile::Gender::FIELD)
+            .ok_or_else(|| CoreError::Failed("unknown profile scale".into()))?;
+        if !dyapp_profile::valid_seeking(
+            &self.seeking_genders,
+            self.seeking_age_from,
+            self.seeking_age_to,
+        ) || !self.seeking_genders.iter().all(|&code| genders.knows(code))
+        {
+            return Err(CoreError::Failed("invalidSeeking".into()));
         }
         for (field, value) in [
             (dyapp_profile::Gender::FIELD, self.gender),
@@ -176,6 +202,16 @@ impl PublicProfileDraft {
         profile.tattoos = self.tattoos;
         profile.marital_status = self.marital_status;
         profile.pets = self.pets;
+        profile.not_looking = self.not_looking;
+        if self.not_looking {
+            profile.seeking_genders.clear();
+            profile.seeking_age_from = None;
+            profile.seeking_age_to = None;
+        } else {
+            profile.seeking_genders.clone_from(&self.seeking_genders);
+            profile.seeking_age_from = self.seeking_age_from;
+            profile.seeking_age_to = self.seeking_age_to;
+        }
     }
 }
 
@@ -303,6 +339,46 @@ mod tests {
         assert_eq!(saved(), Some(180));
         save(None).unwrap();
         assert_eq!(saved(), None);
+    }
+
+    #[test]
+    fn seeking_round_trips_refuses_bad_values_and_not_looking_drops_it() {
+        let dir = temp_dir();
+        let owner = IdentityKey::generate();
+        let woman = dyapp_profile::Gender::Woman.code();
+        let seeking = PublicProfileDraft {
+            seeking_genders: vec![woman],
+            seeking_age_from: Some(25),
+            seeking_age_to: Some(40),
+            ..Default::default()
+        };
+        save_profile_draft(dir.clone(), owner.clone(), seeking.clone()).unwrap();
+        let saved = || load_profile_draft(dir.clone(), owner.clone()).unwrap();
+        assert_eq!(saved(), Some(seeking.clone()));
+        for refused in [
+            PublicProfileDraft {
+                seeking_genders: vec![999],
+                ..Default::default()
+            },
+            PublicProfileDraft {
+                seeking_age_from: Some(41),
+                seeking_age_to: Some(40),
+                ..Default::default()
+            },
+        ] {
+            let error = save_profile_draft(dir.clone(), owner.clone(), refused);
+            assert!(matches!(error, Err(CoreError::Failed(code)) if code == "invalidSeeking"));
+        }
+        let not_looking = PublicProfileDraft {
+            not_looking: true,
+            ..seeking
+        };
+        save_profile_draft(dir.clone(), owner.clone(), not_looking).unwrap();
+        let expected = PublicProfileDraft {
+            not_looking: true,
+            ..Default::default()
+        };
+        assert_eq!(saved(), Some(expected));
     }
 
     #[test]

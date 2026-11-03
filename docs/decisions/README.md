@@ -78,5 +78,6 @@ fails only the push that carries it.
 | [0040](0040-device-linking.md) | Device linking without history |
 | [0041](0041-optional-profile-height.md) | Optional profile height |
 | [0042](0042-habits-and-about-profile-fields.md) | Habit scales and about text in the profile |
+| [0043](0043-seeking-and-mutual-search.md) | Who a profile is looking for and mutual search |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

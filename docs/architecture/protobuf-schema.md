@@ -76,7 +76,11 @@ device or another owner invalidates the profile. `height` (field 46) is optional
 ([ADR 0041](../decisions/0041-optional-profile-height.md)). `about` (field 47) is plain text of at
 most 500 code points that may hold line feeds; it is not indexed. `smoking`, `drinking`, `tattoos`,
 `marital_status` and `pets` (fields 48–52) are closed scales, zero when not published
-([ADR 0042](../decisions/0042-habits-and-about-profile-fields.md)).
+([ADR 0042](../decisions/0042-habits-and-about-profile-fields.md)). `seeking_genders`,
+`seeking_age_from`, `seeking_age_to` and `not_looking` (fields 53–56) state who the owner is looking
+for: at most 16 nonzero distinct `Gender` codes and age bounds of 18–120 that are not reversed.
+`not_looking` together with any of the other three invalidates the profile
+([ADR 0043](../decisions/0043-seeking-and-mutual-search.md)).
 
 ## Node protocol
 
