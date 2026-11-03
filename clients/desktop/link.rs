@@ -287,6 +287,8 @@ mod tests {
         assert_eq!(copied, Some(rows));
         let store = crate::profile::open(&slot.dir, &linked.identity).unwrap();
         assert_eq!(store.link_pending().unwrap().unwrap(), b"state");
+        // Windows cannot remove a directory with an open database in it.
+        drop(store);
 
         let kept = slots::list(&root).unwrap().iter().any(|s| s.id == old.id);
         fs::remove_dir_all(root).unwrap();

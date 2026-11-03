@@ -203,7 +203,7 @@ impl Session {
 
     /// Start the own group when the owner's newest profile `own` lists a second device, none
     /// exists here and this device's turn has come: the first by mailbox starts at once, the next
-    /// after [`ADD_TURN_SECONDS`], so a device gone for good does not stop the others. Returns
+    /// after `ADD_TURN_SECONDS`, so a device gone for good does not stop the others. Returns
     /// whether it started. Run it after the mailbox, so a Welcome from an earlier turn is seen
     /// first; [`Self::add_own_devices`] brings in later devices.
     pub async fn join_own_devices(
