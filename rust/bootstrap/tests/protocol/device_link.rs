@@ -447,7 +447,7 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
         .unwrap();
     let synced = second_session.store();
     assert!(synced.blocked(&bob).unwrap() && synced.muted(&bob).unwrap());
-    assert_eq!(synced.passed_peers().unwrap(), [bob.clone()]);
+    assert_eq!(synced.passed_peers().unwrap(), vec![bob.clone()]);
     assert_eq!(synced.local_name(&bob).unwrap(), "Bobby");
     second_session
         .change_peer(

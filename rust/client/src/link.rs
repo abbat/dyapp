@@ -131,6 +131,9 @@ pub struct Linked {
     pub state: Vec<u8>,
 }
 
+/// One record's parts seen so far, by index.
+type Parts<'a> = BTreeMap<u16, &'a [u8]>;
+
 impl Invite {
     /// Starts a link that delivers to `mailbox`.
     pub fn new(mailbox: [u8; 32], now: u64) -> Result<Self, Error> {
@@ -196,7 +199,7 @@ impl Invite {
     /// means no complete record opened yet: someone who saw the code cannot spend the key with junk.
     pub fn open(&mut self, parts: &[Vec<u8>], now: u64) -> Result<Option<Linked>, Error> {
         self.live(now)?;
-        let mut records: BTreeMap<(&[u8], u16), BTreeMap<u16, &[u8]>> = BTreeMap::new();
+        let mut records: BTreeMap<(&[u8], u16), Parts> = BTreeMap::new();
         for part in parts.iter().filter(|part| part.len() > HEADER_LEN) {
             let (id, rest) = part.split_at(ID_LEN);
             let index = u16::from_be_bytes([rest[0], rest[1]]);

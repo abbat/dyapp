@@ -22,7 +22,7 @@ fn only_a_newer_profile_without_this_device_revokes_it() {
     assert!(!revoked(&without(5)));
     let mut draft = without(5);
     session.list_self(&mut draft, binding.clone()).unwrap();
-    assert_eq!(draft.devices, [certificate.clone()]);
+    assert_eq!(draft.devices, vec![certificate.clone()]);
 
     // Once listed, neither the same version nor an older copy drops it.
     assert!(!revoked(&draft));
