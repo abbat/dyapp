@@ -575,6 +575,7 @@ const profileDraft = () => ({
       `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`).value),
   ])),
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
+  height: Number(document.getElementById('profile-height').value) || null,
   country: placeCountry.value, place: profilePlace.id(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
@@ -645,6 +646,7 @@ const showProfile = async (call = invoke) => {
   for (const part of ['year', 'month', 'day']) {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
+  document.getElementById('profile-height').value = view.draft.height || '';
   const unsetCountry = document.createElement('option');
   unsetCountry.value = '';
   unsetCountry.textContent = window.strings['profile.unset'];
@@ -698,6 +700,7 @@ const publicFacts = (draft, place) => {
     const value = draft[`birth${part}`];
     if (value !== null) facts.push([window.strings[`profile.birth${part}`], String(value)]);
   }
+  if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
   return facts;
 };
 // The same fields as lines, or the empty notice.
@@ -718,7 +721,8 @@ const saveProfile = async (call = invoke) => {
   const view = await call('save_profile', { draft: profileDraft() })
     .catch((error) => {
       if (!identityCurrent(generation)) return null;
-      throw String(error) === 'invalidName' ? window.strings['profile.nameInvalid'] : error;
+      const refusal = { invalidName: 'profile.nameInvalid', invalidHeight: 'profile.heightInvalid' }[String(error)];
+      throw refusal ? window.strings[refusal] : error;
     });
   if (!identityCurrent(generation) || !view) return null;
   showAge(view);

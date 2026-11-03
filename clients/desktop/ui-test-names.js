@@ -91,6 +91,10 @@ const checkPublicName = async () => {
   if (refused !== window.strings['profile.nameInvalid']) {
     throw new Error(`a refused public name was not explained: ${refused}`);
   }
+  await saveProfile(() => Promise.reject('invalidHeight')).catch((error) => { refused = error; });
+  if (refused !== window.strings['profile.heightInvalid']) {
+    throw new Error(`a refused height was not explained: ${refused}`);
+  }
 
   await openArea('search-area');
   const peer = 'd'.repeat(64);

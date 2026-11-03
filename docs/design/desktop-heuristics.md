@@ -115,6 +115,20 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 States with no finding: `picker`, `setup`, `wizard-network`, `recovery-details`, `ready`,
 `network-empty`, `profile-edit`, `profile-preview`, `profile-published`, `remove`.
 
+### Height review (2026-11-04)
+
+Reviewed the height input in `profile-edit`, its row in `profile-preview` and the height range in
+the search filters against H1–H10, from the markup and messages; the rendered states come from
+`make ui-test-linux` in CI and were not opened for this entry. The labels carry the unit (H2), the
+fields follow the birth and age fields (H4), the native range check refuses a value outside 50–272
+before a save (H5) and clearing the field unpublishes it (H3).
+
+| State | Heuristic | Severity | Problem | Fix |
+| --- | --- | --- | --- | --- |
+| Search filters | H9 | 2 | A reversed age range reached the core and came back as a raw `invalid search age` | Age and height ranges are refused at the upper field with a message saying what to change |
+
+No open finding.
+
 ### Safety-number review (2026-10-31)
 
 Reviewed `profile-view-safety` and its `profile-view` and `profile-view-match`

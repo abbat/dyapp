@@ -191,6 +191,10 @@
                 aria-describedby="profile-name-hint">
               <p id="profile-name-hint" class="caption" data-i18n="profile.nameHint"></p></div>
             <div id="profile-basics" class="grid"></div>
+            <div class="grid">
+              <div class="field"><label for="profile-height" data-i18n="profile.height"></label>
+                <input id="profile-height" type="number" min="50" max="272"></div>
+            </div>
             <h2 data-i18n="profile.birth"></h2>
             <div class="grid">
               <div class="field"><label for="birth-year" data-i18n="profile.birthYear"></label>
@@ -232,6 +236,12 @@
                 <input id="search-age-min" type="number" min="18" max="150"></div>
               <div class="field"><label for="search-age-max" data-i18n="search.ageMax"></label>
                 <input id="search-age-max" type="number" min="18" max="150"></div>
+            </div>
+            <div id="search-height" class="contents" hidden>
+              <div class="field"><label for="search-height-min" data-i18n="search.heightMin"></label>
+                <input id="search-height-min" type="number" min="50" max="272"></div>
+              <div class="field"><label for="search-height-max" data-i18n="search.heightMax"></label>
+                <input id="search-height-max" type="number" min="50" max="272"></div>
             </div>
             <div id="search-country-row" class="field" hidden>
               <label for="search-country" data-i18n="search.country"></label>

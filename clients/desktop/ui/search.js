@@ -13,6 +13,7 @@ const searchCountryCode = () => searchCountry.value.trim().toUpperCase();
 const searchPlace = placePicker(searchCountry, document.getElementById('search-place'),
   document.getElementById('search-places'), searchCountryCode);
 const BIRTH_AGE_FIELD = 1001;
+const HEIGHT_FIELD = 46;
 let searchBusy = false;
 const searchMessage = (key, detail = '') =>
   statusMessage(document.getElementById('search-status'), 'search-open-network', key, detail);
@@ -47,6 +48,7 @@ const showSearchFilters = (offered) => {
     return row;
   }));
   showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
+  showFilter(document.getElementById('search-height'), offered.includes(HEIGHT_FIELD));
   showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
   showFilter(document.getElementById('search-place-row'),
     offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD));
@@ -63,6 +65,8 @@ const searchQuery = () => {
   if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
   const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
+  const [from, to] = [filled('search-height-min'), filled('search-height-max')];
+  if (from || to) conditions.push({ field: HEIGHT_FIELD, op: 'range', ints: [Number(from || 50), Number(to || 272)] });
   const company = document.getElementById('search-company').value.trim();
   const kind = company ? document.getElementById('search-employer').value : 'any';
   const employer = kind === 'same' ? { kind, company }
@@ -624,7 +628,15 @@ const clearSearch = () => {
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
+// A reversed range is explained at its upper field before anything is sent.
+const checkRange = (from, to) => {
+  const [low, high] = [document.getElementById(from).value, document.getElementById(to).value];
+  document.getElementById(to).setCustomValidity(
+    low && high && Number(low) > Number(high) ? window.strings['search.rangeReversed'] : '');
+};
 const runSearch = async (call = invoke) => {
+  checkRange('search-age-min', 'search-age-max');
+  checkRange('search-height-min', 'search-height-max');
   if (searchBusy || !searchForm.reportValidity()) return;
   const generation = identityGeneration;
   const query = searchQuery();

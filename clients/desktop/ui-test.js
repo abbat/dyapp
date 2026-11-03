@@ -160,6 +160,7 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-gender').value = '1';
   document.getElementById('birth-year').value = '1990';
   document.getElementById('birth-month').value = '2';
+  document.getElementById('profile-height').value = '180';
   const place = document.getElementById('profile-place');
   place.value = 'Nowhere';
   place.dispatchEvent(new Event('input', { bubbles: true }));
@@ -182,18 +183,20 @@ const expectedFields = (photos = 0) => [
   `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
   `${window.strings['profile.birthYear']}: 1990`,
   `${window.strings['profile.birthMonth']}: 2`,
+  `${window.strings['profile.height']}: 180`,
   ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
 ].join('|');
 const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
   if (saved) {
     if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
-      || byId('birth-month').value !== '2') {
+      || byId('birth-month').value !== '2' || byId('profile-height').value !== '180') {
       throw new Error('failed publish lost the saved draft');
     }
   } else {
     byId('profile-gender').value = '1';
     byId('birth-year').value = '1990';
     byId('birth-month').value = '2';
+    byId('profile-height').value = '180';
   }
   const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields(photos)) throw new Error(`profile preview changed: ${fields}`);
@@ -257,7 +260,7 @@ const unhideProfileOnLoopback = async () => {
 const checkSavedProfile = async () => {
   if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
     || byId('birth-month').value !== '2' || byId('birth-day').value !== ''
-    || byId('profile-country').value !== 'DE') {
+    || byId('profile-height').value !== '180' || byId('profile-country').value !== 'DE') {
     throw new Error('profile draft changed after restart');
   }
   const place = byId('profile-place').value;
@@ -352,6 +355,26 @@ const checkStatus = async (traffic) => {
 // profile has no place, so filtering by Berlin finds nobody.
 const shown = (id) => !document.getElementById(id).hidden;
 const searchFailures = () => document.getElementById('search-failures').textContent;
+// The published profile is 180 cm tall: bounds are inclusive and a reversed range is never sent.
+const checkHeightFilter = async () => {
+  if (!shown('search-height')) throw new Error('height filter not offered');
+  const [min, max] = [byId('search-height-min'), byId('search-height-max')];
+  const search = async (from, to) => {
+    [min.value, max.value] = [from, to];
+    byId('run-search').click();
+    await window.searchDone;
+    return byId('search-status').textContent;
+  };
+  const before = byId('search-status').textContent;
+  if (await search('190', '170') !== before || max.validationMessage !== window.strings['search.rangeReversed']) {
+    throw new Error(`reversed height range: ${max.validationMessage}`);
+  }
+  const within = await search('180', '180');
+  if (within !== `${window.strings['search.results']} 1`) throw new Error(`height search: ${within}`);
+  const above = await search('181', '');
+  if (above !== window.strings['search.empty']) throw new Error(`height search above: ${above}`);
+  await search('', '');
+};
 const searchOnLoopback = async (connected) => {
   await checkStatus(false);
   await openArea('search-area');
@@ -397,6 +420,7 @@ const searchOnLoopback = async (connected) => {
   }
   await checkStatus(true);
   await shot('statusbar');
+  await checkHeightFilter();
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
   await pickPlace('search');
   document.getElementById('run-search').click();

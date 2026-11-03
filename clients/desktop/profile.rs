@@ -73,6 +73,9 @@ pub struct Draft {
     pub birth_year: Option<u32>,
     pub birth_month: Option<u32>,
     pub birth_day: Option<u32>,
+    /// Whole centimetres, see [`dyapp_profile::valid_height`].
+    #[serde(default)]
+    pub height: Option<u32>,
     /// ISO 3166-1 alpha-2 code from [`places::countries`], empty when unset.
     #[serde(default)]
     pub country: String,
@@ -198,6 +201,7 @@ impl From<&Profile> for Draft {
             birth_year: profile.birth_year,
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
+            height: profile.height,
             name: profile.name.clone(),
             country: profile.country.clone(),
             place: profile.place.clone(),
@@ -294,6 +298,9 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
     if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
         return Err("invalidName".into());
     }
+    if !dyapp_profile::valid_height(draft.height) {
+        return Err("invalidHeight".into());
+    }
     let store = open(dir, identity)?;
     let profile = Profile {
         name: name.to_owned(),
@@ -309,6 +316,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         birth_year: draft.birth_year,
         birth_month: draft.birth_month,
         birth_day: draft.birth_day,
+        height: draft.height,
         country: draft.country,
         place: draft.place,
         ..stored(&store)?
@@ -713,6 +721,24 @@ mod tests {
             assert_eq!(error, Err("invalidName".into()));
         }
         assert_eq!(load(&dir, &alice).unwrap().draft.name, "Anna");
+    }
+
+    #[test]
+    fn height_is_saved_cleared_and_refused_out_of_range() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        let tall = |height| Draft {
+            height,
+            ..woman(None)
+        };
+        save(&dir, &alice, tall(Some(180))).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().draft.height, Some(180));
+        for height in [49, 273] {
+            let error = save(&dir, &alice, tall(Some(height)));
+            assert_eq!(error, Err("invalidHeight".into()));
+        }
+        assert_eq!(load(&dir, &alice).unwrap().draft.height, Some(180));
+        save(&dir, &alice, tall(None)).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().draft.height, None);
     }
 
     #[test]
