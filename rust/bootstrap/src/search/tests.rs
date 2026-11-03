@@ -57,6 +57,7 @@ pub(super) fn profile(version: u64) -> Profile {
         country: "DE".into(),
         place: "2950159".into(),
         interests: vec!["chess".into()],
+        seeking_genders: vec![1, 3],
         ..Profile::default()
     }
 }

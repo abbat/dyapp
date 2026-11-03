@@ -38,6 +38,10 @@ const INTERESTS: u32 = 19;
 const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
 /// Virtual condition: inclusive birth-date bounds at the query's UTC date.
 pub const BIRTH_AGE: u32 = dyapp_p2p_net::search_results::BIRTH_AGE;
+/// `eq` the searcher's gender: the profile seeks it.
+const SEEKING_GENDERS: u32 = dyapp_p2p_net::search_results::SEEKING_GENDERS;
+/// `eq` the searcher's age: the profile allows it.
+const SEEKING_AGE: u32 = dyapp_p2p_net::search_results::SEEKING_AGE;
 /// Profile field numbers a query may filter on, plus virtual fields.
 pub const SEARCH_FIELDS: &[u32] = &[
     4,
@@ -64,6 +68,8 @@ pub const SEARCH_FIELDS: &[u32] = &[
     Tattoos::FIELD,
     MaritalStatus::FIELD,
     Pets::FIELD,
+    SEEKING_GENDERS,
+    SEEKING_AGE,
     ACTIVE_DAY,
     BIRTH_AGE,
 ];
@@ -104,13 +110,28 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
             values: c.ints.iter().copied().map(Value::Integer).collect(),
         }));
     }
+    if c.field == SEEKING_AGE {
+        if op == Op::Unspecified {
+            return Ok(None);
+        }
+        let ([age], true) = (&c.ints[..], op == Op::Eq && c.strings.is_empty()) else {
+            return Err(());
+        };
+        return Ok(Some(Filter {
+            field: c.field,
+            sql: "COALESCE(`p`.`seeking_age_from` <= ? AND `p`.`seeking_age_to` >= ?, 0)".into(),
+            values: vec![Value::Integer(*age), Value::Integer(*age)],
+        }));
+    }
     let interests = c.field == INTERESTS;
     let active = c.field == ACTIVE_DAY;
+    let seeking = c.field == SEEKING_GENDERS;
     let Some(&(_, column, int)) = COLUMNS
         .iter()
         .find(|(f, ..)| *f == c.field)
         .or(interests.then_some(&(INTERESTS, "", false)))
         .or(active.then_some(&(ACTIVE_DAY, "", true)))
+        .or(seeking.then_some(&(SEEKING_GENDERS, "", true)))
     else {
         return Ok(None);
     };
@@ -140,10 +161,17 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     } else if active {
         "EXISTS (SELECT 1 FROM `key` AS `k` WHERE `k`.`key` = `p`.`key` AND `k`.`heartbeat` / 86400"
             .to_string()
+    } else if seeking {
+        "EXISTS (SELECT 1 FROM `seeking_gender` AS `g` WHERE `g`.`key` = `p`.`key` AND `g`.`gender`"
+            .to_string()
     } else {
         format!("`p`.`{column}`")
     };
-    let close = if interests || active { ")" } else { "" };
+    let close = if interests || active || seeking {
+        ")"
+    } else {
+        ""
+    };
     let sql = match op {
         Op::Unspecified => return Ok(None),
         Op::Range if !int => return Ok(None),

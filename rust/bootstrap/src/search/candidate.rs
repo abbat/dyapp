@@ -135,7 +135,7 @@ fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
 }
 
 /// Makes the candidate hold the source state of each key: the old rows go with their digest
-/// and place counts, the source rows come in, `profile` and `interest` rebuilt from the record.
+/// and place counts, the source rows come in, the derived tables rebuilt from the record.
 /// Idempotent. Returns the estimated bytes written.
 pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
     let mut bytes = 0;
@@ -151,7 +151,7 @@ pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> R
         if let Some(version) = old {
             flip(tx, key, version.unsigned_abs())?;
             uncount(tx, &key[..])?;
-            for table in ["profile", "interest", "record", "key"] {
+            for table in ["profile", "interest", "seeking_gender", "record", "key"] {
                 tx.execute(
                     &format!("DELETE FROM `{table}` WHERE `key` = ?"),
                     [&key[..]],

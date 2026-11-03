@@ -329,6 +329,90 @@ fn query_filters_place_in_and_budget() {
 }
 
 #[test]
+fn mutual_conditions_keep_only_who_seeks_the_gender_and_the_age() {
+    let index = index();
+    let put = |genders: Vec<u32>, from, to, not_looking| {
+        let (key, p, r) = signed(
+            &Identity::generate(),
+            Profile {
+                version: 1,
+                seeking_genders: genders,
+                seeking_age_from: from,
+                seeking_age_to: to,
+                not_looking,
+                ..Profile::default()
+            },
+        );
+        index.put(&key, &p, &r, 0, true).unwrap();
+        key
+    };
+    let bounded = put(vec![1, 2], Some(25), Some(35), false);
+    let open_above = put(vec![1], Some(25), None, false);
+    let open_below = put(vec![1], None, Some(35), false);
+    let no_age = put(vec![1], None, None, false);
+    let no_gender = put(vec![], Some(25), Some(35), false);
+    let not_looking = put(vec![], None, None, true);
+    let found = |gender: i64, age: i64| {
+        let q = [
+            cond(53, Op::Eq, vec![gender], vec![]),
+            cond(54, Op::Eq, vec![age], vec![]),
+        ];
+        let found = index.query(&q, 50, 10_000).unwrap().unwrap();
+        assert_eq!(found.applied, [53, 54]);
+        let mut keys: Vec<_> = found.hits.into_iter().map(|h| h.0).collect();
+        keys.sort_unstable();
+        keys
+    };
+    let sorted = |mut keys: Vec<[u8; 32]>| {
+        keys.sort_unstable();
+        keys
+    };
+    assert_eq!(found(1, 30), sorted(vec![bounded, open_above, open_below]));
+    assert_eq!(found(2, 30), [bounded]);
+    assert_eq!(found(1, 24), [open_below]);
+    assert_eq!(found(1, 36), [open_above]);
+    assert_eq!(found(3, 30), Vec::<[u8; 32]>::new());
+    let all = index.query(&[], 50, 10_000).unwrap().unwrap().hits;
+    assert_eq!(all.len(), 6);
+    for key in [no_age, no_gender, not_looking] {
+        assert!(all.iter().any(|h| h.0 == key));
+    }
+}
+
+#[test]
+fn a_republish_replaces_who_a_profile_seeks() {
+    let index = index();
+    let id = Identity::generate();
+    let seeking = Profile {
+        version: 1,
+        seeking_genders: vec![1],
+        seeking_age_from: Some(25),
+        ..Profile::default()
+    };
+    let (key, p, r) = signed(&id, seeking);
+    index.put(&key, &p, &r, 0, true).unwrap();
+    let q = [
+        cond(53, Op::Eq, vec![1], vec![]),
+        cond(54, Op::Eq, vec![30], vec![]),
+    ];
+    let hits = || index.query(&q, 50, 10_000).unwrap().unwrap().hits.len();
+    assert_eq!(hits(), 1);
+    let (key, p, r) = signed(
+        &id,
+        Profile {
+            version: 2,
+            not_looking: true,
+            ..Profile::default()
+        },
+    );
+    index.put(&key, &p, &r, 0, false).unwrap();
+    assert_eq!(hits(), 0);
+    let gender_only = [cond(53, Op::Eq, vec![1], vec![])];
+    let found = index.query(&gender_only, 50, 10_000).unwrap().unwrap();
+    assert!(found.hits.is_empty());
+}
+
+#[test]
 fn invalid_conditions() {
     let (index, _) = population();
     let bad = |q: Vec<Condition>| index.query(&q, 50, 10_000).unwrap().is_err();
@@ -339,6 +423,14 @@ fn invalid_conditions() {
         vec!["thirty"]
     )]));
     assert!(bad(vec![cond(4, Op::Eq, vec![1], vec![])]));
+    for malformed in [
+        cond(54, Op::In, vec![20], vec![]),
+        cond(54, Op::Eq, vec![20, 30], vec![]),
+        cond(54, Op::Eq, vec![], vec![]),
+        cond(54, Op::Eq, vec![20], vec!["twenty"]),
+    ] {
+        assert!(bad(vec![malformed]));
+    }
     assert!(bad(vec![cond(BIRTH_AGE, Op::Range, vec![40, 30], vec![])]));
     assert!(bad(vec![
         cond(BIRTH_AGE, Op::Range, vec![1, 2], vec![]),

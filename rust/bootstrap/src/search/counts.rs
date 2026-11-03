@@ -55,7 +55,7 @@ pub(super) fn remove_keys(tx: &mut writer::Change<'_>, keys: &[Vec<u8>]) -> Resu
         flip(tx, key_array, version.unsigned_abs())?;
         uncount(tx, key)?;
         bytes += size.unsigned_abs();
-        for table in ["profile", "interest", "record", "key"] {
+        for table in ["profile", "interest", "seeking_gender", "record", "key"] {
             tx.execute(&format!("DELETE FROM `{table}` WHERE `key` = ?"), [key])
                 .map_err(storage_error)?;
         }

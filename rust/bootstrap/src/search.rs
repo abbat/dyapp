@@ -37,12 +37,15 @@ CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NO
   `zodiac` INTEGER, `financial_philosophy` INTEGER, `employment_status` INTEGER, `fitness_level` INTEGER,
   `place` TEXT, `gender` INTEGER, `photo_count` INTEGER, `r` INTEGER NOT NULL,
   `birth_earliest` INTEGER, `birth_latest` INTEGER, `height` INTEGER, `smoking` INTEGER, `drinking` INTEGER,
-  `tattoos` INTEGER, `marital_status` INTEGER, `pets` INTEGER) WITHOUT ROWID;
+  `tattoos` INTEGER, `marital_status` INTEGER, `pets` INTEGER, `seeking_age_from` INTEGER,
+  `seeking_age_to` INTEGER) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_country` ON `profile` (`country`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_r` ON `profile` (`r`);
 CREATE TABLE IF NOT EXISTS `interest` (`key` BLOB, `interest` TEXT,
   PRIMARY KEY (`key`, `interest`)) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS `seeking_gender` (`key` BLOB, `gender` INTEGER,
+  PRIMARY KEY (`key`, `gender`)) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS `record` (`key` BLOB PRIMARY KEY, `record` BLOB NOT NULL) WITHOUT ROWID;
 -- Every known key, tombstones too: version, limits and heartbeat for expiry and eviction.
 CREATE TABLE IF NOT EXISTS `key` (`key` BLOB PRIMARY KEY, `topic` INTEGER NOT NULL,
@@ -141,9 +144,17 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
     let place = crate::places::canonical(&p.country, &p.place);
     count_place(tx, &p.country, place, 1)?;
     let birth = p.birth_bounds();
+    // One open bound leaves that side unlimited; neither bound means no age is allowed.
+    let seeking_age = (p.seeking_age_from.is_some() || p.seeking_age_to.is_some()).then(|| {
+        (
+            p.seeking_age_from.unwrap_or(dyapp_profile::MIN_SEEKING_AGE),
+            p.seeking_age_to.unwrap_or(dyapp_profile::MAX_SEEKING_AGE),
+        )
+    });
     tx.execute(
         "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29,
+           ?30, ?31)",
         params![
             &key[..],
             topic(key),
@@ -173,7 +184,9 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             stated(p.drinking, Drinking::MAX),
             stated(p.tattoos, Tattoos::MAX),
             stated(p.marital_status, MaritalStatus::MAX),
-            stated(p.pets, Pets::MAX)
+            stated(p.pets, Pets::MAX),
+            seeking_age.map(|age| age.0),
+            seeking_age.map(|age| age.1)
         ],
     )
     .map_err(storage_error)?;
@@ -181,6 +194,13 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
         tx.execute(
             "INSERT OR IGNORE INTO `interest` VALUES (?, ?)",
             params![&key[..], interest],
+        )
+        .map_err(storage_error)?;
+    }
+    for gender in &p.seeking_genders {
+        tx.execute(
+            "INSERT OR IGNORE INTO `seeking_gender` VALUES (?, ?)",
+            params![&key[..], gender],
         )
         .map_err(storage_error)?;
     }
@@ -449,7 +469,7 @@ impl SearchIndex {
         }
         flip(&tx, key, version.unsigned_abs())?;
         uncount(&tx, &key[..])?;
-        for table in ["profile", "interest", "record"] {
+        for table in ["profile", "interest", "seeking_gender", "record"] {
             tx.execute(
                 &format!("DELETE FROM `{table}` WHERE `key` = ?"),
                 [&key[..]],

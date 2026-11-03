@@ -14,6 +14,7 @@ fn dump(db: &Connection) -> Vec<Vec<Value>> {
         "key",
         "profile",
         "interest",
+        "seeking_gender",
         "record",
         "place_count",
         "digest",

@@ -577,6 +577,13 @@ maximum, from a newer client, stored as NULL),
   advertise field 1001. Profile tag 3 is reserved; the retired integer age
   is neither published nor searchable. The client helper builds field 1001 from an explicit UTC civil date and rechecks
   each verified profile against its birth bounds.
+  [ADR 0043](../decisions/0043-seeking-and-mutual-search.md) adds two conditions for the mutual
+  search, `search_results::SEEKING_GENDERS` (field 53) and `SEEKING_AGE` (field 54), each `eq` with
+  one number: the searcher's gender code, held in the `seeking_gender` table, and the searcher's
+  age in years, within the indexed `seeking_age_from..=seeking_age_to`. One open bound leaves that
+  side unlimited; a profile with neither bound matches no age, so a not-looking profile never
+  matches. `Filter.seeks` builds both and `mutual_conditions` builds them from the owner's profile,
+  or gives nothing without a known gender or an exact adult age. The client re-checks both.
   Multi-node search marks the result partial if any node skips field 1001 or
   fails, or if a query or fetch reply leaves results out.
 - **Queries.** A query is unsigned. The node draws a random `s` and runs
