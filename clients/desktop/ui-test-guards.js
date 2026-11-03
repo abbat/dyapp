@@ -933,7 +933,12 @@ const linkDisconnectStep = async () => {
   await showDevices();
   document.getElementById('device-disconnect-1').click();
   document.getElementById('disconnect-action').click();
+  const dialog = document.getElementById('disconnect');
   await window.disconnectDone;
+  if (dialog.open) {
+    throw new Error(`disconnect failed: ${document.getElementById('disconnect-problem').textContent}`);
+  }
+  await closed(dialog);
   await window.devicesShown;
   if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
     throw new Error('the device was not disconnected');
