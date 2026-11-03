@@ -2,6 +2,7 @@ package com.dyapp
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +29,10 @@ class PseudoLocaleTests {
         configuration.setLocale(Locale.forLanguageTag(language))
         val localized = base.createConfigurationContext(configuration)
         compose.setContent {
+            // The localized context is no Activity, so keep the test Activity's photo picker registry.
+            val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
             CompositionLocalProvider(
+                LocalActivityResultRegistryOwner provides registry,
                 LocalContext provides localized,
                 LocalConfiguration provides configuration
             ) { MainScreen() }

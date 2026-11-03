@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -30,9 +31,10 @@ import uniffi.dyapp.profilePublishBlock
 
 internal const val ELIGIBILITY_TAG = "profile-publish-eligibility"
 
-// The localized text for a failed publication, by the stable Rust error text.
+// The localized text for a failed publication, by the stable Rust error text, which goes to the log.
 internal fun publishError(error: Throwable): Int {
     val message = error.toString()
+    Log.w("dyapp", "Publication failed: $message")
     return when {
         "blocked: underage" in message -> R.string.profile_publish_error_underage
         "blocked: notAttested" in message -> R.string.profile_publish_error_not_attested

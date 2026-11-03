@@ -20,6 +20,7 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import uniffi.dyapp.addProfilePhoto
 import uniffi.dyapp.profilePhotos
+import uniffi.dyapp.removeProfilePhoto
 
 class ProfilePhotosTests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -40,7 +41,9 @@ class ProfilePhotosTests {
         return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
     }
 
+    // The identity outlives a test, so earlier photos are dropped before the seed.
     private fun seed(count: Int) = RustBridge.withKey(opened()) { dir, key ->
+        repeat(profilePhotos(dir, key).size) { removeProfilePhoto(dir, key, 0u) }
         repeat(count) {
             val photo = preparePhoto(png(Color.argb(128, it * 40, 0, 0)))
             addProfilePhoto(dir, key, photo.full, photo.thumbnail)
