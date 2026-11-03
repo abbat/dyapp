@@ -38,6 +38,13 @@
     <string name="view_passed">Пропущено. Человек скрыт из вашего поиска и списка «Вы понравились» и об этом не узнает.</string>
     <string name="view_unpassed">Пропуск отменён. Человек снова может появиться в поиске и списке «Вы понравились».</string>
     <string name="view_pass_failed">Пропуск не сохранён.</string>
+    <string name="settings_blocked">Заблокированные</string>
+    <string name="settings_unblock">Разблокировать</string>
+    <string name="settings_blocked_retry">Повторить отзыв токенов</string>
+    <string name="settings_blocked_none">Никто не заблокирован.</string>
+    <string name="settings_blocked_hint">Блокировка скрывает человека из вашего поиска и чатов и отзывает его сетевые токены. Человек об этом не узнает. Если отзыв ещё ожидается, повторите его.</string>
+    <string name="settings_blocked_failed">Не удалось прочитать или изменить список заблокированных. Повторите.</string>
+    <string name="settings_blocked_retry_failed">Не удалось повторить отзыв токенов:</string>
     <string name="settings_passed">Пропущенные люди</string>
     <string name="settings_unpass">Отменить пропуск</string>
     <string name="settings_passed_none">Вы никого не пропускали.</string>

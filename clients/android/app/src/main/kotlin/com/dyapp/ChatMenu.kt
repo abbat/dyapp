@@ -202,11 +202,7 @@ internal fun CoroutineScope.mutePeer(form: ChatForm, feed: ChatFeed, peer: Strin
 @Composable
 internal fun BlockedNote(block: ChatBlock) {
     val tag = "chats-blocked-note"
-    val text = stringResource(when (block.revocation) {
-        ChatRevocation.PENDING -> R.string.chats_blocked_pending
-        ChatRevocation.NOT_NEEDED -> R.string.chats_blocked_not_needed
-        ChatRevocation.CONFIRMED -> R.string.chats_blocked_confirmed
-    })
+    val text = stringResource(revocationText(block.revocation))
     Column(Modifier.padding(16.dp)) {
         if (block.revocation == ChatRevocation.PENDING) {
             ErrorNotice(text, tag, block.detail.orEmpty(), "chats-blocked-details", "copy-chats-blocked-details")

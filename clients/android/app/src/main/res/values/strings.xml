@@ -39,6 +39,13 @@
     <string name="view_passed">Passed. They are hidden from your search and Liked you, and they are not told.</string>
     <string name="view_unpassed">Pass undone. They can appear in your search and Liked you again.</string>
     <string name="view_pass_failed">The pass was not saved.</string>
+    <string name="settings_blocked">Blocked people</string>
+    <string name="settings_unblock">Unblock</string>
+    <string name="settings_blocked_retry">Retry token revocation</string>
+    <string name="settings_blocked_none">Nobody is blocked.</string>
+    <string name="settings_blocked_hint">A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.</string>
+    <string name="settings_blocked_failed">The blocked people could not be read or changed. Try again.</string>
+    <string name="settings_blocked_retry_failed">Could not retry token revocation:</string>
     <string name="settings_passed">Passed people</string>
     <string name="settings_unpass">Undo pass</string>
     <string name="settings_passed_none">You have not passed on anyone.</string>

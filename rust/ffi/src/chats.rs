@@ -544,7 +544,9 @@ mod tests {
             chats.chat_history(peer.clone()).unwrap_err().to_string(),
             "blocked"
         );
+        assert_eq!(chats.blocked_peers().unwrap(), [peer.clone()]);
         chats.unblock(peer.clone()).unwrap();
+        assert!(chats.blocked_peers().unwrap().is_empty());
         assert!(!chats.chat_history(peer.clone()).unwrap().muted);
         // A mute changes only the flag, and like a block it needs a valid other peer.
         chats.set_muted(peer.clone(), true).unwrap();

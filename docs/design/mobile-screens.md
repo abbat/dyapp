@@ -119,7 +119,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
 - Linking a phone to an identity and the Devices list are planned; the desktop screens define the
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
-  `settings-create`), the `lock-settings` row, `blocked` (`unblock-1`), `passed` (`unpass-1`,
+  `settings-create`), the `lock-settings` row, `blocked` (`retry-revocation-1`, `unblock-1`, `blocked-none`), `passed` (`unpass-1`,
   `passed-none`), `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
@@ -130,12 +130,13 @@ The IDs inside each section are the desktop ones; only the frame differs.
   is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
   offers Retry, Remove anyway and Cancel. A key that does not open cannot sign a withdrawal, so
   removing that identity skips it. Android Settings has the identity rows, the lock
-  row, the `passed` card (Undo pass shows the person in search and Liked you again; a failed read
+  row, the `blocked` card (Unblock, and a retry of the token revocation that says what it came
+  to; a failed read or unblock keeps the last list and says so), the `passed` card (Undo pass shows the person in search and Liked you again; a failed read
   or undo keeps the last list and says so), the `privacy` card with only `message-notifications` and `notice-content` (on and "New
   message" only by default; turning it on asks for the notification permission on Android 13+, and
   while Android blocks notices a caption says so and Allow asks again or opens the app's
   notification settings; `notice-content` is disabled while off, keeps its choice, and names the
-  sender by short Peer ID), the theme and language, and the version; a block list, the other
+  sender by short Peer ID), the theme and language, and the version; the other
   privacy settings and node settings are planned on Android. It switches identities only in the
   identity menu.
 
@@ -165,7 +166,7 @@ first and returns to the first section, as any activity relaunch does.
   `chat-input` and `chat-send`, plus `chat-more` with `chat-clear`, `chat-mute` and `chat-block`,
   `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear. A request hides
   `chat-block` and offers `request-block` on its notice instead. Unlike the desktop, a block asks
-  first in a confirmation dialog, because Android has no block list to undo it from yet; after a
+  first in a confirmation dialog, because the chat closes and Unblock sits in Settings; after a
   block the chat closes and a note on Chats says the outcome, with the details when the revocation
   is still pending. Opening a chat
   marks its texts read, without a read receipt. A long press on an own message that is not

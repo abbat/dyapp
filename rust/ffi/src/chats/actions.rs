@@ -224,6 +224,12 @@ impl ChatSession {
         self.likes(peer_id)
     }
 
+    /// The peers this profile blocks, in Peer ID order.
+    pub fn blocked_peers(&self) -> Result<Vec<String>, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        session.store().blocked_peers().map_err(failed)
+    }
+
     /// The peers this profile passes on, in Peer ID order.
     pub fn passed_peers(&self) -> Result<Vec<String>, CoreError> {
         let session = self.session.lock().map_err(failed)?;

@@ -134,6 +134,22 @@ class IdentitySettingsTests {
     }
 
     @Test
+    fun retryAndUnblockEmptyTheBlockedPeopleList() {
+        compose.shownPeerId()
+        val peer = "cd".repeat(32)
+        RustBridge.withChats(active()) { it.block(peer) }
+        compose.onNodeWithTag("nav-settings").performClick()
+        compose.onNodeWithTag("blocked-none").assertDoesNotExist()
+        // No token was issued to the peer, so the retry has nothing to revoke.
+        click("retry-revocation-1")
+        compose.waitForText("blocked-revoke-status", R.string.chats_blocked_not_needed)
+        click("unblock-1")
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("blocked-none").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("unblock-1").assertDoesNotExist()
+        check(RustBridge.withChats(active()) { it.blockedPeers() }.isEmpty()) { "Unblock was not stored" }
+    }
+
+    @Test
     fun theConnectionChipOpensTheNetworkEditorAndSettingsReturn() {
         compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
