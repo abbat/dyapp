@@ -1,6 +1,6 @@
 //! Clearing, reading, editing, deleting and blocking in one pair's chat, as on desktop.
 
-use super::{failed, ChatSession};
+use super::{failed, ChatLikes, ChatSession};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
@@ -214,6 +214,20 @@ impl ChatSession {
     /// change: the mail, the chat and its unread count stay. Errors as for `unblock`.
     pub fn set_muted(&self, peer_id: String, muted: bool) -> Result<(), CoreError> {
         self.change_own(peer_id, PeerChange::Muted(muted))
+    }
+
+    /// Pass on `peer_id` here and for the owner's other devices, or undo that; no signal goes to
+    /// the peer. A pass hides the peer from search and Liked you. Returns the like state after it.
+    /// Errors as for `unblock`.
+    pub fn set_passed(&self, peer_id: String, passed: bool) -> Result<ChatLikes, CoreError> {
+        self.change_own(peer_id.clone(), PeerChange::Passed(passed))?;
+        self.likes(peer_id)
+    }
+
+    /// The peers this profile passes on, in Peer ID order.
+    pub fn passed_peers(&self) -> Result<Vec<String>, CoreError> {
+        let session = self.session.lock().map_err(failed)?;
+        session.store().passed_peers().map_err(failed)
     }
 }
 

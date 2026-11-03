@@ -49,7 +49,7 @@ class ProfileViewTests {
 
     @Test
     fun aFoundProfileShowsItsFieldsAndTheFirstActions() {
-        form.likes = ChatLikes(ours = false, matched = false)
+        form.likes = ChatLikes(ours = false, matched = false, passed = false)
         show()
         compose.onNodeWithTag("view-fields").assertExists()
         compose.onNodeWithTag("view-peer").assertExists()
@@ -69,7 +69,7 @@ class ProfileViewTests {
         show()
         compose.onNodeWithTag("view-like").assertIsNotEnabled()
         compose.runOnIdle {
-            form.likes = ChatLikes(ours = false, matched = false)
+            form.likes = ChatLikes(ours = false, matched = false, passed = false)
             form.sending = true
         }
         compose.onNodeWithTag("view-like").assertIsNotEnabled()
@@ -78,7 +78,7 @@ class ProfileViewTests {
 
     @Test
     fun aMatchOffersTheOpenMessageAndTakingTheLikeBackAsks() {
-        form.likes = ChatLikes(ours = true, matched = true)
+        form.likes = ChatLikes(ours = true, matched = true, passed = false)
         show()
         compose.onNodeWithTag("view-match").assertExists()
         compose.onNodeWithTag("view-message-match").assertExists()
@@ -95,7 +95,7 @@ class ProfileViewTests {
 
     @Test
     fun aLikeWithoutAMatchStillHasTheOneMessageRule() {
-        form.likes = ChatLikes(ours = true, matched = false)
+        form.likes = ChatLikes(ours = true, matched = false, passed = false)
         show()
         compose.onNodeWithTag("view-unlike").assertExists()
         compose.onNodeWithTag("view-message").assertExists()
@@ -105,7 +105,7 @@ class ProfileViewTests {
 
     @Test
     fun theOwnProfileHasNothingToLikeOrWriteTo() {
-        form.likes = ChatLikes(ours = false, matched = false)
+        form.likes = ChatLikes(ours = false, matched = false, passed = false)
         show(own = true)
         compose.onNodeWithTag("view-fields").assertExists()
         compose.onNodeWithTag("view-like").assertDoesNotExist()
@@ -114,7 +114,7 @@ class ProfileViewTests {
 
     @Test
     fun aFailedLikeShowsItsReason() {
-        form.likes = ChatLikes(ours = false, matched = false)
+        form.likes = ChatLikes(ours = false, matched = false, passed = false)
         form.status = ChatStatus(R.string.view_like_unpublished, "details")
         show()
         compose.onNodeWithText(string(R.string.view_like_unpublished)).assertExists()

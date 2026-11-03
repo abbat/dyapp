@@ -11,6 +11,8 @@ pub struct ChatLikes {
     pub ours: bool,
     /// Both like each other.
     pub matched: bool,
+    /// This profile passes on the peer: search and Liked you hide them; the peer is not told.
+    pub passed: bool,
 }
 
 /// Status of the current own content; node acceptance alone is not recipient delivery.

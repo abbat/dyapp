@@ -161,7 +161,7 @@ pub struct FoundProfile {
 pub struct ProfileSearchResult {
     /// Field numbers every reached node filters on and the client checks, ascending.
     pub offered: Vec<u32>,
-    /// Verified matches in no set order, without blocked peers.
+    /// Verified matches in no set order, without blocked or passed peers.
     pub profiles: Vec<FoundProfile>,
     /// Coverage may be incomplete.
     pub partial: bool,
@@ -207,7 +207,8 @@ impl ProfileSearcher {
     ) -> Result<ProfileSearchResult, CoreError> {
         let mut cache = self.cache.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
-        let blocked = store.blocked_peers().map_err(failed)?;
+        let mut hidden = store.blocked_peers().map_err(failed)?;
+        hidden.extend(store.passed_peers().map_err(failed)?);
         let own = store.profile_draft().map_err(failed)?.unwrap_or_default();
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
@@ -222,7 +223,7 @@ impl ProfileSearcher {
                 limit,
                 POW_BITS,
                 &cache,
-                &blocked,
+                &hidden,
             )
             .await;
             Ok::<_, CoreError>((reached, results))

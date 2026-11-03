@@ -95,7 +95,11 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
     let (alice_key, alice) = person(&address);
     let (bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
-    let likes = |ours, matched| ChatLikes { ours, matched };
+    let likes = |ours, matched| ChatLikes {
+        ours,
+        matched,
+        passed: false,
+    };
 
     assert_eq!(
         alice.like(bob_id.clone(), true).unwrap(),

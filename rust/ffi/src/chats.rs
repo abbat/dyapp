@@ -368,6 +368,7 @@ fn likes_in(store: &Store, peer_id: &str) -> Result<ChatLikes, CoreError> {
     Ok(ChatLikes {
         ours: likes.ours,
         matched: likes.matched(),
+        passed: store.passed(peer_id).map_err(failed)?,
     })
 }
 
@@ -494,7 +495,8 @@ mod tests {
             chats.likes(peer.clone()).unwrap(),
             ChatLikes {
                 ours: false,
-                matched: false
+                matched: false,
+                passed: false
             }
         );
         assert!(chats.liked_you().unwrap().is_empty());
@@ -553,6 +555,13 @@ mod tests {
             chats.set_muted(key.peer_id(), true).unwrap_err().to_string(),
             "invalidPeer"
         );
+        // A pass is local, shows in the like state and the list, and is undone the same way.
+        assert!(chats.set_passed(peer.clone(), true).unwrap().passed);
+        assert_eq!(chats.passed_peers().unwrap(), [peer.clone()]);
+        assert!(!chats.set_passed(peer.clone(), false).unwrap().passed);
+        assert!(chats.passed_peers().unwrap().is_empty());
+        let pass_self = chats.set_passed(key.peer_id(), true);
+        assert_eq!(pass_self.unwrap_err().to_string(), "invalidPeer");
         // Off keeps the chosen content for the next turn-on.
         assert_eq!(chats.notice().unwrap(), ChatNotice::Fixed);
         chats.set_notice(ChatNotice::Text).unwrap();
