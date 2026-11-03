@@ -26,7 +26,7 @@ class ChatsScreenTests {
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
-    private fun row(peer: String, state: ChatState) = ChatRow(peer, state, null, 0uL)
+    private fun row(peer: String, state: ChatState) = ChatRow(peer, state, null, 0uL, false)
 
     private fun found(peer: String) = FoundProfile(peer, PublicProfileDraft(
         gender = 0u,

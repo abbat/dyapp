@@ -554,7 +554,10 @@ mod tests {
         chats.set_muted(peer.clone(), false).unwrap();
         assert!(!chats.chat_history(peer.clone()).unwrap().muted);
         assert_eq!(
-            chats.set_muted(key.peer_id(), true).unwrap_err().to_string(),
+            chats
+                .set_muted(key.peer_id(), true)
+                .unwrap_err()
+                .to_string(),
             "invalidPeer"
         );
         // A pass is local, shows in the like state and the list, and is undone the same way.
