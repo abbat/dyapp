@@ -23,11 +23,15 @@ internal sealed interface ProfileLoad {
     data class Failed(val status: ChatStatus) : ProfileLoad
 }
 
-/** The like controls: [likes] is null until read; the dialog and the last outcome are not saved. */
+/**
+ * The like and pass controls: [likes] is null until read; [status] is a failure and [info] a plain
+ * outcome. The dialog and the last outcome are not saved.
+ */
 internal class ProfileForm {
     var likes by mutableStateOf<ChatLikes?>(null)
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
+    var info by mutableStateOf<Int?>(null)
     var confirming by mutableStateOf(false)
 }
 
@@ -64,12 +68,39 @@ internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatF
 
 /** Likes [peer] or takes the like back, and shows the outcome on [form]. */
 internal fun CoroutineScope.sendLike(form: ProfileForm, feed: ChatFeed, peer: String, liked: Boolean) {
-    form.sending = true
-    form.status = null
+    form.start()
     launch {
-        val result = withContext(Dispatchers.IO) { feed.like(peer, liked) }
+        // A failed send can still be staged: then the like stands and goes out with a later receive.
+        var staged: ChatLikes? = null
+        val result = withContext(Dispatchers.IO) {
+            feed.like(peer, liked).onFailure { staged = runCatching { feed.likes(peer) }.getOrNull() }
+        }
         form.sending = false
-        // A failed send can still be staged, so the reread after feed.like decides the button.
-        result.onSuccess { form.likes = it }.onFailure { form.status = likeStatus(it) }
+        val pending = staged?.takeIf { it.ours == liked }
+        if (pending != null) {
+            form.likes = pending
+            form.info = R.string.view_like_pending
+        } else {
+            result.onSuccess { form.likes = it }.onFailure { form.status = likeStatus(it) }
+        }
     }
+}
+
+/** Passes on [peer] or undoes that, and shows the outcome on [form]. */
+internal fun CoroutineScope.sendPass(form: ProfileForm, feed: ChatFeed, peer: String, passed: Boolean) {
+    form.start()
+    launch {
+        val result = withContext(Dispatchers.IO) { feed.pass(peer, passed) }
+        form.sending = false
+        result.onSuccess {
+            form.likes = it
+            form.info = if (passed) R.string.view_passed else R.string.view_unpassed
+        }.onFailure { form.status = ChatStatus(R.string.view_pass_failed, it.toString()) }
+    }
+}
+
+private fun ProfileForm.start() {
+    sending = true
+    status = null
+    info = null
 }

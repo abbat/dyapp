@@ -33,6 +33,12 @@
     <string name="view_like_failed">The like was not sent.</string>
     <string name="view_like_unpublished">Publish your profile first, so the other person sees who likes them.</string>
     <string name="view_like_not_connected">No active network node answered. Check the connection, then retry.</string>
+    <string name="view_like_pending">Saved on this phone. It goes out when a node answers.</string>
+    <string name="view_pass">Pass</string>
+    <string name="view_unpass">Undo pass</string>
+    <string name="view_passed">Passed. They are hidden from your search and Liked you, and they are not told.</string>
+    <string name="view_unpassed">Pass undone. They can appear in your search and Liked you again.</string>
+    <string name="view_pass_failed">The pass was not saved.</string>
     <string name="view_loading">Loading the profile…</string>
     <string name="view_not_found">No node returned this profile: it may be hidden or withdrawn.</string>
     <string name="view_load_failed">The profile could not be loaded.</string>

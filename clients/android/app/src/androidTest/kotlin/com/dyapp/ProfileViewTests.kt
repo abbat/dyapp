@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -20,6 +21,7 @@ class ProfileViewTests {
 
     private val form = ProfileForm()
     private val likes = mutableListOf<Boolean>()
+    private val passes = mutableListOf<Boolean>()
     private var backs = 0
     private var messages = 0
     private var retries = 0
@@ -44,7 +46,7 @@ class ProfileViewTests {
 
     private fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
         val actions = ProfileActions(R.string.view_back, { backs += 1 }) { messages += 1 }
-        ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }) { retries += 1 }
+        ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }, { passes += it }) { retries += 1 }
     }
 
     @Test
@@ -110,6 +112,7 @@ class ProfileViewTests {
         compose.onNodeWithTag("view-fields").assertExists()
         compose.onNodeWithTag("view-like").assertDoesNotExist()
         compose.onNodeWithTag("view-message").assertDoesNotExist()
+        compose.onNodeWithTag("view-pass").assertDoesNotExist()
     }
 
     @Test
@@ -118,6 +121,33 @@ class ProfileViewTests {
         form.status = ChatStatus(R.string.view_like_unpublished, "details")
         show()
         compose.onNodeWithText(string(R.string.view_like_unpublished)).assertExists()
+    }
+
+    @Test
+    fun aStagedLikeSaysItGoesOutLater() {
+        form.likes = ChatLikes(ours = true, matched = false, passed = false)
+        form.info = R.string.view_like_pending
+        show()
+        compose.onNodeWithText(string(R.string.view_like_pending)).assertExists()
+    }
+
+    @Test
+    fun passIsOfferedOnlyWithoutALikeAndHidesLikeUntilUndone() {
+        form.likes = ChatLikes(ours = true, matched = false, passed = false)
+        show()
+        compose.onNodeWithTag("view-pass").assertDoesNotExist()
+        compose.runOnIdle { form.likes = ChatLikes(ours = false, matched = false, passed = false) }
+        compose.onNodeWithTag("view-unpass").assertDoesNotExist()
+        compose.onNodeWithTag("view-pass").performScrollTo().performClick()
+        compose.runOnIdle {
+            form.likes = ChatLikes(ours = false, matched = false, passed = true)
+            form.info = R.string.view_passed
+        }
+        compose.onNodeWithTag("view-like").assertDoesNotExist()
+        compose.onNodeWithTag("view-pass").assertDoesNotExist()
+        compose.onNodeWithText(string(R.string.view_passed)).assertExists()
+        compose.onNodeWithTag("view-unpass").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf(true, false), passes) }
     }
 
     @Test

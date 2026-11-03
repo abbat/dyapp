@@ -294,8 +294,9 @@ search providers asked: 0 of 3</pre>
           </dl>
           <p class="caption" id="view-claims" data-t="view.claims"></p>
         </div>
-        <!-- Block sits apart from Like so a slip does not hit it; Settings can undo it. -->
-        <div class="actions"><button type="button" class="btn text danger" id="view-block" data-t="view.block"></button></div>
+        <!-- Pass and Block sit apart from Like so a slip does not hit them; Settings can undo both. Pass
+             is not offered while a like stands. -->
+        <div class="actions"><button type="button" class="btn text" id="view-pass" data-on="profile-view" data-t="view.pass"></button><button type="button" class="btn text" id="view-unpass" data-t="view.unpass" hidden></button><button type="button" class="btn text danger" id="view-block" data-t="view.block"></button></div>
       </div>
     </section>
 

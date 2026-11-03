@@ -81,6 +81,10 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         return result
     }
 
+    /** Passes on [peer] or undoes that, here only and unseen by the peer, then reads the rows. */
+    fun pass(peer: String, passed: Boolean): Result<ChatLikes> =
+        runCatching { RustBridge.withChats(opened) { it.setPassed(peer, passed) } }.also { read() }
+
     /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
     fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {
         val error = runCatching { RustBridge.withChats(opened) { it.sendText(peer, text) } }.exceptionOrNull()

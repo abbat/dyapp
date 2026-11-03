@@ -67,9 +67,9 @@ internal fun ProfileViewScreen(
             .onFailure { if (form.likes == null) form.status = profileLoadStatus(it) }
     }
     BackHandler(onBack = actions.back)
-    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, { scope.sendLike(form, feed, peer, it) }) {
-        attempt += 1
-    }
+    val onLike = { liked: Boolean -> scope.sendLike(form, feed, peer, liked) }
+    val onPass = { passed: Boolean -> scope.sendPass(form, feed, peer, passed) }
+    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass) { attempt += 1 }
 }
 
 /** The page as shown; the own profile has nothing to like or to write to. */
@@ -82,6 +82,7 @@ internal fun ProfileViewContent(
     form: ProfileForm,
     actions: ProfileActions,
     onLike: (Boolean) -> Unit,
+    onPass: (Boolean) -> Unit,
     onRetry: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("profile-view")) {
@@ -98,6 +99,7 @@ internal fun ProfileViewContent(
             CopyButton(peer, "copy-view-peer")
             if (!own) ProfileLikes(form, actions.message, onLike)
             ProfileBody(load, onRetry)
+            if (!own) PassButtons(form, onPass)
         }
     }
     if (form.confirming) {
@@ -140,10 +142,25 @@ private fun LikeButtons(form: ProfileForm, onMessage: () -> Unit, onLike: (Boole
         } else {
             OutlinedButton(onMessage, side.testTag("view-message")) { Text(stringResource(R.string.view_message)) }
         }
-        if (!ours) {
+        if (!ours && form.likes?.passed != true) {
             Button({ onLike(true) }, side.testTag("view-like"), enabled = ready) {
                 HeartLabel(R.drawable.ic_heart, R.string.view_like)
             }
+        }
+    }
+}
+
+// Pass sits below the profile, apart from Like, and is not offered while a like stands.
+@Composable
+private fun PassButtons(form: ProfileForm, onPass: (Boolean) -> Unit) {
+    val likes = form.likes ?: return
+    val ready = !form.sending
+    when {
+        likes.passed -> TextButton({ onPass(false) }, Modifier.testTag("view-unpass"), enabled = ready) {
+            Text(stringResource(R.string.view_unpass))
+        }
+        !likes.ours -> TextButton({ onPass(true) }, Modifier.testTag("view-pass"), enabled = ready) {
+            Text(stringResource(R.string.view_pass))
         }
     }
 }
@@ -157,6 +174,7 @@ private fun HeartLabel(icon: Int, text: Int) {
 @Composable
 private fun LikeStatusLine(form: ProfileForm) {
     val status = form.status
+    val info = form.info
     when {
         form.sending -> {
             Caption(stringResource(R.string.view_sending),
@@ -165,6 +183,9 @@ private fun LikeStatusLine(form: ProfileForm) {
         status != null -> {
             ErrorNotice(stringResource(status.text), STATUS_TAG, status.details.orEmpty(),
                 "view-details", "copy-view-details")
+        }
+        info != null -> {
+            Caption(stringResource(info), Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite })
         }
     }
 }
