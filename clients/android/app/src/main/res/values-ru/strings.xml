@@ -86,6 +86,8 @@
     <string name="chat_unmute">Включить уведомления</string>
     <string name="chat_mute_failed">Не удалось изменить уведомления для этого человека.</string>
     <string name="chats_muted">Без уведомлений</string>
+    <string name="contact_public_verified">%1$s · Проверен · %2$s</string>
+    <string name="contact_public_unverified">%1$s · Не проверен · %2$s</string>
     <string name="notice_channel">Новые сообщения</string>
     <string name="notice_new_message">Новое сообщение</string>
     <string name="settings_notices">Приватность и уведомления</string>

@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.ContactNameView
 import uniffi.dyapp.FoundProfile
 import java.text.DateFormat
 import java.util.Date
@@ -42,11 +43,16 @@ import java.util.Date
 internal fun ChatsScreen(feed: ChatFeed, onOpen: (String) -> Unit, onProfile: (FoundProfile) -> Unit) {
     val lists = feed.lists
     val liked = feed.liked
+    // Through the searcher when there is one, so the fetched profiles name and show those peers.
+    val photos = LocalPeerPhotos.current
     LaunchedEffect(lists.likedOpen, liked) {
         if (lists.likedOpen && liked.isNotEmpty()) {
-            lists.likedProfiles = withContext(Dispatchers.IO) { runCatching { feed.profiles(liked) } }
+            lists.likedProfiles = withContext(Dispatchers.IO) {
+                runCatching { photos?.profiles(liked) ?: feed.profiles(liked) }
+            }
         }
     }
+    FetchPeerProfiles(feed.rows.map { it.peerId }.sorted())
     ChatsContent(feed.rows, liked, lists, onOpen, onProfile)
 }
 
@@ -61,6 +67,7 @@ internal fun ChatsContent(
     onProfile: (FoundProfile) -> Unit,
 ) {
     val (requests, conversations) = rows.partition { it.state == ChatState.REQUEST_RECEIVED }
+    val names = rememberContactNames(rows.map { it.peerId }.sorted())
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("chats")) {
         lists.blocked?.let { BlockedNote(it) }
         ExpandableRow("chats-liked", R.string.chats_liked, R.string.chats_liked_text, liked.size, lists.likedOpen) {
@@ -69,7 +76,7 @@ internal fun ChatsContent(
         if (lists.likedOpen) LikedList(liked, lists.likedProfiles, onProfile)
         ExpandableRow("chats-requests", R.string.chats_requests, R.string.chats_requests_text, requests.size,
             lists.requestsOpen) { lists.requestsOpen = !lists.requestsOpen }
-        if (lists.requestsOpen) RequestList(requests, onOpen)
+        if (lists.requestsOpen) RequestList(requests, names, onOpen)
         Text(stringResource(R.string.chats_conversations), Modifier.padding(16.dp),
             style = MaterialTheme.typography.titleMedium)
         if (conversations.isEmpty()) {
@@ -78,7 +85,8 @@ internal fun ChatsContent(
             // Not lazy, as it scrolls with the lists above; all rows are in memory anyway.
             Column(Modifier.testTag("chat-list")) {
                 for ((index, row) in conversations.withIndex()) {
-                    ChatListRow(row, Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) })
+                    ChatListRow(row, names[row.peerId],
+                        Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) })
                 }
             }
         }
@@ -142,27 +150,28 @@ private fun LikedProfiles(liked: List<String>, found: List<FoundProfile>, open: 
 }
 
 @Composable
-private fun RequestList(requests: List<ChatRow>, onOpen: (String) -> Unit) {
+private fun RequestList(requests: List<ChatRow>, names: Map<String, ContactNameView>, onOpen: (String) -> Unit) {
     Column(Modifier.testTag("chats-requests-list")) {
         if (requests.isEmpty()) {
             Caption(stringResource(R.string.chats_no_requests), Modifier.padding(horizontal = 16.dp))
         }
         for ((index, row) in requests.withIndex()) {
-            ChatListRow(row, Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) })
+            ChatListRow(row, names[row.peerId],
+                Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) })
         }
     }
 }
 
 @Composable
-private fun ChatListRow(row: ChatRow, modifier: Modifier) {
+private fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifier) {
     Row(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         Arrangement.spacedBy(12.dp),
         Alignment.CenterVertically,
     ) {
-        Avatar(row.peerId)
+        PeerAvatar(row.peerId, name)
         Column(Modifier.weight(1f)) {
-            Text(shortPeerId(row.peerId), style = MaterialTheme.typography.titleSmall)
+            Text(contactLabel(row.peerId, name), style = MaterialTheme.typography.titleSmall)
             Text(chatPreview(row.lastMessage), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium)
         }

@@ -112,7 +112,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Android both top rows always show, with a count from local data, and expand their lists in place.
   Liked you fetches the verified profiles when it opens and each opens the found profile, so a peer
   no node returns counts but has no row. Message requests stay out of the chat list and open the
-  chat. A chat row shows the short Peer ID rather than a name and opens the chat. The app receives
+  chat. A chat row and the chat header name the peer by the desktop rule
+  ([contact names](desktop-screens.md)): the local name; else the public name, Verified or Not
+  verified and the short Peer ID; else the short Peer ID; with the main photo once fetched. The
+  row opens the chat. Renaming on Android is planned. The app receives
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.

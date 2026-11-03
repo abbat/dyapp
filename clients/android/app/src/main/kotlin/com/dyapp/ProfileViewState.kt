@@ -61,16 +61,22 @@ internal fun profileLoadStatus(error: Throwable): ChatStatus {
 
 /** The fetch behind the page; a retry has something to do only until a profile is shown. */
 @Composable
-internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatFeed, attempt: Int): State<ProfileLoad> =
-    produceState(known?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Loading, attempt) {
+internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatFeed, attempt: Int): State<ProfileLoad> {
+    // Through the searcher when there is one, so the profile also names and shows the peer elsewhere.
+    val photos = LocalPeerPhotos.current
+    return produceState(known?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Loading, attempt) {
         if (value !is ProfileLoad.Shown) {
             value = ProfileLoad.Loading
-            value = withContext(Dispatchers.IO) { runCatching { feed.profiles(listOf(peer)).firstOrNull() } }.fold(
+            val fetched = withContext(Dispatchers.IO) {
+                runCatching { (photos?.profiles(listOf(peer)) ?: feed.profiles(listOf(peer))).firstOrNull() }
+            }
+            value = fetched.fold(
                 { found -> found?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Missing },
                 { ProfileLoad.Failed(profileLoadStatus(it)) },
             )
         }
     }
+}
 
 /** Likes [peer] or takes the like back, and shows the outcome on [form]. */
 internal fun CoroutineScope.sendLike(form: ProfileForm, feed: ChatFeed, peer: String, liked: Boolean) {

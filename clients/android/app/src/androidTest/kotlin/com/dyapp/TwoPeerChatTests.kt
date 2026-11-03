@@ -38,10 +38,12 @@ class TwoPeerChatTests {
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(lockChoice(skipped = true)).around(compose)
 
-    private fun ownPeerId(): String {
+    private fun ownOpened(): Opened.Ready {
         val slots = RustBridge.slots(InstrumentationRegistry.getInstrumentation().targetContext)
-        return (slots.open() as Opened.Ready).peerId
+        return slots.open() as Opened.Ready
     }
+
+    private fun ownPeerId() = ownOpened().peerId
 
     @Test
     fun aRequestOpensFromItsRowAndTheReplyReachesThePeer() {
@@ -114,6 +116,41 @@ class TwoPeerChatTests {
         } finally {
             forgetNetworks()
         }
+    }
+
+    // Android cannot publish a public name, so this covers the photo and a local name; Rust tests the rule.
+    @Test
+    fun aChatRowShowsThePeersPhotoAndTheHeaderItsLocalName() {
+        compose.skipNetworkEntry()
+        try {
+            compose.activateLocalNode()
+            compose.publishToReadback()
+            val me = ownPeerId()
+            TestPeer("named", photo = true).use { peer ->
+                peer.session.sendText(me, "Hello with a photo")
+                compose.onNodeWithTag("nav-chats").performClick()
+                compose.onNodeWithTag("chats-requests").performClick()
+                val row = hasText(shortPeerId(peer.peerId)) and hasAnyAncestor(hasTestTag("chats-requests-list"))
+                runCatching { compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(row) } }
+                    .onFailure { throw AssertionError("Requests show ${compose.textsIn("chats-requests-list")}", it) }
+                waitUnmerged(hasTestTag("avatar-photo"), "chats-requests-list")
+                RustBridge.withChats(ownOpened()) { it.setContactName(peer.peerId, "Robin") }
+                compose.onNode(row).performClick()
+                waitUnmerged(hasText("Robin"), "chat-profile")
+            }
+        } finally {
+            forgetNetworks()
+        }
+    }
+
+    // A clickable row merges its avatar and title, so they are found in the unmerged tree.
+    private fun waitUnmerged(matcher: SemanticsMatcher, tag: String) {
+        val node = matcher and hasAnyAncestor(hasTestTag(tag))
+        runCatching {
+            compose.waitUntil(CHECK_WAIT_MS) {
+                compose.onAllNodes(node, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+            }
+        }.onFailure { throw AssertionError("$tag shows ${compose.textsIn(tag)}", it) }
     }
 
     // The like back from the peer's page makes the match.

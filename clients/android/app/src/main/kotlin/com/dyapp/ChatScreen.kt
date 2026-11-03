@@ -162,14 +162,17 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
 
 @Composable
 private fun ChatBackBar(peer: String, actions: ChatActions, menu: @Composable () -> Unit) {
+    FetchPeerProfiles(listOf(peer))
+    val name = rememberContactNames(listOf(peer))[peer]
     Row(Modifier.fillMaxWidth().padding(8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         IconButton(onClick = actions.onBack, Modifier.testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.nav_chats))
         }
         Row(Modifier.weight(1f).testTag("chat-profile").clickable(onClick = actions.onProfile),
             Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
-            Avatar(peer)
-            Text(shortPeerId(peer), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+            PeerAvatar(peer, name)
+            Text(contactLabel(peer, name), Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium)
         }
         menu()
     }

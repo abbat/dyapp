@@ -9,9 +9,9 @@ of step 4. The FFI exposes the draft photo commands, runs the keep refresh in
 `ChatSession::receive`, and fetches other people's photos into `ProfileSearcher`'s memory cache.
 The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `PhotoPrep.kt`),
 and Android shows other people's photos on search results, liked cards and the profile page
-(`PeerPhotos.kt`) and the draft's main photo on the own avatar. Android chat rows have neither
-names nor photos yet, so their photos are planned with contact names; viewing and the editor on
-Apple are planned.
+(`PeerPhotos.kt`) and the draft's main photo on the own avatar. Android chat rows and the chat
+header show the peer's main photo with the contact name (`ContactNames.kt`), from profiles the
+searcher fetches when Chats or a chat opens. Viewing and the editor on Apple are planned.
 
 ## Limits
 

@@ -87,6 +87,8 @@
     <string name="chat_unmute">Unmute notifications</string>
     <string name="chat_mute_failed">The notifications for this person could not be changed.</string>
     <string name="chats_muted">Muted</string>
+    <string name="contact_public_verified">%1$s · Verified · %2$s</string>
+    <string name="contact_public_unverified">%1$s · Not verified · %2$s</string>
     <string name="notice_channel">New messages</string>
     <string name="notice_new_message">New message</string>
     <string name="settings_notices">Privacy and notifications</string>

@@ -44,6 +44,7 @@ import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.ContactNameView
 import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.checkPreview
@@ -68,6 +69,13 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
         withContext(Dispatchers.IO) { runCatching { searcher.fetchPeerPhotos(wanted, full) } }
         fetched += 1
     }
+
+    /** The verified profiles of [peers], cached for names and photos; null without a searcher. Off the UI thread. */
+    fun profiles(peers: List<String>): List<FoundProfile>? = searcher?.profiles(peers)?.also { fetched += 1 }
+
+    /** How the screens name each of [peers]; empty without a searcher. Off the UI thread. */
+    fun names(peers: List<String>): List<ContactNameView> =
+        searcher?.let { found -> RustBridge.withKey(opened) { _, key -> found.contactNames(key, peers) } }.orEmpty()
 
     /** Whether full images load without a tap: Settings Photos and the metered report. */
     suspend fun auto(): Boolean = withContext(Dispatchers.IO) {
