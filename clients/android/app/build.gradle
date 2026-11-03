@@ -41,6 +41,14 @@ android {
         buildConfig true
     }
 
+    // AGP 9.5 registers the Compose Preview runfiles task, which fails configuration (even
+    // `gradle tasks`) unless unit tests see the compiled resources.
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
     packaging {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
