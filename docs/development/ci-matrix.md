@@ -28,9 +28,11 @@ ci.yml ("ci")
 Only **docker - android** still runs in Docker; `core` and **native - linux** run directly on the
 runner (see [ci-base.md](ci-base.md#jobs)). The Docker job first deletes the
 runner's preinstalled .NET, Android SDK, GHC and tool cache (step `free disk`): with the buildx
-layer cache, each image exists twice, in the buildx builder and, after `--load`, in Docker. A
-pull request reads the layer cache but does not write it (`docker-local.py` drops `--cache-to`
-when `GITHUB_EVENT_NAME` is `pull_request`).
+layer cache, each image exists twice, in the buildx builder and, after `--load`, in Docker. Only
+`main` writes the caches; other branches and pull requests read them (`docker-local.py` drops
+`--cache-to` unless `GITHUB_REF` is `refs/heads/main`, and the `actions/cache` save and
+`rust-cache` steps have `save-if` set to `main`), because branch-scoped copies pushed the GHA
+cache past its 10 GB limit.
 
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|

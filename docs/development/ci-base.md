@@ -156,7 +156,8 @@ All jobs run directly on the runner, without Docker. Every check is a step of
   `RUSTUP_TOOLCHAIN`.
 
 In the build job `taiki-e/install-action` then installs the pinned cargo-llvm-cov and
-cargo-deny. `Swatinem/rust-cache` caches the dependency builds per job. Cargo steps run online
+cargo-deny. `Swatinem/rust-cache` caches the dependency builds per job; only `main` saves them
+(`save-if`), other branches restore the `main` copy. Cargo steps run online
 with `--locked`.
 
 Every action in every workflow, GitHub's own included, is pinned to a commit SHA with the release

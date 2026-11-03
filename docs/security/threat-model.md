@@ -247,7 +247,7 @@ settings were applied through the GitHub API and read back on 2026-10-23.
 | A PR changes CI or build scripts to run privileged code | Workflows | Critical × medium | Partial: external CI needs maintainer approval after an infra diff review; the existing Android CI uses `sudo`, so PR code can run with runner privileges once approved, but receives no repository secrets |
 | A PR introduces a malicious dependency or alternate registry | Cargo.lock | Critical × medium | Fix: `pr-guard` reports changed packages, rejects non-crates.io sources and versions under 14 days old; human review covers package identity and build scripts |
 | A PR alters the guard or its workflow | `pull_request` workflow | Critical × medium | Accept: the PR can edit its own workflow; a warning is shown, while the trusted-base checker and maintainer's pre-run review remain the boundary |
-| A PR tries to poison the build cache read by `main` | Docker BuildKit | High × medium | In place: PRs read the GHA cache but `docker-local.py` omits `--cache-to` on PRs; `main` writes it |
+| A PR tries to poison the build cache read by `main` | Docker BuildKit | High × medium | In place: PRs and branches read the GHA cache but `docker-local.py` omits `--cache-to` outside `main`, and the `actions/cache` and `rust-cache` steps save only on `main` |
 | A stolen maintainer session directly pushes malicious code | Ruleset bypass | Critical × medium | Accept until release; remove the bypass and require signed commits before publishing |
 
 ### Hostile node

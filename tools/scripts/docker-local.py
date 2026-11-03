@@ -142,8 +142,9 @@ def build_images(arguments, environment, log_file=None):
             scope = service["image"].replace(":", "-")
             command = ["docker", "buildx", "build", "--load",
                        "--cache-from", f"type={cache},scope={scope}"]
-            # A pull request reads the cache but never writes it.
-            if environment.get("GITHUB_EVENT_NAME") != "pull_request":
+            # Only main writes the cache: other branches and pull requests
+            # read it, so they neither poison it nor fill its 10 GB limit.
+            if environment.get("GITHUB_REF") == "refs/heads/main":
                 command += ["--cache-to", f"type={cache},scope={scope}"]
             buildkit = "1"
         else:

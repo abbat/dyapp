@@ -55,7 +55,7 @@ jobs:
           bash tests/scripts/ui-test.sh android
           bash tests/scripts/ui-test.sh android-emulator
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && steps.android-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.android-cache.outputs.cache-hit != 'true' }}
         with:
           path: |
             build/android-build/gradle-home/caches/modules-2
@@ -94,6 +94,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: ". -> build"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: test
         run: bash tests/scripts/linux-test.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -128,6 +129,7 @@ jobs:
           # The workspace target dir is build/ (.cargo/config.toml), not target/.
           workspaces: ". -> build"
           key: ${{ matrix.platform }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: build core
         run: bash tools/scripts/build-apple-core.sh "${{ matrix.platform }}"
       - name: prepare xcode

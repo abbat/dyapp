@@ -384,10 +384,11 @@ class Runners(unittest.TestCase):
                     patch.object(runner, "run_logged",
                                  return_value=0) as invoke:
                 self.assertEqual(runner.build_images(
-                    ["build"], {"DYAPP_BUILD_CACHE": "gha"}), 0)
+                    ["build"], {"DYAPP_BUILD_CACHE": "gha",
+                                "GITHUB_REF": "refs/heads/main"}), 0)
                 self.assertEqual(runner.build_images(
                     ["build"], {"DYAPP_BUILD_CACHE": "gha",
-                                "GITHUB_EVENT_NAME": "pull_request"}), 0)
+                                "GITHUB_REF": "refs/heads/feature"}), 0)
         remote, local, pull, _ = (call.args[0]
                                   for call in invoke.call_args_list)
         self.assertEqual(remote[:3], ["docker", "buildx", "build"])

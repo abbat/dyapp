@@ -28,6 +28,8 @@ jobs:
       - name: setup
         run: bash tools/scripts/ci-setup.sh rust
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # check-dependency-age.py reads publish times from the registry index cache.
       - name: fetch
         run: for lock in $(git ls-files '*Cargo.lock'); do cargo fetch --locked --manifest-path "$(dirname "$lock")/Cargo.toml"; done
@@ -76,6 +78,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: ". -> build/llvm-cov-target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # One instrumented build serves the tests, the network peers and the coverage report.
       - name: build
         run: bash tests/scripts/rust-check.sh cov-build
@@ -120,6 +123,8 @@ jobs:
         with:
           tool: cargo-mutants@27.1.0
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: mutants
         env:
           # Empty for workflow_dispatch: rust-check.sh then uses origin/main.
@@ -152,6 +157,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: "tests/fuzz -> ../../build/fuzz"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # 60 seconds per target, the saved corpus first.
       - name: fuzz
         run: bash tests/scripts/rust-check.sh fuzz
