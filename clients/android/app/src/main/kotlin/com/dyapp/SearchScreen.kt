@@ -42,7 +42,6 @@ import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.ProfileSearchFailure
 import uniffi.dyapp.ProfileSearchResult
 import uniffi.dyapp.ProfileSearcher
-import uniffi.dyapp.SearchEmployer
 import uniffi.dyapp.profileScales
 
 private const val MS_PER_SECOND = 1000uL
@@ -152,7 +151,7 @@ private suspend fun sample(
         runCatching {
             val query = conditions.getOrThrow()
             RustBridge.withKey(opened) { _, key ->
-                searcher.getOrThrow().search(key, query, SearchEmployer.Any, 0u)
+                searcher.getOrThrow().search(key, query, filters.employer.employer(), 0u)
             }
         }
     }

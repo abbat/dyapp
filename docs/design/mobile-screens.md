@@ -101,10 +101,14 @@ The IDs inside each section are the desktop ones; only the frame differs.
   previous network. Android's status line names the active network, and its row texts say why a
   row failed in more detail than the prototype's.
 - Search, `search`, `search-loading`, `search-empty` and `search-error`: `search-age-min`,
-  `search-age-max`, `search-country`, `search-place`, `search-more`, `run-search`,
+  `search-age-max`, `search-country`, `search-place`, `search-more`, `search-employer-any`,
+  `search-employer-same`, `search-employer-exclude`, `search-company`, `search-employer-notice`,
+  `run-search`,
   `search-results` with `result-1` and `result-2`, `search-again`, `search-cancel`,
   `search-failures`, `search-open-network`, `search-retry`. Android shows filters only for the
-  fields the nodes offered, so a first sample comes before them; a result shows the short Peer ID,
+  fields the nodes offered, so a first sample comes before them; the employer filter runs on the
+  device after verification, so it is always shown, with the notice that it cannot hide the user's
+  own profile from colleagues; a result shows the short Peer ID,
   possible age and country, and opens the found profile; Cancel abandons the answer while the node
   call runs to its end; Open Network and Retry sit under the failure notice and hide for an age no birth
   date fits; the intro also says that profile fields are self-stated, which the prototype omits.

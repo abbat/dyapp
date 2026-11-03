@@ -202,6 +202,12 @@
     <string name="settings_network_none">No active network yet.</string>
     <string name="search_sample">A random sample of matching profiles, checked before it is shown. Profile fields are what each person states about themselves.</string>
     <string name="search_more">More filters</string>
+    <string name="search_employer">Employer</string>
+    <string name="search_employer_any">Any employer</string>
+    <string name="search_employer_same">Same company as typed below</string>
+    <string name="search_employer_exclude">Hide companies typed below</string>
+    <string name="search_company">Company names (separate several with ;)</string>
+    <string name="search_employer_notice">This filter only hides results on your device, after they are verified. It cannot hide your profile from colleagues: the only way to stay out of employer searches is to leave your company field empty.</string>
     <string name="search_run">Search</string>
     <string name="search_cancel">Cancel</string>
     <string name="search_open_network">Open Network</string>

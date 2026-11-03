@@ -48,6 +48,7 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     var ageMax by mutableStateOf("")
     val place = PlaceInputs("", null, "")
     val picked = mutableStateMapOf<String, Int>()
+    val employer = EmployerFilter()
 
     val shownScales get() = scales.filter { it.field in offered }
 
@@ -70,7 +71,10 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     }
 }
 
-/** Age, country and place, and scale filters, shown after a sample for the fields the nodes offered. */
+/**
+ * Age, country and place, and scale filters, shown after a sample for the fields the nodes offered,
+ * then the employer filter.
+ */
 @Composable
 internal fun SearchFilterFields(filters: SearchFilters) {
     if (BIRTH_AGE_FIELD in filters.offered) {
@@ -87,6 +91,7 @@ internal fun SearchFilterFields(filters: SearchFilters) {
         PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any, "search")
     }
     if (filters.shownScales.isNotEmpty()) MoreFilters(filters)
+    EmployerFilterFields(filters.employer)
 }
 
 // The scales stay behind an expander, as on the profile form; a pick still applies while collapsed.

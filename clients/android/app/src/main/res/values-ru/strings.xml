@@ -201,6 +201,12 @@
     <string name="settings_network_none">Активной сети пока нет.</string>
     <string name="search_sample">Случайная выборка подходящих профилей, проверенная перед показом. Поля анкеты каждый человек указывает о себе сам.</string>
     <string name="search_more">Другие фильтры</string>
+    <string name="search_employer">Работодатель</string>
+    <string name="search_employer_any">Любой работодатель</string>
+    <string name="search_employer_same">Та же компания, что указана ниже</string>
+    <string name="search_employer_exclude">Скрыть компании, указанные ниже</string>
+    <string name="search_company">Названия компаний (несколько через ;)</string>
+    <string name="search_employer_notice">Фильтр только скрывает результаты на вашем устройстве после проверки. Он не скрывает ваш профиль от коллег: единственный способ не попадать в поиск по работодателю — оставить поле компании пустым.</string>
     <string name="search_run">Найти</string>
     <string name="search_cancel">Отмена</string>
     <string name="search_open_network">Открыть «Сеть»</string>

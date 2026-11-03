@@ -237,6 +237,13 @@ node1.example.org:33445: timed out after 10 s
           <select id="search-country"><option data-t="profile.country.value"></option></select></div>
         <div class="field"><label for="search-place" data-t="profile.city"></label><input type="text" id="search-place"></div>
         <details id="search-more"><summary data-t="search.more"></summary></details>
+        <fieldset><legend data-t="search.employer"></legend>
+          <label class="choice"><input type="radio" name="employer" id="search-employer-any" checked><span data-t="search.employer.any"></span></label>
+          <label class="choice"><input type="radio" name="employer" id="search-employer-same"><span data-t="search.employer.same"></span></label>
+          <label class="choice"><input type="radio" name="employer" id="search-employer-exclude"><span data-t="search.employer.exclude"></span></label>
+        </fieldset>
+        <div class="field"><label for="search-company" data-t="search.company"></label><input type="text" id="search-company"></div>
+        <p class="caption" id="search-employer-notice" data-t="search.employerNotice"></p>
         <div class="actions"><button type="button" class="btn filled" id="run-search" data-t="search.run" data-disabled="search-loading"></button></div>
       </div>
       <div id="search-results" data-on="search">
