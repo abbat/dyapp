@@ -31,11 +31,19 @@ class MailJob : JobService() {
     override fun onStopJob(params: JobParameters) = false
 }
 
-/** One receive for the active ready identity; none, a recovery state or a failure stays quiet. */
+/**
+ * One receive for the active ready identity, then a notice when it left more to read; none, a
+ * recovery state or a failure stays quiet.
+ */
 internal fun receiveMail(context: Context) {
     runCatching {
         val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return
-        RustBridge.withChats(opened) { it.receive() }
+        val more = RustBridge.withChats(opened) {
+            val before = noticeCount(it)
+            it.receive()
+            noticeCount(it) > before
+        }
+        if (more) postMailNotice(context)
     }.onFailure { Log.i("dyapp", "Background receive failed: ${it.javaClass.simpleName}") }
 }
 

@@ -86,7 +86,8 @@ switch and add identities; see
 
 `DYApplication` schedules `MailJob`, a persisted periodic JobScheduler job (15 minutes, any
 network, no extra dependency), which receives the active ready identity's mail through
-`RustBridge.withChats`; the shared chats lock keeps it apart from the foreground poll. The OS
+`RustBridge.withChats`, and `MailNotice.kt` posts the private new-mail notice when the receive left
+more to read; the shared chats lock keeps it apart from the foreground poll. The OS
 decides when it runs; see [privacy](../security/privacy.md#local-notices).
 
 ### Integration (target sketch)

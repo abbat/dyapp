@@ -67,8 +67,8 @@ configured lock shows `UnlockScreen`, which runs the PIN check off the main thre
 private data. While a PIN is set, `MainActivity` keeps the window out of the app-switcher
 snapshot from the start, not only after backgrounding: `setRecentsScreenshotEnabled(false)` on
 API 33+, and `FLAG_SECURE` on API 31-32, which also blocks screenshots there. Turning the PIN off
-lifts it. The app posts no notifications yet; hiding their content while locked is planned with
-the first notification.
+lifts it. The new-mail notice carries only fixed text and is private, with a lock-screen version that
+shows just the app name ([privacy](../security/privacy.md#local-notices)).
 
 ## Layout
 

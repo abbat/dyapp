@@ -65,6 +65,8 @@
     <string name="chat_unmute">Unmute notifications</string>
     <string name="chat_mute_failed">The notifications for this person could not be changed.</string>
     <string name="chats_muted">Muted</string>
+    <string name="notice_channel">New messages</string>
+    <string name="notice_new_message">New message</string>
     <string name="msg_menu">Message actions</string>
     <string name="chat_edit">Edit</string>
     <string name="chat_delete">Delete</string>

@@ -125,7 +125,7 @@ internal class ChatFeed(private val opened: Opened.Ready) {
     fun clear(peer: String): Result<UInt> =
         runCatching { RustBridge.withChats(opened) { it.clearChat(peer) } }.also { read() }
 
-    /** Mutes [peer] or ends that; only notifications would change, and Android has none yet. */
+    /** Mutes [peer] or ends that; only the new-mail notice changes. */
     fun mute(peer: String, muted: Boolean): Result<Unit> =
         runCatching { RustBridge.withChats(opened) { it.setMuted(peer, muted) } }.also { read() }
 

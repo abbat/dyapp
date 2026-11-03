@@ -164,8 +164,8 @@ first and returns to the first section, as any activity relaunch does.
   the text typed before it; Send saves the edit and stays off for an unchanged text. Delete asks
   in `delete-dialog` with `delete-confirm`. A change stored on the device whose delivery failed
   says it is pending, and a failure says why. `chat-mute` reads Mute or Unmute notifications and
-  hides while the peer has no chat; Android has no notifications yet, so it changes only the flag,
-  which the owner's other devices also get. It opens from a Chats row and from `view-message` on
+  hides while the peer has no chat; on Android it keeps the peer out of the new-mail notice,
+  and the owner's other devices get the flag too. It opens from a Chats row and from `view-message` on
   the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that
   message, and an own message reads Pending until a node takes it, Sent, then Delivered.
