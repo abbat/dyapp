@@ -85,12 +85,14 @@ internal fun AppShell(
     val viewed = viewPeer
     if (viewed != null) {
         val backLabel = if (chat == null && section == StartTarget.SEARCH) R.string.view_back else R.string.lock_back
-        val actions = ProfileActions(backLabel, closeView) {
+        val toChats = { peer: String? ->
             closeView()
-            chatPeer = viewed
+            chatPeer = peer
             // Back from a chat always lands on Chats, as the prototype's back button says.
             open(StartTarget.CHATS)
         }
+        // A block leaves for Chats, whose note says the outcome, even when opened from a chat.
+        val actions = ProfileActions(backLabel, closeView, { toChats(viewed) }) { toChats(null) }
         ProfileViewScreen(opened, viewed, viewFound, feed, actions)
     } else if (chat != null) {
         ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }

@@ -110,7 +110,7 @@
     <string name="clear_later">Cleared messages do not come back, even if delivered again. Unsent messages are cancelled. The match stays.</string>
     <string name="clear_action">Clear chat</string>
     <string name="block_title">Block this person?</string>
-    <string name="block_text">They are hidden from search and chats on this device and are not told. Texts they send while blocked are dropped.</string>
+    <string name="block_text">They are hidden from search and chats on your devices and are not told. Texts they send while blocked are dropped.</string>
     <string name="chats_blocked_not_needed">Blocked on this device. No issued tokens needed revocation.</string>
     <string name="chats_blocked_confirmed">Blocked on this device. A node accepted the token revocation.</string>
     <string name="chats_blocked_pending">Blocked on this device. Revoking their network tokens is pending.</string>

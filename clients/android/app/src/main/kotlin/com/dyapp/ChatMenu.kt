@@ -96,7 +96,7 @@ internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, onMute: () -> U
     }
 }
 
-/** The open confirmation: clearing is local only, blocking also has no undo on Android yet. */
+/** The open confirmation: clearing is local only, and a block closes the chat; Unblock sits in Settings. */
 @Composable
 internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
     val cancel = { form.dialog.value = null }
@@ -153,9 +153,10 @@ internal fun EditingLine(form: ChatForm) {
     }
 }
 
+/** A confirmation dialog tagged `[tag]-dialog` with `[tag]-confirm` and `[tag]-cancel`. */
 @Composable
-@Suppress("LongParameterList") // The two dialogs differ in each of these.
-private fun Confirm(
+@Suppress("LongParameterList") // The dialogs differ in each of these.
+internal fun Confirm(
     tag: String, title: Int, texts: List<Int>, action: Int, onCancel: () -> Unit, onConfirm: () -> Unit,
 ) {
     AlertDialog(

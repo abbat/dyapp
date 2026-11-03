@@ -33,10 +33,16 @@ internal class ProfileForm {
     var status by mutableStateOf<ChatStatus?>(null)
     var info by mutableStateOf<Int?>(null)
     var confirming by mutableStateOf(false)
+    var blocking by mutableStateOf(false)
 }
 
-/** Where the page leads: [backLabel] names what back returns to. */
-internal class ProfileActions(val backLabel: Int, val back: () -> Unit, val message: () -> Unit)
+/** Where the page leads: [backLabel] names what back returns to; [blocked] leaves after a block. */
+internal class ProfileActions(
+    val backLabel: Int,
+    val back: () -> Unit,
+    val message: () -> Unit,
+    val blocked: () -> Unit = back,
+)
 
 internal fun likeStatus(error: Throwable): ChatStatus {
     val details = error.toString()
@@ -96,6 +102,17 @@ internal fun CoroutineScope.sendPass(form: ProfileForm, feed: ChatFeed, peer: St
             form.likes = it
             form.info = if (passed) R.string.view_passed else R.string.view_unpassed
         }.onFailure { form.status = ChatStatus(R.string.view_pass_failed, it.toString()) }
+    }
+}
+
+/** Blocks [peer] and leaves through [onBlocked]; a failure stays on the page and says why. */
+internal fun CoroutineScope.sendBlock(form: ProfileForm, feed: ChatFeed, peer: String, onBlocked: () -> Unit) {
+    form.start()
+    launch {
+        val result = withContext(Dispatchers.IO) { feed.block(peer) }
+        form.sending = false
+        result.onSuccess { onBlocked() }
+            .onFailure { form.status = ChatStatus(R.string.chat_block_failed, it.toString()) }
     }
 }
 

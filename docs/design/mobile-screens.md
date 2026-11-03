@@ -150,12 +150,13 @@ first and returns to the first section, as any activity relaunch does.
 - Found profile, `profile-view`, `profile-view-match` and `unlike-dialog`: `view-back`,
   `view-photos`, `view-peer`, `view-like`, `view-unlike`, `view-message`, `view-match`,
   `view-fields`, `view-pass`, `view-unpass`, `view-block`; `unlike-confirm` and `unlike-cancel` in
-  the dialog. Android has no `view-photos` yet and `view-block` is planned. Opened from a chat, or
+  the dialog. Android has no `view-photos` yet. Opened from a chat, or
   after the app was recreated, the page fetches the profile from the network and offers a retry; it
-  hides `view-like`, `view-message` and `view-pass` on the own profile. A failed like that stayed
+  hides `view-like`, `view-message`, `view-pass` and `view-block` on the own profile. A failed like that stayed
   staged says it goes out when a node answers; any other shows why, and the stored likes decide the
   button. `view-pass` sits below the profile and is not offered while a like stands; a pass hides
-  `view-like` until `view-unpass` undoes it, and the peer is not told.
+  `view-like` until `view-unpass` undoes it, and the peer is not told. `view-block` sits beside it,
+  asks first in the dialog the chat menu uses, then leaves for Chats, whose note says the outcome.
 - Chat, `chat`, `chat-closed`, `chat-first`, `chat-request`, `chat-menu`, `chat-clear-dialog`,
   `chat-cleared` and `delete-dialog`: `chat-back`, `chat-profile`, `chat-more` with
   `chat-clear`, `chat-mute` and `chat-block`, `chat-thread`, `msg-menu` (long press on an own

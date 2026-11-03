@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -69,7 +68,8 @@ internal fun ProfileViewScreen(
     BackHandler(onBack = actions.back)
     val onLike = { liked: Boolean -> scope.sendLike(form, feed, peer, liked) }
     val onPass = { passed: Boolean -> scope.sendPass(form, feed, peer, passed) }
-    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass) { attempt += 1 }
+    val onBlock = { scope.sendBlock(form, feed, peer, actions.blocked) }
+    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock) { attempt += 1 }
 }
 
 /** The page as shown; the own profile has nothing to like or to write to. */
@@ -83,6 +83,7 @@ internal fun ProfileViewContent(
     actions: ProfileActions,
     onLike: (Boolean) -> Unit,
     onPass: (Boolean) -> Unit,
+    onBlock: () -> Unit,
     onRetry: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("profile-view")) {
@@ -99,13 +100,27 @@ internal fun ProfileViewContent(
             CopyButton(peer, "copy-view-peer")
             if (!own) ProfileLikes(form, actions.message, onLike)
             ProfileBody(load, onRetry)
-            if (!own) PassButtons(form, onPass)
+            if (!own) QuietActions(form, onPass)
         }
     }
+    ProfileDialogs(form, onLike, onBlock)
+}
+
+// Unlike and Block ask first; the block dialog is the one the chat menu uses.
+@Composable
+private fun ProfileDialogs(form: ProfileForm, onLike: (Boolean) -> Unit, onBlock: () -> Unit) {
     if (form.confirming) {
-        UnlikeDialog({ form.confirming = false }) {
-            form.confirming = false
+        val cancel = { form.confirming = false }
+        Confirm("unlike", R.string.unlike_title, listOf(R.string.unlike_text), R.string.unlike_action, cancel) {
+            cancel()
             onLike(false)
+        }
+    }
+    if (form.blocking) {
+        val cancel = { form.blocking = false }
+        Confirm("block", R.string.block_title, listOf(R.string.block_text), R.string.chat_block, cancel) {
+            cancel()
+            onBlock()
         }
     }
 }
@@ -150,17 +165,23 @@ private fun LikeButtons(form: ProfileForm, onMessage: () -> Unit, onLike: (Boole
     }
 }
 
-// Pass sits below the profile, apart from Like, and is not offered while a like stands.
+// Pass and Block sit below the profile, apart from Like; Pass is not offered while a like stands.
 @Composable
-private fun PassButtons(form: ProfileForm, onPass: (Boolean) -> Unit) {
-    val likes = form.likes ?: return
+private fun QuietActions(form: ProfileForm, onPass: (Boolean) -> Unit) {
+    val likes = form.likes
     val ready = !form.sending
-    when {
-        likes.passed -> TextButton({ onPass(false) }, Modifier.testTag("view-unpass"), enabled = ready) {
-            Text(stringResource(R.string.view_unpass))
+    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+        when {
+            likes == null -> Unit
+            likes.passed -> TextButton({ onPass(false) }, Modifier.testTag("view-unpass"), enabled = ready) {
+                Text(stringResource(R.string.view_unpass))
+            }
+            !likes.ours -> TextButton({ onPass(true) }, Modifier.testTag("view-pass"), enabled = ready) {
+                Text(stringResource(R.string.view_pass))
+            }
         }
-        !likes.ours -> TextButton({ onPass(true) }, Modifier.testTag("view-pass"), enabled = ready) {
-            Text(stringResource(R.string.view_pass))
+        TextButton({ form.blocking = true }, Modifier.testTag("view-block"), enabled = ready) {
+            Text(stringResource(R.string.chat_block))
         }
     }
 }
@@ -220,19 +241,4 @@ private fun ProfileRetry(onRetry: () -> Unit) {
     OutlinedButton(onRetry, Modifier.fillMaxWidth().testTag("view-retry")) {
         Text(stringResource(R.string.search_retry))
     }
-}
-
-@Composable
-private fun UnlikeDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text(stringResource(R.string.unlike_title), Modifier.testTag("unlike-title")) },
-        text = { Text(stringResource(R.string.unlike_text)) },
-        confirmButton = {
-            TextButton(onConfirm, Modifier.testTag("unlike-confirm")) { Text(stringResource(R.string.unlike_action)) }
-        },
-        dismissButton = {
-            TextButton(onCancel, Modifier.testTag("unlike-cancel")) { Text(stringResource(R.string.remove_cancel)) }
-        },
-    )
 }

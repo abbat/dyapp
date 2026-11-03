@@ -22,31 +22,21 @@ class ProfileViewTests {
     private val form = ProfileForm()
     private val likes = mutableListOf<Boolean>()
     private val passes = mutableListOf<Boolean>()
+    private var blocks = 0
     private var backs = 0
     private var messages = 0
     private var retries = 0
-    private val found = FoundProfile("peer-abcdef", PublicProfileDraft(
-        gender = 0u,
-        orientation = 0u,
-        relationshipGoal = 0u,
-        rolePreference = 0u,
-        careerAmbition = 0u,
-        financialPhilosophy = 0u,
-        employmentStatus = 0u,
-        fitnessLevel = 0u,
-        zodiac = 0u,
-        birthYear = null,
-        birthMonth = null,
-        birthDay = null,
-        country = "",
-        place = "",
-    ), 1uL)
+    private val found = FoundProfile("peer-abcdef", PublicProfileDraft(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+        birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""), 1uL)
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
         val actions = ProfileActions(R.string.view_back, { backs += 1 }) { messages += 1 }
-        ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }, { passes += it }) { retries += 1 }
+        val onBlock = { blocks += 1 }
+        ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }, { passes += it }, onBlock) {
+            retries += 1
+        }
     }
 
     @Test
@@ -113,6 +103,7 @@ class ProfileViewTests {
         compose.onNodeWithTag("view-like").assertDoesNotExist()
         compose.onNodeWithTag("view-message").assertDoesNotExist()
         compose.onNodeWithTag("view-pass").assertDoesNotExist()
+        compose.onNodeWithTag("view-block").assertDoesNotExist()
     }
 
     @Test
@@ -148,6 +139,19 @@ class ProfileViewTests {
         compose.onNodeWithText(string(R.string.view_passed)).assertExists()
         compose.onNodeWithTag("view-unpass").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(listOf(true, false), passes) }
+    }
+
+    @Test
+    fun blockAsksFirstAndCancelKeepsThePage() {
+        form.likes = ChatLikes(ours = false, matched = false, passed = false)
+        show()
+        compose.onNodeWithTag("view-block").performScrollTo().performClick()
+        compose.onNodeWithTag("block-cancel").performClick()
+        compose.onNodeWithTag("block-dialog").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, blocks) }
+        compose.onNodeWithTag("view-block").performScrollTo().performClick()
+        compose.onNodeWithTag("block-confirm").performClick()
+        compose.runOnIdle { assertEquals(1, blocks) }
     }
 
     @Test
