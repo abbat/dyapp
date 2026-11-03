@@ -120,7 +120,7 @@ textarea { font-family: var(--mono); min-height: 88px; resize: vertical; }
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .grid .field { margin: 0; }
 .grid + .grid { margin-top: var(--space-3); }
-details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--space-2); }
+details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--space-2); min-height: 24px; }
 .switch-row { display: flex; gap: var(--space-3); align-items: center; justify-content: space-between; }
 .switch { appearance: none; width: 40px; height: 22px; border-radius: 11px; background: var(--line);
   position: relative; flex: none; margin: 0; cursor: pointer; }

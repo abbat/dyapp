@@ -603,6 +603,19 @@ mod tests {
     }
 
     #[test]
+    fn a_range_over_an_unordered_scale_or_a_zero_code_matches_nothing() {
+        let p = Profile {
+            gender: Gender::MAX,
+            ..Profile::default()
+        };
+        let hits = |op, ints: &[i64]| matches(&condition(Gender::FIELD, op, ints, &[]), &p);
+        let code = i64::from(Gender::MAX);
+        assert!(hits(Op::In, &[code]));
+        assert!(!hits(Op::In, &[0, code]));
+        assert!(!hits(Op::Range, &[1, code]));
+    }
+
+    #[test]
     fn every_field_and_op_is_checked() {
         let p = Profile {
             birth_year: Some(1996),

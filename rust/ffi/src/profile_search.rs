@@ -369,6 +369,25 @@ mod tests {
     }
 
     #[test]
+    fn height_bounds_become_one_range_condition() {
+        let ints = |from, to| {
+            let condition = search_height_condition(from, to).unwrap().unwrap();
+            assert_eq!(condition.op, SearchOp::Range);
+            condition.ints
+        };
+        assert_eq!(ints(Some(170), None), vec![170, 272]);
+        assert_eq!(ints(None, Some(180)), vec![50, 180]);
+        assert_eq!(ints(Some(170), Some(180)), vec![170, 180]);
+        assert!(search_height_condition(None, None).unwrap().is_none());
+        assert_eq!(
+            search_height_condition(Some(181), Some(180))
+                .unwrap_err()
+                .to_string(),
+            "invalid search height"
+        );
+    }
+
+    #[test]
     fn conditions_and_failures_keep_their_meaning() {
         let condition = proto::Condition::from(SearchCondition {
             field: 1,
