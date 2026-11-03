@@ -7,8 +7,10 @@ publishing, and the desktop has the editor and shows photos on search and liked 
 and the open identity's avatars and in `profile-view`, and its catch-up pass runs the keep refresh
 of step 4. The FFI exposes the draft photo commands, runs the keep refresh in
 `ChatSession::receive`, and fetches other people's photos into `ProfileSearcher`'s memory cache.
-The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `PhotoPrep.kt`).
-Viewing on Android, and viewing and the editor on Apple, are planned.
+The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `PhotoPrep.kt`),
+and Android shows other people's photos on search results and in the profile page
+(`PeerPhotos.kt`). Android photos on liked cards, chat rows and the own avatar, and viewing and
+the editor on Apple, are planned.
 
 ## Limits
 
@@ -58,6 +60,9 @@ images. `get_media` checks each blob against its hash, and the desktop commands 
 pixel bounds before the page decodes it. One command fills the cache over one set of connections
 and another reads a blob from it, so a page of cards connects once.
 The page draws to a canvas, because the content security policy blocks `data:` and `blob:` images.
+Android decodes thumbnails with the core's `check_preview`, so a crafted JPEG never reaches the
+platform decoder, and full images with `ImageDecoder` at most 2048 px on the long side; the
+shell's search session owns the cache, so the search and every page share it.
 
 Other people's photos stay in memory, in a least-recently-used cache of 256 thumbnails and 8 full
 images: at most about 10 MiB, nothing about whom the user looked at on disk, and no eviction job.

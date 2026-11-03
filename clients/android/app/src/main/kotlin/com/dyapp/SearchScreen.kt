@@ -131,6 +131,7 @@ private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfil
         Caption(stringResource(if (result.partial) R.string.search_partial else R.string.search_results, count),
             STATUS.semantics { liveRegion = LiveRegionMode.Polite })
         SearchFailures(result)
+        FetchCardPhotos(result.profiles)
         for ((index, found) in result.profiles.withIndex()) {
             SearchResultRow(found, "result-${index + 1}") { openProfile(found) }
         }
@@ -164,6 +165,7 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
     // The searcher keeps verified versions, so a later sample never shows an older one.
     private val searcher = runCatching { ProfileSearcher(opened.slot.dir.absolutePath) }
     private var job: Job? = null
+    val photos = PeerPhotos(searcher.getOrNull(), opened)
     val filters = SearchFilters(profileScales())
     var state by mutableStateOf<SearchState>(SearchState.Idle)
         private set

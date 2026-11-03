@@ -1,5 +1,7 @@
 package com.dyapp
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import uniffi.dyapp.ChatMessage
@@ -9,9 +11,11 @@ import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkSettings
 import uniffi.dyapp.ProfileSolve
 import uniffi.dyapp.PublicProfileDraft
+import uniffi.dyapp.addProfilePhoto
 import uniffi.dyapp.newChatStateKey
 import uniffi.dyapp.saveProfileDraft
 import uniffi.dyapp.setTestNodeIdPowBits
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 internal const val PEER_WAIT_MS = 180_000L
@@ -27,11 +31,16 @@ internal fun waitFor(what: String, timeoutMs: Long = PEER_WAIT_MS, done: () -> B
     }
 }
 
+private fun redPng(): ByteArray {
+    val bitmap = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+    return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+}
+
 /**
  * A second identity that the test drives through the FFI, as the other phone would: its own
  * folder outside the identity slots, the local node as its network and a published profile.
  */
-internal class TestPeer(name: String) : AutoCloseable {
+internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     // The cache, not noBackupFilesDir: the app would list a folder there as a broken identity.
     private val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "peer-$name")
         .apply { deleteRecursively(); mkdirs() }
@@ -51,6 +60,10 @@ internal class TestPeer(name: String) : AutoCloseable {
         ))
         activateLocalNode()
         ProfileSolve(path, key).use { solve -> generateSequence { solve.runStep(true) }.first { it.solved } }
+        if (photo) {
+            val prepared = preparePhoto(redPng())
+            addProfilePhoto(path, key, prepared.full, prepared.thumbnail)
+        }
         val store = PlatformKeyStore(alias)
         session = ChatSession.open(path, key, device, store, newChatStateKey(store))
         session.publishProfile(true)

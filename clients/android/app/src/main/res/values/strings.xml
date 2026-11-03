@@ -54,6 +54,9 @@
     <string name="view_loading">Loading the profile…</string>
     <string name="view_not_found">No node returned this profile: it may be hidden or withdrawn.</string>
     <string name="view_load_failed">The profile could not be loaded.</string>
+    <string name="view_photo_load">Load full photo</string>
+    <string name="view_photo_loading">Loading…</string>
+    <string name="view_photo_failed">Could not load the full photo. Try again.</string>
     <string name="unlike_title">Take the like back?</string>
     <string name="unlike_text">If you match, the chat closes for both of you and your copy is erased; theirs stays with them. You can like again later.</string>
     <string name="unlike_action">Take back</string>

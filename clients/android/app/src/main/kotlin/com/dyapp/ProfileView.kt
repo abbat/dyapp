@@ -229,6 +229,7 @@ private fun ProfileBody(load: ProfileLoad, onRetry: () -> Unit) {
         }
         is ProfileLoad.Shown -> {
             val scales = remember { profileScales() }
+            PeerGallery(load.found)
             FormCard(Modifier.testTag("view-fields")) {
                 ProfileRows(load.found.draft.draft(), scales, LocalContext.current)
             }

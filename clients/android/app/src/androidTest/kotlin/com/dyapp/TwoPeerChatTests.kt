@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -94,17 +95,43 @@ class TwoPeerChatTests {
         }
     }
 
-    // Liked you lists the peer once a receive brings the like; the like back makes the match.
+    @Test
+    fun aLikedProfileShowsThePeersPhoto() {
+        compose.skipNetworkEntry()
+        try {
+            compose.activateLocalNode()
+            compose.publishToReadback()
+            val me = ownPeerId()
+            TestPeer("photo", photo = true).use { peer ->
+                peer.session.like(me, true)
+                openLiked(peer)
+                // The description is on the drawn photo only; the letters placeholder has none.
+                val label = compose.activity.getString(R.string.profile_photo_label, 1, 1)
+                val photo = hasContentDescription(label) and hasAnyAncestor(hasTestTag("view-photo"))
+                runCatching { compose.waitUntil(CHECK_WAIT_MS) { compose.shown(photo) } }
+                    .onFailure { throw AssertionError("view-photo shows ${compose.textsIn("view-photo")}", it) }
+            }
+        } finally {
+            forgetNetworks()
+        }
+    }
+
+    // The like back from the peer's page makes the match.
     private fun matchFromLikedYou(peer: TestPeer) {
+        openLiked(peer)
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-like") and isEnabled()) }
+        compose.onNodeWithTag("view-like").performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-match")) }
+    }
+
+    // Liked you lists the peer once a receive brings the like; its row opens the peer's page.
+    private fun openLiked(peer: TestPeer) {
         compose.onNodeWithTag("nav-chats").performClick()
         compose.onNodeWithTag("chats-liked").performClick()
         val row = hasText(shortPeerId(peer.peerId)) and hasAnyAncestor(hasTestTag("chats-liked-list"))
         runCatching { compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(row) } }
             .onFailure { throw AssertionError("Liked you shows ${compose.textsIn("chats-liked-list")}", it) }
         compose.onNode(row).performClick()
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-like") and isEnabled()) }
-        compose.onNodeWithTag("view-like").performClick()
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-match")) }
     }
 
     private fun press(text: String) =

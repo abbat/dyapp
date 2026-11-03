@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -33,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -75,6 +79,24 @@ internal fun AppShell(
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
     val search = rememberSearchSession(opened)
+    CompositionLocalProvider(LocalPeerPhotos provides search.photos) {
+        ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+    }
+}
+
+// Profile pages over chats over the sections, each with the peer photos of the identity's searcher.
+@Composable
+@Suppress("LongParameterList") // The routes pass the shell's state on to the page shown.
+private fun ShellRoutes(
+    slots: Slots,
+    opened: Opened.Ready,
+    section: StartTarget?,
+    lockMode: LockMode,
+    act: (() -> Opened) -> Unit,
+    open: (StartTarget?) -> Unit,
+    feed: ChatFeed,
+    search: SearchSession,
+) {
     var chatPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
     var viewPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
     // The result already verified; after a recreation only the Peer ID is left and the page fetches.
@@ -226,12 +248,17 @@ internal fun shortPeerId(peerId: String) = "@" + peerId.takeLast(SHORT_PEER_ID)
 
 // No photo yet: the first two Peer ID characters on a tonal circle.
 @Composable
-internal fun Avatar(peerId: String) {
+internal fun Avatar(peerId: String, photo: ImageBitmap? = null) {
     Box(
         Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Text(peerId.take(2), style = MaterialTheme.typography.labelMedium)
+        // Decorative: the row next to it names the person.
+        if (photo != null) {
+            Image(photo, null, Modifier.fillMaxSize().testTag("avatar-photo"), contentScale = ContentScale.Crop)
+        } else {
+            Text(peerId.take(2), style = MaterialTheme.typography.labelMedium)
+        }
     }
 }
 

@@ -53,6 +53,9 @@
     <string name="view_loading">Загрузка профиля…</string>
     <string name="view_not_found">Ни один узел не вернул этот профиль: возможно, его скрыли или сняли с публикации.</string>
     <string name="view_load_failed">Не удалось загрузить профиль.</string>
+    <string name="view_photo_load">Загрузить полное фото</string>
+    <string name="view_photo_loading">Загрузка…</string>
+    <string name="view_photo_failed">Не удалось загрузить полное фото. Повторите попытку.</string>
     <string name="unlike_title">Отменить симпатию?</string>
     <string name="unlike_text">Если симпатия взаимна, переписка закроется у обоих и ваша копия удалится; копия собеседника останется. Отметить снова можно позже.</string>
     <string name="unlike_action">Отменить симпатию</string>

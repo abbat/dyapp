@@ -86,7 +86,7 @@ private fun checkHeader(info: ImageDecoder.ImageInfo) {
 }
 
 // The size within [side] keeping the aspect, or null when it already fits.
-private fun fitted(width: Int, height: Int, side: Int): Pair<Int, Int>? {
+internal fun fitted(width: Int, height: Int, side: Int): Pair<Int, Int>? {
     val longest = maxOf(width, height)
     if (longest <= side) return null
     return maxOf(1, width * side / longest) to maxOf(1, height * side / longest)

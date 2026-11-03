@@ -34,7 +34,7 @@ internal fun SearchResultRow(found: FoundProfile, tag: String, open: () -> Unit)
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(Modifier.padding(12.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-            Avatar(found.peerId)
+            Avatar(found.peerId, rememberPeerPhoto(found.photos.firstOrNull()))
             Column {
                 Text(shortPeerId(found.peerId), style = MaterialTheme.typography.titleSmall)
                 Caption(summary)
