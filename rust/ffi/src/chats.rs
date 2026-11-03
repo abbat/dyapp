@@ -285,11 +285,7 @@ impl ChatSession {
                 let mut found = Vec::new();
                 for peer_id in peer_ids {
                     if let Ok(verified) = node.get_profile(&peer_id).await {
-                        found.push(FoundProfile {
-                            peer_id: verified.peer_id,
-                            draft: PublicProfileDraft::from(&verified.profile),
-                            version: verified.profile.version,
-                        });
+                        found.push(FoundProfile::from(&verified));
                     }
                 }
                 Ok(found)

@@ -27,7 +27,7 @@ class ProfileViewTests {
     private var messages = 0
     private var retries = 0
     private val found = FoundProfile("peer-abcdef", PublicProfileDraft(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-        birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""), 1uL)
+        birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""), emptyList(), emptyList(), 1uL)
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 

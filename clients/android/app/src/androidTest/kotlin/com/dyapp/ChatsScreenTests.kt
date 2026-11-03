@@ -43,7 +43,7 @@ class ChatsScreenTests {
         birthDay = null,
         country = "",
         place = "",
-    ), 1uL)
+    ), emptyList(), emptyList(), 1uL)
 
     private fun show(rows: List<ChatRow> = emptyList(), liked: List<String> = emptyList()) = compose.setContent {
         ChatsContent(rows, liked, lists, { opened += it }) { profiles += it.peerId }

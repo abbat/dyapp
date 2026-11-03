@@ -153,8 +153,28 @@ pub struct FoundProfile {
     pub peer_id: String,
     /// The public profile fields.
     pub draft: PublicProfileDraft,
+    /// The thumbnail hash of each photo in order; the first is the main photo.
+    pub photos: Vec<Vec<u8>>,
+    /// The full image hash of each photo in `photos`, empty where a photo has none.
+    pub full_photos: Vec<Vec<u8>>,
     /// The highest seen version.
     pub version: u64,
+}
+
+impl From<&dyapp_profile::VerifiedProfile> for FoundProfile {
+    fn from(found: &dyapp_profile::VerifiedProfile) -> Self {
+        let photos = &found.profile.photos;
+        Self {
+            peer_id: found.peer_id.clone(),
+            draft: PublicProfileDraft::from(&found.profile),
+            photos: photos.iter().map(|photo| photo.thumbnail.clone()).collect(),
+            full_photos: photos
+                .iter()
+                .map(|photo| photo.full.first().cloned().unwrap_or_default())
+                .collect(),
+            version: found.profile.version,
+        }
+    }
 }
 
 /// One search over the active network's search nodes.
@@ -238,11 +258,7 @@ impl ProfileSearcher {
             .profiles
             .into_iter()
             .map(|found| {
-                let profile = FoundProfile {
-                    peer_id: found.peer_id.clone(),
-                    draft: PublicProfileDraft::from(&found.profile),
-                    version: found.profile.version,
-                };
+                let profile = FoundProfile::from(&found);
                 // An older or equal version is already cached.
                 let _ = cache.accept(found);
                 profile
@@ -285,6 +301,30 @@ mod tests {
         network::save(&dir, Settings::Active, &network).unwrap();
         // A retry is a new call on the same searcher.
         assert_eq!(search().unwrap_err().to_string(), "notConnected");
+    }
+
+    #[test]
+    fn a_found_profile_lists_its_photo_hashes_in_order() {
+        let photo = |full: Vec<Vec<u8>>, thumbnail: &[u8]| dyapp_profile::Photo {
+            full,
+            thumbnail: thumbnail.to_vec(),
+        };
+        let verified = dyapp_profile::VerifiedProfile {
+            peer_id: "peer".into(),
+            profile: dyapp_profile::Profile {
+                version: 3,
+                photos: vec![
+                    photo(vec![vec![1], vec![2]], &[10]),
+                    photo(Vec::new(), &[20]),
+                ],
+                ..dyapp_profile::Profile::default()
+            },
+        };
+        let found = FoundProfile::from(&verified);
+        assert_eq!(found.photos, vec![vec![10], vec![20]]);
+        // The client publishes each full image as one blob; a missing one leaves an empty hash.
+        assert_eq!(found.full_photos, vec![vec![1], Vec::new()]);
+        assert_eq!((found.peer_id.as_str(), found.version), ("peer", 3));
     }
 
     #[test]
