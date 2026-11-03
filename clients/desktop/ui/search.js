@@ -14,6 +14,8 @@ const searchPlace = placePicker(searchCountry, document.getElementById('search-p
   document.getElementById('search-places'), searchCountryCode);
 const BIRTH_AGE_FIELD = 1001;
 const HEIGHT_FIELD = 46;
+const SEEKING_GENDERS_FIELD = 53;
+const SEEKING_AGE_FIELD = 54;
 let searchBusy = false;
 const searchMessage = (key, detail = '') =>
   statusMessage(document.getElementById('search-status'), 'search-open-network', key, detail);
@@ -53,6 +55,8 @@ const showSearchFilters = (offered) => {
   showFilter(document.getElementById('search-place-row'),
     offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD));
   showFilter(scales, true);
+  showFilter(document.getElementById('search-mutual-row'),
+    offered.includes(SEEKING_GENDERS_FIELD) && offered.includes(SEEKING_AGE_FIELD));
   document.getElementById('search-filters').hidden = !offered.length;
 };
 const searchQuery = () => {
@@ -72,7 +76,8 @@ const searchQuery = () => {
   const employer = kind === 'same' ? { kind, company }
     : kind === 'exclude' ? { kind, companies: company.split(';').map((name) => name.trim()).filter(Boolean) }
     : { kind: 'any' };
-  return { age, conditions, employer, limit: 0 };
+  const mutual = document.getElementById('search-mutual');
+  return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
 const failureText = (failure) => {
   const text = window.strings[`search.failure.${failure.kind}`];
@@ -668,7 +673,8 @@ const runSearch = async (call = invoke) => {
     const code = String(error);
     if (code === 'notConnected') searchMessage('search.notConnected');
     else searchMessage('search.failed', '');
-    showSearchError(code === 'notConnected' ? 'search.offline' : 'search.error', code);
+    showSearchError({ notConnected: 'search.offline', mutualUnavailable: 'search.mutualUnavailable' }[code]
+      || 'search.error', code);
   } finally {
     if (identityCurrent(generation)) setSearchBusy(false);
   }

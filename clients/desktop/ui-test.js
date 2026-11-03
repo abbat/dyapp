@@ -163,6 +163,7 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-height').value = '180';
   document.getElementById('profile-smoking').value = '10';
   document.getElementById('profile-about').value = ABOUT;
+  fillSeeking();
   const place = document.getElementById('profile-place');
   place.value = 'Nowhere';
   place.dispatchEvent(new Event('input', { bubbles: true }));
@@ -182,6 +183,14 @@ const saveProfileForRestart = async () => {
   await saved;
 };
 const ABOUT = 'First line\n<b>not bold</b>';
+const fillSeeking = () => {
+  byId('profile-seeking-gender-1').checked = true;
+  byId('profile-seeking-age-from').value = '30';
+  byId('profile-seeking-age-to').value = '60';
+};
+const seekingKept = () => byId('profile-seeking-gender-1').checked && !byId('profile-seeking-gender-2').checked
+  && byId('profile-seeking-age-from').value === '30' && byId('profile-seeking-age-to').value === '60'
+  && !byId('profile-not-looking').checked;
 const expectedFields = (photos = 0) => [
   `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
   `${window.strings['profile.field.smoking']}: ${window.strings['profile.value.smoking.No']}`,
@@ -189,13 +198,16 @@ const expectedFields = (photos = 0) => [
   `${window.strings['profile.birthMonth']}: 2`,
   `${window.strings['profile.height']}: 180`,
   `${window.strings['profile.about']}: ${ABOUT}`,
+  `${window.strings['profile.seekingGenders']}: ${window.strings['profile.value.gender.Woman']}`,
+  `${window.strings['profile.seekingAgeFrom']}: 30`,
+  `${window.strings['profile.seekingAgeTo']}: 60`,
   ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
 ].join('|');
 const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
   if (saved) {
     if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
       || byId('birth-month').value !== '2' || byId('profile-height').value !== '180'
-      || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT) {
+      || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT || !seekingKept()) {
       throw new Error('failed publish lost the saved draft');
     }
   } else {
@@ -205,6 +217,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0
     byId('profile-height').value = '180';
     byId('profile-smoking').value = '10';
     byId('profile-about').value = ABOUT;
+    fillSeeking();
   }
   const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields(photos)) throw new Error(`profile preview changed: ${fields}`);
@@ -265,11 +278,35 @@ const unhideProfileOnLoopback = async () => {
   }
   await shot('profile-unhidden-pending');
 };
+// The switch locks the choices and publishes only itself; a reversed age range is never saved.
+const checkSeekingForm = async () => {
+  const paused = byId('profile-not-looking');
+  paused.click();
+  if (!byId('profile-seeking').disabled) throw new Error('not-looking switch left the choices open');
+  const fields = await openPublishForTest();
+  if (!fields.includes(`${window.strings['profile.notLooking']}: ${window.strings['profile.notLookingOn']}`)
+    || fields.some((field) => field.startsWith(window.strings['profile.seekingGenders']))) {
+    throw new Error(`not-looking preview: ${fields}`);
+  }
+  await closePublishDialog();
+  paused.click();
+  if (byId('profile-seeking').disabled) throw new Error('not-looking switch kept the choices locked');
+  const to = byId('profile-seeking-age-to');
+  to.value = '20';
+  byId('profile-save').click();
+  if (to.validationMessage !== window.strings['search.rangeReversed']) {
+    throw new Error(`reversed partner age: ${to.validationMessage}`);
+  }
+  to.value = '60';
+  const saved = waitForProfileStatus('profile.saved');
+  byId('profile-save').click();
+  await saved;
+};
 const checkSavedProfile = async () => {
   if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
     || byId('birth-month').value !== '2' || byId('birth-day').value !== ''
     || byId('profile-height').value !== '180' || byId('profile-country').value !== 'DE'
-    || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT) {
+    || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT || !seekingKept()) {
     throw new Error('profile draft changed after restart');
   }
   const place = byId('profile-place').value;
@@ -297,6 +334,7 @@ const checkSavedProfile = async () => {
   if (!byId('profile-age').textContent.startsWith(`${window.strings['profile.age']}: `)) {
     throw new Error('known age hidden after restart');
   }
+  await checkSeekingForm();
 };
 // The status bar: traffic is unavailable until a search starts the client swarm, then counts the
 // reply; the message store always has a size once the identity is open.
@@ -406,6 +444,23 @@ const checkHabitFilters = async () => {
     if (!byId(`search-${key}`)) throw new Error(`${key} filter not offered`);
   }
 };
+// The published profile seeks a woman of 30 to 60 and is the woman born in February 1990 who
+// searches; in February her age is not exact, so the search is refused with what to fix.
+const checkMutualFilter = async () => {
+  if (!shown('search-mutual-row')) throw new Error('mutual search not offered');
+  byId('search-mutual').checked = true;
+  byId('run-search').click();
+  await window.searchDone;
+  byId('search-mutual').checked = false;
+  if (new Date().getUTCMonth() === 1) {
+    if (byId('search-error-text').textContent !== window.strings['search.mutualUnavailable']) {
+      throw new Error(`mutual search refusal: ${byId('search-error-text').textContent}`);
+    }
+    return;
+  }
+  const status = byId('search-status').textContent;
+  if (status !== `${window.strings['search.results']} 1`) throw new Error(`mutual search: ${status}`);
+};
 const searchOnLoopback = async (connected) => {
   await checkStatus(false);
   await openArea('search-area');
@@ -453,6 +508,7 @@ const searchOnLoopback = async (connected) => {
   await shot('statusbar');
   await checkHeightFilter();
   await checkHabitFilters();
+  await checkMutualFilter();
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
   await pickPlace('search');
   document.getElementById('run-search').click();

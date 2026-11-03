@@ -219,6 +219,26 @@
                 <datalist id="profile-places"></datalist></div>
             </div>
           </div>
+          <div class="card">
+            <h2 data-i18n="profile.seekingTitle"></h2>
+            <div class="switch-row">
+              <label for="profile-not-looking"><span data-i18n="profile.notLooking"></span><br>
+                <span class="caption" data-i18n="profile.notLookingHint"></span></label>
+              <!-- biome-ignore lint/a11y/useAriaPropsForRole: a native checkbox exposes its checked state -->
+              <input id="profile-not-looking" class="switch" type="checkbox" role="switch">
+            </div>
+            <fieldset id="profile-seeking">
+              <legend data-i18n="profile.seekingGenders"></legend>
+              <div id="profile-seeking-genders"></div>
+              <p class="caption" data-i18n="profile.seekingHint"></p>
+              <div class="grid">
+                <div class="field"><label for="profile-seeking-age-from" data-i18n="profile.seekingAgeFrom"></label>
+                  <input id="profile-seeking-age-from" type="number" min="18" max="120" inputmode="numeric"></div>
+                <div class="field"><label for="profile-seeking-age-to" data-i18n="profile.seekingAgeTo"></label>
+                  <input id="profile-seeking-age-to" type="number" min="18" max="120" inputmode="numeric"></div>
+              </div>
+            </fieldset>
+          </div>
           <details id="profile-more" class="card"><summary data-i18n="profile.more"></summary>
             <div id="profile-scales" class="grid"></div></details>
           <div class="actions">
@@ -257,6 +277,11 @@
                 spellcheck="false">
               <datalist id="search-places"></datalist>
             </div>
+          </div>
+          <div id="search-mutual-row" hidden>
+            <label class="choice"><input id="search-mutual" type="checkbox">
+              <span><span data-i18n="search.mutual"></span><br>
+                <span class="caption" data-i18n="search.mutualHint"></span></span></label>
           </div>
           <details id="search-more">
             <summary data-i18n="search.more"></summary>
@@ -763,6 +788,7 @@
   </dialog>
   <script src="peer-names.js"></script>
   <script src="privacy-ui.js"></script>
+  <script src="profile-seeking.js"></script>
   <script src="app.js"></script>
   <script src="passes.js"></script>
   <script src="remove.js"></script>

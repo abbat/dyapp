@@ -10,9 +10,9 @@ use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-use dyapp_p2p_net::search_results::Filter;
+use dyapp_p2p_net::search_results::{mutual_conditions, Filter};
 use dyapp_p2p_net::{proto, Protocols};
-use dyapp_profile::{CivilDate, VerifiedProfile};
+use dyapp_profile::{CivilDate, Profile, VerifiedProfile};
 
 use crate::peer_photos::PhotoCache;
 use crate::profile::{self, Draft};
@@ -144,6 +144,8 @@ pub struct Query {
     pub employer: EmployerFilter,
     /// Hits per node; 0 means 50.
     pub limit: u32,
+    /// Also ask for profiles that seek the saved profile's gender and age.
+    pub mutual: bool,
 }
 
 impl Query {
@@ -159,6 +161,21 @@ impl Query {
         }
         Ok(out)
     }
+}
+
+/// The query's conditions, then a mutual search's for `own`; `mutualUnavailable` when `own` has no
+/// gender or no exact age to tell the nodes.
+fn node_conditions(
+    query: Query,
+    own: &Profile,
+    today: CivilDate,
+) -> Result<Vec<proto::Condition>, String> {
+    let mutual = query.mutual;
+    let mut conditions = query.conditions(today)?;
+    if mutual {
+        conditions.extend(mutual_conditions(own, today).ok_or("mutualUnavailable")?);
+    }
+    Ok(conditions)
 }
 
 /// Why a node gave no usable reply, tagged by `kind` for the page's messages.
@@ -237,7 +254,7 @@ pub struct Results {
 /// inclusive range of years, checked against public birth dates today; no conditions asks for a
 /// sample; `employer` then narrows the verified results on this device. Each call connects
 /// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
-/// node), `invalid search op`, `invalid search age` or a storage message.
+/// node), `mutualUnavailable`, `invalid search op`, `invalid search age` or a storage message.
 pub async fn search(
     cache: &Mutex<ProfileCache>,
     dir: &Path,
@@ -246,11 +263,12 @@ pub async fn search(
 ) -> Result<Results, String> {
     let limit = query.limit;
     let employer = Employer::from(query.employer.clone());
-    let conditions = query.conditions(profile::today()?)?;
+    let today = profile::today()?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let mut hidden = store.blocked_peers().map_err(|e| e.to_string())?;
     hidden.extend(store.passed_peers().map_err(|e| e.to_string())?);
     let own = profile::stored(&store)?;
+    let conditions = node_conditions(query, &own, today)?;
     // Capture the context before loading settings: activation saves settings and advances this
     // epoch under the same cache lock.
     let (epoch, seen) = cache.lock().map_err(|e| e.to_string())?.snapshot();
@@ -432,6 +450,34 @@ mod tests {
         assert!(block(&dir, &alice, &peer).is_ok());
         let store = Store::open(&dir.join("client.db"), &alice).unwrap();
         assert!(store.blocked(&peer).unwrap());
+    }
+
+    #[test]
+    fn a_mutual_search_adds_the_own_gender_and_age_or_is_refused() {
+        let today = CivilDate::from_unix_days(20_000).unwrap();
+        let query = |mutual| Query {
+            mutual,
+            ..Query::default()
+        };
+        let unknown = Profile::default();
+        let own = Profile {
+            gender: dyapp_profile::Gender::Woman.code(),
+            birth_year: Some(1980),
+            birth_month: Some(1),
+            birth_day: Some(1),
+            ..Profile::default()
+        };
+        assert_eq!(
+            node_conditions(query(false), &unknown, today),
+            Ok(Vec::new())
+        );
+        assert_eq!(
+            node_conditions(query(true), &unknown, today),
+            Err("mutualUnavailable".into())
+        );
+        let wanted = mutual_conditions(&own, today).unwrap();
+        assert!(!wanted.is_empty());
+        assert_eq!(node_conditions(query(true), &own, today), Ok(wanted));
     }
 
     #[test]

@@ -578,6 +578,7 @@ const profileDraft = () => ({
   height: Number(document.getElementById('profile-height').value) || null,
   about: document.getElementById('profile-about').value,
   country: placeCountry.value, place: profilePlace.id(),
+  ...seekingDraft(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
 const statusMessage = (status, open, key, detail) => {
@@ -649,6 +650,7 @@ const showProfile = async (call = invoke) => {
   }
   document.getElementById('profile-height').value = view.draft.height || '';
   document.getElementById('profile-about').value = view.draft.about;
+  showSeeking(view.draft);
   const unsetCountry = document.createElement('option');
   unsetCountry.value = '';
   unsetCountry.textContent = window.strings['profile.unset'];
@@ -704,6 +706,7 @@ const publicFacts = (draft, place) => {
   }
   if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
   if (draft.about) facts.push([window.strings['profile.about'], draft.about]);
+  facts.push(...seekingFacts(draft));
   return facts;
 };
 // The same fields as lines, or the empty notice.
@@ -719,7 +722,7 @@ const listItems = (values) => values.map((value) => {
   return item;
 });
 const saveProfile = async (call = invoke) => {
-  if (!profileForm.reportValidity()) return null;
+  if (!profileFormValid()) return null;
   const generation = identityGeneration;
   const view = await call('save_profile', { draft: profileDraft() })
     .catch((error) => {
@@ -792,7 +795,7 @@ const profileFailure = (error) => {
 };
 profileForm.addEventListener('input', () => { if (!profileBusy) profileMessage('profile.draft'); });
 const submitProfile = async (save = saveProfile) => {
-  if (profileBusy || !profileForm.reportValidity()) return;
+  if (profileBusy || !profileFormValid()) return;
   const generation = identityGeneration;
   setProfileBusy(true);
   try { await save(); } catch (error) {
@@ -806,7 +809,7 @@ profileForm.addEventListener('submit', (event) => {
   window.profileSaveDone = submitProfile();
 });
 const previewAndPublish = async (save = saveProfile) => {
-  if (profileBusy || !profileForm.reportValidity()) return;
+  if (profileBusy || !profileFormValid()) return;
   const generation = identityGeneration;
   setProfileBusy(true);
   try {

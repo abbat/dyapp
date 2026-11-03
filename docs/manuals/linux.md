@@ -81,7 +81,10 @@ At launch the app dials the active network by itself. The bottom of the sidebar 
 
 Choose any of the fourteen profile values, or leave every value at **Not published**. Height (50 to
 272 cm), **About** (up to 500 characters shown as plain text) and birth year, month and day are each
-optional. **Save draft** keeps the values for this
+optional. **Who you are looking for** takes the genders you seek and a partner age range (18 to
+120, either end may stay empty), all public and optional. **Not looking now** publishes only that
+state: saving with it on clears these choices, and mutual searches leave you out. **Save draft**
+keeps the values for this
 identity across
 restarts. **Preview public profile** lists the selected fields and exact birth-date parts,
 shows the possible age range (or **Age unknown**), and warns that others may copy published
@@ -107,7 +110,10 @@ themselves. The app checks every profile's signature and filters before showing 
 rest. After the first sample, filters appear for the fields every reached node offers: an age
 range (18 or older), a height range in centimetres (either end may stay empty; a height filter
 leaves out profiles without a height), a two-letter country code and the profile values (a chosen
-value leaves out profiles that did not state it; **About** is not searched). The
+value leaves out profiles that did not state it; **About** is not searched). **Only people
+looking for someone like me** shows profiles that seek your gender and age, and leaves out profiles
+with no gender or no age bound chosen. It tells the search nodes your gender and age for that
+search and needs both in your saved profile, with a birth date that gives your exact age. The
 filters you set stay in the form. Each result shows the Peer ID; open it to see the public fields.
 
 While a search runs, its buttons are disabled; the rest of the window stays usable. An empty

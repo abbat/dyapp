@@ -141,6 +141,22 @@ before a save (H5) and clearing the field unpublishes it (H3).
 
 No open finding.
 
+### Who I am looking for review (2026-11-04)
+
+Reviewed the seeking card in `profile-edit`, its rows in `profile-preview` and the mutual checkbox
+in the search filters against H1–H10, from the markup and messages; the rendered states come from
+`make ui-test-linux` in CI and were not opened for this entry. The switch visibly locks the choices
+(H1), the card's hint says the fields are public and when mutual search finds you (H2, H10), the
+switch's hint says a save clears the choices before that happens (H3, H5), the native range and the
+reversed-range message stop a bad age before a save (H5, H9), and the search hint says the nodes see
+your gender and age before you tick it (H1, H10).
+
+| State | Heuristic | Severity | Problem | Fix |
+| --- | --- | --- | --- | --- |
+| Search filters | H9 | 2 | A mutual search without a gender or an exact age would fail with the generic search error | Its own message says what to add to the saved profile |
+
+No open finding.
+
 ### Safety-number review (2026-10-31)
 
 Reviewed `profile-view-safety` and its `profile-view` and `profile-view-match`
