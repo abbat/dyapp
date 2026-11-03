@@ -28,25 +28,60 @@ internal fun stagedNew(before: List<ChatMessage>, after: List<ChatMessage>, me: 
     return after.any { it.author == me && it.id.toList() !in known }
 }
 
-internal fun sendStatus(error: Throwable, staged: Boolean): ChatStatus {
+/** A failure's line; a change that was [staged] reads as [queued] instead, and keeps no details. */
+internal fun sendStatus(
+    error: Throwable,
+    staged: Boolean,
+    queued: Int = R.string.chat_queued,
+    failed: Int = R.string.chat_send_failed,
+): ChatStatus {
     val details = error.toString()
     return when {
-        staged -> ChatStatus(R.string.chat_queued, null)
+        staged -> ChatStatus(queued, null)
         "notConnected" in details -> ChatStatus(R.string.search_not_connected, details)
         "unpublished" in details -> ChatStatus(R.string.chat_unpublished, details)
-        else -> ChatStatus(R.string.chat_send_failed, details)
+        else -> ChatStatus(failed, details)
     }
 }
 
-/** Sends the draft; only a failure that stored nothing keeps the text for another try. */
+/** A message's saveable key: its group and ID, as a rotation must keep the edit and delete targets. */
+internal fun messageKey(message: ChatMessage) = listOf(message.groupId, message.id)
+    .joinToString(":") { bytes -> bytes.joinToString("") { "%02x".format(it) } }
+
+internal fun List<ChatMessage>.byKey(key: String?) = key?.let { find { message -> messageKey(message) == it } }
+
+/** Whether [message] has the menu: only an own text that was not deleted can change. */
+internal fun changeable(message: ChatMessage, me: String) = message.author == me && !message.deleted
+
+/**
+ * Sends the draft, or the edit of the message [ChatForm.editing] names; only a failure that stored
+ * nothing keeps the text for another try.
+ */
 internal fun CoroutineScope.sendDraft(form: ChatForm, feed: ChatFeed, peer: String, before: List<ChatMessage>) {
     val text = form.draft.value
+    val editing = before.byKey(form.editing.value)
+    // An edit whose message is gone must not go out as a new text.
+    if (form.editing.value != null && editing == null) return
     form.sending = true
     form.status = null
     launch {
-        val status = withContext(Dispatchers.IO) { feed.send(peer, text, before) }
+        val status = withContext(Dispatchers.IO) {
+            if (editing == null) feed.send(peer, text, before) else feed.edit(peer, editing, text)
+        }
         form.sending = false
         form.status = status
-        if (status?.details == null) form.draft.value = ""
+        if (status?.details == null) form.restoreDraft()
+    }
+}
+
+/** Deletes the confirmed message; a failure says why, and the thread rereads either way. */
+internal fun CoroutineScope.deleteMessage(form: ChatForm, feed: ChatFeed, peer: String, message: ChatMessage) {
+    form.busy = true
+    launch {
+        val status = withContext(Dispatchers.IO) { feed.delete(peer, message) }
+        form.status = status
+        form.busy = false
+        // A deleted message has nothing left to edit.
+        if (status?.details == null && form.editing.value == messageKey(message)) form.restoreDraft()
     }
 }

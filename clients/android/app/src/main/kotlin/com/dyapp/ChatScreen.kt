@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,19 +55,38 @@ private const val COMPOSER_MAX_LINES = 5
 internal class ChatStatus(val text: Int, val details: String?)
 
 /**
- * The composer and the menu's state: [draft] and the open [dialog] survive recreation; a send, clear
- * or block in flight, its last outcome and the cleared note do not.
+ * The composer and the menus' state: [draft], the open [dialog], the [editing] and [deleting] targets as
+ * [messageKey]s and the [held] draft survive recreation; a change in flight, its last outcome and the
+ * cleared note do not.
  */
 internal class ChatForm(
     val draft: MutableState<String>,
     val dialog: MutableState<ChatDialog?> = mutableStateOf(null),
+    val editing: MutableState<String?> = mutableStateOf(null),
+    val deleting: MutableState<String?> = mutableStateOf(null),
+    val held: MutableState<String> = mutableStateOf(""),
 ) {
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
 
-    /** A clear or a block in flight; the menu waits for it. */
+    /** A clear, block or delete in flight; the menus wait for it. */
     var busy by mutableStateOf(false)
     var cleared by mutableStateOf(false)
+
+    /** Loads [message] into the composer; a text typed before waits in [held]. */
+    fun edit(message: ChatMessage) {
+        if (editing.value == null) held.value = draft.value
+        draft.value = message.text.orEmpty()
+        editing.value = messageKey(message)
+        status = null
+    }
+
+    /** Ends an edit, or a sent draft: [held] is empty unless an edit put a typed text there. */
+    fun restoreDraft() {
+        draft.value = held.value
+        held.value = ""
+        editing.value = null
+    }
 }
 
 /**
@@ -85,9 +103,7 @@ internal fun ChatScreen(
     onBack: () -> Unit,
 ) {
     var history by remember { mutableStateOf<ChatHistory?>(null) }
-    val draft = rememberSaveable { mutableStateOf("") }
-    val dialog = rememberSaveable { mutableStateOf<ChatDialog?>(null) }
-    val form = remember { ChatForm(draft, dialog) }
+    val form = rememberChatForm()
     val scope = rememberCoroutineScope()
     LaunchedEffect(feed.version) {
         withContext(Dispatchers.IO) { runCatching { feed.history(peer) } }
@@ -108,6 +124,9 @@ internal fun ChatScreen(
         onBack = onBack,
         onClear = { scope.clearChat(form, feed, peer) },
         onBlock = { scope.blockPeer(form, feed, peer, onBack) },
+        onDelete = {
+            history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
+        },
     )
     ChatContent(peer, opened.peerId, history, form, actions)
 }
@@ -120,16 +139,21 @@ internal fun ChatScreen(
 @Suppress("LongParameterList") // Who talks, what is shown, what is typed and what the controls do.
 internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: ChatForm, actions: ChatActions) {
     val state = history?.state
+    // An edit goes out only while its message can still change, and only with a changed text.
+    val edited = history?.messages.orEmpty().byKey(form.editing.value)
+    val ready = form.editing.value == null ||
+        edited != null && changeable(edited, me) && edited.text != form.draft.value
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("chat")) {
         ChatBackBar(peer, actions) { ChatMoreMenu(form, state != ChatState.REQUEST_RECEIVED) }
         ChatStateNotice(state, form)
-        ChatThread(me, history?.messages.orEmpty(), form.cleared, Modifier.weight(1f))
+        ChatThread(me, history, form, Modifier.weight(1f))
         Column(Modifier.padding(horizontal = 16.dp), Arrangement.spacedBy(8.dp)) {
             if (state == ChatState.REQUEST_SENT) Caption(stringResource(R.string.chat_first_wait))
             ChatStatusLine(form)
             if (chatTooLong(form.draft.value)) Caption(stringResource(R.string.chat_too_long))
+            if (form.editing.value != null) EditingLine(form)
         }
-        ChatComposer(state, form, actions.onSend)
+        ChatComposer(state, form, ready, actions.onSend)
     }
     ChatConfirm(form, actions)
 }
@@ -172,7 +196,10 @@ private fun ChatStateNotice(state: ChatState?, form: ChatForm) {
 }
 
 @Composable
-private fun ChatThread(me: String, messages: List<ChatMessage>, cleared: Boolean, modifier: Modifier) {
+private fun ChatThread(me: String, history: ChatHistory?, form: ChatForm, modifier: Modifier) {
+    val messages = history?.messages.orEmpty()
+    val cleared = form.cleared
+    val writable = chatWritable(history?.state)
     val list = rememberLazyListState()
     // The cleared note comes first, so the last message is one item further.
     LaunchedEffect(messages.size) {
@@ -185,22 +212,29 @@ private fun ChatThread(me: String, messages: List<ChatMessage>, cleared: Boolean
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (cleared) item { Caption(stringResource(R.string.chat_cleared), Modifier.testTag("chat-cleared-note")) }
-        items(messages) { ChatBubble(it, it.author == me) }
+        items(messages) { message ->
+            val own = message.author == me
+            Box(Modifier.fillMaxWidth(), if (own) Alignment.CenterEnd else Alignment.CenterStart) {
+                if (changeable(message, me)) {
+                    MessageMenu(message, form, writable) { ChatBubble(message, true, it) }
+                } else {
+                    ChatBubble(message, own, Modifier)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage, own: Boolean) {
-    Box(Modifier.fillMaxWidth(), if (own) Alignment.CenterEnd else Alignment.CenterStart) {
-        Surface(
-            Modifier.padding(start = if (own) 48.dp else 0.dp, end = if (own) 0.dp else 48.dp),
-            RoundedCornerShape(12.dp),
-            if (own) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Column(Modifier.padding(12.dp), Arrangement.spacedBy(4.dp)) {
-                Text(chatPreview(message))
-                chatMeta(message).takeIf { it.isNotEmpty() }?.let { Caption(it) }
-            }
+private fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) {
+    Surface(
+        modifier.padding(start = if (own) 48.dp else 0.dp, end = if (own) 0.dp else 48.dp),
+        RoundedCornerShape(12.dp),
+        if (own) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(Modifier.padding(12.dp), Arrangement.spacedBy(4.dp)) {
+            Text(chatPreview(message))
+            chatMeta(message).takeIf { it.isNotEmpty() }?.let { Caption(it) }
         }
     }
 }
@@ -233,7 +267,7 @@ private fun ChatStatusLine(form: ChatForm) {
 }
 
 @Composable
-private fun ChatComposer(state: ChatState?, form: ChatForm, onSend: () -> Unit) {
+private fun ChatComposer(state: ChatState?, form: ChatForm, ready: Boolean, onSend: () -> Unit) {
     val text = form.draft.value
     Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         // Read-only rather than disabled while sending, so the keyboard stays for the next text.
@@ -249,7 +283,7 @@ private fun ChatComposer(state: ChatState?, form: ChatForm, onSend: () -> Unit) 
         IconButton(
             onClick = onSend,
             Modifier.testTag("chat-send"),
-            enabled = !form.sending && chatSendable(state, text),
+            enabled = !form.sending && ready && chatSendable(state, text),
         ) {
             Icon(painterResource(R.drawable.ic_send), stringResource(R.string.chat_send))
         }

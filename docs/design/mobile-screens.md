@@ -157,8 +157,12 @@ first and returns to the first section, as any activity relaunch does.
   first in a confirmation dialog, because Android has no block list to undo it from yet; after a
   block the chat closes and a note on Chats says the outcome, with the details when the revocation
   is still pending. Opening a chat
-  marks its texts read, without a read receipt. `chat-mute`, `msg-menu` and `delete-dialog` are
-  planned. It opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
+  marks its texts read, without a read receipt. A long press on an own message that is not
+  deleted opens `msg-menu` with Edit, while the chat takes text, and `msg-delete`. Edit loads the
+  text into `chat-input` under a line that says an edit is open, with a cancel that gives back
+  the text typed before it; Send saves the edit and stays off for an unchanged text. Delete asks
+  in `delete-dialog` with `delete-confirm`. A change stored on the device whose delivery failed
+  says it is pending, and a failure says why. `chat-mute` is planned. It opens from a Chats row and from `view-message` on the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that
   message, and an own message reads Pending until a node takes it, Sent, then Delivered.
 

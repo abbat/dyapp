@@ -60,6 +60,16 @@
     <string name="chat_cleared">Переписка очищена на этом устройстве</string>
     <string name="chat_clear_failed">Не удалось очистить переписку.</string>
     <string name="chat_block_failed">Не удалось заблокировать человека.</string>
+    <string name="msg_menu">Действия с сообщением</string>
+    <string name="chat_edit">Изменить</string>
+    <string name="chat_delete">Удалить</string>
+    <string name="chat_editing">Изменение сообщения. Отправка сохранит правку.</string>
+    <string name="chat_edit_failed">Сообщение не удалось изменить.</string>
+    <string name="chat_edit_queued">Правка сохранена на этом устройстве. Доставка в сеть ожидается.</string>
+    <string name="chat_delete_failed">Сообщение не удалось удалить.</string>
+    <string name="chat_delete_queued">Удалено здесь. Просьба собеседнику ещё не доставлена.</string>
+    <string name="delete_title">Удалить сообщение?</string>
+    <string name="delete_text">Оно исчезнет здесь, а приложение собеседника получит просьбу удалить его. Копия, сохранённая где-то ещё, может остаться.</string>
     <string name="clear_title">Очистить переписку?</string>
     <string name="clear_text">Все сообщения этой переписки удаляются с этого устройства. У собеседника они останутся.</string>
     <string name="clear_later">Очищенные сообщения не вернутся, даже если придут повторно. Неотправленные сообщения отменяются. Взаимная симпатия остаётся.</string>

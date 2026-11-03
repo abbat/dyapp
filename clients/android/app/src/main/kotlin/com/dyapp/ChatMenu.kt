@@ -1,8 +1,11 @@
 package com.dyapp
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -15,13 +18,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatBlock
+import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRevocation
 
 /** What the chat's controls do: the screen wires them to the feed, tests count the calls. */
@@ -38,12 +46,24 @@ internal class ChatActions(
     val onBack: () -> Unit,
     val onClear: () -> Unit,
     val onBlock: () -> Unit,
+    val onDelete: () -> Unit = {},
 )
 
 /** Which confirmation the chat shows; saved, so a rotation keeps it open. */
 internal enum class ChatDialog { CLEAR, BLOCK }
 
 private const val CLEAR = "chat-clear"
+
+/** The chat's [ChatForm] with its saveable parts kept across recreation. */
+@Composable
+internal fun rememberChatForm(): ChatForm {
+    val draft = rememberSaveable { mutableStateOf("") }
+    val dialog = rememberSaveable { mutableStateOf<ChatDialog?>(null) }
+    val editing = rememberSaveable { mutableStateOf<String?>(null) }
+    val deleting = rememberSaveable { mutableStateOf<String?>(null) }
+    val held = rememberSaveable { mutableStateOf("") }
+    return remember { ChatForm(draft, dialog, editing, deleting, held) }
+}
 
 /** `chat-more` and its menu; the dialogs belong to the screen, which [ChatForm.dialog] opens. */
 @Composable
@@ -75,6 +95,50 @@ internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
         ChatDialog.BLOCK -> Confirm("block", R.string.block_title, listOf(R.string.block_text), R.string.chat_block,
             cancel) { cancel(); actions.onBlock() }
         null -> Unit
+    }
+    if (form.deleting.value != null) {
+        val cancelDelete = { form.deleting.value = null }
+        Confirm("delete", R.string.delete_title, listOf(R.string.delete_text), R.string.chat_delete, cancelDelete) {
+            actions.onDelete()
+            cancelDelete()
+        }
+    }
+}
+
+/** `msg-menu` on a long press of an own live text: edit while the chat takes text, delete always. */
+@Composable
+internal fun MessageMenu(
+    message: ChatMessage,
+    form: ChatForm,
+    writable: Boolean,
+    bubble: @Composable (Modifier) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.msg_menu)
+    Box {
+        bubble(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { open = true }) }
+            .semantics { onLongClick(label) { open = true; true } })
+        DropdownMenu(open, { open = false }, Modifier.testTag("msg-menu")) {
+            if (writable) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.chat_edit)) },
+                    onClick = { open = false; form.edit(message) }, Modifier.testTag("msg-edit"),
+                    enabled = !form.sending)
+            }
+            DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete)) },
+                onClick = { open = false; form.deleting.value = messageKey(message) }, Modifier.testTag("msg-delete"),
+                enabled = !form.busy)
+        }
+    }
+}
+
+/** Says the composer holds an edit; cancel gives back the text typed before it. */
+@Composable
+internal fun EditingLine(form: ChatForm) {
+    Row(Modifier.fillMaxWidth().testTag("chat-editing"), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
+        Caption(stringResource(R.string.chat_editing), Modifier.weight(1f))
+        TextButton(form::restoreDraft, Modifier.testTag("chat-edit-cancel"), enabled = !form.sending) {
+            Text(stringResource(R.string.remove_cancel))
+        }
     }
 }
 

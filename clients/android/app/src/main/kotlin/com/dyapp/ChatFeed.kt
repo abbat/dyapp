@@ -18,6 +18,7 @@ import uniffi.dyapp.ChatBlock
 import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
+import uniffi.dyapp.ChatSession
 import uniffi.dyapp.ChatState
 import uniffi.dyapp.FoundProfile
 
@@ -89,6 +90,27 @@ internal class ChatFeed(private val opened: Opened.Ready) {
             sendStatus(failed, stagedNew(before, after, opened.peerId))
         }
     }
+
+    /** Replaces the text of the own [message]; the outcome to show, null when a node took it. */
+    fun edit(peer: String, message: ChatMessage, text: String): ChatStatus? {
+        val error = change { it.editText(peer, message.groupId, message.id, text) } ?: return null
+        val stored = shown(peer, message)?.let { it.edited && !it.deleted && it.text == text } == true
+        return sendStatus(error, stored, R.string.chat_edit_queued, R.string.chat_edit_failed)
+    }
+
+    /** Deletes the own [message] here and asks the peer's app to delete it too. */
+    fun delete(peer: String, message: ChatMessage): ChatStatus? {
+        val error = change { it.deleteText(peer, message.groupId, message.id) } ?: return null
+        val stored = shown(peer, message)?.deleted == true
+        return sendStatus(error, stored, R.string.chat_delete_queued, R.string.chat_delete_failed)
+    }
+
+    // A failed delivery can follow a stored change, as for a send; the rows are read either way.
+    private fun change(action: (ChatSession) -> Unit): Throwable? =
+        runCatching { RustBridge.withChats(opened, action) }.exceptionOrNull().also { read() }
+
+    private fun shown(peer: String, message: ChatMessage): ChatMessage? =
+        runCatching { history(peer).messages.byKey(messageKey(message)) }.getOrNull()
 
     /**
      * Marks [peer]'s texts read; only a change reads the rows, so a failure cannot loop through an

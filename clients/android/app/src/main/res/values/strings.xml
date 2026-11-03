@@ -61,6 +61,16 @@
     <string name="chat_cleared">Chat cleared on this device</string>
     <string name="chat_clear_failed">This chat could not be cleared.</string>
     <string name="chat_block_failed">This person could not be blocked.</string>
+    <string name="msg_menu">Message actions</string>
+    <string name="chat_edit">Edit</string>
+    <string name="chat_delete">Delete</string>
+    <string name="chat_editing">Editing a message. Send saves the change.</string>
+    <string name="chat_edit_failed">This message could not be edited.</string>
+    <string name="chat_edit_queued">Edit saved on this device. Network delivery is pending.</string>
+    <string name="chat_delete_failed">This message could not be deleted.</string>
+    <string name="chat_delete_queued">Deleted here. The request to the peer is pending.</string>
+    <string name="delete_title">Delete this message?</string>
+    <string name="delete_text">It disappears here, and the peer\'s app is asked to delete it too. A copy saved elsewhere may stay.</string>
     <string name="clear_title">Clear this chat?</string>
     <string name="clear_text">All messages in this chat are deleted from this device. The other person keeps their copy.</string>
     <string name="clear_later">Cleared messages do not come back, even if delivered again. Unsent messages are cancelled. The match stays.</string>
