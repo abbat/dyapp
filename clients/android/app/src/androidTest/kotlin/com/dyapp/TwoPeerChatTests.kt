@@ -4,11 +4,15 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.rules.RuleChain
@@ -65,5 +69,66 @@ class TwoPeerChatTests {
         } finally {
             forgetNetworks()
         }
+    }
+
+    @Test
+    fun aMatchFromLikedYouOpensTheChatWhereEditDeleteAndBlockReachThePeer() {
+        compose.skipNetworkEntry()
+        try {
+            compose.activateLocalNode()
+            compose.publishToReadback()
+            val me = ownPeerId()
+            TestPeer("match").use { peer ->
+                peer.session.like(me, true)
+                matchFromLikedYou(peer)
+                compose.onNodeWithTag("view-message-match").performClick()
+                compose.onNodeWithTag("chat-input").performTextInput("First draft")
+                compose.onNodeWithTag("chat-send").performClick()
+                compose.waitForThreadText("First draft")
+                peer.awaitMessage(me, "the text") { it.text == "First draft" }
+                editAndDelete(peer, me)
+                block()
+            }
+        } finally {
+            forgetNetworks()
+        }
+    }
+
+    // Liked you lists the peer once a receive brings the like; the like back makes the match.
+    private fun matchFromLikedYou(peer: TestPeer) {
+        compose.onNodeWithTag("nav-chats").performClick()
+        compose.onNodeWithTag("chats-liked").performClick()
+        val row = hasText(shortPeerId(peer.peerId)) and hasAnyAncestor(hasTestTag("chats-liked-list"))
+        runCatching { compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(row) } }
+            .onFailure { throw AssertionError("Liked you shows ${compose.textsIn("chats-liked-list")}", it) }
+        compose.onNode(row).performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-like") and isEnabled()) }
+        compose.onNodeWithTag("view-like").performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-match")) }
+    }
+
+    private fun press(text: String) =
+        compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag("chat-thread"))).performTouchInput { longClick() }
+
+    private fun editAndDelete(peer: TestPeer, me: String) {
+        press("First draft")
+        compose.onNodeWithTag("msg-edit").performClick()
+        compose.onNodeWithTag("chat-input").performTextReplacement("Edited text")
+        compose.onNodeWithTag("chat-send").performClick()
+        compose.waitForThreadText("Edited text")
+        peer.awaitMessage(me, "the edit") { it.edited && it.text == "Edited text" }
+        press("Edited text")
+        compose.onNodeWithTag("msg-delete").performClick()
+        compose.onNodeWithTag("delete-confirm").performClick()
+        compose.waitForThreadText(compose.activity.getString(R.string.chats_deleted))
+        peer.awaitMessage(me, "the delete") { it.deleted }
+    }
+
+    // Blocking leaves the chat; the note on Chats says how the revocation went.
+    private fun block() {
+        compose.onNodeWithTag("chat-more").performClick()
+        compose.onNodeWithTag("chat-block").performClick()
+        compose.onNodeWithTag("block-confirm").performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chats-blocked-note")) }
     }
 }

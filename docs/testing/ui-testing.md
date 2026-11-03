@@ -70,8 +70,10 @@ A second Android publish test checks and activates the emulator runner's loopbac
 The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
 drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the
 app cache, its own Keystore alias, the same node and a published profile. The peer sends a text;
-the app opens it from its Chats request row and replies, and the peer receives the reply. Match,
-edit, delete and block through the same peer are planned, as is the queued outcome of a send.
+the app opens it from its Chats request row and replies, and the peer receives the reply. In a
+second test the peer likes the app's identity; the app opens it from Liked you, likes back to
+match, messages, edits and deletes the text, and the peer receives each change; the app then
+blocks the peer and Chats shows the block note. The queued outcome of a send is planned.
 The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
 in the same isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
