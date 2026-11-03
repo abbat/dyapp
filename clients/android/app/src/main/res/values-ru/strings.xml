@@ -66,6 +66,7 @@
     <string name="chat_pending">Ожидает отправки</string>
     <string name="chat_sent">Отправлено</string>
     <string name="chat_delivered">Доставлено</string>
+    <string name="chat_read">Прочитано</string>
     <string name="chat_edited">изменено</string>
     <string name="chat_too_long">Сообщение длиннее 64 КиБ.</string>
     <string name="chat_queued">Сохранено на этом устройстве. Доставка в сеть ожидается.</string>
@@ -84,7 +85,7 @@
     <string name="chats_muted">Без уведомлений</string>
     <string name="notice_channel">Новые сообщения</string>
     <string name="notice_new_message">Новое сообщение</string>
-    <string name="settings_notices">Уведомления</string>
+    <string name="settings_notices">Приватность и уведомления</string>
     <string name="notice_toggle">Новые сообщения и лайки</string>
     <string name="notice_content">Что показывать в уведомлении</string>
     <string name="notice_content_fixed">Только «Новое сообщение»</string>
@@ -94,6 +95,9 @@
     <string name="notice_blocked">Android не разрешает DYApp показывать уведомления.</string>
     <string name="notice_allow">Разрешить</string>
     <string name="notice_failed">Не удалось прочитать или сохранить настройку уведомлений. Попробуйте ещё раз.</string>
+    <string name="receipts_toggle">Отправлять отметки о прочтении</string>
+    <string name="receipts_hint">Показывает, что вы прочитали сообщение. Выключение скрывает только ваши.</string>
+    <string name="receipts_failed">Не удалось прочитать или сохранить настройку отметок о прочтении. Попробуйте ещё раз.</string>
     <string name="msg_menu">Действия с сообщением</string>
     <string name="chat_edit">Изменить</string>
     <string name="chat_delete">Удалить</string>

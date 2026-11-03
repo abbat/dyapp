@@ -100,7 +100,8 @@ private fun rememberAllow(state: NoticeState): () -> Unit {
 }
 
 /**
- * The Settings card that turns the new-mail notice on or off for the active identity and picks
+ * The Settings privacy card: the read receipt switch ([ReadReceiptsRow]), then the new-mail notice.
+ * It turns the notice on or off for the active identity and picks
  * what it shows. Turning it on asks for the notification permission on Android 13+; while Android
  * blocks notices the card says so and Allow asks again or, once asked, opens the app's notification
  * settings.
@@ -119,7 +120,7 @@ internal fun NoticeCard(active: Opened.Ready) {
             state.on = on
         }
     }
-    NoticeCardContent(state, allow) { on, content ->
+    NoticeCardContent(state, allow, { ReadReceiptsRow(active) }) { on, content ->
         scope.launch {
             val saved = saveNotice(active, if (on) content else ChatNotice.OFF)
             state.failed = !saved
@@ -143,9 +144,15 @@ private fun NoticeContentChoice(chosen: ChatNotice, enabled: Boolean, pick: (Cha
     }
 
 @Composable
-private fun NoticeCardContent(state: NoticeState, allow: () -> Unit, save: (Boolean, ChatNotice) -> Unit) =
+private fun NoticeCardContent(
+    state: NoticeState,
+    allow: () -> Unit,
+    receipts: @Composable () -> Unit,
+    save: (Boolean, ChatNotice) -> Unit,
+) =
     FormCard(Modifier.testTag("privacy")) {
         CardTitle(R.string.settings_notices)
+        receipts()
         val checked = state.on == true
         Row(
             Modifier.fillMaxWidth().testTag("message-notifications").toggleable(

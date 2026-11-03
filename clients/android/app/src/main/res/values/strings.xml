@@ -67,6 +67,7 @@
     <string name="chat_pending">Pending</string>
     <string name="chat_sent">Sent</string>
     <string name="chat_delivered">Delivered</string>
+    <string name="chat_read">Read</string>
     <string name="chat_edited">edited</string>
     <string name="chat_too_long">Message exceeds 64 KiB.</string>
     <string name="chat_queued">Saved on this device. Network delivery is pending.</string>
@@ -85,7 +86,7 @@
     <string name="chats_muted">Muted</string>
     <string name="notice_channel">New messages</string>
     <string name="notice_new_message">New message</string>
-    <string name="settings_notices">Notifications</string>
+    <string name="settings_notices">Privacy and notifications</string>
     <string name="notice_toggle">New messages and likes</string>
     <string name="notice_content">What a notice shows</string>
     <string name="notice_content_fixed">Only \"New message\"</string>
@@ -95,6 +96,9 @@
     <string name="notice_blocked">Android does not let DYApp show notifications.</string>
     <string name="notice_allow">Allow</string>
     <string name="notice_failed">The notification setting could not be read or saved. Try again.</string>
+    <string name="receipts_toggle">Send read receipts</string>
+    <string name="receipts_hint">Shows when you read a message. Off hides only yours.</string>
+    <string name="receipts_failed">The read receipt setting could not be read or saved. Try again.</string>
     <string name="msg_menu">Message actions</string>
     <string name="chat_edit">Edit</string>
     <string name="chat_delete">Delete</string>

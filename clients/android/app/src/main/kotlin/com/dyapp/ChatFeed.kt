@@ -118,10 +118,12 @@ internal class ChatFeed(private val opened: Opened.Ready) {
 
     /**
      * Marks [peer]'s texts read; only a change reads the rows, so a failure cannot loop through an
-     * open chat's reload. No read receipt is sent.
+     * open chat's reload. Then it sends the read receipts the shown chat owes, none while the setting
+     * is off and without the network when none is due; a failed send is quiet and waits for the next read.
      */
     fun markRead(peer: String) {
         val marked = runCatching { RustBridge.withChats(opened) { it.markRead(peer) } }.getOrDefault(0u)
+        runCatching { RustBridge.withChats(opened) { it.sendReads(peer) } }
         if (marked > 0u) read()
     }
 

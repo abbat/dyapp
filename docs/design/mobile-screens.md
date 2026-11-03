@@ -132,7 +132,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
   removing that identity skips it. Android Settings has the identity rows, the lock
   row, the `blocked` card (Unblock, and a retry of the token revocation that says what it came
   to; a failed read or unblock keeps the last list and says so), the `passed` card (Undo pass shows the person in search and Liked you again; a failed read
-  or undo keeps the last list and says so), the `privacy` card with only `message-notifications` and `notice-content` (on and "New
+  or undo keeps the last list and says so), the `privacy` card ("Privacy and notifications") with `send-read-receipts` (off by default; a failed read or save says so), `message-notifications` and `notice-content` (on and "New
   message" only by default; turning it on asks for the notification permission on Android 13+, and
   while Android blocks notices a caption says so and Allow asks again or opens the app's
   notification settings; `notice-content` is disabled while off, keeps its choice, and names the
@@ -170,7 +170,7 @@ first and returns to the first section, as any activity relaunch does.
   first in a confirmation dialog, because the chat closes and Unblock sits in Settings; after a
   block the chat closes and a note on Chats says the outcome, with the details when the revocation
   is still pending. Opening a chat
-  marks its texts read, without a read receipt. A long press on an own message that is not
+  marks its texts read and, with `send-read-receipts` on in an accepted chat, sends the read receipts it owes while it stays on screen. A long press on an own message that is not
   deleted opens `msg-menu` with Edit, while the chat takes text, and `msg-delete`. Edit loads the
   text into `chat-input` under a line that says an edit is open, with a cancel that gives back
   the text typed before it; Send saves the edit and stays off for an unchanged text. Delete asks
@@ -180,7 +180,7 @@ first and returns to the first section, as any activity relaunch does.
   and the owner's other devices get the flag too. It opens from a Chats row and from `view-message` on
   the found profile, back always lands on Chats,
   and `chat-profile` opens the found profile. The first-message notice also shows before that
-  message, and an own message reads Pending until a node takes it, Sent, then Delivered.
+  message, and an own message reads Pending until a node takes it, Sent, then Delivered, and Read once the peer's read receipt covers it.
 
 ## Identity switcher
 

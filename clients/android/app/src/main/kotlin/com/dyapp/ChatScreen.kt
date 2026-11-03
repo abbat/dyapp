@@ -110,8 +110,9 @@ internal fun ChatScreen(
             .onSuccess { shown ->
                 if (history == null) form.status = null
                 history = shown
-                // Opening reads the chat, and so does a text received while it stays open.
-                if (shown.messages.any { it.unread }) withContext(Dispatchers.IO) { feed.markRead(peer) }
+                // Opening reads the chat, and so does a text received while it stays open; the polls
+                // stop in the background, so receipts go out only while the chat is on screen.
+                withContext(Dispatchers.IO) { feed.markRead(peer) }
             }
             .onFailure {
                 if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString())
@@ -244,10 +245,12 @@ private fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) {
 private fun chatMeta(message: ChatMessage): String = listOfNotNull(
     chatTime(message.sentAtMs),
     stringResource(R.string.chat_edited).takeIf { message.edited && !message.deleted },
-    message.delivery?.takeIf { !message.deleted }?.let { stringResource(deliveryText(it)) },
+    message.delivery?.takeIf { !message.deleted }?.let {
+        stringResource(if (message.read) R.string.chat_read else deliveryText(it))
+    },
 ).joinToString(META_SEPARATOR)
 
-// Node acceptance reads as Sent: only a device of the peer makes it Delivered.
+// Node acceptance reads as Sent: only a device of the peer makes it Delivered, its receipt Read.
 private fun deliveryText(delivery: ChatDelivery) = when (delivery) {
     ChatDelivery.PENDING -> R.string.chat_pending
     ChatDelivery.NODE_ACCEPTED -> R.string.chat_sent

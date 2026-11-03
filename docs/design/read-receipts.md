@@ -8,7 +8,7 @@ Implemented in the Rust client: the read receipt wire body (`Body::Read` in
 setting and read marks in the store (`rust/client/src/store/reads.rs`), and sending with
 `Session::mark_read` and applying in `Session::receive`. The desktop sends receipts and
 shows the read mark; the FFI exposes the same rules (`send_reads`, `ChatMessage.read`) for the
-mobile apps. Planned: the Android and Apple screens, and typing indicators.
+mobile apps, and Android sends them and shows Read. Planned: the Apple apps, and typing indicators.
 
 Read receipts are distinct from delivery receipts (`Body::Receipt`, tag 5,
 [messaging](../architecture/messaging.md)): a delivery receipt says a device committed envelopes
