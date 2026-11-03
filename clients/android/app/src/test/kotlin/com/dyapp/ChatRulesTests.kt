@@ -19,6 +19,7 @@ class ChatRulesTests {
         unread = false,
         forwarded = false,
         delivery = null,
+        read = false,
         sentAtMs = null,
     )
 

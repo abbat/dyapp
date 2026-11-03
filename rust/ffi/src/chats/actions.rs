@@ -43,7 +43,7 @@ fn code(code: &str) -> CoreError {
 
 impl ChatSession {
     /// Refuse a chat the screen cannot show: `ownPeer`, `blocked` or `unknownPeer`.
-    fn check_visible(&self, session: &Session, peer_id: &str) -> Result<(), CoreError> {
+    pub(super) fn check_visible(&self, session: &Session, peer_id: &str) -> Result<(), CoreError> {
         if peer_id == self.key.identity.peer_id() {
             return Err(code("ownPeer"));
         }
@@ -105,9 +105,8 @@ impl ChatSession {
         u32::try_from(cleared).map_err(failed)
     }
 
-    /// Mark the texts from `peer_id` read here and return how many were unread. Local only.
-    /// Errors as in [`Self::clear_chat`].
-    // ponytail: no read receipts until Android has the privacy setting that opts into them.
+    /// Mark the texts from `peer_id` read here and return how many were unread. Local only:
+    /// `send_reads` sends the receipts. Errors as in [`Self::clear_chat`].
     pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
         self.check_visible(&session, &peer_id)?;

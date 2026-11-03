@@ -16,7 +16,8 @@ class NoticeLinesTests {
         state = state,
         lastMessage = ChatMessage(
             groupId = ByteArray(0), author = peer, id = ByteArray(16), text = text, edited = false,
-            deleted = false, unread = unread > 0uL, forwarded = false, delivery = null, sentAtMs = null,
+            deleted = false, unread = unread > 0uL, forwarded = false, delivery = null, read = false,
+            sentAtMs = null,
         ),
         unreadCount = unread,
         muted = muted,

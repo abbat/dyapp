@@ -57,6 +57,8 @@ pub struct ChatMessage {
     pub forwarded: bool,
     /// Delivery of an own message; absent on a received one.
     pub delivery: Option<ChatDelivery>,
+    /// The peer's read receipt covers this live own text; set only in [`ChatHistory`].
+    pub read: bool,
     /// Original wall time for timed text; legacy text has no timestamp.
     pub sent_at_ms: Option<u64>,
 }
@@ -76,6 +78,7 @@ impl From<messages::ChatMessage> for ChatMessage {
             unread: message.unread,
             forwarded: message.forwarded,
             delivery: message.delivery.map(Into::into),
+            read: false,
             sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
         }
     }

@@ -28,6 +28,7 @@ internal fun message(author: String, text: String, delivery: ChatDelivery? = nul
     unread = false,
     forwarded = false,
     delivery = delivery,
+    read = false,
     sentAtMs = null,
 )
 

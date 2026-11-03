@@ -24,6 +24,7 @@ use zeroize::Zeroizing;
 
 mod actions;
 mod notices;
+mod reads;
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
 pub use notices::ChatNotice;
@@ -233,14 +234,17 @@ impl ChatSession {
         if store.blocked(&peer_id).map_err(failed)? {
             return Err(CoreError::Failed("blocked".into()));
         }
+        let mut messages: Vec<ChatMessage> = store
+            .current_chat_messages(&peer_id)
+            .map_err(failed)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        let own = self.key.identity.peer_id();
+        reads::project_reads(store, &peer_id, &own, &mut messages)?;
         Ok(ChatHistory {
             state: store.conversation(&peer_id).map_err(failed)?.into(),
-            messages: store
-                .current_chat_messages(&peer_id)
-                .map_err(failed)?
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+            messages,
             muted: store.muted(&peer_id).map_err(failed)?,
         })
     }
@@ -511,6 +515,11 @@ mod tests {
         let err = |result: Result<u32, CoreError>| result.unwrap_err().to_string();
         assert_eq!(err(chats.clear_chat(peer.clone())), "unknownPeer");
         assert_eq!(err(chats.mark_read(peer.clone())), "unknownPeer");
+        assert_eq!(err(chats.send_reads(peer.clone())), "unknownPeer");
+        // Receipts are off until turned on.
+        assert!(!chats.read_receipts().unwrap());
+        chats.set_read_receipts(true).unwrap();
+        assert!(chats.read_receipts().unwrap());
         assert_eq!(err(chats.clear_chat(key.peer_id())), "ownPeer");
         let edit = |to: &str, id: Vec<u8>, text: &str| {
             let refused = chats.edit_text(to.to_owned(), vec![1], id, text.to_owned());
