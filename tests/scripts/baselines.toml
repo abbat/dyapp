@@ -56,8 +56,6 @@ score = 72.2
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
 "LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-10-28
 "LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
-# Android: publishing without a network failed once; the retry passed.
-"com.dyapp.ProfilePublishTests publishNeedsFreshConfirmationsAndReportsNoNetwork" = 2026-10-28
 # Android: the signed readback did not appear within 120 s in some attempts; a retry passed.
 "com.dyapp.ProfilePublishTests publishThroughTheLocalNodeShowsTheSignedReadback" = 2026-11-02
 "com.dyapp.ProfilePublishTests theSwitchHidesAndOnlyAPublicationShowsAgain" = 2026-11-02
