@@ -37,21 +37,22 @@ private fun fieldRows(scales: List<ProfileScale>, saved: Map<String, Int>) = sca
     scale.choices.firstOrNull { it.code.toInt() == saved[scale.key] }?.let { scale.key to it.key }
 }
 
-private fun birthRows(saved: Map<String, Int>) = listOf(BIRTH_YEAR to R.string.profile_birth_year,
+private fun numberRows(saved: Map<String, Int>) = listOf(HEIGHT to R.string.profile_height,
+    BIRTH_YEAR to R.string.profile_birth_year,
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
-/** The public rows of [draft]: the public name, scales, place, birth parts and the possible age. */
+/** The public rows of [draft]: the public name, scales, place, height, birth parts and the possible age. */
 @Composable
 internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
-    val birth = birthRows(saved)
+    val numbers = numberRows(saved)
     if (draft.name.isNotEmpty()) {
         Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), draft.name),
             Modifier.testTag("preview-name"))
-    } else if (fields.isEmpty() && places.isEmpty() && birth.isEmpty()) {
+    } else if (fields.isEmpty() && places.isEmpty() && numbers.isEmpty()) {
         Text(stringResource(R.string.profile_preview_empty))
     }
     for ((scale, choice) in fields) {
@@ -62,7 +63,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
         Text(stringResource(R.string.profile_preview_row, stringResource(name), value),
             Modifier.testTag("preview-$key"))
     }
-    for ((name, value) in birth) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
+    for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
 }

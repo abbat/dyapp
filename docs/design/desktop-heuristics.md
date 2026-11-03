@@ -180,6 +180,14 @@ to the grouped number, the QR and scan controls remain readable, and the
 neighbouring profile actions remain visible. No open H1–H10 finding. Clipboard
 expiry is covered by a separate behavioral test, not by these static images.
 
+### Android height review (2026-11-04)
+
+Reviewed the height field in the profile basics, its preview row and the height range in the search
+filters against H1–H10, from the Compose code; not yet seen on a device, native rendering is left to
+the CI Android job. The labels carry the unit (H2), the range mirrors the age fields (H4), the
+number keyboard limits typos (H5), emptying the field unpublishes it (H3), and a refused height or
+reversed range says what to change without offering a retry that cannot help (H9). No open finding.
+
 ### Android lock screen layout review (2026-11-01)
 
 Read `lock-setup` and `lock-unlock` in the Compose code against the prototype and H1–H10 in

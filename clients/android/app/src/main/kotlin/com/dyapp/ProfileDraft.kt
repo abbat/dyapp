@@ -23,13 +23,18 @@ private const val FINANCIAL_PHILOSOPHY = "financial_philosophy"
 private const val EMPLOYMENT_STATUS = "employment_status"
 private const val FITNESS_LEVEL = "fitness_level"
 private const val ZODIAC = "zodiac"
+internal const val HEIGHT = "height"
 
-/** Scale, birth and place values by key, the ISO country code or empty, and the optional public name. */
+/** Scale, birth, height and place values by key, the ISO country code or empty, and the optional public name. */
 internal data class ProfileDraft(
     val values: Map<String, Int> = emptyMap(),
     val country: String = "",
     val name: String = "",
 )
+
+/** The draft value of typed height text: empty clears it, null is text that is no whole number. */
+internal fun parsedHeight(typed: String): Map<String, Int>? =
+    if (typed.isBlank()) emptyMap() else typed.trim().toIntOrNull()?.let { mapOf(HEIGHT to it) }
 
 private fun validValue(key: String, value: Int, country: String, scales: List<ProfileScale>) = when (key) {
     in BIRTH_KEYS -> true
@@ -63,7 +68,7 @@ internal fun ProfileDraft.record(): PublicProfileDraft {
         employmentStatus = code(EMPLOYMENT_STATUS), fitnessLevel = code(FITNESS_LEVEL),
         zodiac = code(ZODIAC), birthYear = values[BIRTH_YEAR]?.toUInt(),
         birthMonth = values[BIRTH_MONTH]?.toUInt(), birthDay = values[BIRTH_DAY]?.toUInt(),
-        country = country, place = values[PLACE]?.toString().orEmpty(),
+        country = country, place = values[PLACE]?.toString().orEmpty(), height = values[HEIGHT]?.toUInt(),
     )
 }
 
@@ -74,7 +79,7 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
         CAREER_AMBITION to careerAmbition, FINANCIAL_PHILOSOPHY to financialPhilosophy,
         EMPLOYMENT_STATUS to employmentStatus, FITNESS_LEVEL to fitnessLevel, ZODIAC to zodiac)
     val optional = listOf(BIRTH_YEAR to birthYear, BIRTH_MONTH to birthMonth, BIRTH_DAY to birthDay,
-        PLACE to place.toUIntOrNull())
+        PLACE to place.toUIntOrNull(), HEIGHT to height)
     val values = scales.filter { it.second != 0u } + optional.mapNotNull { (key, value) -> value?.let { key to it } }
     return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name)
 }

@@ -95,6 +95,11 @@ class SearchTests {
             click("run-search")
             check(searched() == string(R.string.search_age_invalid)) { "status ${compose.texts("search-status")}" }
             compose.onNodeWithTag("search-age-max").performScrollTo().performTextReplacement("60")
+            compose.onNodeWithTag("search-height-min").performScrollTo().performTextInput("190")
+            compose.onNodeWithTag("search-height-max").performScrollTo().performTextInput("170")
+            click("run-search")
+            check(searched() == string(R.string.search_height_invalid)) { "status ${compose.texts("search-status")}" }
+            compose.onNodeWithTag("search-height-max").performScrollTo().performTextReplacement("200")
             click("search-country")
             click("country-DE")
             click("run-search")

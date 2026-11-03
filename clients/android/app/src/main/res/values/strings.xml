@@ -224,6 +224,9 @@
     <string name="search_age_min">Age from</string>
     <string name="search_age_max">Age to</string>
     <string name="search_any">Any</string>
+    <string name="search_height_min">Height from, cm</string>
+    <string name="search_height_max">Height to, cm</string>
+    <string name="search_height_invalid">Enter a height range within 50 to 272 cm, the lower value first.</string>
     <string name="search_age_invalid">Enter an age range from 18 that can match a birth date.</string>
     <string name="search_peer">Peer ID: %1$s</string>
     <string name="search_failure_no_nodes">No search node was found on the network.</string>
@@ -337,6 +340,8 @@
     <string name="profile_birth_year">Birth year</string>
     <string name="profile_birth_month">Birth month</string>
     <string name="profile_birth_day">Birth day</string>
+    <string name="profile_height">Height, cm</string>
+    <string name="profile_height_invalid">Use a height from 50 to 272 cm, or leave it empty.</string>
     <string name="profile_birth_invalid">Enter a possible date, or leave any part empty.</string>
     <string name="profile_country">Country</string>
     <string name="profile_place">Town or city</string>

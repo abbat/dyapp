@@ -110,6 +110,27 @@ class ProfilePublishTests {
         saveName("", R.string.profile_saved)
     }
 
+    private fun saveHeight(height: String, status: Int) {
+        compose.onNodeWithTag("profile-height").performScrollTo().performTextReplacement(height)
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
+    }
+
+    @Test
+    fun aHeightIsShownClearedAndARefusedOneSaysWhy() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-profile").performClick()
+        saveHeight("49", R.string.profile_height_invalid)
+        saveHeight("tall", R.string.profile_height_invalid)
+        saveHeight("180", R.string.profile_saved)
+        compose.openPublish()
+        val row = compose.activity.getString(R.string.profile_preview_row, string(R.string.profile_height), "180")
+        compose.onNodeWithText(row).performScrollTo().assertExists()
+        compose.onNodeWithTag("profile-cancel").performClick()
+        // Later tests start without a height.
+        saveHeight("", R.string.profile_saved)
+    }
+
     @Test
     fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
         compose.skipNetworkEntry()

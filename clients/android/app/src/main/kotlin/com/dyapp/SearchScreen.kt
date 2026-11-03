@@ -57,6 +57,7 @@ internal sealed interface SearchState {
 private fun searchError(error: Throwable) = when {
     "notConnected" in error.toString() -> R.string.search_not_connected
     "invalid search age" in error.toString() -> R.string.search_age_invalid
+    "invalid search height" in error.toString() -> R.string.search_height_invalid
     else -> R.string.search_failed
 }
 
@@ -97,8 +98,8 @@ private fun SearchLoading(cancel: () -> Unit) {
 @Composable
 private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {
     ErrorNotice(stringResource(failed.text), STATUS_TAG, failed.details, FAILURES_TAG, "copy-search-details")
-    // An age no birth date fits needs the fields fixed, not a connection or the same query again.
-    if (failed.text != R.string.search_age_invalid) {
+    // A range nothing fits needs the fields fixed, not a connection or the same query again.
+    if (failed.text != R.string.search_age_invalid && failed.text != R.string.search_height_invalid) {
         OutlinedButton(onClick = openNetwork, modifier = Modifier.fillMaxWidth().testTag("search-open-network")) {
             Text(stringResource(R.string.search_open_network))
         }

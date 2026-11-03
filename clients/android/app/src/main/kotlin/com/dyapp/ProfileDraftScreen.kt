@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -31,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.profileScales
@@ -40,6 +42,8 @@ internal val BASIC_SCALES = setOf("gender", "relationship_goal")
 
 // An open expander's arrow points up.
 internal const val FLIPPED_DEGREES = 180f
+
+private val REPLACED_KEYS = BIRTH_KEYS + PLACE + HEIGHT
 
 /**
  * Profile draft editor and publication dialog over `client.db`; Rust supplies the closed wire choices.
@@ -57,18 +61,25 @@ fun ProfileDraftScreen(opened: Opened.Ready) {
     ProfileDraftForm(opened, scales, loaded.getOrThrow())
 }
 
-// [edited] holds the scales and the name; [birth] and [place] replace its birth and place values.
+private fun saveFailure(error: Throwable) = when {
+    "invalidName" in error.toString() -> R.string.profile_name_invalid
+    "invalidHeight" in error.toString() -> R.string.profile_height_invalid
+    else -> R.string.profile_save_failed
+}
+
+// [edited] holds the scales and the name; [birth] and [place] replace the values they hold.
 private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthInputs, place: PlaceInputs): Int {
     val parts = parseBirthParts(birth.year, birth.month, birth.day)
+    val tall = parsedHeight(birth.height)
     val picked = place.place?.let { mapOf(PLACE to it) }.orEmpty()
-    val kept = edited.values.filterKeys { it !in BIRTH_KEYS && it != PLACE }
+    val kept = edited.values.filterKeys { it !in REPLACED_KEYS }
     return when {
         parts == null -> R.string.profile_birth_invalid
+        tall == null -> R.string.profile_height_invalid
         place.unknown -> R.string.profile_place_unknown
-        else -> runCatching { saveDraft(opened, edited.copy(values = kept + parts + picked, country = place.country)) }
-            .fold({ R.string.profile_saved }, {
-                if ("invalidName" in it.toString()) R.string.profile_name_invalid else R.string.profile_save_failed
-            })
+        else -> runCatching {
+            saveDraft(opened, edited.copy(values = kept + parts + picked + tall, country = place.country))
+        }.fold({ R.string.profile_saved }, ::saveFailure)
     }
 }
 
@@ -119,6 +130,9 @@ private fun BasicsCard(
         label = { Text(stringResource(R.string.profile_name)) },
         supportingText = { Text(stringResource(R.string.profile_name_hint)) }, singleLine = true)
     ScalePickers(scales, values)
+    OutlinedTextField(birth.height, { birth.height = it }, Modifier.fillMaxWidth().testTag("profile-height"),
+        label = { Text(stringResource(R.string.profile_height)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
     CardTitle(R.string.profile_birth)
     BirthDateFields(birth)
 }
@@ -154,7 +168,7 @@ private fun MoreScales(scales: List<ProfileScale>, values: MutableMap<String, In
 }
 
 private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs) =
-    listOf(values.toMap(), birth.year, birth.month, birth.day, place.country, place.place, place.text)
+    listOf(values.toMap(), birth.year, birth.month, birth.day, birth.height, place.country, place.place, place.text)
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable

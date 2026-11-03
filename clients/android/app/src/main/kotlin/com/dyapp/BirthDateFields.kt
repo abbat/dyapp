@@ -35,10 +35,12 @@ private const val LAST_DAY = 31
 // The year field takes more of the row than the two pickers.
 private const val YEAR_WEIGHT = 1.2f
 
+// The typed numbers of the basics card: the birth date parts and the height.
 internal class BirthInputs(saved: Map<String, Int>) {
     var year by mutableStateOf(saved[BIRTH_YEAR]?.toString().orEmpty())
     var month by mutableStateOf(saved[BIRTH_MONTH]?.toString().orEmpty())
     var day by mutableStateOf(saved[BIRTH_DAY]?.toString().orEmpty())
+    var height by mutableStateOf(saved[HEIGHT]?.toString().orEmpty())
 }
 
 @Composable
