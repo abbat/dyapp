@@ -32,7 +32,7 @@ class ProfileViewTests {
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
-        val actions = ProfileActions(R.string.view_back, { backs += 1 }) { messages += 1 }
+        val actions = ProfileActions(R.string.view_back, { backs += 1 }, { messages += 1 })
         val onBlock = { blocks += 1 }
         ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }, { passes += it }, onBlock) {
             retries += 1

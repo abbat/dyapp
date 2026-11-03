@@ -9,9 +9,6 @@ use std::sync::Arc;
 /// Editable public profile fields. Zero leaves any categorical field unpublished.
 #[derive(Clone, Debug, Default, PartialEq, Eq, uniffi::Record)]
 pub struct PublicProfileDraft {
-    /// Optional public name, empty when unset; saving trims it.
-    #[uniffi(default = "")]
-    pub name: String,
     /// Self-declared gender.
     pub gender: u32,
     /// Self-declared orientation.
@@ -40,6 +37,10 @@ pub struct PublicProfileDraft {
     pub country: String,
     /// Decimal GeoNames ID of a place in `country`, empty when unset.
     pub place: String,
+    /// Optional public name, empty when unset; saving trims it.
+    /// Last, so positional constructors keep working.
+    #[uniffi(default = "")]
+    pub name: String,
 }
 
 impl From<&Profile> for PublicProfileDraft {
