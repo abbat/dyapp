@@ -77,5 +77,6 @@ fails only the push that carries it.
 | [0039](0039-sensitive-safety-clipboard.md) | Sensitive safety-number clipboard on desktop |
 | [0040](0040-device-linking.md) | Device linking without history |
 | [0041](0041-optional-profile-height.md) | Optional profile height |
+| [0042](0042-habits-and-about-profile-fields.md) | Habit scales and about text in the profile |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

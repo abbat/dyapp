@@ -73,7 +73,10 @@ one binding per entry of `devices`: the device key's signature over the owner ke
 closes that device's mailbox ([bootstrap](bootstrap.md#mailbox-envelope)). A binding of an unlisted
 device or another owner invalidates the profile. `height` (field 46) is optional whole centimetres,
 50–272 inclusive; a value outside the range invalidates the profile
-([ADR 0041](../decisions/0041-optional-profile-height.md)).
+([ADR 0041](../decisions/0041-optional-profile-height.md)). `about` (field 47) is plain text of at
+most 500 code points that may hold line feeds; it is not indexed. `smoking`, `drinking`, `tattoos`,
+`marital_status` and `pets` (fields 48–52) are closed scales, zero when not published
+([ADR 0042](../decisions/0042-habits-and-about-profile-fields.md)).
 
 ## Node protocol
 
@@ -152,7 +155,7 @@ SHA-256 of the device public key (32 bytes each).
 - **`/dyapp/search`** (search role): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
   as on `/dyapp/profile`; `Heartbeat.version` names the owner's current profile version, and a
   search node holding an older one answers `STATUS_NOT_FOUND` (store nodes ignore the field).
-  `query(SearchQuery)` takes up to 16 `Condition`s (`OP_EQ`, `OP_IN` with up to 16 values,
+  `query(SearchQuery)` takes up to 32 `Condition`s (`OP_EQ`, `OP_IN` with up to 16 values,
   inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and
   `partial` when the scan budget ran out; `get(SearchGet)` returns up to 50 records, cut at 1 MiB.
 - **`/dyapp/inventory`** (search role): node to node, `InventoryRequest(topic, after, before)`

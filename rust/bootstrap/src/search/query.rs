@@ -132,6 +132,11 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
         employment_status: 6,
         fitness_level: 40,
         zodiac: 12,
+        smoking: 30,
+        drinking: 30,
+        tattoos: 30,
+        marital_status: 3,
+        pets: 2,
         ..Profile::default()
     };
     let (key, profile, record) = signed(&Identity::generate(), filled);
@@ -341,7 +346,7 @@ fn invalid_conditions() {
     ]));
     assert!(!bad(vec![cond(4, Op::In, vec![], vec!["a"; 16])]));
     assert!(bad(vec![cond(4, Op::In, vec![], vec!["a"; 17])]));
-    assert!(bad((0..17)
+    assert!(bad((0..33)
         .map(|f| cond(100 + f, Op::Eq, vec![1], vec![]))
         .collect()));
     let skipped = index

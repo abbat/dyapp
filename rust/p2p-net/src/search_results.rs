@@ -4,9 +4,10 @@
 use crate::proto::{Condition, Op};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::{
-    scale, stated, CareerAmbition, CivilDate, EducationLevel, EmploymentStatus,
-    FinancialPhilosophy, FitnessLevel, Gender, Orientation, Profile, RelationshipGoal,
-    RolePreference, VerifiedProfile, Zodiac, HEIGHT_FIELD, MAX_HEIGHT_CM, MIN_HEIGHT_CM,
+    scale, stated, CareerAmbition, CivilDate, Drinking, EducationLevel, EmploymentStatus,
+    FinancialPhilosophy, FitnessLevel, Gender, MaritalStatus, Orientation, Pets, Profile,
+    RelationshipGoal, RolePreference, Smoking, Tattoos, VerifiedProfile, Zodiac, HEIGHT_FIELD,
+    MAX_HEIGHT_CM, MIN_HEIGHT_CM,
 };
 use std::collections::HashMap;
 
@@ -108,6 +109,11 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         Gender::FIELD => code(profile.gender, Gender::MAX),
         EducationLevel::FIELD => code(profile.education_level, EducationLevel::MAX),
         HEIGHT_FIELD => int(profile.height.map(i64::from)),
+        Smoking::FIELD => code(profile.smoking, Smoking::MAX),
+        Drinking::FIELD => code(profile.drinking, Drinking::MAX),
+        Tattoos::FIELD => code(profile.tattoos, Tattoos::MAX),
+        MaritalStatus::FIELD => code(profile.marital_status, MaritalStatus::MAX),
+        Pets::FIELD => code(profile.pets, Pets::MAX),
         _ => None,
     }
 }
@@ -203,12 +209,22 @@ pub struct Filter {
     pub employment_statuses: Vec<u32>,
     /// Any of these self-declared zodiac signs.
     pub zodiacs: Vec<u32>,
+    /// Any of these marital statuses.
+    pub marital_statuses: Vec<u32>,
+    /// Any of these `pets` values.
+    pub pets: Vec<u32>,
     /// Selected career ambitions or an inclusive range.
     pub career_ambitions: Option<ScaleSelection>,
     /// Selected financial philosophies or an inclusive range.
     pub financial_philosophies: Option<ScaleSelection>,
     /// Selected fitness levels or an inclusive range.
     pub fitness_levels: Option<ScaleSelection>,
+    /// Selected smoking habits or an inclusive range.
+    pub smoking: Option<ScaleSelection>,
+    /// Selected drinking habits or an inclusive range.
+    pub drinking: Option<ScaleSelection>,
+    /// Selected tattoo visibilities or an inclusive range.
+    pub tattoos: Option<ScaleSelection>,
     /// `has_kids` as stated; a profile that leaves it unset does not match.
     pub has_kids: Option<bool>,
     /// `wants_more_kids` as stated; a profile that leaves it unset does not match.
@@ -242,13 +258,13 @@ pub enum FilterError {
     EmptyRange,
     /// Zero or a value that is not on the categorical scale.
     InvalidScale,
-    /// More than 16 conditions in one node query.
+    /// More than 32 conditions in one node query.
     TooManyConditions,
 }
 
 impl Filter {
     /// The conditions for a query and for [`check`] at an explicit UTC date:
-    /// at most 16, one per field.
+    /// at most 32, one per field.
     pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
@@ -339,6 +355,8 @@ impl Filter {
             (RolePreference::FIELD, &self.role_preferences),
             (EmploymentStatus::FIELD, &self.employment_statuses),
             (Zodiac::FIELD, &self.zodiacs),
+            (MaritalStatus::FIELD, &self.marital_statuses),
+            (Pets::FIELD, &self.pets),
         ] {
             if values.len() > MAX_IN_VALUES {
                 return Err(FilterError::TooManyValues);
@@ -359,6 +377,9 @@ impl Filter {
             (CareerAmbition::FIELD, &self.career_ambitions),
             (FinancialPhilosophy::FIELD, &self.financial_philosophies),
             (FitnessLevel::FIELD, &self.fitness_levels),
+            (Smoking::FIELD, &self.smoking),
+            (Drinking::FIELD, &self.drinking),
+            (Tattoos::FIELD, &self.tattoos),
         ] {
             let Some(selection) = selection else { continue };
             let known = scale(field).ok_or(FilterError::InvalidScale)?;
@@ -381,7 +402,7 @@ impl Filter {
             }
             out.push(ints(field, op, values.into_iter().map(i64::from).collect()));
         }
-        if out.len() > 16 {
+        if out.len() > 32 {
             return Err(FilterError::TooManyConditions);
         }
         Ok(out)
@@ -392,6 +413,96 @@ impl Filter {
 mod tests {
     use super::*;
     use dyapp_identity::Identity;
+
+    #[test]
+    fn a_filter_on_every_field_stays_within_the_node_limit() {
+        let first = |field| vec![scale(field).unwrap().options[0].code];
+        let any = |field| Some(ScaleSelection::Any(first(field)));
+        let filter = Filter {
+            age: Some((18, 35)),
+            genders: first(Gender::FIELD),
+            orientations: first(Orientation::FIELD),
+            relationship_goals: first(RelationshipGoal::FIELD),
+            role_preferences: first(RolePreference::FIELD),
+            employment_statuses: first(EmploymentStatus::FIELD),
+            zodiacs: first(Zodiac::FIELD),
+            marital_statuses: first(MaritalStatus::FIELD),
+            pets: first(Pets::FIELD),
+            career_ambitions: any(CareerAmbition::FIELD),
+            financial_philosophies: any(FinancialPhilosophy::FIELD),
+            fitness_levels: any(FitnessLevel::FIELD),
+            smoking: any(Smoking::FIELD),
+            drinking: any(Drinking::FIELD),
+            tattoos: any(Tattoos::FIELD),
+            has_kids: Some(false),
+            wants_more_kids: Some(true),
+            country: "DE".into(),
+            places: vec!["2950159".into()],
+            income: Some((1, 2)),
+            min_education: Some(EducationLevel::Bachelor.code()),
+            min_height: Some(MIN_HEIGHT_CM),
+            with_photo: true,
+            active_since: Some(86_400),
+            ..Filter::default()
+        };
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        assert_eq!(filter.conditions(today).unwrap().len(), 25);
+    }
+
+    #[test]
+    fn habit_filters_keep_the_chosen_values_and_leave_out_an_empty_field() {
+        let owner = Identity::generate();
+        let filter = Filter {
+            smoking: Some(ScaleSelection::Range(
+                Smoking::No.code(),
+                Smoking::Sometimes.code(),
+            )),
+            drinking: Some(ScaleSelection::Any(vec![Drinking::Yes.code()])),
+            tattoos: Some(ScaleSelection::Any(vec![Tattoos::Hidden.code()])),
+            marital_statuses: vec![MaritalStatus::Divorced.code()],
+            pets: vec![Pets::Yes.code()],
+            ..Filter::default()
+        };
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let conditions = filter.conditions(today).unwrap();
+        assert_eq!(conditions.len(), 5);
+        let fit = Profile {
+            version: 1,
+            smoking: Smoking::Sometimes.code(),
+            drinking: Drinking::Yes.code(),
+            tattoos: Tattoos::Hidden.code(),
+            marital_status: MaritalStatus::Divorced.code(),
+            pets: Pets::Yes.code(),
+            ..Profile::default()
+        };
+        let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&owner)]]).len() == 1;
+        assert!(kept(&fit));
+        let misses: [fn(&mut Profile); 10] = [
+            |p| p.smoking = Smoking::Yes.code(),
+            |p| p.smoking = 0,
+            |p| p.drinking = Drinking::No.code(),
+            |p| p.drinking = 0,
+            |p| p.tattoos = Tattoos::None.code(),
+            |p| p.tattoos = 0,
+            |p| p.marital_status = MaritalStatus::Married.code(),
+            |p| p.marital_status = 0,
+            |p| p.pets = Pets::No.code(),
+            |p| p.pets = 0,
+        ];
+        for (i, miss) in misses.iter().enumerate() {
+            let mut p = fit.clone();
+            miss(&mut p);
+            assert!(!kept(&p), "{i}");
+        }
+        let unknown_code = Filter {
+            pets: vec![Pets::MAX + 1],
+            ..Filter::default()
+        };
+        assert_eq!(
+            unknown_code.conditions(today),
+            Err(FilterError::InvalidScale)
+        );
+    }
 
     fn record(identity: &Identity, version: u64, age: u32, interests: &[&str]) -> SignedRecord {
         Profile {

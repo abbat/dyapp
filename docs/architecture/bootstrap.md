@@ -550,14 +550,15 @@ maximum, from a newer client, stored as NULL),
   `maintenance.io_mb_per_s` budget, and stores them without the 10-minute limit. A search node
   pays for these gets and inventories out of its own budget of `maintenance.io_mb_per_s` reply
   bytes per second instead of request units.
-- **Conditions.** A condition is (`Profile` field number, op, values), at most 16 per query and
+- **Conditions.** A condition is (`Profile` field number, op, values), at most 32 per query and
   one per field. Ops: `eq`; `in` with up to 16 values (for interests: any of them); `range`,
   inclusive, for numbers. Values are int64 or strings; strings match exactly. Income "at least X"
   is `income_to ≥ X`. `country` is optional. A node skips a field or op it does not know and does
   not list it as applied, so the client filters the rest; a value of the wrong type is
   `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
-  numeric genders, orientations, goals, family roles, employment statuses and zodiac signs as
-  value lists, career ambition, financial philosophy and fitness as lists or inclusive ranges,
+  numeric genders, orientations, goals, family roles, employment statuses, zodiac signs, marital
+  statuses and pets as value lists, career ambition, financial philosophy, fitness, smoking,
+  drinking and tattoos as lists or inclusive ranges,
   children, least education level, height from, to or both (inclusive; any bound leaves out a
   profile without height), with a photo, active since a day, country, places and income,
   the last two only with a country); it refuses zero or a code not on the scale. A node finds a
@@ -943,7 +944,9 @@ optional birth year, month and day); every public field is optional by design
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`). `education_level` and
   the categorical scales take any value, so a code added by a later release reaches old nodes
   ([ADR 0028](../decisions/0028-ordered-education-level.md)); `height`, when present, is 50–272
-  whole centimetres ([ADR 0041](../decisions/0041-optional-profile-height.md)).
+  whole centimetres ([ADR 0041](../decisions/0041-optional-profile-height.md)); `about` is at most
+  500 code points, the text rule applying to each line, and is not indexed
+  ([ADR 0042](../decisions/0042-habits-and-about-profile-fields.md)).
 
 Deletion publishes a tombstone with a higher version. While it is retained, a store node
 refuses every later profile version, and `get` returns the tombstone so peers learn of the

@@ -74,6 +74,14 @@ message Profile {
   // Whole centimetres, 50-272 inclusive; absent when not published. Unlike the scales, verification
   // refuses a value outside the range.
   optional uint32 height = 46;
+  // Plain text about the owner, at most 500 code points; line feeds allowed. Not indexed for search.
+  string about = 47;
+  // Closed scales; zero means not published.
+  uint32 smoking = 48;
+  uint32 drinking = 49;
+  uint32 tattoos = 50;
+  uint32 marital_status = 51;
+  uint32 pets = 52;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

@@ -36,7 +36,12 @@ struct ProfileRustDraftStore {
             birthMonth: values["birthMonth"],
             birthDay: values["birthDay"],
             country: draft.country,
-            place: values[ProfileDraft.placeKey].map(String.init) ?? ""
+            place: values[ProfileDraft.placeKey].map(String.init) ?? "",
+            smoking: values["smoking"] ?? 0,
+            drinking: values["drinking"] ?? 0,
+            tattoos: values["tattoos"] ?? 0,
+            maritalStatus: values["marital_status"] ?? 0,
+            pets: values["pets"] ?? 0
         )
     }
 
@@ -52,6 +57,11 @@ struct ProfileRustDraftStore {
             ("employment_status", draft.employmentStatus),
             ("fitness_level", draft.fitnessLevel),
             ("zodiac", draft.zodiac),
+            ("smoking", draft.smoking),
+            ("drinking", draft.drinking),
+            ("tattoos", draft.tattoos),
+            ("marital_status", draft.maritalStatus),
+            ("pets", draft.pets),
         ] where code != 0 {
             values[key] = code
         }

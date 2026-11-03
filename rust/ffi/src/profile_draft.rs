@@ -44,6 +44,24 @@ pub struct PublicProfileDraft {
     /// Optional public height in whole centimetres, 50 to 272.
     #[uniffi(default = None)]
     pub height: Option<u32>,
+    /// Optional plain text about the owner, at most 500 characters; saving trims it.
+    #[uniffi(default = "")]
+    pub about: String,
+    /// Smoking habit.
+    #[uniffi(default = 0)]
+    pub smoking: u32,
+    /// Drinking habit.
+    #[uniffi(default = 0)]
+    pub drinking: u32,
+    /// Tattoo visibility.
+    #[uniffi(default = 0)]
+    pub tattoos: u32,
+    /// Marital status.
+    #[uniffi(default = 0)]
+    pub marital_status: u32,
+    /// Pets.
+    #[uniffi(default = 0)]
+    pub pets: u32,
 }
 
 impl From<&Profile> for PublicProfileDraft {
@@ -65,6 +83,12 @@ impl From<&Profile> for PublicProfileDraft {
             country: profile.country.clone(),
             place: profile.place.clone(),
             height: profile.height,
+            about: profile.about.clone(),
+            smoking: profile.smoking,
+            drinking: profile.drinking,
+            tattoos: profile.tattoos,
+            marital_status: profile.marital_status,
+            pets: profile.pets,
         }
     }
 }
@@ -79,6 +103,9 @@ impl PublicProfileDraft {
         }
         if !dyapp_profile::valid_height(self.height) {
             return Err(CoreError::Failed("invalidHeight".into()));
+        }
+        if !dyapp_profile::valid_about(self.about.trim()) {
+            return Err(CoreError::Failed("invalidAbout".into()));
         }
         for (field, value) in [
             (dyapp_profile::Gender::FIELD, self.gender),
@@ -99,6 +126,11 @@ impl PublicProfileDraft {
             ),
             (dyapp_profile::FitnessLevel::FIELD, self.fitness_level),
             (dyapp_profile::Zodiac::FIELD, self.zodiac),
+            (dyapp_profile::Smoking::FIELD, self.smoking),
+            (dyapp_profile::Drinking::FIELD, self.drinking),
+            (dyapp_profile::Tattoos::FIELD, self.tattoos),
+            (dyapp_profile::MaritalStatus::FIELD, self.marital_status),
+            (dyapp_profile::Pets::FIELD, self.pets),
         ] {
             let scale = dyapp_profile::scale(field)
                 .ok_or_else(|| CoreError::Failed("unknown profile scale".into()))?;
@@ -138,6 +170,12 @@ impl PublicProfileDraft {
         profile.country.clone_from(&self.country);
         profile.place.clone_from(&self.place);
         profile.height = self.height;
+        self.about.trim().clone_into(&mut profile.about);
+        profile.smoking = self.smoking;
+        profile.drinking = self.drinking;
+        profile.tattoos = self.tattoos;
+        profile.marital_status = self.marital_status;
+        profile.pets = self.pets;
     }
 }
 
@@ -265,6 +303,44 @@ mod tests {
         assert_eq!(saved(), Some(180));
         save(None).unwrap();
         assert_eq!(saved(), None);
+    }
+
+    #[test]
+    fn the_new_fields_round_trip_and_about_is_trimmed_and_limited() {
+        let dir = temp_dir();
+        let owner = IdentityKey::generate();
+        let draft = PublicProfileDraft {
+            about: " First line\nsecond ".into(),
+            smoking: dyapp_profile::Smoking::Sometimes.code(),
+            drinking: dyapp_profile::Drinking::No.code(),
+            tattoos: dyapp_profile::Tattoos::Visible.code(),
+            marital_status: dyapp_profile::MaritalStatus::Divorced.code(),
+            pets: dyapp_profile::Pets::Yes.code(),
+            ..Default::default()
+        };
+        save_profile_draft(dir.clone(), owner.clone(), draft.clone()).unwrap();
+        let saved = load_profile_draft(dir.clone(), owner.clone()).unwrap();
+        let expected = PublicProfileDraft {
+            about: "First line\nsecond".into(),
+            ..draft.clone()
+        };
+        assert_eq!(saved, Some(expected));
+        let about = |about: String| PublicProfileDraft {
+            about,
+            ..Default::default()
+        };
+        let longest = "я".repeat(dyapp_profile::MAX_ABOUT_CHARS);
+        save_profile_draft(dir.clone(), owner.clone(), about(longest.clone())).unwrap();
+        let error = save_profile_draft(dir.clone(), owner.clone(), about(longest + "я"));
+        assert!(matches!(error, Err(CoreError::Failed(code)) if code == "invalidAbout"));
+        let gap = PublicProfileDraft {
+            smoking: 15,
+            ..Default::default()
+        };
+        assert!(save_profile_draft(dir.clone(), owner.clone(), gap).is_err());
+        save_profile_draft(dir.clone(), owner.clone(), PublicProfileDraft::default()).unwrap();
+        let cleared = load_profile_draft(dir, owner).unwrap();
+        assert_eq!(cleared, Some(PublicProfileDraft::default()));
     }
 
     #[test]

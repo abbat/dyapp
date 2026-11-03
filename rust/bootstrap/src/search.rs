@@ -5,8 +5,9 @@ use crate::error::Result;
 use crate::storage::{self, lock, storage_error};
 use dyapp_identity::SignedRecord;
 use dyapp_profile::{
-    stated, CareerAmbition, EducationLevel, EmploymentStatus, FinancialPhilosophy, FitnessLevel,
-    Gender, Orientation, Profile, RelationshipGoal, RolePreference, Zodiac,
+    stated, CareerAmbition, Drinking, EducationLevel, EmploymentStatus, FinancialPhilosophy,
+    FitnessLevel, Gender, MaritalStatus, Orientation, Pets, Profile, RelationshipGoal,
+    RolePreference, Smoking, Tattoos, Zodiac,
 };
 use prost::Message;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NO
   `career_ambition` INTEGER, `education_level` INTEGER, `orientation` INTEGER, `role_preference` INTEGER,
   `zodiac` INTEGER, `financial_philosophy` INTEGER, `employment_status` INTEGER, `fitness_level` INTEGER,
   `place` TEXT, `gender` INTEGER, `photo_count` INTEGER, `r` INTEGER NOT NULL,
-  `birth_earliest` INTEGER, `birth_latest` INTEGER, `height` INTEGER) WITHOUT ROWID;
+  `birth_earliest` INTEGER, `birth_latest` INTEGER, `height` INTEGER, `smoking` INTEGER, `drinking` INTEGER,
+  `tattoos` INTEGER, `marital_status` INTEGER, `pets` INTEGER) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_country` ON `profile` (`country`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_r` ON `profile` (`r`);
@@ -141,7 +143,7 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
     let birth = p.birth_bounds();
     tx.execute(
         "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
         params![
             &key[..],
             topic(key),
@@ -166,7 +168,12 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             r,
             birth.map(|b| b.earliest.yyyymmdd()),
             birth.map(|b| b.latest.yyyymmdd()),
-            p.height
+            p.height,
+            stated(p.smoking, Smoking::MAX),
+            stated(p.drinking, Drinking::MAX),
+            stated(p.tattoos, Tattoos::MAX),
+            stated(p.marital_status, MaritalStatus::MAX),
+            stated(p.pets, Pets::MAX)
         ],
     )
     .map_err(storage_error)?;

@@ -126,7 +126,7 @@ fn search_publish_query_get() {
     let r = search(&s, in_query(countries));
     assert_eq!(search_status(&r), Status::Invalid);
     let bad = proto::SearchQuery {
-        conditions: vec![proto::Condition::default(); 17],
+        conditions: vec![proto::Condition::default(); 33],
         limit: 0,
         puzzle: None,
     };

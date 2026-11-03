@@ -4,8 +4,8 @@ use super::*;
 use dyapp_p2p_net::proto::{Condition, Op};
 use dyapp_p2p_net::search_results::MAX_IN_VALUES;
 use dyapp_profile::{
-    scale, CareerAmbition, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
-    Orientation, RelationshipGoal, RolePreference, Zodiac,
+    scale, CareerAmbition, Drinking, EmploymentStatus, FinancialPhilosophy, FitnessLevel, Gender,
+    MaritalStatus, Orientation, Pets, RelationshipGoal, RolePreference, Smoking, Tattoos, Zodiac,
 };
 
 /// Profile field number → column and whether it holds integers. Constant identifiers only.
@@ -28,6 +28,11 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (Gender::FIELD, "gender", true),
     (27, "education_level", true),
     (dyapp_profile::HEIGHT_FIELD, "height", true),
+    (Smoking::FIELD, "smoking", true),
+    (Drinking::FIELD, "drinking", true),
+    (Tattoos::FIELD, "tattoos", true),
+    (MaritalStatus::FIELD, "marital_status", true),
+    (Pets::FIELD, "pets", true),
 ];
 const INTERESTS: u32 = 19;
 const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
@@ -54,6 +59,11 @@ pub const SEARCH_FIELDS: &[u32] = &[
     Gender::FIELD,
     27,
     dyapp_profile::HEIGHT_FIELD,
+    Smoking::FIELD,
+    Drinking::FIELD,
+    Tattoos::FIELD,
+    MaritalStatus::FIELD,
+    Pets::FIELD,
     ACTIVE_DAY,
     BIRTH_AGE,
 ];
@@ -161,7 +171,7 @@ impl SearchIndex {
         max_scan_rows: u32,
     ) -> Result<std::result::Result<Found, ()>> {
         use rusqlite::types::Value;
-        if conditions.len() > 16 {
+        if conditions.len() > 32 {
             return Ok(Err(()));
         }
         let mut seen = std::collections::HashSet::new();

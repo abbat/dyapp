@@ -36,6 +36,8 @@ pub enum Error {
 pub const MAX_PLACE_CHARS: usize = 1024;
 /// Longest accepted short text field, in Unicode code points.
 pub const MAX_FIELD_CHARS: usize = 64;
+/// Longest accepted `about`, in Unicode code points.
+pub const MAX_ABOUT_CHARS: usize = 500;
 /// `Profile` field number of `height`.
 pub const HEIGHT_FIELD: u32 = 46;
 /// Shortest accepted `height`, in whole centimetres.
@@ -62,14 +64,19 @@ mod birth_date;
 pub use birth_date::{BirthBounds, CivilDate};
 mod scales;
 pub use scales::{
-    scale, stated, CareerAmbition, EducationLevel, EmploymentStatus, FinancialPhilosophy,
-    FitnessLevel, Gender, Orientation, RelationshipGoal, RolePreference, Scale, ScaleOption,
-    Zodiac, SCALES,
+    scale, stated, CareerAmbition, Drinking, EducationLevel, EmploymentStatus, FinancialPhilosophy,
+    FitnessLevel, Gender, MaritalStatus, Orientation, Pets, RelationshipGoal, RolePreference,
+    Scale, ScaleOption, Smoking, Tattoos, Zodiac, SCALES,
 };
 
 /// Whether `height` is unset or within [`MIN_HEIGHT_CM`]..=[`MAX_HEIGHT_CM`].
 pub fn valid_height(height: Option<u32>) -> bool {
     height.is_none_or(|cm| (MIN_HEIGHT_CM..=MAX_HEIGHT_CM).contains(&cm))
+}
+
+/// Whether `about` fits [`MAX_ABOUT_CHARS`] and each of its lines passes [`is_clean_text`].
+pub fn valid_about(about: &str) -> bool {
+    about.chars().count() <= MAX_ABOUT_CHARS && about.split('\n').all(is_clean_text)
 }
 
 impl Profile {
@@ -142,6 +149,9 @@ impl Profile {
         }
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
+        }
+        if !valid_about(&self.about) {
+            return Err(Error::Invalid("about is too long or not printable"));
         }
         let fields = [
             &self.name,
@@ -846,6 +856,24 @@ mod tests {
     }
 
     #[test]
+    fn about_is_limited_to_500_code_points_and_may_hold_line_feeds() {
+        let owner = Identity::generate();
+        let mut profile = sample(1);
+        for fits in ["я".repeat(MAX_ABOUT_CHARS), "Line\n\nline".into()] {
+            profile.about = fits;
+            assert!(verify(&profile.sign(&owner)).is_ok());
+        }
+        for refused in [
+            "я".repeat(MAX_ABOUT_CHARS + 1),
+            "Line\r\nline".into(),
+            "a\u{202E}b".into(),
+        ] {
+            profile.about = refused;
+            assert!(verify(&profile.sign(&owner)).is_err());
+        }
+    }
+
+    #[test]
     fn verify_takes_scale_codes_from_a_newer_client() {
         fn field(profile: &mut Profile, tag: u32) -> &mut u32 {
             match tag {
@@ -858,6 +886,11 @@ mod tests {
                 42 => &mut profile.employment_status,
                 43 => &mut profile.fitness_level,
                 44 => &mut profile.zodiac,
+                48 => &mut profile.smoking,
+                49 => &mut profile.drinking,
+                50 => &mut profile.tattoos,
+                51 => &mut profile.marital_status,
+                52 => &mut profile.pets,
                 _ => unreachable!(),
             }
         }

@@ -138,6 +138,22 @@ scale!(
     ]
 );
 
+// Ordered smoking habit.
+scale!(Smoking, 48, true, [No = 10, Sometimes = 20, Yes = 30]);
+// Ordered drinking habit.
+scale!(Drinking, 49, true, [No = 10, Sometimes = 20, Yes = 30]);
+// Ordered tattoo visibility.
+scale!(Tattoos, 50, true, [None = 10, Hidden = 20, Visible = 30]);
+// Marital status.
+scale!(
+    MaritalStatus,
+    51,
+    false,
+    [NeverMarried = 1, Married = 2, Divorced = 3]
+);
+// Whether the owner has pets.
+scale!(Pets, 52, false, [No = 1, Yes = 2]);
+
 // Highest education. Not in `SCALES`: no client has a picker for it yet.
 scale!(
     EducationLevel,
@@ -217,6 +233,11 @@ pub const SCALES: &[Scale] = &[
     entry!(EmploymentStatus, "employment_status"),
     entry!(FitnessLevel, "fitness_level"),
     entry!(Zodiac, "zodiac"),
+    entry!(Smoking, "smoking"),
+    entry!(Drinking, "drinking"),
+    entry!(Tattoos, "tattoos"),
+    entry!(MaritalStatus, "marital_status"),
+    entry!(Pets, "pets"),
 ];
 
 /// Returns the closed scale for a searchable protobuf field.
