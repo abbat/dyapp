@@ -27,6 +27,8 @@ mod pin;
 pub use pin::{hash_app_pin, verify_app_pin};
 mod profile_draft;
 pub use profile_draft::{load_profile_draft, save_profile_draft, PublicProfileDraft};
+mod contact_names;
+pub use contact_names::ContactNameView;
 mod profile_network;
 pub use profile_network::{
     profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,

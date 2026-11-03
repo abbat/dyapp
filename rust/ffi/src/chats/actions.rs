@@ -215,6 +215,19 @@ impl ChatSession {
         self.change_own(peer_id, PeerChange::Muted(muted))
     }
 
+    /// Give `peer_id`, whose chat is visible, a local name only this identity sees, shared with
+    /// own devices; the name is trimmed and an empty one removes it. Errors are `ownPeer`,
+    /// `blocked`, `unknownPeer`, `invalidName` (over 64 characters or control text) or a
+    /// network message.
+    pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
+        self.check_visible(&self.session.lock().map_err(failed)?, &peer_id)?;
+        let change = PeerChange::Name(name.trim().to_owned());
+        if !change.valid(&peer_id) {
+            return Err(code("invalidName"));
+        }
+        self.change_own(peer_id, change)
+    }
+
     /// Pass on `peer_id` here and for the owner's other devices, or undo that; no signal goes to
     /// the peer. A pass hides the peer from search and Liked you. Returns the like state after it.
     /// Errors as for `unblock`.

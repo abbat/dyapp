@@ -196,7 +196,8 @@ pub struct ProfileSearchResult {
 pub struct ProfileSearcher {
     pub(crate) dir: PathBuf,
     pub(crate) runtime: tokio::runtime::Runtime,
-    cache: Mutex<Profiles>,
+    /// Verified profiles from searches and fetches; see `contact_names`.
+    pub(crate) cache: Mutex<Profiles>,
     /// Other people's photos in memory; see `peer_photos`.
     pub(crate) photos: Mutex<PhotoCache>,
 }

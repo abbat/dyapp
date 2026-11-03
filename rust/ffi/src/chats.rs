@@ -1,6 +1,7 @@
 //! A pair's chat state and texts over the selected identity folder's active network; see
 //! docs/design/chats-and-matches.md.
 
+use crate::contact_names::fetch_profiles;
 use crate::mls::unwrap_state_key;
 use crate::profile_draft::database;
 use crate::profile_network::{
@@ -275,22 +276,8 @@ impl ChatSession {
     /// returns is left out. No peers means no connection. Errors are `notConnected` or a node
     /// message.
     pub fn profiles(&self, peer_ids: Vec<String>) -> Result<Vec<FoundProfile>, CoreError> {
-        if peer_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let network = active_network(&self.dir)?;
-        on_network_stack(|| {
-            self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
-                let mut found = Vec::new();
-                for peer_id in peer_ids {
-                    if let Ok(verified) = node.get_profile(&peer_id).await {
-                        found.push(FoundProfile::from(&verified));
-                    }
-                }
-                Ok(found)
-            })
-        })
+        let found = fetch_profiles(&self.runtime, &self.dir, peer_ids)?;
+        Ok(found.iter().map(FoundProfile::from).collect())
     }
 
     /// Like `peer_id` (`liked`) or take the like back, as a signal in the pair group on the active
