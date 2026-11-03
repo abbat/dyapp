@@ -11,35 +11,59 @@ x-runtime: &runtime
     - /tmp:rw,exec,nosuid,nodev,mode=1777
     - /home/appuser:rw,nosuid,nodev,uid=${DYAPP_UID:-1000},gid=${DYAPP_GID:-1000},mode=0700
 
-# The Android image holds its Gradle build and cache as 1000, so its services stay 1000.
+# The Android services run the toolchain image with the checkout mounted. android-build builds
+# into build/android-build as the host user, Gradle and cargo caches included; the other services
+# read its outputs there.
 x-android: &android
   <<: *runtime
-  user: "1000:1000"
-  tmpfs:
-    - /tmp:rw,exec,nosuid,nodev,mode=1777
-    - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
+  image: dyapp:android-tools
   volumes:
     - ../../build/android-reports:/reports
+    - ../..:/app:ro
+    - ../../build/android-build:/app/build
+
+# The host user may have no passwd entry: Java and the Android tools take their home from here.
+x-android-environment: &android-environment
+  HOME: /home/appuser
+  ANDROID_SDK_ROOT: /opt/android-sdk
+  ANDROID_USER_HOME: /home/appuser/.android
+  GRADLE_USER_HOME: /app/build/gradle-home
+  CARGO_HOME: /app/build/cargo-home
+  JAVA_TOOL_OPTIONS: -XX:ActiveProcessorCount=4 -Duser.home=/home/appuser
 
 services:
-  android-emulator:
+  # Online: Gradle and cargo fetch their dependencies.
+  android-build:
     <<: *android
-    cpus: ${DYAPP_EMULATOR_CPUS:-3}
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.android-test
-      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
+      target: android-tools
+    profiles: [android, android-emulator, test, all]
+    environment: *android-environment
+    command: [bash, /app/tests/scripts/android-test-in-container.sh, build]
+
+  # The offline Release image of release.yml and release-sizes.yml; nothing runs it here.
+  android-release:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.android-test
     image: dyapp:android-test
+    profiles: [release]
+
+  android-emulator:
+    <<: *android
+    cpus: ${DYAPP_EMULATOR_CPUS:-3}
     profiles: [android-emulator, all]
     networks: [android-ui]
     # The emulator demands 1.2 x the 6G userdata partition free (the minimum it enforces);
     # /tmp is a RAM tmpfs, so the sparse AVD lives on disk.
     volumes:
       - ../../build/android-reports:/reports
+      - ../..:/app:ro
+      - ../../build/android-build:/app/build
       - ../../build/android-avd:/avd
-    environment:
-      HOME: /home/appuser
-      ANDROID_SDK_ROOT: /opt/android-sdk
+    environment: *android-environment
     command: [bash, /app/tests/scripts/android-test-in-container.sh, emulator]
     healthcheck:
       test: [CMD-SHELL, 'test "$$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")" = 1 && adb -s emulator-5554 shell cmd package path android >/dev/null']
@@ -50,37 +74,22 @@ services:
 
   android-unit-test:
     <<: *android
-    build:
-      context: ../..
-      dockerfile: tests/docker/Dockerfile.android-test
-      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
-    image: dyapp:android-test
     profiles: [android, test, all]
     network_mode: none
-    environment:
-      HOME: /home/appuser
-      GRADLE_USER_HOME: /opt/gradle-cache
-      ANDROID_SDK_ROOT: /opt/android-sdk
+    environment: *android-environment
     command: [bash, /app/tests/scripts/android-test-in-container.sh, unit]
 
   android-emulator-test:
     <<: *android
     cpus: 1
-    build:
-      context: ../..
-      dockerfile: tests/docker/Dockerfile.android-test
-      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
-    image: dyapp:android-test
     profiles: [android-emulator, all]
     networks: [android-ui]
     depends_on:
       android-emulator:
         condition: service_healthy
     environment:
+      <<: *android-environment
       ADB_SERVER_SOCKET: tcp:android-emulator:5037
-      HOME: /home/appuser
-      GRADLE_USER_HOME: /opt/gradle-cache
-      ANDROID_SDK_ROOT: /opt/android-sdk
     command: [bash, /app/tests/scripts/android-test-in-container.sh, ui]
 
   linux-test:

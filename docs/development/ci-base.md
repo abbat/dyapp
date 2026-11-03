@@ -121,7 +121,7 @@ unsigned device IPA and universal macOS ZIP baselines come from the
 MLS encryption core (openmls and its crypto provider), so the inventory records the measured
 sizes ([producer details](build.md#unsigned-apple-release-packages)).
 
-The Android job builds the `dyapp:android-test` image, runs the
+The Android job builds the `dyapp:android-test` image (service `android-release`), runs the
 [offline Release runner](build.md#unsigned-android-release) in it without network,
 and gates the verified unsigned APK and AAB against baselines measured in the same
 image. The APK and AAB baselines come from the same 2026-10-20 run on `9e6c832`, after the MLS core

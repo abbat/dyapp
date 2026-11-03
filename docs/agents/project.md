@@ -54,10 +54,9 @@ pulls anything).
 
 `make msrv` covers only the root Cargo workspace; it does not compile the separate
 `clients/linux` and `clients/windows` test binaries. Their native CI jobs cover those crates.
-UI test services run source baked into their Docker images, not the current checkout. After editing
-Android UI or JVM tests, `make ui-test-android` alone may test stale code. Rebuild
-`android-unit-test` (subject to the no-install rule) or run the existing image with the changed
-sources mounted and Gradle/Cargo offline; the same snapshot rule applies to other UI services.
+The Linux and Android UI services build the current checkout, mounted read-only; only a changed
+Dockerfile needs `make prepare`. The Android build (`android-build`) is online and fetches its
+Gradle and cargo dependencies into `build/android-build`.
 
 There are no other targets (no `ui-test-all`, no npm). Details: [testing](../testing/README.md),
 [Docker](../testing/docker.md), [CI](../development/ci-matrix.md).

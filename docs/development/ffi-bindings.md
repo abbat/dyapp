@@ -57,7 +57,7 @@ the NDK (`ANDROID_NDK_HOME`, r29 `29.0.14206865`) and a host C toolchain;
 `-Pdyapp.prebuiltRust` skips both tasks and reuses `build/rust` from an earlier
 build; the Docker unit-test run uses it because it has no Rust sources.
 `-Pdyapp.debugAbis=x86_64` (a comma-separated ABI list) limits `cargoNdkDebug`;
-the test image passes it because its debug packages run only on the x86_64
+the Docker test build passes it because its debug packages run only on the x86_64
 emulator. Release always builds both ABIs.
 
 ## Apple

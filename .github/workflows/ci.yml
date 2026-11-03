@@ -14,15 +14,14 @@ env:
 jobs:
   core:
     uses: ./.github/workflows/ci-base.yml
-  # Android runs in Docker: the image carries the SDK, system image and Gradle cache.
+  # Android runs in Docker: the image carries the SDK and system image, the app builds from the
+  # checkout into build/android-build.
   docker:
     name: docker - android
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       DYAPP_BUILD_CACHE: gha
-      # No Release runs here: skip caching its Gradle dependencies in the image.
-      DYAPP_ANDROID_RELEASE_DEPS: "0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,13 +37,31 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # Downloaded dependencies only: build outputs would grow the cache past its 10 GB limit.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: android-cache
+        with:
+          path: |
+            build/android-build/gradle-home/caches/modules-2
+            build/android-build/gradle-home/wrapper
+            build/android-build/cargo-home/registry
+          key: android-deps-${{ hashFiles('Cargo.lock', 'clients/android/**/*.gradle', 'clients/android/gradle/**') }}
+          restore-keys: android-deps-
       - name: test
         env:
           DYAPP_KVM: "1"
         run: |
-          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-unit-test
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build
           bash tests/scripts/ui-test.sh android
           bash tests/scripts/ui-test.sh android-emulator
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !cancelled() && steps.android-cache.outputs.cache-hit != 'true' }}
+        with:
+          path: |
+            build/android-build/gradle-home/caches/modules-2
+            build/android-build/gradle-home/wrapper
+            build/android-build/cargo-home/registry
+          key: ${{ steps.android-cache.outputs.cache-primary-key }}
       - name: logs
         if: always()
         run: |

@@ -188,12 +188,6 @@ def make_bind_directories(arguments):
         for name in re.findall(r"\.\./\.\./(build/[^:\s]+):", text):
             directory = root / name
             directory.mkdir(parents=True, exist_ok=True)
-            # shortcut: the Android image builds as 1000, so its
-            # directories are open to it on a host where the user is not
-            # 1000 (CI); drop once the Android build moves to the checkout.
-            android = directory.name.startswith("android-")
-            if android and os.getuid() != 1000:
-                directory.chmod(0o777)
 
 
 def main():

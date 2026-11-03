@@ -67,8 +67,8 @@ class Runners(unittest.TestCase):
             return result, log.read_text() if log.exists() else ""
 
     def test_ui_all_requires_each_suite(self):
-        for service in (
-                "android-unit-test", "android-emulator-test", "linux-test"):
+        for service in ("android-build", "android-unit-test",
+                        "android-emulator-test", "linux-test"):
             with self.subTest(service=service):
                 result, _ = self.run_script("ui-test.sh", "all", service)
                 self.assertEqual(result.returncode, 23)
@@ -87,12 +87,13 @@ class Runners(unittest.TestCase):
         result, calls = self.run_script("ui-test.sh", "all")
         self.assertEqual(result.returncode, 0, result.stderr)
         runs = [line for line in calls.splitlines() if " run " in line]
-        self.assertEqual(len(runs), 3)
-        for service in (
-                "android-unit-test", "android-emulator-test", "linux-test"):
+        self.assertEqual(len(runs), 4)
+        for service in ("android-build", "android-unit-test",
+                        "android-emulator-test", "linux-test"):
             self.assertIn(
                 f"--profile all run --no-TTY --pull never {service}", calls)
-        self.assertNotIn("build", calls)
+        # The app build runs in a container; no image is built.
+        self.assertNotRegex(calls, r"(^|\s)build(\s|$)")
         self.assertNotIn("linux-gui", calls)
 
     def test_failure_prints_captured_output(self):

@@ -4,12 +4,24 @@ bash /app/tests/scripts/check-container-isolation.sh
 mkdir -p /tmp/ai
 export DYAPP_CHECK_LOG_DIR="/reports/$HOSTNAME/check-output"
 case "${1:?suite required}" in
+    build)
+        # The checkout is read-only and Gradle writes into its project: build a copy whose build/
+        # is the mounted /app/build, so the outputs and caches stay there between runs.
+        mkdir -p /tmp/ai/src
+        cp -a /app/Cargo.toml /app/Cargo.lock /app/.cargo /app/proto /app/rust /app/clients /tmp/ai/src/
+        ln -s /app/build /tmp/ai/src/build
+        cd /tmp/ai/src
+        echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+        # The debug core is x86_64 only: the emulator is the only device these packages run on.
+        (cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
+            :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin)
+        # Host dyappd for the emulator runner's loopback node.
+        cargo build --locked -p dyapp-bootstrap --bin dyappd
+        ;;
     unit)
         cp -rf /app/clients/android /tmp/ai/android
         mkdir -p /tmp/build/android
         cp -rf /app/build/android/app /tmp/build/android/app
-        cp -rf /opt/gradle-cache /tmp/ai/gradle-cache
-        export GRADLE_USER_HOME=/tmp/ai/gradle-cache
         cd /tmp/ai/android
         report_dir="/reports/$HOSTNAME"
         mkdir -p "$report_dir"
@@ -25,7 +37,7 @@ case "${1:?suite required}" in
         sh ./gradlew --offline --no-daemon --version > "$report_dir/gradle-version.txt"
         cat "$report_dir/gradle-version.txt"
         # No `tasks --all`: realising every task fails on AGP 9.5's release Compose Preview task.
-        # The Rust sources are not copied here: reuse the core and bindings from the image build.
+        # The Rust sources are not copied here: reuse the core and bindings of the build suite.
         sh ./gradlew --offline --no-daemon --rerun-tasks -Pdyapp.prebuiltRust :app:testDebugUnitTest
         python3 /app/tests/scripts/check-junit-results.py /tmp/build/android/app/test-results/testDebugUnitTest
         ;;

@@ -127,7 +127,7 @@ Fails to generate bindings and still reports success. See
 `clients/android/gradle/verification-metadata.xml` lists the SHA-256 of every Gradle artifact and
 metadata file the Android build resolves: plugins, libraries, lint and test dependencies. Gradle
 refuses an artifact that is missing from the file or whose checksum differs, so a tampered or
-unexpected artifact fails the `dyapp:android-test` image build. Signatures are not checked.
+unexpected artifact fails the Android build. Signatures are not checked.
 The root `settings.gradle` substitutes fixed versions for vulnerable AGP build-classpath and
 project configurations, including the separate release lint tool, before Gradle reads their
 metadata. The requested vulnerable versions are split across string literals so Dependabot
@@ -170,10 +170,12 @@ docker run --rm --network none --user 1000:1000 \
   dyapp:android-test bash /app/tools/scripts/build-android-release.sh /reports
 ```
 
-The image build caches the Release Gradle dependencies, Release lint included, by
-running the Release tasks without the release Rust core and discarding their
-packages. `ci.yml` builds the image with `DYAPP_ANDROID_RELEASE_DEPS=0` (build
-argument `ANDROID_RELEASE_DEPS`), which skips this step: it runs no Release. The runner uses offline mode and installs nothing. It requests
+Compose service `android-release` (profile `release`) builds this image, the full
+`Dockerfile.android-test`; the test services use only its `android-tools` stage
+(see [UI testing](../testing/ui-testing.md#android)). The image build caches the
+Release Gradle dependencies, Release lint included, by running the Release tasks
+without the release Rust core and discarding their packages. The runner uses
+offline mode and installs nothing. It requests
 `assembleRelease` and `bundleRelease`, including release Rust JNI libraries; it
 does not set `dyapp.prebuiltRust` and does not skip `lintVitalAnalyzeRelease`.
 

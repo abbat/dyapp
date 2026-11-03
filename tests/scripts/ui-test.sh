@@ -39,8 +39,9 @@ run() {
     python3 tools/scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }
 case "${1:-help}" in
-    android) run android-unit-test ;;
-    android-emulator) run android-emulator-test ;;
+    # android-build builds the app from the checkout; a second run finds it up to date.
+    android) run android-build; run android-unit-test ;;
+    android-emulator) run android-build; run android-emulator-test ;;
     linux) shots; run linux-test ;;
     prototype)
         mkdir -p build/ux-research/prototype && rm -f build/ux-research/prototype/*.png
@@ -49,6 +50,7 @@ case "${1:-help}" in
         mkdir -p build/ux-research/prototype-android && rm -f build/ux-research/prototype-android/*.png
         run prototype-shots-android ;;
     all)
+        run android-build
         run android-unit-test
         run android-emulator-test
         shots

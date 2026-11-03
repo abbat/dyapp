@@ -356,23 +356,30 @@ separately" — it does not cover iOS, macOS or Windows. There are no `ui-test-a
 `ui-test-linux-gui` targets and no X11-forwarded GUI mode.
 
 Images build only at `prepare`; `run` uses `--pull never`, and test containers run with no network
-(the emulator pair uses an internal network), read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID`; the
-Android services stay UID 1000, the owner of their image's Gradle build), and
+(the emulator pair uses an internal network; `android-build` is online to fetch dependencies),
+read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID`), and
 `check-container-isolation.sh` runs first.
 
 ### Android
 
-- **Image** `dyapp:android-test` (`tests/docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
-  Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0,
-  system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `clients/android/` (its own
-  `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 1000, pre-builds `:app:assembleDebug`,
+- **Image** `dyapp:android-tools` (the `android-tools` stage of
+  `tests/docker/Dockerfile.android-test`): Debian bookworm, JDK 17,
+  Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0, NDK,
+  system image `android-31;default;x86_64` (Android 12, the supported floor), Rust 1.99.0 with the
+  Android targets and `cargo-ndk`. It holds no source: every Android service mounts the checkout
+  read-only at `/app` and `build/android-build` at `/app/build`, so a source change needs no
+  image build.
+- **`android-build`** (`android-test-in-container.sh build`, run first by `android`,
+  `android-emulator` and `all`): copies the sources to `/tmp` with `build/` linked to
+  `/app/build`, checks the wrapper jar checksum and builds the real Gradle project
+  `clients/android/` (its own `gradlew`; Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1
+  with built-in Kotlin and the Compose compiler plugin 2.4.20): `:app:assembleDebug`,
   `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin` with the debug core for
-  x86_64 only, then, unless the build argument `ANDROID_RELEASE_DEPS` is `0`, caches the
-  Release Gradle dependencies. No Rust `.so` or generated
-  bindings are copied (there are none to copy).
-  It also builds a host `build/debug/dyappd` and keeps only that binary.
+  x86_64 only, then a host `build/debug/dyappd`. The Gradle home (`gradle-home`), cargo home
+  (`cargo-home`) and outputs stay in `build/android-build`, so a second run is incremental.
 - **`android`** → service `android-unit-test` → `android-test-in-container.sh unit`: offline
-  `./gradlew --rerun-tasks :app:testDebugUnitTest`, then `check-junit-results.py`.
+  `./gradlew --rerun-tasks :app:testDebugUnitTest` on a copy of the project with the prebuilt
+  core, then `check-junit-results.py`.
 - **`android-emulator`** → service `android-emulator-test`, which `depends_on` service
   `android-emulator` being healthy:
   - `android-emulator` creates the AVD in `build/android-avd` (the emulator wants ~7.4G free
@@ -394,8 +401,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
     `docker compose stop` when the test run ends, so it is stopped but not removed.
   - Manual launcher check (e.g. the app icon): start the emulator alone with
     `DYAPP_KVM_GID=$(stat -c %g /dev/kvm) docker compose -p dyapp -f tests/docker/compose.ui.yml -f tests/docker/compose.kvm.yml --profile all up -d --wait android-emulator`.
-    Copy `/app/build/android/app/outputs/apk/debug/app-debug.apk` out of `dyapp:android-test`
-    (`docker create` + `docker cp`); the emulator container's root is read-only, so stream the
+    The debug APK is `build/android-build/android/app/outputs/apk/debug/app-debug.apk`
+    on the host; the emulator container's root is read-only, so stream the
     APK in with `adb -s emulator-5554 exec-in 'cat > /data/local/tmp/app.apk' < app-debug.apk`
     (via `docker exec -i`) and `adb shell pm install`. On the 320x640 screen,
     `input keyevent KEYCODE_HOME` then `input swipe 160 480 160 60 500` opens the app drawer;
@@ -621,5 +628,5 @@ contains those reports and `build/platform-check-output` raw logs.
   the full instrumented inventory.
 - **`Empty unit suite` (Linux):** a test binary in `build/unit-build.json` lists no tests; rebuild the
   image after changing tests (`ui-test.sh prepare`), since the inventory is created at image build.
-- **Stale results after code changes:** sources are copied into the images at build time; rerun
-  `prepare`.
+- **Stale results after code changes:** the Linux and Android suites build from the mounted
+  checkout; other images copy their sources at build time, so rerun `prepare` for them.

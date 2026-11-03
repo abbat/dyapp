@@ -184,8 +184,9 @@ DOCKER_BUILDKIT=1 docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ### Build output
 
 The crates are fetched into the images. Containers run as the host user and write only to
-bind-mounted directories under `build/` (`workspace`, `linux`, `*-reports`, `android-avd`), so
-`rm -rf build/workspace` clears the Rust build cache.
+bind-mounted directories under `build/` (`workspace`, `linux`, `*-reports`, `android-build`,
+`android-avd`), so `rm -rf build/workspace` clears the Rust build cache and
+`rm -rf build/android-build` the Android build, Gradle and cargo caches.
 
 ### Use `--rm` Flag
 
