@@ -535,6 +535,9 @@ mod tests {
         assert_eq!(err(chats.clear_chat(peer.clone())), "unknownPeer");
         assert_eq!(err(chats.mark_read(peer.clone())), "unknownPeer");
         assert_eq!(err(chats.send_reads(peer.clone())), "unknownPeer");
+        let name = |to: String| chats.set_contact_name(to, "Bob".into()).unwrap_err().to_string();
+        assert_eq!(name(peer.clone()), "unknownPeer");
+        assert_eq!(name(key.peer_id()), "ownPeer");
         // Receipts are off until turned on.
         assert!(!chats.read_receipts().unwrap());
         chats.set_read_receipts(true).unwrap();

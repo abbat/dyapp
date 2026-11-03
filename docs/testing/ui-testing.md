@@ -517,7 +517,7 @@ Docker diagnostics; exported reports and application files keep their formats.
 
 | Suite | Exported files |
 |-------|----------------|
-| `android-unit-test` | `gradle-version.txt`, `gradle-tasks.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |
+| `android-unit-test` | `gradle-version.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |
 | `android-emulator-test` | `instrumentation.txt`/`.json`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
 | `linux-test` | `desktop-ui-results.json`; plus the `dyapp-linux` binary |
 

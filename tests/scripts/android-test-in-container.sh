@@ -24,7 +24,7 @@ case "${1:?suite required}" in
         trap save_reports EXIT
         sh ./gradlew --offline --no-daemon --version > "$report_dir/gradle-version.txt"
         cat "$report_dir/gradle-version.txt"
-        sh ./gradlew --offline --no-daemon tasks --all > "$report_dir/gradle-tasks.txt"
+        # No `tasks --all`: realising every task fails on AGP 9.5's release Compose Preview task.
         # The Rust sources are not copied here: reuse the core and bindings from the image build.
         sh ./gradlew --offline --no-daemon --rerun-tasks -Pdyapp.prebuiltRust :app:testDebugUnitTest
         python3 /app/tests/scripts/check-junit-results.py /tmp/build/android/app/test-results/testDebugUnitTest
