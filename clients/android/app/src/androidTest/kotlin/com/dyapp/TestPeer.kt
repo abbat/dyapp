@@ -11,6 +11,7 @@ import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkSettings
 import uniffi.dyapp.ProfileSolve
 import uniffi.dyapp.PublicProfileDraft
+import uniffi.dyapp.SeedRow
 import uniffi.dyapp.addProfilePhoto
 import uniffi.dyapp.newChatStateKey
 import uniffi.dyapp.saveProfileDraft
@@ -72,11 +73,12 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     // A cold emulator's first dial can outlast one check, as in the UI helper.
     private fun activateLocalNode() = ConnectionCheck(path).use { checker ->
         val settings = NetworkSettings(listOf(LOCAL_NODE), "local")
+        var rows = emptyList<SeedRow>()
         val activated = (1..CHECK_TRIES).any {
-            checker.run(settings, CHECK_WAIT_MS.toUInt())
+            rows = checker.run(settings, CHECK_WAIT_MS.toUInt())
             runCatching { checker.activate() }.isSuccess
         }
-        check(activated) { "The test peer could not activate $LOCAL_NODE" }
+        check(activated) { "The test peer could not activate $LOCAL_NODE: $rows" }
     }
 
     /** Receives until a message from [author] in their chat satisfies [match]. */

@@ -92,10 +92,10 @@ class ProfilePhotosTests {
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-photo-1")).fetchSemanticsNodes().isNotEmpty()
         }
-        // The add button sits below the photo row, so scrolling to it keeps the row clear of the
-        // bottom bar, which a row scrolled only to the edge may sit under; it is enabled once loaded.
+        // The buttons are enabled once the photos load, as the add button shows; on a 320 dp
+        // screen the second tile sits past the row's right edge, so it is scrolled into view.
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
-        compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performClick()
+        compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performScrollTo().performClick()
         compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
         val avatar = hasTestTag("avatar-photo") and hasAnyAncestor(hasTestTag("identity-switcher"))
         // The switcher button merges its content, so the photo is found in the unmerged tree.
