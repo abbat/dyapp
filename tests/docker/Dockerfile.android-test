@@ -49,11 +49,17 @@ RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clie
 # Compile and populate all runtime dependencies online; do not run tests in the build.
 # The Release tasks only cache their Gradle dependencies (Release lint included) for the offline
 # Release runner: its release Rust core is not built here and the packages are discarded.
+# ANDROID_RELEASE_DEPS=0 skips them where no Release runs (ci.yml). The debug core is x86_64 only:
+# the emulator is the only device the debug packages here run on.
 # The cd lasts only this step; the next one builds from the WORKDIR.
+ARG ANDROID_RELEASE_DEPS=1
 # hadolint ignore=DL3003
-RUN cd clients/android && ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
-    ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
-    rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release
+RUN cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
+        :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
+    if [ "$ANDROID_RELEASE_DEPS" = 1 ]; then \
+        ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
+        rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release; \
+    fi
 # Host dyappd for the emulator runner's loopback node; only the binary is kept.
 RUN cargo build --locked -p dyapp-bootstrap --bin dyappd && \
     rm -rf build/debug/deps build/debug/build build/debug/incremental build/debug/.fingerprint

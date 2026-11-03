@@ -77,17 +77,27 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
         # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
         timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
-        # am instrument has no retries: rerun a failed suite twice; failures before a passing
-        # run are flaky (practice B5).
-        failed=()
+        # am instrument has no retries: rerun the failed tests twice; failures before a passing
+        # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
+        failed=() only=() minimum=3
         for attempt in 1 2 3; do
-            timeout 900 adb -s emulator-5554 shell am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt" || true
-            if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt"; then
+            timeout 900 adb -s emulator-5554 shell am instrument -w "${only[@]}" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt" || true
+            if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt" "$minimum"; then
                 break
             fi
             [[ $attempt != 3 ]] || exit 1
             cp -f "$report_dir/instrumentation.txt" "$report_dir/instrumentation-$attempt.txt"
             failed+=("$report_dir/instrumentation-$attempt.txt")
+            # The same pattern as check-flaky.py; adb shell passes the list to a device shell,
+            # so it is single-quoted for nested classes ($).
+            tests=$(sed -nE 's/^[0-9]+\) ([A-Za-z0-9_]+)\(([A-Za-z0-9_.$]+)\)$/\2#\1/p' \
+                "$report_dir/instrumentation-$attempt.txt" | paste -sd, -)
+            listed=$(grep -cE '^[0-9]+\) ' "$report_dir/instrumentation-$attempt.txt" || true)
+            if [[ -n $tests && $(tr , '\n' <<< "$tests" | wc -l) == "$listed" ]]; then
+                only=(-e class "'$tests'") minimum=1
+            else
+                only=() minimum=3
+            fi
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
         # Forged-result fixture: with every indexed signature flipped, a search must list no profile.

@@ -172,7 +172,8 @@ docker run --rm --network none --user 1000:1000 \
 
 The image build caches the Release Gradle dependencies, Release lint included, by
 running the Release tasks without the release Rust core and discarding their
-packages. The runner uses offline mode and installs nothing. It requests
+packages. `ci.yml` builds the image with `DYAPP_ANDROID_RELEASE_DEPS=0` (build
+argument `ANDROID_RELEASE_DEPS`), which skips this step: it runs no Release. The runner uses offline mode and installs nothing. It requests
 `assembleRelease` and `bundleRelease`, including release Rust JNI libraries; it
 does not set `dyapp.prebuiltRust` and does not skip `lintVitalAnalyzeRelease`.
 

@@ -111,8 +111,12 @@ def uniffiBindgen = tasks.register('uniffiBindgen', Exec) {
 }
 android.sourceSets.main.kotlin.srcDir("$rustOut/kotlin")
 
+// Emulator test builds pass -Pdyapp.debugAbis=x86_64 to compile the debug core once.
+def debugAbis = providers.gradleProperty('dyapp.debugAbis').map { it.split(',') as List }
+    .getOrElse(['arm64-v8a', 'x86_64'])
 ['debug', 'release'].each { buildType ->
     def jniLibs = "$rustOut/$buildType/jniLibs"
+    def abis = buildType == 'debug' ? debugAbis : ['arm64-v8a', 'x86_64']
     def cargoNdk = tasks.register("cargoNdk${buildType.capitalize()}", Exec) {
         onlyIf { !prebuiltRust }
         workingDir rustRoot
@@ -120,7 +124,7 @@ android.sourceSets.main.kotlin.srcDir("$rustOut/kotlin")
         environment 'CARGO_PROFILE_DEV_DEBUG', '0'
         // AGP cannot strip libraries without an NDK of its own, so the linker strips them.
         environment 'CARGO_PROFILE_RELEASE_STRIP', 'symbols'
-        commandLine(['cargo', 'ndk', '--platform', '31', '-t', 'arm64-v8a', '-t', 'x86_64', '-o', jniLibs,
+        commandLine(['cargo', 'ndk', '--platform', '31'] + abis.collectMany { ['-t', it] } + ['-o', jniLibs,
             'build', '--locked', '-p', 'dyapp-ffi', '--lib'] + (buildType == 'release' ? ['--release'] : []))
     }
     android.sourceSets[buildType].jniLibs.srcDir(jniLibs)

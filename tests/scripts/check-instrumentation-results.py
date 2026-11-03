@@ -1,4 +1,8 @@
-"""am instrument may exit zero on test failures; require the JUnit result."""
+"""am instrument may exit zero on test failures; require the JUnit result.
+
+Usage: check-instrumentation-results.py REPORT [MIN_TESTS]; MIN_TESTS (3) is
+lowered for a rerun of only the failed tests.
+"""
 import json
 from pathlib import Path
 import re
@@ -11,7 +15,8 @@ if __name__ == "__main__":
 output = Path(sys.argv[1]).read_text()
 print(output)
 match = re.search(r"^OK \((\d+) tests?\)$", output, re.MULTILINE)
-if not match or int(match.group(1)) < 3 or "FAILURES!!!" in output:
+minimum = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+if not match or int(match.group(1)) < minimum or "FAILURES!!!" in output:
     raise RuntimeError("Missing, incomplete, or failed Android UI suite")
 last_line = output.strip().splitlines()[-1]
 if "INSTRUMENTATION_" in output:

@@ -35,7 +35,7 @@ class Reports(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 APPLE.validate(data)
 
-    def run_validator(self, script, contents, junit=False):
+    def run_validator(self, script, contents, junit=False, extra=()):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             filename = "TEST-app.xml" if junit else "report.txt"
@@ -44,7 +44,8 @@ class Reports(unittest.TestCase):
                 path.write_text(contents)
             argument = directory if junit else str(path)
             return subprocess.run(
-                ["python3", str(ROOT / "tests/scripts" / script), argument],
+                ["python3", str(ROOT / "tests/scripts" / script), argument,
+                 *extra],
                 capture_output=True, text=True, check=False)
 
     def test_cli_defaults_raw_and_retained_logs(self):
@@ -122,6 +123,14 @@ class Reports(unittest.TestCase):
                 self.assertNotEqual(
                     self.run_validator(
                         "check-instrumentation-results.py", bad).returncode, 0)
+
+    def test_instrumentation_rerun_takes_a_lower_minimum(self):
+        rerun = "OK (1 test)\nINSTRUMENTATION_CODE: -1\n"
+        self.assertNotEqual(self.run_validator(
+            "check-instrumentation-results.py", rerun).returncode, 0)
+        self.assertEqual(self.run_validator(
+            "check-instrumentation-results.py", rerun,
+            extra=("1",)).returncode, 0)
 
 
 if __name__ == "__main__":

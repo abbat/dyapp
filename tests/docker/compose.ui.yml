@@ -28,6 +28,7 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.android-test
+      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
     image: dyapp:android-test
     profiles: [android-emulator, all]
     networks: [android-ui]
@@ -52,6 +53,7 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.android-test
+      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
     image: dyapp:android-test
     profiles: [android, test, all]
     network_mode: none
@@ -67,6 +69,7 @@ services:
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.android-test
+      args: {ANDROID_RELEASE_DEPS: "${DYAPP_ANDROID_RELEASE_DEPS:-1}"}
     image: dyapp:android-test
     profiles: [android-emulator, all]
     networks: [android-ui]

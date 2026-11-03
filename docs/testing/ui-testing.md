@@ -272,8 +272,10 @@ test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-bina
 retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test up to twice
 (`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
-suite reruns up to twice and the tests listed by a failed run before a passing one are flaky
-(`android instrumentation` when a failed run lists none). The desktop smoke runs one app
+run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
+with a minimum of one test), or the whole suite when it lists none. The tests listed by a
+failed run before a passing one are flaky (`android instrumentation` when a failed run lists
+none). The desktop smoke runs one app
 instance per case: system create/restart, then in that profile add a file identity, restart past a
 pending slot left by a simulated crash, pick from the picker after `active-profile` is
 corrupted, reopen it and remove it through the remove screen; add another file identity, show
@@ -364,7 +366,9 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
   Android cmdline-tools (checksum-pinned), SDK platform 37.0, build-tools 36.0.0,
   system image `android-31;default;x86_64` (Android 12, the supported floor). It copies the real Gradle project `clients/android/` (its own
   `gradlew`; wrapper jar and Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1 with built-in Kotlin and the Compose compiler plugin 2.4.20) and, as UID 1000, pre-builds `:app:assembleDebug`,
-  `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin`. No Rust `.so` or generated
+  `:app:assembleDebugAndroidTest` and `:app:compileDebugUnitTestKotlin` with the debug core for
+  x86_64 only, then, unless the build argument `ANDROID_RELEASE_DEPS` is `0`, caches the
+  Release Gradle dependencies. No Rust `.so` or generated
   bindings are copied (there are none to copy).
   It also builds a host `build/debug/dyappd` and keeps only that binary.
 - **`android`** → service `android-unit-test` → `android-test-in-container.sh unit`: offline
