@@ -206,6 +206,40 @@ fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range(
 }
 
 #[test]
+fn query_filters_height_with_inclusive_bounds_and_skips_unset() {
+    let index = index();
+    for height in [None, Some(170), Some(180)] {
+        let (key, profile, record) = signed(
+            &Identity::generate(),
+            Profile {
+                version: 1,
+                height,
+                ..Profile::default()
+            },
+        );
+        index.put(&key, &profile, &record, 0, true).unwrap();
+    }
+    let height = |from, to| {
+        [cond(
+            dyapp_profile::HEIGHT_FIELD,
+            Op::Range,
+            vec![from, to],
+            vec![],
+        )]
+    };
+    let count = |from, to| {
+        let found = index.query(&height(from, to), 10, 100).unwrap().unwrap();
+        assert_eq!(found.applied, [dyapp_profile::HEIGHT_FIELD]);
+        found.hits.len()
+    };
+    assert_eq!(count(170, 180), 2);
+    assert_eq!(count(171, 272), 1);
+    assert_eq!(count(50, 170), 1);
+    assert_eq!(count(171, 179), 0);
+    assert!(index.query(&height(180, 170), 10, 100).unwrap().is_err());
+}
+
+#[test]
 fn query_filters_photos() {
     let (index, _) = population();
     let found = index

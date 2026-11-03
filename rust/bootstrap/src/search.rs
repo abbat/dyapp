@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `profile` (`key` BLOB PRIMARY KEY, `topic` INTEGER NO
   `career_ambition` INTEGER, `education_level` INTEGER, `orientation` INTEGER, `role_preference` INTEGER,
   `zodiac` INTEGER, `financial_philosophy` INTEGER, `employment_status` INTEGER, `fitness_level` INTEGER,
   `place` TEXT, `gender` INTEGER, `photo_count` INTEGER, `r` INTEGER NOT NULL,
-  `birth_earliest` INTEGER, `birth_latest` INTEGER) WITHOUT ROWID;
+  `birth_earliest` INTEGER, `birth_latest` INTEGER, `height` INTEGER) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS `profile_place` ON `profile` (`country`, `place`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_country` ON `profile` (`country`, `r`);
 CREATE INDEX IF NOT EXISTS `profile_r` ON `profile` (`r`);
@@ -141,7 +141,7 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
     let birth = p.birth_bounds();
     tx.execute(
         "INSERT INTO `profile` VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
         params![
             &key[..],
             topic(key),
@@ -165,7 +165,8 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
             i64::try_from(p.photos.len()).ok(),
             r,
             birth.map(|b| b.earliest.yyyymmdd()),
-            birth.map(|b| b.latest.yyyymmdd())
+            birth.map(|b| b.latest.yyyymmdd()),
+            p.height
         ],
     )
     .map_err(storage_error)?;

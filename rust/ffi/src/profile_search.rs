@@ -83,6 +83,32 @@ pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreE
     })
 }
 
+/// The height condition for optional inclusive bounds in centimetres; `None` without a bound. A
+/// range no height fits fails with `invalid search height`.
+#[uniffi::export]
+pub fn search_height_condition(
+    from: Option<u32>,
+    to: Option<u32>,
+) -> Result<Option<SearchCondition>, CoreError> {
+    let filter = Filter {
+        min_height: from,
+        max_height: to,
+        ..Filter::default()
+    };
+    let conditions = filter
+        .conditions(today()?)
+        .map_err(|_| CoreError::Failed("invalid search height".into()))?;
+    Ok(conditions
+        .into_iter()
+        .next()
+        .map(|condition| SearchCondition {
+            field: condition.field,
+            op: SearchOp::Range,
+            ints: condition.ints,
+            strings: condition.strings,
+        }))
+}
+
 /// Which companies verified results may have; applied only on this device, so no node learns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, uniffi::Enum)]
 pub enum SearchEmployer {

@@ -71,7 +71,9 @@ at most 64 identity-signed, mailbox-sorted `DeviceCertificate` records; each bin
 keys and malformed certificates invalidate the profile. `device_owners` (field 45) holds at most
 one binding per entry of `devices`: the device key's signature over the owner key, which later
 closes that device's mailbox ([bootstrap](bootstrap.md#mailbox-envelope)). A binding of an unlisted
-device or another owner invalidates the profile.
+device or another owner invalidates the profile. `height` (field 46) is optional whole centimetres,
+50–272 inclusive; a value outside the range invalidates the profile
+([ADR 0041](../decisions/0041-optional-profile-height.md)).
 
 ## Node protocol
 

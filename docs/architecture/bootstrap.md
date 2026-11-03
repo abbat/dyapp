@@ -558,7 +558,8 @@ maximum, from a newer client, stored as NULL),
   `INVALID`. `search_results::Filter` builds them from what a person picks (age from 18,
   numeric genders, orientations, goals, family roles, employment statuses and zodiac signs as
   value lists, career ambition, financial philosophy and fitness as lists or inclusive ranges,
-  children, least education level, with a photo, active since a day, country, places and income,
+  children, least education level, height from, to or both (inclusive; any bound leaves out a
+  profile without height), with a photo, active since a day, country, places and income,
   the last two only with a country); it refuses zero or a code not on the scale. A node finds a
   value below 1 or a range on an unordered category `INVALID`, while a value above its known
   maximum is valid and simply matches nothing, so a newer client's query still runs; income matches when the
@@ -941,7 +942,8 @@ optional birth year, month and day); every public field is optional by design
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
   carries no other field but the proof of work (`pow_nonce`, `pow_bits`). `education_level` and
   the categorical scales take any value, so a code added by a later release reaches old nodes
-  ([ADR 0028](../decisions/0028-ordered-education-level.md)).
+  ([ADR 0028](../decisions/0028-ordered-education-level.md)); `height`, when present, is 50–272
+  whole centimetres ([ADR 0041](../decisions/0041-optional-profile-height.md)).
 
 Deletion publishes a tombstone with a higher version. While it is retained, a store node
 refuses every later profile version, and `get` returns the tombstone so peers learn of the

@@ -27,6 +27,7 @@ const COLUMNS: &[(u32, &str, bool)] = &[
     (21, "photo_count", true),
     (Gender::FIELD, "gender", true),
     (27, "education_level", true),
+    (dyapp_profile::HEIGHT_FIELD, "height", true),
 ];
 const INTERESTS: u32 = 19;
 const ACTIVE_DAY: u32 = dyapp_p2p_net::search_results::ACTIVE_DAY;
@@ -52,6 +53,7 @@ pub const SEARCH_FIELDS: &[u32] = &[
     21,
     Gender::FIELD,
     27,
+    dyapp_profile::HEIGHT_FIELD,
     ACTIVE_DAY,
     BIRTH_AGE,
 ];

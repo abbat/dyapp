@@ -41,6 +41,9 @@ pub struct PublicProfileDraft {
     /// Last, so positional constructors keep working.
     #[uniffi(default = "")]
     pub name: String,
+    /// Optional public height in whole centimetres, 50 to 272.
+    #[uniffi(default = None)]
+    pub height: Option<u32>,
 }
 
 impl From<&Profile> for PublicProfileDraft {
@@ -61,6 +64,7 @@ impl From<&Profile> for PublicProfileDraft {
             birth_day: profile.birth_day,
             country: profile.country.clone(),
             place: profile.place.clone(),
+            height: profile.height,
         }
     }
 }
@@ -72,6 +76,9 @@ impl PublicProfileDraft {
             || !dyapp_profile::is_clean_text(name)
         {
             return Err(CoreError::Failed("invalidName".into()));
+        }
+        if !dyapp_profile::valid_height(self.height) {
+            return Err(CoreError::Failed("invalidHeight".into()));
         }
         for (field, value) in [
             (dyapp_profile::Gender::FIELD, self.gender),
@@ -130,6 +137,7 @@ impl PublicProfileDraft {
         profile.birth_day = self.birth_day;
         profile.country.clone_from(&self.country);
         profile.place.clone_from(&self.place);
+        profile.height = self.height;
     }
 }
 
@@ -230,6 +238,33 @@ mod tests {
         );
         let saved = store.profile_draft().unwrap().unwrap();
         assert_eq!((saved.version, saved.pow_bits), (7, 4));
+    }
+
+    #[test]
+    fn height_is_saved_cleared_and_refused_out_of_range() {
+        let dir = temp_dir();
+        let owner = IdentityKey::generate();
+        let save = |height| {
+            let draft = PublicProfileDraft {
+                height,
+                ..Default::default()
+            };
+            save_profile_draft(dir.clone(), owner.clone(), draft)
+        };
+        let saved = || {
+            load_profile_draft(dir.clone(), owner.clone())
+                .unwrap()
+                .unwrap()
+                .height
+        };
+        save(Some(180)).unwrap();
+        assert_eq!(saved(), Some(180));
+        for height in [49, 273] {
+            assert!(save(Some(height)).is_err(), "{height}");
+        }
+        assert_eq!(saved(), Some(180));
+        save(None).unwrap();
+        assert_eq!(saved(), None);
     }
 
     #[test]

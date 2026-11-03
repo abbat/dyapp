@@ -71,6 +71,9 @@ message Profile {
   // The binding each listed device signed, accepting this identity as the owner that may close
   // its mailbox, see docs/architecture/bootstrap.md. At most one per entry of `devices`.
   repeated dyapp.identity.SignedRecord device_owners = 45;
+  // Whole centimetres, 50-272 inclusive; absent when not published. Unlike the scales, verification
+  // refuses a value outside the range.
+  optional uint32 height = 46;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

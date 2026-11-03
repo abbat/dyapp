@@ -76,5 +76,6 @@ fails only the push that carries it.
 | [0037](0037-chat-list-order.md) | Chat text carries original HLC; unread is local state |
 | [0039](0039-sensitive-safety-clipboard.md) | Sensitive safety-number clipboard on desktop |
 | [0040](0040-device-linking.md) | Device linking without history |
+| [0041](0041-optional-profile-height.md) | Optional profile height |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

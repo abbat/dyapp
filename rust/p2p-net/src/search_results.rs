@@ -6,7 +6,7 @@ use dyapp_identity::SignedRecord;
 use dyapp_profile::{
     scale, stated, CareerAmbition, CivilDate, EducationLevel, EmploymentStatus,
     FinancialPhilosophy, FitnessLevel, Gender, Orientation, Profile, RelationshipGoal,
-    RolePreference, VerifiedProfile, Zodiac,
+    RolePreference, VerifiedProfile, Zodiac, HEIGHT_FIELD, MAX_HEIGHT_CM, MIN_HEIGHT_CM,
 };
 use std::collections::HashMap;
 
@@ -107,6 +107,7 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         21 => int(i64::try_from(profile.photos.len()).ok()),
         Gender::FIELD => code(profile.gender, Gender::MAX),
         EducationLevel::FIELD => code(profile.education_level, EducationLevel::MAX),
+        HEIGHT_FIELD => int(profile.height.map(i64::from)),
         _ => None,
     }
 }
@@ -220,6 +221,10 @@ pub struct Filter {
     pub income: Option<(u64, u64)>,
     /// Least `education_level`, an `EducationLevel` code; a profile that leaves it unset does not match.
     pub min_education: Option<u32>,
+    /// Least `height` in centimetres, inclusive; any height bound leaves out a profile without one.
+    pub min_height: Option<u32>,
+    /// Greatest `height` in centimetres, inclusive.
+    pub max_height: Option<u32>,
     /// Only profiles with at least one photo.
     pub with_photo: bool,
     /// Only profiles active (a heartbeat or publish) on the UTC day of this Unix second or later.
@@ -292,6 +297,14 @@ impl Filter {
                 Op::Range,
                 vec![min.into(), EducationLevel::MAX.into()],
             ));
+        }
+        if self.min_height.is_some() || self.max_height.is_some() {
+            let min = self.min_height.unwrap_or(MIN_HEIGHT_CM);
+            let max = self.max_height.unwrap_or(MAX_HEIGHT_CM);
+            if min > max {
+                return Err(FilterError::EmptyRange);
+            }
+            out.push(ints(HEIGHT_FIELD, Op::Range, vec![min.into(), max.into()]));
         }
         if self.with_photo {
             out.push(ints(21, Op::Range, vec![1, i64::MAX]));
@@ -691,6 +704,32 @@ mod tests {
     }
 
     #[test]
+    fn a_height_filter_takes_either_bound_and_rechecks_inclusively() {
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let keeps = |min_height, max_height, height| {
+            let filter = Filter {
+                min_height,
+                max_height,
+                ..Filter::default()
+            };
+            let profile = Profile {
+                height,
+                ..Profile::default()
+            };
+            let conditions = filter.conditions(today).unwrap();
+            conditions.iter().all(|c| matches(c, &profile))
+        };
+        assert!(keeps(Some(170), None, Some(170)));
+        assert!(!keeps(Some(170), None, Some(169)));
+        assert!(keeps(None, Some(170), Some(170)));
+        assert!(!keeps(None, Some(170), Some(171)));
+        assert!(keeps(Some(170), Some(170), Some(170)));
+        assert!(!keeps(Some(170), None, None));
+        assert!(!keeps(None, Some(170), None));
+        assert!(keeps(None, None, None));
+    }
+
+    #[test]
     fn a_filter_refuses_what_a_node_would_not_take() {
         let today = CivilDate::new(2026, 10, 25).unwrap();
         let open = |filter: Filter| filter.conditions(today).unwrap_err();
@@ -715,6 +754,16 @@ mod tests {
             ..Filter::default()
         };
         assert_eq!(open(poor), FilterError::EmptyRange);
+        for (min_height, max_height) in
+            [(Some(181), Some(180)), (Some(273), None), (None, Some(49))]
+        {
+            let height = Filter {
+                min_height,
+                max_height,
+                ..Filter::default()
+            };
+            assert_eq!(open(height), FilterError::EmptyRange);
+        }
         for min in [0, 15, 70] {
             let level = Filter {
                 min_education: Some(min),

@@ -36,6 +36,12 @@ pub enum Error {
 pub const MAX_PLACE_CHARS: usize = 1024;
 /// Longest accepted short text field, in Unicode code points.
 pub const MAX_FIELD_CHARS: usize = 64;
+/// `Profile` field number of `height`.
+pub const HEIGHT_FIELD: u32 = 46;
+/// Shortest accepted `height`, in whole centimetres.
+pub const MIN_HEIGHT_CM: u32 = 50;
+/// Tallest accepted `height`, in whole centimetres.
+pub const MAX_HEIGHT_CM: u32 = 272;
 /// Most `interests` a profile lists; each is at most `MAX_FIELD_CHARS` long.
 pub const MAX_INTERESTS: usize = 32;
 /// Most photos a profile links.
@@ -60,6 +66,11 @@ pub use scales::{
     FitnessLevel, Gender, Orientation, RelationshipGoal, RolePreference, Scale, ScaleOption,
     Zodiac, SCALES,
 };
+
+/// Whether `height` is unset or within [`MIN_HEIGHT_CM`]..=[`MAX_HEIGHT_CM`].
+pub fn valid_height(height: Option<u32>) -> bool {
+    height.is_none_or(|cm| (MIN_HEIGHT_CM..=MAX_HEIGHT_CM).contains(&cm))
+}
 
 impl Profile {
     /// A deletion marker: version and proof of work set, every other field empty.
@@ -125,6 +136,9 @@ impl Profile {
             if from > to {
                 return Err(Error::Invalid("income range is reversed"));
             }
+        }
+        if !valid_height(self.height) {
+            return Err(Error::Invalid("height is out of range"));
         }
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
@@ -814,6 +828,21 @@ mod tests {
         assert!(verify(&profile.sign(&owner)).is_err());
         profile.name = "Ann\u{202E}a".into();
         assert!(verify(&profile.sign(&owner)).is_err());
+    }
+
+    #[test]
+    fn verify_takes_height_only_inside_its_range() {
+        let owner = Identity::generate();
+        let with = |height| Profile {
+            height,
+            ..sample(1)
+        };
+        for height in [None, Some(50), Some(272)] {
+            assert!(verify(&with(height).sign(&owner)).is_ok(), "{height:?}");
+        }
+        for height in [Some(0), Some(49), Some(273)] {
+            assert!(verify(&with(height).sign(&owner)).is_err(), "{height:?}");
+        }
     }
 
     #[test]
