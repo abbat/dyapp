@@ -576,6 +576,7 @@ const profileDraft = () => ({
   ])),
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
   height: Number(document.getElementById('profile-height').value) || null,
+  about: document.getElementById('profile-about').value,
   country: placeCountry.value, place: profilePlace.id(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
@@ -647,6 +648,7 @@ const showProfile = async (call = invoke) => {
     document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
   document.getElementById('profile-height').value = view.draft.height || '';
+  document.getElementById('profile-about').value = view.draft.about;
   const unsetCountry = document.createElement('option');
   unsetCountry.value = '';
   unsetCountry.textContent = window.strings['profile.unset'];
@@ -701,6 +703,7 @@ const publicFacts = (draft, place) => {
     if (value !== null) facts.push([window.strings[`profile.birth${part}`], String(value)]);
   }
   if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
+  if (draft.about) facts.push([window.strings['profile.about'], draft.about]);
   return facts;
 };
 // The same fields as lines, or the empty notice.
@@ -721,7 +724,11 @@ const saveProfile = async (call = invoke) => {
   const view = await call('save_profile', { draft: profileDraft() })
     .catch((error) => {
       if (!identityCurrent(generation)) return null;
-      const refusal = { invalidName: 'profile.nameInvalid', invalidHeight: 'profile.heightInvalid' }[String(error)];
+      const refusal = {
+        invalidName: 'profile.nameInvalid',
+        invalidHeight: 'profile.heightInvalid',
+        invalidAbout: 'profile.aboutInvalid',
+      }[String(error)];
       throw refusal ? window.strings[refusal] : error;
     });
   if (!identityCurrent(generation) || !view) return null;
@@ -761,7 +768,7 @@ const startElapsed = () => {
 };
 const setProfileBusy = (busy) => {
   profileBusy = busy;
-  for (const element of profileForm.querySelectorAll('input, select, button')) {
+  for (const element of profileForm.querySelectorAll('input, select, textarea, button')) {
     element.disabled = busy;
   }
   window.limitProfilePhotos();

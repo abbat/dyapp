@@ -161,6 +161,8 @@ const saveProfileForRestart = async () => {
   document.getElementById('birth-year').value = '1990';
   document.getElementById('birth-month').value = '2';
   document.getElementById('profile-height').value = '180';
+  document.getElementById('profile-smoking').value = '10';
+  document.getElementById('profile-about').value = ABOUT;
   const place = document.getElementById('profile-place');
   place.value = 'Nowhere';
   place.dispatchEvent(new Event('input', { bubbles: true }));
@@ -179,17 +181,21 @@ const saveProfileForRestart = async () => {
   document.getElementById('profile-save').click();
   await saved;
 };
+const ABOUT = 'First line\n<b>not bold</b>';
 const expectedFields = (photos = 0) => [
   `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
+  `${window.strings['profile.field.smoking']}: ${window.strings['profile.value.smoking.No']}`,
   `${window.strings['profile.birthYear']}: 1990`,
   `${window.strings['profile.birthMonth']}: 2`,
   `${window.strings['profile.height']}: 180`,
+  `${window.strings['profile.about']}: ${ABOUT}`,
   ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
 ].join('|');
 const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
   if (saved) {
     if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
-      || byId('birth-month').value !== '2' || byId('profile-height').value !== '180') {
+      || byId('birth-month').value !== '2' || byId('profile-height').value !== '180'
+      || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT) {
       throw new Error('failed publish lost the saved draft');
     }
   } else {
@@ -197,6 +203,8 @@ const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0
     byId('birth-year').value = '1990';
     byId('birth-month').value = '2';
     byId('profile-height').value = '180';
+    byId('profile-smoking').value = '10';
+    byId('profile-about').value = ABOUT;
   }
   const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields(photos)) throw new Error(`profile preview changed: ${fields}`);
@@ -260,7 +268,8 @@ const unhideProfileOnLoopback = async () => {
 const checkSavedProfile = async () => {
   if (byId('profile-gender').value !== '1' || byId('birth-year').value !== '1990'
     || byId('birth-month').value !== '2' || byId('birth-day').value !== ''
-    || byId('profile-height').value !== '180' || byId('profile-country').value !== 'DE') {
+    || byId('profile-height').value !== '180' || byId('profile-country').value !== 'DE'
+    || byId('profile-smoking').value !== '10' || byId('profile-about').value !== ABOUT) {
     throw new Error('profile draft changed after restart');
   }
   const place = byId('profile-place').value;
@@ -375,6 +384,28 @@ const checkHeightFilter = async () => {
   if (above !== window.strings['search.empty']) throw new Error(`height search above: ${above}`);
   await search('', '');
 };
+// The published profile states smoking only: its value matches, another or an empty field does not.
+const checkHabitFilters = async () => {
+  const search = async (id, value) => {
+    byId(id).value = value;
+    byId('run-search').click();
+    await window.searchDone;
+    const status = byId('search-status').textContent;
+    byId(id).value = '0';
+    return status;
+  };
+  for (const [id, value, expected] of [
+    ['search-smoking', '10', `${window.strings['search.results']} 1`],
+    ['search-smoking', '20', window.strings['search.empty']],
+    ['search-pets', '2', window.strings['search.empty']],
+  ]) {
+    const status = await search(id, value);
+    if (status !== expected) throw new Error(`${id}=${value}: ${status}`);
+  }
+  for (const key of ['smoking', 'drinking', 'tattoos', 'marital_status', 'pets']) {
+    if (!byId(`search-${key}`)) throw new Error(`${key} filter not offered`);
+  }
+};
 const searchOnLoopback = async (connected) => {
   await checkStatus(false);
   await openArea('search-area');
@@ -421,6 +452,7 @@ const searchOnLoopback = async (connected) => {
   await checkStatus(true);
   await shot('statusbar');
   await checkHeightFilter();
+  await checkHabitFilters();
   if (document.getElementById('search-place-row').hidden) throw new Error('place filter not offered');
   await pickPlace('search');
   document.getElementById('run-search').click();

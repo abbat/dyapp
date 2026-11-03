@@ -115,6 +115,18 @@ The states `make ui-test-linux` saves to `build/ux-research/current/`, checked t
 States with no finding: `picker`, `setup`, `wizard-network`, `recovery-details`, `ready`,
 `network-empty`, `profile-edit`, `profile-preview`, `profile-published`, `remove`.
 
+### Habits and about review (2026-11-04)
+
+Reviewed the five new pickers and filters, the About text area in `profile-edit` and their rows in
+`profile-preview` and `profile-view` against H1–H10, from the markup and messages; the rendered
+states come from `make ui-test-linux` in CI and were not opened for this entry. The pickers and
+filters reuse the existing rows and **Not published** / **Any** choices (H3, H4), the hint says who
+sees About and that it is plain text (H2, H10), `maxlength` stops typing at 500 characters and a
+hidden symbol is refused with a message at save (H5, H9), and the text area locks with the rest of
+the form during a publish (H1).
+
+No open finding.
+
 ### Height review (2026-11-04)
 
 Reviewed the height input in `profile-edit`, its row in `profile-preview` and the height range in

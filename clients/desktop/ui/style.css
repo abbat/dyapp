@@ -165,6 +165,8 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
   margin: 0 0 var(--space-3); }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
+#profile-about { font-family: var(--font); }
+.facts dd, #profile-public-fields li { white-space: pre-line; overflow-wrap: anywhere; }
 .result { display: flex; gap: var(--space-3); align-items: flex-start; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft);
   color: var(--accent); display: grid; place-items: center; font-weight: 600; flex: none;

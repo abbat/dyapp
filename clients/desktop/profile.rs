@@ -76,6 +76,19 @@ pub struct Draft {
     /// Whole centimetres, see [`dyapp_profile::valid_height`].
     #[serde(default)]
     pub height: Option<u32>,
+    /// Plain text, see [`dyapp_profile::valid_about`].
+    #[serde(default)]
+    pub about: String,
+    #[serde(default)]
+    pub smoking: u32,
+    #[serde(default)]
+    pub drinking: u32,
+    #[serde(default)]
+    pub tattoos: u32,
+    #[serde(default)]
+    pub marital_status: u32,
+    #[serde(default)]
+    pub pets: u32,
     /// ISO 3166-1 alpha-2 code from [`places::countries`], empty when unset.
     #[serde(default)]
     pub country: String,
@@ -202,6 +215,12 @@ impl From<&Profile> for Draft {
             birth_month: profile.birth_month,
             birth_day: profile.birth_day,
             height: profile.height,
+            about: profile.about.clone(),
+            smoking: profile.smoking,
+            drinking: profile.drinking,
+            tattoos: profile.tattoos,
+            marital_status: profile.marital_status,
+            pets: profile.pets,
             name: profile.name.clone(),
             country: profile.country.clone(),
             place: profile.place.clone(),
@@ -283,6 +302,11 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         ),
         (dyapp_profile::FitnessLevel::FIELD, draft.fitness_level),
         (dyapp_profile::Zodiac::FIELD, draft.zodiac),
+        (dyapp_profile::Smoking::FIELD, draft.smoking),
+        (dyapp_profile::Drinking::FIELD, draft.drinking),
+        (dyapp_profile::Tattoos::FIELD, draft.tattoos),
+        (dyapp_profile::MaritalStatus::FIELD, draft.marital_status),
+        (dyapp_profile::Pets::FIELD, draft.pets),
     ] {
         if !dyapp_profile::scale(field)
             .expect("closed scale")
@@ -301,6 +325,10 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
     if !dyapp_profile::valid_height(draft.height) {
         return Err("invalidHeight".into());
     }
+    let about = draft.about.trim();
+    if !dyapp_profile::valid_about(about) {
+        return Err("invalidAbout".into());
+    }
     let store = open(dir, identity)?;
     let profile = Profile {
         name: name.to_owned(),
@@ -317,6 +345,12 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         birth_month: draft.birth_month,
         birth_day: draft.birth_day,
         height: draft.height,
+        about: about.to_owned(),
+        smoking: draft.smoking,
+        drinking: draft.drinking,
+        tattoos: draft.tattoos,
+        marital_status: draft.marital_status,
+        pets: draft.pets,
         country: draft.country,
         place: draft.place,
         ..stored(&store)?
@@ -739,6 +773,50 @@ mod tests {
         assert_eq!(load(&dir, &alice).unwrap().draft.height, Some(180));
         save(&dir, &alice, tall(None)).unwrap();
         assert_eq!(load(&dir, &alice).unwrap().draft.height, None);
+    }
+
+    #[test]
+    fn habits_and_about_are_saved_cleared_and_refused_when_invalid() {
+        let (dir, alice) = (temp_dir(), Identity::generate());
+        let filled = Draft {
+            about: "  First line\nSecond line  ".into(),
+            smoking: dyapp_profile::Smoking::Sometimes.code(),
+            drinking: dyapp_profile::Drinking::No.code(),
+            tattoos: dyapp_profile::Tattoos::Hidden.code(),
+            marital_status: dyapp_profile::MaritalStatus::Divorced.code(),
+            pets: dyapp_profile::Pets::Yes.code(),
+            ..woman(None)
+        };
+        save(&dir, &alice, filled.clone()).unwrap();
+        let saved = load(&dir, &alice).unwrap().draft;
+        assert_eq!(saved.about, "First line\nSecond line");
+        assert_eq!(
+            saved,
+            Draft {
+                about: saved.about.clone(),
+                ..filled.clone()
+            }
+        );
+        for about in [
+            "x".repeat(dyapp_profile::MAX_ABOUT_CHARS + 1),
+            "An\u{202E}na".into(),
+        ] {
+            let refused = Draft {
+                about,
+                ..filled.clone()
+            };
+            assert_eq!(
+                save(&dir, &alice, refused).err().as_deref(),
+                Some("invalidAbout")
+            );
+        }
+        let unknown = Draft {
+            pets: dyapp_profile::Pets::MAX + 1,
+            ..filled.clone()
+        };
+        assert!(save(&dir, &alice, unknown).is_err());
+        save(&dir, &alice, woman(None)).unwrap();
+        assert_eq!(load(&dir, &alice).unwrap().draft, woman(None));
     }
 
     #[test]
