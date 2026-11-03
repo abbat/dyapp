@@ -220,7 +220,9 @@ impl ChatSession {
     /// `blocked`, `unknownPeer`, `invalidName` (over 64 characters or control text) or a
     /// network message.
     pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
-        self.check_visible(&self.session.lock().map_err(failed)?, &peer_id)?;
+        let session = self.session.lock().map_err(failed)?;
+        self.check_visible(&session, &peer_id)?;
+        drop(session);
         let change = PeerChange::Name(name.trim().to_owned());
         if !change.valid(&peer_id) {
             return Err(code("invalidName"));

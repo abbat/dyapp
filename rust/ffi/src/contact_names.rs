@@ -135,7 +135,7 @@ mod tests {
         let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
         let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();
         let read = || {
-            let mut views = searcher.contact_names(key.clone(), vec![peer.clone()]);
+            let views = searcher.contact_names(key.clone(), vec![peer.clone()]);
             views.unwrap().remove(0)
         };
         let named = |name: &str, verified| (name.to_owned(), verified);
