@@ -67,6 +67,11 @@ and expects the localized not-connected failure, retry label and cleared confirm
 A second Android publish test checks and activates the emulator runner's loopback node
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
+The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
+drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the
+app cache, its own Keystore alias, the same node and a published profile. The peer sends a text;
+the app opens it from its Chats request row and replies, and the peer receives the reply. Match,
+edit, delete and block through the same peer are planned, as is the queued outcome of a send.
 The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
 in the same isolated slot root, and check that the values reappear in the automatic form while Ready remains
 hidden. After a successful local-node Check and Continue, both clients relaunch with the same
