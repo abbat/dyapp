@@ -33,6 +33,13 @@ object RustBridge {
     private val chatsLock = Any()
 
     /**
+     * Held by each proof step, the publish, a draft save and every photo change: a step or save writes
+     * back the draft it read and a publish drops photo blobs it did not publish, so a photo change
+     * between would be lost. Taken after [withChats]'s lock, never before it.
+     */
+    val draftWrites = Any()
+
+    /**
      * Identity slots under `noBackupFilesDir`, which backups skip: their wrapping keys never
      * leave this device, so a restored blob could not be opened anyway.
      */

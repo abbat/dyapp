@@ -84,6 +84,7 @@ internal fun loadDraft(opened: Opened.Ready, scales: List<ProfileScale>): Profil
             }
     }
 
-/** Replace the editable fields of this identity's `client.db` draft, keeping its proof progress. */
-internal fun saveDraft(opened: Opened.Ready, draft: ProfileDraft) =
+/** Replace the editable fields of this identity's `client.db` draft, keeping its proof progress and photos. */
+internal fun saveDraft(opened: Opened.Ready, draft: ProfileDraft) = synchronized(RustBridge.draftWrites) {
     RustBridge.withKey(opened) { dir, key -> saveProfileDraft(dir, key, draft.record()) }
+}

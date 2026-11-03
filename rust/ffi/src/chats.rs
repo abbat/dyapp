@@ -15,6 +15,7 @@ use dyapp_client::store::{Conversation, Store};
 use dyapp_client::Node;
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
+use dyapp_p2p_net::proto::Status;
 use dyapp_profile::{DeviceCertificate, VerifiedProfile};
 use prost::Message as _;
 use std::path::PathBuf;
@@ -32,6 +33,14 @@ pub use view::{ChatDelivery, ChatHistory, ChatLikes, ChatMessage, ChatRow};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
+}
+
+/// `full` when the node's quota has no room for the photos, as on desktop; otherwise the text.
+fn publish_failed(failure: publish::Failure) -> CoreError {
+    match failure {
+        publish::Failure::Node(dyapp_client::Error::Status(Status::Full)) => failed("full"),
+        failure => failed(failure),
+    }
 }
 
 /// KeyPackages each publish adds, so peers can invite this device.
@@ -140,7 +149,7 @@ impl ChatSession {
                 let published =
                     publish::publish(session.store(), &mut node, &self.key.identity, &draft)
                         .await
-                        .map_err(failed)?;
+                        .map_err(publish_failed)?;
                 session
                     .store()
                     .note_device_listed(published.version)
@@ -460,6 +469,14 @@ async fn apply_mailbox(
 mod tests {
     use super::*;
     use crate::WrapError;
+
+    #[test]
+    fn a_full_node_gets_its_own_publish_code() {
+        let full = publish::Failure::Node(dyapp_client::Error::Status(Status::Full));
+        assert_eq!(publish_failed(full).to_string(), "full");
+        let missed = publish_failed(publish::Failure::Missed).to_string();
+        assert_eq!(missed, "the profile changed on another device");
+    }
 
     /// XOR with a fixed byte: stands in for the platform keystore.
     struct TestStore;

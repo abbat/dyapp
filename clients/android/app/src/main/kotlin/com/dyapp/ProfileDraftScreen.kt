@@ -90,6 +90,7 @@ private fun ProfileDraftForm(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HideCard(opened, visibility, unsaved)
+        PhotosCard(opened)
         BasicsCard(basics, values, birth)
         PlaceCard(place)
         MoreScales(more, values)

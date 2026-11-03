@@ -7,7 +7,8 @@ publishing, and the desktop has the editor and shows photos on search and liked 
 and the open identity's avatars and in `profile-view`, and its catch-up pass runs the keep refresh
 of step 4. The FFI exposes the draft photo commands, runs the keep refresh in
 `ChatSession::receive`, and fetches other people's photos into `ProfileSearcher`'s memory cache.
-Viewing and the editor on Android and Apple are planned.
+The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `PhotoPrep.kt`).
+Viewing on Android, and viewing and the editor on Apple, are planned.
 
 ## Limits
 
@@ -27,7 +28,9 @@ then shows the node's `FULL` reply and keeps the photo local.
 
 1. The page decodes the picked file and draws it on a canvas, which writes a bare JPEG. EXIF, GPS,
    colour profiles and anything appended to the file never leave the computer, and a rotated
-   photo comes out upright.
+   photo comes out upright. Android does the same with `ImageDecoder`, which applies the EXIF
+   orientation, flattens onto white and writes the JPEG with `Bitmap.compress`; the core's
+   `make_preview` writes the thumbnail. The system photo picker needs no storage permission.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
    the local store under their SHA-256 hashes and lists them in the profile draft.
 3. Publishing sends `keep` with every hash of the draft, puts each blob the node reports missing,
@@ -43,9 +46,10 @@ then shows the node's `FULL` reply and keeps the photo local.
 `keep` uses the profile `version`. A node refuses a different list at an equal version, which a
 failed publish can leave behind, so the client then moves past it, one version per refusal up to
 eight. The store holds own photos until a publish drops them, so a repair needs no original file.
-The bare JPEG and byte limits are checked where the blob enters the store; the desktop checks
-pixels before that, because
-`rust/client` has no image decoder.
+The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
+Android check pixels before that, because `rust/client` has no image decoder. On Android every
+draft write (a save, a proof step, the publish and each photo change) holds one lock, because a
+step or save writes back the draft it read and a publish drops the blobs it did not publish.
 
 ## Viewing
 

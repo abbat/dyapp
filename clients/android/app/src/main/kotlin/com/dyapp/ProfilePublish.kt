@@ -40,6 +40,7 @@ internal fun publishError(error: Throwable): Int {
         "notConnected" in message -> R.string.profile_publish_error_not_connected
         "unsolved" in message -> R.string.profile_publish_error_unsolved
         "readback differs" in message -> R.string.profile_publish_error_readback
+        error.message == "full" -> R.string.profile_publish_error_full
         else -> R.string.profile_publish_error_generic
     }
 }
@@ -75,7 +76,9 @@ internal class PublishState {
 private suspend fun runSteps(solve: ProfileSolve, state: PublishState, attested: Boolean): ProfileWorkStep? {
     var step: ProfileWorkStep?
     do {
-        step = withContext(Dispatchers.IO) { runCatching { solve.runStep(attested) } }.getOrNull()
+        step = withContext(Dispatchers.IO) {
+            runCatching { synchronized(RustBridge.draftWrites) { solve.runStep(attested) } }
+        }.getOrNull()
         step?.let { state.nonce = it.nextNonce }
     } while (step != null && !step.solved && !step.cancelled)
     return step
@@ -115,7 +118,9 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
         if (!solveProof(opened, state, attested)) return
         state.publishing = true
         val result = withContext(Dispatchers.IO) {
-            runCatching { RustBridge.withChats(opened) { it.publishProfile(attested) } }
+            runCatching {
+                RustBridge.withChats(opened) { synchronized(RustBridge.draftWrites) { it.publishProfile(attested) } }
+            }
         }
         result.fold({
             state.published = it
