@@ -23,8 +23,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
 mod actions;
+mod notices;
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
+pub use notices::ChatNotice;
 pub use view::{ChatDelivery, ChatHistory, ChatLikes, ChatMessage, ChatRow};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
@@ -551,6 +553,13 @@ mod tests {
             chats.set_muted(key.peer_id(), true).unwrap_err().to_string(),
             "invalidPeer"
         );
+        // Off keeps the chosen content for the next turn-on.
+        assert_eq!(chats.notice().unwrap(), ChatNotice::Fixed);
+        chats.set_notice(ChatNotice::Text).unwrap();
+        chats.set_notice(ChatNotice::Off).unwrap();
+        assert_eq!(chats.notice().unwrap(), ChatNotice::Off);
+        chats.set_notice(ChatNotice::Name).unwrap();
+        assert_eq!(chats.notice().unwrap(), ChatNotice::Name);
         chats.block(peer.clone()).unwrap();
         // A publish refuses at the same gates as the plain publisher, before any network use.
         assert_eq!(
