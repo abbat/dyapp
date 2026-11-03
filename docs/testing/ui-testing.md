@@ -375,8 +375,8 @@ Android services stay UID 1000, the owner of their image's Gradle build), and
     for its 6G minimum userdata partition, more than the RAM `/tmp` has) and starts the emulator headless with `-accel off` by default
     (software emulation: **no KVM needed**, but slow). With `DYAPP_KVM=1`, `ui-test.sh` adds `tests/docker/compose.kvm.yml`, which passes `/dev/kvm`, adds the container user to the group that owns it on the host (`DYAPP_KVM_GID`, taken from `stat -c %g /dev/kvm`) and sets `-accel on`; locally that is `DYAPP_KVM=1 make ui-test-android-emulator`. CI also opens `/dev/kvm` with a udev rule. Health check: `sys.boot_completed = 1` and
     the package manager responds, polled every 15 s for up to 120 retries.
-    Before the emulator, it generates a low-cost test key and starts that `dyappd` on
-    `127.0.0.1:33445`, advertised as `10.0.2.2:33445`, the guest's address for the container's
+    Before the emulator, it generates a low-cost test key and starts that `dyappd` with the
+    `store`, `search` and `media` roles (a publish uploads the draft's photos) on `127.0.0.1:33445`, advertised as `10.0.2.2:33445`, the guest's address for the container's
     loopback; its storage and logs go to `node/` in `build/android-reports`. After the suite,
     `forge-search-index.py` flips the signature of every indexed record there, and
     `SearchTests#forgedResultsAreDroppedAndListed` runs alone with `-e forged 1` (otherwise

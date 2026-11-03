@@ -56,9 +56,6 @@ score = 72.2
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
 "LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-10-28
 "LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
-# Android: the signed readback did not appear within 120 s in some attempts; a retry passed.
-"com.dyapp.ProfilePublishTests publishThroughTheLocalNodeShowsTheSignedReadback" = 2026-11-02
-"com.dyapp.ProfilePublishTests theSwitchHidesAndOnlyAPublicationShowsAgain" = 2026-11-02
 # Android: the restarted network draft failed once; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-10-31
 # macOS: the tap reached settings-create while the identity list was loading; the retry passed.

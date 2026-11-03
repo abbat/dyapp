@@ -92,7 +92,8 @@ class ProfilePhotosTests {
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-photo-1")).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performClick()
+        // The photo row sits below the fold, where a click lands off the screen.
+        compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performScrollTo().performClick()
         compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
         val avatar = hasTestTag("avatar-photo") and hasAnyAncestor(hasTestTag("identity-switcher"))
         // The switcher button merges its content, so the photo is found in the unmerged tree.

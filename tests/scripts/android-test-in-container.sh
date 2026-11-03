@@ -36,8 +36,10 @@ case "${1:?suite required}" in
         echo no | avdmanager create avd --force -n test_device -k 'system-images;android-31;default;x86_64' -p /avd/test_device
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
         # Loopback dyappd for the publish test; the guest reaches this container's 127.0.0.1 at 10.0.2.2.
+        # Media serves the profile photos a publish uploads; without it the node replies Unsupported.
         export DYAPPD_LISTEN='["127.0.0.1:33445"]' DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
-            DYAPPD_STORAGE_DIR=/reports/node/storage DYAPPD_NETWORK_ID_POW_BITS=8
+            DYAPPD_STORAGE_DIR=/reports/node/storage DYAPPD_NETWORK_ID_POW_BITS=8 \
+            DYAPPD_ROLES='["store", "search", "media"]'
         # The UI container forges this index after the suite, so it lives on the shared volume.
         rm -rf /reports/node && mkdir -p /reports/node
         /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
