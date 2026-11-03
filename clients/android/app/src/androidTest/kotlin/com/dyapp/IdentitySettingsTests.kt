@@ -31,7 +31,11 @@ class IdentitySettingsTests {
 
     private fun active() = slots.open() as Opened.Ready
 
-    private fun click(tag: String) = compose.onNodeWithTag(tag).performScrollTo().performClick()
+    // The settings lists load after the screen opens, so a row may not exist yet.
+    private fun click(tag: String) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+    }
 
     @Test
     fun createSwitchAndConfirmedRemoveChangeTheActiveIdentity() {

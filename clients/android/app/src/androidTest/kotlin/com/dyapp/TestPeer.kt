@@ -72,7 +72,8 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
 
     // A cold emulator's first dial can outlast one check, as in the UI helper.
     private fun activateLocalNode() = ConnectionCheck(path).use { checker ->
-        val settings = NetworkSettings(listOf(LOCAL_NODE), "local")
+        // The local node runs the public network: an empty name, as in NetworkDraftTests.
+        val settings = NetworkSettings(listOf(LOCAL_NODE), "")
         var rows = emptyList<SeedRow>()
         val activated = (1..CHECK_TRIES).any {
             rows = checker.run(settings, CHECK_WAIT_MS.toUInt())
