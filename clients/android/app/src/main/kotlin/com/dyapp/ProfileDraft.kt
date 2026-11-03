@@ -23,13 +23,19 @@ private const val FINANCIAL_PHILOSOPHY = "financial_philosophy"
 private const val EMPLOYMENT_STATUS = "employment_status"
 private const val FITNESS_LEVEL = "fitness_level"
 private const val ZODIAC = "zodiac"
+private const val SMOKING = "smoking"
+private const val DRINKING = "drinking"
+private const val TATTOOS = "tattoos"
+private const val MARITAL_STATUS = "marital_status"
+private const val PETS = "pets"
 internal const val HEIGHT = "height"
 
-/** Scale, birth, height and place values by key, the ISO country code or empty, and the optional public name. */
+/** Scale, birth, height and place values by key, the ISO country code or empty, and the optional public texts. */
 internal data class ProfileDraft(
     val values: Map<String, Int> = emptyMap(),
     val country: String = "",
     val name: String = "",
+    val about: String = "",
 )
 
 /** The draft value of typed height text: empty clears it, null is text that is no whole number. */
@@ -69,6 +75,8 @@ internal fun ProfileDraft.record(): PublicProfileDraft {
         zodiac = code(ZODIAC), birthYear = values[BIRTH_YEAR]?.toUInt(),
         birthMonth = values[BIRTH_MONTH]?.toUInt(), birthDay = values[BIRTH_DAY]?.toUInt(),
         country = country, place = values[PLACE]?.toString().orEmpty(), height = values[HEIGHT]?.toUInt(),
+        about = about, smoking = code(SMOKING), drinking = code(DRINKING), tattoos = code(TATTOOS),
+        maritalStatus = code(MARITAL_STATUS), pets = code(PETS),
     )
 }
 
@@ -77,11 +85,12 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
     val scales = listOf(GENDER to gender, ORIENTATION to orientation,
         RELATIONSHIP_GOAL to relationshipGoal, ROLE_PREFERENCE to rolePreference,
         CAREER_AMBITION to careerAmbition, FINANCIAL_PHILOSOPHY to financialPhilosophy,
-        EMPLOYMENT_STATUS to employmentStatus, FITNESS_LEVEL to fitnessLevel, ZODIAC to zodiac)
+        EMPLOYMENT_STATUS to employmentStatus, FITNESS_LEVEL to fitnessLevel, ZODIAC to zodiac,
+        SMOKING to smoking, DRINKING to drinking, TATTOOS to tattoos, MARITAL_STATUS to maritalStatus, PETS to pets)
     val optional = listOf(BIRTH_YEAR to birthYear, BIRTH_MONTH to birthMonth, BIRTH_DAY to birthDay,
         PLACE to place.toUIntOrNull(), HEIGHT to height)
     val values = scales.filter { it.second != 0u } + optional.mapNotNull { (key, value) -> value?.let { key to it } }
-    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name)
+    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name, about)
 }
 
 /** This identity's `client.db` draft; an older `profile-draft.json` is imported once and kept. */

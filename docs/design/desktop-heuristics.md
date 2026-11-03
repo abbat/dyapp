@@ -192,6 +192,14 @@ to the grouped number, the QR and scan controls remain readable, and the
 neighbouring profile actions remain visible. No open H1–H10 finding. Clipboard
 expiry is covered by a separate behavioral test, not by these static images.
 
+### Android habits and about review (2026-11-04)
+
+Reviewed the five new pickers and filters, the About field and its preview row against H1–H10, from
+the Compose code; not yet seen on a device, native rendering is left to the CI Android job. The
+pickers reuse the folded scale list and its **Not published** / **Any** choices (H3, H4), the hint
+says who sees About and that it is plain text (H2, H10), and text too long or with a hidden symbol is
+kept in the field and refused at save with a message saying what to change (H5, H9). No open finding.
+
 ### Android height review (2026-11-04)
 
 Reviewed the height field in the profile basics, its preview row and the height range in the search

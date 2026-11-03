@@ -74,6 +74,12 @@ class ProfileDraftTests {
     }
 
     @Test
+    fun everyScaleAndAboutMapToTheRustRecordAndBack() {
+        val draft = ProfileDraft(profileScales().associate { it.key to it.choices.first().code.toInt() }, about = "Hi")
+        check(draft.record().draft() == draft) { "${draft.record()}" }
+    }
+
+    @Test
     fun otherScalesStayFoldedUntilProfileMoreOpens() {
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-profile").performClick()

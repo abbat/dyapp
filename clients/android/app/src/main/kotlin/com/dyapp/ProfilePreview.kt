@@ -42,7 +42,7 @@ private fun numberRows(saved: Map<String, Int>) = listOf(HEIGHT to R.string.prof
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
-/** The public rows of [draft]: the public name, scales, place, height, birth parts and the possible age. */
+/** The public rows of [draft]: the public name, scales, place, height, birth parts, about and the possible age. */
 @Composable
 internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
     val saved = draft.values
@@ -52,7 +52,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
     if (draft.name.isNotEmpty()) {
         Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), draft.name),
             Modifier.testTag("preview-name"))
-    } else if (fields.isEmpty() && places.isEmpty() && numbers.isEmpty()) {
+    } else if (draft.about.isEmpty() && listOf(fields, places, numbers).all { it.isEmpty() }) {
         Text(stringResource(R.string.profile_preview_empty))
     }
     for ((scale, choice) in fields) {
@@ -64,6 +64,10 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
             Modifier.testTag("preview-$key"))
     }
     for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
+    if (draft.about.isNotEmpty()) {
+        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
+            Modifier.testTag("preview-about"))
+    }
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
 }

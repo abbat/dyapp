@@ -131,6 +131,28 @@ class ProfilePublishTests {
         saveHeight("", R.string.profile_saved)
     }
 
+    private fun saveAbout(about: String, status: Int) {
+        compose.onNodeWithTag("profile-about").performScrollTo().performTextReplacement(about)
+        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
+    }
+
+    @Test
+    fun aboutIsShownAsPlainTextClearedAndARefusedOneSaysWhy() {
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-profile").performClick()
+        saveAbout("x".repeat(501), R.string.profile_about_invalid)
+        saveAbout("An${Char(0x202E)}na", R.string.profile_about_invalid)
+        val about = "First line\n<b>not bold</b>"
+        saveAbout(about, R.string.profile_saved)
+        compose.openPublish()
+        val row = compose.activity.getString(R.string.profile_preview_row, string(R.string.profile_about), about)
+        compose.onNodeWithTag("preview-about").performScrollTo().assertTextEquals(row)
+        compose.onNodeWithTag("profile-cancel").performClick()
+        // Later tests start without about.
+        saveAbout("", R.string.profile_saved)
+    }
+
     @Test
     fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
         compose.skipNetworkEntry()

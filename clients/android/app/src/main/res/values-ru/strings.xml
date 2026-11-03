@@ -341,6 +341,9 @@
     <string name="profile_birth_day">День рождения</string>
     <string name="profile_height">Рост, см</string>
     <string name="profile_height_invalid">Укажите рост от 50 до 272 см или оставьте поле пустым.</string>
+    <string name="profile_about">О себе</string>
+    <string name="profile_about_hint">До 500 символов. Этот текст видит каждый, кто найдёт ваш профиль: без ссылок и оформления.</string>
+    <string name="profile_about_invalid">В поле «О себе» используйте до 500 символов без скрытых знаков.</string>
     <string name="profile_birth_invalid">Укажите существующую дату или оставьте любую часть пустой.</string>
     <string name="profile_country">Страна</string>
     <string name="profile_place">Город</string>

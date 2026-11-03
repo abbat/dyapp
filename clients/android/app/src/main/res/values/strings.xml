@@ -342,6 +342,9 @@
     <string name="profile_birth_day">Birth day</string>
     <string name="profile_height">Height, cm</string>
     <string name="profile_height_invalid">Use a height from 50 to 272 cm, or leave it empty.</string>
+    <string name="profile_about">About</string>
+    <string name="profile_about_hint">Up to 500 characters. Anyone who finds your profile sees this as plain text, without links or formatting.</string>
+    <string name="profile_about_invalid">Use up to 500 characters with no hidden symbols in About.</string>
     <string name="profile_birth_invalid">Enter a possible date, or leave any part empty.</string>
     <string name="profile_country">Country</string>
     <string name="profile_place">Town or city</string>

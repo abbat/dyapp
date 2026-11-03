@@ -44,6 +44,7 @@ internal val BASIC_SCALES = setOf("gender", "relationship_goal")
 internal const val FLIPPED_DEGREES = 180f
 
 private val REPLACED_KEYS = BIRTH_KEYS + PLACE + HEIGHT
+private const val ABOUT_LINES = 3
 
 /**
  * Profile draft editor and publication dialog over `client.db`; Rust supplies the closed wire choices.
@@ -64,6 +65,7 @@ fun ProfileDraftScreen(opened: Opened.Ready) {
 private fun saveFailure(error: Throwable) = when {
     "invalidName" in error.toString() -> R.string.profile_name_invalid
     "invalidHeight" in error.toString() -> R.string.profile_height_invalid
+    "invalidAbout" in error.toString() -> R.string.profile_about_invalid
     else -> R.string.profile_save_failed
 }
 
@@ -78,7 +80,8 @@ private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthIn
         tall == null -> R.string.profile_height_invalid
         place.unknown -> R.string.profile_place_unknown
         else -> runCatching {
-            saveDraft(opened, edited.copy(values = kept + parts + picked + tall, country = place.country))
+            saveDraft(opened, edited.copy(values = kept + parts + picked + tall, country = place.country,
+                about = birth.about))
         }.fold({ R.string.profile_saved }, ::saveFailure)
     }
 }
@@ -90,7 +93,7 @@ private fun ProfileDraftForm(
     saved: ProfileDraft,
 ) {
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
-    val birth = remember(opened.slot.id) { BirthInputs(saved.values) }
+    val birth = remember(opened.slot.id) { BirthInputs(saved.values, saved.about) }
     val name = remember(opened.slot.id) { mutableStateOf(saved.name) }
     val lang = placeLang()
     val place = remember(opened.slot.id) {
@@ -133,6 +136,9 @@ private fun BasicsCard(
     OutlinedTextField(birth.height, { birth.height = it }, Modifier.fillMaxWidth().testTag("profile-height"),
         label = { Text(stringResource(R.string.profile_height)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+    OutlinedTextField(birth.about, { birth.about = it }, Modifier.fillMaxWidth().testTag("profile-about"),
+        label = { Text(stringResource(R.string.profile_about)) },
+        supportingText = { Text(stringResource(R.string.profile_about_hint)) }, minLines = ABOUT_LINES)
     CardTitle(R.string.profile_birth)
     BirthDateFields(birth)
 }
@@ -168,7 +174,8 @@ private fun MoreScales(scales: List<ProfileScale>, values: MutableMap<String, In
 }
 
 private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs) =
-    listOf(values.toMap(), birth.year, birth.month, birth.day, birth.height, place.country, place.place, place.text)
+    listOf(values.toMap(), birth.year, birth.month, birth.day, birth.height, birth.about, place.country, place.place,
+        place.text)
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable

@@ -100,6 +100,9 @@ class SearchTests {
             click("run-search")
             check(searched() == string(R.string.search_height_invalid)) { "status ${compose.texts("search-status")}" }
             compose.onNodeWithTag("search-height-max").performScrollTo().performTextReplacement("200")
+            for (scale in listOf("smoking", "drinking", "tattoos", "marital_status", "pets")) {
+                compose.onNodeWithTag("profile-$scale").performScrollTo().assertExists()
+            }
             click("search-country")
             click("country-DE")
             click("run-search")
