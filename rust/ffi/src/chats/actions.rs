@@ -206,7 +206,18 @@ impl ChatSession {
     /// Unblock `peer_id` here and for the owner's other devices. Revoked tokens stay revoked.
     /// Errors are `invalidPeer` or a storage message.
     pub fn unblock(&self, peer_id: String) -> Result<(), CoreError> {
-        let change = PeerChange::Blocked(false);
+        self.change_own(peer_id, PeerChange::Blocked(false))
+    }
+
+    /// Mute `peer_id` here and for the owner's other devices, or end that. Only notifications
+    /// change: the mail, the chat and its unread count stay. Errors as for `unblock`.
+    pub fn set_muted(&self, peer_id: String, muted: bool) -> Result<(), CoreError> {
+        self.change_own(peer_id, PeerChange::Muted(muted))
+    }
+}
+
+impl ChatSession {
+    fn change_own(&self, peer_id: String, change: PeerChange) -> Result<(), CoreError> {
         if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
             return Err(code("invalidPeer"));
         }
@@ -221,9 +232,7 @@ impl ChatSession {
             })
         })
     }
-}
 
-impl ChatSession {
     fn operate(
         &self,
         peer_id: &str,

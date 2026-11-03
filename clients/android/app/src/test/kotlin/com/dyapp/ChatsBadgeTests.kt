@@ -7,7 +7,7 @@ import uniffi.dyapp.ChatState
 
 class ChatsBadgeTests {
     private fun row(state: ChatState, unread: ULong) =
-        ChatRow(peerId = "peer", state = state, lastMessage = null, unreadCount = unread)
+        ChatRow(peerId = "peer", state = state, lastMessage = null, unreadCount = unread, muted = false)
 
     @Test
     fun countsUnreadMessagesAndEachRequestOnce() {

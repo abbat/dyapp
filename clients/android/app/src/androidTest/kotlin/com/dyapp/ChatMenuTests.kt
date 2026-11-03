@@ -22,7 +22,7 @@ class ChatMenuTests {
 
     private fun show(state: ChatState, messages: List<ChatMessage> = emptyList()) = compose.setContent {
         val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 })
-        ChatContent("peer-abcdef", "me", ChatHistory(state, messages), form, actions)
+        ChatContent("peer-abcdef", "me", ChatHistory(state, messages, false), form, actions)
     }
 
     @Test

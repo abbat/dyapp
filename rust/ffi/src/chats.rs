@@ -217,7 +217,8 @@ impl ChatSession {
         let mut rows = Vec::new();
         for row in store.chat_rows().map_err(failed)? {
             if !store.blocked(&row.peer_id).map_err(failed)? {
-                rows.push(row.into());
+                let muted = store.muted(&row.peer_id).map_err(failed)?;
+                rows.push(ChatRow::new(row, muted));
             }
         }
         Ok(rows)
@@ -238,6 +239,7 @@ impl ChatSession {
                 .into_iter()
                 .map(Into::into)
                 .collect(),
+            muted: store.muted(&peer_id).map_err(failed)?,
         })
     }
 
@@ -539,7 +541,16 @@ mod tests {
             "blocked"
         );
         chats.unblock(peer.clone()).unwrap();
-        assert!(chats.chat_history(peer.clone()).is_ok());
+        assert!(!chats.chat_history(peer.clone()).unwrap().muted);
+        // A mute changes only the flag, and like a block it needs a valid other peer.
+        chats.set_muted(peer.clone(), true).unwrap();
+        assert!(chats.chat_history(peer.clone()).unwrap().muted);
+        chats.set_muted(peer.clone(), false).unwrap();
+        assert!(!chats.chat_history(peer.clone()).unwrap().muted);
+        assert_eq!(
+            chats.set_muted(key.peer_id(), true).unwrap_err().to_string(),
+            "invalidPeer"
+        );
         chats.block(peer.clone()).unwrap();
         // A publish refuses at the same gates as the plain publisher, before any network use.
         assert_eq!(

@@ -30,7 +30,7 @@ class MessageMenuTests {
         val messages = listOf(own, message("peer-abcdef", "two").copy(id = byteArrayOf(2)),
             message("me", "gone").copy(id = byteArrayOf(3), deleted = true))
         val actions = ChatActions({ sends += 1 }, {}, {}, {}, {}, { deletes += 1 })
-        ChatContent("peer-abcdef", "me", ChatHistory(state, messages), form, actions)
+        ChatContent("peer-abcdef", "me", ChatHistory(state, messages, false), form, actions)
     }
 
     private fun press(text: String) = compose.onNodeWithText(text).performTouchInput { longClick() }

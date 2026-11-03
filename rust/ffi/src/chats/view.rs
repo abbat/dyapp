@@ -90,15 +90,18 @@ pub struct ChatRow {
     pub last_message: Option<ChatMessage>,
     /// Messages not yet read here.
     pub unread_count: u64,
+    /// Whether this profile mutes the peer: no notifications, the chat itself unchanged.
+    pub muted: bool,
 }
 
-impl From<store::ChatRow> for ChatRow {
-    fn from(row: store::ChatRow) -> Self {
+impl ChatRow {
+    pub(crate) fn new(row: store::ChatRow, muted: bool) -> Self {
         Self {
             peer_id: row.peer_id,
             state: row.state.into(),
             last_message: row.last_message.map(Into::into),
             unread_count: row.unread_count as u64,
+            muted,
         }
     }
 }
@@ -110,4 +113,6 @@ pub struct ChatHistory {
     pub state: ChatState,
     /// The current messages in the Store's pair-wide order.
     pub messages: Vec<ChatMessage>,
+    /// Whether this profile mutes the peer.
+    pub muted: bool,
 }

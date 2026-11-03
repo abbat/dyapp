@@ -43,7 +43,7 @@ class ChatScreenTests {
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private fun show(state: ChatState?, messages: List<ChatMessage> = emptyList()) = compose.setContent {
-        val history = state?.let { ChatHistory(it, messages) }
+        val history = state?.let { ChatHistory(it, messages, false) }
         val actions = ChatActions({ sends += 1 }, { profiles += 1 }, { backs += 1 }, {}, {})
         ChatContent("peer-abcdef", "me", history, form, actions)
     }
