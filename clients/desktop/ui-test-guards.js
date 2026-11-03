@@ -159,6 +159,11 @@ const checkStaleRemovePreparation = async () => {
   if (!removeDialog.open) throw new Error('current removal dialog did not open');
   removeDialog.close();
 };
+// The close event, which the app handles first, comes on a later task in no fixed order with
+// timers, so a check waits for the event itself.
+const closed = (dialog) => new Promise((resolve) => {
+  dialog.addEventListener('close', resolve, { once: true });
+});
 // A revocation of another slot wipes nothing; the active slot's closes dialogs and says why.
 const checkDeviceRevoked = async () => {
   await showRemove((command) => Promise.resolve(command === 'list_identities' ? [] : null));
@@ -176,8 +181,7 @@ const checkDeviceRevoked = async () => {
   await window.deviceRevoked(current.slot, remove);
   if (removed !== 2 || !revokedDialog.open) throw new Error('a wipe did not say why');
   document.getElementById('revoked-ok').click();
-  // The close event, which hides the dialog, comes on a later task.
-  await new Promise((resolve) => { setTimeout(resolve, 0); });
+  await closed(revokedDialog);
   if (revokedDialog.open || !revokedDialog.hidden) throw new Error('the notice stayed open');
 };
 // An old withdrawal cannot remove the new identity or switch its dialog to Offline.
@@ -738,7 +742,7 @@ const checkDevices = async () => {
   if (dialog.open || sent.join() !== 'revoke_device,1,2,255') {
     throw new Error(`disconnect sent ${sent}`);
   }
-  await new Promise((resolve) => { setTimeout(resolve); });
+  await closed(dialog);
   if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
     throw new Error('disconnect did not report its result');
   }
@@ -869,7 +873,7 @@ const checkLinkedNotice = async () => {
     if (command === 'linked_device') return Promise.resolve(linked);
     return Promise.resolve(false);
   };
-  await openArea('chats');
+  await openArea('chats-area');
   await openChat(peer, call(true));
   if (notice.hidden) throw new Error('a chat on a linked device has no history notice');
   await shot('chat-linked');
