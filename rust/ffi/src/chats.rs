@@ -553,7 +553,7 @@ mod tests {
             chats.chat_history(peer.clone()).unwrap_err().to_string(),
             "blocked"
         );
-        assert_eq!(chats.blocked_peers().unwrap(), [peer.clone()]);
+        assert_eq!(chats.blocked_peers().unwrap(), std::slice::from_ref(&peer));
         chats.unblock(peer.clone()).unwrap();
         assert!(chats.blocked_peers().unwrap().is_empty());
         assert!(!chats.chat_history(peer.clone()).unwrap().muted);
@@ -571,7 +571,7 @@ mod tests {
         );
         // A pass is local, shows in the like state and the list, and is undone the same way.
         assert!(chats.set_passed(peer.clone(), true).unwrap().passed);
-        assert_eq!(chats.passed_peers().unwrap(), [peer.clone()]);
+        assert_eq!(chats.passed_peers().unwrap(), std::slice::from_ref(&peer));
         assert!(!chats.set_passed(peer.clone(), false).unwrap().passed);
         assert!(chats.passed_peers().unwrap().is_empty());
         let pass_self = chats.set_passed(key.peer_id(), true);

@@ -73,7 +73,8 @@ internal fun BlockedCard(active: Opened.Ready) {
     val list = { chats: ChatSession -> chats.blockedPeers() }
     val texts = PeopleTexts(R.string.settings_blocked, R.string.settings_blocked_none, R.string.settings_blocked_failed,
         R.string.settings_blocked_hint)
-    val text = LocalContext.current::getString
+    val context = LocalContext.current
+    val text = { id: Int -> context.getString(id) }
     LaunchedEffect(state) { state.refresh(active, list) }
     PeopleCard("blocked", state, texts) { peer, number ->
         // Stacked: two long labels beside the Peer ID do not fit a 360 dp phone.
