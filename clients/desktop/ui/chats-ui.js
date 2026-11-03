@@ -974,7 +974,7 @@ window.mailUpdated = async (changed, call = invoke) => {
     // An unchanged list is left alone so an offline poll cannot take keyboard focus from a row.
     if (rows && identityCurrent(generation) && request === chatsRequest
       && JSON.stringify(rows) !== JSON.stringify(visibleChatRows)) renderChatRows(rows);
-  } else if (changed) {
+  } else {
     window.chatsDone = window.showChats(call);
   }
 };
