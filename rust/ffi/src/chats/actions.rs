@@ -22,6 +22,7 @@ pub enum ChatRevocation {
 /// The outcome of [`ChatSession::block`]; the block itself always stays.
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
 pub struct ChatBlock {
+    /// Whether the peer's tokens are revoked on the node.
     pub revocation: ChatRevocation,
     /// Why the revocation is pending.
     pub detail: Option<String>,
