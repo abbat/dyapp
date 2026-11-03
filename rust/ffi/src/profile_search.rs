@@ -10,7 +10,7 @@ use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::store::Store;
-use dyapp_p2p_net::search_results::Filter;
+use dyapp_p2p_net::search_results::{mutual_conditions, Filter};
 use dyapp_p2p_net::{proto, Protocols};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -107,6 +107,27 @@ pub fn search_height_condition(
             ints: condition.ints,
             strings: condition.strings,
         }))
+}
+
+/// The conditions of a mutual search for the owner of `draft` on today's date: results must seek
+/// the owner's gender and allow their age. Empty when the draft states no known gender or the
+/// age is not exact or adult; the option is then not offered.
+#[uniffi::export]
+pub fn search_mutual_conditions(
+    draft: PublicProfileDraft,
+) -> Result<Vec<SearchCondition>, CoreError> {
+    let mut me = dyapp_profile::Profile::default();
+    draft.apply_to(&mut me);
+    let conditions = mutual_conditions(&me, today()?).unwrap_or_default();
+    Ok(conditions
+        .into_iter()
+        .map(|condition| SearchCondition {
+            field: condition.field,
+            op: SearchOp::Eq,
+            ints: condition.ints,
+            strings: condition.strings,
+        })
+        .collect())
 }
 
 /// Which companies verified results may have; applied only on this device, so no node learns it.
@@ -385,6 +406,34 @@ mod tests {
                 .to_string(),
             "invalid search height"
         );
+    }
+
+    #[test]
+    fn a_mutual_search_needs_a_stated_gender_and_an_exact_adult_age() {
+        let draft = |gender, birth_year, birth_month, birth_day| PublicProfileDraft {
+            gender,
+            birth_year,
+            birth_month,
+            birth_day,
+            ..PublicProfileDraft::default()
+        };
+        let full = draft(2, Some(1990), Some(1), Some(1));
+        let conditions = search_mutual_conditions(full).unwrap();
+        assert_eq!(
+            conditions.iter().map(|c| c.field).collect::<Vec<_>>(),
+            [53, 54]
+        );
+        assert!(conditions.iter().all(|c| c.op == SearchOp::Eq));
+        assert_eq!(conditions[0].ints, [2]);
+        assert_eq!(conditions[1].ints.len(), 1);
+        assert!(conditions[1].ints[0] >= 36);
+        for unavailable in [
+            draft(0, Some(1990), Some(1), Some(1)),
+            draft(2, None, None, None),
+            draft(2, Some(2025), Some(1), Some(1)),
+        ] {
+            assert!(search_mutual_conditions(unavailable).unwrap().is_empty());
+        }
     }
 
     #[test]

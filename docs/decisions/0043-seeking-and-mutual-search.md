@@ -37,5 +37,6 @@ does not trust a node's results.
 - A mutual search tells the queried nodes the searcher's exact gender and age. Both are public in the
   searcher's own profile if stated, but the query links them to the session that asked. Filtering on
   the device alone would keep them private, at the cost of scanning results that mostly do not match.
-- A client without its owner's gender or full birth date cannot offer the mutual option.
+- A client without its owner's gender or a birth date giving an exact age today cannot offer the
+  mutual option; a partial date gives an exact age on some days only.
 - Development indexes from before these columns need a manual reset, as in ADR 0028.

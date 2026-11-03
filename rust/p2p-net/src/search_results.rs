@@ -7,7 +7,7 @@ use dyapp_profile::{
     scale, stated, CareerAmbition, CivilDate, Drinking, EducationLevel, EmploymentStatus,
     FinancialPhilosophy, FitnessLevel, Gender, MaritalStatus, Orientation, Pets, Profile,
     RelationshipGoal, RolePreference, Smoking, Tattoos, VerifiedProfile, Zodiac, HEIGHT_FIELD,
-    MAX_HEIGHT_CM, MIN_HEIGHT_CM,
+    MAX_HEIGHT_CM, MAX_SEEKING_AGE, MIN_HEIGHT_CM, MIN_SEEKING_AGE,
 };
 use std::collections::HashMap;
 
@@ -16,6 +16,11 @@ use std::collections::HashMap;
 pub const ACTIVE_DAY: u32 = 1000;
 /// Current-age interval over public birth-date bounds, rechecked from signed profiles.
 pub const BIRTH_AGE: u32 = 1001;
+/// `eq` the searcher's gender code: the profile's `seeking_genders` holds it.
+pub const SEEKING_GENDERS: u32 = 53;
+/// `eq` the searcher's age in years: the profile's seeking ages allow it, one open bound leaving
+/// that side unlimited; a profile with neither bound does not match.
+pub const SEEKING_AGE: u32 = 54;
 /// Maximum values in one `in` condition, shared by client checks and bootstrap execution.
 pub const MAX_IN_VALUES: usize = 16;
 
@@ -70,7 +75,10 @@ pub fn passes(conditions: &[Condition], min_pow_bits: u32, profile: &Profile) ->
 /// Whether [`check`] re-applies a condition on `field`, or, for [`ACTIVE_DAY`], drops the nodes
 /// that skip it; any other field a node lists cannot be checked and is not to be offered.
 pub fn checkable(field: u32) -> bool {
-    field == ACTIVE_DAY || field == BIRTH_AGE || value(&Profile::default(), field).is_some()
+    field == ACTIVE_DAY
+        || field == BIRTH_AGE
+        || field == SEEKING_AGE
+        || value(&Profile::default(), field).is_some()
 }
 
 /// A profile field as the search index stores it: integers, strings, or absent (SQL NULL).
@@ -114,6 +122,14 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         Tattoos::FIELD => code(profile.tattoos, Tattoos::MAX),
         MaritalStatus::FIELD => code(profile.marital_status, MaritalStatus::MAX),
         Pets::FIELD => code(profile.pets, Pets::MAX),
+        SEEKING_GENDERS => Some(Value::Ints(
+            profile
+                .seeking_genders
+                .iter()
+                .copied()
+                .map(i64::from)
+                .collect(),
+        )),
         _ => None,
     }
 }
@@ -136,6 +152,9 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
     let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
     if c.field == BIRTH_AGE {
         return birth_age_matches(c, profile, op);
+    }
+    if c.field == SEEKING_AGE {
+        return seeking_age_matches(c, profile, op);
     }
     let Some(value) = value(profile, c.field) else {
         return true;
@@ -245,6 +264,8 @@ pub struct Filter {
     pub with_photo: bool,
     /// Only profiles active (a heartbeat or publish) on the UTC day of this Unix second or later.
     pub active_since: Option<u64>,
+    /// The searcher's gender code and age in years: only profiles that seek both.
+    pub seeks: Option<(u32, u32)>,
 }
 
 /// Why [`Filter::conditions`] refused a filter.
@@ -402,12 +423,30 @@ impl Filter {
             }
             out.push(ints(field, op, values.into_iter().map(i64::from).collect()));
         }
+        if let Some((gender, age)) = self.seeks {
+            let known = scale(Gender::FIELD).ok_or(FilterError::InvalidScale)?;
+            if gender == 0
+                || !known.knows(gender)
+                || !(MIN_SEEKING_AGE..=MAX_SEEKING_AGE).contains(&age)
+            {
+                return Err(FilterError::InvalidScale);
+            }
+            out.push(ints(SEEKING_GENDERS, Op::Eq, vec![gender.into()]));
+            out.push(ints(SEEKING_AGE, Op::Eq, vec![age.into()]));
+        }
         if out.len() > 32 {
             return Err(FilterError::TooManyConditions);
         }
         Ok(out)
     }
 }
+
+mod seeking;
+pub use seeking::mutual_conditions;
+use seeking::seeking_age_matches;
+
+#[cfg(test)]
+mod seeking_tests;
 
 #[cfg(test)]
 mod tests {
@@ -443,10 +482,11 @@ mod tests {
             min_height: Some(MIN_HEIGHT_CM),
             with_photo: true,
             active_since: Some(86_400),
+            seeks: Some((Gender::Woman.code(), MIN_SEEKING_AGE)),
             ..Filter::default()
         };
         let today = CivilDate::new(2026, 10, 25).unwrap();
-        assert_eq!(filter.conditions(today).unwrap().len(), 25);
+        assert_eq!(filter.conditions(today).unwrap().len(), 27);
     }
 
     #[test]
