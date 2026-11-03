@@ -29,6 +29,10 @@ mod profile_network;
 pub use profile_network::{
     profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,
 };
+mod profile_photos;
+pub use profile_photos::{
+    add_profile_photo, move_profile_photo, profile_photo, profile_photos, remove_profile_photo,
+};
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
 mod profile_search;

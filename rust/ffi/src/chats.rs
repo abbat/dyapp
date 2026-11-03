@@ -361,6 +361,25 @@ impl ChatSession {
                         .token_refill_sent(now.as_secs())
                         .map_err(failed)?;
                 }
+                // Best effort like the refill, as on the desktop: once the first publish made a
+                // last-resort package it rotates or repeats, and the photo hold renews daily.
+                if matches!(session.store().last_resort(), Ok(Some(_))) {
+                    let _ = session
+                        .keep_last_resort(
+                            &mut node,
+                            &self.device_key.identity,
+                            now.as_secs(),
+                            &self.seal_key,
+                        )
+                        .await;
+                }
+                let _ = dyapp_client::publish::refresh_photos(
+                    session.store(),
+                    &mut node,
+                    &self.key.identity,
+                    now.as_secs(),
+                )
+                .await;
                 Ok(changed)
             })
         })

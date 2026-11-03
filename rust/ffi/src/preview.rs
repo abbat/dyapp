@@ -103,7 +103,7 @@ pub fn check_preview(bytes: Vec<u8>) -> Result<Rgba, CoreError> {
 }
 
 /// Width and height from the only frame header (SOF) before the first scan.
-fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
+pub(crate) fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
     if !bytes.starts_with(&[0xFF, 0xD8]) || !bytes.ends_with(&[0xFF, 0xD9]) {
         return Err(failed("not a whole JPEG"));
     }
