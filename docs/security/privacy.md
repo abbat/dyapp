@@ -49,10 +49,11 @@ Other app surfaces have not yet adopted this display.
 
 ## Mute
 
-Linux Chats can mute a peer from the chat. Muting only stops desktop notices for that peer's
+Linux Chats and the Android chat menu can mute a peer. Muting only stops notices for that peer's
 messages, requests and likes: mail is still received, stays unread and counts in the Chats badge,
-and the peer can tell nothing changed. The flag is stored in the local client store on this
-device and is never published or synced. Android muting is planned.
+and the peer can tell nothing changed. The flag is stored in the local client store and goes,
+end-to-end encrypted, only to the owner's other devices; it is never published. Android shows no
+notices yet, so there muting changes only the flag.
 
 ## Retention
 
@@ -183,6 +184,12 @@ show on the lock screen. Only an open chat adds them: a message request and a li
 stranger's words never appear unasked. The text is escaped, because a server may read the body as
 markup. A click on the notice shows the window; a server without actions just shows the notice. The
 other platforms are planned.
+
+The Android app also receives the active identity's mail while it is closed: a JobScheduler job
+runs at most every 15 minutes when a network is up, and Doze and App Standby defer it further.
+The nodes therefore see receives while the app is not open, and the job opens the identity key
+even while the app lock is on, because that lock covers only the screens. It shows no notice
+yet.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

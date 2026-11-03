@@ -113,7 +113,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Liked you fetches the verified profiles when it opens and each opens the found profile, so a peer
   no node returns counts but has no row. Message requests stay out of the chat list and open the
   chat. A chat row shows the short Peer ID rather than a name and opens the chat. The app receives
-  the mailbox every minute while it is in the foreground, on every section and in a chat; failures
+  the mailbox every minute while it is in the foreground, on every section and in a chat, and a
+  background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
 - Linking a phone to an identity and the Devices list are planned; the desktop screens define the
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).

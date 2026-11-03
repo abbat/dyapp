@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- The Rust DNS resolver reads the name servers of the active network (ADR 0032). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The background mail job is persisted, so it is scheduled again after a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:name=".DYApplication"
         android:allowBackup="false"
@@ -24,5 +26,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="com.dyapp.MailJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

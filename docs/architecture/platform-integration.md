@@ -84,6 +84,11 @@ switch and add identities; see
 [Android identity storage](../development/android-identity-storage.md) and
 [FFI bindings](../development/ffi-bindings.md#android). The sketch below is the target API.
 
+`DYApplication` schedules `MailJob`, a persisted periodic JobScheduler job (15 minutes, any
+network, no extra dependency), which receives the active ready identity's mail through
+`RustBridge.withChats`; the shared chats lock keeps it apart from the foreground poll. The OS
+decides when it runs; see [privacy](../security/privacy.md#local-notices).
+
 ### Integration (target sketch)
 
 ```kotlin

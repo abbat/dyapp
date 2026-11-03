@@ -10,6 +10,7 @@ class DYApplication : Application() {
         // JNA loads the same library for UniFFI; JNI needs it registered here as well.
         System.loadLibrary("dyapp_ffi")
         nativeInit(this)
+        scheduleMailJob(this)
     }
 
     private external fun nativeInit(context: Context)
