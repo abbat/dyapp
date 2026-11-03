@@ -2,8 +2,8 @@
 
 use super::*;
 use dyapp_ffi::{
-    new_chat_state_key, save_profile_draft, ChatLikes, ChatSession, ChatState, IdentityKey,
-    KeyStore, ProfileSolve, PublicProfileDraft, WrapError,
+    new_chat_state_key, save_profile_draft, ChatLikes, ChatRevocation, ChatSession, ChatState,
+    IdentityKey, KeyStore, ProfileSolve, PublicProfileDraft, WrapError,
 };
 use dyapp_identity::network::{self, Network, Settings};
 use libp2p::multiaddr::Protocol;
@@ -155,4 +155,71 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
     assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);
     assert_eq!(texts(&alice, &bob_id), ["hello bob", "hello alice"]);
     assert_eq!(texts(&bob, &alice_id), ["hello bob", "hello alice"]);
+}
+
+#[test]
+fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
+    let (_runtime, address) = store_node();
+    let (alice_key, alice) = person(&address);
+    let (bob_key, bob) = person(&address);
+    let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
+    alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
+    assert!(bob.receive().unwrap() > 0);
+    assert_eq!(bob.mark_read(alice_id.clone()).unwrap(), 1);
+    assert_eq!(bob.mark_read(alice_id.clone()).unwrap(), 0);
+    assert_eq!(bob.chat_rows().unwrap()[0].unread_count, 0);
+
+    let sent = alice
+        .chat_history(bob_id.clone())
+        .unwrap()
+        .messages
+        .remove(0);
+    let (group, id) = (sent.group_id.clone(), sent.id.clone());
+    let edited =
+        |text: &str| alice.edit_text(bob_id.clone(), group.clone(), id.clone(), text.into());
+    assert_eq!(edited("hi bob").unwrap().len(), 16);
+    assert!(bob.receive().unwrap() > 0);
+    let current = bob
+        .chat_history(alice_id.clone())
+        .unwrap()
+        .messages
+        .remove(0);
+    assert_eq!(
+        (current.text.as_deref(), current.edited),
+        (Some("hi bob"), true)
+    );
+    // Only the author edits a text.
+    let theirs = bob.edit_text(alice_id.clone(), group.clone(), id.clone(), "no".into());
+    assert_eq!(theirs.unwrap_err().to_string(), "unknownMessage");
+
+    alice
+        .delete_text(bob_id.clone(), group.clone(), id.clone())
+        .unwrap();
+    assert!(bob.receive().unwrap() > 0);
+    assert!(bob.chat_history(alice_id.clone()).unwrap().messages[0].deleted);
+    assert_eq!(edited("again").unwrap_err().to_string(), "unknownMessage");
+
+    // Clearing is local: the author keeps the deletion marker.
+    assert!(bob.clear_chat(alice_id.clone()).unwrap() > 0);
+    assert!(bob
+        .chat_history(alice_id.clone())
+        .unwrap()
+        .messages
+        .is_empty());
+    assert_eq!(
+        alice.chat_history(bob_id.clone()).unwrap().messages.len(),
+        1
+    );
+
+    // The node is up, so the revocation is confirmed or was not needed.
+    let blocked = bob.block(alice_id.clone()).unwrap();
+    assert_ne!(
+        blocked.revocation,
+        ChatRevocation::Pending,
+        "{:?}",
+        blocked.detail
+    );
+    assert!(bob.chat_rows().unwrap().is_empty());
+    bob.unblock(alice_id.clone()).unwrap();
+    assert_eq!(bob.chat_rows().unwrap().len(), 1);
 }

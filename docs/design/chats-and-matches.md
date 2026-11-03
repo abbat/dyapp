@@ -7,7 +7,7 @@ MLS chats ([messaging](../architecture/messaging.md)) and the desktop screens
 store's conversation state (`Store::conversation`), the request's text-only rule and the
 canonical pair group (`Session::send_text_to`) work in the Rust client today, and the FFI exports
 them as `ChatSession`, whose `profiles` call fetches the verified profiles behind the Liked you
-list. The desktop shows Like and Liked in the found profile, the unlike
+list and which also clears, marks read, edits, deletes, blocks and unblocks. The desktop shows Like and Liked in the found profile, the unlike
 confirmation and the Liked you list; Android lists the chats and message requests, receives the
 mailbox, sends text from the chat screen and shows the Liked you list, Like, Liked and the unlike
 confirmation in the found profile; the rest of the app UI below does not exist yet.

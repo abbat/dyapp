@@ -22,7 +22,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
+mod actions;
 mod view;
+pub use actions::{ChatBlock, ChatRevocation};
 pub use view::{ChatDelivery, ChatHistory, ChatLikes, ChatMessage, ChatRow};
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
@@ -499,11 +501,46 @@ mod tests {
         );
         let empty = chats.chat_history(peer.clone()).unwrap();
         assert_eq!((empty.state, empty.messages), (ChatState::None, Vec::new()));
-        let session = chats.session.lock().unwrap();
-        session.store().set_blocked(&peer, true).unwrap();
-        drop(session);
+        // A chat with no state cannot be cleared or read; only a live own text can be edited.
+        let err = |result: Result<u32, CoreError>| result.unwrap_err().to_string();
+        assert_eq!(err(chats.clear_chat(peer.clone())), "unknownPeer");
+        assert_eq!(err(chats.mark_read(peer.clone())), "unknownPeer");
+        assert_eq!(err(chats.clear_chat(key.peer_id())), "ownPeer");
+        let edit = |to: &str, id: Vec<u8>, text: &str| {
+            let refused = chats.edit_text(to.to_owned(), vec![1], id, text.to_owned());
+            refused.unwrap_err().to_string()
+        };
+        assert_eq!(edit(&peer, vec![2; 16], ""), "invalidText");
+        assert_eq!(edit(&key.peer_id(), vec![2; 16], "hi"), "ownPeer");
+        assert_eq!(edit(&peer, vec![2; 16], "hi"), "unknownMessage");
+        assert_eq!(edit(&peer, vec![2; 3], "hi"), "unknownMessage");
+        let delete = chats.delete_text(peer.clone(), vec![1], vec![2; 16]);
+        assert_eq!(delete.unwrap_err().to_string(), "unknownMessage");
+        let refused = |result: Result<ChatBlock, CoreError>| result.unwrap_err().to_string();
+        assert_eq!(refused(chats.block(key.peer_id())), "invalidPeer");
+        assert_eq!(refused(chats.block("ab".into())), "invalidPeer");
+        assert_eq!(
+            chats.unblock("xy".repeat(32)).unwrap_err().to_string(),
+            "invalidPeer"
+        );
+        // With no own devices and no issued tokens, a block is local and needs no revocation.
+        assert_eq!(
+            chats.block(peer.clone()).unwrap(),
+            ChatBlock {
+                revocation: ChatRevocation::NotNeeded,
+                detail: None
+            }
+        );
         assert_eq!(send(&peer, "hi"), "blocked");
-        assert_eq!(chats.chat_history(peer).unwrap_err().to_string(), "blocked");
+        assert_eq!(err(chats.clear_chat(peer.clone())), "blocked");
+        assert_eq!(edit(&peer, vec![2; 16], "hi"), "blocked");
+        assert_eq!(
+            chats.chat_history(peer.clone()).unwrap_err().to_string(),
+            "blocked"
+        );
+        chats.unblock(peer.clone()).unwrap();
+        assert!(chats.chat_history(peer.clone()).is_ok());
+        chats.block(peer.clone()).unwrap();
         // A publish refuses at the same gates as the plain publisher, before any network use.
         assert_eq!(
             chats.publish_profile(false).unwrap_err().to_string(),

@@ -11,8 +11,8 @@ use zeroize::Zeroizing;
 mod android;
 mod chats;
 pub use chats::{
-    new_chat_state_key, ChatDelivery, ChatHistory, ChatLikes, ChatMessage, ChatRow, ChatSession,
-    ChatState,
+    new_chat_state_key, ChatBlock, ChatDelivery, ChatHistory, ChatLikes, ChatMessage,
+    ChatRevocation, ChatRow, ChatSession, ChatState,
 };
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};

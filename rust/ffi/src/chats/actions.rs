@@ -1,0 +1,259 @@
+//! Clearing, reading, editing, deleting and blocking in one pair's chat, as on desktop.
+
+use super::{failed, ChatSession};
+use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::CoreError;
+use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
+use dyapp_client::session::Session;
+use dyapp_client::store::Conversation;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Whether the tokens a blocked peer holds are revoked on the node.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
+pub enum ChatRevocation {
+    /// The peer holds no live token.
+    NotNeeded,
+    /// No node confirmed the revocation yet; blocking again repeats it.
+    Pending,
+    /// A node confirmed it.
+    Confirmed,
+}
+
+/// The outcome of [`ChatSession::block`]; the block itself always stays.
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct ChatBlock {
+    pub revocation: ChatRevocation,
+    /// Why the revocation is pending.
+    pub detail: Option<String>,
+}
+
+impl ChatBlock {
+    fn pending(detail: impl std::fmt::Display) -> Self {
+        Self {
+            revocation: ChatRevocation::Pending,
+            detail: Some(detail.to_string()),
+        }
+    }
+}
+
+fn code(code: &str) -> CoreError {
+    CoreError::Failed(code.into())
+}
+
+impl ChatSession {
+    /// Refuse a chat the screen cannot show: `ownPeer`, `blocked` or `unknownPeer`.
+    fn check_visible(&self, session: &Session, peer_id: &str) -> Result<(), CoreError> {
+        if peer_id == self.key.identity.peer_id() {
+            return Err(code("ownPeer"));
+        }
+        let store = session.store();
+        if store.blocked(peer_id).map_err(failed)? {
+            return Err(code("blocked"));
+        }
+        if store.conversation(peer_id).map_err(failed)? == Conversation::None {
+            return Err(code("unknownPeer"));
+        }
+        Ok(())
+    }
+
+    /// The live own text `message_id` in `group_id` of the chat with `peer_id`, or `ownPeer`,
+    /// `blocked` or `unknownMessage`.
+    fn own_target(
+        &self,
+        session: &Session,
+        peer_id: &str,
+        group_id: &[u8],
+        message_id: &[u8],
+    ) -> Result<[u8; 16], CoreError> {
+        let own = self.key.identity.peer_id();
+        if peer_id == own {
+            return Err(code("ownPeer"));
+        }
+        let store = session.store();
+        if store.blocked(peer_id).map_err(failed)? {
+            return Err(code("blocked"));
+        }
+        let id: [u8; 16] = message_id.try_into().map_err(|_| code("unknownMessage"))?;
+        let found = store
+            .current_chat_messages(peer_id)
+            .map_err(failed)?
+            .into_iter()
+            .any(|message| {
+                message.key.group.as_slice() == group_id
+                    && message.key.id == id
+                    && message.key.author == own
+                    && !message.current.deleted
+            });
+        if found {
+            Ok(id)
+        } else {
+            Err(code("unknownMessage"))
+        }
+    }
+}
+
+#[uniffi::export]
+impl ChatSession {
+    /// Remove every message with `peer_id` on this device and return how many went; the peer
+    /// keeps its copies. Errors are `ownPeer`, `blocked`, `unknownPeer` or a storage message.
+    pub fn clear_chat(&self, peer_id: String) -> Result<u32, CoreError> {
+        let mut session = self.session.lock().map_err(failed)?;
+        self.check_visible(&session, &peer_id)?;
+        let cleared = session.clear_chat_pair(&peer_id).map_err(failed)?;
+        session.store().sweep_originals(&self.dir).map_err(failed)?;
+        u32::try_from(cleared).map_err(failed)
+    }
+
+    /// Mark the texts from `peer_id` read here and return how many were unread. Local only.
+    /// Errors as in [`Self::clear_chat`].
+    // ponytail: no read receipts until Android has the privacy setting that opts into them.
+    pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
+        let mut session = self.session.lock().map_err(failed)?;
+        self.check_visible(&session, &peer_id)?;
+        let read = session.mark_chat_read(&peer_id).map_err(failed)?;
+        u32::try_from(read).map_err(failed)
+    }
+
+    /// Replace the live own text `message_id` in `group_id` with `text` and return the edit's
+    /// ID. A failed send stays staged. Errors are `invalidText`, `ownPeer`, `blocked`,
+    /// `unknownMessage`, `notConnected` or a node or storage message.
+    pub fn edit_text(
+        &self,
+        peer_id: String,
+        group_id: Vec<u8>,
+        message_id: Vec<u8>,
+        text: String,
+    ) -> Result<Vec<u8>, CoreError> {
+        if text.is_empty() || text.len() > MAX_TEXT_BYTES {
+            return Err(code("invalidText"));
+        }
+        self.operate(&peer_id, &group_id, &message_id, Some(&text))
+    }
+
+    /// Delete the live own text `message_id` in `group_id` for both sides and return the
+    /// delete's ID. Errors as in [`Self::edit_text`] without `invalidText`.
+    pub fn delete_text(
+        &self,
+        peer_id: String,
+        group_id: Vec<u8>,
+        message_id: Vec<u8>,
+    ) -> Result<Vec<u8>, CoreError> {
+        self.operate(&peer_id, &group_id, &message_id, None)
+    }
+
+    /// Block `peer_id` here and for the owner's other devices, then revoke the write tokens it
+    /// holds. The block stays whatever the revocation does; blocking again repeats it. Errors
+    /// are `invalidPeer` (not a Peer ID, or this identity's own) or a storage message.
+    pub fn block(&self, peer_id: String) -> Result<ChatBlock, CoreError> {
+        let change = PeerChange::Blocked(true);
+        if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
+            return Err(code("invalidPeer"));
+        }
+        let mut guard = self.session.lock().map_err(failed)?;
+        // The guard stays on this thread; the session it lends moves to the network thread.
+        let session: &mut Session = &mut guard;
+        session
+            .store()
+            .set_blocked(&peer_id, true)
+            .map_err(failed)?;
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                // With no nodes the change waits in the outbox for the next receive.
+                if let Err(error) = session
+                    .change_peer(&mut [], &peer_id, change, &self.seal_key)
+                    .await
+                {
+                    return Ok(ChatBlock::pending(error));
+                }
+                let today = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(failed)?
+                    .as_secs()
+                    / 86_400;
+                let today = u32::try_from(today).map_err(failed)?;
+                match session.store().revoke_issued(&peer_id, today) {
+                    Ok(keys) if keys.is_empty() => {
+                        return Ok(ChatBlock {
+                            revocation: ChatRevocation::NotNeeded,
+                            detail: None,
+                        })
+                    }
+                    Ok(_) => {}
+                    Err(error) => return Ok(ChatBlock::pending(error)),
+                }
+                let revoked = async {
+                    let mut node = connect(&active_network(&self.dir)?).await?;
+                    session
+                        .block(
+                            std::slice::from_mut(&mut node),
+                            &self.device_key.identity,
+                            &peer_id,
+                        )
+                        .await
+                        .map_err(failed)
+                };
+                Ok(match revoked.await {
+                    Ok(()) => ChatBlock {
+                        revocation: ChatRevocation::Confirmed,
+                        detail: None,
+                    },
+                    Err(error) => ChatBlock::pending(error),
+                })
+            })
+        })
+    }
+
+    /// Unblock `peer_id` here and for the owner's other devices. Revoked tokens stay revoked.
+    /// Errors are `invalidPeer` or a storage message.
+    pub fn unblock(&self, peer_id: String) -> Result<(), CoreError> {
+        let change = PeerChange::Blocked(false);
+        if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
+            return Err(code("invalidPeer"));
+        }
+        let mut guard = self.session.lock().map_err(failed)?;
+        let session: &mut Session = &mut guard;
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                session
+                    .change_peer(&mut [], &peer_id, change, &self.seal_key)
+                    .await
+                    .map_err(failed)
+            })
+        })
+    }
+}
+
+impl ChatSession {
+    fn operate(
+        &self,
+        peer_id: &str,
+        group_id: &[u8],
+        message_id: &[u8],
+        text: Option<&str>,
+    ) -> Result<Vec<u8>, CoreError> {
+        let mut guard = self.session.lock().map_err(failed)?;
+        // The guard stays on this thread; the session it lends moves to the network thread.
+        let session: &mut Session = &mut guard;
+        let target = self.own_target(session, peer_id, group_id, message_id)?;
+        let network = active_network(&self.dir)?;
+        on_network_stack(|| {
+            self.runtime.block_on(async {
+                let mut node = connect(&network).await?;
+                let nodes = std::slice::from_mut(&mut node);
+                let sent = match text {
+                    Some(text) => {
+                        session
+                            .send_edit(nodes, group_id, target, text.as_bytes(), &self.seal_key)
+                            .await
+                    }
+                    None => {
+                        session
+                            .send_delete(nodes, group_id, target, &self.seal_key)
+                            .await
+                    }
+                };
+                sent.map(|id| id.to_vec()).map_err(failed)
+            })
+        })
+    }
+}
