@@ -34,19 +34,18 @@ pub(super) fn uncount(tx: &Connection, key: &[u8]) -> Result<()> {
     }
 }
 
-/// Deletes `keys` from every table, the digest and the place counts; returns their record bytes.
-pub(super) fn remove_keys(tx: &mut writer::Change<'_>, keys: &[Vec<u8>]) -> Result<u64> {
-    let mut bytes = 0;
+/// Deletes `keys` from every table, the digest and the place counts.
+pub(super) fn remove_keys(tx: &mut writer::Change<'_>, keys: &[Vec<u8>]) -> Result<()> {
     for key in keys {
-        let row: Option<(i64, i64)> = tx
+        let version: Option<i64> = tx
             .query_row(
-                "SELECT `version`, `bytes` FROM `key` WHERE `key` = ?",
+                "SELECT `version` FROM `key` WHERE `key` = ?",
                 [key],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )
             .optional()
             .map_err(storage_error)?;
-        let Some((version, size)) = row else {
+        let Some(version) = version else {
             continue;
         };
         let key_array = <&[u8; 32]>::try_from(key.as_slice())
@@ -54,13 +53,12 @@ pub(super) fn remove_keys(tx: &mut writer::Change<'_>, keys: &[Vec<u8>]) -> Resu
         tx.mark(*key_array);
         flip(tx, key_array, version.unsigned_abs())?;
         uncount(tx, key)?;
-        bytes += size.unsigned_abs();
         for table in ["profile", "interest", "seeking_gender", "record", "key"] {
             tx.execute(&format!("DELETE FROM `{table}` WHERE `key` = ?"), [key])
                 .map_err(storage_error)?;
         }
     }
-    Ok(bytes)
+    Ok(())
 }
 
 /// The first column of each row of `sql`.

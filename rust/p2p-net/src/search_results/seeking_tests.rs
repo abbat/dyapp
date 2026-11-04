@@ -36,6 +36,20 @@ fn a_mutual_search_asks_for_the_gender_and_the_age() {
 }
 
 #[test]
+fn only_fields_the_client_can_check_are_checkable() {
+    for field in [
+        ACTIVE_DAY,
+        BIRTH_AGE,
+        SEEKING_AGE,
+        SEEKING_GENDERS,
+        Gender::FIELD,
+    ] {
+        assert!(checkable(field), "{field}");
+    }
+    assert!(!checkable(999));
+}
+
+#[test]
 fn a_result_must_seek_the_gender_and_allow_the_age() {
     let (w, m) = (Gender::Woman.code(), Gender::Man.code());
     let bounded = seeker(&[w, m], Some(25), Some(35));
