@@ -154,6 +154,8 @@ struct ProfileDraftView: View {
     @State private var savedBirthYear = ""
     @State private var savedBirthMonth = ""
     @State private var savedBirthDay = ""
+    @State private var extras = ProfileExtraInputs()
+    @State private var savedExtras = ProfileExtraInputs()
     @State private var status = ""
     @State private var readFailed = false
     @State private var isLoading = true
@@ -172,7 +174,7 @@ struct ProfileDraftView: View {
 
     private var hasUnsavedEdits: Bool {
         values != savedValues || country != savedCountry || birthYear != savedBirthYear ||
-            birthMonth != savedBirthMonth || birthDay != savedBirthDay
+            birthMonth != savedBirthMonth || birthDay != savedBirthDay || extras.tracked != savedExtras.tracked
     }
 
     private var canPrepareProof: Bool {
@@ -198,6 +200,7 @@ struct ProfileDraftView: View {
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-field-" + scale.key)
             }
+            ProfileExtraFields(inputs: $extras, disabled: isLoading || readFailed || isSaving || isSolving)
             PlacePicker(country: $country, place: Binding(
                 get: { values[ProfileDraft.placeKey] },
                 set: { values[ProfileDraft.placeKey] = $0 }
@@ -251,6 +254,7 @@ struct ProfileDraftView: View {
         .onChange(of: birthYear) { _ in invalidateConsent() }
         .onChange(of: birthMonth) { _ in invalidateConsent() }
         .onChange(of: birthDay) { _ in invalidateConsent() }
+        .onChange(of: extras) { _ in invalidateConsent() }
         .onChange(of: confirmedAdult) { _ in Task { await checkEligibility() } }
         .onChange(of: confirmedPublic) { _ in Task { await checkEligibility() } }
     }
@@ -284,6 +288,8 @@ struct ProfileDraftView: View {
         savedBirthYear = ""
         savedBirthMonth = ""
         savedBirthDay = ""
+        extras = ProfileExtraInputs()
+        savedExtras = extras
         let selected = candidate
         let selectedPeer = peerId
         let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
@@ -311,6 +317,8 @@ struct ProfileDraftView: View {
                 savedBirthYear = birthYear
                 savedBirthMonth = birthMonth
                 savedBirthDay = birthDay
+                extras = ProfileExtraInputs(draft: decoded)
+                savedExtras = extras
             }
 
         case .failed:
@@ -330,18 +338,26 @@ struct ProfileDraftView: View {
         do {
             let birth = try ProfileBirthParts(yearText: birthYear, monthText: birthMonth, dayText: birthDay)
             try birth.validate()
-            let draft = ProfileDraft(values: birth.inserted(into: values), country: country)
+            let draft = try extras.inserted(into: ProfileDraft(values: birth.inserted(into: values), country: country))
             let selected = candidate
             let selectedPeer = peerId
             status = ""
             isSaving = true
-            let saved = await Task.detached(priority: .userInitiated) {
-                (try? RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, draft: draft)) != nil
+            let refusal = await Task.detached(priority: .userInitiated) { () -> String? in
+                do {
+                    try RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, draft: draft)
+                    return nil
+                } catch {
+                    return profileSaveStatus(error)
+                }
             }.value
             isSaving = false
             guard !Task.isCancelled else { return }
-            status = saved ? "profile.saved" : "profile.saveFailed"
-            if saved {
+            status = refusal ?? "profile.saved"
+            if refusal == nil {
+                // Saving trims the text and clears the choices the not-looking switch disables.
+                extras = ProfileExtraInputs(draft: draft)
+                savedExtras = extras
                 hasSavedDraft = true
                 savedValues = values
                 savedCountry = country
@@ -352,6 +368,8 @@ struct ProfileDraftView: View {
             }
         } catch ProfileBirthError.invalid {
             status = "profile.invalidBirthDate"
+        } catch let refusal as ProfileInputError {
+            status = refusal.rawValue
         } catch {
             status = "profile.saveFailed"
         }

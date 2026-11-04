@@ -50,6 +50,66 @@ final class ProfileDraftStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), berlin)
     }
 
+    /// A scale save once dropped these fields because the record never passed them to the core.
+    func testTypedFieldsRoundTripAndRefusalsKeepTheSavedDraft() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let slots = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
+        let slot = try slots.create()
+        let candidate = IdentityCandidate(location: .slot(slot.slot.id), state: .ready)
+        let store = ProfileRustDraftStore(root: root, candidate: candidate, peerId: slot.peerId,
+                                          key: try slots.open(candidate.location))
+
+        var saved = ProfileDraft(values: ["gender": 1], name: "Ann", height: 170, about: "Plain",
+                                 seeking: ProfileSeeking(genders: [1, 2], ageFrom: 25, ageTo: 40))
+        try store.save(saved)
+        XCTAssertEqual(try store.load(), saved)
+
+        saved.values["gender"] = 2
+        try store.save(saved)
+        XCTAssertEqual(try store.load(), saved)
+
+        var refused = saved
+        for (change, status) in [
+            ({ $0.name = String(repeating: "n", count: 65) }, "profile.invalidName"),
+            ({ $0.height = 49 }, "profile.invalidHeight"),
+            ({ $0.about = String(repeating: "a", count: 501) }, "profile.invalidAbout"),
+            ({ $0.seeking.ageFrom = 41 }, "profile.invalidSeeking"),
+        ] as [((inout ProfileDraft) -> Void, String)] {
+            refused = saved
+            change(&refused)
+            XCTAssertThrowsError(try store.save(refused)) { XCTAssertEqual(profileSaveStatus($0), status) }
+            XCTAssertEqual(try store.load(), saved)
+        }
+        XCTAssertEqual(profileSaveStatus(CocoaError(.fileReadCorruptFile)), "profile.saveFailed")
+
+        // The switch clears the choices it disables, and clearing a field really clears it.
+        var inputs = ProfileExtraInputs(draft: saved)
+        XCTAssertEqual(inputs, ProfileExtraInputs(draft: try inputs.inserted(into: saved)))
+        inputs.notLooking = true
+        XCTAssertEqual(inputs.tracked.genders, [])
+        inputs.name = "  "
+        inputs.height = ""
+        let cleared = try inputs.inserted(into: saved)
+        XCTAssertEqual(cleared.name, "")
+        XCTAssertNil(cleared.height)
+        XCTAssertEqual(cleared.seeking, ProfileSeeking(notLooking: true))
+        try store.save(cleared)
+        XCTAssertEqual(try store.load(), cleared)
+
+        inputs.notLooking = false
+        inputs.height = "tall"
+        XCTAssertThrowsError(try inputs.inserted(into: saved)) {
+            XCTAssertEqual($0 as? ProfileInputError, .height)
+        }
+        inputs.height = ""
+        inputs.ageTo = "old"
+        XCTAssertThrowsError(try inputs.inserted(into: saved)) {
+            XCTAssertEqual($0 as? ProfileInputError, .seeking)
+        }
+    }
+
     func testFailedRustImportLeavesJSONAvailableForRetry() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

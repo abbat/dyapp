@@ -5,6 +5,7 @@ struct ProfilePreviewView: View {
     let candidate: IdentityCandidate
     let peerId: String
     @State private var preview: ProfilePublicPreview?
+    @State private var draft = ProfileDraft()
     @State private var readFailed = false
     @State private var isLoading = true
 
@@ -12,7 +13,8 @@ struct ProfilePreviewView: View {
         Form {
             if let preview {
                 if preview.fields.isEmpty && preview.country.isEmpty &&
-                    preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) {
+                    preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) &&
+                    ProfileExtraInputs(draft: draft) == ProfileExtraInputs() {
                     Text("profile.noPublicFields")
                 }
                 ForEach(preview.fields, id: \.scaleKey) { field in
@@ -22,6 +24,7 @@ struct ProfilePreviewView: View {
                         Text(LocalizedStringKey("profile.value.\(field.scaleKey).\(field.choiceKey)"))
                     }
                 }
+                ProfileExtraRows(draft: draft)
                 if !preview.country.isEmpty {
                     row("profile.country", value: countryName(preview.country))
                         .accessibilityElement(children: .combine)
@@ -97,6 +100,7 @@ struct ProfilePreviewView: View {
         case .loaded(let draft):
             if let draft {
                 do {
+                    self.draft = draft
                     preview = try ProfilePublicPreview(draft: draft.values, country: draft.country)
                 } catch {
                     readFailed = true

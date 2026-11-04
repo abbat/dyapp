@@ -1,10 +1,14 @@
 import Foundation
 
-/// Scale, birth and place codes by key, and the ISO country code or empty.
+/// Scale, birth and place codes by key, the ISO country code or empty, and the typed fields.
 struct ProfileDraft: Equatable, Sendable {
     static let placeKey = "place"
     var values: [String: UInt32] = [:]
     var country = ""
+    var name = ""
+    var height: UInt32?
+    var about = ""
+    var seeking = ProfileSeeking()
 }
 
 /// Moves the current identity's JSON draft into the shared Rust store without erasing the source.
@@ -37,11 +41,18 @@ struct ProfileRustDraftStore {
             birthDay: values["birthDay"],
             country: draft.country,
             place: values[ProfileDraft.placeKey].map(String.init) ?? "",
+            name: draft.name,
+            height: draft.height,
+            about: draft.about,
             smoking: values["smoking"] ?? 0,
             drinking: values["drinking"] ?? 0,
             tattoos: values["tattoos"] ?? 0,
             maritalStatus: values["marital_status"] ?? 0,
-            pets: values["pets"] ?? 0
+            pets: values["pets"] ?? 0,
+            seekingGenders: draft.seeking.genders,
+            seekingAgeFrom: draft.seeking.ageFrom,
+            seekingAgeTo: draft.seeking.ageTo,
+            notLooking: draft.seeking.notLooking
         )
     }
 
@@ -67,7 +78,15 @@ struct ProfileRustDraftStore {
         }
         if let place = UInt32(draft.place) { values[ProfileDraft.placeKey] = place }
         let birth = ProfileBirthParts(year: draft.birthYear, month: draft.birthMonth, day: draft.birthDay)
-        return ProfileDraft(values: birth.inserted(into: values), country: draft.country)
+        return ProfileDraft(
+            values: birth.inserted(into: values),
+            country: draft.country,
+            name: draft.name,
+            height: draft.height,
+            about: draft.about,
+            seeking: ProfileSeeking(genders: draft.seekingGenders, ageFrom: draft.seekingAgeFrom,
+                                    ageTo: draft.seekingAgeTo, notLooking: draft.notLooking)
+        )
     }
 
     func load() throws -> ProfileDraft? {

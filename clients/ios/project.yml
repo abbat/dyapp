@@ -20,7 +20,7 @@ targets:
               DYApp/ProfileDraftView.swift, DYApp/ProfileRustDraftStore.swift, DYApp/PlacePicker.swift,
               DYApp/ProfileSolveSession.swift, DYApp/ProfileProofControls.swift, DYApp/RustBridge.swift,
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
-              DYApp/LockScreens.swift, DYApp/ProfilePreviewView.swift,
+              DYApp/LockScreens.swift, DYApp/ProfilePreviewView.swift, DYApp/ProfileExtraFields.swift,
               DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]

@@ -1,7 +1,7 @@
 # iOS client
 
-The `DYApp` client for iOS runs on iOS 15 or later. This first version is a minimal shell: it
-starts, renders and closes. Public profile publication, search and chats are planned.
+The `DYApp` client for iOS runs on iOS 15 or later. It covers identities, the network connection
+and the public profile. Search and chats are planned.
 
 After creating or reopening an identity without an active network, the connection form opens
 automatically. An identity with an active network reaches Ready; **Network connection** opens
@@ -13,10 +13,11 @@ identity across restarts without changing the active connection.
 activate the network until you tap **Continue** after a compatible result. Cancel stops a running
 check; Retry reuses the draft. Continue opens the profile editor after activation succeeds.
 
-The public profile draft editor has nine optional pickers; **Not published** leaves each one
-unset. Birth year, month and day are also independent optional fields. **Save draft** checks any
+The public profile draft editor has optional pickers; **Not published** leaves each one
+unset. Name, height, about, who you are looking for (genders and partner age) and the **Not
+looking now** switch are optional too, as are birth year, month and day. **Save draft** checks any
 supplied combination with the shared profile rules and stores it in this identity's `client.db`; an invalid
-date leaves the prior draft unchanged. **Preview public profile** reads the saved draft, shows
+value shows what to fix and leaves the prior draft unchanged. **Preview public profile** reads the saved draft, shows
 only selected public values, the exact birth parts and possible age, and warns that others may
 keep copies after deletion. A full date has an additional warning.
 The editor also shows separate 18+ and public-data confirmations and the eligibility result for
