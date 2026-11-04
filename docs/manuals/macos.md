@@ -57,6 +57,9 @@ The window reopens where you left it, at the same size, and moves back to a disp
 out of reach. Closing it only hides it: the app keeps running and a click on its Dock icon or **Open**
 in the menu-bar icon brings the window back. **Quit** in that menu, the app menu or Cmd+Q ends the app.
 
+A status bar under the window shows the data received and sent since the app started and the size
+of this identity's messages, or says they are unavailable until the app connects or has messages.
+
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Its **Window** section has **Show icon in menu bar** (on by default) and **Close window to menu bar**
 (off by default, needs the icon), which also takes the app out of the Dock while the window is hidden.

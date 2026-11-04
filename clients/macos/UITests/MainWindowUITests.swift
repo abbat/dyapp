@@ -51,6 +51,8 @@ final class MainWindowUITests: XCTestCase {
         let messages = app.staticTexts["storage-messages"]
         XCTAssertTrue(messages.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(app.staticTexts["storage-identity"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["status-traffic"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["status-messages"].exists, app.debugDescription)
         // No client store before the network is set up: its path would promise a file.
         XCTAssertFalse(app.staticTexts["storage-messages-path"].exists, app.debugDescription)
         app.terminate()

@@ -279,6 +279,19 @@ pub trait KeyStore: Send + Sync {
     fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, WrapError>;
 }
 
+/// Payload bytes of dyapp protocols, without transport, encryption or gossip control overhead.
+#[derive(Clone, uniffi::Record)]
+pub struct ClientTraffic {
+    pub received: u64,
+    pub sent: u64,
+}
+
+/// Totals of this process's client swarms; `None` until the first one starts.
+#[uniffi::export]
+pub fn client_traffic() -> Option<ClientTraffic> {
+    dyapp_client::traffic().map(|[received, sent]| ClientTraffic { received, sent })
+}
+
 /// An Ed25519 identity or device key; its secret leaves Rust only through a [`KeyStore`].
 #[derive(uniffi::Object)]
 pub struct IdentityKey {

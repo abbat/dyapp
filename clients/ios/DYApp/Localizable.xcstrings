@@ -1481,6 +1481,42 @@
         "ru": { "stringUnit": { "state": "translated", "value": "ТиБ" } }
       }
     },
+    "statusbar.label": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Status" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Состояние" } }
+      }
+    },
+    "statusbar.traffic": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Received %1$@ · sent %2$@ since start" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Получено %1$@ · отправлено %2$@ с запуска" } }
+      }
+    },
+    "statusbar.noTraffic": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Traffic: unavailable until the app connects" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Трафик: недоступен, пока приложение не подключится" } }
+      }
+    },
+    "statusbar.trafficNote": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Counts dyapp request and reply data only, not connection, encryption or gossip overhead." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Учитываются только данные запросов и ответов dyapp, без расходов на соединение, шифрование и gossip." } }
+      }
+    },
+    "statusbar.messages": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Messages %@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщения %@" } }
+      }
+    },
+    "statusbar.noMessages": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Messages: unavailable" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщения: недоступно" } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },

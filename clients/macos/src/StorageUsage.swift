@@ -32,6 +32,55 @@ enum StorageUsage {
     }
 }
 
+/// The status bar under the window content, refreshed every 2 seconds.
+struct StatusBar: View {
+    let candidate: IdentityCandidate?
+    @State private var traffic: ClientTraffic?
+    @State private var messages: Int64?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(verbatim: Self.trafficText(traffic))
+                .fixedSize(horizontal: false, vertical: true)
+                .help(Text("statusbar.trafficNote"))
+                .accessibilityIdentifier("status-traffic")
+            Spacer(minLength: 8)
+            Text(verbatim: Self.messagesText(messages))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("status-messages")
+        }
+        .font(.caption)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("statusbar.label"))
+        .task(id: candidate?.location) {
+            let directory = candidate.flatMap { candidate in
+                (try? RustBridge.directory()).map { RustBridge.networkDirectory(root: $0, candidate: candidate) }
+            }
+            while !Task.isCancelled {
+                traffic = clientTraffic()
+                messages = directory.flatMap { StorageUsage.messageBytes(in: $0) }
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
+    }
+
+    nonisolated static func trafficText(_ traffic: ClientTraffic?) -> String {
+        guard let traffic else { return NSLocalizedString("statusbar.noTraffic", comment: "") }
+        return String(
+            format: NSLocalizedString("statusbar.traffic", comment: ""),
+            StorageUsage.sizeText(Int64(clamping: traffic.received)),
+            StorageUsage.sizeText(Int64(clamping: traffic.sent))
+        )
+    }
+
+    nonisolated static func messagesText(_ bytes: Int64?) -> String {
+        guard let bytes else { return NSLocalizedString("statusbar.noMessages", comment: "") }
+        return String(format: NSLocalizedString("statusbar.messages", comment: ""), StorageUsage.sizeText(bytes))
+    }
+}
+
 /// The Storage section of Settings. Apple runs no embedded node, so nothing here has a quota or a usage bar.
 struct StorageSection: View {
     let candidate: IdentityCandidate

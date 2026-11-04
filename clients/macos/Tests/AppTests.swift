@@ -28,6 +28,17 @@ final class AppTests: XCTestCase {
         XCTAssertTrue(StorageUsage.sizeText(1_048_576, locale: english).hasPrefix("1.0 "))
     }
 
+    func testStatusBarNamesMeasuredBytesOrSaysUnavailable() throws {
+        XCTAssertEqual(StatusBar.trafficText(nil), NSLocalizedString("statusbar.noTraffic", comment: ""))
+        XCTAssertEqual(StatusBar.messagesText(nil), NSLocalizedString("statusbar.noMessages", comment: ""))
+        let traffic = StatusBar.trafficText(ClientTraffic(received: 1_536, sent: 3_072))
+        XCTAssertLessThan(
+            try XCTUnwrap(traffic.range(of: StorageUsage.sizeText(1_536))).lowerBound,
+            try XCTUnwrap(traffic.range(of: StorageUsage.sizeText(3_072))).lowerBound
+        )
+        XCTAssertTrue(StatusBar.messagesText(2_048).contains(StorageUsage.sizeText(2_048)))
+    }
+
     func testASavedFrameStaysOnlyWhereItCanBeReached() {
         let primary = CGRect(x: 0, y: 0, width: 1_000, height: 800)
         let right = CGRect(x: 1_000, y: 0, width: 500, height: 800)

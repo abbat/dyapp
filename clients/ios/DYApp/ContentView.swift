@@ -59,6 +59,22 @@ struct ContentView: View {
     }
 
     var body: some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            navigation
+            StatusBar(candidate: selectedCandidate)
+        }
+        #else
+        navigation
+        #endif
+    }
+
+    private var selectedCandidate: IdentityCandidate? {
+        if case let .ready(candidate, _) = identity { return candidate }
+        return nil
+    }
+
+    private var navigation: some View {
         NavigationView {
             Group {
                 // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
