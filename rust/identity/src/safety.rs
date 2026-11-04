@@ -22,6 +22,17 @@ pub fn safety_number_for_peer_ids(mine: &str, theirs: &str) -> Option<String> {
     Some(from_hashes(&parse_peer_id(mine)?, &parse_peer_id(theirs)?))
 }
 
+/// The same safety number as it is shown and copied: groups of five digits.
+pub fn grouped_safety_number(mine: &str, theirs: &str) -> Option<String> {
+    let digits = safety_number_for_peer_ids(mine, theirs)?;
+    let groups: Vec<&str> = digits
+        .as_bytes()
+        .chunks(5)
+        .map(|group| std::str::from_utf8(group).expect("ASCII safety digits"))
+        .collect();
+    Some(groups.join(" "))
+}
+
 pub(crate) fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
     let bytes = value.as_bytes();
     if bytes.len() != 64
@@ -110,6 +121,17 @@ mod tests {
         assert_eq!(number.len(), 60);
         assert!(number.bytes().all(|byte| byte.is_ascii_digit()));
         assert_eq!(number, safety_number(&bob, &alice));
+        let (ones, twos) = ("11".repeat(32), "22".repeat(32));
+        let grouped = grouped_safety_number(&ones, &twos).unwrap();
+        assert_eq!(
+            grouped.split(' ').map(str::len).collect::<Vec<_>>(),
+            [5; 12]
+        );
+        assert_eq!(
+            grouped.replace(' ', ""),
+            safety_number_for_peer_ids(&ones, &twos).unwrap()
+        );
+        assert_eq!(grouped_safety_number(&ones[..63], &twos), None);
         assert_ne!(number, safety_number(&alice, &carol));
         let (a, b) = (half(&key_hash(&alice)), half(&key_hash(&bob)));
         assert!(number == a.clone() + &b || number == b + &a);

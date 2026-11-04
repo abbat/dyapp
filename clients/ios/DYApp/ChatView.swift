@@ -27,6 +27,7 @@ struct ChatView: View {
     @State private var confirmClear = false
     @State private var confirmBlock = false
     @State private var renaming = false
+    @State private var comparing = false
     /// A clear, mute or block is running.
     @State private var busy = false
 
@@ -88,11 +89,13 @@ struct ChatView: View {
         } message: {
             Text("clear.text") + Text(verbatim: " ") + Text("clear.later")
         }
+        .sheet(isPresented: $comparing) { SafetyNumberSheet(me: feed.me, peer: peer) }
     }
 
     private var moreMenu: some View {
         Menu {
             Button("rename.title") { renaming = true }.accessibilityIdentifier("chat-rename")
+            Button("safety.action") { comparing = true }.accessibilityIdentifier("chat-safety")
             Button("chat.clear") { confirmClear = true }.accessibilityIdentifier("chat-clear")
             // A request offers its block on the notice instead.
             if history?.state != .requestReceived {

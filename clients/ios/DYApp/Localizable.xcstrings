@@ -2051,6 +2051,36 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Не удалось изменить уведомления для этого человека." } }
       }
     },
+    "safety.action": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Compare safety number" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сравнить номер безопасности" } }
+      }
+    },
+    "safety.compare": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Compare all digits with this person in a trusted channel, or let them scan this code on their desktop app. A match does not mark the contact as verified here." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сравните все цифры с этим человеком по надёжному каналу или дайте отсканировать этот код в настольном приложении. Совпадение не отмечает контакт как проверенный здесь." } }
+      }
+    },
+    "safety.qr": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "QR code for comparing this contact" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "QR-код для сверки этого контакта" } }
+      }
+    },
+    "safety.failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not show the safety number." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось показать номер безопасности." } }
+      }
+    },
+    "safety.done": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Done" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Готово" } }
+      }
+    },
     "rename.title": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Name this contact" } },

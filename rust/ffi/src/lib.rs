@@ -31,6 +31,8 @@ mod contact_names;
 pub use contact_names::ContactNameView;
 mod profile_link;
 pub use profile_link::{profile_link_peer, profile_link_text};
+mod safety;
+pub use safety::{safety_number_text, safety_qr_payload};
 mod profile_network;
 pub use profile_network::{
     profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,

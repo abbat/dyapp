@@ -4,14 +4,8 @@ use super::IdentityState;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 fn grouped_number(mine: &str, theirs: &str) -> Result<String, String> {
-    let digits = dyapp_identity::safety::safety_number_for_peer_ids(mine, theirs)
-        .ok_or_else(|| "invalid Peer ID".to_owned())?;
-    Ok(digits
-        .as_bytes()
-        .chunks(5)
-        .map(|group| std::str::from_utf8(group).expect("ASCII safety digits"))
-        .collect::<Vec<_>>()
-        .join(" "))
+    dyapp_identity::safety::grouped_safety_number(mine, theirs)
+        .ok_or_else(|| "invalid Peer ID".to_owned())
 }
 
 /// Copies the active identity's contact number with a clipboard-history exclusion hint.

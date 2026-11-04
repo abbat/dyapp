@@ -60,6 +60,12 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(blank, MailNotice.Lines(sender: "a", text: nil))
     }
 
+    func testSafetyCodeIsASquareImageOfThePayload() throws {
+        let code = try XCTUnwrap(safetyQRImage(Data(repeating: 1, count: 65)))
+        XCTAssertEqual(code.width, code.height)
+        XCTAssertGreaterThan(code.width, 100)
+    }
+
     func testStorageSizesUseBinaryUnits() {
         let english = Locale(identifier: "en_US")
         XCTAssertTrue(StorageUsage.sizeText(0, locale: english).hasPrefix("0 "))

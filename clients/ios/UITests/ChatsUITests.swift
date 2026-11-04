@@ -168,6 +168,12 @@ final class ChatsUITests: XCTestCase {
     }
 
     private func muteClearAndBlock(_ app: XCUIApplication) {
+        menuItem("chat-safety", label: "Compare safety number", opener: "chat-more", in: app).tap()
+        let number = app.staticTexts["safety-number"]
+        XCTAssertTrue(number.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.images["safety-qr"].exists, app.debugDescription)
+        app.buttons["safety-done"].tap()
+        waitGone(number, in: app)
         menuItem("chat-mute", label: "Mute notifications", opener: "chat-more", in: app).tap()
         // The label follows the stored state.
         menuItem("chat-mute", label: "Unmute notifications", opener: "chat-more", in: app).tap()
