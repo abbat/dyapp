@@ -94,6 +94,57 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    /// A height that is no number is refused with its own message and saves nothing; the typed
+    /// fields then survive a restart and reach the preview.
+    func testTypedFieldsRefuseBadHeightAndSurviveRestart() {
+        let app = unlockedApp()
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let height = app.textFields["profile-height"]
+        reveal(height, in: app).tap()
+        height.typeText("tall")
+        reveal(app.buttons["profile-save"], in: app).tap()
+        let status = app.staticTexts["profile-status"]
+        XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(status.label.contains("272"), status.label)
+
+        reveal(height, in: app, timeout: 60, above: true).tap()
+        height.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "tall".count))
+        height.typeText("170")
+        fillAboutAndSeeking(app)
+        reveal(app.buttons["profile-save"], in: app).tap()
+        reveal(status, in: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == 'Draft saved'"), object: status
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        app.terminate()
+
+        app.launch()
+        openProfile(app)
+        XCTAssertEqual(reveal(height, in: app).value as? String, "170")
+        XCTAssertEqual(reveal(app.textViews["profile-about"], in: app).value as? String, "Plain text")
+        XCTAssertEqual(reveal(app.switches["profile-seeking-gender-1"], in: app).value as? String, "1")
+        XCTAssertEqual(reveal(app.textFields["profile-seeking-age-from"], in: app).value as? String, "30")
+        reveal(app.buttons["profile-preview"], in: app).tap()
+        for row in ["preview-height", "preview-about", "preview-seeking-genders", "preview-seeking-age-from"] {
+            XCTAssertTrue(reveal(app.descendants(matching: .any)[row], in: app).exists, row)
+        }
+        app.terminate()
+    }
+
+    private func fillAboutAndSeeking(_ app: XCUIApplication) {
+        let about = app.textViews["profile-about"]
+        reveal(about, in: app).tap()
+        typeSlowly("Plain text", into: about)
+        flip(app.switches["profile-seeking-gender-1"], in: app)
+        let ageFrom = app.textFields["profile-seeking-age-from"]
+        reveal(ageFrom, in: app).tap()
+        ageFrom.typeText("30")
+    }
+
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.
     private func assertFailedPublish(_ app: XCUIApplication, month: XCUIElement,
                                      expected: (String) -> Bool) {

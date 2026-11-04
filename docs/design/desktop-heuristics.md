@@ -236,6 +236,21 @@ the CI Android job. The labels carry the unit (H2), the range mirrors the age fi
 number keyboard limits typos (H5), emptying the field unpublishes it (H3), and a refused height or
 reversed range says what to change without offering a retry that cannot help (H9). No open finding.
 
+### Apple profile fields review (2026-11-04)
+
+Reviewed the five new pickers and filters, the height, About and seeking fields, their preview rows
+and the height and mutual filters against H1–H10, from the SwiftUI code shared by iOS and macOS; not
+yet seen on a device, native rendering is left to the CI Apple jobs. The pickers reuse the scale rows
+and their **Not published** / **Any** choices and the labels carry the unit (H2, H3, H4). The switch
+disables the choices beneath it and stays beside the hint saying a save clears them (H1, H5). A refused
+save keeps the typed text and names the field and range, and a reversed search range asks for the fix
+rather than a retry (H9). The hints say who sees About and the seeking choices (H10), and the mutual
+filter shows only when the nodes offer both fields and names what they see (H1, H10).
+
+| State | Heuristic | Severity | Problem | Fix |
+| --- | --- | --- | --- | --- |
+| Profile editor and search filters (iOS) | H5 | 1 | Number fields open the full keyboard, so a typo is possible and is refused only at save | Open: a number keyboard needs a way to dismiss it, as the number pad has no return key |
+
 ### Android lock screen layout review (2026-11-01)
 
 Read `lock-setup` and `lock-unlock` in the Compose code against the prototype and H1–H10 in
