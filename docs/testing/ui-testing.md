@@ -588,6 +588,31 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   `python tests/scripts/desktop-smoke.py build/debug/dyapp-windows.exe` (report goes to
   `%RUNNER_TEMP%` or `/reports/%HOSTNAME%`, so set `RUNNER_TEMP`).
 
+### Writing Apple clients without a Mac
+
+Swift compiles and lints only in CI, so these save a round trip of about 30 minutes:
+
+- A new Swift file goes into both `project.yml` files. The macOS unit test target lists its files;
+  the other test targets take whole folders.
+- A push cancels the running `ci`, so hold it while a run is the evidence you are waiting for.
+  The job log prints only failures and the first line of a multi-line `app.debugDescription`; the
+  element tree is in `tests.log` of the `apple-<platform>` artifact.
+- On macOS 12 a `NavigationLink` inside the detail column replaces it with no back button, so
+  sub-pages there are state with an explicit Back. On iOS, `.task` on a root row is cancelled
+  when a page is pushed, so polling lives on the root `NavigationView`.
+- `.task` on a `Section` is unreliable; put it on the first row. Buttons inside an iOS form row
+  need `.buttonStyle(.borderless)`, or one tap fires all of them.
+- `TextField` inside `.alert` needs iOS 16 and macOS 13, so rename screens are sheets.
+- Keys: `Text("key")` literals must be in `Localizable.xcstrings`, and interpolation looks up a
+  `%@` key, so concatenate instead. `Button(cond ? "a" : "b")` needs `LocalizedStringKey(...)`.
+- `.alert` and `confirmationDialog` on macOS are window sheets: `app.sheets.buttons["Label"]`,
+  against `app.buttons["Label"].firstMatch` on iOS. A switch value is the String `"0"` or `"1"` on
+  iOS and an `Int` on `app.checkBoxes[id]` on macOS. `.textSelection(.enabled)` text may appear in
+  `value` instead of `label`.
+- An `accessibilityIdentifier` on a form can overwrite its children's; add
+  `.accessibilityElement(children: .contain)`.
+- Use the `reveal` and `flip` helpers in `UITests/Reveal.swift` for off-screen elements.
+
 ## Not covered
 
 - UI coverage (JaCoCo, Xcode coverage) is not collected; see
