@@ -83,7 +83,7 @@ private struct SearchResults: View {
 }
 
 /// One verified profile: the short Peer ID, its possible age and country.
-private struct SearchResultRow: View {
+struct SearchResultRow: View {
     let found: FoundProfile
 
     private var summary: String {

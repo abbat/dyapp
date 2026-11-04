@@ -26,6 +26,13 @@ struct ContentView: View {
     @State private var profilePending = false
     @State private var profileOpen = false
     @StateObject private var search = SearchSession()
+    @StateObject private var chats = ChatFeed()
+
+    /// The identity whose mailbox is polled; it takes an active network.
+    private var chatIdentity: ChatIdentity? {
+        guard case let .ready(candidate, peerId) = identity, activeNetwork == .ready else { return nil }
+        return ChatIdentity(candidate: candidate, peerId: peerId)
+    }
 
     private var selectedMarker: String? {
         if case let .ready(candidate, _) = identity { return candidate.location.marker }
@@ -69,6 +76,10 @@ struct ContentView: View {
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
         .task(id: identity) { await loadPicker() }
+        // On the root, as iOS cancels a task of a screen covered by a pushed one.
+        .task(id: chatIdentity?.peerId) {
+            if let chatIdentity { await chats.poll(chatIdentity) }
+        }
     }
 
     private var start: some View {
@@ -120,6 +131,10 @@ struct ContentView: View {
                         Text("search.title")
                     }
                     .accessibilityIdentifier("search-open")
+                    NavigationLink(destination: ChatsView(feed: chats)) {
+                        Text("chats.title")
+                    }
+                    .accessibilityIdentifier("chats-open")
 
                 case .readFailed:
                     Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")

@@ -1,7 +1,11 @@
 # macOS client
 
 The `DYApp` client for macOS is a universal app (Apple silicon and Intel) for macOS 12 or later.
-It covers identities, the network connection, the public profile and search. Chats are planned.
+It covers identities, the network connection, the public profile, search and the Chats lists. The
+chat screen and message sending are planned.
+
+**Chats** on the Ready screen lists Liked you, message requests and conversations of the current
+identity. Counts come from local data, and the app checks the mailbox once a minute while it runs.
 
 **Search** on the Ready screen asks the search nodes of the active network for a sample of
 published profiles. A sample is not a complete list, and the app lists only profiles whose signature

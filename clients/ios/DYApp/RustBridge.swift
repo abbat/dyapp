@@ -60,6 +60,8 @@ enum RustBridge {
 
     /// Remove only the confirmed UUID slot, then resolve the remaining candidates without selection.
     static func removeIdentity(_ id: UUID, confirming peerID: String) throws -> IdentityResolution {
+        chatsLock.lock()
+        defer { chatsLock.unlock() }
         let store = try identityStore()
         try store.remove(id, confirming: peerID)
         return (try? store.resolve()) ?? .recovery(nil, .unavailable)
@@ -177,7 +179,18 @@ enum RustBridge {
         return ProfileSolveSession(solver: try ProfileSolve(dir: dir.path, key: key))
     }
 
-    private static func identityStore() throws -> IdentitySlotStore {
+    /// The Keychain account wrapping this identity's keys, as `identityStore` opens them.
+    static func keyStore(for location: IdentityLocation) -> PlatformKeyStore {
+        switch location {
+        case .legacy:
+            return uiTestSlotID.map(PlatformKeyStore.forSlot) ?? .shared
+
+        case .slot(let id):
+            return .forSlot(id)
+        }
+    }
+
+    static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
         if let id = uiTestSlotID {
             return IdentitySlotStore(root: root, legacyStore: .forSlot(id))
