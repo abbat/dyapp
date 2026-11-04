@@ -1031,6 +1031,114 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Месяц рождения (необязательно)" } }
       }
     },
+    "profile.name": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public name (optional)" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Публичное имя (необязательно)" } }
+      }
+    },
+    "profile.nameHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Anyone who finds your profile sees this name. It is never proof of who you are." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Это имя видит каждый, кто найдёт ваш профиль. Оно не подтверждает, кто вы." } }
+      }
+    },
+    "profile.nameRow": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public name" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Публичное имя" } }
+      }
+    },
+    "profile.invalidName": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use up to 64 characters with no hidden symbols for the public name." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В публичном имени используйте до 64 символов без скрытых знаков." } }
+      }
+    },
+    "profile.height": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Height, cm" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Рост, см" } }
+      }
+    },
+    "profile.invalidHeight": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use a height from 50 to 272 cm, or leave it empty." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Укажите рост от 50 до 272 см или оставьте поле пустым." } }
+      }
+    },
+    "profile.about": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "About" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "О себе" } }
+      }
+    },
+    "profile.aboutHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Up to 500 characters. Anyone who finds your profile sees this as plain text, without links or formatting." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "До 500 символов. Этот текст видит каждый, кто найдёт ваш профиль: без ссылок и оформления." } }
+      }
+    },
+    "profile.invalidAbout": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use up to 500 characters with no hidden symbols in About." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В поле «О себе» используйте до 500 символов без скрытых знаков." } }
+      }
+    },
+    "profile.seekingTitle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Who you are looking for" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Кого вы ищете" } }
+      }
+    },
+    "profile.notLooking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Not looking now" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сейчас не ищу" } }
+      }
+    },
+    "profile.notLookingHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your profile stays public, but mutual searches leave you out. Saving with this on clears the choices below." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Профиль останется публичным, но взаимный поиск его не покажет. Сохранение с этим переключателем очищает выбор ниже." } }
+      }
+    },
+    "profile.notLookingOn": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Yes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Да" } }
+      }
+    },
+    "profile.seekingGenders": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Looking for" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ищу" } }
+      }
+    },
+    "profile.seekingHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Public, like the rest of your profile. Mutual searches find you only with at least one gender and one age bound." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Это публичные данные, как и весь профиль. Взаимный поиск найдёт вас, только если выбран хотя бы один пол и указана хотя бы одна граница возраста." } }
+      }
+    },
+    "profile.seekingAgeFrom": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Partner age from" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возраст партнёра от" } }
+      }
+    },
+    "profile.seekingAgeTo": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Partner age to" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возраст партнёра до" } }
+      }
+    },
+    "profile.invalidSeeking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use a partner age from 18 to 120, the lower value first, or leave it empty." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Укажите возраст партнёра от 18 до 120, сначала меньшее значение, или оставьте поле пустым." } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
