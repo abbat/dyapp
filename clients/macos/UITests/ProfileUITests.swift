@@ -274,3 +274,67 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
     }
 }
+
+extension ProfileUITests {
+    /// Removing a published identity says it withdraws; without a node it offers Retry, Keep and
+    /// Remove anyway, and with one the removal goes through.
+    @objc
+    func testRemovalWithdrawsAndOffersRemoveAnywayWithoutANode() {
+        let app = isolatedApp()
+        let base = app.launchArguments
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let month = app.textFields["profile-birth-month"]
+        reveal(month, in: app)
+        month.click()
+        month.typeText("5")
+        let save = app.buttons["profile-save"]
+        reveal(save, in: app)
+        save.click()
+        waitEnabled(app.checkBoxes["profile-confirm-adult"])
+        publish(app)
+        let readback = app.descendants(matching: .any)["profile-published-readback"]
+        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        app.terminate()
+
+        app.launchArguments = base + ["--ui-test-fail-withdraw"]
+        app.launch()
+        let sheet = openRemoval(app, says: "withdrawn from search first")
+        sheet.buttons["Remove permanently"].click()
+        XCTAssertTrue(sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
+        sheetSays(sheet, "within 30 days")
+        sheet.buttons["Retry"].click()
+        XCTAssertTrue(sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
+        sheet.buttons["Keep identity"].click()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-active"].waitForExistence(timeout: 10))
+        app.terminate()
+
+        app.launchArguments = base
+        app.launch()
+        openRemoval(app, says: "withdrawn from search first").buttons["Remove permanently"].click()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 60), app.debugDescription)
+        app.terminate()
+    }
+
+    private func openRemoval(_ app: XCUIApplication, says text: String) -> XCUIElement {
+        let settings = app.buttons["settings-open"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 30), app.debugDescription)
+        settings.click()
+        let remove = app.buttons["settings-remove"]
+        reveal(remove, in: app)
+        waitEnabled(remove)
+        remove.click()
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
+        sheetSays(sheet, text)
+        return sheet
+    }
+
+    private func sheetSays(_ sheet: XCUIElement, _ text: String) {
+        XCTAssertTrue(sheet.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@ OR value CONTAINS %@", text, text
+        )).firstMatch.exists, sheet.debugDescription)
+    }
+}

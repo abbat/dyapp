@@ -1535,6 +1535,24 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Профиль скрыт. Опубликуйте сохранённый черновик, чтобы снова его показать." } }
       }
     },
+    "settings.removeWithdraws": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Its profile is withdrawn from search first." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сначала её профиль снимается с поиска." } }
+      }
+    },
+    "settings.removeOffline": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No node accepted the withdrawal. The profile disappears from search by itself within 30 days." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ни один узел не принял снятие профиля. Профиль сам исчезнет из поиска в течение 30 дней." } }
+      }
+    },
+    "settings.removeAnyway": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove anyway" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Всё равно удалить" } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },

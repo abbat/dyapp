@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum InventoryLoad: Sendable {
-    case loaded([IdentityInventoryRow]), failed
+    case loaded([IdentityInventoryRow], published: Bool), failed
 }
 
 private enum IdentityAction: Sendable {
@@ -26,9 +26,19 @@ struct IdentitySettingsView: View {
     @State private var isWorking = false
     @State private var actionFailed = false
     @State private var showRemoveConfirmation = false
+    /// This identity has published, so removal withdraws its profile first.
+    @State private var hasPublished = false
+    @State private var withdrawFailed = false
 
     private var removalWarning: LocalizedStringKey {
         rows.count == 1 ? "settings.removeLastWarning" : "settings.removeWarning"
+    }
+
+    private var removalMessage: Text {
+        let warning = Text(peerId) + Text(verbatim: "\n") + Text(removalWarning)
+        guard hasPublished else { return warning }
+        let next: LocalizedStringKey = withdrawFailed ? "settings.removeOffline" : "settings.removeWithdraws"
+        return warning + Text(verbatim: "\n") + Text(next)
     }
 
     private var removableSlot: UUID? {
@@ -107,6 +117,7 @@ struct IdentitySettingsView: View {
             if let id = removableSlot {
                 Section {
                     Button("settings.remove", role: .destructive) {
+                        withdrawFailed = false
                         showRemoveConfirmation = true
                     }
                     .disabled(isLoading || readFailed || isWorking)
@@ -114,11 +125,16 @@ struct IdentitySettingsView: View {
                 }
                 .alert("settings.removeTitle", isPresented: $showRemoveConfirmation) {
                     Button("settings.removeCancel", role: .cancel) {}
-                    Button("settings.removeConfirm", role: .destructive) {
-                        Task { await remove(id) }
+                    if withdrawFailed {
+                        Button("identity.retry") { Task { await withdrawThenRemove(id) } }
+                        Button("settings.removeAnyway", role: .destructive) { Task { await remove(id) } }
+                    } else {
+                        Button("settings.removeConfirm", role: .destructive) {
+                            Task { await withdrawThenRemove(id) }
+                        }
                     }
                 } message: {
-                    Text(peerId) + Text(verbatim: "\n") + Text(removalWarning)
+                    removalMessage
                 }
             }
         }
@@ -146,14 +162,19 @@ struct IdentitySettingsView: View {
     private func load() async {
         isLoading = true
         readFailed = false
+        let (current, currentPeerID) = (candidate, peerId)
         let result = await Task.detached(priority: .userInitiated) { () -> InventoryLoad in
-            do { return .loaded(try RustBridge.identityInventory()) }
-            catch { return .failed }
+            do {
+                // Only an open key can sign the withdrawal; an unreadable version counts as never published.
+                let version = (try? RustBridge.visibility(for: current, peerId: currentPeerID))?.version ?? 0
+                return .loaded(try RustBridge.identityInventory(), published: version > 0)
+            } catch { return .failed }
         }.value
         guard !Task.isCancelled else { return }
         switch result {
-        case .loaded(let items):
+        case let .loaded(items, published):
             rows = items
+            hasPublished = published
 
         case .failed:
             readFailed = true
@@ -191,6 +212,31 @@ struct IdentitySettingsView: View {
             return .failed
         }.value
         finish(result)
+    }
+
+    /// The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
+    @MainActor
+    private func withdrawThenRemove(_ id: UUID) async {
+        guard hasPublished else {
+            await remove(id)
+            return
+        }
+        guard !isWorking else { return }
+        isWorking = true
+        actionFailed = false
+        let (current, currentPeerID) = (candidate, peerId)
+        let withdrawn = await Task.detached(priority: .userInitiated) { () -> Bool in
+            (try? RustBridge.withdrawProfile(for: current, peerId: currentPeerID)) != nil
+        }.value
+        isWorking = false
+        if withdrawn {
+            await remove(id)
+        } else {
+            // A failure can return at once, and an alert asked for while the last one closes is lost.
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            withdrawFailed = true
+            showRemoveConfirmation = true
+        }
     }
 
     @MainActor

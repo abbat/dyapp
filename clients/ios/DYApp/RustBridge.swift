@@ -190,6 +190,20 @@ enum RustBridge {
         return try withDraftLock { try ProfilePublisher(dir: dir.path).hide(key: key) }
     }
 
+    /// Sign the withdrawal before the identity is removed; without a node this throws and changes nothing.
+    static func withdrawProfile(for candidate: IdentityCandidate, peerId: String) throws {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        #if DEBUG
+        // Native UI tests see no node accepting it while their local node keeps running.
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-withdraw") {
+            throw CoreError.Failed(message: "notConnected")
+        }
+        #endif
+        _ = try withDraftLock { try ProfilePublisher(dir: dir.path).withdraw(key: key) }
+    }
+
     /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
     static func publicationBlock(for candidate: IdentityCandidate, peerId: String,
                                  attested: Bool) throws -> String? {
