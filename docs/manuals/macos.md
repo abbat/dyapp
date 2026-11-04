@@ -53,7 +53,13 @@ through the active network. **Cancel preparation** keeps the draft and progress.
 screen shows the verified version and exact public fields; after failure, repeat both confirmations
 and retry.
 
+The window reopens where you left it, at the same size, and moves back to a display if it would be
+out of reach. Closing it only hides it: the app keeps running and a click on its Dock icon or **Open**
+in the menu-bar icon brings the window back. **Quit** in that menu, the app menu or Cmd+Q ends the app.
+
 **Settings** lists the device's identities, marks the current one, and opens its network form.
+Its **Window** section has **Show icon in menu bar** (on by default) and **Close window to menu bar**
+(off by default, needs the icon), which also takes the app out of the Dock while the window is hidden.
 Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
 **Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
 pending token revocation.

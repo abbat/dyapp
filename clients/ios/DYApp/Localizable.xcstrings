@@ -1391,6 +1391,36 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Не удалось загрузить полное фото. Повторите попытку." } }
       }
     },
+    "tray.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Window" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Окно" } }
+      }
+    },
+    "tray.show": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Show icon in menu bar" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показывать значок в строке меню" } }
+      }
+    },
+    "tray.close": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Close window to menu bar" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Закрывать окно в строку меню" } }
+      }
+    },
+    "tray.open": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Открыть" } }
+      }
+    },
+    "tray.quit": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Quit" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },

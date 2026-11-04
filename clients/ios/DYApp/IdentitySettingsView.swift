@@ -83,6 +83,10 @@ struct IdentitySettingsView: View {
                 .accessibilityIdentifier("settings-network")
             }
 
+            #if os(macOS)
+            MenuBarSection()
+            #endif
+
             if let feed {
                 ReadReceiptsSection(feed: feed)
                 PeopleSections(feed: feed)
