@@ -107,7 +107,8 @@ pub(crate) async fn send_held(
 /// Swift detached tasks run on 512 KiB stacks, too small for the network futures.
 const NETWORK_STACK: usize = 16 << 20;
 
-/// Run blocking network work on its own thread with a stack the futures fit in.
+/// Run blocking network work on its own thread with a stack the futures fit in. Every FFI call
+/// that dials needs this: building a swarm on a Swift task's stack ends in SIGBUS.
 pub(crate) fn on_network_stack<T: Send>(
     work: impl FnOnce() -> Result<T, CoreError> + Send,
 ) -> Result<T, CoreError> {

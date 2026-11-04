@@ -2,7 +2,7 @@
 
 use crate::peer_photos::PhotoCache;
 use crate::profile_draft::database;
-use crate::profile_network::{active_network, connect};
+use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::profile_publish::{today, POW_BITS};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
@@ -284,21 +284,23 @@ impl ProfileSearcher {
         let own = store.profile_draft().map_err(failed)?.unwrap_or_default();
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
-        let (mut reached, mut results) = self.runtime.block_on(async {
-            let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
-            let mut entry = connect(&network).await?;
-            let mut reached =
-                search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
-            let results = search::search(
-                &mut reached.nodes,
-                &conditions,
-                limit,
-                POW_BITS,
-                &cache,
-                &hidden,
-            )
-            .await;
-            Ok::<_, CoreError>((reached, results))
+        let (offered, mut failures, mut results) = on_network_stack(|| {
+            self.runtime.block_on(async {
+                let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
+                let mut entry = connect(&network).await?;
+                let mut reached =
+                    search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
+                let results = search::search(
+                    &mut reached.nodes,
+                    &conditions,
+                    limit,
+                    POW_BITS,
+                    &cache,
+                    &hidden,
+                )
+                .await;
+                Ok((reached.offered, reached.failures, results))
+            })
         })?;
         Employer::from(employer).retain(&mut results.profiles);
         compatibility::rank(&own, &mut results.profiles);
@@ -312,13 +314,13 @@ impl ProfileSearcher {
                 profile
             })
             .collect();
-        let partial = results.partial || !reached.failures.is_empty();
-        reached.failures.extend(results.failures);
+        let partial = results.partial || !failures.is_empty();
+        failures.extend(results.failures);
         Ok(ProfileSearchResult {
-            offered: reached.offered,
+            offered,
             profiles,
             partial,
-            failures: reached.failures.into_iter().map(Into::into).collect(),
+            failures: failures.into_iter().map(Into::into).collect(),
         })
     }
 }
@@ -349,6 +351,40 @@ mod tests {
         network::save(&dir, Settings::Active, &network).unwrap();
         // A retry is a new call on the same searcher.
         assert_eq!(search().unwrap_err().to_string(), "notConnected");
+    }
+
+    #[test]
+    fn search_dials_from_a_swift_sized_stack() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("dyapp-ffi-search-stack-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let closed = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let network = Network {
+            seeds: vec![format!("127.0.0.1:{closed}")],
+            name: String::new(),
+        };
+        network::save(&dir, Settings::Active, &network).unwrap();
+        let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
+        // Without its own stack, building the swarm for the dial overflows this thread.
+        let outcome = std::thread::Builder::new()
+            .stack_size(512 << 10)
+            .spawn(move || {
+                let key = IdentityKey::generate();
+                searcher
+                    .search(key, Vec::new(), SearchEmployer::Any, 0)
+                    .map(|_| ())
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+        assert!(outcome.is_err());
     }
 
     #[test]
