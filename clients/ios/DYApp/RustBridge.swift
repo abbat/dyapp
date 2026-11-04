@@ -77,6 +77,28 @@ enum RustBridge {
         }
     }
 
+    static func profileSearcher(for candidate: IdentityCandidate) throws -> ProfileSearcher {
+        try ProfileSearcher(dir: networkDirectory(root: try directory(), candidate: candidate).path)
+    }
+
+    /// One blocking verified sample; a mutual search without a usable saved gender and age says so
+    /// rather than searching unfiltered.
+    static func searchProfiles(_ request: SearchRequest) throws -> ProfileSearchResult {
+        let key = try identityStore().open(request.candidate.location)
+        guard key.peerId() == request.peerId else { throw IdentitySlotError.peerIDMismatch }
+        var conditions = request.conditions
+        if request.mutual {
+            let store = ProfileRustDraftStore(root: try directory(), candidate: request.candidate,
+                                              peerId: request.peerId, key: key)
+            guard let draft = try store.load(),
+                  case let mutual = try searchMutualConditions(draft: try ProfileRustDraftStore.record(from: draft)),
+                  !mutual.isEmpty
+            else { throw CoreError.Failed(message: "mutual unavailable") }
+            conditions += mutual
+        }
+        return try request.searcher.search(key: key, conditions: conditions, employer: request.employer, limit: 0)
+    }
+
     /// Read this identity's draft or active network settings off the UI thread.
     static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws -> NetworkSettings? {
         let dir = networkDirectory(root: try directory(), candidate: candidate)

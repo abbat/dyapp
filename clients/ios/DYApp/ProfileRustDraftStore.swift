@@ -23,7 +23,7 @@ struct ProfileRustDraftStore {
         ProfileDraftStore(root: root, candidate: candidate, peerId: peerId)
     }
 
-    private static func record(from draft: ProfileDraft) throws -> PublicProfileDraft {
+    static func record(from draft: ProfileDraft) throws -> PublicProfileDraft {
         _ = try ProfilePublicPreview(draft: draft.values, country: draft.country)
         let values = draft.values
         return PublicProfileDraft(
