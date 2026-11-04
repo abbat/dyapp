@@ -40,6 +40,7 @@ it are entry points that tools discover by path (see
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
 - [Read receipts and typing indicators](design/read-receipts.md): planned opt-in "read up to" signal; typing waits for a direct path
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
+- [Sticker packs](design/stickers.md): planned TAR import, WebP validation, chat tags 13 to 15, delivery through sealed attachments and limits
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Profile photos](design/profile-photos.md): planned publication, limits, cache and failure states
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
