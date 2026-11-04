@@ -5,6 +5,9 @@ struct DYAppApp: App {
     @NSApplicationDelegateAdaptor(MainWindowController.self) private var controller
 
     init() {
+        // Resume would bring back what the design does not save: minimized and full screen.
+        // A saved state without windows would also make the WindowGroup open none at launch.
+        UserDefaults.standard.register(defaults: ["ApplePersistenceIgnoreState": true])
         NetworkType.startReporting()
     }
 

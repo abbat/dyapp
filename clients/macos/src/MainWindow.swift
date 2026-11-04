@@ -91,8 +91,6 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     func adopt(_ window: NSWindow) {
         guard self.window == nil else { return }
         self.window = window
-        // Resume would bring back what the design does not save: minimized and full screen.
-        window.isRestorable = false
         let screens = NSScreen.screens.map(\.visibleFrame)
         let frame = window.setFrameUsingName(frameName)
             ? WindowPlacement.restored(window.frame, on: screens)
