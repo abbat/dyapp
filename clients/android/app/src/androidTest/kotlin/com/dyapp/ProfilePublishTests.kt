@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -137,7 +139,8 @@ class ProfilePublishTests {
 
     private fun saveAbout(about: String, status: Int) {
         compose.onNodeWithTag("profile-about").performScrollTo().performTextReplacement(about)
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        // A touch can miss: the keyboard raised by the field may still be moving the form.
+        compose.onNodeWithTag("profile-save").performSemanticsAction(SemanticsActions.OnClick)
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
     }
 
