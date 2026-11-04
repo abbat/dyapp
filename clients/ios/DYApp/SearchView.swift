@@ -7,14 +7,14 @@ struct SearchView: View {
     let candidate: IdentityCandidate
     let peerId: String
     @ObservedObject var feed: ChatFeed
-    @State private var opened: FoundProfile?
-    @State private var chat: FoundProfile?
+    @State private var opened: OpenedProfile?
+    @State private var chat: OpenedProfile?
 
     var body: some View {
         Group {
             if let opened {
                 FoundProfileView(
-                    peer: opened.peerId, known: opened, feed: feed,
+                    peer: opened.peer, known: opened.known, feed: feed,
                     back: { self.opened = nil },
                     message: {
                         chat = opened
@@ -25,11 +25,12 @@ struct SearchView: View {
                         self.opened = nil
                     }
                 )
-                .id(opened.peerId)
+                .id(opened.peer)
             } else if let chat {
                 ChatView(
-                    feed: feed, peer: chat.peerId,
+                    feed: feed, peer: chat.peer,
                     profile: { opened = chat },
+                    openProfile: { opened = OpenedProfile(peer: $0, known: nil) },
                     back: { self.chat = nil },
                     blocked: { self.chat = nil }
                 )
@@ -72,7 +73,10 @@ struct SearchView: View {
             }
 
         case let .done(result):
-            SearchResults(result: result, photos: feed.photos, open: { opened = $0 }, again: { session.run() })
+            SearchResults(
+                result: result, photos: feed.photos,
+                open: { opened = OpenedProfile(peer: $0.peerId, known: $0) }, again: { session.run() }
+            )
         }
     }
 }

@@ -75,7 +75,8 @@ launch argument `--ui-test-chat-peer` hosts the second identity inside the app u
 (`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the
 app's profile is listed, and confirms the app's reply with a message of its own, which the test waits
 for. With `--ui-test-chat-peer-likes` the peer likes the app's identity instead and stops, so the test
-can like back from Liked you. `--ui-test-metered-network` and `--ui-test-unmetered-network` replace the
+can like back from Liked you. With `--ui-test-chat-peer-shares` its confirmation is the link to its own
+profile. `--ui-test-metered-network` and `--ui-test-unmetered-network` replace the
 real network report, because a runner's network must not decide whether the offer to load a full photo
 appears. Release builds compile none of this.
 

@@ -31,6 +31,7 @@ struct ChatsView: View {
                 ChatView(
                     feed: feed, peer: chat,
                     profile: { opened = OpenedProfile(peer: chat, known: nil) },
+                    openProfile: { opened = OpenedProfile(peer: $0, known: nil) },
                     back: { self.chat = nil },
                     blocked: { self.chat = nil }
                 )
@@ -88,7 +89,7 @@ struct ChatsView: View {
 }
 
 /// A peer's page to show; a chat knows only the peer, so the page fetches the profile.
-private struct OpenedProfile {
+struct OpenedProfile {
     let peer: String
     let known: FoundProfile?
 }
@@ -236,13 +237,21 @@ func profileLoadKey(_ error: Error) -> String {
     String(describing: error).contains("notConnected") ? "search.notConnected" : "view.loadFailed"
 }
 
+/// The peer whose profile a message shares: its whole text is the link.
+func sharedProfile(_ message: ChatMessage) -> String? {
+    guard !message.deleted, let text = message.text else { return nil }
+    return profileLinkPeer(text: text)
+}
+
 func chatPreview(_ message: ChatMessage?) -> String {
     guard let message else { return NSLocalizedString("chats.noMessages", comment: "") }
     if message.deleted { return NSLocalizedString("chats.deleted", comment: "") }
-    if message.forwarded {
-        return String(format: NSLocalizedString("chats.forwarded", comment: ""), message.text ?? "")
+    var text = message.text ?? ""
+    if let shared = sharedProfile(message) {
+        text = String(format: NSLocalizedString("chats.profileLink", comment: ""), "@\(shared.suffix(6))")
     }
-    return message.text ?? ""
+    if message.forwarded { return String(format: NSLocalizedString("chats.forwarded", comment: ""), text) }
+    return text
 }
 
 func chatTime(_ message: ChatMessage?) -> String? {

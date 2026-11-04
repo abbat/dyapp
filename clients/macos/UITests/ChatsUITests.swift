@@ -41,6 +41,48 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
         open.click()
 
+        replyToTheRequest(app)
+        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
+        editAndDeleteTheReply(app, input: app.textFields["chat-input"])
+        nameThePeer(app)
+        muteClearAndBlock(app)
+        toggleReceiptsAndUnblock(app)
+    }
+
+    /// The DEBUG peer answers with its profile link; its card opens the page, whose Share sends the link back.
+    func testSharedProfileOpensFromItsCardAndSharesToAChat() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-shares"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        let open = app.buttons["chats-open"]
+        XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
+        open.click()
+        replyToTheRequest(app)
+
+        let cards = app.buttons.matching(identifier: "msg-profile")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 150), app.debugDescription)
+        cards.firstMatch.click()
+        let back = app.buttons["view-back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 30), app.debugDescription)
+        let share = app.buttons["view-share"]
+        XCTAssertTrue(share.waitForExistence(timeout: 30), app.debugDescription)
+        reveal(share, in: app)
+        share.click()
+        let target = app.buttons["share-1"]
+        XCTAssertTrue(target.waitForExistence(timeout: 30), app.debugDescription)
+        reveal(target, in: app)
+        target.click()
+        XCTAssertTrue(shownText("Profile sent", in: app).waitForExistence(timeout: 60), app.debugDescription)
+        reveal(back, in: app, deltaY: 300)
+        back.click()
+        XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
+    }
+
+    /// From Chats: opens the peer's first message and answers it.
+    private func replyToTheRequest(_ app: XCUIApplication) {
         let requests = app.buttons["chats-requests"]
         XCTAssertTrue(requests.waitForExistence(timeout: 10), app.debugDescription)
         requests.click()
@@ -55,11 +97,6 @@ final class ChatsUITests: XCTestCase {
         input.typeText("Hello back")
         app.buttons["chat-send"].click()
         XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
-        editAndDeleteTheReply(app, input: input)
-        nameThePeer(app)
-        muteClearAndBlock(app)
-        toggleReceiptsAndUnblock(app)
     }
 
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.

@@ -43,22 +43,9 @@ final class ChatsUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
 
-        let requests = app.buttons["chats-requests"]
-        XCTAssertTrue(requests.waitForExistence(timeout: 10), app.debugDescription)
-        requests.tap()
-        let request = app.buttons["request-1"]
-        XCTAssertTrue(request.waitForExistence(timeout: 150), app.debugDescription)
-        request.tap()
-        XCTAssertTrue(app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
-
-        let input = app.textFields["chat-input"]
-        input.tap()
-        typeSlowly("Hello back", into: input)
-        app.buttons["chat-send"].tap()
-        XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        replyToTheRequest(app)
         XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
-        editAndDeleteTheReply(app, input: input)
+        editAndDeleteTheReply(app, input: app.textFields["chat-input"])
         nameThePeer(app)
         muteClearAndBlock(app)
         toggleReceiptsAndUnblock(app)
@@ -98,6 +85,48 @@ final class ChatsUITests: XCTestCase {
                       app.debugDescription)
         reveal(app.buttons["view-message-match"], in: app).tap()
         XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+    }
+
+    /// The DEBUG peer answers with its profile link; its card opens the page, whose Share sends the link back.
+    func testSharedProfileOpensFromItsCardAndSharesToAChat() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-shares"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
+        replyToTheRequest(app)
+
+        let cards = app.buttons.matching(identifier: "msg-profile")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 150), app.debugDescription)
+        cards.firstMatch.tap()
+        XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
+        reveal(app.buttons["view-share"], in: app).tap()
+        reveal(app.buttons["share-1"], in: app).tap()
+        XCTAssertTrue(reveal(shownText("Profile sent", in: app), in: app, timeout: 60, above: true).exists,
+                      app.debugDescription)
+        reveal(app.buttons["view-back"], in: app, above: true).tap()
+        XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
+    }
+
+    /// From Chats: opens the peer's first message and answers it.
+    private func replyToTheRequest(_ app: XCUIApplication) {
+        let requests = app.buttons["chats-requests"]
+        XCTAssertTrue(requests.waitForExistence(timeout: 10), app.debugDescription)
+        requests.tap()
+        let request = app.buttons["request-1"]
+        XCTAssertTrue(request.waitForExistence(timeout: 150), app.debugDescription)
+        request.tap()
+        XCTAssertTrue(app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+
+        let input = app.textFields["chat-input"]
+        input.tap()
+        typeSlowly("Hello back", into: input)
+        app.buttons["chat-send"].tap()
+        XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func editAndDeleteTheReply(_ app: XCUIApplication, input: XCUIElement) {

@@ -14,7 +14,8 @@ person's public name shows with its mark and the short Peer ID. A request has it
 revoked that person's access yet.
 
 A Liked you row, a search result and the name at the top of a chat open that person's page. **Like**
-sends a like and a mutual like shows a match; **Message** opens the chat. **Liked** takes the like back
+sends a like and a mutual like shows a match; **Message** opens the chat. **Share** sends the page to
+one of your open chats, where it shows as a profile button that opens the page. **Liked** takes the like back
 after a confirmation. **Pass** hides the person from Liked you and can be undone on the page, and
 **Block** asks first and closes the page.
 

@@ -11,6 +11,8 @@ struct ChatView: View {
     @ObservedObject var feed: ChatFeed
     let peer: String
     let profile: () -> Void
+    /// A shared profile's card was pressed.
+    let openProfile: (String) -> Void
     let back: () -> Void
     /// The block held, so the chat is gone.
     let blocked: () -> Void
@@ -139,6 +141,7 @@ struct ChatView: View {
                         ChatBubble(
                             message: message, own: message.author == feed.me,
                             writable: chatWritable(history?.state), sending: sending,
+                            openProfile: openProfile,
                             edit: { startEditing(message) }, delete: { deleting = message }
                         )
                     }
@@ -279,6 +282,7 @@ private struct ChatBubble: View {
     let own: Bool
     let writable: Bool
     let sending: Bool
+    let openProfile: (String) -> Void
     let edit: () -> Void
     let delete: () -> Void
 
@@ -287,7 +291,15 @@ private struct ChatBubble: View {
             if own { Spacer(minLength: 48) }
             if own, !message.deleted { menu }
             VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: chatPreview(message)).textSelection(.enabled)
+                if let shared = sharedProfile(message) {
+                    // It names only the short Peer ID: no message fetches anything before the press.
+                    Button { openProfile(shared) } label: {
+                        Label(chatPreview(message), systemImage: "person.crop.circle")
+                    }
+                    .accessibilityIdentifier("msg-profile")
+                } else {
+                    Text(verbatim: chatPreview(message)).textSelection(.enabled)
+                }
                 let meta = chatMeta(message)
                 if !meta.isEmpty { Text(verbatim: meta).font(.caption) }
             }

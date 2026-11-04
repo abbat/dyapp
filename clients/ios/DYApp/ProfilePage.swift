@@ -108,6 +108,17 @@ final class ProfilePage: ObservableObject {
         sending = false
     }
 
+    /// Sends this page's link as a message in the chat with `target`.
+    func share(to target: String) async {
+        guard !sending, let link = profileLinkText(peerId: peer) else { return }
+        sending = true
+        status = nil
+        let before = (try? await feed.call { try $0.chatHistory(peerId: target) }.get())?.messages ?? []
+        let failed = await feed.send(link, to: target, after: before)
+        status = ProfilePageStatus(key: failed?.key ?? "view.shared", details: failed?.details)
+        sending = false
+    }
+
     /// True when the block held and the page should close.
     func block() async -> Bool {
         guard !sending else { return false }

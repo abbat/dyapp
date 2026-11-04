@@ -21,7 +21,10 @@ struct FoundProfileView: View {
                 .textSelection(.enabled)
                 .accessibilityIdentifier("view-peer")
             if let found = page.found { PeerGallery(photos: feed.photos, found: found) }
-            if !own { ProfileLikesBlock(page: page, message: message) }
+            if !own {
+                ProfileLikesBlock(page: page, message: message)
+                ProfileShareBlock(page: page, feed: feed)
+            }
             fields
             if !own { ProfileQuietActions(page: page, blocked: blocked) }
         }

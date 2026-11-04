@@ -8,19 +8,24 @@ enum ChatTestPeer {
     static let reply = "Hello back"
     static let confirmation = "Got your reply"
 
-    static var enabled: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst }
+    static var enabled: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst || sharesProfile
+    }
     private static var likesFirst: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes") }
+    private static var sharesProfile: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-shares") }
 
     /// Sends the first message once `me` has published, waits for the reply and confirms it. With
-    /// the likes argument it likes `me` and stops instead.
+    /// the likes argument it likes `me` and stops instead; with the shares argument its confirmation
+    /// is the link to its own profile.
     static func start(me: String) {
         Thread.detachNewThread {
             do {
-                let session = try published()
+                let (session, peer) = try published()
                 if likesFirst {
                     retrying { _ = try session.like(peerId: me, liked: true) }
                 } else {
-                    converse(with: me, session: session)
+                    let answer = sharesProfile ? profileLinkText(peerId: peer) ?? confirmation : confirmation
+                    converse(with: me, session: session, answer: answer)
                 }
             } catch {
                 NSLog("ChatTestPeer stopped: %@", String(describing: error))
@@ -28,7 +33,7 @@ enum ChatTestPeer {
         }
     }
 
-    private static func published() throws -> ChatSession {
+    private static func published() throws -> (ChatSession, peer: String) {
         setTestNodeIdPowBits(bits: 8)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("peer-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -54,10 +59,10 @@ enum ChatTestPeer {
             wrappedStateKey: newChatStateKey(store: store)
         )
         retrying { _ = try session.publishProfile(attested: true) }
-        return session
+        return (session, key.peerId())
     }
 
-    private static func converse(with me: String, session: ChatSession) {
+    private static func converse(with me: String, session: ChatSession, answer: String) {
         // A failed send may have stored the text, and a second first message would be refused.
         retrying {
             if try session.chatHistory(peerId: me).messages.isEmpty {
@@ -71,7 +76,7 @@ enum ChatTestPeer {
                 throw CocoaError(.fileReadNoSuchFile)
             }
         }
-        retrying { _ = try session.sendText(peerId: me, text: confirmation) }
+        retrying { _ = try session.sendText(peerId: me, text: answer) }
     }
 
     /// Runs until it works: the test's own wait ends a peer that never gets there.

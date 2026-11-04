@@ -1703,6 +1703,12 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Переслано · %1$@" } }
       }
     },
+    "chats.profileLink": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Profile %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Профиль %1$@" } }
+      }
+    },
     "chats.unread": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Unread messages: %1$@" } },
@@ -1773,6 +1779,24 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Press Liked to take the like back; the match ends for both of you." } },
         "ru": { "stringUnit": { "state": "translated", "value": "Нажмите «Вы отметили», чтобы отменить; взаимность пропадёт у обоих." } }
+      }
+    },
+    "view.share": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Share" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Поделиться" } }
+      }
+    },
+    "view.shareNone": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No open chats to share with." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет открытых чатов, чтобы поделиться." } }
+      }
+    },
+    "view.shared": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Profile sent." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Профиль отправлен." } }
       }
     },
     "view.sending": {

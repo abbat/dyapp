@@ -53,6 +53,37 @@ struct ProfileLikesBlock: View {
     }
 }
 
+/// Sends this page's link to an open chat; what it told shows with the like's status above.
+struct ProfileShareBlock: View {
+    @ObservedObject var page: ProfilePage
+    @ObservedObject var feed: ChatFeed
+    @State private var open = false
+
+    private var targets: [ChatRow] { feed.rows.filter { $0.state == .open } }
+
+    var body: some View {
+        Button("view.share") { open.toggle() }
+            .accessibilityIdentifier("view-share")
+            // A page opened from search comes before Chats has read any name.
+            .task(id: open) { if open { await feed.loadNames(targets.map(\.peerId)) } }
+        if open {
+            if targets.isEmpty { Text("view.shareNone").font(.caption).accessibilityIdentifier("view-share-none") }
+            ForEach(Array(targets.enumerated()), id: \.element.peerId) { index, row in
+                Button {
+                    Task {
+                        await page.share(to: row.peerId)
+                        open = false
+                    }
+                } label: {
+                    Text(verbatim: contactLabel(row.peerId, feed.names[row.peerId]))
+                }
+                .disabled(page.sending)
+                .accessibilityIdentifier("share-\(index + 1)")
+            }
+        }
+    }
+}
+
 /// Pass and block sit below the profile, away from the like.
 struct ProfileQuietActions: View {
     @ObservedObject var page: ProfilePage
