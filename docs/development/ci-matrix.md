@@ -11,6 +11,11 @@
 `workflow_dispatch`. A branch with an open PR therefore runs it twice (push and PR). Check names
 are `ci / <job>`, e.g. `ci / native - ios`, `ci / core / quality`.
 
+A newer run of the same event and ref cancels the older one, so `ci` and `codeql` spend no runners
+on a commit that has been superseded. A commit that was pushed over therefore shows `cancelled`
+and has no result of its own: to wait for evidence from a run, hold the next push. The cache-saving
+steps skip on cancel, so a long burst of pushes reuses the older cache until one run finishes.
+
 ```text
 ci.yml ("ci")
   ├─ core     ──▶ ci-base.yml ──▶ quality, build

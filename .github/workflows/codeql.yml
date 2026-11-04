@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '0 0 * * 6'
 
+# The event keeps a push from cancelling the weekly run, which nightly-health reports on.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
