@@ -269,7 +269,8 @@ struct ProfileDraftView: View {
         if isSolving { return "profile.proofWorking" }
         if isCheckingEligibility { return "profile.checkingEligibility" }
         if eligibilityFailed { return "profile.eligibilityFailed" }
-        if let publishBlock { return LocalizedStringKey("profile.publishBlocked.\(publishBlock)") }
+        // An interpolated key would look up "profile.publishBlocked.%@"; concatenate instead.
+        if let publishBlock { return LocalizedStringKey("profile.publishBlocked." + publishBlock) }
         if !confirmedAdult { return "profile.publishBlocked.notAttested" }
         if !confirmedPublic { return "profile.confirmPublicRequired" }
         return "profile.eligible"
