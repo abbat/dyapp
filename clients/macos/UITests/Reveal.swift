@@ -20,6 +20,9 @@ func publish(_ app: XCUIApplication) {
     for id in ["profile-confirm-adult", "profile-confirm-public"] {
         let toggle = app.checkBoxes[id]
         reveal(toggle, in: app)
+        // A click on a window that lost key status only activates it and the toggle stays off.
+        print("publish: \(id) app state \(app.state.rawValue) before activate (4 is foreground)")
+        app.activate()
         toggle.click()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == 1"), object: toggle

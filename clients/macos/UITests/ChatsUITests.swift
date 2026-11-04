@@ -296,6 +296,7 @@ final class ChatsUITests: XCTestCase {
         }
         let month = app.textFields["profile-birth-month"]
         reveal(month, in: app)
+        app.activate()
         month.click()
         month.typeText("5")
         let save = app.buttons["profile-save"]
