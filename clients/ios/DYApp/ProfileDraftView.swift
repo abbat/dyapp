@@ -185,6 +185,10 @@ struct ProfileDraftView: View {
 
     var body: some View {
         Form {
+            ProfilePhotosSection(candidate: candidate, peerId: peerId,
+                                 disabled: isLoading || readFailed || isSaving || isSolving) {
+                invalidateConsent()
+            }
             ForEach(profileScales(), id: \.field) { scale in
                 // An interpolated key would look up "profile.field.%@"; concatenate instead.
                 Picker(LocalizedStringKey("profile.field." + scale.key), selection: Binding(

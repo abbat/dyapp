@@ -22,7 +22,7 @@ final class ProfileSolveSession: @unchecked Sendable {
     func runStep(attested: Bool) async -> ProfileWorkAttempt {
         await Task.detached(priority: .userInitiated) { [self] () -> ProfileWorkAttempt in
             do {
-                let step = try solver.runStep(attested: attested)
+                let step = try RustBridge.withDraftLock { try solver.runStep(attested: attested) }
                 return .progress(ProfileWorkProgress(solved: step.solved, cancelled: step.cancelled,
                                                      nextNonce: step.nextNonce))
             } catch {

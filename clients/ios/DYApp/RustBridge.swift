@@ -14,6 +14,8 @@ struct PublishedProfileSnapshot: Sendable {
 
 /// Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings.
 enum RustBridge {
+    private static let draftWrites = NSLock()
+
     private static var uiTestSlotID: UUID? {
         guard let argument = ProcessInfo.processInfo.arguments.first(where: {
             $0.hasPrefix("--ui-test-slot-root=")
@@ -92,7 +94,7 @@ enum RustBridge {
         if request.mutual {
             let store = ProfileRustDraftStore(root: try directory(), candidate: request.candidate,
                                               peerId: request.peerId, key: key)
-            guard let draft = try store.load(),
+            guard let draft = try withDraftLock({ try store.load() }),
                   case let mutual = try searchMutualConditions(draft: try ProfileRustDraftStore.record(from: draft)),
                   !mutual.isEmpty
             else { throw CoreError.Failed(message: "mutual unavailable") }
@@ -130,11 +132,20 @@ enum RustBridge {
         try saveNetworkDraft(dir: dir.path, draft: draft)
     }
 
+    /// A step or save writes back the draft it read, and a publish drops the photo blobs it did not
+    /// publish, so every draft write holds this one lock or a concurrent change is lost.
+    static func withDraftLock<Value>(_ write: () throws -> Value) rethrows -> Value {
+        draftWrites.lock()
+        defer { draftWrites.unlock() }
+        return try write()
+    }
+
     /// Reopen the selected key and load its Rust profile draft, importing old JSON once if needed.
     static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws -> ProfileDraft? {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        return try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).load()
+        let store = ProfileRustDraftStore(root: try directory(), candidate: candidate, peerId: peerId, key: key)
+        return try withDraftLock { try store.load() }
     }
 
     /// Persist exact optional profile fields to this identity's Rust client database.
@@ -142,7 +153,8 @@ enum RustBridge {
                                   draft: ProfileDraft) throws {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        try ProfileRustDraftStore(root: directory(), candidate: candidate, peerId: peerId, key: key).save(draft)
+        let store = ProfileRustDraftStore(root: try directory(), candidate: candidate, peerId: peerId, key: key)
+        try withDraftLock { try store.save(draft) }
     }
 
     /// Publish only the selected identity's solved draft through its active network, off the UI thread.
@@ -157,7 +169,7 @@ enum RustBridge {
             throw CoreError.Failed(message: "notConnected")
         }
         #endif
-        let result = try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested)
+        let result = try withDraftLock { try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested) }
         return PublishedProfileSnapshot(version: result.version,
                                         draft: ProfileRustDraftStore.values(from: result.draft))
     }

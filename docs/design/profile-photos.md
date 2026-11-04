@@ -11,7 +11,8 @@ The Android profile editor adds, moves and removes photos (`ProfilePhotos.kt`, `
 and Android shows other people's photos on search results, liked cards and the profile page
 (`PeerPhotos.kt`) and the draft's main photo on the own avatar. Android chat rows and the chat
 header show the peer's main photo with the contact name (`ContactNames.kt`), from profiles the
-searcher fetches when Chats or a chat opens. Viewing and the editor on Apple are planned.
+searcher fetches when Chats or a chat opens. The Apple profile form adds, moves and removes photos
+(`ProfilePhotos.swift`, `PhotoPrep.swift`); viewing on Apple is planned.
 
 ## Limits
 
@@ -34,6 +35,9 @@ then shows the node's `FULL` reply and keeps the photo local.
    photo comes out upright. Android does the same with `ImageDecoder`, which applies the EXIF
    orientation, flattens onto white and writes the JPEG with `Bitmap.compress`; the core's
    `make_preview` writes the thumbnail. The system photo picker needs no storage permission.
+   Apple clients do this with ImageIO, then pass the JPEG through the core's `strip_metadata`,
+   because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. iOS
+   uses the system photo picker and macOS a file dialog.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
    the local store under their SHA-256 hashes and lists them in the profile draft.
 3. Publishing sends `keep` with every hash of the draft, puts each blob the node reports missing,
@@ -50,8 +54,8 @@ then shows the node's `FULL` reply and keeps the photo local.
 failed publish can leave behind, so the client then moves past it, one version per refusal up to
 eight. The store holds own photos until a publish drops them, so a repair needs no original file.
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
-Android check pixels before that, because `rust/client` has no image decoder. On Android every
-draft write (a save, a proof step, the publish and each photo change) holds one lock, because a
+Android check pixels before that, because `rust/client` has no image decoder. On Android and Apple
+every draft write (a save, a proof step, the publish and each photo change) holds one lock, because a
 step or save writes back the draft it read and a publish drops the blobs it did not publish.
 
 ## Viewing

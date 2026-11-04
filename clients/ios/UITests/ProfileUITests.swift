@@ -111,6 +111,49 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Photos come through the debug seam, as a test cannot drive the system picker. Their order
+    /// is the core's to test; here the controls follow it and what is left survives a restart.
+    func testPhotosAddMoveRemoveSurviveRestart() {
+        let app = unlockedApp()
+        app.launchArguments += ["--ui-test-pick-photo"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let add = app.buttons["profile-photo-add"]
+        for index in 0..<2 {
+            waitEnabled(add)
+            add.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["profile-photo-\(index)"].waitForExistence(timeout: 30),
+                          app.debugDescription)
+        }
+        let right = app.buttons["profile-photo-right-0"]
+        waitEnabled(right)
+        right.tap()
+        XCTAssertFalse(app.buttons["profile-photo-left-0"].isEnabled)
+        XCTAssertFalse(app.buttons["profile-photo-right-1"].isEnabled)
+        let remove = app.buttons["profile-photo-remove-1"]
+        waitEnabled(remove)
+        remove.tap()
+        let confirm = app.buttons["Remove"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
+        confirm.tap()
+        let second = app.descendants(matching: .any)["profile-photo-1"]
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: second)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 30), .completed, app.debugDescription)
+        app.terminate()
+        app.launch()
+        openProfile(app)
+        XCTAssertTrue(app.descendants(matching: .any)["profile-photo-0"].waitForExistence(timeout: 30))
+        XCTAssertFalse(second.exists)
+        app.terminate()
+    }
+
+    private func waitEnabled(_ element: XCUIElement) {
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 30), .completed, element.debugDescription)
+    }
+
     private func connectLocalNode(_ app: XCUIApplication) {
         openNetwork(app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(

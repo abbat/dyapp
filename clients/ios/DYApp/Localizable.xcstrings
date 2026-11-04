@@ -2021,6 +2021,114 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать или изменить список пропущенных. Повторите." } }
       }
     },
+    "profile.photos": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Photos" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фото" } }
+      }
+    },
+    "profile.photoAdd": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Add photo" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Добавить фото" } }
+      }
+    },
+    "profile.photoHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Up to six photos. The first is the main one. They become public when you publish." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "До шести фото. Первое — главное. Они станут публичными после публикации." } }
+      }
+    },
+    "profile.photoLimit": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A profile holds six photos. Remove one to add another." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В профиле помещается шесть фото. Удалите одно, чтобы добавить другое." } }
+      }
+    },
+    "profile.photoMain": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Main photo" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Главное фото" } }
+      }
+    },
+    "profile.photoLabel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Photo %1$d of %2$d" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фото %1$d из %2$d" } }
+      }
+    },
+    "profile.photoLeft": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move photo %1$d left" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сдвинуть фото %1$d влево" } }
+      }
+    },
+    "profile.photoRight": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Move photo %1$d right" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сдвинуть фото %1$d вправо" } }
+      }
+    },
+    "profile.photoRemove": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove photo %1$d" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить фото %1$d" } }
+      }
+    },
+    "profile.photoWorking": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Preparing the photo…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Готовим фото…" } }
+      }
+    },
+    "profile.photoChanged": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Draft has unpublished changes." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В черновике есть неопубликованные изменения." } }
+      }
+    },
+    "profile.photoTooLarge": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This photo is too large to use. Choose a smaller one." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фото слишком большое. Выберите фото поменьше." } }
+      }
+    },
+    "profile.photoUnsupported": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This file cannot be read. Choose a JPEG or PNG photo." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать файл. Выберите фото в формате JPEG или PNG." } }
+      }
+    },
+    "profile.photoRefused": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This photo was not added. A profile holds six photos." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фото не добавлено. В профиле помещается шесть фото." } }
+      }
+    },
+    "profile.photoFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not change the photos." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось изменить фото." } }
+      }
+    },
+    "profile.photoRemoveTitle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove this photo?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить это фото?" } }
+      }
+    },
+    "profile.photoRemoveText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "It leaves your draft now and your public profile with the next publish." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Оно сразу исчезнет из черновика, а из публичного профиля — при следующей публикации." } }
+      }
+    },
+    "profile.photoRemoveAction": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить" } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
