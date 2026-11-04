@@ -282,7 +282,9 @@ pub trait KeyStore: Send + Sync {
 /// Payload bytes of dyapp protocols, without transport, encryption or gossip control overhead.
 #[derive(Clone, uniffi::Record)]
 pub struct ClientTraffic {
+    /// Bytes received.
     pub received: u64,
+    /// Bytes sent.
     pub sent: u64,
 }
 
