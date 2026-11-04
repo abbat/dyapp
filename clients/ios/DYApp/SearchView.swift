@@ -6,15 +6,22 @@ struct SearchView: View {
     @ObservedObject var session: SearchSession
     let candidate: IdentityCandidate
     let peerId: String
+    @State private var opened: FoundProfile?
 
     var body: some View {
-        Form {
-            Text("search.sample").font(.caption)
-            SearchFilterFields(inputs: $session.filters)
-            Button("search.run") { session.run() }
-                .disabled(session.state.isLoading)
-                .accessibilityIdentifier("run-search")
-            status
+        Group {
+            if let opened {
+                FoundProfileView(found: opened) { self.opened = nil }
+            } else {
+                Form {
+                    Text("search.sample").font(.caption)
+                    SearchFilterFields(inputs: $session.filters)
+                    Button("search.run") { session.run() }
+                        .disabled(session.state.isLoading)
+                        .accessibilityIdentifier("run-search")
+                    status
+                }
+            }
         }
         .navigationTitle("search.title")
         .onAppear { session.open(candidate, peerId: peerId) }
@@ -44,7 +51,7 @@ struct SearchView: View {
             }
 
         case let .done(result):
-            SearchResults(result: result) { session.run() }
+            SearchResults(result: result, open: { opened = $0 }, again: { session.run() })
         }
     }
 }
@@ -53,6 +60,7 @@ struct SearchView: View {
 /// offering another one.
 private struct SearchResults: View {
     let result: ProfileSearchResult
+    let open: (FoundProfile) -> Void
     let again: () -> Void
 
     var body: some View {
@@ -63,8 +71,8 @@ private struct SearchResults: View {
                 .accessibilityIdentifier("search-failures")
         }
         ForEach(Array(result.profiles.enumerated()), id: \.offset) { index, found in
-            SearchResultRow(found: found)
-                .accessibilityElement(children: .combine)
+            Button { open(found) } label: { SearchResultRow(found: found) }
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("result-\(index + 1)")
         }
         if !result.profiles.isEmpty {

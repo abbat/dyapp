@@ -16,10 +16,7 @@ final class SearchUITests: XCTestCase {
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
-        let link = app.buttons["search-open"]
-        XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
-        link.click()
-        XCTAssertTrue(app.buttons["run-search"].waitForExistence(timeout: 10), app.debugDescription)
+        openSearch(app)
         XCTAssertFalse(app.textFields["search-age-min"].exists, "filters wait for a first sample")
 
         run(app)
@@ -58,6 +55,40 @@ final class SearchUITests: XCTestCase {
         XCTAssertTrue(statusText(app).contains(mutualUnavailable), statusText(app))
         XCTAssertFalse(app.buttons["search-retry"].exists)
         app.terminate()
+    }
+
+    /// The launch argument puts one row ahead of the local node's answer, whose sample can be empty.
+    func testFoundRowOpensItsProfileAndBackKeepsTheSample() {
+        let app = isolatedApp()
+        app.launchArguments.append("--ui-test-found-profile")
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openSearch(app)
+        run(app)
+        let sample = statusText(app)
+
+        let row = app.buttons["result-1"]
+        reveal(row, in: app)
+        row.click()
+        let back = app.buttons["view-back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["view-peer"].exists, app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["preview-name"].exists, app.debugDescription)
+        XCTAssertFalse(app.buttons["run-search"].exists)
+
+        back.click()
+        reveal(row, in: app)
+        XCTAssertTrue(row.exists, app.debugDescription)
+        XCTAssertEqual(statusText(app), sample)
+        app.terminate()
+    }
+
+    private func openSearch(_ app: XCUIApplication) {
+        let link = app.buttons["search-open"]
+        XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
+        link.click()
+        XCTAssertTrue(app.buttons["run-search"].waitForExistence(timeout: 10), app.debugDescription)
     }
 
     /// Click Search and wait for its finished status; a failed check is reported by the caller.

@@ -96,8 +96,25 @@ enum RustBridge {
             else { throw CoreError.Failed(message: "mutual unavailable") }
             conditions += mutual
         }
-        return try request.searcher.search(key: key, conditions: conditions, employer: request.employer, limit: 0)
+        let result = try request.searcher.search(key: key, conditions: conditions, employer: request.employer, limit: 0)
+        #if DEBUG
+        return try withUITestRow(result)
+        #else
+        return result
+        #endif
     }
+
+    #if DEBUG
+    /// Native UI tests get one row ahead of the real answer: the local node's sample can be empty.
+    private static func withUITestRow(_ result: ProfileSearchResult) throws -> ProfileSearchResult {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-test-found-profile") else { return result }
+        let draft = ProfileDraft(country: "DE", name: "Test Peer", height: 180)
+        let found = FoundProfile(peerId: "12D3KooWUITestFoundProfile", draft: try ProfileRustDraftStore.record(from: draft),
+                                 photos: [], fullPhotos: [], version: 1)
+        return ProfileSearchResult(offered: result.offered, profiles: [found] + result.profiles,
+                                   partial: result.partial, failures: result.failures)
+    }
+    #endif
 
     /// Read this identity's draft or active network settings off the UI thread.
     static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws -> NetworkSettings? {

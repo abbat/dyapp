@@ -54,6 +54,30 @@ final class SearchUITests: XCTestCase {
         app.terminate()
     }
 
+    /// The launch argument puts one row ahead of the local node's answer, whose sample can be empty.
+    func testFoundRowOpensItsProfileAndBackKeepsTheSample() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-found-profile"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openSearch(app)
+        run(app)
+        let sample = statusText(app)
+
+        reveal(app.buttons["result-1"], in: app).tap()
+        let back = app.buttons["view-back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["view-peer"].exists, app.debugDescription)
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["preview-name"], in: app).exists, app.debugDescription)
+        XCTAssertFalse(app.buttons["run-search"].exists)
+
+        reveal(back, in: app, above: true).tap()
+        XCTAssertTrue(reveal(app.buttons["result-1"], in: app).exists, app.debugDescription)
+        XCTAssertEqual(statusText(app), sample)
+        app.terminate()
+    }
+
     /// Continue opens the profile form over the start screen, so step back to the search link.
     private func openSearch(_ app: XCUIApplication) {
         if app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10) {

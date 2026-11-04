@@ -8,8 +8,9 @@ published profiles. A sample is not a complete list, and the app lists only prof
 and filters it verified. After the first sample, filters appear for the fields the nodes offer: age,
 height, country and place, **Only people looking for someone like me** (it needs your gender and a
 birth date that gives your exact age in the saved profile) and more values. Each result shows the end
-of the Peer ID, the possible age and the country. When some nodes fail, the matches found stay and
-each node problem is listed.
+of the Peer ID, the possible age and the country. Opening a result shows its full Peer ID and public
+fields, and **Back to results** returns to the same sample without a new query. When some nodes fail,
+the matches found stay and each node problem is listed.
 
 After creating or reopening an identity without an active network, the connection form opens
 automatically. An identity with an active network reaches Ready; **Network connection** opens

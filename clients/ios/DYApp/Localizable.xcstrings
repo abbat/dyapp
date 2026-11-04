@@ -1367,6 +1367,18 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска прислал искажённый или поддельный ответ; он отброшен." } }
       }
     },
+    "search.peer": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Peer ID: %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Peer ID: %1$@" } }
+      }
+    },
+    "view.back": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "К результатам" } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
