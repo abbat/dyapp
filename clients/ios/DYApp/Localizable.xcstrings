@@ -1379,6 +1379,546 @@
         "ru": { "stringUnit": { "state": "translated", "value": "К результатам" } }
       }
     },
+    "chats.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Chats" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Чаты" } }
+      }
+    },
+    "chats.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No conversations yet." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пока нет переписок." } }
+      }
+    },
+    "chats.identity": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only the chats of this identity are shown." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показаны только чаты этой личности." } }
+      }
+    },
+    "chats.liked": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Liked you" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Вы понравились" } }
+      }
+    },
+    "chats.likedText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Like back to match." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ответьте взаимностью, чтобы симпатия стала взаимной." } }
+      }
+    },
+    "chats.likedMissing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No node returned some of these profiles." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Часть этих профилей не вернул ни один узел." } }
+      }
+    },
+    "chats.none": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Nobody has liked you yet." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пока вы никому не понравились." } }
+      }
+    },
+    "chats.requests": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message requests" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Запросы на переписку" } }
+      }
+    },
+    "chats.requestsText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "From people you have not matched. They do not know you read them." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "От тех, с кем нет взаимности. Они не узнают, что вы прочитали." } }
+      }
+    },
+    "chats.noRequests": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No message requests." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет запросов на переписку." } }
+      }
+    },
+    "chats.conversations": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Conversations" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Переписки" } }
+      }
+    },
+    "chats.noMessages": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No messages yet." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пока нет сообщений." } }
+      }
+    },
+    "chats.deleted": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message deleted" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение удалено" } }
+      }
+    },
+    "chats.forwarded": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Forwarded · %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Переслано · %1$@" } }
+      }
+    },
+    "chats.unread": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unread messages: %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Непрочитанных сообщений: %1$@" } }
+      }
+    },
+    "chats.muted": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Muted" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Без уведомлений" } }
+      }
+    },
+    "chats.blockedNotNeeded": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked on this device. No issued tokens needed revocation." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокирован на этом устройстве. Выданных токенов для отзыва нет." } }
+      }
+    },
+    "chats.blockedConfirmed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked on this device. A node accepted the token revocation." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокирован на этом устройстве. Узел подтвердил отзыв токенов." } }
+      }
+    },
+    "chats.blockedPending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked on this device. Revoking their network tokens is pending." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокирован на этом устройстве. Отзыв его токенов в сети ожидается." } }
+      }
+    },
+    "view.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Написать" } }
+      }
+    },
+    "view.like": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Like" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нравится" } }
+      }
+    },
+    "view.liked": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Liked" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Вы отметили" } }
+      }
+    },
+    "view.match": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You like each other." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Симпатия взаимна." } }
+      }
+    },
+    "view.matchText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Write as much as you like." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пишите сколько хотите." } }
+      }
+    },
+    "view.firstHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Until you like each other, you can send one message and then wait for a reply." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пока симпатия не взаимна, можно отправить одно сообщение и дождаться ответа." } }
+      }
+    },
+    "view.unlikeHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Press Liked to take the like back; the match ends for both of you." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нажмите «Вы отметили», чтобы отменить; взаимность пропадёт у обоих." } }
+      }
+    },
+    "view.sending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sending…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отправка…" } }
+      }
+    },
+    "view.likeFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The like was not sent." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Симпатия не отправлена." } }
+      }
+    },
+    "view.likeUnpublished": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Publish your profile first, so the other person sees who likes them." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сначала опубликуйте профиль, чтобы человек видел, кому он понравился." } }
+      }
+    },
+    "view.likeNotConnected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No active network node answered. Check the connection, then retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет ответа от узла действующей сети. Проверьте подключение и повторите." } }
+      }
+    },
+    "view.likePending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saved on this device. It goes out when a node answers." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранено на этом устройстве. Уйдёт, когда ответит узел." } }
+      }
+    },
+    "view.pass": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pass" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропустить" } }
+      }
+    },
+    "view.unpass": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Undo pass" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить пропуск" } }
+      }
+    },
+    "view.passed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Passed. They are hidden from your search and Liked you, and they are not told." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропущено. Человек скрыт из вашего поиска и списка «Вы понравились» и об этом не узнает." } }
+      }
+    },
+    "view.unpassed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pass undone. They can appear in your search and Liked you again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропуск отменён. Человек снова может появиться в поиске и списке «Вы понравились»." } }
+      }
+    },
+    "view.passFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The pass was not saved." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропуск не сохранён." } }
+      }
+    },
+    "view.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Loading the profile…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Загрузка профиля…" } }
+      }
+    },
+    "view.notFound": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No node returned this profile: it may be hidden or withdrawn." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ни один узел не вернул этот профиль: возможно, его скрыли или сняли с публикации." } }
+      }
+    },
+    "view.loadFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The profile could not be loaded." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось загрузить профиль." } }
+      }
+    },
+    "unlike.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Take the like back?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить симпатию?" } }
+      }
+    },
+    "unlike.text": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "If you match, the chat closes for both of you and your copy is erased; theirs stays with them. You can like again later." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Если симпатия взаимна, переписка закроется у обоих и ваша копия удалится; копия собеседника останется. Отметить снова можно позже." } }
+      }
+    },
+    "unlike.action": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Take back" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить симпатию" } }
+      }
+    },
+    "chat.closedNotice": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You no longer match, so this chat is closed. A new match reopens it." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Взаимной симпатии больше нет, поэтому переписка закрыта. Новая взаимная симпатия откроет её снова." } }
+      }
+    },
+    "chat.firstNotice": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You have not matched yet, so you can send one message until they reply." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Взаимности пока нет, поэтому до ответа можно отправить одно сообщение." } }
+      }
+    },
+    "chat.firstWait": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Waiting for a reply. A like from them also opens the chat." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ждём ответа. Взаимная симпатия тоже откроет переписку." } }
+      }
+    },
+    "chat.requestNotice": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message request: you have not matched. Reply below to start the conversation." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Запрос на переписку: взаимности нет. Ответьте ниже, чтобы начать разговор." } }
+      }
+    },
+    "chat.placeholder": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение" } }
+      }
+    },
+    "chat.send": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Send" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отправить" } }
+      }
+    },
+    "chat.sending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sending…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отправка…" } }
+      }
+    },
+    "chat.pending": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pending" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ожидает отправки" } }
+      }
+    },
+    "chat.sent": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Sent" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отправлено" } }
+      }
+    },
+    "chat.delivered": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delivered" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Доставлено" } }
+      }
+    },
+    "chat.read": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Read" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Прочитано" } }
+      }
+    },
+    "chat.edited": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "edited" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "изменено" } }
+      }
+    },
+    "chat.tooLong": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message exceeds 64 KiB." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение длиннее 64 КиБ." } }
+      }
+    },
+    "chat.queued": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Saved on this device. Network delivery is pending." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранено на этом устройстве. Доставка в сеть ожидается." } }
+      }
+    },
+    "chat.sendFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message was not sent." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение не отправлено." } }
+      }
+    },
+    "chat.unpublished": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Both of you need a published profile to start a chat." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Для начала переписки у вас обоих должны быть опубликованные профили." } }
+      }
+    },
+    "chat.loadFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This chat could not be opened." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось открыть чат." } }
+      }
+    },
+    "chat.more": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "More" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ещё" } }
+      }
+    },
+    "chat.clear": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Clear chat" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Очистить переписку" } }
+      }
+    },
+    "chat.block": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Block" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокировать" } }
+      }
+    },
+    "chat.cleared": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Chat cleared on this device" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Переписка очищена на этом устройстве" } }
+      }
+    },
+    "chat.clearFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This chat could not be cleared." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось очистить переписку." } }
+      }
+    },
+    "chat.blockFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This person could not be blocked." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось заблокировать человека." } }
+      }
+    },
+    "chat.mute": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Mute notifications" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отключить уведомления" } }
+      }
+    },
+    "chat.unmute": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unmute notifications" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Включить уведомления" } }
+      }
+    },
+    "chat.muteFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The notifications for this person could not be changed." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось изменить уведомления для этого человека." } }
+      }
+    },
+    "rename.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Name this contact" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Назвать контакт" } }
+      }
+    },
+    "rename.label": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Name on this device" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Имя на этом устройстве" } }
+      }
+    },
+    "rename.hint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only you see this name. Leave it empty to remove it." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Это имя видите только вы. Оставьте поле пустым, чтобы убрать его." } }
+      }
+    },
+    "rename.save": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Save name" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сохранить имя" } }
+      }
+    },
+    "rename.invalid": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use up to 64 characters with no hidden symbols." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Используйте до 64 символов без скрытых знаков." } }
+      }
+    },
+    "rename.failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not save the name: %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось сохранить имя: %1$@" } }
+      }
+    },
+    "msg.menu": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Message actions" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Действия с сообщением" } }
+      }
+    },
+    "chat.edit": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Edit" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Изменить" } }
+      }
+    },
+    "chat.delete": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delete" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить" } }
+      }
+    },
+    "chat.editing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Editing a message. Send saves the change." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Изменение сообщения. Отправка сохранит правку." } }
+      }
+    },
+    "chat.editFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This message could not be edited." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение не удалось изменить." } }
+      }
+    },
+    "chat.editQueued": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Edit saved on this device. Network delivery is pending." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Правка сохранена на этом устройстве. Доставка в сеть ожидается." } }
+      }
+    },
+    "chat.deleteFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This message could not be deleted." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщение не удалось удалить." } }
+      }
+    },
+    "chat.deleteQueued": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Deleted here. The request to the peer is pending." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалено здесь. Просьба собеседнику ещё не доставлена." } }
+      }
+    },
+    "delete.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Delete this message?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Удалить сообщение?" } }
+      }
+    },
+    "delete.text": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "It disappears here, and the peer's app is asked to delete it too. A copy saved elsewhere may stay." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Оно исчезнет здесь, а приложение собеседника получит просьбу удалить его. Копия, сохранённая где-то ещё, может остаться." } }
+      }
+    },
+    "clear.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Clear this chat?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Очистить переписку?" } }
+      }
+    },
+    "clear.text": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "All messages in this chat are deleted from this device. The other person keeps their copy." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Все сообщения этой переписки удаляются с этого устройства. У собеседника они останутся." } }
+      }
+    },
+    "clear.later": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cleared messages do not come back, even if delivered again. Unsent messages are cancelled. The match stays." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Очищенные сообщения не вернутся, даже если придут повторно. Неотправленные сообщения отменяются. Взаимная симпатия остаётся." } }
+      }
+    },
+    "clear.action": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Clear chat" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Очистить" } }
+      }
+    },
+    "block.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Block this person?" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокировать этого человека?" } }
+      }
+    },
+    "block.text": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "They are hidden from search and chats on your devices and are not told. Texts they send while blocked are dropped." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Он будет скрыт из поиска и чатов на ваших устройствах и ничего не узнает. Его сообщения во время блокировки отбрасываются." } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
