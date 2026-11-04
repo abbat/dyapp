@@ -35,7 +35,7 @@ The scales must survive later releases, when old nodes and clients meet new valu
 |-------------|----------------------|
 | `gender` (36) | 1 woman, 2 man, 3 non-binary, 4 other |
 | `orientation` (37) | 1 heterosexual, 2 gay/lesbian, 3 bisexual, 4 asexual, 5 other |
-| `relationship_goal` (38) | 1 serious relationship, 2 marriage, 3 casual, 4 friendship, 5 not sure yet |
+| `relationship_goal` (38) | 1 serious relationship, 2 marriage, 3 no strings attached (key `Casual`, the name it had at first), 4 friendship, 5 not sure yet, 6 short-term relationships |
 | `role_preference` (39) | 1 breadwinner, 2 equal, 3 homemaker |
 | `career_ambition` (40) | 10 low, 20 moderate, 30 high |
 | `financial_philosophy` (41) | 10 saver, 20 balanced, 30 spender |

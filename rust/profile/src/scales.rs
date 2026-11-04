@@ -72,7 +72,8 @@ scale!(
         Marriage = 2,
         Casual = 3,
         Friendship = 4,
-        NotSureYet = 5
+        NotSureYet = 5,
+        ShortTerm = 6
     ]
 );
 // Preferred role in the family.
@@ -264,6 +265,14 @@ mod tests {
                 assert!(codes.iter().all(|code| code % 10 == 0), "{}", scale.key);
             }
         }
+    }
+
+    #[test]
+    fn renaming_a_relationship_goal_keeps_its_wire_value_and_key() {
+        // Only the shown text of `Casual` changed; profiles already signed still carry 3.
+        assert_eq!(RelationshipGoal::Casual.code(), 3);
+        assert_eq!(RelationshipGoal::Casual.key(), "Casual");
+        assert_eq!(RelationshipGoal::ShortTerm.code(), 6);
     }
 
     #[test]

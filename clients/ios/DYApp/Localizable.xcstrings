@@ -3042,13 +3042,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Casual"
+            "value": "No strings attached"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Лёгкие отношения"
+            "value": "Без обязательств"
           }
         }
       }
@@ -3081,6 +3081,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Пока не знаю"
+          }
+        }
+      }
+    },
+    "profile.value.relationship_goal.ShortTerm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short-term relationships"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Краткосрочные отношения"
           }
         }
       }

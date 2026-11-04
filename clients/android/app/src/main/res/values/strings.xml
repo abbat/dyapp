@@ -426,9 +426,10 @@
     <string name="profile_value_orientation_Other">Other</string>
     <string name="profile_value_relationship_goal_SeriousRelationship">Serious relationship</string>
     <string name="profile_value_relationship_goal_Marriage">Marriage</string>
-    <string name="profile_value_relationship_goal_Casual">Casual</string>
+    <string name="profile_value_relationship_goal_Casual">No strings attached</string>
     <string name="profile_value_relationship_goal_Friendship">Friendship</string>
     <string name="profile_value_relationship_goal_NotSureYet">Not sure yet</string>
+    <string name="profile_value_relationship_goal_ShortTerm">Short-term relationships</string>
     <string name="profile_value_role_preference_Breadwinner">Breadwinner</string>
     <string name="profile_value_role_preference_Equal">Equal partners</string>
     <string name="profile_value_role_preference_Homemaker">Homemaker</string>

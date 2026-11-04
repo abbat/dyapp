@@ -425,9 +425,10 @@
     <string name="profile_value_orientation_Other">Другое</string>
     <string name="profile_value_relationship_goal_SeriousRelationship">Серьёзные отношения</string>
     <string name="profile_value_relationship_goal_Marriage">Брак</string>
-    <string name="profile_value_relationship_goal_Casual">Лёгкие отношения</string>
+    <string name="profile_value_relationship_goal_Casual">Без обязательств</string>
     <string name="profile_value_relationship_goal_Friendship">Дружба</string>
     <string name="profile_value_relationship_goal_NotSureYet">Пока не знаю</string>
+    <string name="profile_value_relationship_goal_ShortTerm">Краткосрочные отношения</string>
     <string name="profile_value_role_preference_Breadwinner">Основной добытчик</string>
     <string name="profile_value_role_preference_Equal">Равноправие</string>
     <string name="profile_value_role_preference_Homemaker">Домашнее хозяйство</string>
