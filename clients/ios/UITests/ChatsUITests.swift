@@ -220,7 +220,12 @@ final class ChatsUITests: XCTestCase {
         ], timeout: 10), .completed)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
-        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        // The proof has no time limit and only these tests fail 60 s: a slow proof would end in this wait.
+        if !readback.waitForExistence(timeout: 180) {
+            // Below the fold: the nonce gives the proof's rate, the status row a publish still running.
+            _ = reveal(app.descendants(matching: .any)["profile-proof-progress"], in: app, timeout: 5)
+            XCTFail(app.debugDescription)
+        }
     }
 
     private func createIdentity(_ app: XCUIApplication) {
