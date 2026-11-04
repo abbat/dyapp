@@ -21,6 +21,7 @@ targets:
               ../ios/DYApp/ProfileRustDraftStore.swift, ../ios/DYApp/ProfileSolveSession.swift,
               ../ios/DYApp/ProfileProofControls.swift, ../ios/DYApp/PlacePicker.swift,
               ../ios/DYApp/ProfilePreviewView.swift, ../ios/DYApp/ProfileExtraFields.swift,
+              ../ios/DYApp/SearchFilters.swift, ../ios/DYApp/SearchSession.swift, ../ios/DYApp/SearchView.swift,
               ../ios/DYApp/RustBridge.swift,
               ../ios/DYApp/PlatformKeyStore.swift, ../ios/DYApp/IdentitySlotStore.swift,
               ../ios/DYApp/Localizable.xcstrings, Assets.xcassets,
@@ -40,7 +41,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests/AppTests.swift, ../ios/Tests/PlatformKeyStoreTests.swift, ../ios/Tests/IdentitySlotStoreTests.swift,
-              ../ios/Tests/NetworkDraftTests.swift, ../ios/Tests/ProfileDraftStoreTests.swift]
+              ../ios/Tests/NetworkDraftTests.swift, ../ios/Tests/ProfileDraftStoreTests.swift, ../ios/Tests/SearchFiltersTests.swift]
     dependencies:
       - target: DYApp
     settings:

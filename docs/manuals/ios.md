@@ -1,7 +1,15 @@
 # iOS client
 
-The `DYApp` client for iOS runs on iOS 15 or later. It covers identities, the network connection
-and the public profile. Search and chats are planned.
+The `DYApp` client for iOS runs on iOS 15 or later. It covers identities, the network connection,
+the public profile and search. Chats are planned.
+
+**Search** on the Ready screen asks the search nodes of the active network for a sample of
+published profiles. A sample is not a complete list, and the app lists only profiles whose signature
+and filters it verified. After the first sample, filters appear for the fields the nodes offer: age,
+height, country and place, **Only people looking for someone like me** (it needs your gender and a
+birth date that gives your exact age in the saved profile) and more values. Each result shows the end
+of the Peer ID, the possible age and the country. When some nodes fail, the matches found stay and
+each node problem is listed.
 
 After creating or reopening an identity without an active network, the connection form opens
 automatically. An identity with an active network reaches Ready; **Network connection** opens

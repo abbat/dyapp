@@ -17,26 +17,34 @@ struct PlacePicker: View {
     @Binding var place: UInt32?
     @Binding var text: String
     let disabled: Bool
+    /// Search reuses these rows with its own ids, its "any" wording and only the fields a node offers.
+    var idPrefix = "profile"
+    var anyLabel: LocalizedStringKey = "profile.unset"
+    var placeShown = true
 
     var body: some View {
         NavigationLink {
-            CountryList(pick: pickCountry)
+            CountryList(anyLabel: anyLabel, pick: pickCountry)
         } label: {
             HStack {
                 Text("profile.country")
                 Spacer()
-                if country.isEmpty { Text("profile.unset") } else { Text(verbatim: countryName(country)) }
+                if country.isEmpty { Text(anyLabel) } else { Text(verbatim: countryName(country)) }
             }
         }
         .disabled(disabled)
-        .accessibilityIdentifier("profile-country")
+        .accessibilityIdentifier(idPrefix + "-country")
+        if placeShown { placeRows }
+    }
+
+    @ViewBuilder private var placeRows: some View {
         TextField("profile.place", text: Binding(get: { text }, set: { typed in
             guard typed != text else { return }
             text = typed
             place = nil
         }))
         .disabled(disabled || country.isEmpty)
-        .accessibilityIdentifier("profile-place")
+        .accessibilityIdentifier(idPrefix + "-place")
         if place == nil && !text.isEmpty {
             ForEach(searchPlaces(country: country, prefix: text, lang: placeLang(), limit: 5), id: \.id) { found in
                 Button(placeLabel(found)) {
@@ -59,6 +67,7 @@ struct PlacePicker: View {
 
 /// Every picker country by its localized name, filtered by the search text.
 private struct CountryList: View {
+    let anyLabel: LocalizedStringKey
     let pick: (String) -> Void
     @State private var query = ""
     @Environment(\.dismiss) private var dismiss
@@ -67,7 +76,7 @@ private struct CountryList: View {
 
     var body: some View {
         List {
-            Button("profile.unset") { choose("") }
+            Button(anyLabel) { choose("") }
                 .accessibilityIdentifier("country-none")
             ForEach(countries.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) },
                     id: \.code) { country in

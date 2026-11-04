@@ -25,6 +25,7 @@ struct ContentView: View {
     @State private var pickerActionFailed = false
     @State private var profilePending = false
     @State private var profileOpen = false
+    @StateObject private var search = SearchSession()
 
     private var selectedMarker: String? {
         if case let .ready(candidate, _) = identity { return candidate.location.marker }
@@ -115,6 +116,10 @@ struct ContentView: View {
                             profileOpen = true
                         }
                     }
+                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId)) {
+                        Text("search.title")
+                    }
+                    .accessibilityIdentifier("search-open")
 
                 case .readFailed:
                     Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")
