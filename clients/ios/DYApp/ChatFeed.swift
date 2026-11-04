@@ -29,9 +29,9 @@ final class ChatFeed: ObservableObject {
     @Published private(set) var blocked: ChatBlock?
     /// How the screens name each peer, as far as read.
     @Published private(set) var names: [String: ContactNameView] = [:]
+    /// Holds the fetched profiles that the public names and photos come from.
+    let photos = PeerPhotos()
     private var identity: ChatIdentity?
-    /// Holds the fetched profiles that the public names come from.
-    private var searcher: ProfileSearcher?
     #if DEBUG
     private var testPeerStarted = false
     #endif
@@ -49,9 +49,9 @@ final class ChatFeed: ObservableObject {
             likedProfiles = nil
             blocked = nil
             names = [:]
-            searcher = nil
         }
         self.identity = identity
+        photos.use(identity)
         #if DEBUG
         if ChatTestPeer.enabled, !testPeerStarted {
             testPeerStarted = true
@@ -143,14 +143,15 @@ final class ChatFeed: ObservableObject {
         }
     }
 
-    /// Reads the names, then again with the public ones a fetch brings. A failed fetch keeps what
-    /// shows, and the next view tries again.
+    /// Reads the names, then again with the public ones a fetch brings, then the main thumbnails.
+    /// A failed fetch keeps what shows, and the next view tries again.
     func loadNames(_ peers: [String]) async {
         guard !peers.isEmpty else { return }
         await readNames(peers)
-        guard let searcher else { return }
+        guard let searcher = photos.searcher else { return }
         await Task.detached(priority: .utility) { _ = try? searcher.profiles(peerIds: peers) }.value
         await readNames(peers)
+        await photos.fetch(peers.compactMap { names[$0]?.photo }, full: false)
     }
 
     /// Saves the name on this device; nil when it held, else the line to show.
@@ -168,8 +169,8 @@ final class ChatFeed: ObservableObject {
     /// A failed read keeps the last names.
     private func readNames(_ peers: [String]) async {
         guard let identity else { return }
-        if searcher == nil { searcher = try? RustBridge.profileSearcher(for: identity.candidate) }
-        guard let searcher else { return }
+        photos.use(identity)
+        guard let searcher = photos.searcher else { return }
         let read = await Task.detached(priority: .userInitiated) {
             ChatOutcome(result: Result { try RustBridge.contactNames(identity, searcher: searcher, peers: peers) })
         }.value.result
@@ -199,5 +200,8 @@ final class ChatFeed: ObservableObject {
         let peers = liked
         let result = await call { try $0.profiles(peerIds: peers) }
         if !Task.isCancelled { likedProfiles = result }
+        if case let .success(found) = result {
+            await photos.fetch(found.compactMap { $0.photos.first }, full: false)
+        }
     }
 }

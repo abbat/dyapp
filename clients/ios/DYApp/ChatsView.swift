@@ -50,7 +50,7 @@ struct ChatsView: View {
                 count: feed.liked.count, open: $feed.likedOpen
             )
             if feed.likedOpen {
-                LikedList(liked: feed.liked, fetch: feed.likedProfiles) {
+                LikedList(liked: feed.liked, fetch: feed.likedProfiles, photos: feed.photos) {
                     opened = OpenedProfile(peer: $0.peerId, known: $0)
                 }
             }
@@ -78,7 +78,8 @@ struct ChatsView: View {
             Button {
                 chat = row.peerId
             } label: {
-                ChatListRow(row: row, label: contactLabel(row.peerId, feed.names[row.peerId]))
+                ChatListRow(row: row, label: contactLabel(row.peerId, feed.names[row.peerId]),
+                            photos: feed.photos, photo: feed.names[row.peerId]?.photo)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("\(prefix)-\(index + 1)")
@@ -154,6 +155,7 @@ private struct ChatsExpandRow: View {
 private struct LikedList: View {
     let liked: [String]
     let fetch: Result<[FoundProfile], Error>?
+    let photos: PeerPhotos
     let open: (FoundProfile) -> Void
 
     var body: some View {
@@ -182,7 +184,7 @@ private struct LikedList: View {
             Button {
                 open(profile)
             } label: {
-                SearchResultRow(found: profile)
+                SearchResultRow(found: profile, photos: photos)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("liked-\(index + 1)")
@@ -194,9 +196,12 @@ private struct LikedList: View {
 private struct ChatListRow: View {
     let row: ChatRow
     let label: String
+    let photos: PeerPhotos
+    let photo: Data?
 
     var body: some View {
         HStack {
+            PeerAvatar(photos: photos, peer: row.peerId, hash: photo)
             VStack(alignment: .leading) {
                 Text(verbatim: label).font(.headline)
                 Text(verbatim: chatPreview(row.lastMessage)).lineLimit(1)

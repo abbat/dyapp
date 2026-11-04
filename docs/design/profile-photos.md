@@ -12,7 +12,10 @@ and Android shows other people's photos on search results, liked cards and the p
 (`PeerPhotos.kt`) and the draft's main photo on the own avatar. Android chat rows and the chat
 header show the peer's main photo with the contact name (`ContactNames.kt`), from profiles the
 searcher fetches when Chats or a chat opens. The Apple profile form adds, moves and removes photos
-(`ProfilePhotos.swift`, `PhotoPrep.swift`); viewing on Apple is planned.
+(`ProfilePhotos.swift`, `PhotoPrep.swift`), and Apple shows other people's photos on search results,
+liked cards, chat rows, the chat header and the profile page (`PeerPhotos.swift`). Apple has no own
+avatar to show. Neither Android nor Apple reports its network type yet, so the core treats every
+network as metered there and a full image waits for a tap.
 
 ## Limits
 

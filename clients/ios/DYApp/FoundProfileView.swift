@@ -20,6 +20,7 @@ struct FoundProfileView: View {
                 .font(.caption)
                 .textSelection(.enabled)
                 .accessibilityIdentifier("view-peer")
+            if let found = page.found { PeerGallery(photos: feed.photos, found: found) }
             if !own { ProfileLikesBlock(page: page, message: message) }
             fields
             if !own { ProfileQuietActions(page: page, blocked: blocked) }

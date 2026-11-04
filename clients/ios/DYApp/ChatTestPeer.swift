@@ -43,6 +43,10 @@ enum ChatTestPeer {
         }
         let solver = try ProfileSolve(dir: dir.path, key: key)
         while try !solver.runStep(attested: true).solved {}
+        if likesFirst {
+            let photo = try PhotoPrep.prepare(PhotoPrep.samplePNG(width: 640, height: 480, red: 0.5, alpha: 1))
+            _ = try addProfilePhoto(dir: dir.path, key: key, full: photo.full, thumbnail: photo.thumbnail)
+        }
         // shortcut: the peer's Keychain wrapping key stays behind after a run, harmless on a test machine.
         let store = PlatformKeyStore.forSlot(UUID())
         let session = try ChatSession.open(

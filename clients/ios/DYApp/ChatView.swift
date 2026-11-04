@@ -71,7 +71,10 @@ struct ChatView: View {
     private var header: some View {
         HStack {
             Button(action: profile) {
-                Text(verbatim: contactLabel(peer, feed.names[peer])).font(.headline)
+                HStack {
+                    PeerAvatar(photos: feed.photos, peer: peer, hash: feed.names[peer]?.photo)
+                    Text(verbatim: contactLabel(peer, feed.names[peer])).font(.headline)
+                }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("chat-profile")

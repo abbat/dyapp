@@ -51,4 +51,15 @@ extension RustBridge {
         guard key.peerId() == identity.peerId else { throw IdentitySlotError.peerIDMismatch }
         return try searcher.contactNames(key: key, peerIds: peers)
     }
+
+    // shortcut: Apple reports no network type, so the core treats it as metered and full images wait
+    // for a tap; report it with NWPathMonitor to load them by themselves on Wi-Fi.
+    /// Whether full peer photos load without a tap now; waits like a session for the same reason.
+    static func peerPhotosLoadByThemselves(_ identity: ChatIdentity) throws -> Bool {
+        chatsLock.lock()
+        defer { chatsLock.unlock() }
+        let key = try identityStore().open(identity.candidate.location)
+        guard key.peerId() == identity.peerId else { throw IdentitySlotError.peerIDMismatch }
+        return try peerPhotoAuto(dir: networkDirectory(root: try directory(), candidate: identity.candidate).path, key: key)
+    }
 }

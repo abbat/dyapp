@@ -18,7 +18,7 @@ targets:
     sources: [src/App.swift, ../ios/DYApp/ContentView.swift, ../ios/DYApp/IdentitySettingsView.swift,
               ../ios/DYApp/NetworkDraftView.swift,
               ../ios/DYApp/NetworkConnectionSession.swift, ../ios/DYApp/ProfileDraftView.swift,
-              ../ios/DYApp/PhotoPrep.swift, ../ios/DYApp/ProfilePhotos.swift,
+              ../ios/DYApp/PeerPhotos.swift, ../ios/DYApp/PhotoPrep.swift, ../ios/DYApp/ProfilePhotos.swift,
               ../ios/DYApp/ProfileRustDraftStore.swift, ../ios/DYApp/ProfileSolveSession.swift,
               ../ios/DYApp/ProfileProofControls.swift, ../ios/DYApp/PlacePicker.swift,
               ../ios/DYApp/ProfilePreviewView.swift, ../ios/DYApp/ProfileExtraFields.swift,

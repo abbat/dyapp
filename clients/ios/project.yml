@@ -17,7 +17,7 @@ targets:
     platform: iOS
     sources: [DYApp/App.swift, DYApp/ContentView.swift, DYApp/IdentitySettingsView.swift,
               DYApp/NetworkDraftView.swift, DYApp/NetworkConnectionSession.swift,
-              DYApp/ProfileDraftView.swift, DYApp/PhotoPrep.swift, DYApp/ProfilePhotos.swift, DYApp/ProfileRustDraftStore.swift, DYApp/PlacePicker.swift,
+              DYApp/ProfileDraftView.swift, DYApp/PeerPhotos.swift, DYApp/PhotoPrep.swift, DYApp/ProfilePhotos.swift, DYApp/ProfileRustDraftStore.swift, DYApp/PlacePicker.swift,
               DYApp/ProfileSolveSession.swift, DYApp/ProfileProofControls.swift, DYApp/RustBridge.swift,
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift, DYApp/ProfilePreviewView.swift, DYApp/ProfileExtraFields.swift,

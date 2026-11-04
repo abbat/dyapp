@@ -83,6 +83,14 @@ final class ChatsUITests: XCTestCase {
         row.tap()
 
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
+        // Only a drawn photo has this label; the full image then ends the offer to load it.
+        let photo = reveal(app.descendants(matching: .any)["view-photo"], in: app)
+        let drawn = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Photo 1 of 1'"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [drawn], timeout: 60), .completed, app.debugDescription)
+        let loadFull = reveal(app.buttons["view-photo-load"], in: app)
+        loadFull.tap()
+        waitGone(loadFull, in: app)
+
         reveal(app.buttons["view-pass"], in: app).tap()
         reveal(app.buttons["view-unpass"], in: app).tap()
         reveal(app.buttons["view-like"], in: app, above: true).tap()

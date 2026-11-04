@@ -72,7 +72,7 @@ struct SearchView: View {
             }
 
         case let .done(result):
-            SearchResults(result: result, open: { opened = $0 }, again: { session.run() })
+            SearchResults(result: result, photos: feed.photos, open: { opened = $0 }, again: { session.run() })
         }
     }
 }
@@ -81,18 +81,23 @@ struct SearchView: View {
 /// offering another one.
 private struct SearchResults: View {
     let result: ProfileSearchResult
+    let photos: PeerPhotos
     let open: (FoundProfile) -> Void
     let again: () -> Void
 
+    private var mainPhotos: [Data] { result.profiles.compactMap { $0.photos.first } }
+
     var body: some View {
-        Text(verbatim: searchCountText(result)).accessibilityIdentifier("search-status")
+        Text(verbatim: searchCountText(result))
+            .accessibilityIdentifier("search-status")
+            .task(id: mainPhotos) { await photos.fetch(mainPhotos, full: false) }
         if result.profiles.isEmpty { Text("search.emptyText").font(.caption) }
         ForEach(Array(result.failures.enumerated()), id: \.offset) { _, failure in
             Text(verbatim: searchFailureText(failure)).font(.caption)
                 .accessibilityIdentifier("search-failures")
         }
         ForEach(Array(result.profiles.enumerated()), id: \.offset) { index, found in
-            Button { open(found) } label: { SearchResultRow(found: found) }
+            Button { open(found) } label: { SearchResultRow(found: found, photos: photos) }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("result-\(index + 1)")
         }
@@ -103,9 +108,10 @@ private struct SearchResults: View {
     }
 }
 
-/// One verified profile: the short Peer ID, its possible age and country.
+/// One verified profile: the main photo, the short Peer ID, its possible age and country.
 struct SearchResultRow: View {
     let found: FoundProfile
+    let photos: PeerPhotos
 
     private var summary: String {
         let draft = ProfileRustDraftStore.values(from: found.draft)
@@ -120,9 +126,12 @@ struct SearchResultRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text(verbatim: "@\(found.peerId.suffix(6))").font(.headline)
-            Text(verbatim: summary).font(.caption)
+        HStack {
+            PeerAvatar(photos: photos, peer: found.peerId, hash: found.photos.first)
+            VStack(alignment: .leading) {
+                Text(verbatim: "@\(found.peerId.suffix(6))").font(.headline)
+                Text(verbatim: summary).font(.caption)
+            }
         }
     }
 }

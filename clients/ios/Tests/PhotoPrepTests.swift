@@ -28,6 +28,12 @@ final class PhotoPrepTests: XCTestCase {
         XCTAssertEqual(try checkPreview(bytes: photo.thumbnail).width, 320)
     }
 
+    func testAFullPeerPhotoMustBeAJpeg() throws {
+        let png = try PhotoPrep.samplePNG(width: 8, height: 8, red: 1, alpha: 1)
+        XCTAssertNil(fullPhotoImage(png))
+        XCTAssertNotNil(fullPhotoImage(try PhotoPrep.prepare(png).full))
+    }
+
     func testCoreCodesPickTheirText() {
         XCTAssertEqual(photoErrorKey(CoreError.Failed(message: "photoRefused")), "profile.photoRefused")
         XCTAssertEqual(photoErrorKey(CoreError.Failed(message: "corrupted")), "profile.photoUnsupported")
