@@ -685,6 +685,12 @@ the screen is the same form with one status line).
 
 Findings: none open.
 
+Checkbox rows (2026-11-04): every checkbox in a `.choice` row is now 24 px, the WCAG 2.2 minimum
+target, after the search page's mutual box failed the audit on Linux only. H4: all these boxes stay
+alike. H8: no new control or text. Reviewed from the CSS, not rendered; the CI audit covers the size.
+
+Findings: none open.
+
 ### Accepted exceptions
 
 None.

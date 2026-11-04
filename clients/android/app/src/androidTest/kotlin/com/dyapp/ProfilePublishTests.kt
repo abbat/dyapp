@@ -52,7 +52,11 @@ internal fun ComposeTestRule.publishToReadback() {
     // A failed publish waits in the dialog, so stop there and say which step never ended.
     runCatching {
         waitUntil(READBACK_WAIT_MS) { shown("profile-published-readback") || shown("profile-publish-error") }
-    }.onFailure { throw AssertionError("Stuck, publishing step: ${shown("profile-publish-status")}", it) }
+    }.onFailure {
+        val state = "publishing step: ${shown("profile-publish-status")}, " +
+            "dialog: ${shown("profile-publish-confirm")}, proof: ${texts("profile-proof-progress")}"
+        throw AssertionError("Stuck, $state", it)
+    }
     check(!shown("profile-publish-error")) { "Publish failed: ${texts("profile-publish-error")}" }
 }
 

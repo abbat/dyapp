@@ -115,6 +115,8 @@ textarea { font-family: var(--mono); min-height: 88px; resize: vertical; }
 .choice { display: flex; gap: var(--space-2); align-items: flex-start; font-weight: 400;
   margin-bottom: var(--space-2); }
 .choice input { margin-top: 4px; }
+/* A native box is 13 px, so its pass depended on font metrics and on how near the next control was. */
+.choice input[type="checkbox"] { flex: none; width: 24px; height: 24px; margin: 0; }
 /* Bottom alignment keeps a row's boxes level when one label wraps. */
 .grid { display: grid; gap: var(--space-3) var(--space-4); align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
