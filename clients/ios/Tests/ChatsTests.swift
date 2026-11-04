@@ -34,6 +34,9 @@ final class ChatsTests: XCTestCase {
         XCTAssertNotNil(chatSendStatus(offline, staged: false).details, "the draft stays")
         XCTAssertEqual(chatSendStatus(CoreError.Failed(message: "unpublished"), staged: false).key, "chat.unpublished")
         XCTAssertEqual(chatSendStatus(CoreError.Failed(message: "other"), staged: false).key, "chat.sendFailed")
+        let edit = { chatSendStatus(offline, staged: $0, queued: "chat.editQueued", failed: "chat.editFailed") }
+        XCTAssertEqual(edit(true), ChatStatus(key: "chat.editQueued", details: nil))
+        XCTAssertEqual(edit(false).key, "search.notConnected", "as a send, no connection is named")
     }
 
     func testMetaOfADeletedMessageOmitsItsDelivery() {

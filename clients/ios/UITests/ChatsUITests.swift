@@ -58,6 +58,7 @@ final class ChatsUITests: XCTestCase {
         app.buttons["chat-send"].tap()
         XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
         XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
+        editAndDeleteTheReply(app, input: input)
     }
 
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
@@ -86,6 +87,38 @@ final class ChatsUITests: XCTestCase {
                       app.debugDescription)
         reveal(app.buttons["view-message-match"], in: app).tap()
         XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+    }
+
+    private func editAndDeleteTheReply(_ app: XCUIApplication, input: XCUIElement) {
+        menuItem("msg-edit", label: "Edit", in: app).tap()
+        XCTAssertTrue(app.staticTexts["chat-editing"].waitForExistence(timeout: 10), app.debugDescription)
+        input.tap()
+        typeSlowly(" again", into: input)
+        app.buttons["chat-send"].tap()
+        // The field holds the same words until the edit lands, so its end comes first.
+        waitGone(app.staticTexts["chat-editing"], in: app)
+        let edited = shownText("Hello back again", in: app)
+        XCTAssertTrue(edited.waitForExistence(timeout: 30), app.debugDescription)
+
+        menuItem("msg-delete", label: "Delete", in: app).tap()
+        let confirm = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
+        confirm.tap()
+        waitGone(edited, in: app)
+    }
+
+    private func waitGone(_ element: XCUIElement, in app: XCUIApplication) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 60), .completed, app.debugDescription)
+    }
+
+    private func menuItem(_ id: String, label: String, in app: XCUIApplication) -> XCUIElement {
+        let menu = app.buttons["msg-menu"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), app.debugDescription)
+        menu.tap()
+        let item = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, label)).firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 10), app.debugDescription)
+        return item
     }
 
     /// A selectable text may carry its words in its value instead of its label.

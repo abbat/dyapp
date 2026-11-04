@@ -7,7 +7,8 @@ chat screen with message sending.
 **Chats** on the Ready screen lists Liked you, message requests and conversations of the current
 identity. Counts come from local data, and the app checks the mailbox once a minute while it runs.
 A row opens its chat; **Chats** at the top of the chat goes back. A first message waits for a reply
-before you can write more. Text that could not go out yet stays queued and is not sent twice.
+before you can write more. Text that could not go out yet stays queued and is not sent twice. The
+**...** button beside your own message edits it, or deletes it for both sides after a confirmation.
 
 A Liked you row, a search result and the name at the top of a chat open that person's page. **Like**
 sends a like and a mutual like shows a match; **Message** opens the chat. **Liked** takes the like back

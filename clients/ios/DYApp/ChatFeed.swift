@@ -84,6 +84,33 @@ final class ChatFeed: ObservableObject {
         return chatSendStatus(error, staged: stagedNew(before: before, after: after, me: me))
     }
 
+    /// Replaces the text of the own `message`; nil when a node took it, else the line to show.
+    func edit(_ message: ChatMessage, text: String, peer: String) async -> ChatStatus? {
+        let (group, id) = (message.groupId, message.id)
+        let changed = await call { try $0.editText(peerId: peer, groupId: group, messageId: id, text: text) }
+        await read()
+        guard case let .failure(error) = changed else { return nil }
+        let stored = await shown(message, peer: peer)
+        let staged = stored.map { $0.edited && !$0.deleted && $0.text == text } ?? false
+        return chatSendStatus(error, staged: staged, queued: "chat.editQueued", failed: "chat.editFailed")
+    }
+
+    /// Deletes the own `message` here and asks the peer's app to delete it too.
+    func delete(_ message: ChatMessage, peer: String) async -> ChatStatus? {
+        let (group, id) = (message.groupId, message.id)
+        let changed = await call { try $0.deleteText(peerId: peer, groupId: group, messageId: id) }
+        await read()
+        guard case let .failure(error) = changed else { return nil }
+        let staged = await shown(message, peer: peer)?.deleted ?? false
+        return chatSendStatus(error, staged: staged, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
+    }
+
+    /// A failed delivery can follow a stored change, so the failure reads the message again.
+    private func shown(_ message: ChatMessage, peer: String) async -> ChatMessage? {
+        let messages = (try? await call { try $0.chatHistory(peerId: peer) }.get())?.messages
+        return messages?.first { $0.threadKey == message.threadKey }
+    }
+
     /// Marks an open chat read and tells the peer; a read mark that fails to go out waits for the next one.
     func markRead(_ peer: String) async {
         let marked = await call { session -> UInt32 in

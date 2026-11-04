@@ -16,6 +16,10 @@ struct ChatView: View {
     @State private var status: ChatStatus?
     @State private var draft = ""
     @State private var sending = false
+    /// The own message the composer changes, and the draft typed before it.
+    @State private var editing: Data?
+    @State private var held = ""
+    @State private var deleting: ChatMessage?
 
     private var messages: [ChatMessage] { history?.messages ?? [] }
 
@@ -37,6 +41,16 @@ struct ChatView: View {
         .accessibilityIdentifier("chat")
         // The feed counts its reads, so a received message and a finished send both land here.
         .task(id: feed.version) { await reload() }
+        .confirmationDialog(
+            "delete.title",
+            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+            titleVisibility: .visible,
+            presenting: deleting
+        ) { message in
+            Button("chat.delete", role: .destructive) { delete(message) }
+        } message: { _ in
+            Text("delete.text")
+        }
     }
 
     @ViewBuilder private var notice: some View {
@@ -60,7 +74,11 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(messages, id: \.threadKey) { message in
-                        ChatBubble(message: message, own: message.author == feed.me)
+                        ChatBubble(
+                            message: message, own: message.author == feed.me,
+                            writable: chatWritable(history?.state), sending: sending,
+                            edit: { startEditing(message) }, delete: { deleting = message }
+                        )
                     }
                 }
             }
@@ -83,6 +101,12 @@ struct ChatView: View {
             }
         }
         if chatTooLong(draft) { Text("chat.tooLong").font(.caption) }
+        if editing != nil {
+            HStack {
+                Text("chat.editing").font(.caption).accessibilityIdentifier("chat-editing")
+                Button("search.cancel", action: endEditing).accessibilityIdentifier("chat-edit-cancel")
+            }
+        }
     }
 
     // shortcut: one line of input, as multi-line TextField needs macOS 13 and iOS 16; use it when the targets rise.
@@ -116,15 +140,45 @@ struct ChatView: View {
     private func send() {
         let text = draft
         guard !sending, chatSendable(history?.state, text) else { return }
+        let target = messages.first { $0.threadKey == editing }
+        // An edit whose message is gone must not go out as a new text.
+        if editing != nil, target == nil { return }
         let before = messages
         sending = true
         status = nil
         Task {
-            let outcome = await feed.send(text, to: peer, after: before)
+            let outcome: ChatStatus?
+            if let target {
+                outcome = await feed.edit(target, text: text, peer: peer)
+            } else {
+                outcome = await feed.send(text, to: peer, after: before)
+            }
             sending = false
             status = outcome
+            guard outcome?.details == nil else { return }
             // The field stays editable during a send, so text typed meanwhile is kept.
-            if outcome?.details == nil, draft == text { draft = "" }
+            if target != nil { endEditing() } else if draft == text { draft = "" }
+        }
+    }
+
+    private func startEditing(_ message: ChatMessage) {
+        if editing == nil { held = draft }
+        draft = message.text ?? ""
+        editing = message.threadKey
+        status = nil
+    }
+
+    private func endEditing() {
+        draft = held
+        held = ""
+        editing = nil
+    }
+
+    private func delete(_ message: ChatMessage) {
+        Task {
+            status = await feed.delete(message, peer: peer)
+            // A deleted message has nothing left to edit.
+            if status?.details == nil, editing == message.threadKey { endEditing() }
         }
     }
 }
@@ -132,10 +186,15 @@ struct ChatView: View {
 private struct ChatBubble: View {
     let message: ChatMessage
     let own: Bool
+    let writable: Bool
+    let sending: Bool
+    let edit: () -> Void
+    let delete: () -> Void
 
     var body: some View {
         HStack {
             if own { Spacer(minLength: 48) }
+            if own, !message.deleted { menu }
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: chatPreview(message)).textSelection(.enabled)
                 let meta = chatMeta(message)
@@ -147,6 +206,21 @@ private struct ChatBubble: View {
             ))
             if !own { Spacer(minLength: 48) }
         }
+    }
+
+    // A button rather than a context menu: right click on selectable text opens the text's own menu.
+    private var menu: some View {
+        Menu {
+            if writable {
+                Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier("msg-edit")
+            }
+            Button("chat.delete", role: .destructive, action: delete).accessibilityIdentifier("msg-delete")
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .fixedSize()
+        .accessibilityLabel(Text("msg.menu"))
+        .accessibilityIdentifier("msg-menu")
     }
 }
 
@@ -174,12 +248,15 @@ func stagedNew(before: [ChatMessage], after: [ChatMessage], me: String?) -> Bool
     return after.contains { $0.author == me && !known.contains($0.id) }
 }
 
-func chatSendStatus(_ error: Error, staged: Bool) -> ChatStatus {
+/// A failure's line; a change that was `staged` reads as `queued` instead, and keeps no details.
+func chatSendStatus(
+    _ error: Error, staged: Bool, queued: String = "chat.queued", failed: String = "chat.sendFailed"
+) -> ChatStatus {
     let details = String(describing: error)
-    if staged { return ChatStatus(key: "chat.queued", details: nil) }
+    if staged { return ChatStatus(key: queued, details: nil) }
     if details.contains("notConnected") { return ChatStatus(key: "search.notConnected", details: details) }
     if details.contains("unpublished") { return ChatStatus(key: "chat.unpublished", details: details) }
-    return ChatStatus(key: "chat.sendFailed", details: details)
+    return ChatStatus(key: failed, details: details)
 }
 
 /// Node acceptance reads as Sent: only a device of the peer makes it Delivered, its receipt Read.
