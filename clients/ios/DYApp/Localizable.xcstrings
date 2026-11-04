@@ -1931,6 +1931,96 @@
         "ru": { "stringUnit": { "state": "translated", "value": "%1$@ · Не проверен · %2$@" } }
       }
     },
+    "receipts.toggle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Send read receipts" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отправлять отметки о прочтении" } }
+      }
+    },
+    "receipts.hint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Shows when you read a message. Off hides only yours." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показывает, что вы прочитали сообщение. Выключение скрывает только ваши." } }
+      }
+    },
+    "receipts.failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The read receipt setting could not be read or saved. Try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать или сохранить настройку отметок о прочтении. Попробуйте ещё раз." } }
+      }
+    },
+    "settings.blocked": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Blocked people" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Заблокированные" } }
+      }
+    },
+    "settings.unblock": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unblock" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Разблокировать" } }
+      }
+    },
+    "settings.blockedRetry": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry token revocation" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторить отзыв токенов" } }
+      }
+    },
+    "settings.blockedNone": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Nobody is blocked." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Никто не заблокирован." } }
+      }
+    },
+    "settings.blockedHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Блокировка скрывает человека из вашего поиска и чатов и отзывает его сетевые токены. Человек об этом не узнает. Если отзыв ещё ожидается, повторите его." } }
+      }
+    },
+    "settings.blockedFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The blocked people could not be read or changed. Try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать или изменить список заблокированных. Повторите." } }
+      }
+    },
+    "settings.blockedRetryFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Could not retry token revocation:" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось повторить отзыв токенов:" } }
+      }
+    },
+    "settings.passed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Passed people" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропущенные люди" } }
+      }
+    },
+    "settings.unpass": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Undo pass" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отменить пропуск" } }
+      }
+    },
+    "settings.passedNone": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "You have not passed on anyone." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Вы никого не пропускали." } }
+      }
+    },
+    "settings.passedHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A pass hides someone from your search and Liked you. They are not told." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Человек об этом не узнает." } }
+      }
+    },
+    "settings.passedFailed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The passed people could not be read or changed. Try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать или изменить список пропущенных. Повторите." } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },

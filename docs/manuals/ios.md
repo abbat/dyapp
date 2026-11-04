@@ -53,6 +53,9 @@ screen shows the verified version and exact public fields; after failure, repeat
 and retry.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
+Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
+**Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
+pending token revocation.
 **Create another identity** makes a separate Peer ID only after you tap it. **Switch to this
 identity** reopens an existing key before selecting it; an unreadable identity stays unavailable.
 A failed Create or Switch shows an error and keeps your current selection. For a selected UUID

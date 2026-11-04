@@ -61,6 +61,7 @@ final class ChatsUITests: XCTestCase {
         editAndDeleteTheReply(app, input: input)
         nameThePeer(app)
         muteClearAndBlock(app)
+        toggleReceiptsAndUnblock(app)
     }
 
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
@@ -145,6 +146,28 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(block.waitForExistence(timeout: 10), app.debugDescription)
         block.tap()
         XCTAssertTrue(app.staticTexts["chats-blocked-note"].waitForExistence(timeout: 60), app.debugDescription)
+    }
+
+    /// Settings holds the receipts switch and the list the block above just filled.
+    private func toggleReceiptsAndUnblock(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["settings-open"], in: app).tap()
+
+        let receipts = app.switches["send-read-receipts"]
+        reveal(receipts, in: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: receipts
+        ),
+        ], timeout: 30), .completed, app.debugDescription)
+        let wanted = receipts.value as? String == "1" ? "0" : "1"
+        flip(receipts, in: app, above: false)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", wanted), object: receipts
+        ),
+        ], timeout: 30), .completed, app.debugDescription)
+
+        reveal(app.buttons["unblock-1"], in: app).tap()
+        XCTAssertTrue(app.staticTexts["blocked-none"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func waitGone(_ element: XCUIElement, in app: XCUIApplication) {

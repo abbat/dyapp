@@ -17,6 +17,8 @@ struct IdentitySettingsView: View {
     @Environment(\.dismiss) private var dismiss
     let candidate: IdentityCandidate
     let peerId: String
+    /// The chat store of the active identity, once its network is set up.
+    let feed: ChatFeed?
     let onIdentityChanged: (IdentityResolution) -> Void
     @State private var rows: [IdentityInventoryRow] = []
     @State private var isLoading = true
@@ -79,6 +81,11 @@ struct IdentitySettingsView: View {
                     Text("network.title")
                 }
                 .accessibilityIdentifier("settings-network")
+            }
+
+            if let feed {
+                ReadReceiptsSection(feed: feed)
+                PeopleSections(feed: feed)
             }
 
             Section {

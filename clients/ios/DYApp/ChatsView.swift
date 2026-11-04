@@ -92,12 +92,10 @@ private struct OpenedProfile {
     let known: FoundProfile?
 }
 
-/// The last block's outcome: a pending revocation says why; the block itself holds either way.
-private struct BlockedNote: View {
-    let block: ChatBlock
-
-    private var text: LocalizedStringKey {
-        switch block.revocation {
+extension ChatBlock {
+    /// The line that tells how the token revocation went.
+    var revocationKey: String {
+        switch revocation {
         case .notNeeded:
             return "chats.blockedNotNeeded"
 
@@ -108,9 +106,14 @@ private struct BlockedNote: View {
             return "chats.blockedConfirmed"
         }
     }
+}
+
+/// The last block's outcome: a pending revocation says why; the block itself holds either way.
+private struct BlockedNote: View {
+    let block: ChatBlock
 
     var body: some View {
-        Text(text).font(.caption).accessibilityIdentifier("chats-blocked-note")
+        Text(LocalizedStringKey(block.revocationKey)).font(.caption).accessibilityIdentifier("chats-blocked-note")
         if block.revocation == .pending, let detail = block.detail {
             Text(verbatim: detail).font(.caption).textSelection(.enabled)
                 .accessibilityIdentifier("chats-blocked-details")

@@ -115,16 +115,6 @@ final class SearchUITests: XCTestCase {
 
     /// The row's centre is its label; newer iOS nests the tappable switch inside the row, older
     /// iOS has none and the switch sits at the trailing edge.
-    private func flip(_ toggle: XCUIElement, in app: XCUIApplication, above: Bool) {
-        reveal(toggle, in: app, above: above)
-        let knob = toggle.switches.firstMatch
-        if knob.exists {
-            knob.tap()
-        } else {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        }
-    }
-
     private func connectLocalNode(_ app: XCUIApplication) {
         openNetwork(app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(

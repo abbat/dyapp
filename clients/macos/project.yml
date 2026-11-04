@@ -23,7 +23,7 @@ targets:
               ../ios/DYApp/ProfilePreviewView.swift, ../ios/DYApp/ProfileExtraFields.swift,
               ../ios/DYApp/SearchFilters.swift, ../ios/DYApp/SearchSession.swift, ../ios/DYApp/SearchView.swift,
               ../ios/DYApp/FoundProfileView.swift, ../ios/DYApp/ProfilePage.swift, ../ios/DYApp/ProfilePageBlocks.swift, ../ios/DYApp/ChatBridge.swift, ../ios/DYApp/ChatFeed.swift,
-              ../ios/DYApp/ChatsView.swift, ../ios/DYApp/ChatView.swift, ../ios/DYApp/ChatRename.swift, ../ios/DYApp/ChatTestPeer.swift,
+              ../ios/DYApp/ChatsView.swift, ../ios/DYApp/ChatView.swift, ../ios/DYApp/ChatRename.swift, ../ios/DYApp/PeopleSettings.swift, ../ios/DYApp/ChatTestPeer.swift,
               ../ios/DYApp/RustBridge.swift,
               ../ios/DYApp/PlatformKeyStore.swift, ../ios/DYApp/IdentitySlotStore.swift,
               ../ios/DYApp/Localizable.xcstrings, Assets.xcassets,

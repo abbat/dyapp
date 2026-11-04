@@ -25,6 +25,19 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     return element
 }
 
+/// Reveals a form switch and taps it: its row's centre is the label; newer iOS nests the tappable
+/// switch inside the row, older iOS has none and the switch sits at the trailing edge.
+@MainActor
+func flip(_ toggle: XCUIElement, in app: XCUIApplication, above: Bool = false) {
+    reveal(toggle, in: app, above: above)
+    let knob = toggle.switches.firstMatch
+    if knob.exists {
+        knob.tap()
+    } else {
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    }
+}
+
 /// Give both fresh confirmations, then start the proof and publish.
 @MainActor
 func publish(_ app: XCUIApplication) {

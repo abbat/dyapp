@@ -247,7 +247,7 @@ struct ContentView: View {
     }
 
     private func settingsView(_ candidate: IdentityCandidate, _ peerId: String) -> IdentitySettingsView {
-        IdentitySettingsView(candidate: candidate, peerId: peerId) { selected in
+        IdentitySettingsView(candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil) { selected in
             activeNetwork = .loading
             identity = selected
         }
