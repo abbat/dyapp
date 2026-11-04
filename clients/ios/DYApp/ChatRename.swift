@@ -9,11 +9,6 @@ struct ChatRenameSheet: View {
     @State private var failure: ChatStatus?
     private let save: @MainActor (String) async -> ChatStatus?
 
-    init(name: String, save: @escaping @MainActor (String) async -> ChatStatus?) {
-        _name = State(initialValue: name)
-        self.save = save
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("rename.title").font(.headline)
@@ -38,6 +33,11 @@ struct ChatRenameSheet: View {
         }
         .padding()
         .frame(minWidth: 320)
+    }
+
+    init(name: String, save: @escaping @MainActor (String) async -> ChatStatus?) {
+        _name = State(initialValue: name)
+        self.save = save
     }
 
     private func submit() {

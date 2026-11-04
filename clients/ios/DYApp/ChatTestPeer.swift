@@ -33,7 +33,7 @@ enum ChatTestPeer {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("peer-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let key = IdentityKey.generate()
-        let draft = ProfileDraft(values: ["gender": 1, "birthYear": 1990, "birthMonth": 1, "birthDay": 1])
+        let draft = ProfileDraft(values: ["gender": 1, "birthYear": 1_990, "birthMonth": 1, "birthDay": 1])
         try saveProfileDraft(dir: dir.path, key: key, draft: ProfileRustDraftStore.record(from: draft))
         let checker = try ConnectionCheck(dir: dir.path)
         // The local node runs the public network: an empty name.

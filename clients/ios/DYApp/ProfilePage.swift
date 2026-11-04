@@ -56,7 +56,8 @@ final class ProfilePage: ObservableObject {
     /// Failures keep the last state; with none yet the buttons wait and the page says why.
     func readLikes() async {
         let peer = peer
-        switch await feed.call({ try $0.likes(peerId: peer) }) {
+        let result = await feed.call { try $0.likes(peerId: peer) }
+        switch result {
         case let .success(read):
             likes = read
             likesFailure = nil
