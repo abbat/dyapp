@@ -21,8 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The languages CodeQL reads without a build. Java/Kotlin and Swift (the mobile apps)
-        # need one and are not analysed yet.
+        # The languages CodeQL reads without a build. Kotlin and Swift have dedicated build jobs.
         language: ['rust', 'python', 'actions', 'javascript-typescript']
 
     steps:
@@ -42,6 +41,85 @@ jobs:
       uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
       with:
         category: "/language:${{ matrix.language }}"
+
+  kotlin:
+    name: codeql - kotlin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install java
+        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4.2.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: init
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          queries: security-and-quality
+      - name: build
+        working-directory: clients/android
+        run: ./gradlew --no-daemon :app:compileDebugKotlin
+      - name: analyze
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: "/language:java-kotlin"
+
+  swift:
+    name: codeql - swift
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: '1.99.0'
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: ". -> build"
+          key: codeql-swift
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: build core
+        run: bash tools/scripts/build-apple-core.sh ios
+      - name: prepare xcode
+        run: |
+          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec clients/ios/project.yml --project clients/ios
+      - name: init
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: swift
+          build-mode: manual
+          queries: security-and-quality
+      - name: build
+        run: |
+          xcodebuild build -project clients/ios/DYApp.xcodeproj -scheme DYApp \
+            -destination generic/platform=iOS\ Simulator -configuration Debug CODE_SIGNING_ALLOWED=NO
+      - name: analyze
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: "/language:swift"
 
   # custom rust analysis (using clippy for static analysis)
   rust-analysis:

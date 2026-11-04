@@ -59,6 +59,9 @@ the cargo-deny checks, all with `continue-on-error`: they are advisory and mark 
 failed, while the gating clippy and cargo-deny runs are in `make quality`. A second clippy run
 converts its JSON output to SARIF for code scanning. That job runs outside Docker.
 
+CodeQL also compiles Android Kotlin with `:app:compileDebugKotlin` and the iOS Swift app with
+`xcodebuild`, then runs `security-and-quality` analysis and uploads SARIF for both languages.
+
 Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `cargo fmt --all` in the dev container.
 
 ## Python
