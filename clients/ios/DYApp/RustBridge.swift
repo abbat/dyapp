@@ -163,16 +163,16 @@ enum RustBridge {
     /// Publish only the selected identity's solved draft through its active network, off the UI thread.
     static func publishProfile(for candidate: IdentityCandidate, peerId: String,
                                attested: Bool) throws -> PublishedProfileSnapshot {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
         #if DEBUG
         // Native UI tests see a failed publish while their local node keeps running.
         if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-publish") {
             throw CoreError.Failed(message: "notConnected")
         }
         #endif
-        let result = try withDraftLock { try ProfilePublisher(dir: dir.path).publish(key: key, attested: attested) }
+        // Only a chat session lists this device and its key packages; without them nobody can write here.
+        let result = try withChats(ChatIdentity(candidate: candidate, peerId: peerId)) { session in
+            try withDraftLock { try session.publishProfile(attested: attested) }
+        }
         return PublishedProfileSnapshot(version: result.version,
                                         draft: ProfileRustDraftStore.values(from: result.draft))
     }
