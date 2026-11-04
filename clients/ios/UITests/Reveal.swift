@@ -16,12 +16,20 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     }
     // One drag can take the whole timeout on a slow simulator, so a few always run.
     var drags = 0
-    while !(element.exists && element.isHittable) && (Date() < deadline || drags < 3) {
-        if above { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
-        drags += 1
+    let search = {
+        while !(element.exists && element.isHittable) && (Date() < deadline || drags < 3) {
+            if above { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
+            drags += 1
+        }
     }
+    search()
     // A row half under the bottom bar still reports hittable, but a tap on its centre misses.
-    if element.exists && element.frame.maxY > app.frame.maxY * 0.8 { drag(0.35, 0.2) }
+    // The form can jump back to its top on this drag and lose the row, so search again; the
+    // second pass nudges the row found after such a jump.
+    for _ in 0..<2 where element.exists && element.frame.maxY > app.frame.maxY * 0.8 {
+        drag(0.35, 0.2)
+        search()
+    }
     return element
 }
 
