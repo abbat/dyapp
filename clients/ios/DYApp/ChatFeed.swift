@@ -60,8 +60,15 @@ final class ChatFeed: ObservableObject {
         #endif
         await read()
         while !Task.isCancelled {
+            #if os(macOS)
+            let (rowsBefore, likedBefore) = (rows, liked)
+            #endif
             _ = await call { try $0.receive() }
             await read()
+            #if os(macOS)
+            // After a switch `rows` are the next identity's and would count as new.
+            if !Task.isCancelled { await noticeNewMail(before: rowsBefore, likedBefore: likedBefore) }
+            #endif
             try? await Task.sleep(nanoseconds: Self.receiveIntervalNs)
         }
     }

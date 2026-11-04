@@ -2195,6 +2195,72 @@
         "ru": { "stringUnit": { "state": "translated", "value": "%1$@ · Не проверен · %2$@" } }
       }
     },
+    "notice.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Notifications" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Уведомления" } }
+      }
+    },
+    "notice.newMessage": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New message" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Новое сообщение" } }
+      }
+    },
+    "notice.toggle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New messages and likes" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Новые сообщения и лайки" } }
+      }
+    },
+    "notice.content": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "What a notice shows" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Что показывать в уведомлении" } }
+      }
+    },
+    "notice.contentFixed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only \"New message\"" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Только «Новое сообщение»" } }
+      }
+    },
+    "notice.contentName": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The sender's name" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Имя отправителя" } }
+      }
+    },
+    "notice.contentText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The name and the message" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Имя и текст сообщения" } }
+      }
+    },
+    "notice.hint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A name or a message reaches the macOS notification service and can show on the lock screen, as System Settings allows. Requests and likes always show only \"New message\"." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Имя и текст попадают в службу уведомлений macOS и могут появиться на экране блокировки, если это разрешено в Системных настройках. Запросы и лайки всегда показывают только «Новое сообщение»." } }
+      }
+    },
+    "notice.blocked": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "macOS does not let DYApp show notifications." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "macOS не разрешает DYApp показывать уведомления." } }
+      }
+    },
+    "notice.allow": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Allow" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Разрешить" } }
+      }
+    },
+    "notice.failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The notification setting could not be read or saved. Try again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось прочитать или сохранить настройку уведомлений. Попробуйте ещё раз." } }
+      }
+    },
     "receipts.toggle": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Send read receipts" } },

@@ -76,6 +76,7 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [MenuBarSection.showKey: true])
         applyIconSetting()
+        MailNotice.showWindow = { [weak self] in self?.showWindow() }
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in

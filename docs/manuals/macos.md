@@ -67,7 +67,11 @@ Its **Window** section has **Show icon in menu bar** (on by default) and **Close
 (off by default, needs the icon), which also takes the app out of the Dock while the window is hidden.
 Its **Storage** section shows the identity folder, the size and path of this identity's messages
 (**Unavailable** until the network is set up) and the free space on the disk, every 10 seconds.
-Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
+Once the network is set up it also holds **Notifications**: while the app runs, also with the window
+hidden, new messages and likes from people you did not mute post one notice unless the window has the
+focus, and a click shows the window. The section turns it off for this identity or adds the sender's
+name and the message, and says when macOS blocks notices, with **Allow** to ask or to open System
+Settings. It then holds **Send read receipts** and the **Blocked people** and
 **Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
 pending token revocation.
 **Updates** shows the check interval, the last check and that updates for this platform are not

@@ -231,6 +231,19 @@ final class ChatsUITests: XCTestCase {
         ),
         ], timeout: 30), .completed, app.debugDescription)
 
+        // Only off: turning on would raise the system's question over the window.
+        let notices = app.checkBoxes["message-notifications"]
+        reveal(notices, in: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true AND value == 1"), object: notices
+        ),
+        ], timeout: 30), .completed, app.debugDescription)
+        notices.click()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == 0"), object: notices
+        ),
+        ], timeout: 30), .completed, app.debugDescription)
+
         let unblock = app.buttons["unblock-1"]
         reveal(unblock, in: app)
         XCTAssertTrue(unblock.waitForExistence(timeout: 30), app.debugDescription)

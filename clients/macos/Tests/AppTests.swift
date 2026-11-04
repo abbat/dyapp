@@ -20,6 +20,46 @@ final class AppTests: XCTestCase {
         XCTAssertNil(StorageUsage.freeBytes(on: folder.appendingPathComponent("gone")))
     }
 
+    private func row(
+        _ peer: String, state: ChatState = .open, unread: UInt64 = 0, muted: Bool = false, text: String? = "hi", isUnread: Bool = true
+    ) -> ChatRow {
+        let message = ChatMessage(
+            groupId: Data([9]), author: peer, id: Data([1]), text: text, edited: false, deleted: false,
+            unread: isUnread, forwarded: false, delivery: nil, read: false, sentAtMs: nil
+        )
+        return ChatRow(peerId: peer, state: state, lastMessage: message, unreadCount: unread, muted: muted)
+    }
+
+    func testNoticeCountLeavesMutedPeersOutAndCountsLikesAndRequests() {
+        let rows = [row("a", unread: 2), row("b", unread: 5, muted: true), row("c", state: .requestReceived)]
+        XCTAssertEqual(MailNotice.count(rows: rows, liked: ["b", "d"]), 4)
+    }
+
+    func testNoticeLinesFollowTheSettingAndOnlyAnOpenChat() {
+        let name: (String) -> String = { "name \($0)" }
+        let after = [row("muted", unread: 9, muted: true), row("old", unread: 1), row("new", unread: 2)]
+        let before = [row("muted"), row("old", unread: 1), row("new", unread: 1)]
+        XCTAssertNil(MailNotice.lines(.fixed, before: before, after: after, name: name))
+        XCTAssertEqual(MailNotice.lines(.name, before: before, after: after, name: name), MailNotice.Lines(sender: "name new", text: nil))
+        XCTAssertEqual(MailNotice.lines(.text, before: before, after: after, name: name), MailNotice.Lines(sender: "name new", text: "hi"))
+        let request = [row("stranger", state: .requestReceived, unread: 1)]
+        XCTAssertNil(MailNotice.lines(.text, before: [], after: request, name: name))
+        XCTAssertNil(MailNotice.lines(.text, before: after, after: after, name: name))
+    }
+
+    func testNoticeTextIsOneShortLineOfUnreadText() throws {
+        let name: (String) -> String = { $0 }
+        let long = String(repeating: "\u{1F600}", count: 300)
+        let shown = try XCTUnwrap(MailNotice.lines(.text, before: [], after: [row("a", unread: 1, text: long)], name: name)?.text)
+        XCTAssertEqual(shown.unicodeScalars.count, 200)
+        let lines = MailNotice.lines(.text, before: [], after: [row("a", unread: 1, text: "one\ntwo")], name: name)
+        XCTAssertEqual(lines?.text, "one two")
+        let read = MailNotice.lines(.text, before: [], after: [row("a", unread: 1, isUnread: false)], name: name)
+        XCTAssertEqual(read, MailNotice.Lines(sender: "a", text: nil))
+        let blank = MailNotice.lines(.text, before: [], after: [row("a", unread: 1, text: "\n")], name: name)
+        XCTAssertEqual(blank, MailNotice.Lines(sender: "a", text: nil))
+    }
+
     func testStorageSizesUseBinaryUnits() {
         let english = Locale(identifier: "en_US")
         XCTAssertTrue(StorageUsage.sizeText(0, locale: english).hasPrefix("0 "))

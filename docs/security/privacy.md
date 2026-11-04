@@ -182,7 +182,17 @@ the name and up to 200 characters of the message, which then reach the notificat
 show on the lock screen. Only an open chat adds them: a message request and a like stay fixed, so a
 stranger's words never appear unasked. The text is escaped, because a server may read the body as
 markup. A click on the notice shows the window; a server without actions just shows the notice. Android
-follows below; Windows and the Apple apps are planned.
+and macOS follow below; Windows and iOS are planned, as iOS first needs to receive in the background.
+
+The macOS app does the same while it runs, also with the window hidden: when a mail pass leaves more
+unread items or unanswered likes from peers that are not muted and the window has no focus, it posts
+one replacing notice through the system notification service. It holds the fixed "New message" text,
+and Settings can turn it off per identity or add the sender's name as read so far (else the short Peer
+ID), or that name and up to 200 characters of the message with control characters turned into spaces,
+under the same open-chat rule. These then reach the notification service, and System Settings decides
+whether they show on the lock screen. macOS allows notices only after asking the user; the app asks
+when the notice is turned on or on Allow, never at launch, and while notices are blocked Settings says
+so and nothing is posted.
 
 The Android app also receives the active identity's mail while it is closed: a JobScheduler job
 runs at most every 15 minutes when a network is up, and Doze and App Standby defer it further.
