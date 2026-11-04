@@ -125,7 +125,7 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
         version: 1,
         gender: 4,
         orientation: 5,
-        relationship_goal: 5,
+        relationship_goal: 6,
         role_preference: 3,
         career_ambition: 30,
         financial_philosophy: 30,
