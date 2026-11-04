@@ -40,7 +40,7 @@ struct IdentitySettingsView: View {
     }
 
     var body: some View {
-        Form {
+        ScrollingForm {
             Section {
                 if isLoading {
                     ProgressView("settings.loading")

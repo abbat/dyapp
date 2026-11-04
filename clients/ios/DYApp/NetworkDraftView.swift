@@ -105,16 +105,7 @@ struct NetworkDraftView: View {
     }
 
     var body: some View {
-        #if os(macOS)
-        // The macOS 12 form does not scroll on its own.
-        ScrollView { form.padding() }
-        #else
-        form
-        #endif
-    }
-
-    private var form: some View {
-        Form {
+        ScrollingForm {
             if let header {
                 Section { header }
             }

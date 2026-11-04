@@ -34,7 +34,7 @@ struct SearchView: View {
                     blocked: { self.chat = nil }
                 )
             } else {
-                Form {
+                ScrollingForm {
                     Text("search.sample").font(.caption)
                     SearchFilterFields(inputs: $session.filters)
                     Button("search.run") { session.run() }

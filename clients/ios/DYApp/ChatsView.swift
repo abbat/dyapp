@@ -43,7 +43,7 @@ struct ChatsView: View {
     }
 
     private var list: some View {
-        Form {
+        ScrollingForm {
             if let block = feed.blocked { BlockedNote(block: block) }
             ChatsExpandRow(
                 id: "chats-liked", title: "chats.liked", text: "chats.likedText",

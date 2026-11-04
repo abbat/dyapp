@@ -10,7 +10,7 @@ struct ProfilePreviewView: View {
     @State private var isLoading = true
 
     var body: some View {
-        Form {
+        ScrollingForm {
             if let preview {
                 ProfilePublicRows(preview: preview, draft: draft)
                 Text("profile.publicDisclosure")

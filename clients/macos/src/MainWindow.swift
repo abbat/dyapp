@@ -24,15 +24,20 @@ enum WindowPlacement {
     }
 }
 
+/// AppKit asks a delegate about selectors off the main actor, and only `NSObject` calls touch this one.
+private struct ForwardedDelegate: @unchecked Sendable {
+    let object: NSObjectProtocol?
+}
+
 /// Answers the close button and Cmd+W itself and leaves everything else to SwiftUI's delegate,
 /// because SwiftUI drops a closed window together with the state of its views.
 @MainActor
 private final class WindowCloseProxy: NSObject, NSWindowDelegate {
-    private nonisolated(unsafe) let inner: NSWindowDelegate?
+    private let inner: ForwardedDelegate
     private let close: (NSWindow) -> Void
 
     init(inner: NSWindowDelegate?, close: @escaping (NSWindow) -> Void) {
-        self.inner = inner
+        self.inner = ForwardedDelegate(object: inner)
         self.close = close
     }
 
@@ -42,11 +47,11 @@ private final class WindowCloseProxy: NSObject, NSWindowDelegate {
     }
 
     override nonisolated func responds(to selector: Selector?) -> Bool {
-        super.responds(to: selector) || inner?.responds(to: selector) == true
+        super.responds(to: selector) || inner.object?.responds(to: selector) == true
     }
 
     override nonisolated func forwardingTarget(for selector: Selector?) -> Any? {
-        inner?.responds(to: selector) == true ? inner : nil
+        inner.object?.responds(to: selector) == true ? inner.object : nil
     }
 }
 

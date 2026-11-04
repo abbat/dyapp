@@ -13,7 +13,7 @@ struct FoundProfileView: View {
     private var own: Bool { page.peer == feed.me }
 
     var body: some View {
-        Form {
+        ScrollingForm {
             Button("view.back", action: back).accessibilityIdentifier("view-back")
             Text(verbatim: "@\(page.peer.suffix(6))").font(.headline)
             Text(verbatim: String(format: NSLocalizedString("search.peer", comment: ""), page.peer))

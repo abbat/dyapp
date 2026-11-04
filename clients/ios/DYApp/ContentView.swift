@@ -13,6 +13,25 @@ private enum PickerSelection: Sendable {
     case ready(IdentityResolution), failed
 }
 
+/// All start screen links share one selection: on a macOS sidebar a link left active by its own flag
+/// kept the detail pane, so after setup opened the profile no other link could replace it.
+private enum StartLink: Hashable, Sendable {
+    case settings, network, profile, search, chats
+}
+
+/// The macOS form does not scroll on its own: a long one ran off the top of the window, out of reach.
+struct ScrollingForm<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        #if os(macOS)
+        ScrollView { Form { content() }.padding() }
+        #else
+        Form { content() }
+        #endif
+    }
+}
+
 /// The shared start screen opens a selected identity or asks for an explicit first creation.
 struct ContentView: View {
     @State private var identity: IdentityResolution =
@@ -24,7 +43,7 @@ struct ContentView: View {
     @State private var pickerWorking = false
     @State private var pickerActionFailed = false
     @State private var profilePending = false
-    @State private var profileOpen = false
+    @State private var startLink: StartLink?
     @StateObject private var search = SearchSession()
     @StateObject private var chats = ChatFeed()
 
@@ -47,7 +66,8 @@ struct ContentView: View {
                     NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
                         Text("app.name").font(.largeTitle)
                         Text(peerId).accessibilityIdentifier("peer-id")
-                        NavigationLink(destination: settingsView(candidate, peerId)) {
+                        NavigationLink(destination: settingsView(candidate, peerId), tag: StartLink.settings,
+                                       selection: $startLink) {
                             Text("settings.title")
                         }
                         .accessibilityIdentifier("settings-open")
@@ -88,7 +108,8 @@ struct ContentView: View {
                 Text(peerId).accessibilityIdentifier("peer-id")
                 // Settings opened while loading vanished when setup replaced this layout.
                 if activeNetwork != .loading {
-                    NavigationLink(destination: settingsView(candidate, peerId)) {
+                    NavigationLink(destination: settingsView(candidate, peerId), tag: StartLink.settings,
+                                   selection: $startLink) {
                         Text("settings.title")
                     }
                     .accessibilityIdentifier("settings-open")
@@ -104,12 +125,13 @@ struct ContentView: View {
                     if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
                         Text("status.ready").accessibilityIdentifier("app-ready")
                     }
-                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId),
+                                   tag: StartLink.network, selection: $startLink) {
                         Text("network.title")
                     }
                     .accessibilityIdentifier("network-edit")
                     NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
-                                   isActive: $profileOpen) {
+                                   tag: StartLink.profile, selection: $startLink) {
                         Text("profile.title")
                     }
                     .accessibilityIdentifier("profile-edit")
@@ -117,14 +139,15 @@ struct ContentView: View {
                     .onAppear {
                         if profilePending {
                             profilePending = false
-                            profileOpen = true
+                            startLink = .profile
                         }
                     }
-                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats)) {
+                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats),
+                                   tag: StartLink.search, selection: $startLink) {
                         Text("search.title")
                     }
                     .accessibilityIdentifier("search-open")
-                    NavigationLink(destination: ChatsView(feed: chats)) {
+                    NavigationLink(destination: ChatsView(feed: chats), tag: StartLink.chats, selection: $startLink) {
                         Text("chats.title")
                     }
                     .accessibilityIdentifier("chats-open")

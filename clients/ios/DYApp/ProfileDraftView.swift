@@ -184,7 +184,7 @@ struct ProfileDraftView: View {
     }
 
     var body: some View {
-        Form {
+        ScrollingForm {
             ProfilePhotosSection(candidate: candidate, peerId: peerId,
                                  disabled: isLoading || readFailed || isSaving || isSolving) {
                 invalidateConsent()
