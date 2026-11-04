@@ -67,6 +67,12 @@ and expects the localized not-connected failure, retry label and cleared confirm
 A second Android publish test checks and activates the emulator runner's loopback node
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
+The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest process, so the DEBUG
+launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test
+(`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the
+app's profile is listed, and confirms the app's reply with a message of its own, which the test waits
+for. Release builds compile none of this.
+
 The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
 drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the
 app cache, its own Keystore alias, the same node and a published profile. The peer sends a text;

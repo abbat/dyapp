@@ -32,6 +32,59 @@ final class ChatsUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["chats-none"].waitForExistence(timeout: 2), "a second tap closes the list")
     }
 
+    /// The DEBUG peer writes first once this identity is listed; the reply reaches it, as its answer shows.
+    func testPeerRequestOpensAndTheReplyReachesThePeer() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
+
+        let requests = app.buttons["chats-requests"]
+        XCTAssertTrue(requests.waitForExistence(timeout: 10), app.debugDescription)
+        requests.tap()
+        let request = app.buttons["request-1"]
+        XCTAssertTrue(request.waitForExistence(timeout: 150), app.debugDescription)
+        request.tap()
+        XCTAssertTrue(app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+
+        let input = app.textFields["chat-input"]
+        input.tap()
+        typeSlowly("Hello back", into: input)
+        app.buttons["chat-send"].tap()
+        XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
+    }
+
+    /// A selectable text may carry its words in its value instead of its label.
+    private func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
+        ).firstMatch
+    }
+
+    private func publishProfile(_ app: XCUIApplication) {
+        if !app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10) {
+            reveal(app.buttons["profile-edit"], in: app, timeout: 30).tap()
+        }
+        let month = app.textFields["profile-birth-month"]
+        reveal(month, in: app)
+        month.tap()
+        month.typeText("5")
+        reveal(app.buttons["profile-save"], in: app).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: app.switches["profile-confirm-adult"]
+        ),
+        ], timeout: 10), .completed)
+        publish(app)
+        let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
+        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+    }
+
     private func createIdentity(_ app: XCUIApplication) {
         let create = app.buttons["identity-create"]
         XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)

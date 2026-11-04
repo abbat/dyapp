@@ -5,13 +5,16 @@ struct ChatsView: View {
     @ObservedObject var feed: ChatFeed
     // Swapped in by state: a navigation link in the macOS 12 detail column would leave no way back.
     @State private var opened: FoundProfile?
+    @State private var chat: String?
 
     private var requests: [ChatRow] { feed.rows.filter { $0.state == .requestReceived } }
     private var conversations: [ChatRow] { feed.rows.filter { $0.state != .requestReceived } }
 
     var body: some View {
         Group {
-            if let opened {
+            if let chat {
+                ChatView(feed: feed, peer: chat) { self.chat = nil }
+            } else if let opened {
                 FoundProfileView(found: opened) { self.opened = nil }
             } else {
                 list
@@ -50,7 +53,13 @@ struct ChatsView: View {
 
     private func rows(_ rows: [ChatRow], prefix: String) -> some View {
         ForEach(Array(rows.enumerated()), id: \.element.peerId) { index, row in
-            ChatListRow(row: row).accessibilityIdentifier("\(prefix)-\(index + 1)")
+            Button {
+                chat = row.peerId
+            } label: {
+                ChatListRow(row: row)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("\(prefix)-\(index + 1)")
         }
     }
 }

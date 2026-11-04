@@ -1,10 +1,12 @@
 # iOS client
 
 The `DYApp` client for iOS runs on iOS 15 or later. It covers identities, the network connection,
-the public profile, search and the Chats lists. The chat screen and message sending are planned.
+the public profile, search, the Chats lists and the chat screen with message sending.
 
 **Chats** on the Ready screen lists Liked you, message requests and conversations of the current
 identity. Counts come from local data, and the app checks the mailbox once a minute while it runs.
+A row opens its chat; **Chats** at the top of the chat goes back. A first message waits for a reply
+before you can write more. Text that could not go out yet stays queued and is not sent twice.
 
 **Search** on the Ready screen asks the search nodes of the active network for a sample of
 published profiles. A sample is not a complete list, and the app lists only profiles whose signature

@@ -9,7 +9,12 @@ private struct ChatOutcome<T>: @unchecked Sendable {
 /// pages opened over them.
 @MainActor
 final class ChatFeed: ObservableObject {
-    private static let receiveIntervalNs: UInt64 = 60_000_000_000
+    private static var receiveIntervalNs: UInt64 {
+        #if DEBUG
+        if ChatTestPeer.enabled { return 5_000_000_000 }
+        #endif
+        return 60_000_000_000
+    }
 
     @Published private(set) var rows: [ChatRow] = []
     /// The Liked you peers, read locally with the rows.
@@ -21,6 +26,11 @@ final class ChatFeed: ObservableObject {
     /// The last fetch of the Liked you profiles; nil until the first one ends.
     @Published private(set) var likedProfiles: Result<[FoundProfile], Error>?
     private var identity: ChatIdentity?
+    #if DEBUG
+    private var testPeerStarted = false
+    #endif
+
+    var me: String? { identity?.peerId }
 
     /// Reads the rows, then receives and reads again until cancelled. Another identity starts over,
     /// so a switch never shows the previous identity's chats.
@@ -33,6 +43,12 @@ final class ChatFeed: ObservableObject {
             likedProfiles = nil
         }
         self.identity = identity
+        #if DEBUG
+        if ChatTestPeer.enabled, !testPeerStarted {
+            testPeerStarted = true
+            ChatTestPeer.start(me: identity.peerId)
+        }
+        #endif
         await read()
         while !Task.isCancelled {
             _ = await call { try $0.receive() }
@@ -57,6 +73,25 @@ final class ChatFeed: ObservableObject {
         self.rows = rows
         self.liked = liked
         version += 1
+    }
+
+    /// Stores and sends `text`; nil when it went out, else the line to show.
+    func send(_ text: String, to peer: String, after before: [ChatMessage]) async -> ChatStatus? {
+        let sent = await call { try $0.sendText(peerId: peer, text: text) }
+        await read()
+        guard case let .failure(error) = sent else { return nil }
+        let after = (try? await call { try $0.chatHistory(peerId: peer) }.get())?.messages ?? before
+        return chatSendStatus(error, staged: stagedNew(before: before, after: after, me: me))
+    }
+
+    /// Marks an open chat read and tells the peer; a read mark that fails to go out waits for the next one.
+    func markRead(_ peer: String) async {
+        let marked = await call { session -> UInt32 in
+            let marked = try session.markRead(peerId: peer)
+            _ = try? session.sendReads(peerId: peer)
+            return marked
+        }
+        if case let .success(count) = marked, count > 0 { await read() }
     }
 
     /// Liked you profiles come from the network, so only an open list fetches them.
