@@ -34,7 +34,8 @@ def local_node(reports):
     storage = reports / "node-storage"
     env = dict(os.environ, DYAPPD_LISTEN=json.dumps([address]),
                DYAPPD_EXTERNAL=json.dumps([address]),
-               DYAPPD_STORAGE_DIR=str(storage), DYAPPD_NETWORK_ID_POW_BITS="8")
+               DYAPPD_STORAGE_DIR=str(storage), DYAPPD_NETWORK_ID_POW_BITS="8",
+               DYAPPD_ROLES='["store", "search", "media"]')
     run(["build/debug/dyappd", "keygen"], reports / "node-keygen.log", env=env,
         timeout=60)
     peer_id = (storage / "node.id").read_text().strip()
