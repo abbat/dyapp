@@ -561,6 +561,9 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   The artifact also keeps the runner's `DYApp*` crash reports in `crash-reports/`: a test
   that ends with "application is not running" says nothing about why, and the report does.
+  For a macOS window that does not open, `gh run rerun <id> --failed --debug` adds
+  `window-diagnostics/` to the artifact: the saved state folder, the app's defaults, and the
+  app's system log lines about windows and restoration. Ordinary runs skip this step.
   The DEBUG-only `--no-device-passcode` launch argument makes the iOS missing-passcode
   lock test deterministic across simulators with different credential settings.
   The DEBUG-only `--ui-test-corrupt-network-draft` argument seeds a malformed draft in the

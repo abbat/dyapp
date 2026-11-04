@@ -147,6 +147,16 @@ jobs:
         env:
           APP_PLATFORM: ${{ matrix.platform }}
         run: bash tests/scripts/apple-test-in-ci.sh
+      # Only on `gh run rerun --debug`. A separate step, since a job that hits its time limit skips the test script's cleanup.
+      - name: window diagnostics
+        if: ${{ always() && runner.debug == '1' && matrix.platform == 'macos' }}
+        timeout-minutes: 3
+        run: |
+          out="$RUNNER_TEMP/apple-results/window-diagnostics"
+          mkdir -p "$out"
+          ls -laR "$HOME/Library/Saved Application State/com.dyapp.macos.savedState" > "$out/saved-state.txt" 2>&1 || true
+          defaults read com.dyapp.macos > "$out/defaults.txt" 2>&1 || true
+          log show --last 70m --style compact --predicate 'process == "DYApp" AND (eventMessage CONTAINS[c] "window" OR eventMessage CONTAINS[c] "restor" OR eventMessage CONTAINS[c] "persist")' > "$out/app-log.txt" 2>&1 || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
