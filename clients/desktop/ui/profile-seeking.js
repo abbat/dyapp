@@ -2,7 +2,7 @@
 const notLooking = document.getElementById('profile-not-looking');
 const seekingFields = document.getElementById('profile-seeking');
 const seekingAge = (bound) => document.getElementById(`profile-seeking-age-${bound}`);
-const seekingChoices = () => scaleFields.find((scale) => scale.key === 'gender').choices;
+const seekingChoices = () => scaleFields.find((scale) => scale.key === 'gender')?.choices ?? [];
 const genderName = (choice) => window.strings[`profile.value.gender.${choice.key}`];
 // biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
 const seekingDraft = () => ({
