@@ -22,7 +22,7 @@ pub fn safety_number_for_peer_ids(mine: &str, theirs: &str) -> Option<String> {
     Some(from_hashes(&parse_peer_id(mine)?, &parse_peer_id(theirs)?))
 }
 
-fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
+pub(crate) fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
     let bytes = value.as_bytes();
     if bytes.len() != 64
         || !bytes

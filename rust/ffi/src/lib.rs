@@ -29,6 +29,8 @@ mod profile_draft;
 pub use profile_draft::{load_profile_draft, save_profile_draft, PublicProfileDraft};
 mod contact_names;
 pub use contact_names::ContactNameView;
+mod profile_link;
+pub use profile_link::{profile_link_peer, profile_link_text};
 mod profile_network;
 pub use profile_network::{
     profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,

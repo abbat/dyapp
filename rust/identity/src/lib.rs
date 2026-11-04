@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 pub mod network;
+pub mod profile_link;
 pub mod safety;
 
 /// Why a signed record or key was rejected.
