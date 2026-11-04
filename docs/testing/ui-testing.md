@@ -30,7 +30,10 @@ remains hittable. Shared native unit tests additionally check that an unreadable
 replace the active selection and that a lost selected Keychain item produces recovery without
 creating another key. An isolated debug UI fixture corrupts only the wrapped key file after
 creation: both Apple UI suites check the Russian unavailable label, hidden Remove action, and
-recovery after restart with Retry but no implicit Create. A shared native unit test also checks
+recovery after restart with Retry but no implicit Create. `IdentityRecoveryTests` on both Apple
+suites seeds a legacy root identity, a malformed pointer, a missing slot or legacy key and a
+pending slot in the isolated root (`--ui-test-identity-fixture=`), then checks a stable Peer ID or
+recovery without Create across a relaunch. A shared native unit test also checks
 that UUID profile drafts stay separate and a peer-named root draft is copied once into its slot.
 The migration test also removes the slot and checks that its slot draft is cleaned while the old
 root copy remains unchanged.

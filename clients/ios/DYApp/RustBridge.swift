@@ -27,7 +27,10 @@ enum RustBridge {
     // client runtime.
     /// Resolve the saved selection without creating a replacement identity.
     static func identityState() throws -> IdentityResolution {
-        try identityStore().resolve()
+        #if DEBUG
+        try seedUITestIdentity()
+        #endif
+        return try identityStore().resolve()
     }
 
     /// List slots without changing selection or creating a key.
@@ -267,3 +270,41 @@ enum RustBridge {
         try directory.setResourceValues(values)
     }
 }
+
+#if DEBUG
+extension RustBridge {
+    /// Seed one identity state into the isolated UI test root only; a relaunch finds it and adds nothing.
+    private static func seedUITestIdentity() throws {
+        let prefix = "--ui-test-identity-fixture="
+        guard uiTestSlotID != nil,
+              let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
+        let store = try identityStore()
+        guard try store.candidates().isEmpty else { return }
+        let root = try directory()
+        let fixture = String(argument.dropFirst(prefix.count))
+        switch fixture {
+        case "legacy":
+            try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
+                .write(to: root.appendingPathComponent("identity.key"), options: .atomic)
+
+        case "missing-legacy-key":
+            // Wrapping leaves the legacy Keychain item behind, with no root file to open.
+            _ = try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
+
+        case "missing-slot-key", "pending-slot":
+            let slot = root.appendingPathComponent("profiles", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString.lowercased(), isDirectory: true)
+            try FileManager.default.createDirectory(at: slot, withIntermediateDirectories: true)
+            try Data((fixture == "pending-slot" ? "pending\n" : "ready\n").utf8)
+                .write(to: slot.appendingPathComponent("state"), options: .atomic)
+
+        case "malformed-pointer":
+            _ = try store.create()
+            try Data("not a pointer\n".utf8).write(to: root.appendingPathComponent("active-profile"), options: .atomic)
+
+        default:
+            break
+        }
+    }
+}
+#endif

@@ -18,8 +18,7 @@ states without generating a replacement key. An absent root file with its
 legacy Keychain item still present is recovery, as is a pointer to that missing
 root key. A malformed pointer falls back to the sole slot or the picker without
 rewriting the pointer. The runtime uses this resolution for setup, ready and
-recovery. Multiple candidates show a picker placeholder until selection controls
-are wired; add and switch actions are the next checkpoint.
+recovery. Multiple candidates show a picker with selection controls.
 The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The network draft bridge resolves the selected UUID slot's
 folder or the legacy root before calling UniFFI load/save; it does not create or select a key.
@@ -196,7 +195,11 @@ The native iOS/macOS launch tests use isolated slot roots and legacy Keychain
 accounts, and check first creation, picker selection, confirmed removal and stable Peer IDs after
 relaunch. Shared unit tests cover deleting tombstones, retry and survivor network isolation.
 An isolated debug UI fixture checks that an unreadable wrapped key is unavailable in Settings
-and shows recovery after restart without offering implicit replacement. A temporarily locked
-Keychain and corrupt-pointer UI fixtures remain planned.
+and shows recovery after restart without offering implicit replacement. `IdentityRecoveryTests`
+seeds the isolated root through `--ui-test-identity-fixture=` before the first resolve: a legacy
+root identity and a malformed pointer over a sole slot keep their Peer ID across a relaunch, and a
+missing slot key, a missing legacy key and a pending slot stay in recovery without offering Create.
+The fixture exists only in DEBUG builds and needs `--ui-test-slot-root=`, so it never reaches the
+real root. A temporarily locked Keychain has no UI fixture: a test cannot lock it on demand.
 Unit tests verify that a corrupt wrapped key cannot change the selected pointer, and that losing
 the selected Keychain item yields unavailable recovery without creating another key.
