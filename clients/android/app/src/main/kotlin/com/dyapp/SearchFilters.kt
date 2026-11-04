@@ -3,7 +3,10 @@ package com.dyapp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -14,11 +17,13 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.semantics
@@ -29,12 +34,15 @@ import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchOp
 import uniffi.dyapp.searchAgeCondition
 import uniffi.dyapp.searchHeightCondition
+import uniffi.dyapp.searchMutualConditions
 
 // Node field numbers, as the desktop page uses them.
 private const val COUNTRY_FIELD = 4u
 private const val HEIGHT_FIELD = 46u
 private const val PLACE_FIELD = 20u
 private const val BIRTH_AGE_FIELD = 1001u
+private const val SEEKING_GENDERS_FIELD = 53u
+private const val SEEKING_AGE_FIELD = 54u
 private const val YOUNGEST = 18u
 private const val OLDEST = 150u
 
@@ -57,8 +65,20 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     val place = PlaceInputs("", null, "")
     val picked = mutableStateMapOf<String, Int>()
     val employer = EmployerFilter()
+    var mutual by mutableStateOf(false)
 
     val shownScales get() = scales.filter { it.field in offered }
+    val mutualOffered get() = SEEKING_GENDERS_FIELD in offered && SEEKING_AGE_FIELD in offered
+
+    /**
+     * The ticked mutual search from the saved profile; one without the owner's gender or exact age fails as
+     * `mutual unavailable`, since running without the conditions would show people who never asked to be found.
+     */
+    fun mutualConditions(opened: Opened.Ready): List<SearchCondition> {
+        if (!mutual || !mutualOffered) return emptyList()
+        return searchMutualConditions(loadDraft(opened, scales).record())
+            .ifEmpty { throw IllegalArgumentException("mutual unavailable") }
+    }
 
     /**
      * Node conditions; an age that is no whole number or fits no birth date fails as `invalid search age`,
@@ -119,8 +139,23 @@ internal fun SearchFilterFields(filters: SearchFilters) {
     if (COUNTRY_FIELD in filters.offered) {
         PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any, "search")
     }
+    if (filters.mutualOffered) MutualFilter(filters)
     if (filters.shownScales.isNotEmpty()) MoreFilters(filters)
     EmployerFilterFields(filters.employer)
+}
+
+@Composable
+private fun MutualFilter(filters: SearchFilters) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("search-mutual")
+            .toggleable(filters.mutual, role = Role.Checkbox) { filters.mutual = it },
+        Arrangement.spacedBy(8.dp),
+        Alignment.CenterVertically,
+    ) {
+        Checkbox(filters.mutual, onCheckedChange = null)
+        Text(stringResource(R.string.search_mutual))
+    }
+    Caption(stringResource(R.string.search_mutual_hint))
 }
 
 // The scales stay behind an expander, as on the profile form; a pick still applies while collapsed.

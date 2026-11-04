@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
@@ -13,6 +14,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
+import uniffi.dyapp.profileScales
 
 class SearchTests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -107,9 +109,37 @@ class SearchTests {
             click("country-DE")
             click("run-search")
             checkLocalSample()
+            mutualSearchNeedsTheSavedGenderAndAge()
         } finally {
             forgetNetworks()
         }
+    }
+
+    private fun pick(tag: String, choice: String) {
+        click(tag)
+        compose.onNodeWithTag("$tag-$choice").performClick()
+    }
+
+    // Without an exact age it says why rather than searching unfiltered; with both it runs.
+    private fun mutualSearchNeedsTheSavedGenderAndAge() {
+        compose.onNodeWithTag("nav-profile").performClick()
+        compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
+        click("profile-save")
+        compose.onNodeWithTag("nav-search").performClick()
+        click("search-mutual")
+        click("run-search")
+        check(searched() == string(R.string.search_mutual_unavailable)) { "status ${compose.texts("search-status")}" }
+        compose.onNodeWithTag("search-retry").assertDoesNotExist()
+        compose.onNodeWithTag("nav-profile").performClick()
+        compose.onNodeWithTag("birth-year").performScrollTo().performTextInput("1990")
+        pick("birth-month", "1")
+        pick("birth-day", "1")
+        val woman = profileScales().first { it.key == GENDER }.choices.first { it.key == "Woman" }.code
+        pick("profile-gender", "$woman")
+        click("profile-save")
+        compose.onNodeWithTag("nav-search").performClick()
+        click("run-search")
+        checkLocalSample()
     }
 
     // Run only by android-test-in-container.sh, after it flips the signature of every indexed record.

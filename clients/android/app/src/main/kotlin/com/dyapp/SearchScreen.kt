@@ -58,6 +58,7 @@ private fun searchError(error: Throwable) = when {
     "notConnected" in error.toString() -> R.string.search_not_connected
     "invalid search age" in error.toString() -> R.string.search_age_invalid
     "invalid search height" in error.toString() -> R.string.search_height_invalid
+    "mutual unavailable" in error.toString() -> R.string.search_mutual_unavailable
     else -> R.string.search_failed
 }
 
@@ -95,11 +96,14 @@ private fun SearchLoading(cancel: () -> Unit) {
     }
 }
 
+private val FIX_THE_FIELDS =
+    setOf(R.string.search_age_invalid, R.string.search_height_invalid, R.string.search_mutual_unavailable)
+
 @Composable
 private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {
     ErrorNotice(stringResource(failed.text), STATUS_TAG, failed.details, FAILURES_TAG, "copy-search-details")
-    // A range nothing fits needs the fields fixed, not a connection or the same query again.
-    if (failed.text != R.string.search_age_invalid && failed.text != R.string.search_height_invalid) {
+    // A range nothing fits or a missing own age needs the fields fixed, not a connection or the same query again.
+    if (failed.text !in FIX_THE_FIELDS) {
         OutlinedButton(onClick = openNetwork, modifier = Modifier.fillMaxWidth().testTag("search-open-network")) {
             Text(stringResource(R.string.search_open_network))
         }
@@ -150,7 +154,7 @@ private suspend fun sample(
     val conditions = runCatching { filters.conditions() }
     val result = withContext(Dispatchers.IO) {
         runCatching {
-            val query = conditions.getOrThrow()
+            val query = conditions.getOrThrow() + filters.mutualConditions(opened)
             RustBridge.withKey(opened) { _, key ->
                 searcher.getOrThrow().search(key, query, filters.employer.employer(), 0u)
             }

@@ -14,7 +14,7 @@ import java.io.FileNotFoundException
 private const val LEGACY_PROFILE_DRAFT_JSON = "profile-draft.json"
 
 // Rust scale keys of the record fields.
-private const val GENDER = "gender"
+internal const val GENDER = "gender"
 private const val ORIENTATION = "orientation"
 private const val RELATIONSHIP_GOAL = "relationship_goal"
 private const val ROLE_PREFERENCE = "role_preference"
@@ -36,6 +36,7 @@ internal data class ProfileDraft(
     val country: String = "",
     val name: String = "",
     val about: String = "",
+    val seeking: ProfileSeeking = ProfileSeeking(),
 )
 
 /** The draft value of typed height text: empty clears it, null is text that is no whole number. */
@@ -76,7 +77,8 @@ internal fun ProfileDraft.record(): PublicProfileDraft {
         birthMonth = values[BIRTH_MONTH]?.toUInt(), birthDay = values[BIRTH_DAY]?.toUInt(),
         country = country, place = values[PLACE]?.toString().orEmpty(), height = values[HEIGHT]?.toUInt(),
         about = about, smoking = code(SMOKING), drinking = code(DRINKING), tattoos = code(TATTOOS),
-        maritalStatus = code(MARITAL_STATUS), pets = code(PETS),
+        maritalStatus = code(MARITAL_STATUS), pets = code(PETS), seekingGenders = seeking.genders,
+        seekingAgeFrom = seeking.ageFrom, seekingAgeTo = seeking.ageTo, notLooking = seeking.notLooking,
     )
 }
 
@@ -90,7 +92,8 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
     val optional = listOf(BIRTH_YEAR to birthYear, BIRTH_MONTH to birthMonth, BIRTH_DAY to birthDay,
         PLACE to place.toUIntOrNull(), HEIGHT to height)
     val values = scales.filter { it.second != 0u } + optional.mapNotNull { (key, value) -> value?.let { key to it } }
-    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name, about)
+    return ProfileDraft(values.associate { (key, value) -> key to value.toInt() }, country, name, about,
+        ProfileSeeking(seekingGenders, seekingAgeFrom, seekingAgeTo, notLooking))
 }
 
 /** This identity's `client.db` draft; an older `profile-draft.json` is imported once and kept. */

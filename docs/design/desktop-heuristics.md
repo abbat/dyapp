@@ -216,6 +216,18 @@ pickers reuse the folded scale list and its **Not published** / **Any** choices 
 says who sees About and that it is plain text (H2, H10), and text too long or with a hidden symbol is
 kept in the field and refused at save with a message saying what to change (H5, H9). No open finding.
 
+### Android who I am looking for review (2026-11-04)
+
+Reviewed the seeking section of the profile basics, its preview rows and the mutual filter against H1–H10,
+from the Compose code; not yet seen on a device, native rendering is left to the CI Android job. The switch
+disables the choices beneath it and says that saving clears them, and the form empties on that save, so what
+it shows matches the store (H1, H5). The wording is the desktop's in both languages (H4). A partner age that
+is no number, out of range or reversed keeps the typed text and says what to enter (H9). Each row is a whole
+toggle at least 48 dp high with the role read out, and the hint says the choices are public and when mutual
+search finds you (H7, H10). The mutual filter appears only when every reached node offers both fields, names
+what nodes see for that search, and with no own gender or exact age explains what to add, offering no retry
+or network button that could not help (H1, H5, H9). No open finding.
+
 ### Android height review (2026-11-04)
 
 Reviewed the height field in the profile basics, its preview row and the height range in the search

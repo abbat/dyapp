@@ -66,6 +66,7 @@ private fun saveFailure(error: Throwable) = when {
     "invalidName" in error.toString() -> R.string.profile_name_invalid
     "invalidHeight" in error.toString() -> R.string.profile_height_invalid
     "invalidAbout" in error.toString() -> R.string.profile_about_invalid
+    "invalidSeeking" in error.toString() -> R.string.profile_seeking_invalid
     else -> R.string.profile_save_failed
 }
 
@@ -73,16 +74,21 @@ private fun saveFailure(error: Throwable) = when {
 private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthInputs, place: PlaceInputs): Int {
     val parts = parseBirthParts(birth.year, birth.month, birth.day)
     val tall = parsedHeight(birth.height)
+    val seeking = birth.seeking.parsed()
     val picked = place.place?.let { mapOf(PLACE to it) }.orEmpty()
     val kept = edited.values.filterKeys { it !in REPLACED_KEYS }
     return when {
         parts == null -> R.string.profile_birth_invalid
         tall == null -> R.string.profile_height_invalid
         place.unknown -> R.string.profile_place_unknown
+        seeking == null -> R.string.profile_seeking_invalid
         else -> runCatching {
             saveDraft(opened, edited.copy(values = kept + parts + picked + tall, country = place.country,
-                about = birth.about))
-        }.fold({ R.string.profile_saved }, ::saveFailure)
+                about = birth.about, seeking = seeking))
+        }.fold({
+            birth.seeking.clearIfNotLooking()
+            R.string.profile_saved
+        }, ::saveFailure)
     }
 }
 
@@ -93,7 +99,7 @@ private fun ProfileDraftForm(
     saved: ProfileDraft,
 ) {
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
-    val birth = remember(opened.slot.id) { BirthInputs(saved.values, saved.about) }
+    val birth = remember(opened.slot.id) { BirthInputs(saved.values, saved.about, saved.seeking) }
     val name = remember(opened.slot.id) { mutableStateOf(saved.name) }
     val lang = placeLang()
     val place = remember(opened.slot.id) {
@@ -141,6 +147,7 @@ private fun BasicsCard(
         supportingText = { Text(stringResource(R.string.profile_about_hint)) }, minLines = ABOUT_LINES)
     CardTitle(R.string.profile_birth)
     BirthDateFields(birth)
+    SeekingFields(scales, birth.seeking)
 }
 
 @Composable
@@ -175,7 +182,7 @@ private fun MoreScales(scales: List<ProfileScale>, values: MutableMap<String, In
 
 private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs) =
     listOf(values.toMap(), birth.year, birth.month, birth.day, birth.height, birth.about, place.country, place.place,
-        place.text)
+        place.text, birth.seeking.tracked)
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable

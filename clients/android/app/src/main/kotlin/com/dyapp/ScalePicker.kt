@@ -52,7 +52,8 @@ internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect
                     onClick = { onSelect(0); expanded = false })
                 for (choice in scale.choices) {
                     DropdownMenuItem(text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
-                        onClick = { onSelect(choice.code.toInt()); expanded = false })
+                        onClick = { onSelect(choice.code.toInt()); expanded = false },
+                        modifier = Modifier.testTag("$tag-${choice.code}"))
                 }
             }
         }

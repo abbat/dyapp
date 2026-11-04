@@ -228,6 +228,9 @@
     <string name="search_height_max">Height to, cm</string>
     <string name="search_height_invalid">Enter a height range within 50 to 272 cm, the lower value first.</string>
     <string name="search_age_invalid">Enter an age range from 18 that can match a birth date.</string>
+    <string name="search_mutual">Only people looking for someone like me</string>
+    <string name="search_mutual_hint">Shows profiles that seek your gender and age. Search nodes see your gender and age for this search. Uses your saved profile.</string>
+    <string name="search_mutual_unavailable">Mutual search needs your gender and a birth date that gives your exact age. Add them to your saved profile.</string>
     <string name="search_peer">Peer ID: %1$s</string>
     <string name="search_failure_no_nodes">No search node was found on the network.</string>
     <string name="search_failure_unavailable">A search node could not be reached or would not serve the search.</string>
@@ -342,6 +345,15 @@
     <string name="profile_birth_day">Birth day</string>
     <string name="profile_height">Height, cm</string>
     <string name="profile_height_invalid">Use a height from 50 to 272 cm, or leave it empty.</string>
+    <string name="profile_seeking_title">Who you are looking for</string>
+    <string name="profile_not_looking">Not looking now</string>
+    <string name="profile_not_looking_hint">Your profile stays public, but mutual searches leave you out. Saving with this on clears the choices below.</string>
+    <string name="profile_not_looking_on">Yes</string>
+    <string name="profile_seeking_genders">Looking for</string>
+    <string name="profile_seeking_hint">Public, like the rest of your profile. Mutual searches find you only with at least one gender and one age bound.</string>
+    <string name="profile_seeking_age_from">Partner age from</string>
+    <string name="profile_seeking_age_to">Partner age to</string>
+    <string name="profile_seeking_invalid">Use a partner age from 18 to 120, the lower value first, or leave it empty.</string>
     <string name="profile_about">About</string>
     <string name="profile_about_hint">Up to 500 characters. Anyone who finds your profile sees this as plain text, without links or formatting.</string>
     <string name="profile_about_invalid">Use up to 500 characters with no hidden symbols in About.</string>

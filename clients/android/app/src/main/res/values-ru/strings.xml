@@ -227,6 +227,9 @@
     <string name="search_height_max">Рост до, см</string>
     <string name="search_height_invalid">Введите диапазон роста от 50 до 272 см, меньшее значение первым.</string>
     <string name="search_age_invalid">Введите диапазон возраста от 18, которому может соответствовать дата рождения.</string>
+    <string name="search_mutual">Только те, кто ищет таких, как я</string>
+    <string name="search_mutual_hint">Показывает профили, которые ищут ваш пол и возраст. На время этого поиска узлы видят ваш пол и возраст. Используется сохранённый профиль.</string>
+    <string name="search_mutual_unavailable">Для взаимного поиска нужны ваш пол и дата рождения, по которой точно известен возраст. Добавьте их в сохранённый профиль.</string>
     <string name="search_peer">Peer ID: %1$s</string>
     <string name="search_failure_no_nodes">В сети не найден ни один узел поиска.</string>
     <string name="search_failure_unavailable">Узел поиска недоступен или отказался выполнять поиск.</string>
@@ -341,6 +344,15 @@
     <string name="profile_birth_day">День рождения</string>
     <string name="profile_height">Рост, см</string>
     <string name="profile_height_invalid">Укажите рост от 50 до 272 см или оставьте поле пустым.</string>
+    <string name="profile_seeking_title">Кого вы ищете</string>
+    <string name="profile_not_looking">Сейчас не ищу</string>
+    <string name="profile_not_looking_hint">Профиль останется публичным, но взаимный поиск его не покажет. Сохранение с этим переключателем очищает выбор ниже.</string>
+    <string name="profile_not_looking_on">Да</string>
+    <string name="profile_seeking_genders">Ищу</string>
+    <string name="profile_seeking_hint">Это публичные данные, как и весь профиль. Взаимный поиск найдёт вас, только если выбран хотя бы один пол и указана хотя бы одна граница возраста.</string>
+    <string name="profile_seeking_age_from">Возраст партнёра от</string>
+    <string name="profile_seeking_age_to">Возраст партнёра до</string>
+    <string name="profile_seeking_invalid">Укажите возраст партнёра от 18 до 120, сначала меньшее значение, или оставьте поле пустым.</string>
     <string name="profile_about">О себе</string>
     <string name="profile_about_hint">До 500 символов. Этот текст видит каждый, кто найдёт ваш профиль: без ссылок и оформления.</string>
     <string name="profile_about_invalid">В поле «О себе» используйте до 500 символов без скрытых знаков.</string>

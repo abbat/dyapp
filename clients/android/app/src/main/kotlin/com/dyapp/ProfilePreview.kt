@@ -42,19 +42,25 @@ private fun numberRows(saved: Map<String, Int>) = listOf(HEIGHT to R.string.prof
     BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
-/** The public rows of [draft]: the public name, scales, place, height, birth parts, about and the possible age. */
+@Composable
+private fun NameRow(name: String, nothingElse: Boolean) {
+    if (name.isNotEmpty()) {
+        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), name),
+            Modifier.testTag("preview-name"))
+    } else if (nothingElse) {
+        Text(stringResource(R.string.profile_preview_empty))
+    }
+}
+
+/** The public rows of [draft]: name, scales, place, height, birth parts, who it seeks, about, the possible age. */
 @Composable
 internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
     val numbers = numberRows(saved)
-    if (draft.name.isNotEmpty()) {
-        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), draft.name),
-            Modifier.testTag("preview-name"))
-    } else if (draft.about.isEmpty() && listOf(fields, places, numbers).all { it.isEmpty() }) {
-        Text(stringResource(R.string.profile_preview_empty))
-    }
+    NameRow(draft.name, draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
+        listOf(fields, places, numbers).all { it.isEmpty() })
     for ((scale, choice) in fields) {
         Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
             label(context, "value.$scale.$choice")))
@@ -64,6 +70,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
             Modifier.testTag("preview-$key"))
     }
     for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
+    SeekingRows(draft.seeking, scales, context)
     if (draft.about.isNotEmpty()) {
         Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
             Modifier.testTag("preview-about"))
