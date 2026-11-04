@@ -143,37 +143,6 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
     }
 
-    /// Give both fresh confirmations, then start the proof and publish.
-    private func publish(_ app: XCUIApplication) {
-        for id in ["profile-confirm-adult", "profile-confirm-public"] {
-            let toggle = app.switches[id]
-            reveal(toggle, in: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "enabled == true"), object: toggle
-            ),
-            ], timeout: 10), .completed)
-            // The row's centre is its label; newer iOS nests the tappable switch inside the row,
-            // older iOS has none and the switch sits at the trailing edge.
-            let knob = toggle.switches.firstMatch
-            if knob.exists {
-                knob.tap()
-            } else {
-                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-            }
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "value == '1'"), object: toggle
-            ),
-            ], timeout: 10), .completed)
-        }
-        let button = app.buttons["profile-prepare-publish"]
-        reveal(button, in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: button
-        ),
-        ], timeout: 10), .completed)
-        button.tap()
-    }
-
     // Every launch starts with the app lock skipped, so the start screen renders.
     private func unlockedApp() -> XCUIApplication {
         let app = XCUIApplication()
