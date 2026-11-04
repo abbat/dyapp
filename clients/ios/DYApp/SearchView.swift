@@ -6,12 +6,32 @@ struct SearchView: View {
     @ObservedObject var session: SearchSession
     let candidate: IdentityCandidate
     let peerId: String
+    @ObservedObject var feed: ChatFeed
     @State private var opened: FoundProfile?
+    @State private var chat: FoundProfile?
 
     var body: some View {
         Group {
             if let opened {
-                FoundProfileView(found: opened) { self.opened = nil }
+                FoundProfileView(
+                    peer: opened.peerId, known: opened, feed: feed,
+                    back: { self.opened = nil },
+                    message: {
+                        chat = opened
+                        self.opened = nil
+                    },
+                    blocked: {
+                        chat = nil
+                        self.opened = nil
+                    }
+                )
+                .id(opened.peerId)
+            } else if let chat {
+                ChatView(
+                    feed: feed, peer: chat.peerId,
+                    profile: { opened = chat },
+                    back: { self.chat = nil }
+                )
             } else {
                 Form {
                     Text("search.sample").font(.caption)

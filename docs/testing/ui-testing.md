@@ -71,7 +71,8 @@ The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest 
 launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test
 (`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the
 app's profile is listed, and confirms the app's reply with a message of its own, which the test waits
-for. Release builds compile none of this.
+for. With `--ui-test-chat-peer-likes` the peer likes the app's identity instead and stops, so the test
+can like back from Liked you. Release builds compile none of this.
 
 The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
 drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the

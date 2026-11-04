@@ -127,7 +127,7 @@ struct ContentView: View {
                             profileOpen = true
                         }
                     }
-                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId)) {
+                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats)) {
                         Text("search.title")
                     }
                     .accessibilityIdentifier("search-open")

@@ -9,13 +9,18 @@ identity. Counts come from local data, and the app checks the mailbox once a min
 A row opens its chat; **Chats** at the top of the chat goes back. A first message waits for a reply
 before you can write more. Text that could not go out yet stays queued and is not sent twice.
 
+A Liked you row, a search result and the name at the top of a chat open that person's page. **Like**
+sends a like and a mutual like shows a match; **Message** opens the chat. **Liked** takes the like back
+after a confirmation. **Pass** hides the person from Liked you and can be undone on the page, and
+**Block** asks first and closes the page.
+
 **Search** on the Ready screen asks the search nodes of the active network for a sample of
 published profiles. A sample is not a complete list, and the app lists only profiles whose signature
 and filters it verified. After the first sample, filters appear for the fields the nodes offer: age,
 height, country and place, **Only people looking for someone like me** (it needs your gender and a
 birth date that gives your exact age in the saved profile) and more values. Each result shows the end
 of the Peer ID, the possible age and the country. Opening a result shows its full Peer ID and public
-fields, and **Back to results** returns to the same sample without a new query. When some nodes fail,
+fields with the same actions, and **Back to results** returns to the same sample without a new query. When some nodes fail,
 the matches found stay and each node problem is listed.
 
 After creating or reopening an identity without an active network, the connection form opens

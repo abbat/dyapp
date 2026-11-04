@@ -10,6 +10,7 @@ struct ChatStatus: Equatable {
 struct ChatView: View {
     @ObservedObject var feed: ChatFeed
     let peer: String
+    let profile: () -> Void
     let back: () -> Void
     @State private var history: ChatHistory?
     @State private var status: ChatStatus?
@@ -21,7 +22,11 @@ struct ChatView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button("chats.title", action: back).accessibilityIdentifier("chat-back")
-            Text(verbatim: "@\(peer.suffix(6))").font(.headline)
+            Button(action: profile) {
+                Text(verbatim: "@\(peer.suffix(6))").font(.headline)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("chat-profile")
             notice
             thread
             statusLines

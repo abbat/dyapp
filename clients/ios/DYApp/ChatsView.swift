@@ -4,7 +4,7 @@ import SwiftUI
 struct ChatsView: View {
     @ObservedObject var feed: ChatFeed
     // Swapped in by state: a navigation link in the macOS 12 detail column would leave no way back.
-    @State private var opened: FoundProfile?
+    @State private var opened: OpenedProfile?
     @State private var chat: String?
 
     private var requests: [ChatRow] { feed.rows.filter { $0.state == .requestReceived } }
@@ -12,10 +12,27 @@ struct ChatsView: View {
 
     var body: some View {
         Group {
-            if let chat {
-                ChatView(feed: feed, peer: chat) { self.chat = nil }
-            } else if let opened {
-                FoundProfileView(found: opened) { self.opened = nil }
+            // The page goes over the chat that opened it, and its back leads there.
+            if let opened {
+                FoundProfileView(
+                    peer: opened.peer, known: opened.known, feed: feed,
+                    back: { self.opened = nil },
+                    message: {
+                        chat = opened.peer
+                        self.opened = nil
+                    },
+                    blocked: {
+                        chat = nil
+                        self.opened = nil
+                    }
+                )
+                .id(opened.peer)
+            } else if let chat {
+                ChatView(
+                    feed: feed, peer: chat,
+                    profile: { opened = OpenedProfile(peer: chat, known: nil) },
+                    back: { self.chat = nil }
+                )
             } else {
                 list
             }
@@ -30,7 +47,9 @@ struct ChatsView: View {
                 count: feed.liked.count, open: $feed.likedOpen
             )
             if feed.likedOpen {
-                LikedList(liked: feed.liked, fetch: feed.likedProfiles) { opened = $0 }
+                LikedList(liked: feed.liked, fetch: feed.likedProfiles) {
+                    opened = OpenedProfile(peer: $0.peerId, known: $0)
+                }
             }
             ChatsExpandRow(
                 id: "chats-requests", title: "chats.requests", text: "chats.requestsText",
@@ -62,6 +81,12 @@ struct ChatsView: View {
             .accessibilityIdentifier("\(prefix)-\(index + 1)")
         }
     }
+}
+
+/// A peer's page to show; a chat knows only the peer, so the page fetches the profile.
+private struct OpenedProfile {
+    let peer: String
+    let known: FoundProfile?
 }
 
 /// A row that opens or closes the list below it and tells how many it holds.

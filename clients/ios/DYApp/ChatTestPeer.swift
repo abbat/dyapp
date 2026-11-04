@@ -8,13 +8,20 @@ enum ChatTestPeer {
     static let reply = "Hello back"
     static let confirmation = "Got your reply"
 
-    static var enabled: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") }
+    static var enabled: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst }
+    private static var likesFirst: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes") }
 
-    /// Sends the first message once `me` has published, waits for the reply and confirms it.
+    /// Sends the first message once `me` has published, waits for the reply and confirms it. With
+    /// the likes argument it likes `me` and stops instead.
     static func start(me: String) {
         Thread.detachNewThread {
             do {
-                try converse(with: me, session: published())
+                let session = try published()
+                if likesFirst {
+                    retrying { _ = try session.like(peerId: me, liked: true) }
+                } else {
+                    converse(with: me, session: session)
+                }
             } catch {
                 NSLog("ChatTestPeer stopped: %@", String(describing: error))
             }

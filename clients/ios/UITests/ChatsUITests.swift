@@ -60,6 +60,34 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
     }
 
+    /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
+    func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
+
+        let liked = app.buttons["chats-liked"]
+        XCTAssertTrue(liked.waitForExistence(timeout: 10), app.debugDescription)
+        liked.tap()
+        let row = app.buttons["liked-1"]
+        XCTAssertTrue(row.waitForExistence(timeout: 150), app.debugDescription)
+        row.tap()
+
+        XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
+        reveal(app.buttons["view-pass"], in: app).tap()
+        reveal(app.buttons["view-unpass"], in: app).tap()
+        reveal(app.buttons["view-like"], in: app, above: true).tap()
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["view-match"], in: app, timeout: 60, above: true).exists,
+                      app.debugDescription)
+        reveal(app.buttons["view-message-match"], in: app).tap()
+        XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+    }
+
     /// A selectable text may carry its words in its value instead of its label.
     private func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(

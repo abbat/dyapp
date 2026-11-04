@@ -58,6 +58,42 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
     }
 
+    /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
+    func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        let open = app.buttons["chats-open"]
+        XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
+        open.click()
+
+        let liked = app.buttons["chats-liked"]
+        XCTAssertTrue(liked.waitForExistence(timeout: 10), app.debugDescription)
+        liked.click()
+        let row = app.buttons["liked-1"]
+        XCTAssertTrue(row.waitForExistence(timeout: 150), app.debugDescription)
+        row.click()
+
+        let pass = app.buttons["view-pass"]
+        XCTAssertTrue(pass.waitForExistence(timeout: 30), app.debugDescription)
+        reveal(pass, in: app)
+        pass.click()
+        let unpass = app.buttons["view-unpass"]
+        XCTAssertTrue(unpass.waitForExistence(timeout: 30), app.debugDescription)
+        unpass.click()
+
+        let like = app.buttons["view-like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 30), app.debugDescription)
+        reveal(like, in: app, deltaY: 300)
+        like.click()
+        XCTAssertTrue(app.descendants(matching: .any)["view-match"].waitForExistence(timeout: 60), app.debugDescription)
+        app.buttons["view-message-match"].click()
+        XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+    }
+
     /// A selectable text may carry its words in its value instead of its label.
     private func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(

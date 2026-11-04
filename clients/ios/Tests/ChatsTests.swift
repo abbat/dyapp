@@ -57,4 +57,10 @@ final class ChatsTests: XCTestCase {
         XCTAssertEqual(profileLoadKey(CoreError.Failed(message: "notConnected")), "search.notConnected")
         XCTAssertEqual(profileLoadKey(CoreError.Failed(message: "other")), "view.loadFailed")
     }
+
+    func testLikeFailureNamesItsCause() {
+        XCTAssertEqual(likeFailureKey(CoreError.Failed(message: "unpublished")), "view.likeUnpublished")
+        XCTAssertEqual(likeFailureKey(CoreError.Failed(message: "notConnected")), "view.likeNotConnected")
+        XCTAssertEqual(likeFailureKey(CoreError.Failed(message: "other")), "view.likeFailed")
+    }
 }
