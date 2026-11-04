@@ -54,6 +54,67 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    /// A height that is no number is refused with its own message and saves nothing; the typed
+    /// fields then survive a restart and reach the preview.
+    func testTypedFieldsRefuseBadHeightAndSurviveRestart() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let height = app.textFields["profile-height"]
+        reveal(height, in: app)
+        height.click()
+        height.typeText("tall")
+        let save = app.buttons["profile-save"]
+        reveal(save, in: app)
+        save.click()
+        let status = app.staticTexts["profile-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue((status.value as? String ?? status.label).contains("272"), app.debugDescription)
+
+        reveal(height, in: app, deltaY: 300)
+        height.click()
+        height.typeKey("a", modifierFlags: .command)
+        height.typeText("170")
+        let about = app.textViews["profile-about"]
+        reveal(about, in: app)
+        about.click()
+        about.typeText("Plain text")
+        let gender = app.checkBoxes["profile-seeking-gender-1"]
+        reveal(gender, in: app)
+        gender.click()
+        let ageFrom = app.textFields["profile-seeking-age-from"]
+        reveal(ageFrom, in: app)
+        ageFrom.click()
+        ageFrom.typeText("30")
+        reveal(save, in: app)
+        save.click()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == 'Draft saved' OR label == 'Draft saved'"), object: status
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        app.terminate()
+
+        app.launch()
+        openProfile(app)
+        reveal(height, in: app)
+        XCTAssertEqual(height.value as? String, "170")
+        reveal(about, in: app)
+        XCTAssertEqual(about.value as? String, "Plain text")
+        reveal(gender, in: app)
+        XCTAssertEqual(gender.value as? Int, 1)
+        reveal(ageFrom, in: app)
+        XCTAssertEqual(ageFrom.value as? String, "30")
+        let preview = app.buttons["profile-preview"]
+        reveal(preview, in: app)
+        preview.click()
+        for row in ["preview-height", "preview-about", "preview-seeking-genders", "preview-seeking-age-from"] {
+            XCTAssertTrue(app.descendants(matching: .any)[row].waitForExistence(timeout: 10), row)
+        }
+        app.terminate()
+    }
+
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.
     private func assertFailedPublish(_ app: XCUIApplication, month: XCUIElement,
                                      expected: (String) -> Bool) {
@@ -90,17 +151,19 @@ final class ProfileUITests: XCTestCase {
     }
 
     private func openProfile(_ app: XCUIApplication) {
-        if app.buttons["profile-save"].waitForExistence(timeout: 5) { return }
+        // The form creates rows lazily: the save button is off screen, the first field is not.
+        if app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 5) { return }
         let link = app.buttons["profile-edit"]
         XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
         link.click()
-        XCTAssertTrue(app.buttons["profile-save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
     }
 
-    /// Form rows below the window are created only once scrolled into view.
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<8 where !(element.exists && element.isHittable) {
-            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -300)
+    /// Form rows outside the window are created only once scrolled into view; a positive
+    /// `deltaY` goes back up.
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -300) {
+        for _ in 0..<12 where !(element.exists && element.isHittable) {
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: deltaY)
         }
     }
 
