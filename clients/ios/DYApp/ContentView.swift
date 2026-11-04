@@ -51,13 +51,13 @@ struct ContentView: View {
                             Text("settings.title")
                         }
                         .accessibilityIdentifier("settings-open")
-                    }), onActivated: {
+                    })) {
                         // Open the profile from the ready start screen: iOS never pushed from a hidden
                         // link on the setup root, and a macOS sidebar left on the setup form had no way
                         // to search or chats until a restart.
                         profilePending = true
                         activeNetwork = .ready
-                    })
+                    }
                 } else {
                     start
                 }
