@@ -272,7 +272,7 @@ struct ProfileDraftView: View {
     }
 
     @MainActor
-    private func load() async {
+    private func resetFields() {
         isLoading = true
         readFailed = false
         status = ""
@@ -290,6 +290,11 @@ struct ProfileDraftView: View {
         savedBirthDay = ""
         extras = ProfileExtraInputs()
         savedExtras = extras
+    }
+
+    @MainActor
+    private func load() async {
+        resetFields()
         let selected = candidate
         let selectedPeer = peerId
         let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in

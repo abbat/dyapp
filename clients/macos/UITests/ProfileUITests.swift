@@ -77,17 +77,7 @@ final class ProfileUITests: XCTestCase {
         height.click()
         height.typeKey("a", modifierFlags: .command)
         height.typeText("170")
-        let about = app.textViews["profile-about"]
-        reveal(about, in: app)
-        about.click()
-        about.typeText("Plain text")
-        let gender = app.checkBoxes["profile-seeking-gender-1"]
-        reveal(gender, in: app)
-        gender.click()
-        let ageFrom = app.textFields["profile-seeking-age-from"]
-        reveal(ageFrom, in: app)
-        ageFrom.click()
-        ageFrom.typeText("30")
+        fillAboutAndSeeking(app)
         reveal(save, in: app)
         save.click()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
@@ -100,10 +90,13 @@ final class ProfileUITests: XCTestCase {
         openProfile(app)
         reveal(height, in: app)
         XCTAssertEqual(height.value as? String, "170")
+        let about = app.textViews["profile-about"]
         reveal(about, in: app)
         XCTAssertEqual(about.value as? String, "Plain text")
+        let gender = app.checkBoxes["profile-seeking-gender-1"]
         reveal(gender, in: app)
         XCTAssertEqual(gender.value as? Int, 1)
+        let ageFrom = app.textFields["profile-seeking-age-from"]
         reveal(ageFrom, in: app)
         XCTAssertEqual(ageFrom.value as? String, "30")
         let preview = app.buttons["profile-preview"]
@@ -113,6 +106,20 @@ final class ProfileUITests: XCTestCase {
             XCTAssertTrue(app.descendants(matching: .any)[row].waitForExistence(timeout: 10), row)
         }
         app.terminate()
+    }
+
+    private func fillAboutAndSeeking(_ app: XCUIApplication) {
+        let about = app.textViews["profile-about"]
+        reveal(about, in: app)
+        about.click()
+        about.typeText("Plain text")
+        let gender = app.checkBoxes["profile-seeking-gender-1"]
+        reveal(gender, in: app)
+        gender.click()
+        let ageFrom = app.textFields["profile-seeking-age-from"]
+        reveal(ageFrom, in: app)
+        ageFrom.click()
+        ageFrom.typeText("30")
     }
 
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.

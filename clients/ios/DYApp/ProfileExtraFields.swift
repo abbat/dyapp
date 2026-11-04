@@ -17,10 +17,12 @@ enum ProfileInputError: String, Error {
 /// The status text for a refused save; the shared core names the field it refused.
 func profileSaveStatus(_ error: Error) -> String {
     guard case CoreError.Failed(let refusal) = error else { return "profile.saveFailed" }
-    return ["invalidName": "profile.invalidName",
-            "invalidHeight": ProfileInputError.height.rawValue,
-            "invalidAbout": "profile.invalidAbout",
-            "invalidSeeking": ProfileInputError.seeking.rawValue][refusal] ?? "profile.saveFailed"
+    return [
+        "invalidName": "profile.invalidName",
+        "invalidHeight": ProfileInputError.height.rawValue,
+        "invalidAbout": "profile.invalidAbout",
+        "invalidSeeking": ProfileInputError.seeking.rawValue,
+    ][refusal] ?? "profile.saveFailed"
 }
 
 /// The typed fields beyond the scales; the shared core checks ranges and gender codes on save.
@@ -33,6 +35,16 @@ struct ProfileExtraInputs: Equatable {
     var ageTo = ""
     var notLooking = false
 
+    /// Compared for unsaved edits; the switch makes the choices it disables irrelevant.
+    var tracked: Self {
+        guard notLooking else { return self }
+        var kept = self
+        kept.genders = []
+        kept.ageFrom = ""
+        kept.ageTo = ""
+        return kept
+    }
+
     init() {}
 
     init(draft: ProfileDraft) {
@@ -43,16 +55,6 @@ struct ProfileExtraInputs: Equatable {
         ageFrom = draft.seeking.ageFrom.map(String.init) ?? ""
         ageTo = draft.seeking.ageTo.map(String.init) ?? ""
         notLooking = draft.seeking.notLooking
-    }
-
-    /// Compared for unsaved edits; the switch makes the choices it disables irrelevant.
-    var tracked: Self {
-        guard notLooking else { return self }
-        var kept = self
-        kept.genders = []
-        kept.ageFrom = ""
-        kept.ageTo = ""
-        return kept
     }
 
     /// `draft` with these fields as the store keeps them.
