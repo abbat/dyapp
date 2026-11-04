@@ -19,7 +19,7 @@ const showSeeking = (draft) => {
     box.id = `profile-seeking-gender-${choice.code}`;
     box.type = 'checkbox';
     box.value = String(choice.code);
-    box.checked = draft.seekingGenders.includes(choice.code);
+    box.checked = Boolean(draft.seekingGenders?.includes(choice.code));
     const name = document.createElement('span');
     name.textContent = genderName(choice);
     const label = document.createElement('label');
@@ -35,7 +35,7 @@ const showSeeking = (draft) => {
 // biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
 const seekingFacts = (draft) => {
   if (draft.notLooking) return [[window.strings['profile.notLooking'], window.strings['profile.notLookingOn']]];
-  const genders = seekingChoices().filter((choice) => draft.seekingGenders.includes(choice.code)).map(genderName);
+  const genders = seekingChoices().filter((choice) => draft.seekingGenders?.includes(choice.code)).map(genderName);
   return [
     ...(genders.length ? [[window.strings['profile.seekingGenders'], genders.join(', ')]] : []),
     ...(draft.seekingAgeFrom ? [[window.strings['profile.seekingAgeFrom'], String(draft.seekingAgeFrom)]] : []),
