@@ -19,7 +19,7 @@ POLL_SECONDS = 60
 
 
 def verdict(runs):
-    """One value per run: its job list. A rerun shows as jobs not yet completed."""
+    """One job list per run. A rerun shows as jobs not yet completed."""
     waiting = not runs
     for jobs in runs:
         found = {job["name"]: job for job in jobs if job["name"] in REQUIRED}

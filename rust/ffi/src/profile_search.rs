@@ -314,7 +314,7 @@ impl ProfileSearcher {
                 profile
             })
             .collect();
-        let partial = results.partial || !failures.is_empty();
+        let partial = is_partial(results.partial, &failures);
         failures.extend(results.failures);
         Ok(ProfileSearchResult {
             offered,
@@ -323,6 +323,11 @@ impl ProfileSearcher {
             failures: failures.into_iter().map(Into::into).collect(),
         })
     }
+}
+
+/// A node that never answered makes the sample partial, as a short answer does.
+fn is_partial<T>(short_answer: bool, unreached: &[T]) -> bool {
+    short_answer || !unreached.is_empty()
 }
 
 #[cfg(test)]
@@ -385,6 +390,13 @@ mod tests {
             .join()
             .unwrap();
         assert!(outcome.is_err());
+    }
+
+    #[test]
+    fn a_sample_is_partial_after_a_short_answer_or_an_unreached_node() {
+        assert!(!is_partial::<u8>(false, &[]));
+        assert!(is_partial::<u8>(true, &[]));
+        assert!(is_partial(false, &[1]));
     }
 
     #[test]
