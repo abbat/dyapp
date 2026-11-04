@@ -2273,6 +2273,18 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Имя и текст попадают в службу уведомлений macOS и могут появиться на экране блокировки, если это разрешено в Системных настройках. Запросы и лайки всегда показывают только «Новое сообщение»." } }
       }
     },
+    "notice.hintIos": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A name or a message reaches the iOS notification service, and only while Show Previews in iOS Settings keeps them off the lock screen. iOS decides when a closed app receives, so a notice can come late. Requests and likes always show only \"New message\"." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Имя и текст попадают в службу уведомлений iOS, и только пока «Показ миниатюр» в настройках iOS не выводит их на экран блокировки. Когда закрытое приложение получает почту, решает iOS, поэтому уведомление может опоздать. Запросы и лайки всегда показывают только «Новое сообщение»." } }
+      }
+    },
+    "notice.blockedIos": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "iOS does not let DYApp show notifications." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "iOS не разрешает DYApp показывать уведомления." } }
+      }
+    },
     "notice.blocked": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "macOS does not let DYApp show notifications." } },
