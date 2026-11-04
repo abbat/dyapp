@@ -82,17 +82,20 @@ A published profile is withdrawn from search first; if no node takes the withdra
 Legacy identities cannot be removed here. In the picker, select a surviving Peer ID or create
 another identity explicitly; an unreadable or deleting entry cannot be selected.
 
-This project has no Apple Developer ID. The published `DYApp-unsigned.zip` is **not signed or
-notarized**: it is the exact output of the native macOS CI build, which also runs the unit and UI
-tests. A Mac does not open it as downloaded. An Apple Developer Program member can build and sign
+This project has no Apple Developer ID. The published
+`dyapp-<version>-universal-macos-unsigned.zip` is **not signed or notarized**: it is the exact
+output of the native macOS CI build; the release waits for the unit and UI tests of the same tag.
+A Mac does not open it as downloaded. An Apple Developer Program member can build and sign
 a copy from the same tag; that signed copy is theirs, not an upstream release.
 
 ## Where the ZIP comes from
 
-The scheduled `release-sizes` workflow builds Release on `macos-15` with
-`CODE_SIGNING_ALLOWED=NO`, checks the bundle (`tools/scripts/package-apple-release.py`: both
-architectures, executable, layout) and keeps the ZIP as the run's `apple-macos-unsigned` artifact.
-Published release downloads with checksum and provenance are planned.
+The tagged `release` workflow builds Release on `macos-15` with `CODE_SIGNING_ALLOWED=NO` and checks
+the bundle (`tools/scripts/package-apple-release.py`: both architectures, executable, layout). It
+publishes the ZIP on the [release page](https://github.com/abbat/dyapp/releases) with
+`SHA256SUMS` and build provenance. No release has been published yet. Check a download with
+`sha256sum -c --ignore-missing SHA256SUMS` and
+`gh attestation verify <file> --repo abbat/dyapp`. CI has not tried the file on a fresh Mac.
 
 ## Build from source
 

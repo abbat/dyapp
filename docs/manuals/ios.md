@@ -70,12 +70,14 @@ A published profile is withdrawn from search first; if no node takes the withdra
 Legacy identities cannot be removed here. In the picker, select a surviving Peer ID or create
 another identity explicitly; an unreadable or deleting entry cannot be selected.
 
-This project has no Apple Developer Program account. The published `DYApp-unsigned.ipa` is **not
-signed**, and iOS installs only signed apps, so nobody can install it as published. It is the exact
-output of the native CI build (`release-sizes` on `macos-15`, artifact `apple-ios-unsigned`); the
-CI test run (`ci.yml`) also runs the unit and UI tests on the iOS Simulator. To use the app, build
-and sign it with your own Apple ID from the same tag. That signed copy is yours, not an upstream
-release. Published release downloads with checksum and provenance are planned.
+This project has no Apple Developer Program account. The published
+`dyapp-<version>-arm64-ios-unsigned.ipa` is **not signed**, and iOS installs only signed apps, so
+nobody can install it as published. It is the exact output of the native CI build (`release` on
+`macos-15`); the release waits for the unit and UI tests of the same tag on the iOS Simulator (never
+a physical device). To use the app, build and sign it with your own Apple ID from the same tag. That
+signed copy is yours, not an upstream release. The
+[release page](https://github.com/abbat/dyapp/releases) carries the file with `SHA256SUMS` and build
+provenance; no release has been published yet.
 
 ## Build from source
 

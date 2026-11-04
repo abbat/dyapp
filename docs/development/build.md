@@ -228,7 +228,8 @@ The producer checks the real package bytes and writes `size.json`/`size.log`
 using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
 separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets)).
 The unsigned IPA and ZIP are kept as the run's `apple-ios-unsigned` and
-`apple-macos-unsigned` artifacts. The project has no Apple account, so upstream
+`apple-macos-unsigned` artifacts. A tag's `release.yml` runs the same producer with no
+build cache and publishes the files under versioned names. The project has no Apple account, so upstream
 signing and notarization are not done: the [macOS](../manuals/macos.md) and
 [iOS](../manuals/ios.md) manuals show how an account holder builds and signs a copy.
 

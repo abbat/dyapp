@@ -237,9 +237,90 @@ jobs:
           path: build/android-signed/*.apk
           if-no-files-found: error
 
+  apple:
+    name: release - ${{ matrix.platform }}
+    runs-on: macos-15
+    # No build cache, unlike release-sizes: a release starts from the source alone.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            core: ios-device
+            targets: aarch64-apple-ios
+            suffix: arm64-ios-unsigned.ipa
+          - platform: macos
+            core: macos
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+            suffix: universal-macos-unsigned.zip
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      SUFFIX: ${{ matrix.suffix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: version
+        if: github.event_name == 'push'
+        run: |
+          test "v$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' "clients/$PLATFORM/project.yml")" = "$GITHUB_REF_NAME"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: '1.99.0'
+          targets: ${{ matrix.targets }}
+      - name: release core
+        run: bash tools/scripts/build-apple-core.sh "${{ matrix.core }}" release
+      - name: prepare xcode
+        run: |
+          curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "clients/$PLATFORM/project.yml" --project "clients/$PLATFORM"
+      - name: build and check package
+        run: python3 -B tools/scripts/apple-release-in-ci.py "$PLATFORM"
+      - name: name package
+        run: |
+          version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' "clients/$PLATFORM/project.yml")
+          mv -f "$RUNNER_TEMP/release-$PLATFORM"/DYApp-unsigned.* "$RUNNER_TEMP/release-$PLATFORM/dyapp-$version-$SUFFIX"
+      - name: evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-evidence-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.json
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.txt
+            ${{ runner.temp }}/release-${{ matrix.platform }}/*.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-${{ matrix.platform }}-unsigned
+          path: ${{ runner.temp }}/release-${{ matrix.platform }}/dyapp-*
+          if-no-files-found: error
+
+  # The tag's ci.yml run holds the Apple UI tests; repeating them here would double the macOS jobs.
+  apple-tests:
+    name: release - Apple UI tests of the tag
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: wait for native CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tools/scripts/wait-native-ci.py "$GITHUB_REF_NAME" "$GITHUB_SHA"
+
   publish:
     name: release - publish
-    needs: [build, linux-ubuntu, windows, android-sign]
+    needs: [build, linux-ubuntu, windows, android-sign, apple, apple-tests]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -269,10 +350,20 @@ jobs:
         with:
           name: android-release-signed
           path: build/release
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apple-ios-unsigned
+          path: build/release
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apple-macos-unsigned
+          path: build/release
       - name: include client packages in checksums
         run: |
           test -f "build/release/dyapp-${GITHUB_REF_NAME#v}-x86_64-windows.zip"
           test -f "build/release/dyapp-${GITHUB_REF_NAME#v}-android.apk"
+          test -f "build/release/dyapp-${GITHUB_REF_NAME#v}-arm64-ios-unsigned.ipa"
+          test -f "build/release/dyapp-${GITHUB_REF_NAME#v}-universal-macos-unsigned.zip"
           (cd build/release && sha256sum -- dyapp* > SHA256SUMS)
       - name: push image
         id: image
@@ -297,7 +388,7 @@ jobs:
       - name: release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd, Linux and Windows desktop clients, and Android APK $GITHUB_REF_NAME. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
+        run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd, Linux and Windows desktop clients, Android APK, and unsigned macOS ZIP and iOS IPA $GITHUB_REF_NAME. The Apple files are not signed or notarized, see the macOS and iOS manuals. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
       - name: verify release and stage client update feed
         env:
           GH_TOKEN: ${{ github.token }}

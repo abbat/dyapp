@@ -114,6 +114,7 @@ so until the first tag, build from a tagged commit with `make deb`.
 | Linux desktop package `dyapp_X.Y.Z_amd64.deb` | Same GitHub Release, after package-install and UI smoke tests |
 | Linux desktop tarball `dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz` | Same release, after extract-and-launch smoke on Debian 12 and Ubuntu 24.04 |
 | Windows portable ZIP `dyapp-X.Y.Z-x86_64-windows.zip` | Same release, after native Windows UI smoke |
+| macOS ZIP `dyapp-X.Y.Z-universal-macos-unsigned.zip`, iOS IPA `dyapp-X.Y.Z-arm64-ios-unsigned.ipa` | Same release, unsigned, after the UI tests of the tag's `ci.yml` run (macOS, iOS Simulator). Signing, notarization and device installs are left to an account holder ([macOS](../manuals/macos.md), [iOS](../manuals/ios.md)) |
 | Tarball `dyappd-X.Y.Z-x86_64-linux-gnu.tar.gz` | GitHub Releases |
 | SPDX SBOMs `dyappd-X.Y.Z.spdx.json` and `dyapp-X.Y.Z.spdx.json`, plus `SHA256SUMS` | GitHub Releases |
 | Container image | `ghcr.io/abbat/dyappd:X.Y.Z` |
@@ -128,11 +129,18 @@ gh attestation verify dyapp_X.Y.Z_amd64.deb --repo abbat/dyapp
 gh attestation verify dyapp-X.Y.Z-x86_64-linux-gnu.tar.gz --repo abbat/dyapp
 gh attestation verify dyapp-X.Y.Z.spdx.json --repo abbat/dyapp
 gh attestation verify dyapp-X.Y.Z-x86_64-windows.zip --repo abbat/dyapp
+gh attestation verify dyapp-X.Y.Z-universal-macos-unsigned.zip --repo abbat/dyapp
+gh attestation verify dyapp-X.Y.Z-arm64-ios-unsigned.ipa --repo abbat/dyapp
 gh attestation verify oci://ghcr.io/abbat/dyappd:X.Y.Z --repo abbat/dyapp
 ```
 
 The Linux client SBOM lists Rust packages from the separate `clients/linux` Cargo project.
 It does not inventory native system libraries such as WebKitGTK or Debian package dependencies.
+
+A tag publishes nothing until `native - macos` and `native - ios` of its own `ci.yml` run pass, up
+to the wait job's limit of about six hours, so a release can sit waiting for macOS runners. If they
+fail or the wait expires, rerun the failed `ci.yml` jobs, then the failed release jobs. The Apple
+files stay out of the update feed: a release-page ZIP is not an installable update without a signature.
 
 The tagged release workflow verifies published client packages, stages a
 `stable-update-feed` workflow artifact, then packages only the verified JSON
