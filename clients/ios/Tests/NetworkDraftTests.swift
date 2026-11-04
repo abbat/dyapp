@@ -164,8 +164,10 @@ final class NetworkDraftTests: XCTestCase {
         let working = try NetworkConnectionSession(directory: path)
         let good = "127.0.0.1:33445"
         let silent = "127.0.0.1:33447"
-        guard case .connected = try XCTUnwrap(working.run(rows: [good], name: "", waitMs: 5_000).first) else {
-            XCTFail("The CI loopback node did not answer")
+        // This is the process's first dial: in CI it missed 5 s three times running, then later dials took 1-2 s.
+        let first = try XCTUnwrap(working.run(rows: [good], name: "", waitMs: 30_000).first)
+        guard case .connected = first else {
+            XCTFail("The CI loopback node did not answer: \(first)")
             return
         }
         try working.activate()
