@@ -138,14 +138,6 @@ final class SearchUITests: XCTestCase {
         next.click()
     }
 
-    /// Form rows outside the window are created only once scrolled into view; a positive
-    /// `deltaY` goes back up.
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -300) {
-        for _ in 0..<12 where !(element.exists && element.isHittable) {
-            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: deltaY)
-        }
-    }
-
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)"]

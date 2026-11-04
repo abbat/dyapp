@@ -39,19 +39,6 @@ struct ContentView: View {
         return nil
     }
 
-    /// iOS never pushed from a hidden link on the setup root, so after Continue switch to the ready
-    /// start screen and open the profile from there. The macOS sidebar keeps the setup form's own push.
-    private var setupActivated: (() -> Void)? {
-        #if os(iOS)
-        return {
-            profilePending = true
-            activeNetwork = .ready
-        }
-        #else
-        return nil
-        #endif
-    }
-
     var body: some View {
         NavigationView {
             Group {
@@ -64,7 +51,13 @@ struct ContentView: View {
                             Text("settings.title")
                         }
                         .accessibilityIdentifier("settings-open")
-                    }), onActivated: setupActivated)
+                    }), onActivated: {
+                        // Open the profile from the ready start screen: iOS never pushed from a hidden
+                        // link on the setup root, and a macOS sidebar left on the setup form had no way
+                        // to search or chats until a restart.
+                        profilePending = true
+                        activeNetwork = .ready
+                    })
                 } else {
                     start
                 }
