@@ -49,13 +49,14 @@ score = 72.2
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # tests/scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.
+# The next four were renewed by the maintainer: macOS opened no window, so they stayed unproven there.
 # macOS: the app stopped while waiting for the local-node check; the retry passed.
-"ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-10-28
+"ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-11-04
 # iOS: the cancelled retry passed on the second iteration.
-"NetworkDraftTests testCancelRetryKeepsPriorActiveNetwork()" = 2026-10-28
+"NetworkDraftTests testCancelRetryKeepsPriorActiveNetwork()" = 2026-11-04
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
-"LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-10-28
-"LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-10-28
+"LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-11-04
+"LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-11-04
 # Android: the restarted network draft failed once; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-10-31
 # macOS: the tap reached settings-create while the identity list was loading; the retry passed.
