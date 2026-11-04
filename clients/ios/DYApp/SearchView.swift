@@ -30,7 +30,8 @@ struct SearchView: View {
                 ChatView(
                     feed: feed, peer: chat.peerId,
                     profile: { opened = chat },
-                    back: { self.chat = nil }
+                    back: { self.chat = nil },
+                    blocked: { self.chat = nil }
                 )
             } else {
                 Form {

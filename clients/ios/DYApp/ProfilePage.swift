@@ -112,12 +112,10 @@ final class ProfilePage: ObservableObject {
         guard !sending else { return false }
         sending = true
         status = nil
-        let peer = peer
-        let result = await feed.call { try $0.block(peerId: peer) }
-        await feed.read()
+        let failed = await feed.block(peer)
         sending = false
-        guard case let .failure(error) = result else { return true }
-        status = ProfilePageStatus(key: "chat.blockFailed", details: String(describing: error))
+        guard let failed else { return true }
+        status = ProfilePageStatus(key: failed.key, details: failed.details)
         return false
     }
 }

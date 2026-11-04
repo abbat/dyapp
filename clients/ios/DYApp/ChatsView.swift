@@ -31,7 +31,8 @@ struct ChatsView: View {
                 ChatView(
                     feed: feed, peer: chat,
                     profile: { opened = OpenedProfile(peer: chat, known: nil) },
-                    back: { self.chat = nil }
+                    back: { self.chat = nil },
+                    blocked: { self.chat = nil }
                 )
             } else {
                 list
@@ -42,6 +43,7 @@ struct ChatsView: View {
 
     private var list: some View {
         Form {
+            if let block = feed.blocked { BlockedNote(block: block) }
             ChatsExpandRow(
                 id: "chats-liked", title: "chats.liked", text: "chats.likedText",
                 count: feed.liked.count, open: $feed.likedOpen
@@ -87,6 +89,32 @@ struct ChatsView: View {
 private struct OpenedProfile {
     let peer: String
     let known: FoundProfile?
+}
+
+/// The last block's outcome: a pending revocation says why; the block itself holds either way.
+private struct BlockedNote: View {
+    let block: ChatBlock
+
+    private var text: LocalizedStringKey {
+        switch block.revocation {
+        case .notNeeded:
+            return "chats.blockedNotNeeded"
+
+        case .pending:
+            return "chats.blockedPending"
+
+        case .confirmed:
+            return "chats.blockedConfirmed"
+        }
+    }
+
+    var body: some View {
+        Text(text).font(.caption).accessibilityIdentifier("chats-blocked-note")
+        if block.revocation == .pending, let detail = block.detail {
+            Text(verbatim: detail).font(.caption).textSelection(.enabled)
+                .accessibilityIdentifier("chats-blocked-details")
+        }
+    }
 }
 
 /// A row that opens or closes the list below it and tells how many it holds.

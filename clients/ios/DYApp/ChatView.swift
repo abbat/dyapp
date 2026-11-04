@@ -12,6 +12,8 @@ struct ChatView: View {
     let peer: String
     let profile: () -> Void
     let back: () -> Void
+    /// The block held, so the chat is gone.
+    let blocked: () -> Void
     @State private var history: ChatHistory?
     @State private var status: ChatStatus?
     @State private var draft = ""
@@ -20,19 +22,24 @@ struct ChatView: View {
     @State private var editing: Data?
     @State private var held = ""
     @State private var deleting: ChatMessage?
+    @State private var confirmClear = false
+    @State private var confirmBlock = false
+    /// A clear, mute or block is running.
+    @State private var busy = false
 
     private var messages: [ChatMessage] { history?.messages ?? [] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button("chats.title", action: back).accessibilityIdentifier("chat-back")
-            Button(action: profile) {
-                Text(verbatim: "@\(peer.suffix(6))").font(.headline)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("chat-profile")
+            header
             notice
-            thread
+            // Each dialog sits on its own view, so one never shadows another.
+            thread.confirmationDialog("block.title", isPresented: $confirmBlock, titleVisibility: .visible) {
+                Button("chat.block", role: .destructive, action: block)
+            } message: {
+                Text("block.text")
+            }
             statusLines
             composer
         }
@@ -53,6 +60,46 @@ struct ChatView: View {
         }
     }
 
+    private var header: some View {
+        HStack {
+            Button(action: profile) {
+                Text(verbatim: "@\(peer.suffix(6))").font(.headline)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("chat-profile")
+            Spacer()
+            moreMenu
+        }
+        .confirmationDialog("clear.title", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("clear.action", role: .destructive, action: clear)
+        } message: {
+            Text("clear.text") + Text(verbatim: " ") + Text("clear.later")
+        }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button("chat.clear") { confirmClear = true }.accessibilityIdentifier("chat-clear")
+            // A request offers its block on the notice instead.
+            if history?.state != .requestReceived {
+                Button("chat.block", role: .destructive) { confirmBlock = true }.accessibilityIdentifier("chat-block")
+            }
+            // A peer with no chat yet has nothing to mute.
+            if let history, history.state != ChatState.none {
+                Button(LocalizedStringKey(history.muted ? "chat.unmute" : "chat.mute")) {
+                    setMuted(!history.muted)
+                }
+                .accessibilityIdentifier("chat-mute")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .fixedSize()
+        .disabled(busy || sending)
+        .accessibilityLabel(Text("chat.more"))
+        .accessibilityIdentifier("chat-more")
+    }
+
     @ViewBuilder private var notice: some View {
         switch history?.state {
         case ChatState.none?, .requestSent?:
@@ -60,6 +107,9 @@ struct ChatView: View {
 
         case .requestReceived?:
             Text("chat.requestNotice").font(.caption).accessibilityIdentifier("chat-request-notice")
+            Button("chat.block", role: .destructive) { confirmBlock = true }
+                .disabled(busy)
+                .accessibilityIdentifier("request-block")
 
         case .closed?:
             Text("chat.closedNotice").font(.caption).accessibilityIdentifier("chat-closed-notice")
@@ -179,6 +229,35 @@ struct ChatView: View {
             status = await feed.delete(message, peer: peer)
             // A deleted message has nothing left to edit.
             if status?.details == nil, editing == message.threadKey { endEditing() }
+        }
+    }
+
+    private func clear() {
+        busy = true
+        Task {
+            let failed = await feed.clear(peer)
+            status = failed ?? ChatStatus(key: "chat.cleared", details: nil)
+            if failed == nil, editing != nil { endEditing() }
+            busy = false
+        }
+    }
+
+    private func setMuted(_ muted: Bool) {
+        busy = true
+        Task {
+            status = await feed.setMuted(muted, peer: peer)
+            // The menu stays off until its label can tell the new state.
+            await reload()
+            busy = false
+        }
+    }
+
+    private func block() {
+        busy = true
+        Task {
+            status = await feed.block(peer)
+            busy = false
+            if status == nil { blocked() }
         }
     }
 }

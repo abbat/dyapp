@@ -25,6 +25,8 @@ final class ChatFeed: ObservableObject {
     @Published var requestsOpen = false
     /// The last fetch of the Liked you profiles; nil until the first one ends.
     @Published private(set) var likedProfiles: Result<[FoundProfile], Error>?
+    /// The last block's outcome, which Chats shows.
+    @Published private(set) var blocked: ChatBlock?
     private var identity: ChatIdentity?
     #if DEBUG
     private var testPeerStarted = false
@@ -41,6 +43,7 @@ final class ChatFeed: ObservableObject {
             likedOpen = false
             requestsOpen = false
             likedProfiles = nil
+            blocked = nil
         }
         self.identity = identity
         #if DEBUG
@@ -103,6 +106,35 @@ final class ChatFeed: ObservableObject {
         guard case let .failure(error) = changed else { return nil }
         let staged = await shown(message, peer: peer)?.deleted ?? false
         return chatSendStatus(error, staged: staged, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
+    }
+
+    /// Clears this device's copy of the chat; nil when it held, else the line to show.
+    func clear(_ peer: String) async -> ChatStatus? {
+        let cleared = await call { try $0.clearChat(peerId: peer) }
+        await read()
+        guard case let .failure(error) = cleared else { return nil }
+        return ChatStatus(key: "chat.clearFailed", details: String(describing: error))
+    }
+
+    func setMuted(_ muted: Bool, peer: String) async -> ChatStatus? {
+        let changed = await call { try $0.setMuted(peerId: peer, muted: muted) }
+        await read()
+        guard case let .failure(error) = changed else { return nil }
+        return ChatStatus(key: "chat.muteFailed", details: String(describing: error))
+    }
+
+    /// Blocks `peer` and keeps the outcome for Chats; nil when it held, else the line to show.
+    func block(_ peer: String) async -> ChatStatus? {
+        let result = await call { try $0.block(peerId: peer) }
+        await read()
+        switch result {
+        case let .success(block):
+            blocked = block
+            return nil
+
+        case let .failure(error):
+            return ChatStatus(key: "chat.blockFailed", details: String(describing: error))
+        }
     }
 
     /// A failed delivery can follow a stored change, so the failure reads the message again.
