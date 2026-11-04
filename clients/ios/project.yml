@@ -22,7 +22,7 @@ targets:
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift, DYApp/ProfilePreviewView.swift, DYApp/ProfileExtraFields.swift,
               DYApp/SearchFilters.swift, DYApp/SearchSession.swift, DYApp/SearchView.swift, DYApp/FoundProfileView.swift, DYApp/ProfilePage.swift, DYApp/ProfilePageBlocks.swift,
-              DYApp/ChatBridge.swift, DYApp/ChatFeed.swift, DYApp/ChatsView.swift, DYApp/ChatView.swift, DYApp/ChatTestPeer.swift,
+              DYApp/ChatBridge.swift, DYApp/ChatFeed.swift, DYApp/ChatsView.swift, DYApp/ChatView.swift, DYApp/ChatRename.swift, DYApp/ChatTestPeer.swift,
               DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]

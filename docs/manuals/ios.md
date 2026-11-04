@@ -8,8 +8,9 @@ identity. Counts come from local data, and the app checks the mailbox once a min
 A row opens its chat; **Chats** at the top of the chat goes back. A first message waits for a reply
 before you can write more. Text that could not go out yet stays queued and is not sent twice. The
 **...** button beside your own message edits it, or deletes it for both sides after a confirmation.
-The menu at the top right of a chat clears this device's copy, mutes notifications and blocks the
-person; a request has its **Block** under the notice. After a block, Chats says whether the node has
+The menu at the top right of a chat names the person on this device, clears this device's copy, mutes
+notifications and blocks the person. A name you gave shows on the chat and its row; without one, the
+person's public name shows with its mark and the short Peer ID. A request has its **Block** under the notice. After a block, Chats says whether the node has
 revoked that person's access yet.
 
 A Liked you row, a search result and the name at the top of a chat open that person's page. **Like**

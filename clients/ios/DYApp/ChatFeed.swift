@@ -27,7 +27,11 @@ final class ChatFeed: ObservableObject {
     @Published private(set) var likedProfiles: Result<[FoundProfile], Error>?
     /// The last block's outcome, which Chats shows.
     @Published private(set) var blocked: ChatBlock?
+    /// How the screens name each peer, as far as read.
+    @Published private(set) var names: [String: ContactNameView] = [:]
     private var identity: ChatIdentity?
+    /// Holds the fetched profiles that the public names come from.
+    private var searcher: ProfileSearcher?
     #if DEBUG
     private var testPeerStarted = false
     #endif
@@ -44,6 +48,8 @@ final class ChatFeed: ObservableObject {
             requestsOpen = false
             likedProfiles = nil
             blocked = nil
+            names = [:]
+            searcher = nil
         }
         self.identity = identity
         #if DEBUG
@@ -135,6 +141,40 @@ final class ChatFeed: ObservableObject {
         case let .failure(error):
             return ChatStatus(key: "chat.blockFailed", details: String(describing: error))
         }
+    }
+
+    /// Reads the names, then again with the public ones a fetch brings. A failed fetch keeps what
+    /// shows, and the next view tries again.
+    func loadNames(_ peers: [String]) async {
+        guard !peers.isEmpty else { return }
+        await readNames(peers)
+        guard let searcher else { return }
+        await Task.detached(priority: .utility) { _ = try? searcher.profiles(peerIds: peers) }.value
+        await readNames(peers)
+    }
+
+    /// Saves the name on this device; nil when it held, else the line to show.
+    func rename(_ peer: String, name: String) async -> ChatStatus? {
+        let renamed = await call { try $0.setContactName(peerId: peer, name: name) }
+        guard case let .failure(error) = renamed else {
+            await readNames([peer])
+            return nil
+        }
+        let details = String(describing: error)
+        if details.contains("invalidName") { return ChatStatus(key: "rename.invalid", details: nil) }
+        return ChatStatus(key: "rename.failed", details: details)
+    }
+
+    /// A failed read keeps the last names.
+    private func readNames(_ peers: [String]) async {
+        guard let identity else { return }
+        if searcher == nil { searcher = try? RustBridge.profileSearcher(for: identity.candidate) }
+        guard let searcher else { return }
+        let read = await Task.detached(priority: .userInitiated) {
+            ChatOutcome(result: Result { try RustBridge.contactNames(identity, searcher: searcher, peers: peers) })
+        }.value.result
+        guard identity.peerId == self.identity?.peerId, case let .success(views) = read else { return }
+        for view in views { names[view.peerId] = view }
     }
 
     /// A failed delivery can follow a stored change, so the failure reads the message again.

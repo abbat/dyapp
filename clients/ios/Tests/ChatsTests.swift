@@ -9,6 +9,21 @@ final class ChatsTests: XCTestCase {
         XCTAssertEqual(try wrappedKeyFile(file) { Data([2]) }, Data([1]), "a saved key is never replaced")
     }
 
+    func testContactLabelPrefersTheLocalNameAndMarksAPublicOne() {
+        let view = { (name: String, verified: Bool?) in
+            ContactNameView(peerId: "peer123456", name: name, verified: verified, photo: Data())
+        }
+        XCTAssertEqual(contactLabel("peer123456", nil), "@123456")
+        XCTAssertEqual(contactLabel("peer123456", view("", nil)), "@123456")
+        XCTAssertEqual(contactLabel("peer123456", view("Bobby", nil)), "Bobby")
+        let verified = contactLabel("peer123456", view("Bob", true))
+        let unverified = contactLabel("peer123456", view("Bob", false))
+        XCTAssertNotEqual(verified, unverified)
+        for label in [verified, unverified] {
+            XCTAssertTrue(label.contains("Bob") && label.contains("@123456"), label)
+        }
+    }
+
     func testWhatAChatTakes() {
         XCTAssertFalse(chatWritable(nil), "still loading")
         XCTAssertFalse(chatWritable(.requestSent))

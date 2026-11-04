@@ -39,6 +39,7 @@ struct ChatsView: View {
             }
         }
         .task(id: feed.likedOpen ? feed.liked : nil) { await feed.fetchLiked() }
+        .task(id: feed.rows.map(\.peerId).sorted()) { await feed.loadNames(feed.rows.map(\.peerId)) }
     }
 
     private var list: some View {
@@ -77,7 +78,7 @@ struct ChatsView: View {
             Button {
                 chat = row.peerId
             } label: {
-                ChatListRow(row: row)
+                ChatListRow(row: row, label: contactLabel(row.peerId, feed.names[row.peerId]))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("\(prefix)-\(index + 1)")
@@ -189,11 +190,12 @@ private struct LikedList: View {
 
 private struct ChatListRow: View {
     let row: ChatRow
+    let label: String
 
     var body: some View {
         HStack {
             VStack(alignment: .leading) {
-                Text(verbatim: "@\(row.peerId.suffix(6))").font(.headline)
+                Text(verbatim: label).font(.headline)
                 Text(verbatim: chatPreview(row.lastMessage)).lineLimit(1)
             }
             Spacer()
@@ -209,6 +211,16 @@ private struct ChatListRow: View {
         }
         .accessibilityElement(children: .combine)
     }
+}
+
+/// A local name; else the public name, its mark and the short Peer ID, as a public name is the
+/// peer's own claim; else the short Peer ID.
+func contactLabel(_ peer: String, _ view: ContactNameView?) -> String {
+    let short = "@\(peer.suffix(6))"
+    guard let name = view?.name, !name.isEmpty else { return short }
+    guard let verified = view?.verified else { return name }
+    let key = verified ? "contact.publicVerified" : "contact.publicUnverified"
+    return String(format: NSLocalizedString(key, comment: ""), name, short)
 }
 
 /// The status of a failed profile fetch.

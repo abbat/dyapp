@@ -40,4 +40,15 @@ extension RustBridge {
         )
         return try action(session)
     }
+
+    /// How `searcher` names `peers`; waits like a session, as it opens the same folder's database.
+    static func contactNames(
+        _ identity: ChatIdentity, searcher: ProfileSearcher, peers: [String]
+    ) throws -> [ContactNameView] {
+        chatsLock.lock()
+        defer { chatsLock.unlock() }
+        let key = try identityStore().open(identity.candidate.location)
+        guard key.peerId() == identity.peerId else { throw IdentitySlotError.peerIDMismatch }
+        return try searcher.contactNames(key: key, peerIds: peers)
+    }
 }

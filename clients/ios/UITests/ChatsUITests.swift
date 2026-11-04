@@ -59,6 +59,7 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
         XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
         editAndDeleteTheReply(app, input: input)
+        nameThePeer(app)
         muteClearAndBlock(app)
     }
 
@@ -106,6 +107,26 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
         confirm.tap()
         waitGone(edited, in: app)
+    }
+
+    /// A local name shows in the chat's head and on its row.
+    private func nameThePeer(_ app: XCUIApplication) {
+        menuItem("chat-rename", label: "Name this contact", opener: "chat-more", in: app).tap()
+        let name = app.textFields["chat-rename-input"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10), app.debugDescription)
+        name.tap()
+        typeSlowly("Riley", into: name)
+        app.buttons["chat-rename-save"].tap()
+        waitGone(name, in: app)
+        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+
+        app.buttons["chat-back"].tap()
+        let row = app.buttons["chat-1"]
+        XCTAssertTrue(row.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        row.tap()
+        // The menu's items wait for the history.
+        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func muteClearAndBlock(_ app: XCUIApplication) {

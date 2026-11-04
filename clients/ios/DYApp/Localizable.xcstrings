@@ -1919,6 +1919,18 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Он будет скрыт из поиска и чатов на ваших устройствах и ничего не узнает. Его сообщения во время блокировки отбрасываются." } }
       }
     },
+    "contact.publicVerified": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ · Verified · %2$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "%1$@ · Проверен · %2$@" } }
+      }
+    },
+    "contact.publicUnverified": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ · Not verified · %2$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "%1$@ · Не проверен · %2$@" } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },

@@ -24,6 +24,7 @@ struct ChatView: View {
     @State private var deleting: ChatMessage?
     @State private var confirmClear = false
     @State private var confirmBlock = false
+    @State private var renaming = false
     /// A clear, mute or block is running.
     @State private var busy = false
 
@@ -48,6 +49,13 @@ struct ChatView: View {
         .accessibilityIdentifier("chat")
         // The feed counts its reads, so a received message and a finished send both land here.
         .task(id: feed.version) { await reload() }
+        .task(id: peer) { await feed.loadNames([peer]) }
+        .sheet(isPresented: $renaming) {
+            // The field starts from the local name: a public name is the peer's own claim.
+            ChatRenameSheet(name: feed.names[peer].flatMap { $0.verified == nil ? $0.name : nil } ?? "") {
+                await feed.rename(peer, name: $0)
+            }
+        }
         .confirmationDialog(
             "delete.title",
             isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
@@ -63,7 +71,7 @@ struct ChatView: View {
     private var header: some View {
         HStack {
             Button(action: profile) {
-                Text(verbatim: "@\(peer.suffix(6))").font(.headline)
+                Text(verbatim: contactLabel(peer, feed.names[peer])).font(.headline)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("chat-profile")
@@ -79,6 +87,7 @@ struct ChatView: View {
 
     private var moreMenu: some View {
         Menu {
+            Button("rename.title") { renaming = true }.accessibilityIdentifier("chat-rename")
             Button("chat.clear") { confirmClear = true }.accessibilityIdentifier("chat-clear")
             // A request offers its block on the notice instead.
             if history?.state != .requestReceived {
