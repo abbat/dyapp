@@ -11,3 +11,19 @@ pub fn profile_link_text(peer_id: String) -> Option<String> {
 pub fn profile_link_peer(text: String) -> Option<String> {
     dyapp_identity::profile_link::parse_profile_link(&text).map(str::to_owned)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PEER: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn the_exports_keep_the_core_format_and_refusals() {
+        let text = profile_link_text(PEER.to_owned()).unwrap();
+        assert_eq!(text, format!("dyapp-profile:1:{PEER}"));
+        assert_eq!(profile_link_peer(text).as_deref(), Some(PEER));
+        assert_eq!(profile_link_text("not a peer".to_owned()), None);
+        assert_eq!(profile_link_peer(PEER.to_owned()), None);
+    }
+}
