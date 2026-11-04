@@ -1421,6 +1421,66 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
       }
     },
+    "usage.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Storage" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Хранилище" } }
+      }
+    },
+    "usage.identityDir": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Identity folder" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Папка идентичностей" } }
+      }
+    },
+    "usage.messages": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Messages" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сообщения" } }
+      }
+    },
+    "usage.free": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Free on disk" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Свободно на диске" } }
+      }
+    },
+    "usage.unavailable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unavailable" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Недоступно" } }
+      }
+    },
+    "usage.unit.B": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "B" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Б" } }
+      }
+    },
+    "usage.unit.KiB": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "KiB" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "КиБ" } }
+      }
+    },
+    "usage.unit.MiB": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "MiB" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "МиБ" } }
+      }
+    },
+    "usage.unit.GiB": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "GiB" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "ГиБ" } }
+      }
+    },
+    "usage.unit.TiB": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "TiB" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "ТиБ" } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },

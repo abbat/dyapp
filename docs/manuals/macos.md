@@ -60,6 +60,8 @@ in the menu-bar icon brings the window back. **Quit** in that menu, the app menu
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Its **Window** section has **Show icon in menu bar** (on by default) and **Close window to menu bar**
 (off by default, needs the icon), which also takes the app out of the Dock while the window is hidden.
+Its **Storage** section shows the identity folder, the size and path of this identity's messages
+(**Unavailable** until the network is set up) and the free space on the disk, every 10 seconds.
 Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
 **Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
 pending token revocation.

@@ -45,14 +45,20 @@ final class MainWindowUITests: XCTestCase {
         quitFromMenuBar(app)
     }
 
+    func testSettingsShowStorageWithoutAStoreYet() {
+        let app = launched(root: UUID().uuidString)
+        openSettings(app)
+        let messages = app.staticTexts["storage-messages"]
+        XCTAssertTrue(messages.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["storage-identity"].exists, app.debugDescription)
+        // No client store before the network is set up: its path would promise a file.
+        XCTAssertFalse(app.staticTexts["storage-messages-path"].exists, app.debugDescription)
+        app.terminate()
+    }
+
     func testTurningOffTheIconTurnsOffCloseToMenuBar() {
         let app = launched(root: UUID().uuidString)
-        let create = app.buttons["identity-create"]
-        XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
-        create.click()
-        let settings = app.buttons["settings-open"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 10), app.debugDescription)
-        settings.click()
+        openSettings(app)
         let show = app.descendants(matching: .any)["tray-show"]
         let close = app.descendants(matching: .any)["tray-close"]
         XCTAssertTrue(show.waitForExistence(timeout: 10), app.debugDescription)
@@ -75,6 +81,15 @@ final class MainWindowUITests: XCTestCase {
         app.launchArguments = defaults + ["--ui-test-slot-root=\(root)"]
         app.launch()
         return app
+    }
+
+    private func openSettings(_ app: XCUIApplication) {
+        let create = app.buttons["identity-create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
+        create.click()
+        let settings = app.buttons["settings-open"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10), app.debugDescription)
+        settings.click()
     }
 
     private func shownWindow(_ app: XCUIApplication) -> XCUIElement {

@@ -85,6 +85,7 @@ struct IdentitySettingsView: View {
 
             #if os(macOS)
             MenuBarSection()
+            StorageSection(candidate: candidate)
             #endif
 
             if let feed {

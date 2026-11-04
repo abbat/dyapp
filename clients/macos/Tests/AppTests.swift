@@ -7,6 +7,27 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, "0.0.1")
     }
 
+    func testStorageNumbersAreMeasuredOrUnknown() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        XCTAssertNil(StorageUsage.messageBytes(in: folder))
+        try Data(count: 10).write(to: folder.appendingPathComponent("client.db"))
+        XCTAssertEqual(StorageUsage.messageBytes(in: folder), 10)
+        try Data(count: 5).write(to: folder.appendingPathComponent("client.db-wal"))
+        XCTAssertEqual(StorageUsage.messageBytes(in: folder), 15)
+        XCTAssertNotNil(StorageUsage.freeBytes(on: folder))
+        XCTAssertNil(StorageUsage.freeBytes(on: folder.appendingPathComponent("gone")))
+    }
+
+    func testStorageSizesUseBinaryUnits() {
+        let english = Locale(identifier: "en_US")
+        XCTAssertTrue(StorageUsage.sizeText(0, locale: english).hasPrefix("0 "))
+        XCTAssertTrue(StorageUsage.sizeText(1_023, locale: english).hasPrefix("1,023 "))
+        XCTAssertTrue(StorageUsage.sizeText(1_536, locale: english).hasPrefix("1.5 "))
+        XCTAssertTrue(StorageUsage.sizeText(1_048_576, locale: english).hasPrefix("1.0 "))
+    }
+
     func testASavedFrameStaysOnlyWhereItCanBeReached() {
         let primary = CGRect(x: 0, y: 0, width: 1_000, height: 800)
         let right = CGRect(x: 1_000, y: 0, width: 500, height: 800)
