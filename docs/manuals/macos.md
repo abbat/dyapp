@@ -51,7 +51,8 @@ save or preview. Unsaved edits disable confirmation until saved. After both conf
 eligibility check, **Publish profile** runs the shared proof in short saved steps, then publishes
 through the active network. **Cancel preparation** keeps the draft and progress. On success the
 screen shows the verified version and exact public fields; after failure, repeat both confirmations
-and retry.
+and retry. After a publication, **Hide from search** takes the profile out of search and keeps the
+draft; publishing again shows it. Anyone with your Peer ID can still open it, and fetched copies remain.
 
 The window reopens where you left it, at the same size, and moves back to a display if it would be
 out of reach. Closing it only hides it: the app keeps running and a click on its Dock icon or **Open**

@@ -16,6 +16,72 @@ private func publicationErrorKey(_ error: Error) -> String {
     return "profile.publishError.generic"
 }
 
+/// Hides the profile from search now; only a new publication shows it again. Before a first
+/// publication, or with an unreadable state, the action stays disabled.
+private struct ProfileHideControls: View {
+    let candidate: IdentityCandidate
+    let peerId: String
+    let publishedVersion: UInt64?
+    let disabled: Bool
+    let onHidden: @MainActor () -> Void
+
+    @State private var visibility: ProfileVisibility?
+    @State private var isHiding = false
+    @State private var errorKey: String?
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            if visibility?.hidden == true {
+                Text("profile.hiddenNotice")
+                    .accessibilityIdentifier("profile-hidden-notice")
+            } else {
+                Button("profile.hide") { Task { await hide() } }
+                    .disabled(disabled || isHiding || (visibility?.version ?? 0) == 0)
+                    .accessibilityIdentifier("profile-hide")
+                Text("profile.hideHint")
+                    .font(.caption)
+            }
+            if isHiding { ProgressView() }
+            if let errorKey {
+                Text(LocalizedStringKey(errorKey))
+                    .accessibilityIdentifier("profile-hide-error")
+            }
+        }
+        .task(id: publishedVersion) { await load() }
+    }
+
+    @MainActor
+    private func load() async {
+        let selected = candidate
+        let selectedPeer = peerId
+        let read = await Task.detached(priority: .userInitiated) {
+            try? RustBridge.visibility(for: selected, peerId: selectedPeer)
+        }.value
+        guard !Task.isCancelled else { return }
+        visibility = read
+    }
+
+    @MainActor
+    private func hide() async {
+        isHiding = true
+        errorKey = nil
+        let selected = candidate
+        let selectedPeer = peerId
+        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<ProfileVisibility, Error> in
+            Result { try RustBridge.hideProfile(for: selected, peerId: selectedPeer) }
+        }.value
+        isHiding = false
+        switch outcome {
+        case .success(let hidden):
+            visibility = hidden
+            onHidden()
+
+        case .failure(let error):
+            errorKey = publicationErrorKey(error)
+        }
+    }
+}
+
 /// Prepare the saved profile proof in cancellable, persisted Rust steps.
 struct ProfileProofControls: View {
     let candidate: IdentityCandidate
@@ -74,6 +140,8 @@ struct ProfileProofControls: View {
             if let published, let publishedPreview {
                 publishedReadback(published, preview: publishedPreview)
             }
+            ProfileHideControls(candidate: candidate, peerId: peerId, publishedVersion: published?.version,
+                                disabled: isSolving || isPublishing, onHidden: resetProofState)
         }
         .onChange(of: resetToken) { _ in resetProofState() }
         .onDisappear(perform: cancelProof)

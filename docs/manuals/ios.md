@@ -50,7 +50,8 @@ save or preview. Unsaved edits disable confirmation until saved. After both conf
 eligibility check, **Publish profile** runs the shared proof in short saved steps, then publishes
 through the active network. **Cancel preparation** keeps the draft and progress. On success the
 screen shows the verified version and exact public fields; after failure, repeat both confirmations
-and retry.
+and retry. After a publication, **Hide from search** takes the profile out of search and keeps the
+draft; publishing again shows it. Anyone with your Peer ID can still open it, and fetched copies remain.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Once the network is set up it also holds **Send read receipts** and the **Blocked people** and

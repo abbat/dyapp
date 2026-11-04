@@ -54,6 +54,51 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Hiding needs a publication, stays across a relaunch, and only a new publication undoes it.
+    func testHideThenPublishShowsAgain() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let hide = app.buttons["profile-hide"]
+        reveal(hide, in: app)
+        XCTAssertFalse(hide.isEnabled)
+        let month = app.textFields["profile-birth-month"]
+        reveal(month, in: app)
+        month.click()
+        month.typeText("5")
+        let save = app.buttons["profile-save"]
+        reveal(save, in: app)
+        save.click()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: app.checkBoxes["profile-confirm-adult"]
+        ),
+        ], timeout: 10), .completed)
+        publish(app)
+        let readback = app.descendants(matching: .any)["profile-published-readback"]
+        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        reveal(hide, in: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: hide
+        ),
+        ], timeout: 10), .completed)
+        hide.click()
+        let notice = app.staticTexts["profile-hidden-notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertFalse(readback.exists)
+        app.terminate()
+
+        app.launch()
+        openProfile(app)
+        XCTAssertTrue(notice.waitForExistence(timeout: 30), app.debugDescription)
+        publish(app)
+        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(hide.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(notice.exists)
+        app.terminate()
+    }
+
     /// A height that is no number is refused with its own message and saves nothing; the typed
     /// fields then survive a restart and reach the preview.
     func testTypedFieldsRefuseBadHeightAndSurviveRestart() {

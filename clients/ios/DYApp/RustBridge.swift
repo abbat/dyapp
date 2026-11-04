@@ -174,6 +174,22 @@ enum RustBridge {
                                         draft: ProfileRustDraftStore.values(from: result.draft))
     }
 
+    /// Whether this identity has published and is hidden from search now.
+    static func visibility(for candidate: IdentityCandidate, peerId: String) throws -> ProfileVisibility {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        return try profileVisibility(dir: dir.path, key: key)
+    }
+
+    /// Take the profile out of search; without a node this throws and changes nothing.
+    static func hideProfile(for candidate: IdentityCandidate, peerId: String) throws -> ProfileVisibility {
+        let key = try identityStore().open(candidate.location)
+        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
+        let dir = networkDirectory(root: try directory(), candidate: candidate)
+        return try withDraftLock { try ProfilePublisher(dir: dir.path).hide(key: key) }
+    }
+
     /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
     static func publicationBlock(for candidate: IdentityCandidate, peerId: String,
                                  attested: Bool) throws -> String? {

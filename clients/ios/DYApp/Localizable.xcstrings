@@ -1517,6 +1517,24 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Сообщения: недоступно" } }
       }
     },
+    "profile.hide": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Hide from search" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Скрыть из поиска" } }
+      }
+    },
+    "profile.hideHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Take a break without losing your draft. Anyone with your Peer ID can still open your profile, and copies already fetched remain." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Можно сделать перерыв, черновик сохранится. Кто знает ваш Peer ID, сможет открыть профиль, а уже полученные копии останутся." } }
+      }
+    },
+    "profile.hiddenNotice": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Your profile is hidden. Publish the saved draft to show it again." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Профиль скрыт. Опубликуйте сохранённый черновик, чтобы снова его показать." } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },
