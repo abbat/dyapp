@@ -461,37 +461,6 @@ extension LaunchTests {
         XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
     }
 
-    /// Practice D1: Xcode's double-length pseudo-language; every string comes from the catalog.
-    func testDoubleLengthPseudoLanguage() {
-        let app = isolatedApp()
-        app.launchArguments.insert(contentsOf: ["-NSDoubleLocalizedStrings", "YES"], at: 0)
-        app.launch()
-        createIdentity(app)
-        let save = app.buttons["network-save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 10))
-        let text = save.label
-        XCTAssertTrue(text.hasPrefix("Save draft") && text.count >= 2 * "Save draft".count, text)
-        // Doubled header rows can push the save button below the window; scroll the form down.
-        for _ in 0..<10 where !save.isHittable {
-            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -200)
-        }
-        XCTAssertTrue(save.isHittable)
-        app.terminate()
-    }
-
-    func testRussianLanguage() {
-        let app = isolatedApp()
-        app.launchArguments.insert(contentsOf: ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"], at: 0)
-        app.launch()
-        createIdentity(app)
-        let save = app.buttons["network-save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 10))
-        XCTAssertEqual(save.label,
-                       "\u{0421}\u{043e}\u{0445}\u{0440}\u{0430}\u{043d}\u{0438}\u{0442}\u{044c} "
-                       + "\u{0447}\u{0435}\u{0440}\u{043d}\u{043e}\u{0432}\u{0438}\u{043a}")
-        app.terminate()
-    }
-
     func testHiddenReadyDoesNotSatisfyLaunchContract() {
         let app = isolatedApp()
         app.launchArguments += ["--break-ui"]

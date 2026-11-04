@@ -72,6 +72,14 @@ enum MailNotice {
 
 /// The per-identity notice setting. A failed read or save keeps the last value and says so.
 struct MailNoticeSection: View {
+    private static var becameActive: Notification.Name {
+        #if os(macOS)
+        NSApplication.didBecomeActiveNotification
+        #else
+        UIApplication.didBecomeActiveNotification
+        #endif
+    }
+
     @ObservedObject var feed: ChatFeed
     /// Nil until read: the controls stay disabled.
     @State private var on: Bool?
@@ -123,14 +131,6 @@ struct MailNoticeSection: View {
         }
     }
 
-    private static var becameActive: Notification.Name {
-        #if os(macOS)
-        NSApplication.didBecomeActiveNotification
-        #else
-        UIApplication.didBecomeActiveNotification
-        #endif
-    }
-
     private func refreshAllowed() async {
         allowed = await MailNotice.status() == .authorized
     }
@@ -138,7 +138,8 @@ struct MailNoticeSection: View {
     private func load() async {
         await refreshAllowed()
         guard feed.me != nil else { return }
-        switch await feed.call({ (try $0.notice(), try $0.noticeContent()) }) {
+        let read = await feed.call { (try $0.notice(), try $0.noticeContent()) }
+        switch read {
         case let .success((notice, stored)):
             on = notice != .off
             content = stored
