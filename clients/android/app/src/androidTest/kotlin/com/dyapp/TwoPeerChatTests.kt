@@ -60,7 +60,8 @@ class TwoPeerChatTests {
                 runCatching { compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(row) } }
                     .onFailure { throw AssertionError("Requests show ${compose.textsIn("chats-requests-list")}", it) }
                 compose.onNode(row).performClick()
-                compose.onNodeWithTag("chat-request-notice").assertExists()
+                // The chat state loads off the main thread, which waitForIdle does not cover.
+                compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(hasTestTag("chat-request-notice")) }
                 compose.waitForThreadText("Hello from the peer")
 
                 compose.onNodeWithTag("chat-input").performTextInput("Hello back")
