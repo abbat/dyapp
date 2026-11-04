@@ -167,10 +167,15 @@ final class ProfileUITests: XCTestCase {
     }
 
     /// Form rows outside the window are created only once scrolled into view; a positive
-    /// `deltaY` goes back up.
+    /// `deltaY` goes back up. A row that exists shows the way itself, so a long scroll past it
+    /// turns back instead of running on to the end of the form.
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -300) {
-        for _ in 0..<12 where !(element.exists && element.isHittable) {
-            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: deltaY)
+        let form = app.scrollViews.firstMatch
+        for _ in 0..<24 where !(element.exists && element.isHittable) {
+            var step = deltaY
+            if element.exists, element.frame.midY < form.frame.minY { step = 100 }
+            if element.exists, element.frame.midY > form.frame.maxY { step = -100 }
+            form.scroll(byDeltaX: 0, deltaY: step)
         }
     }
 
@@ -191,6 +196,8 @@ final class ProfileUITests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: button
         ),
         ], timeout: 10), .completed)
+        // The eligibility text above it changes length as the button enables and moves it.
+        reveal(button, in: app)
         button.click()
     }
 
