@@ -22,7 +22,7 @@ targets:
               DYApp/PlatformKeyStore.swift, DYApp/IdentitySlotStore.swift, DYApp/AppLockStore.swift, DYApp/LockGate.swift,
               DYApp/LockScreens.swift, DYApp/ProfilePreviewView.swift, DYApp/ProfileExtraFields.swift,
               DYApp/SearchFilters.swift, DYApp/SearchSession.swift, DYApp/SearchView.swift, DYApp/FoundProfileView.swift, DYApp/ProfilePage.swift, DYApp/ProfilePageBlocks.swift,
-              DYApp/ChatBridge.swift, DYApp/ChatFeed.swift, DYApp/ChatsView.swift, DYApp/ChatView.swift, DYApp/ChatRename.swift, DYApp/SafetyNumber.swift, DYApp/PeopleSettings.swift, DYApp/UpdatesSection.swift, DYApp/ChatTestPeer.swift,
+              DYApp/MailNoticeCore.swift, DYApp/MailJob.swift, DYApp/ChatBridge.swift, DYApp/ChatFeed.swift, DYApp/ChatsView.swift, DYApp/ChatView.swift, DYApp/ChatRename.swift, DYApp/SafetyNumber.swift, DYApp/PeopleSettings.swift, DYApp/UpdatesSection.swift, DYApp/ChatTestPeer.swift,
               DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]
@@ -36,6 +36,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dyapp.ios
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # What the generated file cannot hold: the background receive's permission.
+        INFOPLIST_FILE: DYApp/Info.plist
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         # The device-owner check that recovers a forgotten app PIN may use Face ID.
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID unlocks the app."

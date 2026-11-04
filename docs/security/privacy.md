@@ -181,8 +181,8 @@ replaces the previous notice. The identity's settings can turn it off, or add th
 the name and up to 200 characters of the message, which then reach the notification server and may
 show on the lock screen. Only an open chat adds them: a message request and a like stay fixed, so a
 stranger's words never appear unasked. The text is escaped, because a server may read the body as
-markup. A click on the notice shows the window; a server without actions just shows the notice. Android
-and macOS follow below; Windows and iOS are planned, as iOS first needs to receive in the background.
+markup. A click on the notice shows the window; a server without actions just shows the notice. Android,
+macOS and iOS follow below; Windows is planned.
 
 The macOS app does the same while it runs, also with the window hidden: when a mail pass leaves more
 unread items or unanswered likes from peers that are not muted and the window has no focus, it posts
@@ -208,6 +208,20 @@ they then reach the system notification service and show on an unlocked screen o
 without a PIN, pattern or password. Turning the notice on asks for the notification permission,
 which Android 13 and later grant at run time, and while Android blocks notices the card says so
 and offers Allow.
+
+The iOS app also receives the active identity's mail while it is closed, in the background refresh
+windows iOS gives it: at the earliest 15 minutes after the last one, later or never as iOS decides
+from how the app is used, and not while background refresh is off. The nodes therefore see receives
+while the app is not open, and the task opens the identity key even while the app lock is on, because
+that lock covers only the screens; before the first unlock after a restart the key stays closed and
+nothing is received. When a receive leaves more unread items or unanswered likes from peers that are
+not muted, the app posts one replacing notice with the fixed "New message" text, which a lock screen
+may show as it names nobody. An app cannot hide its notice on the iOS lock screen, so what Settings
+adds per identity, the sender's name as read so far or that name and up to 200 characters of the
+message under the same open-chat rule, goes out only while Show Previews in iOS Settings is not
+Always; with Always the notice keeps the fixed text. A tap opens the app behind its lock. iOS allows
+notices only after asking the user, and the app asks when the notice is turned on or on Allow, never
+at launch.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

@@ -99,9 +99,7 @@ struct IdentitySettingsView: View {
             #endif
 
             if let feed {
-                #if os(macOS)
                 MailNoticeSection(feed: feed)
-                #endif
                 ReadReceiptsSection(feed: feed)
                 PeopleSections(feed: feed)
             }

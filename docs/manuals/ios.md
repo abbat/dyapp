@@ -57,7 +57,13 @@ and retry. After a publication, **Hide from search** takes the profile out of se
 draft; publishing again shows it. Anyone with your Peer ID can still open it, and fetched copies remain.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
-Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
+Once the network is set up it also holds **Notifications**: when iOS lets the closed app receive, new
+messages and likes from people you did not mute post one notice, and a tap opens the app behind its
+lock. iOS decides when that happens, at the earliest every 15 minutes and not while Background App
+Refresh is off, so a notice can come late. The section turns it off for this identity or adds the
+sender's name and the message, which show only while Show Previews in iOS Settings is not Always, and
+says when iOS blocks notices, with **Allow** to ask or to open iOS Settings. It then holds
+**Send read receipts** and the **Blocked people** and
 **Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
 pending token revocation.
 **Updates** shows the check interval, the last check and that updates for this platform are not
