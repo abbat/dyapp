@@ -1,10 +1,8 @@
 import XCTest
 
+// XCUIApplication is main-actor isolated.
+@MainActor
 final class MainWindowUITests: XCTestCase {
-    override func setUp() {
-        continueAfterFailure = false
-    }
-
     func testAMovedWindowComesBackAfterRelaunch() {
         let root = UUID().uuidString
         let app = launched(root: root)
@@ -72,6 +70,7 @@ final class MainWindowUITests: XCTestCase {
 
     /// Put `-Key value` defaults before the slot root; see `LaunchTests.isolatedApp`.
     private func launched(root: String, defaults: [String] = []) -> XCUIApplication {
+        continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = defaults + ["--ui-test-slot-root=\(root)"]
         app.launch()

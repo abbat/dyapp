@@ -8,8 +8,8 @@ final class AppTests: XCTestCase {
     }
 
     func testASavedFrameStaysOnlyWhereItCanBeReached() {
-        let primary = CGRect(x: 0, y: 0, width: 1000, height: 800)
-        let right = CGRect(x: 1000, y: 0, width: 500, height: 800)
+        let primary = CGRect(x: 0, y: 0, width: 1_000, height: 800)
+        let right = CGRect(x: 1_000, y: 0, width: 500, height: 800)
         let onBoth = CGRect(x: 800, y: 100, width: 400, height: 500)
         XCTAssertEqual(WindowPlacement.restored(onBoth, on: [primary, right]), onBoth)
         // A display went away: less than a quarter of the window is left.
@@ -23,7 +23,7 @@ final class AppTests: XCTestCase {
             CGRect(x: 300, y: 150, width: 400, height: 500)
         )
         XCTAssertEqual(
-            WindowPlacement.restored(CGRect(x: 5000, y: 0, width: 2000, height: 1000), on: [primary]),
+            WindowPlacement.restored(CGRect(x: 5_000, y: 0, width: 2_000, height: 1_000), on: [primary]),
             primary
         )
     }

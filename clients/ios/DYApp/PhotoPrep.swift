@@ -16,12 +16,12 @@ struct PreparedPhoto: Sendable {
 /// Turns a picked file into the bare JPEGs a profile publishes. ImageIO may write EXIF of its own,
 /// so the core's `stripMetadata` has the last word on what leaves the device.
 enum PhotoPrep {
-    private static let maxPickedBytes = 64 * 1024 * 1024
+    private static let maxPickedBytes = 64 * 1_024 * 1_024
     private static let maxPixels = 64_000_000
-    private static let maxFullBytes = 1024 * 1024
-    private static let maxThumbnailBytes: UInt32 = 24 * 1024
+    private static let maxFullBytes = 1_024 * 1_024
+    private static let maxThumbnailBytes: UInt32 = 24 * 1_024
     private static let thumbnailSide = 320
-    private static let fullSides = [2048, 1600, 1280]
+    private static let fullSides = [2_048, 1_600, 1_280]
     private static let fullQualities = [85, 70, 55]
 
     /// Reads a picked file, refusing an oversized one before its bytes are in memory.

@@ -16,12 +16,12 @@ final class PhotoPrepTests: XCTestCase {
         XCTAssertEqual(preview.width, 320)
         XCTAssertEqual(preview.height, 240)
         XCTAssertGreaterThan(preview.pixels[1], 240, "green of the first pixel")
-        XCTAssertLessThanOrEqual(photo.full.count, 1024 * 1024)
+        XCTAssertLessThanOrEqual(photo.full.count, 1_024 * 1_024)
     }
 
     /// ImageIO may add EXIF of its own; nothing named so may reach the network.
     func testTheFullImageIsALimitedJpegWithoutExif() throws {
-        let png = try PhotoPrep.samplePNG(width: 3000, height: 1000, red: 0.5, alpha: 1)
+        let png = try PhotoPrep.samplePNG(width: 3_000, height: 1_000, red: 0.5, alpha: 1)
         let photo = try PhotoPrep.prepare(png)
         XCTAssertEqual(photo.full.prefix(2), Data([0xFF, 0xD8]))
         XCTAssertNil(photo.full.range(of: Data("Exif".utf8)))

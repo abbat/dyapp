@@ -22,7 +22,8 @@ struct ReadReceiptsSection: View {
 
     private func load() async {
         guard feed.me != nil else { return }
-        switch await feed.call({ try $0.readReceipts() }) {
+        let result = await feed.call { try $0.readReceipts() }
+        switch result {
         case let .success(value):
             enabled = value
             failed = false
@@ -35,7 +36,8 @@ struct ReadReceiptsSection: View {
     private func save(_ value: Bool) {
         busy = true
         Task {
-            switch await feed.call({ try $0.setReadReceipts(enabled: value) }) {
+            let result = await feed.call { try $0.setReadReceipts(enabled: value) }
+            switch result {
             case .success:
                 enabled = value
                 failed = false

@@ -53,7 +53,7 @@ private final class WindowCloseProxy: NSObject, NSWindowDelegate {
 /// The one main window, its frame on relaunch, and the menu-bar icon that can bring it back.
 @MainActor
 final class MainWindowController: NSObject, NSApplicationDelegate {
-    private static let defaultSize = CGSize(width: 1024, height: 720)
+    private static let defaultSize = CGSize(width: 1_024, height: 720)
     private var window: NSWindow?
     private var closeProxy: WindowCloseProxy?
     private var statusItem: NSStatusItem?

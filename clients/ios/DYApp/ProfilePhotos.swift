@@ -135,11 +135,14 @@ struct ProfilePhotosSection: View {
             .accessibilityIdentifier("profile-photo-\(index)")
             if index == 0 { Text("profile.photoMain").font(.caption) }
             HStack {
-                control("arrow.left", "profile.photoLeft", "left", index, enabled: index > 0) { move(index, to: index - 1) }
-                control("arrow.right", "profile.photoRight", "right", index, enabled: index + 1 < rows.hashes.count) {
-                    move(index, to: index + 1)
+                control("arrow.left", text("profile.photoLeft", index + 1), "left-\(index)", enabled: index > 0) {
+                    move(index, to: index - 1)
                 }
-                control("xmark", "profile.photoRemove", "remove", index, enabled: true) { removing = index }
+                control(
+                    "arrow.right", text("profile.photoRight", index + 1), "right-\(index)",
+                    enabled: index + 1 < rows.hashes.count
+                ) { move(index, to: index + 1) }
+                control("xmark", text("profile.photoRemove", index + 1), "remove-\(index)", enabled: true) { removing = index }
             }
         }
     }
@@ -148,13 +151,13 @@ struct ProfilePhotosSection: View {
         String(format: NSLocalizedString(key, comment: ""), arguments: numbers)
     }
 
-    private func control(_ symbol: String, _ key: String, _ tag: String, _ index: Int, enabled: Bool,
+    private func control(_ symbol: String, _ label: String, _ tag: String, enabled: Bool,
                          action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: symbol) }
             .buttonStyle(.borderless)
             .disabled(locked || !enabled)
-            .accessibilityLabel(text(key, index + 1))
-            .accessibilityIdentifier("profile-photo-\(tag)-\(index)")
+            .accessibilityLabel(label)
+            .accessibilityIdentifier("profile-photo-\(tag)")
     }
 
     private func move(_ from: Int, to: Int) {
@@ -231,8 +234,6 @@ struct ProfilePhotosSection: View {
 #if os(iOS)
 /// The system picker runs out of process and needs no photo library permission.
 private struct PhotoPicker: UIViewControllerRepresentable {
-    let picked: @MainActor @Sendable (Data?) -> Void
-
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
         private let picked: @MainActor @Sendable (Data?) -> Void
 
@@ -251,6 +252,8 @@ private struct PhotoPicker: UIViewControllerRepresentable {
             }
         }
     }
+
+    let picked: @MainActor @Sendable (Data?) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(picked: picked)
