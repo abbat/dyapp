@@ -78,7 +78,8 @@ for. With `--ui-test-chat-peer-likes` the peer likes the app's identity instead 
 can like back from Liked you. With `--ui-test-chat-peer-shares` its confirmation is the link to its own
 profile. `--ui-test-metered-network` and `--ui-test-unmetered-network` replace the
 real network report, because a runner's network must not decide whether the offer to load a full photo
-appears. Release builds compile none of this.
+appears. Release builds compile none of this. The peer's `NSLog` lines reach neither `tests.log` nor the
+result bundle, so `apple-test-in-ci.py` saves them as `chat-peer.log`.
 
 The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
 drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the

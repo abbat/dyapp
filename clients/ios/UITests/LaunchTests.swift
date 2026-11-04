@@ -65,7 +65,7 @@ extension LaunchTests {
         ], timeout: 10), .completed)
         let second = shownPeerId(app)
         app.buttons["settings-open"].tap()
-        let remove = app.buttons["settings-remove"]
+        let remove = reveal(app.buttons["settings-remove"], in: app)
         XCTAssertTrue(remove.waitForExistence(timeout: 10))
         remove.tap()
         let alert = app.alerts["Remove identity?"]
@@ -74,7 +74,7 @@ extension LaunchTests {
             format: "label CONTAINS %@", second
         )).firstMatch.exists)
         alert.buttons["Keep identity"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["settings-active"].exists)
+        XCTAssertTrue(remove.exists)
         remove.tap()
         alert.buttons["Remove permanently"].tap()
         XCTAssertTrue(app.staticTexts["identity-picker"].waitForExistence(timeout: 10))
@@ -99,7 +99,7 @@ extension LaunchTests {
         russian.launch()
         createIdentity(russian)
         russian.buttons["settings-open"].tap()
-        let remove = russian.buttons["settings-remove"]
+        let remove = reveal(russian.buttons["settings-remove"], in: russian)
         XCTAssertTrue(remove.waitForExistence(timeout: 10))
         XCTAssertEqual(remove.label, "\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{44d}\u{442}\u{443} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}")
         remove.tap()
@@ -107,7 +107,7 @@ extension LaunchTests {
         XCTAssertTrue(alert.waitForExistence(timeout: 10))
         XCTAssertTrue(alert.buttons["\u{423}\u{434}\u{430}\u{43b}\u{438}\u{442}\u{44c} \u{43d}\u{430}\u{432}\u{441}\u{435}\u{433}\u{434}\u{430}"].exists)
         alert.buttons["\u{41e}\u{441}\u{442}\u{430}\u{432}\u{438}\u{442}\u{44c} \u{438}\u{434}\u{435}\u{43d}\u{442}\u{438}\u{447}\u{43d}\u{43e}\u{441}\u{442}\u{44c}"].tap()
-        XCTAssertTrue(russian.descendants(matching: .any)["settings-active"].exists)
+        XCTAssertTrue(remove.exists)
         russian.terminate()
 
         let pseudo = unlockedApp()
@@ -115,7 +115,7 @@ extension LaunchTests {
         pseudo.launch()
         createIdentity(pseudo)
         pseudo.buttons["settings-open"].tap()
-        let pseudoRemove = pseudo.buttons["settings-remove"]
+        let pseudoRemove = reveal(pseudo.buttons["settings-remove"], in: pseudo)
         XCTAssertTrue(pseudoRemove.waitForExistence(timeout: 10))
         XCTAssertTrue(pseudoRemove.label.hasPrefix("Remove this identity"))
         XCTAssertTrue(pseudoRemove.label.count >= 2 * "Remove this identity".count)
@@ -146,6 +146,8 @@ extension LaunchTests {
         XCTAssertTrue(selected.waitForExistence(timeout: 10))
         XCTAssertTrue(selected.label.contains("\u{41a}\u{43b}\u{44e}\u{447} "
             + "\u{43d}\u{435}\u{434}\u{43e}\u{441}\u{442}\u{443}\u{43f}\u{435}\u{43d}"))
+        // Rows are made only near the screen, so the absence means something only down there.
+        reveal(app.buttons["settings-create"], in: app)
         XCTAssertFalse(app.buttons["settings-remove"].exists)
         app.terminate()
 
@@ -415,7 +417,7 @@ extension LaunchTests {
 
     /// The button stays disabled until the identity list loads, and `tap()` does not wait for that.
     private func createAnotherIdentity(_ app: XCUIApplication) {
-        let create = app.buttons["settings-create"]
+        let create = reveal(app.buttons["settings-create"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "isEnabled == true"), object: create
         ),

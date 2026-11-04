@@ -110,6 +110,21 @@ def keep_crash_reports(reports):
         shutil.copy(report, reports / "crash-reports")
 
 
+def keep_chat_peer_log(reports, simulator):
+    """The test peer's NSLog reaches neither tests.log nor the xcresult."""
+    spawn = ["xcrun", "simctl", "spawn", simulator] if simulator else []
+    with (reports / "chat-peer.log").open("w") as output:
+        try:
+            subprocess.run(
+                spawn + ["log", "show", "--last", "3h", "--style", "compact",
+                         "--predicate",
+                         'eventMessage CONTAINS "ChatTestPeer"'],
+                stdout=output, stderr=subprocess.STDOUT, check=False,
+                timeout=5 * 60)
+        except subprocess.TimeoutExpired:
+            output.write("log show timed out\n")
+
+
 def main():
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -129,6 +144,7 @@ def main():
     # macOS uses the login keychain unsigned.
     test = common + (["CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-"]
                      if platform == "ios" else unsigned)
+    simulator = None
     run(["xcodebuild", "-version"], reports / "xcode-version.txt")
     if platform == "ios":
         run(build + ["-destination", "generic/platform=iOS", "build"],
@@ -145,7 +161,8 @@ def main():
             raise RuntimeError(
                 "No available iPhone simulator; required suite cannot skip")
         device = sorted(candidates, key=lambda item: item["name"])[0]
-        destination = (f"platform=iOS Simulator,id={device['udid']},"
+        simulator = device["udid"]
+        destination = (f"platform=iOS Simulator,id={simulator},"
                        f"arch={os.uname().machine}")
     else:
         run(build + ["-destination", "generic/platform=macOS",
@@ -164,6 +181,7 @@ def main():
                 reports / "tests.log", timeout=70 * 60)
     finally:
         keep_crash_reports(reports)
+        keep_chat_peer_log(reports, simulator)
     summary = subprocess.check_output(
         ["xcrun", "xcresulttool", "get", "test-results", "summary",
          "--path", str(result_bundle)], text=True)
