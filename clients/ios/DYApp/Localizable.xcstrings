@@ -1139,6 +1139,234 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Укажите возраст партнёра от 18 до 120, сначала меньшее значение, или оставьте поле пустым." } }
       }
     },
+    "search.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Search" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Поиск" } }
+      }
+    },
+    "search.sample": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A random sample of matching profiles, checked before it is shown. Profile fields are what each person states about themselves." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Случайная выборка подходящих профилей, проверенная перед показом. Поля анкеты каждый человек указывает о себе сам." } }
+      }
+    },
+    "search.more": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "More filters" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Другие фильтры" } }
+      }
+    },
+    "search.employer": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Employer" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Работодатель" } }
+      }
+    },
+    "search.employerAny": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Any employer" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Любой работодатель" } }
+      }
+    },
+    "search.employerSame": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Same company as typed below" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Та же компания, что указана ниже" } }
+      }
+    },
+    "search.employerExclude": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Hide companies typed below" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Скрыть компании, указанные ниже" } }
+      }
+    },
+    "search.company": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Company names (separate several with ;)" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Названия компаний (несколько через ;)" } }
+      }
+    },
+    "search.employerNotice": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This filter only hides results on your device, after they are verified. It cannot hide your profile from colleagues: the only way to stay out of employer searches is to leave your company field empty." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фильтр только скрывает результаты на вашем устройстве после проверки. Он не скрывает ваш профиль от коллег: единственный способ не попадать в поиск по работодателю — оставить поле компании пустым." } }
+      }
+    },
+    "search.run": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Search" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Найти" } }
+      }
+    },
+    "search.cancel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Отмена" } }
+      }
+    },
+    "search.openNetwork": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open Network" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Открыть «Сеть»" } }
+      }
+    },
+    "search.retry": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Retry" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Повторить" } }
+      }
+    },
+    "search.again": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Show another sample" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показать другую выборку" } }
+      }
+    },
+    "search.idle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Search for a sample of published profiles. Filters appear when the nodes offer them." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Найдите выборку опубликованных анкет. Фильтры появятся, когда их предложат узлы." } }
+      }
+    },
+    "search.loading": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Asking search nodes…" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Опрашиваем поисковые узлы…" } }
+      }
+    },
+    "search.results": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Verified profiles in this sample: %1$lld" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверенных анкет в этой выборке: %1$lld" } }
+      }
+    },
+    "search.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Nobody matches yet" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Пока никто не подходит" } }
+      }
+    },
+    "search.emptyText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Widen the age range or drop the city." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Расширьте диапазон возраста или уберите город." } }
+      }
+    },
+    "search.partial": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Some nodes did not answer fully, so this sample may miss matches. Verified profiles shown: %1$lld" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Часть узлов ответила не полностью, поэтому выборка может пропускать совпадения. Показано проверенных анкет: %1$lld" } }
+      }
+    },
+    "search.notConnected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No active network node answered. Check the connection, then retry." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Нет ответа от узла действующей сети. Проверьте подключение и повторите." } }
+      }
+    },
+    "search.failed": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Search failed. Retry when ready." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Поиск не удался. Повторите, когда будете готовы." } }
+      }
+    },
+    "search.ageMin": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Age from" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возраст от" } }
+      }
+    },
+    "search.ageMax": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Age to" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Возраст до" } }
+      }
+    },
+    "search.any": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Any" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Любое" } }
+      }
+    },
+    "search.heightMin": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Height from, cm" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Рост от, см" } }
+      }
+    },
+    "search.heightMax": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Height to, cm" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Рост до, см" } }
+      }
+    },
+    "search.heightInvalid": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter a height range within 50 to 272 cm, the lower value first." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Введите диапазон роста от 50 до 272 см, меньшее значение первым." } }
+      }
+    },
+    "search.ageInvalid": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter an age range from 18 that can match a birth date." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Введите диапазон возраста от 18, которому может соответствовать дата рождения." } }
+      }
+    },
+    "search.mutual": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Only people looking for someone like me" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Только те, кто ищет таких, как я" } }
+      }
+    },
+    "search.mutualHint": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Shows profiles that seek your gender and age. Search nodes see your gender and age for this search. Uses your saved profile." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показывает профили, которые ищут ваш пол и возраст. На время этого поиска узлы видят ваш пол и возраст. Используется сохранённый профиль." } }
+      }
+    },
+    "search.mutualUnavailable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Mutual search needs your gender and a birth date that gives your exact age. Add them to your saved profile." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Для взаимного поиска нужны ваш пол и дата рождения, по которой точно известен возраст. Добавьте их в сохранённый профиль." } }
+      }
+    },
+    "search.failureNoNodes": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No search node was found on the network." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "В сети не найден ни один узел поиска." } }
+      }
+    },
+    "search.failureUnavailable": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A search node could not be reached or would not serve the search." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска недоступен или отказался выполнять поиск." } }
+      }
+    },
+    "search.failureTimeout": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A search node did not answer in time." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска не ответил вовремя." } }
+      }
+    },
+    "search.failureRateLimited": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A search node is busy. Seconds to wait: %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска занят. Подождите, секунд: %1$@" } }
+      }
+    },
+    "search.failurePuzzle": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A search node asked for proof of work the app does not solve." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска запросил доказательство работы, которое приложение не решает." } }
+      }
+    },
+    "search.failureInvalid": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "A search node sent a malformed or forged reply; it was dropped." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Узел поиска прислал искажённый или поддельный ответ; он отброшен." } }
+      }
+    },
     "profile.birthDay": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Birth day (optional)" } },
