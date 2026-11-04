@@ -155,11 +155,13 @@ def main():
     result_bundle = reports / f"{platform}.xcresult"
     try:
         with local_node(reports), silent_endpoint():
+            # Ends before the job's limit, which would skip the upload of
+            # everything that says why the tests ran so long.
             run(test + ["-destination", destination,
                         "-parallel-testing-enabled", "NO",
                         "-retry-tests-on-failure", "-test-iterations", "3",
                         "-resultBundlePath", str(result_bundle), "test"],
-                reports / "tests.log")
+                reports / "tests.log", timeout=70 * 60)
     finally:
         keep_crash_reports(reports)
     summary = subprocess.check_output(
