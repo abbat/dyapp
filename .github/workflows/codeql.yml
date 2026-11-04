@@ -31,14 +31,14 @@ jobs:
         persist-credentials: false
 
     - name: initialize
-      uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         languages: ${{ matrix.language }}
         build-mode: none
         queries: security-and-quality
 
     - name: analyze
-      uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         category: "/language:${{ matrix.language }}"
 
@@ -57,12 +57,12 @@ jobs:
         with:
           persist-credentials: false
       - name: install java
-        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4.2.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '17'
       - name: init
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: java-kotlin
           build-mode: manual
@@ -71,7 +71,7 @@ jobs:
         working-directory: clients/android
         run: ./gradlew --no-daemon :app:compileDebugKotlin
       - name: analyze
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: "/language:java-kotlin"
 
@@ -93,7 +93,7 @@ jobs:
         with:
           toolchain: '1.99.0'
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: ". -> build"
           key: codeql-swift
@@ -107,7 +107,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec clients/ios/project.yml --project clients/ios
       - name: init
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: swift
           build-mode: manual
@@ -117,7 +117,7 @@ jobs:
           xcodebuild build -project clients/ios/DYApp.xcodeproj -scheme DYApp \
             -destination generic/platform=iOS\ Simulator -configuration Debug CODE_SIGNING_ALLOWED=NO
       - name: analyze
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: "/language:swift"
 
@@ -144,7 +144,7 @@ jobs:
     # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
     # (tests/scripts/rust-check.sh); here a finding must not stop the SARIF upload.
     - name: install cargo-deny
-      uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
       with:
         tool: cargo-deny@0.20.2
 
