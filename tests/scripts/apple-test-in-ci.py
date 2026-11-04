@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import shutil
 import socket
 import subprocess
 import threading
@@ -101,6 +102,14 @@ def silent_endpoint():
             client.close()
 
 
+def keep_crash_reports(reports):
+    """A crash ends a UI test with just "not running"; its report says why."""
+    source = Path.home() / "Library" / "Logs" / "DiagnosticReports"
+    for report in source.glob("DYApp*"):
+        (reports / "crash-reports").mkdir(exist_ok=True)
+        shutil.copy(report, reports / "crash-reports")
+
+
 def main():
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -144,12 +153,15 @@ def main():
             reports / "universal-build.log")
         destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
-    with local_node(reports), silent_endpoint():
-        run(test + ["-destination", destination,
-                    "-parallel-testing-enabled", "NO",
-                    "-retry-tests-on-failure", "-test-iterations", "3",
-                    "-resultBundlePath", str(result_bundle), "test"],
-            reports / "tests.log")
+    try:
+        with local_node(reports), silent_endpoint():
+            run(test + ["-destination", destination,
+                        "-parallel-testing-enabled", "NO",
+                        "-retry-tests-on-failure", "-test-iterations", "3",
+                        "-resultBundlePath", str(result_bundle), "test"],
+                reports / "tests.log")
+    finally:
+        keep_crash_reports(reports)
     summary = subprocess.check_output(
         ["xcrun", "xcresulttool", "get", "test-results", "summary",
          "--path", str(result_bundle)], text=True)
