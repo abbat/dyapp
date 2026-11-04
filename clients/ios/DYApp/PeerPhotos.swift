@@ -1,6 +1,29 @@
 import ImageIO
+import Network
 import SwiftUI
 import UniformTypeIdentifiers
+
+/// Tells the core whether this connection costs money, at launch and on every change, so full
+/// images load by themselves only where that is free. Until the first report it counts as metered.
+enum NetworkType {
+    private static let monitor = NWPathMonitor()
+
+    static func startReporting() {
+        #if DEBUG
+        // A runner's network must not decide whether a test sees the offer to load a photo.
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--ui-test-metered-network") { return }
+        if arguments.contains("--ui-test-unmetered-network") {
+            setNetworkMetered(metered: false)
+            return
+        }
+        #endif
+        monitor.pathUpdateHandler = { path in
+            setNetworkMetered(metered: path.isExpensive || path.isConstrained)
+        }
+        monitor.start(queue: DispatchQueue(label: "com.dyapp.network-type"))
+    }
+}
 
 /// Crosses back from a detached decode; nothing else holds the image by then.
 private struct DecodedPhoto: @unchecked Sendable {

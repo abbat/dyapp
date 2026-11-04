@@ -4,6 +4,10 @@ import SwiftUI
 struct DYAppApp: App {
     @NSApplicationDelegateAdaptor(MainWindowController.self) private var controller
 
+    init() {
+        NetworkType.startReporting()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

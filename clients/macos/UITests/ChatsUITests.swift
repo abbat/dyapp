@@ -64,28 +64,8 @@ final class ChatsUITests: XCTestCase {
 
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
     func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes"]
-        app.launch()
-        createIdentity(app)
-        connectLocalNode(app)
-        publishProfile(app)
-        let open = app.buttons["chats-open"]
-        XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
-        open.click()
-
-        let liked = app.buttons["chats-liked"]
-        XCTAssertTrue(liked.waitForExistence(timeout: 10), app.debugDescription)
-        liked.click()
-        let row = app.buttons["liked-1"]
-        XCTAssertTrue(row.waitForExistence(timeout: 150), app.debugDescription)
-        row.click()
-
-        // Only a drawn photo has this label; the full image then ends the offer to load it.
-        let photo = app.descendants(matching: .any)["view-photo"]
-        XCTAssertTrue(photo.waitForExistence(timeout: 30), app.debugDescription)
-        let drawn = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Photo 1 of 1'"), object: photo)
-        XCTAssertEqual(XCTWaiter.wait(for: [drawn], timeout: 60), .completed, app.debugDescription)
+        let app = openLikedPeerWithDrawnPhoto(network: "--ui-test-metered-network")
+        // The full image ends the offer to load it.
         let loadFull = app.buttons["view-photo-load"]
         reveal(loadFull, in: app)
         loadFull.click()
@@ -106,6 +86,38 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["view-match"].waitForExistence(timeout: 60), app.debugDescription)
         app.buttons["view-message-match"].click()
         XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+    }
+
+    /// Where the connection is free, the full photo needs no tap and its offer goes by itself.
+    func testFullPhotoLoadsWithoutATapOnAnUnmeteredNetwork() {
+        let app = openLikedPeerWithDrawnPhoto(network: "--ui-test-unmetered-network")
+        waitGone(app.buttons["view-photo-load"], in: app)
+    }
+
+    private func openLikedPeerWithDrawnPhoto(network: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes", network]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        let open = app.buttons["chats-open"]
+        XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
+        open.click()
+
+        let liked = app.buttons["chats-liked"]
+        XCTAssertTrue(liked.waitForExistence(timeout: 10), app.debugDescription)
+        liked.click()
+        let row = app.buttons["liked-1"]
+        XCTAssertTrue(row.waitForExistence(timeout: 150), app.debugDescription)
+        row.click()
+
+        // Only a drawn photo has this label.
+        let photo = app.descendants(matching: .any)["view-photo"]
+        XCTAssertTrue(photo.waitForExistence(timeout: 30), app.debugDescription)
+        let drawn = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Photo 1 of 1'"), object: photo)
+        XCTAssertEqual(XCTWaiter.wait(for: [drawn], timeout: 60), .completed, app.debugDescription)
+        return app
     }
 
     private func editAndDeleteTheReply(_ app: XCUIApplication, input: XCUIElement) {

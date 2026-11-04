@@ -52,8 +52,6 @@ extension RustBridge {
         return try searcher.contactNames(key: key, peerIds: peers)
     }
 
-    // shortcut: Apple reports no network type, so the core treats it as metered and full images wait
-    // for a tap; report it with NWPathMonitor to load them by themselves on Wi-Fi.
     /// Whether full peer photos load without a tap now; waits like a session for the same reason.
     static func peerPhotosLoadByThemselves(_ identity: ChatIdentity) throws -> Bool {
         chatsLock.lock()

@@ -67,7 +67,7 @@ final class ChatsUITests: XCTestCase {
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
     func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes"]
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes", "--ui-test-metered-network"]
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
