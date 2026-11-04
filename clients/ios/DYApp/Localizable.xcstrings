@@ -1553,6 +1553,66 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Всё равно удалить" } }
       }
     },
+    "settings.updates": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Updates" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Обновления" } }
+      }
+    },
+    "update.interval": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Check for updates" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверять обновления" } }
+      }
+    },
+    "update.every6h": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Every 6 hours" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Каждые 6 часов" } }
+      }
+    },
+    "update.every12h": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Every 12 hours" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Каждые 12 часов" } }
+      }
+    },
+    "update.every24h": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Every 24 hours" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Каждые 24 часа" } }
+      }
+    },
+    "update.every7d": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Every 7 days" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Каждые 7 дней" } }
+      }
+    },
+    "update.check": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Check now" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Проверить сейчас" } }
+      }
+    },
+    "update.lastCheck": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Last successful check: %1$@" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Последняя успешная проверка: %1$@" } }
+      }
+    },
+    "update.never": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Never" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Никогда" } }
+      }
+    },
+    "update.notPublished": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Updates for this platform are not published yet." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Обновления для этой платформы пока не опубликованы." } }
+      }
+    },
     "view.back": {
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Back to results" } },

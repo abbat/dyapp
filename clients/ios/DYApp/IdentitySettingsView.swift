@@ -103,6 +103,8 @@ struct IdentitySettingsView: View {
                 PeopleSections(feed: feed)
             }
 
+            UpdatesSection()
+
             Section {
                 Text("settings.createWarning")
                 Button("settings.create") { Task { await create() } }

@@ -69,6 +69,8 @@ Its **Storage** section shows the identity folder, the size and path of this ide
 Once the network is set up it also holds **Send read receipts** and the **Blocked people** and
 **Passed people** lists: each row undoes the block or the pass, and a blocked row can retry a
 pending token revocation.
+**Updates** shows the check interval, the last check and that updates for this platform are not
+published yet; its controls stay disabled and it sends no request.
 **Create another identity** makes a separate Peer ID only after you click it. **Switch to this
 identity** reopens an existing key before selecting it; an unreadable identity stays unavailable.
 A failed Create or Switch shows an error and keeps your current selection. For a selected UUID
