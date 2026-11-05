@@ -359,6 +359,7 @@ extension IdentitySlotStore {
         }
         let allowed: Set<String> = [
             "identity.key", "state", "network", "network-draft", "profile-draft.json",
+            "client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key", "chat-state.key",
         ]
         let entries = try files.contentsOfDirectory(at: folder,
                                                     includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])

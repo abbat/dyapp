@@ -198,6 +198,10 @@ final class IdentitySlotStoreTests: XCTestCase {
         let keyBytes = try Data(contentsOf: survivorKey)
         let draft = survivorFolder.appendingPathComponent("network-draft")
         try Data("survivor draft".utf8).write(to: draft)
+        let firstFolder = path.appendingPathComponent("profiles").appendingPathComponent(first.slot.id.uuidString.lowercased())
+        for name in ["client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key", "chat-state.key"] {
+            try Data("used".utf8).write(to: firstFolder.appendingPathComponent(name))
+        }
         try store.select(.slot(first.slot.id))
         XCTAssertThrowsError(try store.remove(first.slot.id, confirming: survivor.peerId))
         XCTAssertEqual(try store.open(first.slot).peerId(), first.peerId)

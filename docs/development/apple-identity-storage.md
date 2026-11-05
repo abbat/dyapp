@@ -117,7 +117,8 @@ it never selects another identity silently. Published network data may remain.
 the ready slot's Peer ID against the confirmation, refuses unknown or nonregular slot content,
 writes the tombstone, records no selection when the removed slot was active or the picker had no
 selection, erases the slot's Keychain item, and removes
-only known files before removing the tombstone. A retry can finish after the Keychain item or
+only known files (the key, state and network files, the JSON draft, `client.db` with its WAL, SHM
+and journal files, `device.key` and `chat-state.key`) before removing the tombstone. A retry can finish after the Keychain item or
 directory has gone; if the item still exists, it must open and match the confirmed Peer ID again.
 The store verifies Keychain absence itself after the erase call, including when an injected
 erase operation is used by tests. iOS and macOS Settings now show the selected UUID's Peer ID,
