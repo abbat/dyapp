@@ -8,6 +8,9 @@ import XCTest
 func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 30,
             above: Bool = false) -> XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
+    // A row's identifier can reach each text in it, and a frame read from an element with two
+    // matches fails the test.
+    let row = element.firstMatch
     // Drag in the upper half, where the keyboard of an edited field does not reach, and in the
     // right margin, so a text editor under the finger does not scroll its own text instead.
     let drag = { (from: CGFloat, to: CGFloat) in
@@ -17,7 +20,7 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     // One drag can take the whole timeout on a slow simulator, so a few always run.
     var drags = 0
     let search = {
-        while !(element.exists && element.isHittable) && (Date() < deadline || drags < 3) {
+        while !(row.exists && row.isHittable) && (Date() < deadline || drags < 3) {
             if above { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
             drags += 1
         }
@@ -27,11 +30,11 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     // keyboard, still reports hittable, but a tap on its centre lands on what covers it. So move
     // it by its own frame. The form can jump back to its top on this drag and lose the row, so
     // search again; a later pass moves the row found after such a jump.
-    for _ in 0..<3 where element.exists {
+    for _ in 0..<3 where row.exists {
         let area = visibleArea(of: app)
-        let centre = element.frame.midY
+        let centre = row.frame.midY
         guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else { break }
-        print("reveal: \(element.identifier) at \(element.frame), visible y \(area), dragging")
+        print("reveal: \(row.identifier) at \(row.frame), visible y \(area), dragging")
         let span = area.upperBound - area.lowerBound - 2 * halfRow
         let distance = min(max(centre - (area.lowerBound + area.upperBound) / 2, -span), span)
         let start = distance > 0 ? area.upperBound - halfRow : area.lowerBound + halfRow
