@@ -92,15 +92,25 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     func adopt(_ window: NSWindow) {
         guard self.window == nil else { return }
         self.window = window
+        let proxy = WindowCloseProxy(inner: window.delegate) { [weak self] in self?.hide($0) }
+        window.delegate = proxy
+        closeProxy = proxy
+        // SwiftUI places a new window after it joins the view: a saved x came back centred at its saved size.
+        Task { [weak self] in self?.place(window) }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // The autosave name alone left nothing to restore on a relaunch after Cmd+Q.
+        window?.saveFrame(usingName: frameName)
+    }
+
+    private func place(_ window: NSWindow) {
         let screens = NSScreen.screens.map(\.visibleFrame)
         let frame = window.setFrameUsingName(frameName)
             ? WindowPlacement.restored(window.frame, on: screens)
             : WindowPlacement.centred(Self.defaultSize, on: screens)
         window.setFrame(frame, display: false)
         window.setFrameAutosaveName(frameName)
-        let proxy = WindowCloseProxy(inner: window.delegate) { [weak self] in self?.hide($0) }
-        window.delegate = proxy
-        closeProxy = proxy
     }
 
     @objc
