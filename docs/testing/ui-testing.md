@@ -284,7 +284,9 @@ test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-bina
 `INSTRUMENTATION_CODE: -1`, because `am instrument` exits 0 on failures), `check-apple-results.py`
 (xcresult summary: ≥3 total, 0 failed, 0 skipped, result `Passed`). A test that passes only on a
 retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test up to twice
-(`-retry-tests-on-failure -test-iterations 3`) and `check-flaky.py` reads the
+(`-retry-tests-on-failure -test-iterations 3`, each try limited to 10 minutes by
+`-default-test-execution-time-allowance`, so a wedged test fails instead of using up the suite's
+70 minutes) and `check-flaky.py` reads the
 `xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
 run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a

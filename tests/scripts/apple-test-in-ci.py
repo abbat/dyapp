@@ -179,6 +179,10 @@ def main():
             run(test + ["-destination", destination,
                         "-parallel-testing-enabled", "NO",
                         "-retry-tests-on-failure", "-test-iterations", "3",
+                        # One wedged test must fail alone, or it takes all
+                        # of the time limit below and no results are left.
+                        "-test-timeouts-enabled", "YES",
+                        "-default-test-execution-time-allowance", "600",
                         "-resultBundlePath", str(result_bundle), "test"],
                 reports / "tests.log", timeout=70 * 60)
     finally:
