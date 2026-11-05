@@ -100,17 +100,8 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        #if DEBUG
-        let before = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
-        #endif
         // Written by hand: on SwiftUI's window saveFrame(usingName:) and the autosave name left the old string.
         if let window { UserDefaults.standard.set(window.frameDescriptor, forKey: "NSWindow Frame \(frameName)") }
-        #if DEBUG
-        // shortcut: tells the moved window test what the quit saw, remove once that test is green.
-        let after = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
-        let frame = window.map { "\($0.frame)" } ?? "no window"
-        UserDefaults.standard.set("frame \(frame) before \(before) after \(after)", forKey: "ui-test-quit \(frameName)")
-        #endif
         // A quit may end before the defaults reach the disk on their own.
         UserDefaults.standard.synchronize()
     }
@@ -123,7 +114,6 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
                 String(start.dropFirst("--ui-test-window-frame=".count)), forKey: "NSWindow Frame \(frameName)"
             )
         }
-        window.setAccessibilityLabel(UserDefaults.standard.string(forKey: "ui-test-quit \(frameName)") ?? "no quit")
         #endif
         let screens = NSScreen.screens.map(\.visibleFrame)
         let frame = window.setFrameUsingName(frameName)

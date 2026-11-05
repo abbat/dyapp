@@ -48,21 +48,7 @@ func publish(_ app: XCUIApplication) {
         let toggle = app.checkBoxes[id]
         reveal(toggle, in: app)
         toggle.click()
-        if !turnsOn(toggle, within: 3) {
-            // shortcut: a lost click is recorded and retried once at another height, which would
-            // hide an app bug that loses it; drop the retry once a green run shows reveal is enough.
-            print("publish: lost click on \(id) at \(toggle.frame), value \(String(describing: toggle.value))")
-            XCTContext.runActivity(named: "Lost click on \(id)") { activity in
-                let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-                shot.lifetime = .keepAlways
-                activity.add(shot)
-            }
-            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: 40)
-            reveal(toggle, in: app)
-            print("publish: second click on \(id) at \(toggle.frame)")
-            toggle.click()
-            XCTAssertTrue(turnsOn(toggle, within: 10), "\(id) stayed off after two clicks")
-        }
+        XCTAssertTrue(turnsOn(toggle, within: 10), "\(id) stayed off after the click")
     }
     let button = app.buttons["profile-prepare-publish"]
     reveal(button, in: app)

@@ -20,7 +20,7 @@ final class MainWindowUITests: XCTestCase {
         app.launchArguments = ["--ui-test-slot-root=\(root)"]
         app.launch()
         let restored = shownWindow(app)
-        XCTAssertEqual(restored.frame, moved, "started at \(start), last quit: \(restored.label)\n\(app.debugDescription)")
+        XCTAssertEqual(restored.frame, moved, "started at \(start)\n\(app.debugDescription)")
         app.terminate()
     }
 
