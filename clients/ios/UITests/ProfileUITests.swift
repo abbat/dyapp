@@ -13,7 +13,7 @@ final class ProfileUITests: XCTestCase {
         connectLocalNode(app)
         openProfile(app)
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         month.tap()
         month.typeText("5")
         let save = app.buttons["profile-save"]

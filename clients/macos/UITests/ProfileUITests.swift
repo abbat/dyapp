@@ -13,7 +13,7 @@ final class ProfileUITests: XCTestCase {
         connectLocalNode(app)
         openProfile(app)
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         month.click()
         month.typeText("5")
         let save = app.buttons["profile-save"]
@@ -65,7 +65,7 @@ final class ProfileUITests: XCTestCase {
         reveal(hide, in: app)
         XCTAssertFalse(hide.isEnabled)
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         month.click()
         month.typeText("5")
         let save = app.buttons["profile-save"]
@@ -287,7 +287,7 @@ extension ProfileUITests {
         connectLocalNode(app)
         openProfile(app)
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         month.click()
         month.typeText("5")
         let save = app.buttons["profile-save"]

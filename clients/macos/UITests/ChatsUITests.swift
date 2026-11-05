@@ -298,7 +298,7 @@ final class ChatsUITests: XCTestCase {
             link.click()
         }
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         app.activate()
         month.click()
         month.typeText("5")

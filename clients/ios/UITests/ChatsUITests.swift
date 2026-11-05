@@ -245,7 +245,7 @@ final class ChatsUITests: XCTestCase {
             reveal(app.buttons["profile-edit"], in: app, timeout: 30).tap()
         }
         let month = app.textFields["profile-birth-month"]
-        reveal(month, in: app)
+        revealEditable(month, in: app)
         month.tap()
         month.typeText("5")
         reveal(app.buttons["profile-save"], in: app).tap()

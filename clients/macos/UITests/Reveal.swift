@@ -15,6 +15,17 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -
     }
 }
 
+/// Reveals a field of a form that is off while its draft loads: a click then gives it no focus.
+@MainActor
+func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
+    reveal(field, in: app)
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+        predicate: NSPredicate(format: "enabled == true"), object: field
+    ),
+    ], timeout: 30), .completed, app.debugDescription)
+    reveal(field, in: app)
+}
+
 private func turnsOn(_ toggle: XCUIElement, within timeout: TimeInterval) -> Bool {
     XCTWaiter.wait(for: [XCTNSPredicateExpectation(
         predicate: NSPredicate(format: "value == 1"), object: toggle

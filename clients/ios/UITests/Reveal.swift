@@ -33,6 +33,17 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     return element
 }
 
+/// Reveals a field of a form that is off while its draft loads: a tap then gives it no focus.
+@MainActor
+func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
+    reveal(field, in: app)
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+        predicate: NSPredicate(format: "enabled == true"), object: field
+    ),
+    ], timeout: 30), .completed, app.debugDescription)
+    reveal(field, in: app)
+}
+
 /// Reveals a form switch and taps it: its row's centre is the label; newer iOS nests the tappable
 /// switch inside the row, older iOS has none and the switch sits at the trailing edge.
 @MainActor
