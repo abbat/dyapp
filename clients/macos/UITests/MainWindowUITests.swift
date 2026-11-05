@@ -19,7 +19,8 @@ final class MainWindowUITests: XCTestCase {
         // Back at the start frame: the move was not saved. The default frame: nothing outlived the quit.
         app.launchArguments = ["--ui-test-slot-root=\(root)"]
         app.launch()
-        XCTAssertEqual(shownWindow(app).frame, moved, "started at \(start)\n\(app.debugDescription)")
+        let restored = shownWindow(app)
+        XCTAssertEqual(restored.frame, moved, "started at \(start), last quit: \(restored.label)\n\(app.debugDescription)")
         app.terminate()
     }
 

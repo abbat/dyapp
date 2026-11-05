@@ -2,6 +2,8 @@
 # Prepares a GitHub-hosted Ubuntu runner to run the checks without Docker. CI only: it installs
 # system packages with sudo. The package lists mirror tools/docker/Dockerfile.dev and Dockerfile.linux-test.
 set -euo pipefail
+# One 504 from a release download failed a whole quality job.
+curl() { command curl --retry 5 --retry-delay 5 "$@"; }
 toolchain=1.99.0
 case "${1:?usage: ci-setup.sh rust|linux}" in
     rust)

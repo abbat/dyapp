@@ -100,8 +100,19 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        #if DEBUG
+        let before = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
+        #endif
         // The autosave name alone left nothing to restore on a relaunch after Cmd+Q.
         window?.saveFrame(usingName: frameName)
+        #if DEBUG
+        // shortcut: tells the moved window test what the quit saw, remove once that test is green.
+        let after = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
+        let frame = window.map { "\($0.frame)" } ?? "no window"
+        UserDefaults.standard.set("frame \(frame) before \(before) after \(after)", forKey: "ui-test-quit \(frameName)")
+        #endif
+        // A relaunch right after the quit found the start frame, not this one.
+        UserDefaults.standard.synchronize()
     }
 
     private func place(_ window: NSWindow) {
@@ -112,6 +123,7 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
                 String(start.dropFirst("--ui-test-window-frame=".count)), forKey: "NSWindow Frame \(frameName)"
             )
         }
+        window.setAccessibilityLabel(UserDefaults.standard.string(forKey: "ui-test-quit \(frameName)") ?? "no quit")
         #endif
         let screens = NSScreen.screens.map(\.visibleFrame)
         let frame = window.setFrameUsingName(frameName)
