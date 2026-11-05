@@ -12,9 +12,9 @@ final class MainWindowUITests: XCTestCase {
         bar.press(forDuration: 0.3, thenDragTo: bar.withOffset(CGVector(dx: 60, dy: 40)))
         let moved = window.frame
         XCTAssertNotEqual(moved.origin, start.origin, app.debugDescription)
-        // AppKit hands the saved frame to the defaults daemon just after the move.
-        Thread.sleep(forTimeInterval: 1)
-        app.terminate()
+        // A killed app can lose a default it has not flushed yet; a person quits with Cmd+Q.
+        app.typeKey("q", modifierFlags: .command)
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10), app.debugDescription)
         app.launch()
         XCTAssertEqual(shownWindow(app).frame, moved, app.debugDescription)
         app.terminate()
@@ -22,7 +22,8 @@ final class MainWindowUITests: XCTestCase {
 
     func testAnOffScreenWindowReturnsToADisplayAtItsSize() {
         let root = UUID().uuidString
-        let app = launched(root: root, defaults: ["-NSWindow Frame main-\(root)", "-9000 -9000 520 640 0 0 1024 768"])
+        // A value starting with a dash would read as the next argument's key, so off screen is far positive.
+        let app = launched(root: root, defaults: ["-NSWindow Frame main-\(root)", "9000 9000 520 640 0 0 1024 768"])
         let frame = shownWindow(app).frame
         XCTAssertEqual(frame.size, CGSize(width: 520, height: 640), app.debugDescription)
         let display = XCUIScreen.main.screenshot().image.size

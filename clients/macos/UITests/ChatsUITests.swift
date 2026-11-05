@@ -10,6 +10,9 @@ final class ChatsUITests: XCTestCase {
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
+        // Continue opens the profile by itself; a click on Chats 2 s later left the detail column empty, 3 of 3 runs.
+        let profile = app.descendants(matching: .any)["profile-field-gender"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 10), app.debugDescription)
         let open = app.buttons["chats-open"]
         XCTAssertTrue(open.waitForExistence(timeout: 30), app.debugDescription)
         open.click()
