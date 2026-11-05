@@ -25,11 +25,11 @@ pub fn safety_number_for_peer_ids(mine: &str, theirs: &str) -> Option<String> {
 /// The same safety number as it is shown and copied: groups of five digits.
 pub fn grouped_safety_number(mine: &str, theirs: &str) -> Option<String> {
     let digits = safety_number_for_peer_ids(mine, theirs)?;
-    let groups: Vec<&str> = digits
+    let groups = digits
         .as_bytes()
         .chunks(5)
-        .map(|group| std::str::from_utf8(group).expect("ASCII safety digits"))
-        .collect();
+        .map(|group| std::str::from_utf8(group).ok())
+        .collect::<Option<Vec<&str>>>()?;
     Some(groups.join(" "))
 }
 
