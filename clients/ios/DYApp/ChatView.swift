@@ -323,6 +323,11 @@ private struct ChatBubble: View {
             Button("chat.delete", role: .destructive, action: delete).accessibilityIdentifier("msg-delete")
         } label: {
             Image(systemName: "ellipsis")
+                #if os(iOS)
+                // The bare glyph is 18 by 5 points, far below a touch target.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                #endif
         }
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
