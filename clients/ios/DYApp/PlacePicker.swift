@@ -76,13 +76,9 @@ private struct CountryList: View {
 
     var body: some View {
         List {
-            Button(anyLabel) { choose("") }
-                .accessibilityIdentifier("country-none")
-            ForEach(countries.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) },
-                    id: \.code) { country in
-                Button(country.name) { choose(country.code) }
-                    .accessibilityIdentifier("country-\(country.code)")
-            }
+            CountryRows(anyLabel: anyLabel, countries: countries.filter {
+                query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
+            }, choose: choose)
         }
         #if os(iOS)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
@@ -95,5 +91,28 @@ private struct CountryList: View {
     private func choose(_ code: String) {
         pick(code)
         dismiss()
+    }
+}
+
+/// The country rows, inside the search so they can end it: a pop with the search field still
+/// active was followed in UI tests by an app that never again reported its animations complete.
+private struct CountryRows: View {
+    let anyLabel: LocalizedStringKey
+    let countries: [(code: String, name: String)]
+    let choose: (String) -> Void
+    @Environment(\.dismissSearch) private var dismissSearch
+
+    var body: some View {
+        Button(anyLabel) { pick("") }
+            .accessibilityIdentifier("country-none")
+        ForEach(countries, id: \.code) { country in
+            Button(country.name) { pick(country.code) }
+                .accessibilityIdentifier("country-\(country.code)")
+        }
+    }
+
+    private func pick(_ code: String) {
+        dismissSearch()
+        choose(code)
     }
 }
