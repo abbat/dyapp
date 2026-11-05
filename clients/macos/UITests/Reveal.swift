@@ -6,11 +6,19 @@ import XCTest
 @MainActor
 func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -300) {
     let form = app.scrollViews.firstMatch
+    var seen: CGRect?
     for _ in 0..<24 {
-        if element.exists && element.isHittable { return }
+        if element.exists && element.isHittable {
+            // A row clipped by the form still counts as hittable, and a click there lands on the
+            // status bar below. A frame that stays put does not scroll with this form at all.
+            let frame = element.frame
+            if !form.exists || frame == seen { return }
+            if frame.minY >= form.frame.minY && frame.maxY <= form.frame.maxY { return }
+            seen = frame
+        }
         var step = deltaY
-        if element.exists, element.frame.midY < form.frame.minY { step = 100 }
-        if element.exists, element.frame.midY > form.frame.maxY { step = -100 }
+        if element.exists, element.frame.minY < form.frame.minY { step = 100 }
+        if element.exists, element.frame.maxY > form.frame.maxY { step = -100 }
         form.scroll(byDeltaX: 0, deltaY: step)
     }
 }
@@ -42,7 +50,7 @@ func publish(_ app: XCUIApplication) {
         toggle.click()
         if !turnsOn(toggle, within: 3) {
             // shortcut: a lost click is recorded and retried once at another height, which would
-            // hide an app bug that loses it; drop the retry once the record names the cause.
+            // hide an app bug that loses it; drop the retry once a green run shows reveal is enough.
             print("publish: lost click on \(id) at \(toggle.frame), value \(String(describing: toggle.value))")
             XCTContext.runActivity(named: "Lost click on \(id)") { activity in
                 let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

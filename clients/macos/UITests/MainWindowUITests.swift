@@ -5,7 +5,8 @@ import XCTest
 final class MainWindowUITests: XCTestCase {
     func testAMovedWindowComesBackAfterRelaunch() {
         let root = UUID().uuidString
-        let app = launched(root: root)
+        // Small enough to stay on a small screen once moved: macOS pulls back a window that overflows.
+        let app = launched(root: root, defaults: ["-NSWindow Frame main-\(root)", "100 120 520 600 0 0 1024 768"])
         let window = shownWindow(app)
         let start = window.frame
         let bar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 12))
