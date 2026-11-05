@@ -66,6 +66,14 @@ score = 72.2
 # Android: publishing showed no status and no error within 120 s, twice in one process; the retries passed.
 "com.dyapp.ProfileRemovalTests removalWithdrawsThePublishedProfileAndWaitsForANode" = 2026-11-04
 "com.dyapp.ProfileRemovalTests removeAnywayRemovesWithoutANode" = 2026-11-04
+# iOS: the local-node check showed no row outcome within 30 s; the retry passed.
+"ChatsUITests testPeerRequestRepliesEditsClearsAndBlocks()" = 2026-11-05
+# iOS: the tap on the age field gave it no keyboard focus; the retry passed.
+"ProfileUITests testTypedFieldsRefuseBadHeightAndSurviveRestart()" = 2026-11-05
+# macOS: the profile form stayed disabled with its read error; the retry passed.
+"ChatsUITests testFullPhotoLoadsWithoutATapOnAnUnmeteredNetwork()" = 2026-11-05
+# macOS: the app crashed in a display link flush during the test; the retry passed.
+"SearchUITests testFoundRowOpensItsProfileAndBackKeepsTheSample()" = 2026-11-05
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).

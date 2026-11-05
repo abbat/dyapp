@@ -302,6 +302,7 @@ private struct ChatBubble: View {
                     .accessibilityIdentifier("msg-profile")
                 } else {
                     Text(verbatim: chatPreview(message)).textSelection(.enabled)
+                        .accessibilityIdentifier("msg-text")
                 }
                 let meta = chatMeta(message)
                 if !meta.isEmpty { Text(verbatim: meta).font(.caption) }

@@ -45,7 +45,7 @@ final class ChatsUITests: XCTestCase {
         open.click()
 
         replyToTheRequest(app)
-        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
+        XCTAssertTrue(bubble("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
         editAndDeleteTheReply(app, input: app.textFields["chat-input"])
         nameThePeer(app)
         muteClearAndBlock(app)
@@ -78,7 +78,7 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(target.waitForExistence(timeout: 30), app.debugDescription)
         reveal(target, in: app)
         target.click()
-        XCTAssertTrue(shownText("Profile sent", in: app).waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(shown("chat-status", "Profile sent", in: app).waitForExistence(timeout: 60), app.debugDescription)
         reveal(back, in: app, deltaY: 300)
         back.click()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
@@ -93,13 +93,15 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(request.waitForExistence(timeout: 150), app.debugDescription)
         request.click()
         XCTAssertTrue(app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
-
+        // An element by its identifier first: a timeout here means the whole app stopped answering.
         let input = app.textFields["chat-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(bubble("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+
         input.click()
         input.typeText("Hello back")
         app.buttons["chat-send"].click()
-        XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(bubble("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
     }
 
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
@@ -168,7 +170,7 @@ final class ChatsUITests: XCTestCase {
         app.buttons["chat-send"].click()
         // The field holds the same words until the edit lands, so its end comes first.
         waitGone(app.staticTexts["chat-editing"], in: app)
-        let edited = shownText("Hello back again", in: app)
+        let edited = bubble("Hello back again", in: app)
         XCTAssertTrue(edited.waitForExistence(timeout: 30), app.debugDescription)
 
         menuItem("msg-delete", title: "Delete", in: app).click()
@@ -187,15 +189,15 @@ final class ChatsUITests: XCTestCase {
         name.typeText("Riley")
         app.buttons["chat-rename-save"].click()
         waitGone(name, in: app)
-        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shown("chat-profile", "Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
 
         app.buttons["chat-back"].click()
         let row = app.buttons["chat-1"]
         XCTAssertTrue(row.waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(shown("chat-1", "Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
         row.click()
         // The menu's items wait for the history.
-        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(bubble("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func muteClearAndBlock(_ app: XCUIApplication) {
@@ -213,7 +215,7 @@ final class ChatsUITests: XCTestCase {
         let clear = app.sheets.buttons["Clear chat"]
         XCTAssertTrue(clear.waitForExistence(timeout: 10), app.debugDescription)
         clear.click()
-        waitGone(shownText("Hello from the peer", in: app), in: app)
+        waitGone(bubble("Hello from the peer", in: app), in: app)
 
         menuItem("chat-block", title: "Block", opener: "chat-more", in: app).click()
         let block = app.sheets.buttons["Block"]
@@ -284,11 +286,16 @@ final class ChatsUITests: XCTestCase {
         return item
     }
 
-    /// A selectable text may carry its words in its value instead of its label.
-    private func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(
+    /// A selectable text may carry its words in its value instead of its label. The identifier limits
+    /// the search: on an open chat the same predicate over every element timed out each time.
+    private func shown(_ id: String, _ text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).matching(
             NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
         ).firstMatch
+    }
+
+    private func bubble(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        shown("msg-text", text, in: app)
     }
 
     private func publishProfile(_ app: XCUIApplication) {
