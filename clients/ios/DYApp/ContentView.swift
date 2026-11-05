@@ -195,6 +195,17 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    #if os(macOS)
+    @ViewBuilder private var detail: some View {
+        if case let .ready(candidate, peerId) = identity, let startLink,
+           startLink == .settings ? activeNetwork != .loading : activeNetwork == .ready {
+            destination(startLink, candidate, peerId)
+        } else {
+            Color.clear
+        }
+    }
+    #endif
+
     @ViewBuilder
     private func startEntry(
         _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate, _ peerId: String
@@ -227,17 +238,6 @@ struct ContentView: View {
             ChatsView(feed: chats)
         }
     }
-
-    #if os(macOS)
-    @ViewBuilder private var detail: some View {
-        if case let .ready(candidate, peerId) = identity, let startLink,
-           startLink == .settings ? activeNetwork != .loading : activeNetwork == .ready {
-            destination(startLink, candidate, peerId)
-        } else {
-            Color.clear
-        }
-    }
-    #endif
 
     private func pickerStatus(for state: IdentitySlot.State) -> LocalizedStringKey {
         switch state {

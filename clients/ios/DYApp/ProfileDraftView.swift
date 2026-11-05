@@ -186,32 +186,6 @@ struct ProfileDraftView: View {
             !isLoading && !isSaving && !isSolving && !readFailed
     }
 
-    var body: some View {
-        #if os(macOS)
-        // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
-        if previewing {
-            VStack(alignment: .leading) {
-                Button("view.back") { previewing = false }.accessibilityIdentifier("view-back").padding()
-                ProfilePreviewView(candidate: candidate, peerId: peerId)
-            }
-        } else {
-            form
-        }
-        #else
-        form
-        #endif
-    }
-
-    @ViewBuilder private var previewEntry: some View {
-        #if os(macOS)
-        Button("profile.preview") { previewing = true }
-        #else
-        NavigationLink("profile.preview") {
-            ProfilePreviewView(candidate: candidate, peerId: peerId)
-        }
-        #endif
-    }
-
     private var form: some View {
         ScrollingForm {
             ProfilePhotosSection(candidate: candidate, peerId: peerId,
@@ -469,5 +443,33 @@ struct ProfileDraftView: View {
             eligibilityFailed = true
             eligibilityChecked = false
         }
+    }
+}
+
+extension ProfileDraftView {
+    var body: some View {
+        #if os(macOS)
+        // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
+        if previewing {
+            VStack(alignment: .leading) {
+                Button("view.back") { previewing = false }.accessibilityIdentifier("view-back").padding()
+                ProfilePreviewView(candidate: candidate, peerId: peerId)
+            }
+        } else {
+            form
+        }
+        #else
+        form
+        #endif
+    }
+
+    @ViewBuilder private var previewEntry: some View {
+        #if os(macOS)
+        Button("profile.preview") { previewing = true }
+        #else
+        NavigationLink("profile.preview") {
+            ProfilePreviewView(candidate: candidate, peerId: peerId)
+        }
+        #endif
     }
 }
