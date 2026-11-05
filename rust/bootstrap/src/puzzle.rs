@@ -177,7 +177,12 @@ mod tests {
         };
         let mine = solution("me", 0);
         assert!(p.check("me", &mine));
-        assert!(!p.check("other", &mine));
+        // A fixed name solves the same nonce once in 2^bits runs, as any peer may.
+        let other = (0..)
+            .map(|n| format!("other{n}"))
+            .find(|peer| !solved(&challenge, peer, mine.nonce, bits))
+            .unwrap();
+        assert!(!p.check(&other, &mine));
         // Not consumed until admitted.
         assert!(p.check("me", &mine));
         p.consume("me", &mine);

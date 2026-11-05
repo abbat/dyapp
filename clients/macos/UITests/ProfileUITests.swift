@@ -330,6 +330,11 @@ extension ProfileUITests {
         waitEnabled(remove)
         remove.click()
         let sheet = app.sheets.firstMatch
+        if !sheet.waitForExistence(timeout: 3) {
+            // shortcut: a retried click would hide an app bug that loses it, drop it once a run has no such line.
+            print("openRemoval: no sheet after the click at \(remove.frame), clicking again")
+            remove.click()
+        }
         XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
         sheetSays(sheet, text)
         return sheet

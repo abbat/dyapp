@@ -103,15 +103,15 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
         #if DEBUG
         let before = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
         #endif
-        // The autosave name alone left nothing to restore on a relaunch after Cmd+Q.
-        window?.saveFrame(usingName: frameName)
+        // Written by hand: on SwiftUI's window saveFrame(usingName:) and the autosave name left the old string.
+        if let window { UserDefaults.standard.set(window.frameDescriptor, forKey: "NSWindow Frame \(frameName)") }
         #if DEBUG
         // shortcut: tells the moved window test what the quit saw, remove once that test is green.
         let after = UserDefaults.standard.string(forKey: "NSWindow Frame \(frameName)") ?? "none"
         let frame = window.map { "\($0.frame)" } ?? "no window"
         UserDefaults.standard.set("frame \(frame) before \(before) after \(after)", forKey: "ui-test-quit \(frameName)")
         #endif
-        // A relaunch right after the quit found the start frame, not this one.
+        // A quit may end before the defaults reach the disk on their own.
         UserDefaults.standard.synchronize()
     }
 
