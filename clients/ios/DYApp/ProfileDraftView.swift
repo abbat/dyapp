@@ -447,7 +447,8 @@ struct ProfileDraftView: View {
 }
 
 extension ProfileDraftView {
-    var body: some View {
+    // Swift infers the builder from View only in the declaration that states the conformance.
+    @ViewBuilder var body: some View {
         #if os(macOS)
         // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
         if previewing {
