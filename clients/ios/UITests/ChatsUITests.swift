@@ -249,14 +249,16 @@ final class ChatsUITests: XCTestCase {
         month.tap()
         month.typeText("5")
         reveal(app.buttons["profile-save"], in: app).tap()
+        // The save took 15 s on a slow simulator before the switch turned on.
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "enabled == true"), object: app.switches["profile-confirm-adult"]
         ),
-        ], timeout: 10), .completed)
+        ], timeout: 30), .completed, app.debugDescription)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
         // The proof is lowered in UI tests but still has no time limit: a slow one would end in this wait.
-        if !readback.waitForExistence(timeout: 180) {
+        // The readback rows are created only once scrolled into view, so a wait in place can miss them.
+        if !reveal(readback, in: app, timeout: 180).exists {
             // Below the fold: the nonce gives the proof's rate, the status row a publish still running.
             _ = reveal(app.descendants(matching: .any)["profile-proof-progress"], in: app, timeout: 5)
             XCTFail(app.debugDescription)
