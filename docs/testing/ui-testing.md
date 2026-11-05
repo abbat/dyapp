@@ -350,6 +350,17 @@ requires every English catalogue key to have a nonempty Russian value. The Linux
 Android instrumentation and Apple UI suites each exercise the Russian ready screen. The Linux
 application menu entry also has a Russian description.
 
+### Lowered proofs of work
+
+The full profile proof of 11 bits took from 5 s to over 3 minutes on the iOS runner, about 12
+nonces a second, and a slow one failed chat tests on their readback wait. So the UI suites of every
+client lower it to 4 bits, a second or two, while still running the real proof. Both ends must agree:
+the test node gets `DYAPPD_SEARCH_MIN_PROFILE_POW_BITS=4`, and a client gets
+`set_test_profile_pow_bits(4)` from its test code (Android), its `--ui-test-slot-root` launch (iOS,
+macOS), or `--ui-test` with `DYAPP_TEST_CONFIG_DIR` (desktop). Clients do not read the node's hint for this
+value yet, so the node setting alone changes nothing. The value also sets the minimum a search accepts, so
+a test process that reads a lowered profile needs it as well. Production clients and nodes keep 11.
+
 ## Local Docker suites (Android, Linux)
 
 Requires Docker with Compose. All commands run from the repository root.

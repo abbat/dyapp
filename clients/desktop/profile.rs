@@ -20,9 +20,6 @@ use dyapp_p2p_net::proto::Status;
 use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{is_clean_text, CivilDate, Profile, MAX_FIELD_CHARS};
 
-/// Profile proof of work a publish computes: the default search-node minimum, until clients
-/// take it from node hints.
-pub const POW_BITS: u32 = 11;
 // Nonces between saves and cancellation checks: a fraction of a second of Argon2id.
 const STEP: u64 = 8;
 /// Search nodes a publish sends the profile to; they gossip it on.

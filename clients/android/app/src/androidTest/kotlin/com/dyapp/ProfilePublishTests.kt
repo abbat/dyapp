@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextReplacement
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
+import uniffi.dyapp.setTestProfilePowBits
 
 private const val PUBLISH_WAIT_MS = 30_000L
 internal const val READBACK_WAIT_MS = 120_000L
@@ -31,6 +32,8 @@ private const val PUBLIC_NAME_CHARS = 64
 private fun ComposeTestRule.eligibility(id: Int) = waitForText("profile-publish-eligibility", id)
 
 private fun ComposeTestRule.openPublish() {
+    // The no-network test runs the proof without ever activating the node.
+    setTestProfilePowBits(4u)
     onNodeWithTag("profile-publish").performScrollTo().performClick()
 }
 

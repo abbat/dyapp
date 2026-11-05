@@ -11,6 +11,7 @@ use icu_normalizer::ComposingNormalizerBorrowed;
 use icu_properties::{props::GeneralCategory, CodePointMapData};
 use prost::Message;
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Largest accepted profile payload. Media are not part of it: the profile only links to blobs.
 pub const MAX_PAYLOAD_LEN: usize = 1024 * 1024;
@@ -322,6 +323,22 @@ impl VerifiedProfile {
             _ => Ok(()),
         }
     }
+}
+
+/// Profile proof of work a publish computes and a search requires: the default search-node
+/// minimum, until clients take it from node hints.
+pub const POW_BITS: u32 = 11;
+
+static REQUIRED_POW_BITS: AtomicU32 = AtomicU32::new(POW_BITS);
+
+/// Overrides [`POW_BITS`] for this process: a test network sets it low.
+pub fn set_required_pow_bits(bits: u32) {
+    REQUIRED_POW_BITS.store(bits, Ordering::Relaxed);
+}
+
+/// Profile proof of work this process computes and requires.
+pub fn required_pow_bits() -> u32 {
+    REQUIRED_POW_BITS.load(Ordering::Relaxed)
 }
 
 const POW_SALT: &[u8] = b"dyapp-profile-pow";

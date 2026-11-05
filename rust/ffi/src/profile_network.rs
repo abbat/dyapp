@@ -1,7 +1,7 @@
 //! A profile publisher uses only the selected identity folder's active network.
 
 use crate::profile_draft::database;
-use crate::profile_publish::{block_at, today, POW_BITS};
+use crate::profile_publish::{block_at, today};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
 use dyapp_client::store::Store;
@@ -128,7 +128,7 @@ pub(crate) fn publishable_draft(store: &Store, attested: bool) -> Result<Profile
     if let Some(reason) = block_at(&draft, attested, today()?) {
         return Err(CoreError::Failed(format!("blocked: {reason}")));
     }
-    if draft.pow_bits < POW_BITS {
+    if draft.pow_bits < dyapp_profile::required_pow_bits() {
         return Err(CoreError::Failed("unsolved".into()));
     }
     Ok(draft)
@@ -431,7 +431,7 @@ mod tests {
             "unsolved"
         );
         let mut solved = before.clone();
-        solved.pow_bits = POW_BITS;
+        solved.pow_bits = dyapp_profile::POW_BITS;
         store.save_profile_draft(&solved).unwrap();
         assert_eq!(
             publisher.publish(key, true).unwrap_err().to_string(),

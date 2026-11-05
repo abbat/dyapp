@@ -285,7 +285,7 @@ pub async fn search(
         &mut reached.nodes,
         &conditions,
         limit,
-        profile::POW_BITS,
+        dyapp_profile::required_pow_bits(),
         &seen,
         &hidden,
     )

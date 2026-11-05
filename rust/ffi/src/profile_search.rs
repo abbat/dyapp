@@ -3,7 +3,7 @@
 use crate::peer_photos::PhotoCache;
 use crate::profile_draft::database;
 use crate::profile_network::{active_network, connect, on_network_stack};
-use crate::profile_publish::{today, POW_BITS};
+use crate::profile_publish::today;
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
 use dyapp_client::compatibility;
@@ -294,7 +294,7 @@ impl ProfileSearcher {
                     &mut reached.nodes,
                     &conditions,
                     limit,
-                    POW_BITS,
+                    dyapp_profile::required_pow_bits(),
                     &cache,
                     &hidden,
                 )

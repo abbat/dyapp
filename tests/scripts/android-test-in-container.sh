@@ -51,6 +51,7 @@ case "${1:?suite required}" in
         # Media serves the profile photos a publish uploads; without it the node replies Unsupported.
         export DYAPPD_LISTEN='["127.0.0.1:33445"]' DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
             DYAPPD_STORAGE_DIR=/reports/node/storage DYAPPD_NETWORK_ID_POW_BITS=8 \
+            DYAPPD_SEARCH_MIN_PROFILE_POW_BITS=4 \
             DYAPPD_ROLES='["store", "search", "media"]'
         # The UI container forges this index after the suite, so it lives on the shared volume.
         rm -rf /reports/node && mkdir -p /reports/node

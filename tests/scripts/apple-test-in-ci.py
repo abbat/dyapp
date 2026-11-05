@@ -35,6 +35,7 @@ def local_node(reports):
     env = dict(os.environ, DYAPPD_LISTEN=json.dumps([address]),
                DYAPPD_EXTERNAL=json.dumps([address]),
                DYAPPD_STORAGE_DIR=str(storage), DYAPPD_NETWORK_ID_POW_BITS="8",
+               DYAPPD_SEARCH_MIN_PROFILE_POW_BITS="4",
                DYAPPD_ROLES='["store", "search", "media"]')
     run(["build/debug/dyappd", "keygen"], reports / "node-keygen.log", env=env,
         timeout=60)

@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.Test
 import uniffi.dyapp.setTestNodeIdPowBits
+import uniffi.dyapp.setTestProfilePowBits
 
 // The emulator runner's loopback dyappd, as the guest reaches its container.
 internal const val LOCAL_NODE = "10.0.2.2:33445"
@@ -62,6 +63,8 @@ internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false, but
 internal fun ComposeTestRule.activateLocalNode() {
     // The runner's node carries a cheap test ID, which publish and search skip by default.
     setTestNodeIdPowBits(8u)
+    // Its profile minimum is lowered too, and search drops hits below this process's value.
+    setTestProfilePowBits(4u)
     onNodeWithTag("nav-network").performClick()
     onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
     onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)

@@ -281,6 +281,14 @@ fn tombstone_supersedes_and_must_be_empty() {
 }
 
 #[test]
+fn required_pow_defaults_to_the_full_proof_until_a_test_lowers_it() {
+    assert_eq!(required_pow_bits(), POW_BITS);
+    set_required_pow_bits(4);
+    assert_eq!(required_pow_bits(), 4);
+    set_required_pow_bits(POW_BITS);
+}
+
+#[test]
 fn heartbeat_pow_depends_on_the_day() {
     let key = [7; 32];
     let nonce = solve_heartbeat(&key, 20_000, 4, 0, 10_000).unwrap();

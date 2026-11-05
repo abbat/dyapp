@@ -16,6 +16,7 @@ import uniffi.dyapp.addProfilePhoto
 import uniffi.dyapp.newChatStateKey
 import uniffi.dyapp.saveProfileDraft
 import uniffi.dyapp.setTestNodeIdPowBits
+import uniffi.dyapp.setTestProfilePowBits
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -54,6 +55,7 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
 
     init {
         setTestNodeIdPowBits(8u)
+        setTestProfilePowBits(4u)
         saveProfileDraft(path, key, PublicProfileDraft(
             gender = 1u, orientation = 0u, relationshipGoal = 0u, rolePreference = 0u, careerAmbition = 0u,
             financialPhilosophy = 0u, employmentStatus = 0u, fitnessLevel = 0u, zodiac = 0u,

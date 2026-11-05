@@ -472,7 +472,8 @@ def smoke(executable, flows=True):
                    DYAPPD_EXTERNAL=f'["{seed}"]',
                    DYAPPD_STORAGE_DIR=str(storage / "node"),
                    DYAPPD_ROLES='["store", "search", "media"]',
-                   DYAPPD_NETWORK_ID_POW_BITS="8")
+                   DYAPPD_NETWORK_ID_POW_BITS="8",
+                   DYAPPD_SEARCH_MIN_PROFILE_POW_BITS="4")
         subprocess.run([node, "keygen"], env=env, check=True,
                        stdout=subprocess.DEVNULL, timeout=600)
         log = storage / "node.log"

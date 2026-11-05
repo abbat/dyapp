@@ -29,7 +29,11 @@ enum RustBridge {
     static func identityState() throws -> IdentityResolution {
         #if DEBUG
         // The local test node carries a cheap ID, and search skips nodes without the full proof of work.
-        if uiTestSlotID != nil { setTestNodeIdPowBits(bits: 8) }
+        // The profile proof is lowered with the node's minimum: the full one can outlast a test's wait.
+        if uiTestSlotID != nil {
+            setTestNodeIdPowBits(bits: 8)
+            setTestProfilePowBits(bits: 4)
+        }
         try seedUITestIdentity()
         #endif
         return try identityStore().resolve()

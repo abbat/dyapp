@@ -476,6 +476,13 @@ pub fn set_test_node_id_pow_bits(bits: u32) {
     dyapp_p2p_net::set_id_pow_bits(bits);
 }
 
+/// Lowers the profile proof of work this process computes and requires of search hits, for a
+/// test network whose node has the same minimum; the full proof takes minutes on a slow runner.
+#[uniffi::export]
+pub fn set_test_profile_pow_bits(bits: u32) {
+    dyapp_profile::set_required_pow_bits(bits);
+}
+
 /// Profile placeholder; it does not read or persist user data.
 #[derive(Clone, uniffi::Object)]
 pub struct ProfileService {}

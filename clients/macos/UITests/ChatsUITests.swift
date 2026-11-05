@@ -321,7 +321,7 @@ final class ChatsUITests: XCTestCase {
         ], timeout: 10), .completed)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
-        // The proof has no time limit: 1 to 52 s when it ended in time, still counting after 60 s in one try of ten.
+        // The proof is lowered in UI tests but still has no time limit: a slow one would end in this wait.
         XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
     }
 

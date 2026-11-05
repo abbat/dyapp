@@ -490,7 +490,8 @@ async fn solve_profile(
     }
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        profile::solve(&cancel, &dir, &identity, attested, profile::POW_BITS)
+        let bits = dyapp_profile::required_pow_bits();
+        profile::solve(&cancel, &dir, &identity, attested, bits)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -524,7 +525,7 @@ async fn publish_profile(
             &identity,
             &device,
             attested,
-            profile::POW_BITS,
+            dyapp_profile::required_pow_bits(),
         ))
     })
     .await
@@ -795,9 +796,10 @@ async fn ui_test_window(
 
 fn main() {
     let test_mode = std::env::args().any(|arg| arg == "--ui-test");
-    // The isolated loopback smoke uses a cheap node-ID puzzle on both ends.
+    // The isolated loopback smoke uses a cheap node ID and profile proof on both ends.
     if test_mode && std::env::var_os("DYAPP_TEST_CONFIG_DIR").is_some() {
         dyapp_p2p_net::set_id_pow_bits(8);
+        dyapp_profile::set_required_pow_bits(4);
     }
     let break_ui = std::env::args().any(|arg| arg == "--break-ui");
     // axe-core for the UI test's accessibility audit; a set but unreadable path fails the run.

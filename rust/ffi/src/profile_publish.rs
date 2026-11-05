@@ -46,7 +46,6 @@ pub fn profile_publish_block(
     Ok(block_at(&profile, attested, today()?).map(str::to_owned))
 }
 
-pub(crate) const POW_BITS: u32 = 11;
 const STEP_TRIES: u64 = 8;
 
 /// One persisted proof-work step; both flags false means more work remains.
@@ -86,7 +85,7 @@ impl ProfileSolve {
     /// Try eight nonces and persist progress; call off the UI thread until solved or cancelled.
     /// The shared 18+ gate is checked again for every step using the current UTC day.
     pub fn run_step(&self, attested: bool) -> Result<ProfileWorkStep, CoreError> {
-        self.step(attested, POW_BITS)
+        self.step(attested, dyapp_profile::required_pow_bits())
     }
 
     /// Request cancellation; the current short step finishes and saves before stopping.
