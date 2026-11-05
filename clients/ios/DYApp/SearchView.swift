@@ -136,7 +136,10 @@ struct SearchResultRow: View {
                 Text(verbatim: "@\(found.peerId.suffix(6))").font(.headline)
                 Text(verbatim: summary).font(.caption)
             }
+            // A plain button takes taps only on its content, and the row looks tappable to its edge.
+            Spacer(minLength: 0)
         }
+        .contentShape(Rectangle())
     }
 }
 
