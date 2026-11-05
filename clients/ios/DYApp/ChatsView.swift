@@ -218,6 +218,8 @@ private struct ChatListRow: View {
                 if row.muted { Text("chats.muted").font(.caption).accessibilityIdentifier("chat-muted") }
             }
         }
+        // A click on the spacer between the name and the time did nothing without it.
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }
