@@ -7,6 +7,7 @@ use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
+use std::sync::{Mutex, PoisonError};
 
 mod chat_list;
 #[cfg(test)]
@@ -37,6 +38,8 @@ pub use notice::NoticeContent;
 pub use peers::ContactName;
 
 const VERSION: i64 = 1;
+/// A client's first screens open a new database at once, and each would see no schema and create it.
+static OPENING: Mutex<()> = Mutex::new(());
 
 /// Why a profile database could not be opened safely.
 #[derive(Debug, thiserror::Error)]
@@ -154,6 +157,7 @@ impl Store {
         if path.is_symlink() {
             return Err(Error::Symlink);
         }
+        let _opening = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
         let mut db = Connection::open(path)?;
         db.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;",

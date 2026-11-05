@@ -48,6 +48,25 @@ mod tests {
     use dyapp_profile::Profile;
 
     #[test]
+    fn concurrent_first_opens_share_one_new_database() {
+        let (path, alice) = (temp_db_path(), Identity::generate());
+        std::thread::scope(|scope| {
+            let opens: Vec<_> = (0..8)
+                .map(|_| {
+                    scope.spawn(|| {
+                        Store::open(&path, &alice)
+                            .map(drop)
+                            .map_err(|e| e.to_string())
+                    })
+                })
+                .collect();
+            for open in opens {
+                open.join().unwrap().unwrap();
+            }
+        });
+    }
+
+    #[test]
     fn a_saved_draft_survives_reopening_and_the_newest_wins() {
         let (path, alice) = (temp_db_path(), Identity::generate());
         let store = Store::open(&path, &alice).unwrap();
