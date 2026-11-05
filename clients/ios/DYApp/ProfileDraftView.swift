@@ -171,6 +171,9 @@ struct ProfileDraftView: View {
     @State private var eligibilityRevision = 0
     @State private var profileRevision = 0
     @State private var isSolving = false
+    #if os(macOS)
+    @State private var previewing = false
+    #endif
 
     private var hasUnsavedEdits: Bool {
         values != savedValues || country != savedCountry || birthYear != savedBirthYear ||
@@ -184,6 +187,32 @@ struct ProfileDraftView: View {
     }
 
     var body: some View {
+        #if os(macOS)
+        // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
+        if previewing {
+            VStack(alignment: .leading) {
+                Button("view.back") { previewing = false }.accessibilityIdentifier("view-back").padding()
+                ProfilePreviewView(candidate: candidate, peerId: peerId)
+            }
+        } else {
+            form
+        }
+        #else
+        form
+        #endif
+    }
+
+    @ViewBuilder private var previewEntry: some View {
+        #if os(macOS)
+        Button("profile.preview") { previewing = true }
+        #else
+        NavigationLink("profile.preview") {
+            ProfilePreviewView(candidate: candidate, peerId: peerId)
+        }
+        #endif
+    }
+
+    private var form: some View {
         ScrollingForm {
             ProfilePhotosSection(candidate: candidate, peerId: peerId,
                                  disabled: isLoading || readFailed || isSaving || isSolving) {
@@ -221,11 +250,9 @@ struct ProfileDraftView: View {
             Button("profile.save") { Task { await save() } }
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-save")
-            NavigationLink("profile.preview") {
-                ProfilePreviewView(candidate: candidate, peerId: peerId)
-            }
-            .disabled(isLoading || isSaving || isSolving)
-            .accessibilityIdentifier("profile-preview")
+            previewEntry
+                .disabled(isLoading || isSaving || isSolving)
+                .accessibilityIdentifier("profile-preview")
             if !status.isEmpty {
                 Text(LocalizedStringKey(status))
                     .accessibilityIdentifier("profile-status")

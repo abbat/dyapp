@@ -16,8 +16,10 @@ final class MainWindowUITests: XCTestCase {
         // A killed app can lose a default it has not flushed yet; a person quits with Cmd+Q.
         app.typeKey("q", modifierFlags: .command)
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10), app.debugDescription)
+        // A launch argument outranks the frame the app saved, so the relaunch must not pass the old one.
+        app.launchArguments = ["--ui-test-slot-root=\(root)"]
         app.launch()
-        XCTAssertEqual(shownWindow(app).frame, moved, app.debugDescription)
+        XCTAssertEqual(shownWindow(app).frame, moved, "started at \(start)\n\(app.debugDescription)")
         app.terminate()
     }
 

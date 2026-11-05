@@ -285,7 +285,7 @@ struct IdentitySettingsView: View {
     }
 
     /// On macOS these settings fill the detail column, where dismiss closes the whole window;
-    /// the identity change rebuilds the sidebar and drops this detail instead.
+    /// the identity change clears the selection that shows this detail instead.
     private func close() {
         #if os(iOS)
         dismiss()

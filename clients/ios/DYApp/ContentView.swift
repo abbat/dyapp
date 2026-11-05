@@ -13,8 +13,9 @@ private enum PickerSelection: Sendable {
     case ready(IdentityResolution), failed
 }
 
-/// All start screen links share one selection: on a macOS sidebar a link left active by its own flag
-/// kept the detail pane, so after setup opened the profile no other link could replace it.
+/// All start screen entries share one selection: on a macOS sidebar a link left active by its own flag
+/// kept the detail pane, so after setup opened the profile no other link could replace it. On macOS the
+/// selection alone drives the detail column: a link selected soon after Continue left that column empty.
 private enum StartLink: Hashable, Sendable {
     case settings, network, profile, search, chats
 }
@@ -82,11 +83,8 @@ struct ContentView: View {
                     NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
                         Text("app.name").font(.largeTitle)
                         Text(peerId).accessibilityIdentifier("peer-id")
-                        NavigationLink(destination: settingsView(candidate, peerId), tag: StartLink.settings,
-                                       selection: $startLink) {
-                            Text("settings.title")
-                        }
-                        .accessibilityIdentifier("settings-open")
+                        startEntry(.settings, "settings.title", candidate, peerId)
+                            .accessibilityIdentifier("settings-open")
                     })) {
                         // Open the profile from the ready start screen: iOS never pushed from a hidden
                         // link on the setup root, and a macOS sidebar left on the setup form had no way
@@ -101,6 +99,9 @@ struct ContentView: View {
             #if os(macOS)
             // The default 140pt sidebar wrapped the setup form word by word and put settings under the splitter.
             .frame(minWidth: 360)
+            #endif
+            #if os(macOS)
+            detail
             #endif
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
@@ -124,11 +125,8 @@ struct ContentView: View {
                 Text(peerId).accessibilityIdentifier("peer-id")
                 // Settings opened while loading vanished when setup replaced this layout.
                 if activeNetwork != .loading {
-                    NavigationLink(destination: settingsView(candidate, peerId), tag: StartLink.settings,
-                                   selection: $startLink) {
-                        Text("settings.title")
-                    }
-                    .accessibilityIdentifier("settings-open")
+                    startEntry(.settings, "settings.title", candidate, peerId)
+                        .accessibilityIdentifier("settings-open")
                 }
                 switch activeNetwork {
                 case .loading:
@@ -141,32 +139,21 @@ struct ContentView: View {
                     if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
                         Text("status.ready").accessibilityIdentifier("app-ready")
                     }
-                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId),
-                                   tag: StartLink.network, selection: $startLink) {
-                        Text("network.title")
-                    }
-                    .accessibilityIdentifier("network-edit")
-                    NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
-                                   tag: StartLink.profile, selection: $startLink) {
-                        Text("profile.title")
-                    }
-                    .accessibilityIdentifier("profile-edit")
-                    // Activate the link once it is on screen; one created already active may not push.
-                    .onAppear {
-                        if profilePending {
-                            profilePending = false
-                            startLink = .profile
+                    startEntry(.network, "network.title", candidate, peerId)
+                        .accessibilityIdentifier("network-edit")
+                    startEntry(.profile, "profile.title", candidate, peerId)
+                        .accessibilityIdentifier("profile-edit")
+                        // Activate the link once it is on screen; one created already active may not push.
+                        .onAppear {
+                            if profilePending {
+                                profilePending = false
+                                startLink = .profile
+                            }
                         }
-                    }
-                    NavigationLink(destination: SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats),
-                                   tag: StartLink.search, selection: $startLink) {
-                        Text("search.title")
-                    }
-                    .accessibilityIdentifier("search-open")
-                    NavigationLink(destination: ChatsView(feed: chats), tag: StartLink.chats, selection: $startLink) {
-                        Text("chats.title")
-                    }
-                    .accessibilityIdentifier("chats-open")
+                    startEntry(.search, "search.title", candidate, peerId)
+                        .accessibilityIdentifier("search-open")
+                    startEntry(.chats, "chats.title", candidate, peerId)
+                        .accessibilityIdentifier("chats-open")
 
                 case .readFailed:
                     Text("network.activeReadFailed").accessibilityIdentifier("network-active-error")
@@ -207,6 +194,50 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    @ViewBuilder
+    private func startEntry(
+        _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate, _ peerId: String
+    ) -> some View {
+        #if os(macOS)
+        Button(title) { startLink = link }
+        #else
+        NavigationLink(destination: destination(link, candidate, peerId), tag: link, selection: $startLink) {
+            Text(title)
+        }
+        #endif
+    }
+
+    @ViewBuilder
+    private func destination(_ link: StartLink, _ candidate: IdentityCandidate, _ peerId: String) -> some View {
+        switch link {
+        case .settings:
+            settingsView(candidate, peerId)
+
+        case .network:
+            NetworkDraftView(candidate: candidate, peerId: peerId)
+
+        case .profile:
+            ProfileDraftView(candidate: candidate, peerId: peerId)
+
+        case .search:
+            SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats)
+
+        case .chats:
+            ChatsView(feed: chats)
+        }
+    }
+
+    #if os(macOS)
+    @ViewBuilder private var detail: some View {
+        if case let .ready(candidate, peerId) = identity, let startLink,
+           startLink == .settings ? activeNetwork != .loading : activeNetwork == .ready {
+            destination(startLink, candidate, peerId)
+        } else {
+            Color.clear
+        }
+    }
+    #endif
 
     private func pickerStatus(for state: IdentitySlot.State) -> LocalizedStringKey {
         switch state {
@@ -287,6 +318,9 @@ struct ContentView: View {
 
     private func settingsView(_ candidate: IdentityCandidate, _ peerId: String) -> IdentitySettingsView {
         IdentitySettingsView(candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil) { selected in
+            #if os(macOS)
+            startLink = nil
+            #endif
             activeNetwork = .loading
             identity = selected
         }

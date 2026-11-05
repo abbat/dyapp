@@ -148,8 +148,11 @@ final class ProfileUITests: XCTestCase {
         reveal(preview, in: app)
         preview.click()
         for row in ["preview-height", "preview-about", "preview-seeking-genders", "preview-seeking-age-from"] {
-            XCTAssertTrue(app.descendants(matching: .any)[row].waitForExistence(timeout: 10), row)
+            XCTAssertTrue(app.descendants(matching: .any)[row].waitForExistence(timeout: 10), "\(row)\n\(app.debugDescription)")
         }
+        app.buttons["view-back"].click()
+        XCTAssertTrue(about.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(about.value as? String, "Plain text", app.debugDescription)
         app.terminate()
     }
 
