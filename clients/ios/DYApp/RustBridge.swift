@@ -28,6 +28,8 @@ enum RustBridge {
     /// Resolve the saved selection without creating a replacement identity.
     static func identityState() throws -> IdentityResolution {
         #if DEBUG
+        // The local test node carries a cheap ID, and search skips nodes without the full proof of work.
+        if uiTestSlotID != nil { setTestNodeIdPowBits(bits: 8) }
         try seedUITestIdentity()
         #endif
         return try identityStore().resolve()

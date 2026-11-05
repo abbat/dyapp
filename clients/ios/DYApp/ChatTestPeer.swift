@@ -34,7 +34,6 @@ enum ChatTestPeer {
     }
 
     private static func published() throws -> (ChatSession, peer: String) {
-        setTestNodeIdPowBits(bits: 8)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("peer-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let key = IdentityKey.generate()
