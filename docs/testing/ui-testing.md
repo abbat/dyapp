@@ -576,6 +576,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
   The artifact also keeps the runner's `DYApp*` crash reports in `crash-reports/`: a test
   that ends with "application is not running" says nothing about why, and the report does.
+  When there is a crash report, `app-errors.log` keeps the app's error, fault and exception
+  log lines: a report for an uncaught exception may carry neither its reason nor its backtrace.
   For a macOS window that does not open, `gh run rerun <id> --failed --debug` adds
   `window-diagnostics/` to the artifact: the saved state folder, the app's defaults, and the
   app's system log lines about windows and restoration. Ordinary runs skip this step.

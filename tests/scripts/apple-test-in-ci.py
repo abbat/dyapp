@@ -107,20 +107,22 @@ def silent_endpoint():
 def keep_crash_reports(reports):
     """A crash ends a UI test with just "not running"; its report says why."""
     source = Path.home() / "Library" / "Logs" / "DiagnosticReports"
+    kept = False
     for report in source.glob("DYApp*"):
         (reports / "crash-reports").mkdir(exist_ok=True)
         shutil.copy(report, reports / "crash-reports")
+        kept = True
+    return kept
 
 
-def keep_chat_peer_log(reports, simulator):
-    """The test peer's NSLog reaches neither tests.log nor the xcresult."""
+def keep_log(reports, simulator, name, predicate):
+    """Save the unified log lines matching predicate as name."""
     spawn = ["xcrun", "simctl", "spawn", simulator] if simulator else []
-    with (reports / "chat-peer.log").open("w") as output:
+    with (reports / name).open("w") as output:
         try:
             subprocess.run(
                 spawn + ["log", "show", "--last", "3h", "--style", "compact",
-                         "--predicate",
-                         'eventMessage CONTAINS "ChatTestPeer"'],
+                         "--predicate", predicate],
                 stdout=output, stderr=subprocess.STDOUT, check=False,
                 timeout=5 * 60)
         except subprocess.TimeoutExpired:
@@ -186,8 +188,15 @@ def main():
                         "-resultBundlePath", str(result_bundle), "test"],
                 reports / "tests.log", timeout=70 * 60)
     finally:
-        keep_crash_reports(reports)
-        keep_chat_peer_log(reports, simulator)
+        # The test peer's NSLog reaches neither tests.log nor the xcresult.
+        keep_log(reports, simulator, "chat-peer.log",
+                 'eventMessage CONTAINS "ChatTestPeer"')
+        # A crash report lacks an uncaught exception's reason; the log has it.
+        if keep_crash_reports(reports):
+            keep_log(reports, simulator, "app-errors.log",
+                     'process == "DYApp" AND (messageType == error OR '
+                     'messageType == fault OR '
+                     'eventMessage CONTAINS[c] "exception")')
     summary = subprocess.check_output(
         ["xcrun", "xcresulttool", "get", "test-results", "summary",
          "--path", str(result_bundle)], text=True)
