@@ -38,7 +38,7 @@ to. A legal review is not a release condition.
 
 ## Pack format
 
-```
+```sh
 tar -cf cats.tar manifest.json *.webp
 COPYFILE_DISABLE=1 tar -cf cats.tar manifest.json *.webp   # macOS
 ```
