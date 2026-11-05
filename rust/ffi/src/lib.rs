@@ -567,10 +567,7 @@ mod tests {
         set_test_profile_pow_bits(4);
         assert_eq!(dyapp_profile::required_pow_bits(), 4);
         set_test_profile_pow_bits(dyapp_profile::POW_BITS);
-        assert_eq!(
-            dyapp_profile::required_pow_bits(),
-            dyapp_profile::POW_BITS
-        );
+        assert_eq!(dyapp_profile::required_pow_bits(), dyapp_profile::POW_BITS);
     }
 
     #[test]
