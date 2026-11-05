@@ -43,7 +43,7 @@ final class ProfileUITests: XCTestCase {
         openProfile(app)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback")
-        XCTAssertTrue(reveal(readback.firstMatch, in: app, timeout: 60).exists, app.debugDescription)
+        XCTAssertTrue(reveal(readback.firstMatch, in: app, timeout: 180).exists, app.debugDescription)
         // One element per text, or one combined element whose label joins them with ", ".
         let texts = readback.allElementsBoundByIndex.map(\.label).joined(separator: ", ")
             .components(separatedBy: ", ")
@@ -155,7 +155,7 @@ final class ProfileUITests: XCTestCase {
         publish(app)
         let error = app.staticTexts["profile-publish-error"]
         // The error row sits below the proof progress, past the lazy form's first screen.
-        XCTAssertTrue(reveal(error, in: app, timeout: 60).exists, app.debugDescription)
+        XCTAssertTrue(reveal(error, in: app, timeout: 180).exists, app.debugDescription)
         XCTAssertTrue(expected(error.label), error.label)
         XCTAssertFalse(app.buttons["profile-prepare-publish"].isEnabled)
         XCTAssertEqual(app.switches["profile-confirm-adult"].value as? String, "0")

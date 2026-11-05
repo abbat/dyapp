@@ -70,6 +70,9 @@ final class ChatsUITests: XCTestCase {
         cards.firstMatch.click()
         let back = app.buttons["view-back"]
         XCTAssertTrue(back.waitForExistence(timeout: 30), app.debugDescription)
+        // The field's name, not its localization key.
+        let gender = app.staticTexts.matching(NSPredicate(format: "value == 'Gender'")).firstMatch
+        XCTAssertTrue(gender.waitForExistence(timeout: 10), app.debugDescription)
         let share = app.buttons["view-share"]
         XCTAssertTrue(share.waitForExistence(timeout: 30), app.debugDescription)
         reveal(share, in: app)
@@ -78,7 +81,7 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(target.waitForExistence(timeout: 30), app.debugDescription)
         reveal(target, in: app)
         target.click()
-        XCTAssertTrue(shown("chat-status", "Profile sent", in: app).waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(shown("view-status", "Profile sent", in: app).waitForExistence(timeout: 60), app.debugDescription)
         reveal(back, in: app, deltaY: 300)
         back.click()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
@@ -318,7 +321,8 @@ final class ChatsUITests: XCTestCase {
         ], timeout: 10), .completed)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
-        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        // The proof has no time limit: 1 to 52 s when it ended in time, still counting after 60 s in one try of ten.
+        XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
     }
 
     private func createIdentity(_ app: XCUIApplication) {

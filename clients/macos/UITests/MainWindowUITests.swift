@@ -6,7 +6,7 @@ final class MainWindowUITests: XCTestCase {
     func testAMovedWindowComesBackAfterRelaunch() {
         let root = UUID().uuidString
         // Small enough to stay on a small screen once moved: macOS pulls back a window that overflows.
-        let app = launched(root: root, defaults: ["-NSWindow Frame main-\(root)", "100 120 520 600 0 0 1024 768"])
+        let app = launched(root: root, defaults: ["--ui-test-window-frame=100 120 520 600 0 0 1024 768"])
         let window = shownWindow(app)
         let start = window.frame
         let bar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 12))
@@ -16,7 +16,7 @@ final class MainWindowUITests: XCTestCase {
         // A killed app can lose a default it has not flushed yet; a person quits with Cmd+Q.
         app.typeKey("q", modifierFlags: .command)
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10), app.debugDescription)
-        // A launch argument outranks the frame the app saved, so the relaunch must not pass the old one.
+        // Back at the start frame: the move was not saved. The default frame: nothing outlived the quit.
         app.launchArguments = ["--ui-test-slot-root=\(root)"]
         app.launch()
         XCTAssertEqual(shownWindow(app).frame, moved, "started at \(start)\n\(app.debugDescription)")

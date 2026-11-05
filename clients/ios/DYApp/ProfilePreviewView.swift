@@ -75,9 +75,10 @@ struct ProfilePublicRows: View {
         }
         ForEach(preview.fields, id: \.scaleKey) { field in
             HStack {
-                Text(LocalizedStringKey("profile.field.\(field.scaleKey)"))
+                // An interpolated key would look up "profile.field.%@"; concatenate instead.
+                Text(LocalizedStringKey("profile.field." + field.scaleKey))
                 Spacer()
-                Text(LocalizedStringKey("profile.value.\(field.scaleKey).\(field.choiceKey)"))
+                Text(LocalizedStringKey("profile.value." + field.scaleKey + "." + field.choiceKey))
             }
         }
         ProfileExtraRows(draft: draft)

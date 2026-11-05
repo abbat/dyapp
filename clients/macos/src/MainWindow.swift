@@ -105,6 +105,14 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     }
 
     private func place(_ window: NSWindow) {
+        #if DEBUG
+        // Saved as the app saves it: a value in the argument domain would hide whatever the app writes later.
+        if let start = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-window-frame=") }) {
+            UserDefaults.standard.set(
+                String(start.dropFirst("--ui-test-window-frame=".count)), forKey: "NSWindow Frame \(frameName)"
+            )
+        }
+        #endif
         let screens = NSScreen.screens.map(\.visibleFrame)
         let frame = window.setFrameUsingName(frameName)
             ? WindowPlacement.restored(window.frame, on: screens)

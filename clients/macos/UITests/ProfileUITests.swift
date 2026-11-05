@@ -43,7 +43,7 @@ final class ProfileUITests: XCTestCase {
         openProfile(app)
         publish(app)
         let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback")
-        XCTAssertTrue(readback.firstMatch.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(readback.firstMatch.waitForExistence(timeout: 180), app.debugDescription)
         // One element per text, or one combined element whose label joins them with ", ".
         let texts = readback.allElementsBoundByIndex.map { $0.value as? String ?? $0.label }
             .joined(separator: ", ").components(separatedBy: ", ")
@@ -77,7 +77,7 @@ final class ProfileUITests: XCTestCase {
         ], timeout: 10), .completed)
         publish(app)
         let readback = app.descendants(matching: .any)["profile-published-readback"]
-        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
         reveal(hide, in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "enabled == true"), object: hide
@@ -93,7 +93,7 @@ final class ProfileUITests: XCTestCase {
         openProfile(app)
         XCTAssertTrue(notice.waitForExistence(timeout: 30), app.debugDescription)
         publish(app)
-        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
         XCTAssertTrue(hide.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertFalse(notice.exists)
         app.terminate()
@@ -179,7 +179,7 @@ final class ProfileUITests: XCTestCase {
         XCTAssertEqual(month.value as? String, "5")
         publish(app)
         let error = app.staticTexts["profile-publish-error"]
-        XCTAssertTrue(error.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(error.waitForExistence(timeout: 180), app.debugDescription)
         let text = error.value as? String ?? error.label
         XCTAssertTrue(expected(text), text)
         XCTAssertFalse(app.buttons["profile-prepare-publish"].isEnabled)
@@ -299,7 +299,7 @@ extension ProfileUITests {
         waitEnabled(app.checkBoxes["profile-confirm-adult"])
         publish(app)
         let readback = app.descendants(matching: .any)["profile-published-readback"]
-        XCTAssertTrue(readback.waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
         app.terminate()
 
         app.launchArguments = base + ["--ui-test-fail-withdraw"]
