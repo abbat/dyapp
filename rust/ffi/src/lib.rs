@@ -563,6 +563,17 @@ mod tests {
     }
 
     #[test]
+    fn test_profile_pow_reaches_the_profile_crate() {
+        set_test_profile_pow_bits(4);
+        assert_eq!(dyapp_profile::required_pow_bits(), 4);
+        set_test_profile_pow_bits(dyapp_profile::POW_BITS);
+        assert_eq!(
+            dyapp_profile::required_pow_bits(),
+            dyapp_profile::POW_BITS
+        );
+    }
+
+    #[test]
     fn places_are_named_and_found_through_the_core() {
         let berlin = place_name("DE".into(), 2950159, "ru".into()).expect("Berlin");
         assert_eq!(berlin.name, "Берлин");
