@@ -80,6 +80,8 @@ score = 72.2
 "LaunchTests testWrongNetworkDisablesContinue()" = 2026-11-05
 # macOS: the display link crash hit its first try; the crash can pick any test.
 "ProfileUITests testRemovalWithdrawsAndOffersRemoveAnywayWithoutANode()" = 2026-11-05
+# iOS: the tap on Save right after typing did nothing, the keyboard still up; the retry passed.
+"ProfileUITests testPlacePickerSavesOnlyASuggestedPlace()" = 2026-11-05
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).

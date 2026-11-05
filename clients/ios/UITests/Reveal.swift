@@ -23,10 +23,12 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
         }
     }
     search()
-    // A row half under the bottom bar still reports hittable, but a tap on its centre misses.
-    // The form can jump back to its top on this drag and lose the row, so search again; the
-    // second pass nudges the row found after such a jump.
-    for _ in 0..<2 where element.exists && element.frame.maxY > app.frame.maxY * 0.8 {
+    // A row half under the bottom bar or the keyboard still reports hittable, but a tap on its
+    // centre misses. The form can jump back to its top on this drag and lose the row, so search
+    // again; the second pass nudges the row found after such a jump.
+    let keyboard = app.keyboards.firstMatch
+    let bottom = { min(app.frame.maxY * 0.8, keyboard.exists ? keyboard.frame.minY : .infinity) }
+    for _ in 0..<2 where element.exists && element.frame.maxY > bottom() {
         drag(0.35, 0.2)
         search()
     }
