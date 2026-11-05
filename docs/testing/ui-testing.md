@@ -631,6 +631,9 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
 - An `accessibilityIdentifier` on a form can overwrite its children's; add
   `.accessibilityElement(children: .contain)`.
 - Use the `reveal` and `flip` helpers in `UITests/Reveal.swift` for off-screen elements.
+  `isHittable` is true for a row under the iOS navigation bar or past the form's end above the
+  App lock button and the keyboard, so `reveal` compares the row's frame with that visible area
+  and prints a `reveal:` line in `tests.log` for each row it has to move.
 - With a `--ui-test-slot-root` the macOS window saves its frame under a name of that root, so
   each test starts at the default frame. To seed a frame, pass
   `-NSWindow Frame main-<root> "x y w h sx sy sw sh"` before the root.

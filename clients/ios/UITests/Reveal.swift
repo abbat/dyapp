@@ -23,16 +23,42 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
         }
     }
     search()
-    // A row half under the bottom bar or the keyboard still reports hittable, but a tap on its
-    // centre misses. The form can jump back to its top on this drag and lose the row, so search
-    // again; the second pass nudges the row found after such a jump.
-    let keyboard = app.keyboards.firstMatch
-    let bottom = { min(app.frame.maxY * 0.8, keyboard.exists ? keyboard.frame.minY : .infinity) }
-    for _ in 0..<2 where element.exists && element.frame.maxY > bottom() {
-        drag(0.35, 0.2)
+    // A row under the navigation bar, or past the form's end above the App lock button and the
+    // keyboard, still reports hittable, but a tap on its centre lands on what covers it. So move
+    // it by its own frame. The form can jump back to its top on this drag and lose the row, so
+    // search again; a later pass moves the row found after such a jump.
+    for _ in 0..<3 where element.exists {
+        let area = visibleArea(of: app)
+        let centre = element.frame.midY
+        guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else { break }
+        print("reveal: \(element.identifier) at \(element.frame), visible y \(area), dragging")
+        let span = area.upperBound - area.lowerBound - 2 * halfRow
+        let distance = min(max(centre - (area.lowerBound + area.upperBound) / 2, -span), span)
+        let start = distance > 0 ? area.upperBound - halfRow : area.lowerBound + halfRow
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0))
+        edge.withOffset(CGVector(dx: 0, dy: start))
+            .press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 0, dy: start - distance)))
         search()
     }
     return element
+}
+
+/// A tap on a row's centre this close to the visible area's edge can land on what covers the row.
+private let halfRow: CGFloat = 22
+
+/// Where a form row can take a tap: the form runs under the navigation bar and ends above the App
+/// lock button, and the keyboard can cover it too. Read it anew each time: the keyboard moves it.
+@MainActor
+private func visibleArea(of app: XCUIApplication) -> ClosedRange<CGFloat> {
+    let bar = app.navigationBars.firstMatch
+    let keyboard = app.keyboards.firstMatch
+    // Older iOS builds a form from a table.
+    let form = app.collectionViews.firstMatch.exists ? app.collectionViews.firstMatch : app.tables.firstMatch
+    let top = bar.exists ? bar.frame.maxY : app.frame.minY
+    let bottom = min(form.exists ? form.frame.maxY : app.frame.maxY,
+                     keyboard.exists ? keyboard.frame.minY : app.frame.maxY)
+    // A small area, as under a sheet: fall back to the whole screen rather than a broken range.
+    return top < bottom ? top...bottom : app.frame.minY...app.frame.maxY
 }
 
 /// Reveals a field of a form that is off while its draft loads: a tap then gives it no focus.

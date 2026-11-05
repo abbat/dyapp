@@ -82,6 +82,10 @@ score = 72.2
 "ProfileUITests testRemovalWithdrawsAndOffersRemoveAnywayWithoutANode()" = 2026-11-05
 # iOS: the tap on Save right after typing did nothing, the keyboard still up; the retry passed.
 "ProfileUITests testPlacePickerSavesOnlyASuggestedPlace()" = 2026-11-05
+# iOS: a filter under the navigation bar took no focus on its tap; the retry passed.
+"SearchUITests testSampleOffersFiltersThatRefuseBadRanges()" = 2026-11-05
+# iOS: the tap on a just shown liked row opened nothing, the row in plain view; the retry passed.
+"ChatsUITests testLikeBackFromLikedYouMatchesAndMessageOpensTheChat()" = 2026-11-05
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
