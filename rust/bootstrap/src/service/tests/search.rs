@@ -652,6 +652,7 @@ fn search_peers_sync_on_their_own_budget() {
     assert_eq!(status_of(digest(0, Some(256)).status), Status::Invalid);
     let none = service().search_digest(&sync, DigestRequest::default());
     assert_eq!(status_of(none.unwrap().status), Status::Unsupported);
+    crate::rate_limit::fresh_second();
     s.search_sync
         .add(u64::from(s.config.maintenance.io_mb_per_s) << 20);
     assert_eq!(search_status(&get(&sync)), Status::RateLimited);
