@@ -658,6 +658,8 @@ const checkStalePrivacy = async () => {
   await act(Promise.resolve(readyState));
   await openArea('settings');
   await window.privacyShown;
+  // The blocked list loads alongside and hides the error when it finishes.
+  await window.blockedShown;
   privacyError.hidden = false;
   finishSave();
   await oldSave;
