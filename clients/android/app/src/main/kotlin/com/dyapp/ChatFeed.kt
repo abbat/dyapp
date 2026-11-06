@@ -95,6 +95,14 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         }
     }
 
+    /** Shares a core-formatted profile link, only into a still-open conversation. Call on IO. */
+    fun shareProfile(peer: String, sharedPeer: String): ChatStatus? {
+        val text = requireNotNull(uniffi.dyapp.profileLinkText(sharedPeer)) { "invalid profile peer" }
+        val before = history(peer)
+        require(before.state == ChatState.OPEN && peer != sharedPeer) { "not an eligible chat" }
+        return send(peer, text, before.messages)
+    }
+
     /** Replaces the text of the own [message]; the outcome to show, null when a node took it. */
     fun edit(peer: String, message: ChatMessage, text: String): ChatStatus? {
         val error = change { it.editText(peer, message.groupId, message.id, text) } ?: return null

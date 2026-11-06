@@ -8,6 +8,18 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Android profile sharing review (2026-11-06)
+
+Reviewed the loaded profile, destination picker, empty list, send-in-progress,
+failure, queued delivery and success against H1–H10 from the Compose code.
+Rendering and instrumented execution remain for Android CI. Status distinguishes
+pending delivery from success (H1); profile and chat wording follows existing
+screens (H2, H4). Cancel before selection sends nothing, busy state prevents
+repeat sends, and only open conversations are eligible (H3, H5). Contact labels
+reuse existing names and the list scrolls (H6–H8). Failure keeps destinations
+available for retry (H9); the Android manuals describe delivery and planned card
+support (H10). No open code-review finding; device layout remains unverified.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

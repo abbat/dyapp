@@ -115,7 +115,7 @@ private fun ShellRoutes(
         }
         // A block leaves for Chats, whose note says the outcome, even when opened from a chat.
         val actions = ProfileActions(backLabel, closeView, { toChats(viewed) }) { toChats(null) }
-        ProfileViewScreen(opened, viewed, viewFound, feed, actions)
+        ProfileViewScreen(opened, viewed, viewFound, feed, actions) { toChats(it) }
     } else if (chat != null) {
         ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
     } else {

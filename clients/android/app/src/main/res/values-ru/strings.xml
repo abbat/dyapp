@@ -474,4 +474,7 @@
     <string name="profile_value_marital_status_Divorced">В разводе</string>
     <string name="profile_value_pets_No">Нет</string>
     <string name="profile_value_pets_Yes">Есть</string>
+    <string name="profile_share">Поделиться анкетой…</string>
+    <string name="profile_share_empty">Пока нет открытых чатов для отправки.</string>
+    <string name="profile_shared">Анкета отправлена.</string>
 </resources>

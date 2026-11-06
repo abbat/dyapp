@@ -1,5 +1,13 @@
 # Mobile screens
 
+Android implementation checkpoint: a loaded profile offers **Share profile…**.
+The native destination dialog lists open chats except the profile owner, using
+contact names where available. It explains an empty list, prevents repeat sends
+while busy, keeps choices after a failed send, and distinguishes queued delivery
+from success. After either stored outcome the user can open the destination chat.
+Cancel before selection sends nothing. This native dialog is not represented in
+the static prototype yet; received profile cards are still planned.
+
 Control IDs and states for every screen of the Android client. The static prototype in
 `clients/android/prototype/` is the layout reference: Material 3 phone layout, light and dark,
 every state below, no logic, not shipped. It reuses the desktop prototype wording

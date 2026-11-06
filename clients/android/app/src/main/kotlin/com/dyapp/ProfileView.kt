@@ -55,6 +55,7 @@ internal fun ProfileViewScreen(
     known: FoundProfile?,
     feed: ChatFeed,
     actions: ProfileActions,
+    onShared: (String) -> Unit = {},
 ) {
     var attempt by remember { mutableIntStateOf(0) }
     val load by rememberProfileLoad(peer, known, feed, attempt)
@@ -69,7 +70,8 @@ internal fun ProfileViewScreen(
     val onLike = { liked: Boolean -> scope.sendLike(form, feed, peer, liked) }
     val onPass = { passed: Boolean -> scope.sendPass(form, feed, peer, passed) }
     val onBlock = { scope.sendBlock(form, feed, peer, actions.blocked) }
-    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock) { attempt += 1 }
+    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock,
+        share = { ProfileShareButton(peer, feed, onShared) }) { attempt += 1 }
 }
 
 /** The page as shown; the own profile has nothing to like or to write to. */
@@ -84,6 +86,7 @@ internal fun ProfileViewContent(
     onLike: (Boolean) -> Unit,
     onPass: (Boolean) -> Unit,
     onBlock: () -> Unit,
+    share: @Composable () -> Unit = {},
     onRetry: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("profile-view")) {
@@ -100,6 +103,7 @@ internal fun ProfileViewContent(
             CopyButton(peer, "copy-view-peer")
             if (!own) ProfileLikes(form, actions.message, onLike)
             ProfileBody(load, onRetry)
+            if (load is ProfileLoad.Shown) share()
             if (!own) QuietActions(form, onPass)
         }
     }

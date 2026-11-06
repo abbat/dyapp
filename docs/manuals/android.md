@@ -17,6 +17,10 @@ Create a protected GitHub Actions environment named `android-release`, restricte
 
 The signing job needs both secrets. It fails if either is missing, if the keystore cannot sign, or if `apksigner verify` fails. The key is never stored in the repository or passed to the unsigned build job. Keep the offline backup even after the GitHub secrets are set. Before publishing the first tag, verify the environment protection and the key's certificate fingerprint; use the same signing key for every later APK update.
 
+## Share a profile
+
+On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. Profile-card rendering and opening on Android are still planned.
+
 ## Install
 
 Download the APK from the intended release and compare it with `SHA256SUMS`. Android may ask you to allow installation from the browser or file manager. On devices subject to [Android developer verification](https://developer.android.com/developer-verification/guides/faq), an unregistered APK may also require the one-time advanced install flow; ADB installation remains available. Requirements can change by region and Android version, so check the current policy before distributing a release. Future updates must be signed with the same key.

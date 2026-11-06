@@ -475,4 +475,7 @@
     <string name="profile_value_marital_status_Divorced">Divorced</string>
     <string name="profile_value_pets_No">No</string>
     <string name="profile_value_pets_Yes">Yes</string>
+    <string name="profile_share">Share profile…</string>
+    <string name="profile_share_empty">No open chats to share to yet.</string>
+    <string name="profile_shared">Profile sent.</string>
 </resources>
