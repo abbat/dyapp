@@ -1,10 +1,13 @@
-//! Structural preflight for decoded sticker manifests; not a WebP or JSON validator.
-//! Parsing must bind entries to these original manifest bytes before calling this module.
+//! Sticker manifest JSON decoding and structural file/digest preflight, without WebP validation.
+//! Use [`json::parse`] to bind decoded entries to original manifest bytes before file checks.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use dyapp_identity::sha256;
 use dyapp_profile::is_clean_text;
+
+/// Typed JSON and Unicode validation before the common file checks.
+pub mod json;
 
 /// Maximum original JSON manifest size.
 pub const MAX_MANIFEST_BYTES: usize = 64 * 1024;

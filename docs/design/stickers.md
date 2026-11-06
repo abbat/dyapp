@@ -9,9 +9,13 @@ manifest against exact root files: safe unique names, count/byte bounds, SHA-256
 original manifest identity and manifest-order output. Its aggregate plaintext bound
 is necessary but not sufficient for the 6 MiB sealed-record limit; protobuf and
 sealing overhead still need checking. It does not parse JSON, check display text or
-validate WebP pixels, and cannot authorize storage/rendering. First-frame decoding,
-JSON/name/emoji validation, immutable exchange records, storage, protocol and UI
-remain planned. The numbers marked *assumed* need measurement and may change.
+validate WebP pixels, and cannot authorize storage/rendering. The typed
+`sticker_manifest::json::parse` stage checks format, duplicate known fields, clean NFC
+names and one-grapheme labels (both at most 64 code points), hashes and bounded entry
+count. Parsed entries stay bound to the original bytes when invoking file checks;
+unknown formats ask to update. Unknown JSON fields are ignored for extensions.
+[ADR 0044](../decisions/0044-sticker-manifest-validation.md) records the parser choices.
+First-frame decoding, immutable exchange records, storage, protocol and UI remain planned. The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
 6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
