@@ -86,6 +86,8 @@ score = 72.2
 "SearchUITests testSampleOffersFiltersThatRefuseBadRanges()" = 2026-11-05
 # iOS: the tap on a just shown liked row opened nothing, the row in plain view; the retry passed.
 "ChatsUITests testLikeBackFromLikedYouMatchesAndMessageOpensTheChat()" = 2026-11-05
+# macOS: the layout-pass crash right after the setup's Continue; the retry passed.
+"ChatsUITests testSharedProfileOpensFromItsCardAndSharesToAChat()" = 2026-11-06
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).

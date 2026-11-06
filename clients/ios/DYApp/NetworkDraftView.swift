@@ -111,7 +111,7 @@ struct NetworkDraftView: View {
             }
             Section {
                 TextEditor(text: $bootstrapRows)
-                    .formEditorHeight(120)
+                    .frame(minHeight: 120)
                     .focused($editing)
                     .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                     .accessibilityLabel(Text("network.bootstrap"))

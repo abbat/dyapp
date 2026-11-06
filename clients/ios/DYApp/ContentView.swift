@@ -33,18 +33,6 @@ struct ScrollingForm<Content: View>: View {
     }
 }
 
-extension View {
-    /// A macOS editor with only a minimum height inside `ScrollingForm` nests a resizable scroll
-    /// view in another, and AppKit threw on the resulting layout loop; fix its height there.
-    func formEditorHeight(_ height: CGFloat) -> some View {
-        #if os(macOS)
-        frame(height: height)
-        #else
-        frame(minHeight: height)
-        #endif
-    }
-}
-
 /// The shared start screen opens a selected identity or asks for an explicit first creation.
 struct ContentView: View {
     @State private var identity: IdentityResolution =
