@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android profile-sharing coverage extends the existing two-peer request/reply test:
+the peer sends a profile link, the app opens it, shares through the destination
+picker, and checks delivery in the peer's history before testing card/back
+navigation. Separate dialog tests exercise empty, failed, queued and busy states.
+These checks require Android instrumentation; lint alone does not execute them.
+
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/{ios,macos}/project.yml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not

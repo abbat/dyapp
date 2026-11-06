@@ -9,6 +9,8 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -68,6 +70,7 @@ class TwoPeerChatTests {
                 compose.onNodeWithTag("chat-send").performClick()
                 compose.waitForThreadText("Hello back")
                 peer.awaitMessage(me, "the reply") { it.text == "Hello back" }
+                shareOwnProfile(peer, me)
             }
         } finally {
             forgetNetworks()
@@ -116,6 +119,27 @@ class TwoPeerChatTests {
         } finally {
             forgetNetworks()
         }
+    }
+
+    private fun shareOwnProfile(peer: TestPeer, me: String) {
+        val link = checkNotNull(uniffi.dyapp.profileLinkText(me))
+        peer.session.sendText(me, link)
+        val card = hasTestTag("shared-profile-$me")
+        compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(card) }
+        compose.onNode(card).performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-share")) }
+        compose.onNodeWithTag("view-share").performScrollTo().performClick()
+        compose.onNodeWithTag("profile-share-${peer.peerId}").performClick()
+        peer.awaitMessage(me, "the shared profile") { it.text == link }
+        val message = compose.activity.getString(R.string.view_message)
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasText(message)) }
+        compose.onNodeWithText(message).performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-thread")) }
+        // Both messages contain the link; either card must open the same verified profile.
+        compose.onAllNodes(card)[0].performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-share")) }
+        compose.onNodeWithTag("view-back").performClick()
+        compose.waitForThreadText("Hello back")
     }
 
     // The like back from the peer's page makes the match.
