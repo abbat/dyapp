@@ -1,5 +1,14 @@
 # Mobile screens
 
+Android chat attachments now use core-ordered mixed history. Photo metadata remains
+visible while stranger previews are blurred; Show preview reveals only the preview,
+and Download photo explicitly requests the original. Open conversations apply core
+auto-download permission again after network changes. Loading disables repeat taps;
+missing originals and retryable errors have separate messages. Layout uses clamped
+claims until a bounded original supplies real dimensions. The last-day retention
+hint is approximate and does not prevent opening a kept copy. Photo sending and
+settings controls remain planned; these native states are not in the static prototype.
+
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using
 contact names where available. It explains an empty list, prevents repeat sends

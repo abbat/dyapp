@@ -3,7 +3,6 @@ package com.dyapp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -107,18 +106,16 @@ internal fun ChatScreen(
     onProfile: () -> Unit,
     onBack: () -> Unit,
 ) {
-    var history by remember { mutableStateOf<ChatHistory?>(null) }
+    var snapshot by remember { mutableStateOf<ChatThreadSnapshot?>(null) }
+    val history = snapshot?.history
     val form = rememberChatForm()
     val scope = rememberCoroutineScope()
     val photos = LocalPeerPhotos.current
     LaunchedEffect(feed.version) {
-        withContext(Dispatchers.IO) { runCatching { feed.history(peer) } }
+        withContext(Dispatchers.IO) { runCatching { feed.thread(peer) } }
             .onSuccess { shown ->
                 if (history == null) form.status = null
-                history = shown
-                // Opening reads the chat, and so does a text received while it stays open; the polls
-                // stop in the background, so receipts go out only while the chat is on screen.
-                withContext(Dispatchers.IO) { feed.markRead(peer) }
+                snapshot = shown
             }
             .onFailure { if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString()) }
     }
@@ -135,7 +132,7 @@ internal fun ChatScreen(
             history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
         },
     )
-    ChatContent(peer, opened.peerId, history, form, actions)
+    MediaChatContent(snapshot, peer, opened.peerId, form, actions)
 }
 
 /**
@@ -207,9 +204,8 @@ private fun ChatStateNotice(state: ChatState?, form: ChatForm) {
 
 @Composable
 private fun ChatThread(me: String, history: ChatHistory?, form: ChatForm, modifier: Modifier) {
-    val messages = history?.messages.orEmpty()
+    val messages = LocalChatItems.current ?: history?.messages.orEmpty().map { uniffi.dyapp.ChatItem.Text(it) }
     val cleared = form.cleared
-    val writable = chatWritable(history?.state)
     val list = rememberLazyListState()
     // The cleared note comes first, so the last message is one item further.
     LaunchedEffect(messages.size) {
@@ -222,21 +218,12 @@ private fun ChatThread(me: String, history: ChatHistory?, form: ChatForm, modifi
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (cleared) item { Caption(stringResource(R.string.chat_cleared), Modifier.testTag("chat-cleared-note")) }
-        items(messages) { message ->
-            val own = message.author == me
-            Box(Modifier.fillMaxWidth(), if (own) Alignment.CenterEnd else Alignment.CenterStart) {
-                if (changeable(message, me)) {
-                    MessageMenu(message, form, writable) { ChatBubble(message, true, it) }
-                } else {
-                    ChatBubble(message, own, Modifier)
-                }
-            }
-        }
+        items(messages) { item -> ChatThreadItem(item, me, form, history?.state) }
     }
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) {
+internal fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) {
     Surface(
         modifier.padding(start = if (own) 48.dp else 0.dp, end = if (own) 0.dp else 48.dp),
         RoundedCornerShape(12.dp),

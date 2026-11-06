@@ -478,4 +478,11 @@
     <string name="profile_share_empty">Пока нет открытых чатов для отправки.</string>
     <string name="profile_shared">Анкета отправлена.</string>
     <string name="shared_profile_card">Анкета %1$s</string>
+    <string name="chat_photo">Фото</string>
+    <string name="chat_photo_metadata">%1$s · %2$s байт</string>
+    <string name="chat_photo_show">Показать превью</string>
+    <string name="chat_photo_download">Загрузить фото</string>
+    <string name="chat_photo_gone">Фото больше недоступно.</string>
+    <string name="chat_photo_failed">Не удалось загрузить фото. Повторите попытку.</string>
+    <string name="chat_photo_hours">Хранение оригинала: ещё %1$s ч. Сохранённая копия может оставаться доступной.</string>
 </resources>

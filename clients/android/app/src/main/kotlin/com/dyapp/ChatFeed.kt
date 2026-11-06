@@ -69,6 +69,18 @@ internal class ChatFeed(private val opened: Opened.Ready) {
 
     fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
 
+    /** The core supplies order; never merge photos by wall time in Kotlin. */
+    fun thread(peer: String) = RustBridge.withChats(opened) {
+        ChatThreadSnapshot(it.chatHistory(peer), it.chatItems(peer),
+            { photo -> photoOriginal(peer, photo) }, { photoAuto(peer) })
+    }.also { markRead(peer) }
+
+    fun photoOriginal(peer: String, photo: uniffi.dyapp.ChatPhoto) = RustBridge.withChats(opened) {
+        it.chatPhotoOriginal(peer, photo.groupId, photo.author, photo.id)
+    }
+
+    fun photoAuto(peer: String) = RustBridge.withChats(opened) { it.chatPhotoAuto(peer) }
+
     fun likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
 
     /** The verified profiles of [peers]; a peer no node returns is left out. */

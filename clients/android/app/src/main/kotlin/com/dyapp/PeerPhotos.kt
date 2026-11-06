@@ -98,7 +98,7 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
 internal val LocalPeerPhotos = staticCompositionLocalOf<PeerPhotos?> { null }
 
 // The core decodes thumbnails, held to 320 x 320, so a crafted JPEG never reaches the platform decoder.
-private fun thumbnail(bytes: ByteArray): ImageBitmap {
+internal fun thumbnail(bytes: ByteArray): ImageBitmap {
     val rgba = checkPreview(bytes)
     val bitmap = Bitmap.createBitmap(rgba.width.toInt(), rgba.height.toInt(), Bitmap.Config.ARGB_8888)
     bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(rgba.pixels))
@@ -106,7 +106,7 @@ private fun thumbnail(bytes: ByteArray): ImageBitmap {
 }
 
 // The cache admits a full image within 64 megapixels; it decodes at most 2048 px on the long side.
-private fun fullImage(bytes: ByteArray): ImageBitmap =
+internal fun fullImage(bytes: ByteArray): ImageBitmap =
     ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
         fitted(info.size.width, info.size.height, FULL_SIDE)?.let { (w, h) -> decoder.setTargetSize(w, h) }
     }.asImageBitmap()

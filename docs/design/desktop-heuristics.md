@@ -23,6 +23,18 @@ starts only on press, with the existing missing/error/retry page and Back to the
 original thread (H1, H3, H4, H5, H9). Deleted or mixed-text links stay plain text.
 No open code-review finding; device layout remains unverified.
 
+## Android chat photo review (2026-11-06)
+
+Reviewed mixed text/photo history and adjacent request/open chat states against
+H1–H10 from Compose source. Loading/error/retention messages expose state (H1);
+Show preview and Download distinguish actions (H2, H4). Strangers require reveal
+and an explicit original fetch; busy controls prevent duplicate requests (H3, H5).
+Metadata and named buttons avoid memorizing IDs (H6); existing scroll and native
+button semantics remain available (H7). Images have bounded layout and decoding
+(H8); errors retain retry and unavailable originals have their own wording (H9).
+Both manuals explain retention and network policy (H10). No open source-review
+finding. Device rendering and instrumentation still require Android CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

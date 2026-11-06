@@ -1,5 +1,7 @@
 # Android client
 
+Chat photo messages appear in core history order. Incoming previews from people without an open conversation stay blurred until **Show preview**; showing a preview does not download the original. **Download photo** explicitly fetches the original, including on metered networks. Accepted chats also apply the core automatic-download policy and reevaluate it after network changes. Missing originals show an unavailable message; other failures keep retry available. The last-day retention hint is an estimate; a sealed local copy may remain available. Photo sending and download-setting controls are still planned.
+
 The Android app requires Android 12 or later. There is no Google developer account or Play Store listing. Users download the release APK directly from [GitHub Releases](https://github.com/abbat/dyapp/releases) and choose whether to install it on their own device. The first app version is still a minimal client; see [platform status](../architecture/overview.md).
 
 The tagged release workflow builds an unsigned APK without secrets, then signs it in a separate GitHub Actions job using the `android-release` environment. It verifies the APK signature, includes the signed `dyapp-X.Y.Z-android.apk` in `SHA256SUMS` and the release provenance attestation, and publishes it only if signing succeeds. Manual workflow runs build but do not publish or sign. No signed APK is available until the release key and CI secrets below are provisioned and the first tag succeeds.

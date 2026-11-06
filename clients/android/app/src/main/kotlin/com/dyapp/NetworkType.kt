@@ -6,10 +6,15 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import uniffi.dyapp.setNetworkMetered
 
 /** Process-wide reporting also covers background mail, without retaining an Activity. */
 internal object NetworkType {
+    var version by mutableIntStateOf(0)
+        private set
     private var metered = true
     private var testOverride: Boolean? = null
 
@@ -17,12 +22,14 @@ internal object NetworkType {
     internal fun overrideForTest(value: Boolean?) {
         testOverride = value
         setNetworkMetered(value ?: metered)
+        version += 1
     }
 
     @Synchronized
     private fun report(value: Boolean) {
         metered = value
         setNetworkMetered(testOverride ?: value)
+        version += 1
     }
 
     fun start(context: Context) {

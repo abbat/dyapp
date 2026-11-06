@@ -479,4 +479,11 @@
     <string name="profile_share_empty">No open chats to share to yet.</string>
     <string name="profile_shared">Profile sent.</string>
     <string name="shared_profile_card">Profile %1$s</string>
+    <string name="chat_photo">Photo</string>
+    <string name="chat_photo_metadata">%1$s · %2$s bytes</string>
+    <string name="chat_photo_show">Show preview</string>
+    <string name="chat_photo_download">Download photo</string>
+    <string name="chat_photo_gone">Photo is no longer available.</string>
+    <string name="chat_photo_failed">Could not load the photo. Try again.</string>
+    <string name="chat_photo_hours">Original retention: %1$s more hours. A saved copy may still be available.</string>
 </resources>
