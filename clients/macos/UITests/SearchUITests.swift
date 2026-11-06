@@ -135,7 +135,7 @@ final class SearchUITests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: next
         ),
         ], timeout: 15), .completed)
-        next.click()
+        clickContinue(next, in: app)
     }
 
     private func isolatedApp() -> XCUIApplication {

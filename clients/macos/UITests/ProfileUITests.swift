@@ -245,7 +245,7 @@ final class ProfileUITests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: next
         ),
         ], timeout: 15), .completed)
-        next.click()
+        clickContinue(next, in: app)
     }
 
     private func openProfile(_ app: XCUIApplication) {

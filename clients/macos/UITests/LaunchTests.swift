@@ -305,7 +305,7 @@ extension LaunchTests {
         ),
         ], timeout: 15), .completed)
         XCTAssertTrue(next.isEnabled)
-        next.tap()
+        clickContinue(next, in: app)
         // The form creates rows lazily: the save button is off screen, the first field is not.
         XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
         app.terminate()
