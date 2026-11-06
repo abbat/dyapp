@@ -154,26 +154,14 @@ forwardDialog.addEventListener('cancel', (event) => {
   if (forwardBusy) event.preventDefault();
 });
 forwardCancel.addEventListener('click', closeForward);
+// showForwardDialog is in chats-share.js.
 const openForward = (message) => {
   if (!activeChat?.messages.includes(message) || message.deleted || !message.text) return;
   forwardTarget = { sourcePeerId: activeChat.peerId, sourceGroupId: message.groupId,
     sourceAuthor: message.author, sourceMessageId: message.id, text: message.text,
     generation: identityGeneration, request: chatOpenRequest };
-  const targets = visibleChatRows.filter((row) => row.state === 'open'
-    && row.peerId !== activeChat.peerId);
-  forwardSelect.replaceChildren(...targets.map((row) => {
-    const option = document.createElement('option');
-    option.value = row.peerId;
-    option.textContent = window.peerName(row.peerId);
-    return option;
-  }));
-  forwardConfirm.disabled = !targets.length;
-  forwardError.hidden = !!targets.length;
-  forwardError.textContent = targets.length ? '' : window.strings['chats.forwardNoTargets'];
-  forwardDialog.hidden = false;
-  forwardDialog.showModal();
-  if (targets.length) forwardSelect.focus();
-  else forwardCancel.focus();
+  showForwardDialog('forward', visibleChatRows.filter((row) => row.state === 'open'
+    && row.peerId !== activeChat.peerId));
 };
 const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
@@ -213,7 +201,8 @@ const chatLinkHosts = (text) => {
 const chatPreview = (message) => !message ? window.strings['chats.noMessages']
   : message.deleted ? window.strings['chats.deleted']
     : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
-      message.photo ? window.strings['chats.photo'] : message.text || ''}`;
+      message.photo ? window.strings['chats.photo'] : message.sharedPeer ? profileCardText(message.sharedPeer)
+        : message.text || ''}`;
 // The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
 const PREVIEW_SIDE = 240;
 const ORIGINAL_SIDE = 480;
@@ -565,7 +554,8 @@ const openChat = async (peerId, call = invoke) => {
         item.append(forwarded);
       }
       item.append(message.photo ? photoBubble(message, peerId,
-        message.author !== current.peerId && history.state !== 'open', call) : body);
+        message.author !== current.peerId && history.state !== 'open', call)
+        : message.sharedPeer && !message.deleted ? profileCard(message.sharedPeer, call) : body);
       const hosts = chatLinkHosts(message.deleted ? '' : message.text);
       if (hosts.length) {
         const host = document.createElement('span');
@@ -918,7 +908,8 @@ const forwardChatText = async (call = invoke) => {
 };
 document.getElementById('chat-forward-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  window.chatForwarded = forwardChatText();
+  if (forwardTarget?.share) window.profileShared = shareProfile();
+  else window.chatForwarded = forwardChatText();
 });
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;

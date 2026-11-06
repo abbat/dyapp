@@ -11,7 +11,8 @@ shell with the Profile, Search, Chats, Network and Settings areas and both first
 Chats now shows local requests, conversations and text history with send, Edit, Delete and Clear
 controls; remaining chat actions and the switcher are planned. Its controller is
 `clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
-cards and place lookup; `chats-photo-send.js` follows it and sends a picked photo, and
+cards and place lookup; `chats-share.js` follows it with the Forward/Share dialog, Share and
+the profile card, `chats-photo-send.js` sends a picked photo, and
 `profile-photos.js` follows that and shares its canvas encoding for the profile editor.
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
 contracts.
@@ -188,6 +189,10 @@ node. Search reports whether revocation was unneeded, still pending, or confirme
 Settings offers Retry token revocation for each blocked peer. After reopening, the network
 status is unknown because the acknowledgement is not stored; Retry is available. A successful
 node reply is best effort, not network-wide removal.
+Share (`view-share`) reuses the Forward dialog, titled Share profile, to send the page's profile
+link to an open chat other than that peer's; requests are not offered. In the history and the chat
+row the link shows as a Profile button with the short Peer ID; pressing it fetches the verified
+profile (`shared_profile`) and opens this page.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -202,6 +207,7 @@ node reply is best effort, not network-wide removal.
 | Copy safety number | `copy-safety-number` | Copies grouped digits; attempts to clear after 60 seconds only while unchanged |
 | Match notice | `view-match` | Match only |
 | Message | `view-message` | `view-message-match` after a match |
+| Share | `view-share` | Opens the Forward dialog as Share profile |
 | Like | `view-like` | `view-unlike` (Liked) after a match |
 | Fields | `view-fields` | Looking for, children, interests, languages |
 | Claims note | `view-claims` | Written by the owner; nobody checks it |

@@ -904,6 +904,8 @@ fn main() {
             chats::commands::peer_likes,
             chats::commands::like_peer,
             chats::commands::liked_you,
+            chats::share::shared_profile,
+            chats::share::share_profile,
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,

@@ -118,6 +118,7 @@ mod tests {
             read: false,
             sent_at_ms: None,
             photo: None,
+            shared_peer: None,
         }
     }
 

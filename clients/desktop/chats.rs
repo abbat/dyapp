@@ -28,6 +28,8 @@ pub(crate) mod presence;
 mod reads;
 #[path = "chats/send_photo.rs"]
 pub(crate) mod send_photo;
+#[path = "chats/share.rs"]
+pub(crate) mod share;
 #[path = "chats/own.rs"]
 pub(crate) mod own;
 #[path = "chats/view.rs"]

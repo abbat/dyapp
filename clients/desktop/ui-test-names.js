@@ -182,4 +182,83 @@ const checkChatMute = async () => {
   document.getElementById('chat-back').click();
   document.dispatchEvent(new Event('dyapp:identity-change'));
 };
-globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName, checkChatMute });
+// A shared profile link renders as a card that opens the page; Share sends one to an open chat.
+const checkProfileShare = async () => {
+  await openArea('chats-area');
+  await window.chatsDone;
+  const chatPeer = '7'.repeat(64);
+  const sharedPeer = '8'.repeat(64);
+  const requestPeer = '9'.repeat(64);
+  const link = { author: chatPeer, groupId: [4], id: [5], text: `dyapp-profile:1:${sharedPeer}`,
+    sharedPeer, forwarded: false, deleted: false, edited: false, sentAtMs: null };
+  const rows = [
+    { peerId: chatPeer, state: 'open', lastMessage: link, unreadCount: 0 },
+    { peerId: sharedPeer, state: 'open', lastMessage: null, unreadCount: 0 },
+    { peerId: requestPeer, state: 'requestReceived', lastMessage: null, unreadCount: 0 },
+  ];
+  const found = { peerId: sharedPeer, draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  let shareError = null;
+  let fetchError = null;
+  let sharedArgs;
+  const call = (command, args) => {
+    if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [link] });
+    if (command === 'mark_chat_read') return Promise.resolve(0);
+    if (command === 'chat_rows') return Promise.resolve(rows);
+    if (command === 'shared_profile') {
+      if (args.peerId !== sharedPeer) throw new Error('card fetched another peer');
+      return fetchError ? Promise.reject(fetchError) : Promise.resolve(found);
+    }
+    if (command === 'contact_verified') return Promise.resolve(false);
+    if (command === 'peer_likes') return Promise.resolve({ ours: false, matched: false });
+    if (command === 'share_profile') {
+      sharedArgs = args;
+      return shareError ? Promise.reject(shareError) : Promise.resolve([6]);
+    }
+    return Promise.reject('notConnected');
+  };
+  renderChatRows(rows);
+  const text = `${window.strings['chats.profileCard']} ${window.shortPeer(sharedPeer)}`;
+  if (!document.querySelector(`#chat-list [data-peer-id="${chatPeer}"]`)?.textContent.includes(text)) {
+    throw new Error('chat preview did not name the shared profile');
+  }
+  await openChat(chatPeer, call);
+  const card = chatMessages.querySelector(`button[data-peer-id="${sharedPeer}"]`);
+  if (!card || card.textContent !== text || chatMessages.textContent.includes('dyapp-profile:')) {
+    throw new Error('profile link did not render as a card');
+  }
+  fetchError = 'unpublished';
+  card.click();
+  await window.sharedOpened;
+  if (!chatComposeStatus.textContent.includes(window.strings['chats.profileFailed'])
+    || !chatComposeStatus.textContent.includes('unpublished')) {
+    throw new Error('failed profile card was silent');
+  }
+  fetchError = null;
+  card.click();
+  await window.sharedOpened;
+  if (profileView.hidden || viewed?.found.peerId !== sharedPeer) {
+    throw new Error('profile card did not open the page');
+  }
+  if (!document.getElementById('view-share')) throw new Error('profile page has no Share');
+  await openShare(sharedPeer, call);
+  if (!forwardDialog.open || forwardSelect.options.length !== 1 || forwardSelect.value !== chatPeer
+    || document.getElementById('chat-forward-title').textContent !== window.strings['chats.shareTitle']
+    || forwardConfirm.textContent !== window.strings['chats.share']) {
+    throw new Error('Share picker included a request or the shared peer');
+  }
+  shareError = 'nodeFailed';
+  await shareProfile(call);
+  if (!forwardDialog.open || forwardConfirm.disabled
+    || !forwardError.textContent.includes(window.strings['chats.shareFailed'])) {
+    throw new Error('failed Share closed the picker');
+  }
+  shareError = null;
+  await shareProfile(call);
+  if (sharedArgs?.peerId !== sharedPeer || sharedArgs.targetPeerId !== chatPeer || forwardDialog.open
+    || activeChat?.peerId !== chatPeer || chatComposeStatus.textContent !== window.strings['chats.shareSent']) {
+    throw new Error('Share did not send the profile to the chosen chat');
+  }
+  closeFound();
+  document.getElementById('chat-back').click();
+};
+globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName, checkChatMute, checkProfileShare });

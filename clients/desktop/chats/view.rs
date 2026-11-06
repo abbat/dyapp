@@ -4,6 +4,7 @@ use dyapp_client::attachment::{hours_left, layout_size};
 use dyapp_client::store::messages::{ChatAttachment, ChatItem, ChatMessage, DeliveryState};
 use dyapp_client::store::originals;
 use dyapp_client::store::Conversation;
+use dyapp_identity::profile_link::parse_profile_link;
 use std::path::Path;
 
 /// Network revocation is only confirmed by the node reached in this attempt.
@@ -114,18 +115,25 @@ pub struct MessageView {
     pub sent_at_ms: Option<u64>,
     /// Set for a photo, which has no `text` and is neither edited nor deleted.
     pub photo: Option<PhotoView>,
+    /// The Peer ID of a text that is exactly a shared profile link, shown as a profile card.
+    pub shared_peer: Option<String>,
 }
 
 impl From<ChatMessage> for MessageView {
     fn from(message: ChatMessage) -> Self {
+        let text = message
+            .current
+            .text
+            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
         Self {
             group_id: message.key.group,
             author: message.key.author,
             id: message.key.id,
-            text: message
-                .current
-                .text
-                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()),
+            shared_peer: text
+                .as_deref()
+                .and_then(parse_profile_link)
+                .map(str::to_owned),
+            text,
             edited: message.current.edited,
             deleted: message.current.deleted,
             unread: message.unread,
@@ -165,6 +173,7 @@ impl From<ChatAttachment> for MessageView {
                 blob: attachment.blob_sha256,
                 preview: attachment.preview,
             }),
+            shared_peer: None,
         }
     }
 }
@@ -265,6 +274,14 @@ mod tests {
         assert!(timed.forwarded);
         assert_eq!(serde_json::to_value(&timed).unwrap()["forwarded"], true);
         assert!(timed.unread);
+        assert_eq!(timed.shared_peer, None);
+        let peer = "ab".repeat(32);
+        let mut shared = message(None, false);
+        shared.current.text = Some(format!("dyapp-profile:1:{peer}").into_bytes());
+        assert_eq!(MessageView::from(shared.clone()).shared_peer, Some(peer.clone()));
+        // Only the whole body is a link.
+        shared.current.text = Some(format!("see dyapp-profile:1:{peer}").into_bytes());
+        assert_eq!(MessageView::from(shared).shared_peer, None);
     }
 
     fn photo() -> ChatAttachment {
