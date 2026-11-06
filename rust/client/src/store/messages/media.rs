@@ -11,15 +11,12 @@ pub(super) struct MediaRecord {
     pub forwarded: bool,
 }
 
-/// Callers validate their typed descriptor before entering this common row boundary.
-pub(super) fn record(
+pub(super) fn validate_sender(
     tx: &Transaction<'_>,
     owner: &str,
     sender: VerifiedChatSender<'_>,
-    media: MediaRecord,
     unread: bool,
-) -> Result<bool, Error> {
-    let hlc = i64::try_from(media.hlc).map_err(|_| Error::ClockRange)?;
+) -> Result<(), Error> {
     if sender.group.is_empty() || sender.device.len() != 32 || sender.author.is_empty() {
         return Err(Error::InboxConflict);
     }
@@ -34,6 +31,19 @@ pub(super) fn record(
     if (sender.author != owner && sender.author != peer) || (sender.author == owner && unread) {
         return Err(Error::InboxConflict);
     }
+    Ok(())
+}
+
+/// Callers validate their typed descriptor before entering this common row boundary.
+pub(super) fn record(
+    tx: &Transaction<'_>,
+    owner: &str,
+    sender: VerifiedChatSender<'_>,
+    media: MediaRecord,
+    unread: bool,
+) -> Result<bool, Error> {
+    let hlc = i64::try_from(media.hlc).map_err(|_| Error::ClockRange)?;
+    validate_sender(tx, owner, sender, unread)?;
     let key = MessageKey {
         group: sender.group.to_vec(),
         author: sender.author.to_owned(),

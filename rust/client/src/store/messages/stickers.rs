@@ -40,9 +40,7 @@ impl Store {
         unread: bool,
     ) -> Result<bool, Error> {
         let descriptor = sticker.encode().map_err(|_| Error::InboxConflict)?;
-        if sender.group.is_empty() || sender.author.is_empty() || sender.device.len() != 32 {
-            return Err(Error::InboxConflict);
-        }
+        media::validate_sender(tx, owner, sender, unread)?;
         let key = MessageKey {
             group: sender.group.to_vec(),
             author: sender.author.to_owned(),
@@ -51,7 +49,10 @@ impl Store {
         if clear::is_cleared(tx, &key)? {
             return Ok(false);
         }
-        media::record(
+        if super::sticker_operations::bind_deleted(tx, &key, sticker, &descriptor)? {
+            return Ok(false);
+        }
+        let inserted = media::record(
             tx,
             owner,
             sender,
@@ -63,7 +64,9 @@ impl Store {
                 forwarded: false,
             },
             unread,
-        )
+        )?;
+        super::operations::resolve_pending(tx, &key, true)?;
+        Ok(inserted)
     }
 
     /// Read a pair's stickers in original sender-time order, including unavailable media.

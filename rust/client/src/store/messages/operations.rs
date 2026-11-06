@@ -73,6 +73,7 @@ impl Store {
             HybridClock::resume(load_hlc(tx)?).observe_at(Timestamp::from(hlc), wall_ms)?;
         save_hlc(tx, observed)?;
         let hlc = i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
+        let deleted_sticker = super::sticker_operations::delete(tx, key, device, body)?;
         let digest = sha256(&body.encode());
         let row: Option<OrderRow> = tx
             .query_row(
@@ -147,7 +148,7 @@ impl Store {
         let (deleted, _, last_hlc, last_device, last_operation) =
             row.ok_or(Error::InboxConflict)?;
         if deleted == 1 {
-            return Ok(false);
+            return Ok(deleted_sticker);
         }
         if deleted != 0 {
             return Err(Error::InboxConflict);

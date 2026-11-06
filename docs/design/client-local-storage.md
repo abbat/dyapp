@@ -66,7 +66,11 @@ Media insertion shares identity/group validation, idempotence and cross-kind ID 
 `record_chat_sticker` and `current_chat_stickers` retain fallback metadata without a descriptor,
 reject cleared-message replays and preserve unread state across restart. Originals references
 include only hash-matching sticker descriptors; clearing one group preserves a blob still named
-by another. Sticker session/inbox integration, merged history and platform exposure remain planned.
+by another. Sticker deletion shares the text operation ledger and terminal placeholder: its
+media row goes, a late original binds its digest/time without resurrection, and pending early
+edits are discarded. The caller must sweep originals after committing media deletion, as after
+Clear chat. Known stickers cannot be edited into text. Sticker session/inbox integration,
+merged history and platform exposure remain planned.
 Session receive commits allowed attachments with the sealed MLS snapshot, inbox body digest
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS

@@ -155,7 +155,11 @@ sticker payloads with optional descriptors, checks verified context and cross-ki
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
 no sticker-only cache is needed. Photo queries exclude sticker rows. Sticker session integration,
-merged-history readers and UI remain planned.
+merged-history readers and UI remain planned. At the Store boundary, tag-9 deletion of a
+stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
+cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
+operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded
+when the original is identified as a sticker. Session/UI wiring remains planned.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The
