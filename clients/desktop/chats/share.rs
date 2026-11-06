@@ -13,9 +13,15 @@ use crate::profile;
 use crate::search::{Found, ProfileCache, SearchState};
 
 /// The verified profile behind a shared profile link, cached so it can be liked or messaged.
-/// Errors are `invalidPeer`, `notConnected`, `unpublished` or a node message.
-async fn fetch(cache: &Mutex<ProfileCache>, dir: &Path, peer_id: &str) -> Result<Found, String> {
+/// Errors are `invalidPeer`, `blocked`, `notConnected`, `unpublished` or a node message.
+async fn fetch(
+    cache: &Mutex<ProfileCache>,
+    dir: &Path,
+    identity: &Identity,
+    peer_id: &str,
+) -> Result<Found, String> {
     profile_link(peer_id).ok_or("invalidPeer")?;
+    ensure_unblocked(dir, identity, peer_id)?;
     let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
@@ -25,6 +31,8 @@ async fn fetch(cache: &Mutex<ProfileCache>, dir: &Path, peer_id: &str) -> Result
     if fetched.profile.deleted || fetched.profile.version == 0 {
         return Err("unpublished".into());
     }
+    // The user may have blocked this peer while the network request was pending.
+    ensure_unblocked(dir, identity, peer_id)?;
     let found = Found::from(&fetched);
     // An older, equal or previous-network result is not cached.
     cache
@@ -32,6 +40,16 @@ async fn fetch(cache: &Mutex<ProfileCache>, dir: &Path, peer_id: &str) -> Result
         .map_err(|e| e.to_string())?
         .accept_if_current(epoch, fetched);
     Ok(found)
+}
+
+fn ensure_unblocked(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
+    if super::open(dir, identity)?
+        .blocked(peer_id)
+        .map_err(|e| e.to_string())?
+    {
+        return Err("blocked".into());
+    }
+    Ok(())
 }
 
 /// Sends `peer_id`'s profile link as an ordinary text into the open chat with `target_peer`.
@@ -64,11 +82,11 @@ pub(crate) async fn shared_profile(
     peer_id: String,
 ) -> Result<Found, String> {
     let lease = state.lease()?;
-    let dir = lease.active().1.clone();
+    let (identity, dir) = lease.active().clone();
     let cache = Arc::clone(&searching.0);
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        tauri::async_runtime::block_on(fetch(&cache, &dir, &peer_id))
+        tauri::async_runtime::block_on(fetch(&cache, &dir, &identity, &peer_id))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -105,4 +123,40 @@ pub(crate) async fn share_profile(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn blocked_profile_is_refused_before_network_or_cache_access() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build")
+            .join(format!("desktop-profile-share-{unique}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let identity = Identity::generate();
+        let peer = Identity::generate().peer_id();
+        let store = super::super::open(&dir, &identity).unwrap();
+        let cache = Mutex::default();
+
+        store.set_muted(&peer, true).unwrap();
+        assert!(ensure_unblocked(&dir, &identity, &peer).is_ok());
+        store.set_blocked(&peer, true).unwrap();
+        // There is no active network: notConnected would mean the privacy gate ran too late.
+        assert_eq!(
+            fetch(&cache, &dir, &identity, &peer).await.err(),
+            Some("blocked".into())
+        );
+        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+        store.set_blocked(&peer, false).unwrap();
+        assert_eq!(
+            fetch(&cache, &dir, &identity, &peer).await.err(),
+            Some("notConnected".into())
+        );
+    }
 }

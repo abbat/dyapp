@@ -233,6 +233,12 @@ const checkProfileShare = async () => {
     || !chatComposeStatus.textContent.includes('unpublished')) {
     throw new Error('failed profile card was silent');
   }
+  fetchError = 'blocked';
+  card.click();
+  await window.sharedOpened;
+  if (!profileView.hidden || !chatComposeStatus.textContent.includes('blocked')) {
+    throw new Error('a blocked shared profile opened or failed silently');
+  }
   fetchError = null;
   card.click();
   await window.sharedOpened;

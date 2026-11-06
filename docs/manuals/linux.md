@@ -2,7 +2,15 @@
 
 The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local identities,
 connects to bootstrap nodes, edits and publishes a public profile and searches published
-profiles. Chats in the window are planned.
+profiles and opens chat histories.
+
+## Share a profile
+
+On a profile page, **Share** offers existing open chats, excluding the profile owner.
+A failed send keeps the picker open for retry. The recipient sees a profile card;
+opening it fetches the verified profile, where **Message** opens a chat.
+Unavailable or locally blocked profiles show an error. Blocked profiles are checked
+before the network request and again before displaying its result.
 
 ## First launch
 

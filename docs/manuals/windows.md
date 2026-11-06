@@ -1,8 +1,7 @@
 # Windows desktop client
 
 The `dyapp` client for Windows is a portable ZIP with one EXE and no installer. This first version
-is a minimal shell: it starts, renders and closes. Profiles, search and chats in the window are
-planned.
+uses the shared desktop interface for identities, profiles, search and chats.
 
 In an open identity, **Settings** lists local identities. **Add a new identity** opens the
 key-storage choice, and **Switch or add an identity** opens the identity picker. Creating an
@@ -10,6 +9,14 @@ identity still requires an explicit storage choice and shows the file-key backup
 **Remove this identity** opens the same second-confirmation screen; Cancel returns to Settings.
 Settings also displays the current identity's bootstrap-address editor and connection status;
 Back returns the same editor to Ready with its edits intact.
+
+## Share a profile
+
+On a profile page, **Share** offers existing open chats, excluding the profile owner.
+A failed send keeps the picker open for retry. The recipient sees a profile card;
+opening it fetches the verified profile, where **Message** opens a chat.
+Unavailable or locally blocked profiles show an error. Blocked profiles are checked
+before the network request and again before displaying its result.
 
 ## Build
 
