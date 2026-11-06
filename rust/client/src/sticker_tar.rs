@@ -98,7 +98,7 @@ pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
         } else {
             let name = name(header)?;
             if kind != 0 && kind != b'0' {
-                return Err(format!("{name}: unsupported TAR entry type"));
+                return Err(format!("{name:?}: unsupported TAR entry type"));
             }
             let limit = if name == "manifest.json" {
                 MAX_MANIFEST
@@ -106,10 +106,10 @@ pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
                 MAX_FILE
             };
             if size > limit || files.len() >= MAX_FILES {
-                return Err(format!("{name}: sticker import limit exceeded"));
+                return Err(format!("{name:?}: sticker import limit exceeded"));
             }
             if files.insert(name, data).is_some() {
-                return Err(format!("{name}: duplicate TAR filename"));
+                return Err(format!("{name:?}: duplicate TAR filename"));
             }
         }
         offset = next;

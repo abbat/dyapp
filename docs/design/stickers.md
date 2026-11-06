@@ -182,7 +182,8 @@ and tags 14 and 15 from a non-match are refused.
   (`MailNotice`, `MailJob`).
 - The accessibility label is "Sticker: 😺, pack Cats".
 - Settings lists packs with their size, and offers import and delete.
-- Errors name the file and the reason.
+- Errors name the file and the reason. Imported filenames are quoted with escaped
+  formatting/control characters so hostile text cannot reorder an error message.
 
 ## Lifecycle
 

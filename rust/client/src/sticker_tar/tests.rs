@@ -26,6 +26,15 @@ fn archive(name: &str, kind: u8, data: &[u8]) -> Vec<u8> {
 }
 
 #[test]
+fn rejection_errors_escape_hostile_names_without_banning_unicode_files() {
+    let error = read(&archive("cat\u{202e}.webp", b'5', b"")).unwrap_err();
+    assert!(!error.contains('\u{202e}'), "{error:?}");
+    assert!(error.contains("\\u{202e}"));
+    let files = archive("кот.webp", b'0', b"image");
+    assert_eq!(read(&files).unwrap()["кот.webp"], b"image");
+}
+
+#[test]
 fn real_gnu_tar_keeps_exact_bytes() {
     let files = read(include_bytes!("fixtures/gnu.tar")).unwrap();
     assert_eq!(files["manifest.json"], b"{}");
