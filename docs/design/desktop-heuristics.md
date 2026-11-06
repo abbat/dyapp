@@ -51,6 +51,18 @@ avoid recall (H6). Unsupported search filters are disabled and omitted (H3, H5).
 No open source-review finding; native EN/RU rendering and smoke execution remain
 unverified until CI.
 
+## Desktop private favorite action review (2026-11-06)
+
+Reviewed loaded/unknown/saved profile state, failed read/write, busy state, Back,
+another profile and identity change against H1–H10 from source. Loading and result
+copy expose state (H1); the action and privacy hint distinguish saving from Like
+(H2, H4, H10). Remove reverses saving without another profile fetch (H3). An unknown
+state offers only Retry, busy state disables repeat writes, and late replies are
+discarded (H5). Action labels carry the current state (H6); native button semantics
+and a separate card reuse existing layout (H7, H8). Read and write errors retain
+a specific retry path; blocked errors point to Settings (H9).
+No open source-review finding. Native EN/RU rendering and smoke execution await CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

@@ -382,6 +382,12 @@
             <button id="view-unlike" class="btn liked" type="button" aria-pressed="true" hidden><svg
               class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span data-i18n="view.liked"></span></button>
           </div>
+          <div id="view-favorite" class="card" hidden>
+            <button id="view-favorite-toggle" class="btn" type="button" disabled
+              aria-describedby="view-favorite-hint"></button>
+            <p id="view-favorite-hint" class="caption" data-i18n="favorites.hint"></p>
+            <p id="view-favorite-status" class="caption" role="status" hidden></p>
+          </div>
           <p id="view-status" class="caption" role="status"></p>
           <div class="card">
             <dl id="view-fields" class="facts"></dl>
@@ -807,6 +813,7 @@
   <script src="link.js"></script>
   <script src="chats-ui.js"></script>
   <script src="chats-share.js"></script>
+  <script src="favorites.js"></script>
   <script src="photo-settings.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>

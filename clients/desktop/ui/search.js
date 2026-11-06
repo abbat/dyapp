@@ -207,6 +207,7 @@ const openFound = (found, card, call = invoke) => {
   call('peer_likes', { peerId: found.peerId })
     .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
   showFound(found);
+  window.favoriteShown = window.showFavorite(call);
   window.peerPhotosShown = window.showFoundPhotos(found, call);
   searchMain.hidden = true;
   profileView.hidden = false;
@@ -214,6 +215,7 @@ const openFound = (found, card, call = invoke) => {
 };
 const closeFound = () => {
   stopSafetyCamera();
+  window.clearFavorite();
   document.getElementById('view-message').disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;

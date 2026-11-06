@@ -21,6 +21,13 @@ network changes while the profile loads, retry the card on the new network.
 A search still running on the previous network also fails without showing its results;
 run it again on the active network.
 
+## Save a profile privately
+
+On a loaded profile page, **Save privately** adds it to this identity's saved state;
+**Remove from saved** reverses it. This sends no like or notification to its owner.
+Your own devices share the change. If saved status cannot be read, retry that read
+before changing anything. The saved-profile list is planned.
+
 ## Interests
 
 Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).

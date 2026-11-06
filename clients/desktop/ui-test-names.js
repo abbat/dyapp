@@ -306,6 +306,85 @@ const checkInterests = async () => {
   }
   search.value = '';
 };
+const checkFavoriteAction = async () => {
+  await openArea('search-area');
+  const card = document.createElement('button');
+  document.getElementById('search-results').append(card);
+  const found = { peerId: '6'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  let saved = false;
+  let readError = true;
+  let changeError = null;
+  let hold = false;
+  let finish;
+  const writes = [];
+  const call = (command, args) => {
+    if (command === 'favorite_state') return readError ? Promise.reject('disk') : Promise.resolve(saved);
+    if (command === 'set_favorite') {
+      writes.push(args);
+      if (changeError) return Promise.reject(changeError);
+      if (hold) return new Promise((resolve) => { finish = () => { saved = args.favorite; resolve(); }; });
+      saved = args.favorite;
+      return Promise.resolve();
+    }
+    if (command === 'like_peer') throw new Error('favorite sent a like');
+    if (command === 'peer_likes') return Promise.resolve({ ours: false, matched: false });
+    return Promise.resolve(false);
+  };
+  openFound(found, card, call);
+  await window.favoriteShown;
+  const button = document.getElementById('view-favorite-toggle');
+  const status = document.getElementById('view-favorite-status');
+  if (button.textContent !== window.strings['favorites.retry']) throw new Error('unknown saved state cannot retry');
+  await window.toggleFavorite();
+  if (writes.length) throw new Error('retrying unknown state mutated a favorite');
+  readError = false;
+  await window.toggleFavorite();
+  changeError = 'disk';
+  await window.toggleFavorite();
+  if (saved || button.disabled || status.textContent !== window.strings['favorites.changeFailed']) {
+    throw new Error('failed favorite change lost retry or claimed success');
+  }
+  changeError = null;
+  hold = true;
+  const pending = window.toggleFavorite();
+  await window.toggleFavorite();
+  if (writes.length !== 2 || !button.disabled) throw new Error('favorite allowed duplicate writes');
+  finish();
+  await pending;
+  if (!saved || button.textContent !== window.strings['favorites.remove']) throw new Error('saved favorite not shown');
+  await shot('profile-favorite-saved');
+  hold = false;
+  await window.toggleFavorite();
+  if (saved || button.textContent !== window.strings['favorites.add']) throw new Error('favorite removal failed');
+
+  hold = true;
+  const closedWrite = window.toggleFavorite();
+  closeFound();
+  finish();
+  await closedWrite;
+  if (!document.getElementById('view-favorite').hidden) throw new Error('late write reopened favorite controls');
+  saved = false;
+  hold = false;
+  let release;
+  openFound(found, card, (command, args) => command === 'favorite_state'
+    ? new Promise((resolve) => { release = resolve; }) : call(command, args));
+  const stale = window.favoriteShown;
+  const next = { ...found, peerId: '5'.repeat(64) };
+  openFound(next, card, call);
+  await window.favoriteShown;
+  release(true);
+  await stale;
+  if (button.textContent !== window.strings['favorites.add']) throw new Error('stale read changed another profile');
+  openFound(found, card, (command, args) => command === 'favorite_state'
+    ? new Promise((resolve) => { release = resolve; }) : call(command, args));
+  const switched = window.favoriteShown;
+  document.dispatchEvent(new Event('dyapp:identity-change'));
+  release(true);
+  await switched;
+  if (!document.getElementById('view-favorite').hidden) throw new Error('favorite state crossed identity change');
+  closeFound();
+  card.remove();
+};
 globalThis.uiSmokeNames = Object.freeze({
-  checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests,
+  checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
 });
