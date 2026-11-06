@@ -13,6 +13,7 @@ dyapp-messaging = { path = "../messaging" }
 dyapp-p2p-net = { path = "../p2p-net" }
 dyapp-profile = { path = "../profile" }
 getrandom = "0.4"
+image-webp = "=0.2.4"
 libp2p = "0.57"
 miniz_oxide = "0.9"
 prost.workspace = true

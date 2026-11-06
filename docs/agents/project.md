@@ -124,6 +124,12 @@ capture per port across restarts. Raw failure evidence includes node-port header
 
 ## Limits to keep in mind
 
+When an approved new Rust dependency is absent from the prepared offline image, fetch a minimal
+probe under `build/` with its own writable `CARGO_HOME`. If a cache refresh is authorized, a small
+Docker layer copying that registry into the existing prepared image preserves its source paths
+and cached build outputs; rebuilding the full toolchain image is unnecessary. Keep the old image
+tag for recovery and do not remove caches or images without confirmation.
+
 - The FFI profile service is unfinished: native editors use shared choices and local drafts; publication is not wired to it yet.
 - Docs must describe what the code does now; mark plans as plans.
 - Code changes need an agreed scope; a docs task does not authorise code fixes.

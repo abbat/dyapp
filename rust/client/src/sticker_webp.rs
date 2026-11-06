@@ -5,6 +5,10 @@
 #[path = "sticker_webp/tests.rs"]
 mod tests;
 
+/// First-frame RGBA decoding after the container guard.
+#[path = "sticker_webp/decode.rs"]
+pub mod decode;
+
 const MAX_BYTES: usize = 256 * 1024;
 const MAX_SIDE: u32 = 512;
 const MAX_FRAMES: u32 = 90;

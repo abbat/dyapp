@@ -268,6 +268,15 @@ rename cannot silently drop a function from the gate. This adds no CI time, beca
 already tests these mutants. To check a change locally, run cargo-mutants with `-f <file>` and
 `-F '<regex>'` from that table on a copy of the tree, as `rust-check.sh mutants` does.
 
+## Sticker WebP checks
+
+Core unit tests cover header limits and actual first-frame decoding: RGB/RGBA,
+transparent rejection, first-frame animation behavior, corrupt compressed content,
+and the 512-pixel output boundary. A 54-byte lossy VP8 vector and its expected RGBA
+were generated independently with libwebp 1.5.0; encoder parameters are in the test.
+These small vectors do not establish representative CPU/memory or release-size cost.
+Decoder fuzzing and those measurements remain planned release checks.
+
 ## Fuzzing
 
 Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/Dockerfile.dev`,

@@ -3,8 +3,15 @@
 Status: required for v0.0.1. The bounded in-memory TAR reader exists in
 `rust/client/src/sticker_tar.rs`. `sticker_webp::check_header` bounds the RIFF envelope,
 canvas, embedded frame dimensions, animation count and duration, and rejects EXIF/XMP.
-It checks container headers only: it neither validates compressed pixels nor makes
-input safe to render. `sticker_manifest::check_files` structurally checks a decoded
+The header check alone neither validates compressed pixels nor makes input safe to
+render. `sticker_webp::decode::first_frame` runs it before image-webp 0.2.4, rechecks
+decoder dimensions/frame count/duration/output size, applies a 16 MiB decoder budget,
+catches decoder panics, rejects a fully transparent first canvas and returns RGBA8.
+It decodes only the first frame; later compressed frames are not decoded for playback.
+Some library allocations ignore the budget, so this is not process isolation.
+[ADR 0045](../decisions/0045-sticker-webp-decoding.md) records that trade-off.
+
+`sticker_manifest::check_files` structurally checks a decoded
 manifest against exact root files: safe unique names, count/byte bounds, SHA-256,
 original manifest identity and manifest-order output. Its aggregate plaintext bound
 is necessary but not sufficient for the 6 MiB sealed-record limit; protobuf and
@@ -15,7 +22,9 @@ names and one-grapheme labels (both at most 64 code points), hashes and bounded 
 count. Parsed entries stay bound to the original bytes when invoking file checks;
 unknown formats ask to update. Unknown JSON fields are ignored for extensions.
 [ADR 0044](../decisions/0044-sticker-manifest-validation.md) records the parser choices.
-First-frame decoding, immutable exchange records, storage, protocol and UI remain planned. The numbers marked *assumed* need measurement and may change.
+Immutable exchange records, storage, protocol and UI remain planned. Decoder CPU,
+representative-file measurements, fuzzing and release-size verification remain required.
+The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
 6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
