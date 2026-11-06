@@ -198,6 +198,9 @@
             <div class="field"><label for="profile-about" data-i18n="profile.about"></label>
               <textarea id="profile-about" rows="4" maxlength="500" aria-describedby="profile-about-hint"></textarea>
               <p id="profile-about-hint" class="caption" data-i18n="profile.aboutHint"></p></div>
+            <div class="field"><label for="profile-interests" data-i18n="profile.interests"></label>
+              <textarea id="profile-interests" rows="3" aria-describedby="profile-interests-hint"></textarea>
+              <p id="profile-interests-hint" class="caption" data-i18n="profile.interestsHint"></p></div>
             <h2 data-i18n="profile.birth"></h2>
             <div class="grid">
               <div class="field"><label for="birth-year" data-i18n="profile.birthYear"></label>
@@ -265,6 +268,11 @@
                 <input id="search-height-min" type="number" min="50" max="272"></div>
               <div class="field"><label for="search-height-max" data-i18n="search.heightMax"></label>
                 <input id="search-height-max" type="number" min="50" max="272"></div>
+            </div>
+            <div id="search-interest-row" class="field" hidden>
+              <label for="search-interest" data-i18n="search.interest"></label>
+              <input id="search-interest" type="text" aria-describedby="search-interest-hint" disabled>
+              <p id="search-interest-hint" class="caption" data-i18n="search.interestHint"></p>
             </div>
             <div id="search-country-row" class="field" hidden>
               <label for="search-country" data-i18n="search.country"></label>
@@ -790,6 +798,7 @@
   <script src="peer-names.js"></script>
   <script src="privacy-ui.js"></script>
   <script src="profile-seeking.js"></script>
+  <script src="profile-interests.js"></script>
   <script src="app.js"></script>
   <script src="passes.js"></script>
   <script src="remove.js"></script>

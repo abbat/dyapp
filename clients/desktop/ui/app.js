@@ -577,6 +577,7 @@ const profileDraft = () => ({
   birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
   height: Number(document.getElementById('profile-height').value) || null,
   about: document.getElementById('profile-about').value,
+  interests: window.profileInterestTags(),
   country: placeCountry.value, place: profilePlace.id(),
   ...seekingDraft(),
 });
@@ -650,6 +651,7 @@ const showProfile = async (call = invoke) => {
   }
   document.getElementById('profile-height').value = view.draft.height || '';
   document.getElementById('profile-about').value = view.draft.about;
+  window.showProfileInterests(view.draft.interests);
   showSeeking(view.draft);
   const unsetCountry = document.createElement('option');
   unsetCountry.value = '';
@@ -706,6 +708,7 @@ const publicFacts = (draft, place) => {
   }
   if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
   if (draft.about) facts.push([window.strings['profile.about'], draft.about]);
+  if (draft.interests?.length) facts.push([window.strings['profile.interests'], draft.interests.join('; ')]);
   facts.push(...seekingFacts(draft));
   return facts;
 };
@@ -731,10 +734,12 @@ const saveProfile = async (call = invoke) => {
         invalidName: 'profile.nameInvalid',
         invalidHeight: 'profile.heightInvalid',
         invalidAbout: 'profile.aboutInvalid',
+        invalidInterests: 'profile.interestsInvalid',
       }[String(error)];
       throw refusal ? window.strings[refusal] : error;
     });
   if (!identityCurrent(generation) || !view) return null;
+  window.showProfileInterests(view.draft.interests);
   showAge(view);
   profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');
   return view;

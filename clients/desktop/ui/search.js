@@ -51,6 +51,7 @@ const showSearchFilters = (offered) => {
   }));
   showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
   showFilter(document.getElementById('search-height'), offered.includes(HEIGHT_FIELD));
+  showFilter(document.getElementById('search-interest-row'), offered.includes(19));
   showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
   showFilter(document.getElementById('search-place-row'),
     offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD));
@@ -65,6 +66,7 @@ const searchQuery = () => {
     .filter((select) => select.value !== '0')
     .map((select) => ({ field: Number(select.dataset.field), op: 'eq', ints: [Number(select.value)] }));
   if (filled('search-country')) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [searchCountryCode()] });
+  if (filled('search-interest')) conditions.push({ field: 19, op: 'eq', strings: [filled('search-interest')] });
   const place = filled('search-place') && searchPlace.id();
   if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
@@ -673,8 +675,8 @@ const runSearch = async (call = invoke) => {
     const code = String(error);
     if (code === 'notConnected') searchMessage('search.notConnected');
     else searchMessage('search.failed', '');
-    showSearchError({ notConnected: 'search.offline', mutualUnavailable: 'search.mutualUnavailable' }[code]
-      || 'search.error', code);
+    showSearchError({ notConnected: 'search.offline', mutualUnavailable: 'search.mutualUnavailable',
+      invalidInterests: 'search.interestInvalid' }[code] || 'search.error', code);
   } finally {
     if (identityCurrent(generation)) setSearchBusy(false);
   }

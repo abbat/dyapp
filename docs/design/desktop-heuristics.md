@@ -39,6 +39,18 @@ H9). The picker composition is keyed by identity and chat to discard stale draft
 No open source-review
 finding. Device rendering and instrumentation still require Android CI.
 
+## Desktop interests review (2026-11-06)
+
+Reviewed the editor, saved readback, public preview/profile view and supported/hidden
+search filter against H1–H10 from source. The hint states publication, limits and
+canonical spelling (H1, H2, H10); clearing lines removes tags (H3). Existing field,
+save and busy states are reused (H4, H7, H8). A 33rd tag prevents form submission,
+backend errors explain tag length and hidden symbols, and loading canonical values
+clears an obsolete validation error (H5, H9). Labelled fields and the displayed tags
+avoid recall (H6). Unsupported search filters are disabled and omitted (H3, H5).
+No open source-review finding; native EN/RU rendering and smoke execution remain
+unverified until CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

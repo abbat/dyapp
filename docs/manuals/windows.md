@@ -21,6 +21,14 @@ network changes while the profile loads, retry the card on the new network.
 A search still running on the previous network also fails without showing its results;
 run it again on the active network.
 
+## Interests
+
+Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).
+Saving shows their canonical lowercase spelling; clearing all lines removes them.
+Interests appear in the public preview and profile page. When the connected search
+providers support it, **Interest** filters by one tag, ignoring case and surrounding
+spaces; leave it empty for no interest filter.
+
 ## Build
 
 The scheduled `release-sizes` workflow builds the release EXE on `windows-2022`, packs it with

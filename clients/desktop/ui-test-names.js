@@ -267,4 +267,45 @@ const checkProfileShare = async () => {
   closeFound();
   document.getElementById('chat-back').click();
 };
-globalThis.uiSmokeNames = Object.freeze({ checkContactNames, checkPublicName, checkChatMute, checkProfileShare });
+const checkInterests = async () => {
+  await openArea('profile-area');
+  const input = document.getElementById('profile-interests');
+  const before = input.value;
+  input.value = '  Музыка  \nJazz, blues\n\n';
+  const tags = profileDraft().interests;
+  if (tags.join('|') !== 'Музыка|Jazz, blues') throw new Error('interest lines lost tags or punctuation');
+  input.value = Array(33).fill('music').join('\n');
+  input.dispatchEvent(new Event('input'));
+  if (input.checkValidity()) throw new Error('too many interests passed the form');
+  window.showProfileInterests(['Музыка', 'Jazz, blues']);
+  if (!input.checkValidity()) throw new Error('loaded interests retained an old error');
+  const canonical = ['музыка', 'jazz, blues'];
+  await saveProfile(() => Promise.resolve({ draft: { ...profileDraft(), interests: canonical }, ages: null }));
+  if (input.value !== canonical.join('\n')) throw new Error('save did not show canonical interests');
+  const fields = publicFields({ ...profileDraft(), interests: canonical });
+  if (!fields.includes(`${window.strings['profile.interests']}: ${canonical.join('; ')}`)) {
+    throw new Error('public preview lost canonical interests');
+  }
+  await shot('profile-interests');
+  let refusal;
+  await saveProfile(() => Promise.reject('invalidInterests')).catch((error) => { refusal = error; });
+  if (refusal !== window.strings['profile.interestsInvalid']) throw new Error('interest error not explained');
+  window.showProfileInterests([]);
+  if (profileDraft().interests.length) throw new Error('clearing interests retained tags');
+  input.value = before;
+  await openArea('search-area');
+  const search = document.getElementById('search-interest');
+  showSearchFilters([19]);
+  search.value = ' Музыка ';
+  const filter = searchQuery().conditions.find((condition) => condition.field === 19);
+  if (filter?.op !== 'eq' || filter.strings[0] !== 'Музыка') throw new Error('interest filter was not sent');
+  await shot('search-interest');
+  showSearchFilters([]);
+  if (searchQuery().conditions.some((condition) => condition.field === 19)) {
+    throw new Error('unsupported interest filter leaked into query');
+  }
+  search.value = '';
+};
+globalThis.uiSmokeNames = Object.freeze({
+  checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests,
+});
