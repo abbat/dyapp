@@ -149,7 +149,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -179,7 +179,7 @@
     <button type="button" class="nav" id="nav-network" data-current="network network-checking network-error">
       <svg aria-hidden="true" class="icon"><use href="#i-network"/></svg><span class="label" data-t="nav.network"></span></button>
     <div class="spacer"></div>
-    <button type="button" class="nav" id="nav-settings" data-current="settings remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <button type="button" class="nav" id="nav-settings" data-current="settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
       <svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg><span class="label" data-t="nav.settings"></span></button>
     <button type="button" class="nav" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -461,7 +461,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Settings: identities, appearance, language, node. -->
-    <section id="settings" data-on="settings remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <section id="settings" data-on="settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
       <h1 data-t="nav.settings"></h1>
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
@@ -485,6 +485,31 @@ search providers asked: 0 of 3</pre>
         <p class="notice" id="devices-status" role="status" aria-live="polite" data-on="devices-sent" data-t="devices.sent"></p>
         <p class="caption" data-t="devices.hint"></p>
         <div class="actions"><button type="button" class="btn" id="device-link" data-t="devices.link"></button></div>
+      </div>
+      <div class="card" id="sticker-collection">
+        <h2 data-t="stickers.title"></h2>
+        <details id="sticker-packs" open>
+          <summary data-t="stickers.collection"></summary>
+          <p class="caption" data-t="stickers.hint"></p>
+          <div class="actions">
+            <button type="button" class="btn" id="sticker-import" data-t="stickers.import" data-disabled="stickers-loading stickers-importing"></button>
+            <button type="button" class="btn" id="sticker-refresh" data-t="stickers.refresh" data-disabled="stickers-loading stickers-importing"></button>
+          </div>
+          <p class="notice" id="sticker-status" role="status" aria-live="polite" data-on="settings stickers-empty stickers-ready stickers-loading stickers-importing">
+            <span data-on="stickers-empty settings" data-t="stickers.empty"></span>
+            <span data-on="stickers-loading" data-t="stickers.loading"></span>
+            <span data-on="stickers-importing" data-t="stickers.importing"></span>
+            <span data-on="stickers-ready" data-t="stickers.usage"></span>
+          </p>
+          <p class="notice error" id="sticker-error" role="alert" data-on="stickers-error" data-t="stickers.error"></p>
+          <p class="notice error" data-on="stickers-quota" data-t="stickers.quota"></p>
+          <ul id="sticker-list" data-on="stickers-ready stickers-importing stickers-quota">
+            <li><strong data-t="stickers.sample"></strong><p class="caption" data-t="stickers.sampleSize"></p></li>
+            <li><strong data-t="stickers.unreadable"></strong> <code>@a12bc34d</code><p class="caption" data-t="stickers.unreadableHint"></p></li>
+          </ul>
+          <p class="notice" id="sticker-unknown" data-on="stickers-ready" data-t="stickers.unknown"></p>
+          <button type="button" class="btn" id="sticker-next" data-on="stickers-ready" data-t="stickers.next"></button>
+        </details>
       </div>
       <div class="card" id="blocked">
         <h2 data-t="settings.blocked"></h2>

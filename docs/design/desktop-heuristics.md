@@ -113,6 +113,30 @@ Failures retain existing retry/pending-delivery messages (H9); existing labels,
 dialogs, layout and privacy help retain H2, H4, H6–H8 and H10.
 No open source-review finding. Native EN/RU smoke execution remains for CI.
 
+## Desktop sticker collection prototype review (2026-11-07)
+
+Reviewed existing Settings first, then empty, populated, loading, read-error,
+import-in-progress and quota-error states and adjacent Devices/Blocked/Passed cards
+against H1–H10 in WebKitGTK, EN/RU at 440 and 1280 px. Captures are under
+`build/ux-research/sticker-before`, `sticker-prototype` and `sticker-focus`.
+These are static prototype checks; shipped controller and native IPC execution are
+not covered.
+
+Progress/usage and separate failures expose state (H1). Local-only import wording,
+TAR size and fixed quota explain consequences (H2, H10). A native disclosure,
+file-picker cancellation, Refresh and pagination provide control with existing
+keyboard/button patterns (H3, H4, H7). Busy actions are disabled and invalid packs
+stay visible (H5). Names, counts, sizes and short IDs avoid recall (H6); labels and
+long names wrap at both widths (H8). Errors preserve files and offer retry or a
+smaller TAR (H9).
+
+Found and fixed: severity 2 H9 quota copy suggested freeing space before removal
+controls exist; it now offers a smaller pack. Severity 2 H6 unreadable rows had no
+identifier; they now include a short PackID. Severity 1 H8 error states displayed
+an empty blue status strip; the strip is hidden when it has no message.
+No open prototype finding. Async view/identity guards, actual picker behavior and
+the shipped implementation still require their own verification.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

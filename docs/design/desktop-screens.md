@@ -26,6 +26,25 @@ their controls remain planned. Calls include the viewed identity's Peer ID to re
 requests after a switch. TAR/WebP validation and file reads run in the blocking pool while an
 identity lease keeps the slot open. Lists return 32-entry pages with sizes and individual errors.
 
+## Sticker collection (prototype; controls planned)
+
+Settings contains the card `sticker-collection` and native disclosure `sticker-packs`.
+`sticker-import` opens a TAR picker; cancelling it changes nothing. The browser must
+refuse files above 8 MiB before reading them. `sticker-refresh` restarts listing from
+the first page; `sticker-next` opens the next 32-entry page. Loading and import
+disable repeated actions while leaving navigation available. An admitted import may
+finish after navigation, but its completion must not update a different view.
+
+Prototype states: `stickers-empty`, `stickers-ready`, `stickers-loading`,
+`stickers-error`, `stickers-importing` and `stickers-quota`.
+`sticker-status` describes local progress and used space; `sticker-error` offers
+Refresh after a read failure. `sticker-list` shows names, counts and encrypted sizes,
+and identifies unreadable entries by short PackID while retaining them.
+`sticker-unknown` explains space occupied by unrecognized or interrupted files.
+Quota failure preserves the collection and asks for a smaller pack. Importing does
+not publish or send anything. The shipped collection controller, sending and removal
+controls remain planned.
+
 ## First run
 
 `wizard-identity`: step 1 of 2. The system keyring is preselected when available; the file option
