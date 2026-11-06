@@ -1,4 +1,4 @@
-//! The owner's local state a linked device starts from: blocks, mutes, names and verified marks,
+//! The owner's local state a linked device starts from: blocks, mutes, favorites, names and verified marks,
 //! likes, passes and whether the profile is hidden. Later changes reach it as own-device sync.
 use super::likes::{load_hlc, save_hlc};
 use super::{Error, Store};
@@ -49,6 +49,10 @@ struct Peer {
     muted_hlc: i64,
     #[prost(int64, tag = "11")]
     name_hlc: i64,
+    #[prost(bool, tag = "12")]
+    favorite: bool,
+    #[prost(int64, tag = "13")]
+    favorite_hlc: i64,
 }
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -131,7 +135,8 @@ impl Store {
     pub fn link_state(&self) -> Result<Vec<u8>, Error> {
         let mut peers = self.db.prepare(
             "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
-                    `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`
+                    `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`,
+                    `favorite`, `favorite_hlc`
              FROM `peers` ORDER BY `peer_id`",
         )?;
         let peers = peers.query_map([], |row| {
@@ -147,6 +152,8 @@ impl Store {
                 blocked_hlc: row.get(8)?,
                 muted_hlc: row.get(9)?,
                 name_hlc: row.get(10)?,
+                favorite: row.get(11)?,
+                favorite_hlc: row.get(12)?,
             })
         })?;
         let mut likes = self.db.prepare(
@@ -191,7 +198,14 @@ impl Store {
         let peers = state.peers.iter();
         let newest = rows
             .chain(state.passes.iter().map(|pass| pass.updated_hlc))
-            .chain(peers.flat_map(|peer| [peer.blocked_hlc, peer.muted_hlc, peer.name_hlc]))
+            .chain(peers.flat_map(|peer| {
+                [
+                    peer.blocked_hlc,
+                    peer.muted_hlc,
+                    peer.name_hlc,
+                    peer.favorite_hlc,
+                ]
+            }))
             .max()
             .and_then(|row| u64::try_from(row).ok())
             .unwrap_or(0);
@@ -201,8 +215,8 @@ impl Store {
             tx.execute(
                 "INSERT OR REPLACE INTO `peers` (`peer_id`, `blocked`, `muted`, `local_name`,
                      `seen_devices`, `seen_version`, `verified`, `new_device`, `blocked_hlc`,
-                     `muted_hlc`, `name_hlc`)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                     `muted_hlc`, `name_hlc`, `favorite`, `favorite_hlc`)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     peer.peer_id,
                     peer.blocked,
@@ -214,7 +228,9 @@ impl Store {
                     peer.new_device,
                     peer.blocked_hlc,
                     peer.muted_hlc,
-                    peer.name_hlc
+                    peer.name_hlc,
+                    peer.favorite,
+                    peer.favorite_hlc
                 ],
             )?;
         }
@@ -272,6 +288,28 @@ mod tests {
         store.clear_link_pending().unwrap();
         assert_eq!(store.link_pending().unwrap(), None);
         assert!(store.is_linked_device().unwrap());
+    }
+
+    #[test]
+    fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
+        let owner = Identity::generate();
+        let old = Store::open(&temp_db_path(), &owner).unwrap();
+        old.apply_peer_change("bob", &crate::chat::PeerChange::Favorite(true), 1u64.into())
+            .unwrap();
+        old.set_blocked("bob", true).unwrap();
+        let high = 1i64 << 40;
+        old.db
+            .execute("UPDATE `peers` SET `favorite_hlc` = ?1", [high])
+            .unwrap();
+        let mut linked = Store::open(&temp_db_path(), &owner).unwrap();
+        linked
+            .import_link_state(&old.link_state().unwrap())
+            .unwrap();
+        assert!(linked.favorite("bob").unwrap());
+        assert!(linked.favorite_peers().unwrap().is_empty());
+        assert!(u64::from(linked.tick(0).unwrap()) > high as u64);
+        linked.set_blocked("bob", false).unwrap();
+        assert_eq!(linked.favorite_peers().unwrap(), ["bob"]);
     }
 
     #[test]

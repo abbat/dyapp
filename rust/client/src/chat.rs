@@ -99,6 +99,8 @@ pub enum PeerChange {
     Passed(bool),
     /// The local contact name; empty removes it.
     Name(String),
+    /// Privately saved for later, without sending a like.
+    Favorite(bool),
 }
 
 impl PeerChange {
@@ -373,6 +375,7 @@ impl Body {
                     PeerChange::Muted(on) => (2, vec![u8::from(*on)]),
                     PeerChange::Passed(on) => (3, vec![u8::from(*on)]),
                     PeerChange::Name(name) => (4, name.clone().into_bytes()),
+                    PeerChange::Favorite(on) => (5, vec![u8::from(*on)]),
                 };
                 let head = [&[13, kind], hlc.to_be_bytes().as_slice()].concat();
                 [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
@@ -646,6 +649,7 @@ fn peer_change(body: &[u8]) -> Option<Body> {
         2 => PeerChange::Muted(flag?),
         3 => PeerChange::Passed(flag?),
         4 => PeerChange::Name(String::from_utf8(value.to_vec()).ok()?),
+        5 => PeerChange::Favorite(flag?),
         _ => return None,
     };
     let peer = String::from_utf8(peer.to_vec()).ok()?;

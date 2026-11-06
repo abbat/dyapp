@@ -1,4 +1,4 @@
-//! Local block and mute flags, contact names, passes and verified marks per peer identity. Never
+//! Local block, mute and favorite flags, contact names, passes and verified marks per peer. Never
 //! published; only the owner's other devices hear of them, and the newest change wins there.
 
 use super::likes::{load_hlc, save_hlc};
@@ -14,7 +14,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 // `seen_devices`: the device keys of the newest profile seen or verified, 32 bytes each; NULL
 // before the first. `seen_version`: that profile's version. `verified`: the safety number or QR
 // code was compared for those keys. `new_device`: a profile added a device, until acknowledged.
-// `blocked_hlc`, `muted_hlc`, `name_hlc`: the HLC of the newest change shared with own devices.
+// Each *_hlc column keeps the newest private field change shared with own devices.
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `peers` (
     `peer_id` TEXT PRIMARY KEY NOT NULL,
@@ -27,7 +27,9 @@ CREATE TABLE `peers` (
     `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1)),
     `blocked_hlc` INTEGER NOT NULL DEFAULT 0,
     `muted_hlc` INTEGER NOT NULL DEFAULT 0,
-    `name_hlc` INTEGER NOT NULL DEFAULT 0
+    `name_hlc` INTEGER NOT NULL DEFAULT 0,
+    `favorite` INTEGER NOT NULL DEFAULT 0 CHECK (`favorite` IN (0, 1)),
+    `favorite_hlc` INTEGER NOT NULL DEFAULT 0
 ) STRICT;
 ";
 
@@ -57,6 +59,7 @@ fn apply_change(
     let (column, stamp, value) = match change {
         PeerChange::Blocked(on) => ("blocked", "blocked_hlc", Value::from(*on)),
         PeerChange::Muted(on) => ("muted", "muted_hlc", Value::from(*on)),
+        PeerChange::Favorite(on) => ("favorite", "favorite_hlc", Value::from(*on)),
         PeerChange::Name(name) => ("local_name", "name_hlc", Value::from(name.clone())),
         PeerChange::Passed(on) => return write_pass(db, peer_id, *on, at),
     };
@@ -164,6 +167,20 @@ impl Store {
     /// Whether this profile mutes `peer_id`; absent means not muted.
     pub fn muted(&self, peer_id: &str) -> Result<bool, Error> {
         self.flag("muted", peer_id)
+    }
+
+    /// Whether this identity has saved a peer; blocking hides it without erasing this flag.
+    pub fn favorite(&self, peer_id: &str) -> Result<bool, Error> {
+        self.flag("favorite", peer_id)
+    }
+
+    /// Saved peers visible to the app, excluding blocked peers in stable Peer ID order.
+    pub fn favorite_peers(&self) -> Result<Vec<String>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `peer_id` FROM `peers` WHERE `favorite` = 1 AND `blocked` = 0 ORDER BY `peer_id`",
+        )?;
+        let rows = query.query_map([], |row| row.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// Name `peer_id` on this profile only; an empty name clears it.
@@ -370,6 +387,7 @@ mod tests {
             (PeerChange::Blocked(true), PeerChange::Blocked(false)),
             (PeerChange::Muted(true), PeerChange::Muted(false)),
             (PeerChange::Passed(true), PeerChange::Passed(false)),
+            (PeerChange::Favorite(true), PeerChange::Favorite(false)),
             (
                 PeerChange::Name("New".to_owned()),
                 PeerChange::Name("Old".to_owned()),
@@ -385,6 +403,7 @@ mod tests {
         assert!(store.blocked("bob").unwrap());
         assert!(store.muted("bob").unwrap());
         assert_eq!(store.passed_peers().unwrap(), ["bob"]);
+        assert!(store.favorite("bob").unwrap());
         assert_eq!(store.local_name("bob").unwrap(), "New");
 
         let unblock = PeerChange::Blocked(false);
@@ -409,6 +428,51 @@ mod tests {
             .receive_peer_change("bob", &block, at(2_500), wall)
             .unwrap());
         assert!(!linked.blocked("bob").unwrap());
+        assert!(linked.favorite("bob").unwrap());
+        assert!(!linked
+            .receive_peer_change("bob", &PeerChange::Favorite(false), at(1_500), wall)
+            .unwrap());
+        assert!(linked.favorite("bob").unwrap());
+        assert!(linked
+            .receive_peer_change("bob", &PeerChange::Favorite(false), at(3_500), wall)
+            .unwrap());
+        assert!(!linked.favorite("bob").unwrap());
+    }
+
+    #[test]
+    fn favorites_survive_reopen_hide_blocks_and_stay_identity_local() {
+        let owner = Identity::generate();
+        let path = temp_db_path();
+        let store = Store::open(&path, &owner).unwrap();
+        assert!(!store.favorite("bob").unwrap());
+        store
+            .apply_peer_change("bob", &PeerChange::Favorite(true), Timestamp::new(1_000, 0))
+            .unwrap();
+        store
+            .apply_peer_change(
+                "carol",
+                &PeerChange::Favorite(true),
+                Timestamp::new(1_001, 0),
+            )
+            .unwrap();
+        store.set_blocked("bob", true).unwrap();
+        assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
+        drop(store);
+        let store = Store::open(&path, &owner).unwrap();
+        assert!(store.favorite("bob").unwrap());
+        store.set_blocked("bob", false).unwrap();
+        assert_eq!(store.favorite_peers().unwrap(), ["bob", "carol"]);
+        store
+            .apply_peer_change(
+                "bob",
+                &PeerChange::Favorite(false),
+                Timestamp::new(2_000, 0),
+            )
+            .unwrap();
+        assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
+        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        assert!(other.favorite_peers().unwrap().is_empty());
+        assert!(Store::open(&path, &Identity::generate()).is_err());
     }
 
     #[test]

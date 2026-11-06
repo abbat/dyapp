@@ -96,7 +96,9 @@ GNU tar and macOS bsdtar are test fixtures.
 
 ## Wire
 
-Three chat tags. All are MLS application messages, so nodes see only the sealed blobs.
+Three planned chat variants. All are MLS application messages, so nodes see only the sealed blobs.
+The tag numbers below require reassignment before implementation: outer tag 13 already
+belongs to private own-device `PeerChange`. Never decode sticker content under that tag.
 
 | Tag | Body |
 |-----|------|

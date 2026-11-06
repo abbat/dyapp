@@ -1,6 +1,49 @@
 use super::*;
 use crate::store::tests::temp_db_path;
 
+#[tokio::test]
+async fn favorite_without_own_devices_creates_no_peer_message() {
+    let (owner, device, own_profile) = person();
+    let (_, contact, profile) = person();
+    let peer = profile.peer_id.clone();
+    let (group, _) = device
+        .create_group(
+            &[contact.key_package(false).unwrap()],
+            &[own_profile, profile.clone()],
+        )
+        .unwrap();
+    let seal = [9; 32];
+    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    store
+        .stage_group(&group, &profile, &device.seal(&seal).unwrap(), &[])
+        .unwrap();
+    let before = store.conversation(&peer).unwrap();
+    let mut session = Session::open(store, &seal).unwrap();
+    session
+        .change_peer(
+            &mut [],
+            &peer,
+            crate::chat::PeerChange::Favorite(true),
+            &seal,
+        )
+        .await
+        .unwrap();
+    assert!(session.store().favorite(&peer).unwrap());
+    assert!(session.store().due_outbound(0).unwrap().is_empty());
+    assert_eq!(session.store().conversation(&peer).unwrap(), before);
+    session
+        .change_peer(
+            &mut [],
+            &peer,
+            crate::chat::PeerChange::Favorite(false),
+            &seal,
+        )
+        .await
+        .unwrap();
+    assert!(!session.store().favorite(&peer).unwrap());
+    assert!(session.store().due_outbound(0).unwrap().is_empty());
+}
+
 #[test]
 fn only_a_newer_profile_without_this_device_revokes_it() {
     let (identity, device, _) = person();

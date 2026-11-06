@@ -374,6 +374,8 @@ fn peer_changes_are_strict() {
         PeerChange::Muted(false),
         PeerChange::Passed(true),
         PeerChange::Passed(false),
+        PeerChange::Favorite(true),
+        PeerChange::Favorite(false),
         PeerChange::Name(String::new()),
         PeerChange::Name(longest.clone()),
     ] {
@@ -388,7 +390,7 @@ fn peer_changes_are_strict() {
     };
     for bad in [
         with(1, 0),
-        with(1, 5),
+        with(1, 6),
         with(10, b'g'),
         with(74, 2),
         good[..good.len() - 1].to_vec(),

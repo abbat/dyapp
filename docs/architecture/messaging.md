@@ -293,8 +293,9 @@ new leaf, and `Group::remove_revoked` commits its removal. `Group::missing_devic
 devices an owner lists without a leaf in the group, and `Group::add` commits them with a Welcome
 ([ADR 0040](../decisions/0040-device-linking.md)). `Session::add_own_devices` does this for every
 group after a mailbox pass, the group of only the owner's devices included, which carries
-`Body::PeerChange` (tag 13: a block, mute, pass or contact name with its HLC; accepted only in
-that group). `Group::add_turn` orders the owner's devices in a group by device key,
+`Body::PeerChange` (tag 13: a block, mute, pass, contact name or private favorite with its HLC; accepted only in
+that group). Favorite changes use kind 5 and a strict single-byte 0/1 value, and never
+create a like or a message to the saved peer. `Group::add_turn` orders the owner's devices in a group by device key,
 and each waits `ADD_TURN_SECONDS` per earlier device, counted from when it first saw that profile
 (`own_profile_seen` in `settings`), since two commits on one epoch would fork the group. The
 desktop client takes the owner's profile from a node, ignoring one older than its own copy.
