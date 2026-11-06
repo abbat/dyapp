@@ -14,6 +14,9 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+/// Bounded collection metadata and per-entry read errors.
+pub mod list;
+
 /// Maximum encrypted saved-file bytes for one identity, including file headers.
 pub const SAVED_BYTES: u64 = 300 * 1024 * 1024;
 const MAGIC: &[u8] = b"DYSP\x01";

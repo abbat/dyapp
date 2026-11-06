@@ -163,6 +163,8 @@ pack" button. The fallback also covers an expired blob, auto-download off and a 
 The shared Store now saves validated packs as sealed identity-local files, with bounded
 reads, idempotent saves and a 300 MiB quota without eviction. Wrong-key and corrupt files
 are preserved. Desktop protects the sealing secret even before the first MLS session.
+The Store also lists validated names, sticker counts and encrypted sizes in PackID-ordered
+pages of 32, reporting unreadable entries and unrecognized-file counts without deleting them.
 The request/response flow below and its UI remain planned.
 
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is

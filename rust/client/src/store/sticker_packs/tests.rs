@@ -132,6 +132,64 @@ fn sqlite_writer_lock_prevents_overlapping_publications() {
     assert!(second.save_sticker_pack(&[7; 32], &pack("Cats")).unwrap());
 }
 
+#[test]
+fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
+    let mut store = store("alice", None);
+    assert!(store
+        .saved_sticker_packs(&[7; 32], None)
+        .unwrap()
+        .entries
+        .is_empty());
+    let mut ids = Vec::new();
+    for index in 0..34 {
+        let pack = pack(&format!("Cats {index}"));
+        store.save_sticker_pack(&[7; 32], &pack).unwrap();
+        ids.push(*pack.id());
+    }
+    ids.sort();
+    let dir = directory(&store).unwrap();
+    fs::write(dir.join(hex(&ids[1])), b"broken").unwrap();
+    fs::write(dir.join(".interrupted.pending"), b"pending").unwrap();
+    let first = store.saved_sticker_packs(&[7; 32], None).unwrap();
+    assert_eq!(
+        first
+            .entries
+            .iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>(),
+        ids[..32]
+    );
+    assert_eq!(first.next, Some(ids[31]));
+    assert_eq!(first.unrecognized_files, 1);
+    assert_eq!(first.used_bytes, used(&dir).unwrap());
+    assert!(first.entries[1].details.is_err());
+    assert_eq!(first.entries[1].bytes, 6);
+    let details = first.entries[0].details.as_ref().unwrap();
+    assert!(details.name.starts_with("Cats "));
+    assert_eq!(details.stickers, 1);
+    let next = store
+        .saved_sticker_packs(&[7; 32], first.next.as_ref())
+        .unwrap();
+    assert_eq!(
+        next.entries
+            .iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>(),
+        ids[32..]
+    );
+    assert!(next.next.is_none());
+    let wrong_key = store.saved_sticker_packs(&[8; 32], None).unwrap();
+    assert!(wrong_key.entries.iter().all(|entry| entry.details.is_err()));
+    assert_eq!(fs::read(dir.join(hex(&ids[1]))).unwrap(), b"broken");
+    let db = PathBuf::from(store.db.path().unwrap());
+    drop(store);
+    let reopened = self::store("alice", Some(&db));
+    assert_eq!(
+        reopened.saved_sticker_packs(&[7; 32], None).unwrap().next,
+        first.next
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn symlinks_are_refused_without_touching_the_target() {

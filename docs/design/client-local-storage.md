@@ -81,7 +81,11 @@ no pack BLOB or index is stored in SQLite. The fixed 300 MiB quota counts actual
 including headers and interrupted temporary files. Nothing is evicted automatically. Files are
 synced before rename (and the directory is synced on Unix). A crash can leave a temporary file
 consuming quota. Desktop refuses to regenerate a missing sealing secret while pack files exist.
-Listing, deletion, chat integration and cache management remain planned.
+Collection metadata is returned in pages of 32 entries ordered by PackID, with a continuation
+cursor. Only one selected pack is decoded at a time; no images are retained by the listing.
+Unreadable pack IDs remain visible with individual errors. Unrecognized filenames, including
+interrupted writes, are counted separately. Each page scans the directory again; concurrent
+saves can appear on refresh. Deletion, chat integration and cache management remain planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
