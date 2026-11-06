@@ -66,7 +66,7 @@ impl PhotoCache {
 
 /// A node returns what a peer uploaded, so the bounds hold again before the app decodes it: a
 /// thumbnail must also pass `check_preview`, a full image stays within 64 megapixels.
-fn acceptable(bytes: &[u8], full: bool) -> bool {
+pub(crate) fn acceptable(bytes: &[u8], full: bool) -> bool {
     let limit = if full {
         MAX_PHOTO_BYTES
     } else {
@@ -85,7 +85,7 @@ fn acceptable(bytes: &[u8], full: bool) -> bool {
 
 /// The first answering node of each seed row, as the desktop asks: a blob one node lacks may be
 /// on another.
-async fn reachable(network: &Network) -> Result<Vec<Node>, CoreError> {
+pub(crate) async fn reachable(network: &Network) -> Result<Vec<Node>, CoreError> {
     let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
     let mut nodes = Vec::new();
     for row in &network.seeds {

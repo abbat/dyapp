@@ -26,6 +26,7 @@ use zeroize::Zeroizing;
 
 mod actions;
 mod notices;
+mod original;
 mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
@@ -549,6 +550,13 @@ mod tests {
         );
         assert!(chats.chat_photos(peer.clone()).unwrap().is_empty());
         assert!(chats.chat_items(peer.clone()).unwrap().is_empty());
+        assert_eq!(
+            chats
+                .chat_photo_original(peer.clone(), vec![1], peer.clone(), vec![2; 16])
+                .unwrap_err()
+                .to_string(),
+            "notFound"
+        );
         let empty = chats.chat_history(peer.clone()).unwrap();
         assert_eq!((empty.state, empty.messages), (ChatState::None, Vec::new()));
         // A chat with no state cannot be cleared or read; only a live own text can be edited.
@@ -611,6 +619,13 @@ mod tests {
         );
         assert_eq!(
             chats.chat_items(peer.clone()).unwrap_err().to_string(),
+            "blocked"
+        );
+        assert_eq!(
+            chats
+                .chat_photo_original(peer.clone(), vec![1], peer.clone(), vec![2; 16])
+                .unwrap_err()
+                .to_string(),
             "blocked"
         );
         assert_eq!(chats.blocked_peers().unwrap(), std::slice::from_ref(&peer));
