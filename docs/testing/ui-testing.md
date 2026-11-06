@@ -631,7 +631,9 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
   `ScrollingForm`. CI crashes the macOS app now and then on "more Layout Window passes than there
   are views in the window": a cursor hit test in the display cycle updates SwiftUI's
   `HostingScrollView` under the pointer, which resizes again, right after the setup's Continue.
-  A fixed `TextEditor` height did not stop it; the cause is still open.
+  A fixed `TextEditor` height did not stop it. So on macOS 13+ `ScrollingForm` is a grouped
+  `Form`, which scrolls by itself, with check box toggles for the `checkBoxes` queries; macOS 12
+  keeps the `ScrollView` (fix unproven yet).
 - All links of the start screen share one `selection`. On a macOS sidebar a link held active by its
   own flag keeps the detail pane, so no other link can replace it.
 - On macOS 12 a `NavigationLink` inside the detail column replaces it with no back button, so

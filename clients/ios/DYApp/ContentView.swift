@@ -21,12 +21,19 @@ private enum StartLink: Hashable, Sendable {
 }
 
 /// The macOS form does not scroll on its own: a long one ran off the top of the window, out of reach.
+/// A form inside a SwiftUI `ScrollView` crashed now and then in an AppKit layout loop set off by a
+/// cursor hit test, so macOS 13+ takes the grouped style, which scrolls by itself; its toggles stay
+/// check boxes as on macOS 12.
 struct ScrollingForm<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         #if os(macOS)
-        ScrollView { Form { content() }.padding() }
+        if #available(macOS 13, *) {
+            Form { content() }.formStyle(.grouped).toggleStyle(.checkbox)
+        } else {
+            ScrollView { Form { content() }.padding() }
+        }
         #else
         Form { content() }
         #endif
