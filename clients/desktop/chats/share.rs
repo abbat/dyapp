@@ -26,6 +26,9 @@ async fn fetch(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+        return Err("notConnected".into());
+    }
     let mut node = profile::connect(&active).await?;
     let fetched = node.get_profile(peer_id).await.map_err(|e| e.to_string())?;
     if fetched.profile.deleted || fetched.profile.version == 0 {
@@ -33,12 +36,21 @@ async fn fetch(
     }
     // The user may have blocked this peer while the network request was pending.
     ensure_unblocked(dir, identity, peer_id)?;
+    finish_fetch(cache, epoch, fetched)
+}
+
+fn finish_fetch(
+    cache: &Mutex<ProfileCache>,
+    epoch: u64,
+    fetched: dyapp_profile::VerifiedProfile,
+) -> Result<Found, String> {
+    let mut cache = cache.lock().map_err(|e| e.to_string())?;
+    if !cache.current(epoch) {
+        return Err("notConnected".into());
+    }
     let found = Found::from(&fetched);
-    // An older, equal or previous-network result is not cached.
-    cache
-        .lock()
-        .map_err(|e| e.to_string())?
-        .accept_if_current(epoch, fetched);
+    // Reopening an equal version is valid, even though it adds nothing to the cache.
+    cache.accept_if_current(epoch, fetched);
     Ok(found)
 }
 
@@ -128,6 +140,34 @@ pub(crate) async fn share_profile(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn previous_network_result_is_not_returned_but_reopening_is_allowed() {
+        let peer = Identity::generate();
+        let fetched = dyapp_profile::verify(
+            &dyapp_profile::Profile {
+                version: 1,
+                ..dyapp_profile::Profile::default()
+            }
+            .sign(&peer),
+        )
+        .unwrap();
+        let cache = Mutex::new(ProfileCache::default());
+        let epoch = cache.lock().unwrap().epoch();
+        assert_eq!(
+            finish_fetch(&cache, epoch, fetched.clone())
+                .unwrap()
+                .peer_id,
+            peer.peer_id()
+        );
+        assert!(finish_fetch(&cache, epoch, fetched.clone()).is_ok());
+        cache.lock().unwrap().clear();
+        assert_eq!(
+            finish_fetch(&cache, epoch, fetched).err(),
+            Some("notConnected".into())
+        );
+        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+    }
 
     #[tokio::test]
     async fn blocked_profile_is_refused_before_network_or_cache_access() {

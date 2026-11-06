@@ -10,7 +10,8 @@ On a profile page, **Share** offers existing open chats, excluding the profile o
 A failed send keeps the picker open for retry. The recipient sees a profile card;
 opening it fetches the verified profile, where **Message** opens a chat.
 Unavailable or locally blocked profiles show an error. Blocked profiles are checked
-before the network request and again before displaying its result.
+before the network request and again before displaying its result. If the active
+network changes while the profile loads, retry the card on the new network.
 
 ## First launch
 
