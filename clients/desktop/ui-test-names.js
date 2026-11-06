@@ -385,6 +385,101 @@ const checkFavoriteAction = async () => {
   closeFound();
   card.remove();
 };
+const checkSavedProfiles = async () => {
+  await openArea('search-area');
+  const peer = '4'.repeat(64);
+  const found = { peerId: peer, draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  let peers = [peer];
+  let unavailable = true;
+  let refuseRemove = false;
+  let fetches = 0;
+  let releaseProfile;
+  let holdProfile = false;
+  const call = (command, args) => {
+    if (command === 'favorite_peers') return Promise.resolve(peers);
+    if (command === 'contact_names') return Promise.resolve(args.peerIds.map((peerId) => ({
+      peerId, name: `Saved locally ${'x'.repeat(50)}`, verified: null,
+    })));
+    if (command === 'shared_profile') {
+      ++fetches;
+      if (holdProfile) return new Promise((resolve) => { releaseProfile = resolve; });
+      return unavailable ? Promise.reject('unpublished') : Promise.resolve(found);
+    }
+    if (command === 'set_favorite') {
+      if (args.favorite) throw new Error('saved row tried to add instead of remove');
+      if (refuseRemove) return Promise.reject('disk');
+      peers = peers.filter((id) => id !== args.peerId);
+      return Promise.resolve();
+    }
+    if (command === 'block_peer') {
+      peers = peers.filter((id) => id !== args.peerId);
+      return Promise.resolve({ revocation: 'confirmed' });
+    }
+    if (command === 'favorite_state') return Promise.resolve(peers.includes(args.peerId));
+    if (command === 'peer_likes') return Promise.resolve({ ours: false, matched: false });
+    if (command === 'like_peer') throw new Error('saved list sent a like');
+    return Promise.resolve(false);
+  };
+  const panel = document.getElementById('saved-profiles');
+  const rows = document.getElementById('saved-profile-rows');
+  const status = document.getElementById('saved-profile-status');
+  panel.open = true;
+  await window.showSaved(call);
+  await shot('saved-profiles-local');
+  if (fetches || rows.children.length !== 1 || !rows.textContent.includes('Saved locally')) {
+    throw new Error('saved list fetched profiles or lost local labels');
+  }
+  const buttons = () => rows.firstElementChild.querySelectorAll('button');
+  buttons()[0].click();
+  await window.savedOpened;
+  if (status.textContent !== window.strings['favorites.openFailed'] || buttons()[1].disabled) {
+    throw new Error('unavailable saved profile cannot retry or remove');
+  }
+  refuseRemove = true;
+  buttons()[1].click();
+  await window.savedRemoved;
+  if (rows.children.length !== 1 || status.textContent !== window.strings['favorites.changeFailed']) {
+    throw new Error('failed removal changed saved rows');
+  }
+  refuseRemove = false;
+  buttons()[1].click();
+  await window.savedRemoved;
+  if (rows.children.length || fetches !== 1 || status.textContent !== window.strings['favorites.empty']) {
+    throw new Error('saved removal fetched a profile or missed empty state');
+  }
+  peers = [peer];
+  unavailable = false;
+  await window.showSaved(call);
+  buttons()[0].click();
+  await window.savedOpened;
+  if (profileView.hidden || viewed?.found.peerId !== peer) throw new Error('saved row did not open verified profile');
+  document.getElementById('view-back').click();
+  await window.savedShown;
+  buttons()[0].click();
+  await window.savedOpened;
+  await blockViewed(call);
+  await window.savedShown;
+  if (rows.children.length || !profileView.hidden) throw new Error('blocked saved row remained visible');
+  peers = [peer];
+  await window.showSaved(call);
+  holdProfile = true;
+  buttons()[0].click();
+  const pendingOpen = window.savedOpened;
+  showArea('profile-area');
+  releaseProfile(found);
+  await pendingOpen;
+  if (document.getElementById('profile-area').hidden) throw new Error('late saved profile changed navigation');
+  await openArea('search-area');
+  panel.open = true;
+  let releaseList;
+  const pendingList = window.showSaved((command, args) => command === 'favorite_peers'
+    ? new Promise((resolve) => { releaseList = resolve; }) : call(command, args));
+  document.dispatchEvent(new Event('dyapp:identity-change'));
+  releaseList([peer]);
+  await pendingList;
+  if (panel.open || rows.children.length) throw new Error('saved list crossed identity change');
+};
 globalThis.uiSmokeNames = Object.freeze({
   checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
+  checkSavedProfiles,
 });

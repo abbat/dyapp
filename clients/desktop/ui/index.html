@@ -255,6 +255,13 @@
         <div id="search-main">
         <h1 data-i18n="search.title"></h1>
         <p class="muted" data-i18n="search.sample"></p>
+        <details id="saved-profiles" class="card">
+          <summary data-i18n="favorites.title"></summary>
+          <p class="caption" data-i18n="favorites.listHint"></p>
+          <p id="saved-profile-status" role="status"></p>
+          <button id="saved-profile-refresh" class="btn quiet" type="button" data-i18n="favorites.refresh"></button>
+          <ul id="saved-profile-rows"></ul>
+        </details>
         <form id="search" class="card" novalidate>
           <div id="search-filters" class="grid" hidden>
             <div id="search-age" class="contents" hidden>
@@ -814,6 +821,7 @@
   <script src="chats-ui.js"></script>
   <script src="chats-share.js"></script>
   <script src="favorites.js"></script>
+  <script src="saved-profiles.js"></script>
   <script src="photo-settings.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>

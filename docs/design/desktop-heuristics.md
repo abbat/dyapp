@@ -63,6 +63,22 @@ and a separate card reuse existing layout (H7, H8). Read and write errors retain
 a specific retry path; blocked errors point to Settings (H9).
 No open source-review finding. Native EN/RU rendering and smoke execution await CI.
 
+## Desktop saved-profile list review (2026-11-06)
+
+Reviewed collapsed/open list, local loading/empty/error, row opening/removal,
+unavailable profile, Back and navigation/identity changes against H1–H10 from
+source. Status and Refresh expose progress/recovery (H1, H9); the hint explains
+local listing versus explicit profile fetch (H2, H10). Native disclosure and
+buttons work with keyboard, and labelled list/removal controls identify the peer
+(H3, H6, H7). Existing cards/buttons and local contact labels are reused (H4, H8).
+Row actions prevent repeats, blocked peers are omitted, and stale replies cannot
+navigate or reveal another identity's rows (H5). Back captures its source before
+refreshing a row that may disappear. Source review found and fixed child-only row
+removal on Block (H5, severity 2): the entire saved row is now removed and refreshed.
+Long local labels wrap within their row (H8, severity 2); the smoke fixture uses the
+64-character local-name limit.
+No open source-review finding; native EN/RU rendering and smoke tests await CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

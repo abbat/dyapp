@@ -20,7 +20,10 @@ run it again on the active network.
 On a loaded profile page, **Save privately** adds it to this identity's saved state;
 **Remove from saved** reverses it. This sends no like or notification to its owner.
 Your own devices share the change. If saved status cannot be read, retry that read
-before changing anything. The saved-profile list is planned.
+before changing anything. **Search → Saved profiles** lists saved peers from this
+device; **Refresh saved profiles** retries loading. A row fetches the verified
+profile only when opened. An unavailable or deleted profile can still be removed.
+Blocked peers are hidden from this list.
 
 ## Interests
 

@@ -156,7 +156,10 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .dot.off { background: var(--danger); }
 .dot.busy { background: var(--warn); }
 .rows { width: 100%; border-collapse: collapse; }
-#search-results, #search-failures { list-style: none; }
+#search-results, #search-failures, #saved-profile-rows { list-style: none; }
+#saved-profile-rows { padding: 0; }
+#saved-profile-rows .actions { justify-content: flex-start; }
+#saved-profile-rows .btn { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 #search-results { padding: 0; }
 .rows td { padding: var(--space-2) 0; border-top: 1px solid var(--line); vertical-align: top; }
 .rows td + td { padding-left: var(--space-3); text-align: right; }

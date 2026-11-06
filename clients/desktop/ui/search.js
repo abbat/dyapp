@@ -224,9 +224,10 @@ const closeFound = () => {
 };
 document.getElementById('view-back').addEventListener('click', () => {
   const { card } = viewed;
+  const area = card.closest('section')?.id;
   closeFound();
-  const area = card.closest('section').id;
-  if (area === 'search-area' || !card.isConnected) return;
+  if (area === 'search-area') { window.refreshSaved(); return; }
+  if (!area || !card.isConnected) return;
   showArea(area);
   card.focus();
 });
@@ -605,10 +606,12 @@ const blockViewed = async (call = invoke) => {
   }
   if (!currentView()) return;
   const wasLiked = Boolean(card.closest('#chats-liked-list'));
-  card.remove();
+  const savedRow = card.closest('#saved-profile-rows li');
+  (savedRow || card).remove();
   if (wasLiked) document.getElementById('chats-liked-count').textContent =
     String(document.getElementById('chats-liked-list').children.length);
   closeFound();
+  if (savedRow) window.refreshSaved();
   return searchMessage(`search.blocked.${result.revocation}`);
 };
 document.getElementById('view-block').addEventListener('click', () => {
