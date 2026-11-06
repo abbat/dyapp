@@ -547,6 +547,7 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
             .missing,
         items
     );
+    crate::rate_limit::fresh_second(); // a new second would reset the spent budget below
     service.traffic.add(10_000);
     assert_eq!(
         replicas
