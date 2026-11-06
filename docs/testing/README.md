@@ -275,7 +275,8 @@ transparent rejection, first-frame animation behavior, corrupt compressed conten
 and the 512-pixel output boundary. A 54-byte lossy VP8 vector and its expected RGBA
 were generated independently with libwebp 1.5.0; encoder parameters are in the test.
 These small vectors do not establish representative CPU/memory or release-size cost.
-Decoder fuzzing and those measurements remain planned release checks.
+Decoder fuzzing is configured in the push and nightly suites; successful CI runs
+and representative measurements remain release checks.
 
 ## Fuzzing
 
@@ -288,7 +289,7 @@ memory blow-ups still fail.
 Most targets feed one request handler of a bootstrap node, the code that parses what any peer
 sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
 with no request, byte or ban limits, so inputs reach the parsers instead of the rate limiter. The
-last four feed what a client reads from other people.
+client targets feed what a client reads from other people.
 
 | Target | Handler | Input |
 |--------|---------|-------|
@@ -304,6 +305,8 @@ last four feed what a client reads from other people.
 | `sframe` | `sframe::Receiver::decrypt` | an SFrame video frame; the first byte is the metadata length |
 | `sdp` | `RTCSessionDescription::answer`, `unmarshal_candidate` (rtc) | a call peer's SDP answer or ICE candidate |
 | `preview` | `dyapp_ffi::check_preview` | a preview or profile thumbnail; seeds include small JPEGs and the malformed JPEG that exposed a `zune-jpeg` AVX2 panic |
+| `sticker_tar` | `sticker_tar::read` | bounded uncompressed sticker TAR; GNU tar seed |
+| `sticker_webp` | `sticker_webp::decode::first_frame` | WebP container and first frame; bounded RGBA/alpha checks, with caught decoder panics promoted to saved fuzz failures |
 
 The first input byte decides whether the signed records in the request are signed again by a fixed
 key; its low bits pick the signature domain. A random signature never verifies, so without this the
@@ -320,7 +323,15 @@ Responses that a node reads as a client, mailbox pushes have no target yet (plan
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
 and `.github/workflows/fuzz.yml` for an hour per target every night. Both workflows cache the
 `tests/fuzz` Cargo workspace against `build/fuzz`. The script passes `--fuzz-dir .` from
-`tests/fuzz/` so cargo-fuzz opens that workspace. libFuzzer first runs every
+`tests/fuzz/` so cargo-fuzz opens that workspace. An explicit `FUZZ_TARGETS` builds
+only those targets; without it one build covers all targets. A failed discovery or
+empty/whitespace selection fails the stage rather than reporting an empty success.
+The WebP target sets
+`-max_len=262144` to cover its full compressed-byte limit. Its libwebp 1.5.0 seeds
+encode 1×1 RGB `[10,20,30]` at quality 80 and lossless RGBA `[10,20,30,127]`; the
+animation wraps two lossy frames at 100 ms each, and the corrupt seed retains only
+the lossless dimension header. Seed replay does not establish fuzz coverage.
+libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
 crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
 

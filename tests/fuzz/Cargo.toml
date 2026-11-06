@@ -120,6 +120,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "sticker_webp"
+path = "fuzz_targets/sticker_webp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "sticker_tar"
 path = "fuzz_targets/sticker_tar.rs"
 test = false

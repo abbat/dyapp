@@ -111,21 +111,35 @@ step() {
             # Practice B4: each target (FUZZ_TARGETS, default all) for FUZZ_SECONDS on tests/fuzz/corpus.
             # libFuzzer runs the corpus first, so a saved crash is a regression test. New inputs go
             # to build/fuzz-corpus, crashes to build/fuzz-artifacts.
-            local seconds=${FUZZ_SECONDS:-60} target host
+            local seconds=${FUZZ_SECONDS:-60} target host targets
             # cargo-fuzz defaults to the triple it was built for: musl for install-action's binary.
             host=$(rustc -vV | sed -n 's/^host: //p')
             cd tests/fuzz
+            targets=${FUZZ_TARGETS:-$(cargo fuzz list --fuzz-dir .)}
+            if [[ ! $targets =~ [^[:space:]] ]]; then
+                echo "No fuzz targets selected" >&2
+                return 2
+            fi
             # The targets' node stores live here, off the small /tmp of the dev container.
             rm -rf ../../build/fuzz-tmp
             mkdir -p ../../build/fuzz-tmp
             export TMPDIR=$PWD/../../build/fuzz-tmp
-            cargo fuzz build --fuzz-dir . -s none --target "$host" --target-dir ../../build/fuzz
-            for target in ${FUZZ_TARGETS:-$(cargo fuzz list --fuzz-dir .)}; do
+            local -a build=(cargo fuzz build --fuzz-dir . -s none --target "$host" --target-dir ../../build/fuzz)
+            if [[ -n ${FUZZ_TARGETS:-} ]]; then
+                for target in $targets; do
+                    "${build[@]}" "$target"
+                done
+            else
+                "${build[@]}"
+            fi
+            for target in $targets; do
                 mkdir -p "../../build/fuzz-corpus/$target" "../../build/fuzz-artifacts/$target"
+                local -a limits=()
+                [[ $target == sticker_webp ]] && limits=(-max_len=262144)
                 # The binary itself: `cargo fuzz run` writes into the read-only tests/fuzz/artifacts.
                 "../../build/fuzz/$host/release/$target" \
                     "../../build/fuzz-corpus/$target" "corpus/$target" \
-                    -max_total_time="$seconds" -rss_limit_mb=4096 \
+                    -max_total_time="$seconds" -rss_limit_mb=4096 "${limits[@]}" \
                     -artifact_prefix="../../build/fuzz-artifacts/$target/"
             done
             ;;

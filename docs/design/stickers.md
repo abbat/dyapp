@@ -28,7 +28,9 @@ are field 1; field 2 repeats files in manifest order. Peer field lengths/counts 
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Storage, chat protocol and UI integration remain planned. Decoder CPU,
-representative-file measurements, fuzzing and release-size verification remain required.
+representative-file measurements, successful decoder fuzz CI runs and release-size
+verification remain required. The WebP fuzz target and static/animated/corrupt seeds
+are configured; its 256 KiB input cap covers the allowed compressed-byte range.
 The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
