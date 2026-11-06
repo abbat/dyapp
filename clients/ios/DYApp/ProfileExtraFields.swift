@@ -97,7 +97,7 @@ struct ProfileExtraFields: View {
                 .accessibilityIdentifier("profile-height")
             Section(header: Text("profile.about")) {
                 TextEditor(text: $inputs.about)
-                    .frame(minHeight: 80)
+                    .formEditorHeight(80)
                     .accessibilityLabel(Text("profile.about"))
                     .accessibilityIdentifier("profile-about")
                 Text("profile.aboutHint").font(.caption)
