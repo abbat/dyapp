@@ -6,6 +6,8 @@ udid = "udid"
 hax = "hax"
 # GObject introspection packages (gir1.2-*) in the prototype image.
 gir = "gir"
+# WebP alpha chunk FourCC.
+ALPH = "ALPH"
 
 [files]
 # Raw fuzz inputs and the embedded GeoNames places.

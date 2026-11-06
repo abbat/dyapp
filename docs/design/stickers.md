@@ -1,8 +1,11 @@
 # Sticker packs
 
 Status: required for v0.0.1. The bounded in-memory TAR reader exists in
-`rust/client/src/sticker_tar.rs`; manifest, WebP validation, storage, protocol and UI
-remain planned. The numbers marked *assumed* need measurement and may change.
+`rust/client/src/sticker_tar.rs`. `sticker_webp::check_header` bounds the RIFF envelope,
+canvas, embedded frame dimensions, animation count and duration, and rejects EXIF/XMP.
+It checks container headers only: it neither validates compressed pixels nor makes
+input safe to render. First-frame decoding, manifest validation, storage, protocol
+and UI remain planned. The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
 6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
