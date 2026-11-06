@@ -102,6 +102,17 @@ buttons retain H2–H4, H6–H8; private own-device behavior is unchanged (H10).
 Newly opened views reset their controls, and old completions cannot unlock them.
 No open source-review finding; native EN/RU smoke execution remains for CI.
 
+## Desktop reopened profile actions review (2026-11-06)
+
+Source review found severity 2 late Like/verification/likes-read replies affecting
+a reopened instance of the same profile, plus initial likes reads overwriting a
+local action (H5). Each opening now owns its callbacks; starting Like or Pass
+invalidates the initial likes read. One shared busy guard prevents overlapping
+Like/Pass commands and fresh views reset all controls (H1, H3, H5).
+Failures retain existing retry/pending-delivery messages (H9); existing labels,
+dialogs, layout and privacy help retain H2, H4, H6–H8 and H10.
+No open source-review finding. Native EN/RU smoke execution remains for CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

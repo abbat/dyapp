@@ -621,7 +621,53 @@ const checkPassActions = async () => {
   closeFound();
   card.remove();
 };
+const checkProfileActionGuards = async () => {
+  await openArea('search-area');
+  const card = document.createElement('button');
+  document.getElementById('search-results').append(card);
+  const found = { peerId: '2'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const likes = (ours) => ({ ours, matched: ours, passed: false });
+  const read = (command) => Promise.resolve(command === 'peer_likes' ? likes(false) : false);
+  let finishRead;
+  const heldRead = (command) => command === 'peer_likes'
+    ? new Promise((resolve) => { finishRead = resolve; }) : read(command);
+  openFound(found, card, heldRead);
+  const oldRead = finishRead;
+  closeFound();
+  openFound(found, card, read);
+  await Promise.resolve();
+  oldRead(likes(true));
+  await Promise.resolve();
+  if (!document.getElementById('view-unlike').hidden) throw new Error('old likes read changed reopened view');
+  closeFound();
+  openFound(found, card, heldRead);
+  await sendLike(true, () => Promise.resolve(likes(true)));
+  finishRead(likes(false));
+  await Promise.resolve();
+  if (document.getElementById('view-unlike').hidden) throw new Error('initial read overwrote local like');
+  let finishLike;
+  let writes = 0;
+  const heldLike = () => { writes += 1; return new Promise((resolve) => { finishLike = resolve; }); };
+  const pending = sendLike(false, heldLike);
+  await sendLike(true, heldLike);
+  await sendPass(true, heldLike);
+  if (writes !== 1) throw new Error('like/pass allowed overlapping writes');
+  closeFound();
+  openFound(found, card, read);
+  await Promise.resolve();
+  let finishNew;
+  const newer = sendLike(true, () => new Promise((resolve) => { finishNew = resolve; }));
+  finishLike(likes(false));
+  await pending;
+  if (!document.getElementById('view-like').disabled
+    || viewStatus.textContent !== window.strings['view.sending']) throw new Error('old like unlocked reopened view');
+  finishNew(likes(true));
+  await newer;
+  if (document.getElementById('view-unlike').hidden) throw new Error('new like not shown');
+  closeFound();
+  card.remove();
+};
 globalThis.uiSmokeNames = Object.freeze({
   checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
-  checkSavedProfiles, checkContactNotes, checkPassActions,
+  checkSavedProfiles, checkContactNotes, checkPassActions, checkProfileActionGuards,
 });

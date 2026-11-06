@@ -185,8 +185,9 @@ const showFound = (found) => {
 const openFound = (found, card, call = invoke) => {
   const generation = identityGeneration;
   stopSafetyCamera();
-  viewed = { found, card };
-  for (const id of ['view-pass', 'view-unpass']) document.getElementById(id).disabled = false;
+  const target = { found, card, actionStarted: false };
+  viewed = target;
+  for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass']) document.getElementById(id).disabled = false;
   document.getElementById('view-message').disabled = false;
   document.getElementById('view-safety-image').value = '';
   document.getElementById('view-safety-scan-status').hidden = true;
@@ -202,11 +203,13 @@ const openFound = (found, card, call = invoke) => {
   document.getElementById('view-unverify').disabled = false;
   showVerified(false);
   call('contact_verified', { peerId: found.peerId }).then((verified) => {
-    if (identityCurrent(generation) && viewed?.found === found) showVerified(verified === true);
+    if (identityCurrent(generation) && viewed === target) showVerified(verified === true);
   }, () => {});
   showLikes({ ours: false, matched: false });
   call('peer_likes', { peerId: found.peerId })
-    .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
+    .then((likes) => {
+      if (identityCurrent(generation) && viewed === target && !target.actionStarted) showLikes(likes);
+    }, () => {});
   showFound(found);
   window.favoriteShown = window.showFavorite(call);
   window.noteShown = window.showContactNote(call);
@@ -236,10 +239,14 @@ document.getElementById('view-back').addEventListener('click', () => {
 });
 // A like goes to the pair group on the active network; the first one invites the peer.
 const sendLike = async (liked, call = invoke) => {
-  const { found } = viewed;
+  const target = viewed;
+  if (!target || target.actionBusy) return;
+  const { found } = target;
   const generation = identityGeneration;
-  const currentView = () => identityCurrent(generation) && viewed?.found === found;
-  const buttons = ['view-like', 'view-unlike'].map((id) => document.getElementById(id));
+  const currentView = () => identityCurrent(generation) && viewed === target;
+  target.actionBusy = true;
+  target.actionStarted = true;
+  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) => document.getElementById(id));
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = window.strings['view.sending'];
   try {
@@ -260,6 +267,7 @@ const sendLike = async (liked, call = invoke) => {
       if (likes.ours === liked) viewStatus.textContent = window.strings['view.like.pending'];
     }, () => {});
   } finally {
+    target.actionBusy = false;
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
@@ -281,12 +289,13 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 // A pass stays with the own devices: the card leaves its list at once and the open profile can undo it.
 const sendPass = async (passed, call = invoke) => {
   const target = viewed;
-  if (!target || target.passBusy) return;
+  if (!target || target.actionBusy) return;
   const { found, card } = target;
   const generation = identityGeneration;
   const currentView = () => identityCurrent(generation) && viewed === target;
-  target.passBusy = true;
-  const buttons = ['view-pass', 'view-unpass'].map((id) => document.getElementById(id));
+  target.actionBusy = true;
+  target.actionStarted = true;
+  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) => document.getElementById(id));
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = window.strings['view.pass.saving'];
   try {
@@ -302,7 +311,7 @@ const sendPass = async (passed, call = invoke) => {
   } catch (error) {
     if (currentView()) viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
   } finally {
-    target.passBusy = false;
+    target.actionBusy = false;
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
