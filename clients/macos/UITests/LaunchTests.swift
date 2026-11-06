@@ -45,7 +45,15 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(selected.waitForExistence(timeout: 10))
         let text = selected.value as? String ?? selected.label
         XCTAssertTrue(text.contains(peerID), text)
-        XCTAssertTrue(app.buttons["settings-network"].exists)
+        let network = app.buttons["settings-network"]
+        XCTAssertTrue(network.exists)
+        // During setup the sidebar is the network form, so the link only closes the settings.
+        network.click()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: selected
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        XCTAssertTrue(app.buttons["network-save"].exists)
         app.terminate()
     }
 }
@@ -313,6 +321,17 @@ extension LaunchTests {
         XCTAssertEqual(shownPeerId(app), peerID)
         XCTAssertTrue(app.staticTexts["app-ready"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["network-edit"].exists)
+        XCTAssertFalse(app.buttons["network-save"].exists)
+        // The settings link selects the sidebar's network entry: a push in the detail column has no
+        // way back on macOS 12. Another sidebar entry then replaces it.
+        app.buttons["settings-open"].click()
+        let network = app.buttons["settings-network"]
+        XCTAssertTrue(network.waitForExistence(timeout: 10), app.debugDescription)
+        network.click()
+        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["settings-active"].exists)
+        app.buttons["profile-edit"].click()
+        XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["network-save"].exists)
         app.terminate()
     }

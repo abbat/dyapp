@@ -20,6 +20,8 @@ struct IdentitySettingsView: View {
     /// The chat store of the active identity, once its network is set up.
     let feed: ChatFeed?
     let onIdentityChanged: (IdentityResolution) -> Void
+    /// Replaces the network link where the start screen owns that navigation.
+    var openNetwork: (() -> Void)?
     @State private var rows: [IdentityInventoryRow] = []
     @State private var isLoading = true
     @State private var readFailed = false
@@ -87,10 +89,15 @@ struct IdentitySettingsView: View {
             }
 
             Section {
-                NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
-                    Text("network.title")
+                if let openNetwork {
+                    Button("network.title", action: openNetwork)
+                        .accessibilityIdentifier("settings-network")
+                } else {
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                        Text("network.title")
+                    }
+                    .accessibilityIdentifier("settings-network")
                 }
-                .accessibilityIdentifier("settings-network")
             }
 
             #if os(macOS)

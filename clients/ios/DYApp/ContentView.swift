@@ -226,13 +226,18 @@ struct ContentView: View {
             settingsView(candidate, peerId)
 
         case .network:
+            #if os(macOS)
+            // A push from the macOS 12 detail column has no way back: select the profile instead.
+            NetworkDraftView(candidate: candidate, peerId: peerId) { startLink = .profile }
+            #else
             NetworkDraftView(candidate: candidate, peerId: peerId)
+            #endif
 
         case .profile:
             ProfileDraftView(candidate: candidate, peerId: peerId)
 
         case .search:
-            SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats)
+            SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats, openNetwork: openNetwork)
 
         case .chats:
             ChatsView(feed: chats)
@@ -317,13 +322,25 @@ struct ContentView: View {
     }
 
     private func settingsView(_ candidate: IdentityCandidate, _ peerId: String) -> IdentitySettingsView {
-        IdentitySettingsView(candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil) { selected in
+        var view = IdentitySettingsView(candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil) { selected in
             #if os(macOS)
             startLink = nil
             #endif
             activeNetwork = .loading
             identity = selected
         }
+        view.openNetwork = openNetwork
+        return view
+    }
+
+    /// The macOS detail column selects the sidebar's network entry, as a push there has no way back on
+    /// macOS 12. During setup the sidebar is that form, so only the detail closes. iOS pushes instead.
+    private var openNetwork: (() -> Void)? {
+        #if os(macOS)
+        return { startLink = activeNetwork == .needsSetup ? nil : .network }
+        #else
+        return nil
+        #endif
     }
 
     private func createIdentity() {

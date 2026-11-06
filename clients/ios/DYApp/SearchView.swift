@@ -7,6 +7,8 @@ struct SearchView: View {
     let candidate: IdentityCandidate
     let peerId: String
     @ObservedObject var feed: ChatFeed
+    /// Replaces the network link where the start screen owns that navigation.
+    var openNetwork: (() -> Void)?
     @State private var opened: OpenedProfile?
     @State private var chat: OpenedProfile?
 
@@ -64,10 +66,15 @@ struct SearchView: View {
             Text(verbatim: details).font(.caption).textSelection(.enabled)
                 .accessibilityIdentifier("search-failures")
             if !searchFixTheFields.contains(key) {
-                NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
-                    Text("search.openNetwork")
+                if let openNetwork {
+                    Button("search.openNetwork", action: openNetwork)
+                        .accessibilityIdentifier("search-open-network")
+                } else {
+                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                        Text("search.openNetwork")
+                    }
+                    .accessibilityIdentifier("search-open-network")
                 }
-                .accessibilityIdentifier("search-open-network")
                 Button("search.retry") { session.run() }
                     .accessibilityIdentifier("search-retry")
             }

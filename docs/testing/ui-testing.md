@@ -639,8 +639,10 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
 - All links of the start screen share one `selection`. On a macOS sidebar a link held active by its
   own flag keeps the detail pane, so no other link can replace it.
 - On macOS 12 a `NavigationLink` inside the detail column replaces it with no back button, so
-  sub-pages there are state with an explicit Back. On iOS, `.task` on a root row is cancelled
-  when a page is pushed, so polling lives on the root `NavigationView`.
+  sub-pages there are state with an explicit Back, and a link to a page the sidebar already has
+  (the network form from settings or search, the profile after Continue) selects that sidebar
+  entry. On iOS, `.task` on a root row is cancelled when a page is pushed, so polling lives on
+  the root `NavigationView`.
 - `.task` on a `Section` is unreliable; put it on the first row. Buttons inside an iOS form row
   need `.buttonStyle(.borderless)`, or one tap fires all of them.
 - `TextField` inside `.alert` needs iOS 16 and macOS 13, so rename screens are sheets.
