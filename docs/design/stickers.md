@@ -7,6 +7,8 @@ The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
 6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
 exercise archive parsing only; the fixture sticker payload is deliberately not WebP.
+The scheduled sticker_tar fuzz target mutates this archive seed and checks accepted
+file-count, path and byte bounds; its CI execution is still required before release.
 
 A user imports a sticker pack from a file, sends stickers from it in a chat, and a peer can save
 the whole pack and send from it too. Every sticker travels as an ordinary sealed

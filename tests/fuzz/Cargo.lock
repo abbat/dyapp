@@ -1209,6 +1209,7 @@ name = "dyapp-fuzz"
 version = "0.0.0"
 dependencies = [
  "dyapp-bootstrap",
+ "dyapp-client",
  "dyapp-ffi",
  "dyapp-identity",
  "dyapp-messaging",
