@@ -130,7 +130,13 @@ end-to-end verification remain planned.
 A linked device starts from a copy of the local state: peers (blocks, mutes, favorites, contact names, seen
 devices, verified marks), likes in both directions, passes, the interaction clock and the hidden
 flag ([ADR 0040](../decisions/0040-device-linking.md)). The clock goes past every copied row, so
-later events are not lost to last-writer-wins. Later blocks, mutes, favorites, names and passes travel in the
+later events are not lost to last-writer-wins. Private field changes compare
+`(HLC, sender device key, field value)`: the device key resolves concurrent clocks,
+and the value is only a stable fallback if one device reuses a clock with conflicting
+content. The authenticated MLS device key is stored per field and copied when linking.
+A lone local change without an own-device group may have an empty actor; HLC remains
+primary. No extra network payload field is needed. A newer clock always wins,
+regardless of actor or value. Later blocks, mutes, favorites, names and passes travel in the
 private group of own devices ([chats and matches](chats-and-matches.md#own-devices)). A device list change keeps a hidden profile hidden:
 it publishes to profile storage and holds a newer tombstone for search.
 

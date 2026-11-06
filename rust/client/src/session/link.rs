@@ -128,7 +128,12 @@ impl Session {
         let hlc = self.store.tick(crate::now() * 1000)?;
         let groups: Vec<_> = self.own_groups().map(|g| g.id().to_vec()).collect();
         if groups.is_empty() {
-            self.store.apply_peer_change(peer, &change, hlc)?;
+            let actor = self
+                .device
+                .as_ref()
+                .ok_or(Error::Invalidated)?
+                .device_key()?;
+            self.store.apply_peer_change(peer, &change, hlc, &actor)?;
             return Ok(());
         }
         let body = Body::PeerChange {

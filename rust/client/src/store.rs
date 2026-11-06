@@ -550,7 +550,8 @@ CREATE TABLE `settings` (
 CREATE TABLE `pass_history` (
     `peer_id` TEXT PRIMARY KEY,
     `passed` INTEGER NOT NULL CHECK (`passed` IN (0, 1)),
-    `updated_hlc` INTEGER NOT NULL
+    `updated_hlc` INTEGER NOT NULL,
+    `updated_device` BLOB NOT NULL DEFAULT x''
 ) STRICT;
 CREATE TABLE `conversation_groups` (
     `group_id` BLOB PRIMARY KEY CHECK (length(`group_id`) > 0),

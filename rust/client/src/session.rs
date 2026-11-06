@@ -297,8 +297,9 @@ impl Session {
             } else if matches!(body, Body::Receipt(_)) {
                 self.store.stage_receipt(&sealed, &writes)?;
             } else if let Body::PeerChange { peer, hlc, change } = body {
+                let actor = device.device_key()?;
                 self.store
-                    .stage_peer_change(peer, change, *hlc, &sealed, &writes)?;
+                    .stage_peer_change(peer, change, *hlc, &sealed, &writes, &actor)?;
             } else if body.attachment_message().is_some()
                 || matches!(
                     body,

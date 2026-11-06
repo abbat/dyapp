@@ -46,7 +46,7 @@ pub async fn change_peer(
             .tick(dyapp_client::now() * 1000)
             .map_err(|e| e.to_string())?;
         return store
-            .apply_peer_change(peer_id, &change, at)
+            .apply_peer_change(peer_id, &change, at, &[])
             .map_err(|e| e.to_string());
     }
     let device = crate::device_key(root, dir, identity)?;
@@ -228,7 +228,7 @@ mod tests {
         assert!(!store.blocked(&peer).unwrap());
         // A stamped row refuses what a linked device did before this.
         assert!(!store
-            .receive_peer_change(&peer, &PeerChange::Blocked(true), 1, 1_000)
+            .receive_peer_change(&peer, &PeerChange::Blocked(true), 1, 1_000, &[])
             .unwrap());
         drop(store);
         assert_eq!(

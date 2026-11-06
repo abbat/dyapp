@@ -53,6 +53,14 @@ struct Peer {
     favorite: bool,
     #[prost(int64, tag = "13")]
     favorite_hlc: i64,
+    #[prost(bytes = "vec", tag = "14")]
+    blocked_device: Vec<u8>,
+    #[prost(bytes = "vec", tag = "15")]
+    muted_device: Vec<u8>,
+    #[prost(bytes = "vec", tag = "16")]
+    name_device: Vec<u8>,
+    #[prost(bytes = "vec", tag = "17")]
+    favorite_device: Vec<u8>,
 }
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -79,6 +87,8 @@ struct Pass {
     passed: bool,
     #[prost(int64, tag = "3")]
     updated_hlc: i64,
+    #[prost(bytes = "vec", tag = "4")]
+    updated_device: Vec<u8>,
 }
 
 impl Store {
@@ -136,7 +146,7 @@ impl Store {
         let mut peers = self.db.prepare(
             "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
                     `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`,
-                    `favorite`, `favorite_hlc`
+                    `favorite`, `favorite_hlc`, `blocked_device`, `muted_device`, `name_device`, `favorite_device`
              FROM `peers` ORDER BY `peer_id`",
         )?;
         let peers = peers.query_map([], |row| {
@@ -154,6 +164,10 @@ impl Store {
                 name_hlc: row.get(10)?,
                 favorite: row.get(11)?,
                 favorite_hlc: row.get(12)?,
+                blocked_device: row.get(13)?,
+                muted_device: row.get(14)?,
+                name_device: row.get(15)?,
+                favorite_device: row.get(16)?,
             })
         })?;
         let mut likes = self.db.prepare(
@@ -171,13 +185,14 @@ impl Store {
             })
         })?;
         let mut passes = self.db.prepare(
-            "SELECT `peer_id`, `passed`, `updated_hlc` FROM `pass_history` ORDER BY `peer_id`",
+            "SELECT `peer_id`, `passed`, `updated_hlc`, `updated_device` FROM `pass_history` ORDER BY `peer_id`",
         )?;
         let passes = passes.query_map([], |row| {
             Ok(Pass {
                 peer_id: row.get(0)?,
                 passed: row.get(1)?,
                 updated_hlc: row.get(2)?,
+                updated_device: row.get(3)?,
             })
         })?;
         let state = LinkState {
@@ -215,8 +230,9 @@ impl Store {
             tx.execute(
                 "INSERT OR REPLACE INTO `peers` (`peer_id`, `blocked`, `muted`, `local_name`,
                      `seen_devices`, `seen_version`, `verified`, `new_device`, `blocked_hlc`,
-                     `muted_hlc`, `name_hlc`, `favorite`, `favorite_hlc`)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                     `muted_hlc`, `name_hlc`, `favorite`, `favorite_hlc`,
+                     `blocked_device`, `muted_device`, `name_device`, `favorite_device`)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
                 params![
                     peer.peer_id,
                     peer.blocked,
@@ -230,7 +246,11 @@ impl Store {
                     peer.muted_hlc,
                     peer.name_hlc,
                     peer.favorite,
-                    peer.favorite_hlc
+                    peer.favorite_hlc,
+                    peer.blocked_device,
+                    peer.muted_device,
+                    peer.name_device,
+                    peer.favorite_device
                 ],
             )?;
         }
@@ -251,9 +271,9 @@ impl Store {
         }
         for pass in &state.passes {
             tx.execute(
-                "INSERT OR REPLACE INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`)
-                 VALUES (?1, ?2, ?3)",
-                params![pass.peer_id, pass.passed, pass.updated_hlc],
+                "INSERT OR REPLACE INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`, `updated_device`)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![pass.peer_id, pass.passed, pass.updated_hlc, pass.updated_device],
             )?;
         }
         save_hlc(&tx, clock.into())?;
@@ -294,8 +314,13 @@ mod tests {
     fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
         let owner = Identity::generate();
         let old = Store::open(&temp_db_path(), &owner).unwrap();
-        old.apply_peer_change("bob", &crate::chat::PeerChange::Favorite(true), 1u64.into())
-            .unwrap();
+        old.apply_peer_change(
+            "bob",
+            &crate::chat::PeerChange::Favorite(true),
+            1u64.into(),
+            &[],
+        )
+        .unwrap();
         old.set_blocked("bob", true).unwrap();
         let high = 1i64 << 40;
         old.db

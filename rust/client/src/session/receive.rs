@@ -327,12 +327,16 @@ impl Session {
         // A replay changes nothing: the newest change wins.
         if let Event::Message {
             body: Body::PeerChange { peer, hlc, change },
+            device: source_device,
             ..
         } = &event
         {
             if !blocked {
                 let wall_ms = crate::now() * 1000;
-                match self.store.receive_peer_change(peer, change, *hlc, wall_ms) {
+                match self
+                    .store
+                    .receive_peer_change(peer, change, *hlc, wall_ms, source_device)
+                {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         event = Event::Refused("change from the future".into());
                     }

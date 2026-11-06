@@ -29,7 +29,11 @@ CREATE TABLE `peers` (
     `muted_hlc` INTEGER NOT NULL DEFAULT 0,
     `name_hlc` INTEGER NOT NULL DEFAULT 0,
     `favorite` INTEGER NOT NULL DEFAULT 0 CHECK (`favorite` IN (0, 1)),
-    `favorite_hlc` INTEGER NOT NULL DEFAULT 0
+    `favorite_hlc` INTEGER NOT NULL DEFAULT 0,
+    `blocked_device` BLOB NOT NULL DEFAULT x'',
+    `muted_device` BLOB NOT NULL DEFAULT x'',
+    `name_device` BLOB NOT NULL DEFAULT x'',
+    `favorite_device` BLOB NOT NULL DEFAULT x''
 ) STRICT;
 ";
 
@@ -49,42 +53,61 @@ pub enum ContactName {
     Unnamed,
 }
 
-/// Write `change` unless a newer one about `peer_id` is held. Returns whether it applied.
+/// Merge by HLC, authenticated device key, then value for conflicting clock reuse.
 fn apply_change(
     db: &Connection,
     peer_id: &str,
     change: &PeerChange,
     at: Timestamp,
+    source_device: &[u8],
 ) -> Result<bool, Error> {
-    let (column, stamp, value) = match change {
-        PeerChange::Blocked(on) => ("blocked", "blocked_hlc", Value::from(*on)),
-        PeerChange::Muted(on) => ("muted", "muted_hlc", Value::from(*on)),
-        PeerChange::Favorite(on) => ("favorite", "favorite_hlc", Value::from(*on)),
-        PeerChange::Name(name) => ("local_name", "name_hlc", Value::from(name.clone())),
-        PeerChange::Passed(on) => return write_pass(db, peer_id, *on, at),
+    let (column, stamp, actor, value) = match change {
+        PeerChange::Blocked(on) => ("blocked", "blocked_hlc", "blocked_device", Value::from(*on)),
+        PeerChange::Muted(on) => ("muted", "muted_hlc", "muted_device", Value::from(*on)),
+        PeerChange::Favorite(on) => (
+            "favorite",
+            "favorite_hlc",
+            "favorite_device",
+            Value::from(*on),
+        ),
+        PeerChange::Name(name) => (
+            "local_name",
+            "name_hlc",
+            "name_device",
+            Value::from(name.clone()),
+        ),
+        PeerChange::Passed(on) => return write_pass(db, peer_id, *on, at, source_device),
     };
     let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
-    // `column` and `stamp` are the literals above, never caller input.
+    // Column identifiers are the literals above, never caller input.
     let changed = db.execute(
         &format!(
-            "INSERT INTO `peers` (`peer_id`, `{column}`, `{stamp}`) VALUES (?1, ?2, ?3)
+            "INSERT INTO `peers` (`peer_id`, `{column}`, `{stamp}`, `{actor}`) VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT (`peer_id`) DO UPDATE SET `{column}` = excluded.`{column}`,
-             `{stamp}` = excluded.`{stamp}`
-             WHERE excluded.`{stamp}` > `peers`.`{stamp}`"
+             `{stamp}` = excluded.`{stamp}`, `{actor}` = excluded.`{actor}`
+             WHERE (excluded.`{stamp}`, excluded.`{actor}`, excluded.`{column}`)
+                 > (`peers`.`{stamp}`, `peers`.`{actor}`, `peers`.`{column}`)"
         ),
-        params![peer_id, value, at],
+        params![peer_id, value, at, source_device],
     )?;
     Ok(changed != 0)
 }
 
-fn write_pass(db: &Connection, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
+fn write_pass(
+    db: &Connection,
+    peer_id: &str,
+    passed: bool,
+    at: Timestamp,
+    source_device: &[u8],
+) -> Result<bool, Error> {
     let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
     let changed = db.execute(
-        "INSERT INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`) VALUES (?1, ?2, ?3)
+        "INSERT INTO `pass_history` (`peer_id`, `passed`, `updated_hlc`, `updated_device`) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT (`peer_id`) DO UPDATE SET `passed` = excluded.`passed`,
-         `updated_hlc` = excluded.`updated_hlc`
-         WHERE excluded.`updated_hlc` > `pass_history`.`updated_hlc`",
-        params![peer_id, i64::from(passed), at],
+         `updated_hlc` = excluded.`updated_hlc`, `updated_device` = excluded.`updated_device`
+         WHERE (excluded.`updated_hlc`, excluded.`updated_device`, excluded.`passed`)
+             > (`pass_history`.`updated_hlc`, `pass_history`.`updated_device`, `pass_history`.`passed`)",
+        params![peer_id, i64::from(passed), at, source_device],
     )?;
     Ok(changed != 0)
 }
@@ -93,7 +116,7 @@ impl Store {
     /// Set or undo a local pass. An older event cannot overwrite a newer one.
     /// Returns whether the stored state changed.
     pub fn set_pass(&self, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
-        write_pass(&self.db, peer_id, passed, at)
+        write_pass(&self.db, peer_id, passed, at, &[])
     }
 
     /// The next own clock value.
@@ -111,8 +134,9 @@ impl Store {
         peer_id: &str,
         change: &PeerChange,
         at: Timestamp,
+        source_device: &[u8],
     ) -> Result<(), Error> {
-        apply_change(&self.db, peer_id, change, at).map(drop)
+        apply_change(&self.db, peer_id, change, at, source_device).map(drop)
     }
 
     /// Apply `change`, made here at `hlc`, in the commit that stages it for the own devices.
@@ -123,9 +147,10 @@ impl Store {
         hlc: u64,
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
+        source_device: &[u8],
     ) -> Result<(), Error> {
         let tx = self.db.transaction()?;
-        apply_change(&tx, peer_id, change, Timestamp::from(hlc))?;
+        apply_change(&tx, peer_id, change, Timestamp::from(hlc), source_device)?;
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
         tx.commit()?;
         Ok(())
@@ -139,12 +164,13 @@ impl Store {
         change: &PeerChange,
         hlc: u64,
         wall_ms: u64,
+        source_device: &[u8],
     ) -> Result<bool, Error> {
         let at = Timestamp::from(hlc);
         let tx = self.db.transaction()?;
         let clock = HybridClock::resume(load_hlc(&tx)?);
         save_hlc(&tx, clock.observe_at(at, wall_ms)?)?;
-        let changed = apply_change(&tx, peer_id, change, at)?;
+        let changed = apply_change(&tx, peer_id, change, at, source_device)?;
         tx.commit()?;
         Ok(changed)
     }
@@ -378,6 +404,66 @@ mod tests {
     use dyapp_profile::{Profile, VerifiedProfile};
 
     #[test]
+    fn equal_clock_changes_converge_by_device_and_survive_linking() {
+        let owner = Identity::generate();
+        let mut left = Store::open(&temp_db_path(), &owner).unwrap();
+        let mut right = Store::open(&temp_db_path(), &owner).unwrap();
+        let at = u64::from(Timestamp::new(1_000, 0));
+        let state = |store: &Store| {
+            (
+                store.blocked("bob").unwrap(),
+                store.muted("bob").unwrap(),
+                store.favorite("bob").unwrap(),
+                store.local_name("bob").unwrap(),
+                store.passed_peers().unwrap(),
+            )
+        };
+        for (a, b) in [
+            (PeerChange::Blocked(true), PeerChange::Blocked(false)),
+            (PeerChange::Muted(true), PeerChange::Muted(false)),
+            (PeerChange::Favorite(true), PeerChange::Favorite(false)),
+            (PeerChange::Passed(true), PeerChange::Passed(false)),
+            (
+                PeerChange::Name("zulu".into()),
+                PeerChange::Name("alpha".into()),
+            ),
+        ] {
+            left.receive_peer_change("bob", &a, at, 1_000, &[1; 32])
+                .unwrap();
+            left.receive_peer_change("bob", &b, at, 1_000, &[2; 32])
+                .unwrap();
+            right
+                .receive_peer_change("bob", &b, at, 1_000, &[2; 32])
+                .unwrap();
+            assert!(!right
+                .receive_peer_change("bob", &a, at, 1_000, &[1; 32])
+                .unwrap());
+            assert_eq!(state(&left), state(&right));
+            assert!(!left
+                .receive_peer_change("bob", &b, at, 1_000, &[2; 32])
+                .unwrap());
+            let mut copy = Store::open(&temp_db_path(), &owner).unwrap();
+            copy.import_link_state(&left.link_state().unwrap()).unwrap();
+            assert!(!copy
+                .receive_peer_change("bob", &a, at, 1_000, &[1; 32])
+                .unwrap());
+            assert_eq!(state(&copy), state(&left));
+        }
+        // A device reusing a timestamp with conflicting values also has a stable fallback.
+        let next = u64::from(Timestamp::new(2_000, 0));
+        for flag in [false, true] {
+            left.receive_peer_change("bob", &PeerChange::Favorite(flag), next, 2_000, &[3; 32])
+                .unwrap();
+        }
+        for flag in [true, false] {
+            right
+                .receive_peer_change("bob", &PeerChange::Favorite(flag), next, 2_000, &[3; 32])
+                .unwrap();
+        }
+        assert!(left.favorite("bob").unwrap() && right.favorite("bob").unwrap());
+    }
+
+    #[test]
     fn the_newest_change_from_any_own_device_wins() {
         let at = |ms| u64::from(Timestamp::new(ms, 0));
         let wall = 1_000_000;
@@ -394,10 +480,12 @@ mod tests {
             ),
         ] {
             assert!(store
-                .receive_peer_change("bob", &new, at(2_000), wall)
+                .receive_peer_change("bob", &new, at(2_000), wall, &[2; 32])
                 .unwrap());
             for stamp in [at(1_000), at(2_000)] {
-                assert!(!store.receive_peer_change("bob", &old, stamp, wall).unwrap());
+                assert!(!store
+                    .receive_peer_change("bob", &old, stamp, wall, &[1; 32])
+                    .unwrap());
             }
         }
         assert!(store.blocked("bob").unwrap());
@@ -408,11 +496,11 @@ mod tests {
 
         let unblock = PeerChange::Blocked(false);
         assert!(store
-            .receive_peer_change("bob", &unblock, at(3_000), wall)
+            .receive_peer_change("bob", &unblock, at(3_000), wall, &[])
             .unwrap());
         assert!(!store.blocked("bob").unwrap());
         assert!(matches!(
-            store.receive_peer_change("bob", &PeerChange::Blocked(true), at(wall * 10), wall),
+            store.receive_peer_change("bob", &PeerChange::Blocked(true), at(wall * 10), wall, &[]),
             Err(Error::ClockSkew(_))
         ));
         assert!(!store.blocked("bob").unwrap());
@@ -425,16 +513,16 @@ mod tests {
             .unwrap();
         let block = PeerChange::Blocked(true);
         assert!(!linked
-            .receive_peer_change("bob", &block, at(2_500), wall)
+            .receive_peer_change("bob", &block, at(2_500), wall, &[])
             .unwrap());
         assert!(!linked.blocked("bob").unwrap());
         assert!(linked.favorite("bob").unwrap());
         assert!(!linked
-            .receive_peer_change("bob", &PeerChange::Favorite(false), at(1_500), wall)
+            .receive_peer_change("bob", &PeerChange::Favorite(false), at(1_500), wall, &[])
             .unwrap());
         assert!(linked.favorite("bob").unwrap());
         assert!(linked
-            .receive_peer_change("bob", &PeerChange::Favorite(false), at(3_500), wall)
+            .receive_peer_change("bob", &PeerChange::Favorite(false), at(3_500), wall, &[])
             .unwrap());
         assert!(!linked.favorite("bob").unwrap());
     }
@@ -446,13 +534,19 @@ mod tests {
         let store = Store::open(&path, &owner).unwrap();
         assert!(!store.favorite("bob").unwrap());
         store
-            .apply_peer_change("bob", &PeerChange::Favorite(true), Timestamp::new(1_000, 0))
+            .apply_peer_change(
+                "bob",
+                &PeerChange::Favorite(true),
+                Timestamp::new(1_000, 0),
+                &[],
+            )
             .unwrap();
         store
             .apply_peer_change(
                 "carol",
                 &PeerChange::Favorite(true),
                 Timestamp::new(1_001, 0),
+                &[],
             )
             .unwrap();
         store.set_blocked("bob", true).unwrap();
@@ -467,6 +561,7 @@ mod tests {
                 "bob",
                 &PeerChange::Favorite(false),
                 Timestamp::new(2_000, 0),
+                &[],
             )
             .unwrap();
         assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
@@ -481,7 +576,7 @@ mod tests {
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         let at = store.tick(1_000).unwrap();
         store
-            .apply_peer_change("bob", &PeerChange::Muted(true), at)
+            .apply_peer_change("bob", &PeerChange::Muted(true), at, &[])
             .unwrap();
         assert!(store.muted("bob").unwrap());
 
@@ -489,7 +584,14 @@ mod tests {
         let hlc = store.tick(1_001).unwrap().into();
         let change = PeerChange::Blocked(true);
         store
-            .stage_peer_change("bob", &change, hlc, b"sealed", std::slice::from_ref(&write))
+            .stage_peer_change(
+                "bob",
+                &change,
+                hlc,
+                b"sealed",
+                std::slice::from_ref(&write),
+                &[],
+            )
             .unwrap();
         assert!(store.blocked("bob").unwrap());
         assert_eq!(store.sealed_device().unwrap(), Some(b"sealed".to_vec()));
