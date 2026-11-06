@@ -350,7 +350,7 @@ mod tests {
                 "bob",
                 &PeerChange::Note("older actor".into()),
                 high,
-                0,
+                dyapp_messaging::hlc::Timestamp::from(high).wall_ms(),
                 &[1; 32]
             )
             .unwrap());
