@@ -105,7 +105,9 @@ struct NetworkDraftView: View {
     }
 
     var body: some View {
-        ScrollingForm {
+        // Not `ScrollingForm`: on macOS its SwiftUI scroll view, under the pointer as Continue
+        // swapped the sidebar, crashed the app in an AppKit layout loop.
+        Form {
             if let header {
                 Section { header }
             }

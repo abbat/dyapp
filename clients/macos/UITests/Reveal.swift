@@ -23,16 +23,6 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -
     }
 }
 
-/// Continue swaps the setup sidebar and opens the profile; the app crashed now and then in an
-/// AppKit layout loop set off by a cursor hit test over the changing form. Parking the pointer on
-/// the status bar tests that cause; it is an experiment, not a fix for users.
-@MainActor
-func clickContinue(_ next: XCUIElement, in app: XCUIApplication) {
-    next.click()
-    let status = app.staticTexts["status-traffic"]
-    if status.exists { status.hover() }
-}
-
 /// Reveals a field of a form that is off while its draft loads: a click then gives it no focus.
 @MainActor
 func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {

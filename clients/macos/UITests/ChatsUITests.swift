@@ -346,6 +346,6 @@ final class ChatsUITests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: next
         ),
         ], timeout: 15), .completed)
-        clickContinue(next, in: app)
+        next.click()
     }
 }

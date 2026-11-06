@@ -633,8 +633,9 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
   `HostingScrollView` under the pointer, which resizes again, right after the setup's Continue.
   A fixed `TextEditor` height did not stop it; the cause is still open. A grouped `Form` on macOS
   13+ is no way out: there a click on the network form's Check connection did nothing, and every
-  UI test through setup failed. The macOS tests press Continue through `clickContinue`, which
-  parks the pointer on the status bar: an experiment on the cursor cause, not a fix for users.
+  UI test through setup failed. With the pointer parked on the status bar after Continue the crash
+  stayed away, so the network form, under the pointer at that moment, is a plain `Form` now
+  (fix unproven yet).
 - All links of the start screen share one `selection`. On a macOS sidebar a link held active by its
   own flag keeps the detail pane, so no other link can replace it.
 - On macOS 12 a `NavigationLink` inside the detail column replaces it with no back button, so
