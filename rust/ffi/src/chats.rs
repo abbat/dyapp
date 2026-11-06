@@ -30,6 +30,7 @@ mod original;
 mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
+pub use photos::chat_photo_hours_left;
 mod reads;
 mod send_photo;
 mod view;
