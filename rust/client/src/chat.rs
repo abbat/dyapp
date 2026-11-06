@@ -205,6 +205,8 @@ pub struct AttachmentMessage {
 
 mod attachment_wire;
 use attachment_wire::AttachmentWire;
+/// Bounded sticker payload codec; outer message integration is not enabled yet.
+pub mod sticker;
 
 /// The most write IDs one receipt names, above a node's fetch page.
 pub const MAX_RECEIPT_IDS: usize = 256;

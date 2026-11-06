@@ -138,6 +138,15 @@ needs a stub.
 The existing tag-6 descriptor conversion and validation live in
 `rust/client/src/chat/attachment_wire.rs`, shared within the chat codec. Sticker-body
 integration remains planned; it must reuse this validation boundary.
+`chat::sticker::Sticker` now encodes/decodes a payload bounded at 2 KiB before protobuf
+allocation. It uses the manifest's clean NFC name and single-grapheme label rules,
+fixed-size IDs, a signed-range HLC and an optional existing attachment descriptor.
+The nested descriptor's message ID/HLC must equal the sticker's; its release secret
+is zero, preview is empty and plaintext size is 1..=256 KiB. A mismatched plaintext
+hash preserves fallback metadata but `download()` returns no descriptor. Compressed
+bytes still require hash and WebP validation after fetching. This payload is not yet
+registered under an outer tag or enabled in session receive/send: history projection
+and common-media integration must land with that registration.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The

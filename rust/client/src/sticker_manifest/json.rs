@@ -67,8 +67,12 @@ impl Parsed<'_> {
     }
 }
 
-fn clean_label(text: &str) -> bool {
+pub(crate) fn clean_label(text: &str) -> bool {
     !text.trim().is_empty() && text.chars().count() <= 64 && is_clean_text(text)
+}
+
+pub(crate) fn valid_emoji(text: &str) -> bool {
+    clean_label(text) && text.graphemes(true).count() == 1
 }
 
 fn hash(text: &str) -> Option<[u8; 32]> {
@@ -114,7 +118,7 @@ pub fn parse(bytes: &[u8]) -> Result<Parsed<'_>, String> {
             if !super::safe_file(&raw.file) {
                 return Err(format!("{:?}: unsafe root filename", raw.file));
             }
-            if !clean_label(&raw.emoji) || raw.emoji.graphemes(true).count() != 1 {
+            if !valid_emoji(&raw.emoji) {
                 return Err(format!("{:?}: label must be one clean grapheme", raw.file));
             }
             let sha256 =
