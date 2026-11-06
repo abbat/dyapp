@@ -44,6 +44,25 @@ Quota failure preserves the collection and asks for a smaller pack. Importing do
 not publish or send anything. The shipped controller now connects these controls to local
 commands. Sending and removal controls remain planned.
 
+### Confirmed pack removal (prototype; controls planned)
+
+Per-row actions `sticker-remove-1` and `sticker-remove-2` open
+`sticker-remove-dialog`; confirmation does not depend on readable pack content.
+`sticker-remove-name` and `sticker-remove-id` identify the exact pack. Its full ID
+wraps at the midpoint without changing the value. `sticker-remove-hint` explains
+local-copy removal and possible re-import, not erasure of copies elsewhere.
+
+States `stickers-remove-dialog` and `stickers-remove-unreadable` show the normal
+and unreadable-pack confirmations. `sticker-remove-cancel` has initial focus and
+sends nothing; `sticker-remove-confirm` explicitly admits removal. The shipped
+implementation must close/invalidate the dialog on navigation or identity change,
+retain the exact originating view and PackID, and prevent duplicate writes.
+After confirmation the dialog closes: `stickers-removing` disables repeated actions,
+`stickers-removed` refreshes the remaining list, and `stickers-remove-error` states
+that the outcome is unknown and offers Refresh. It must never promise preservation
+after an unlink/sync error. Native command, dialog behavior and removal controls
+remain planned.
+
 ## First run
 
 `wizard-identity`: step 1 of 2. The system keyring is preselected when available; the file option

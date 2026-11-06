@@ -157,6 +157,29 @@ that harness proves callback behavior, not native file-picker or IPC behavior.
 The same checked-in smoke also passed locally in WebKit with actual DOM and mocked IPC,
 including keyboard focus. Native Linux/Windows backend integration remains for CI.
 
+## Desktop sticker removal prototype review (2026-11-07)
+
+Rechecked the collection and adjacent Settings cards before editing. Reviewed
+normal/unreadable confirmation, pending removal, success and outcome-unknown failure
+against H1–H10 in WebKitGTK, EN/RU at 440 and 1280 px. Captures are under
+`build/ux-research/sticker-removal-final` and the corrected dialog captures in
+`build/ux-research/sticker-removal-id-fixed`. These are static prototype checks;
+native dialog trapping, cancellation and command execution remain for implementation.
+
+Busy/success/unknown-result messages expose state (H1, H9). Local-copy wording,
+unchanged copies elsewhere and possible TAR re-import explain consequences (H2,
+H10). Cancel has initial focus; per-row Remove opens a separate confirmation
+(H3, H5). Existing quiet actions, destructive confirmation and card/modal styles
+retain H4, H7 and H8. Names, full IDs and labelled actions identify both normal
+and unreadable packs (H6). Navigation/identity invalidation remains a required
+controller invariant.
+
+Fixed severity 2 H6 ambiguous repeated Remove labels with pack-specific accessible
+names and distinct fixture IDs. Fixed severity 1 H8 a short trailing ID fragment
+at wide layouts by adding an explicit midpoint line break. Error copy deliberately
+does not promise the file was kept after an unlink/sync failure (H1, H9).
+No open prototype finding. Native behavior still requires its own checks.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

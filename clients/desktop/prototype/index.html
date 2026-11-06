@@ -149,7 +149,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -179,7 +179,7 @@
     <button type="button" class="nav" id="nav-network" data-current="network network-checking network-error">
       <svg aria-hidden="true" class="icon"><use href="#i-network"/></svg><span class="label" data-t="nav.network"></span></button>
     <div class="spacer"></div>
-    <button type="button" class="nav" id="nav-settings" data-current="settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <button type="button" class="nav" id="nav-settings" data-current="settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
       <svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg><span class="label" data-t="nav.settings"></span></button>
     <button type="button" class="nav" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -461,7 +461,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Settings: identities, appearance, language, node. -->
-    <section id="settings" data-on="settings stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <section id="settings" data-on="settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
       <h1 data-t="nav.settings"></h1>
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
@@ -492,20 +492,25 @@ search providers asked: 0 of 3</pre>
           <summary data-t="stickers.collection"></summary>
           <p class="caption" data-t="stickers.hint"></p>
           <div class="actions">
-            <button type="button" class="btn" id="sticker-import" data-t="stickers.import" data-disabled="stickers-loading stickers-importing"></button>
-            <button type="button" class="btn" id="sticker-refresh" data-t="stickers.refresh" data-disabled="stickers-loading stickers-importing"></button>
+            <button type="button" class="btn" id="sticker-import" data-t="stickers.import" data-disabled="stickers-loading stickers-importing stickers-removing"></button>
+            <button type="button" class="btn" id="sticker-refresh" data-t="stickers.refresh" data-disabled="stickers-loading stickers-importing stickers-removing"></button>
           </div>
-          <p class="notice" id="sticker-status" role="status" aria-live="polite" data-on="settings stickers-empty stickers-ready stickers-loading stickers-importing">
+          <p class="notice" id="sticker-status" role="status" aria-live="polite" data-on="settings stickers-empty stickers-ready stickers-loading stickers-importing stickers-removing stickers-removed">
             <span data-on="stickers-empty settings" data-t="stickers.empty"></span>
             <span data-on="stickers-loading" data-t="stickers.loading"></span>
             <span data-on="stickers-importing" data-t="stickers.importing"></span>
             <span data-on="stickers-ready" data-t="stickers.usage"></span>
+            <span data-on="stickers-removing" data-t="stickers.removing"></span>
+            <span data-on="stickers-removed" data-t="stickers.removed"></span>
           </p>
           <p class="notice error" id="sticker-error" role="alert" data-on="stickers-error" data-t="stickers.error"></p>
           <p class="notice error" data-on="stickers-quota" data-t="stickers.quota"></p>
-          <ul id="sticker-list" data-on="stickers-ready stickers-importing stickers-quota">
-            <li><strong data-t="stickers.sample"></strong><p class="caption" data-t="stickers.sampleSize"></p></li>
-            <li><strong data-t="stickers.unreadable"></strong> <code>@a12bc34d</code><p class="caption" data-t="stickers.unreadableHint"></p></li>
+          <p class="notice error" data-on="stickers-remove-error" data-t="stickers.removeError"></p>
+          <ul id="sticker-list" data-on="stickers-ready stickers-importing stickers-quota stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error">
+            <li data-off="stickers-removed"><strong data-t="stickers.sample"></strong> <code>@c41a25b1</code><p class="caption" data-t="stickers.sampleSize"></p>
+              <button type="button" class="btn quiet" id="sticker-remove-1" data-t="stickers.remove" data-ta="stickers.removeSample" data-disabled="stickers-importing stickers-removing"></button></li>
+            <li><strong data-t="stickers.unreadable"></strong> <code>@a12bc34d</code><p class="caption" data-t="stickers.unreadableHint"></p>
+              <button type="button" class="btn quiet" id="sticker-remove-2" data-t="stickers.remove" data-ta="stickers.removeUnreadable" data-disabled="stickers-importing stickers-removing"></button></li>
           </ul>
           <p class="notice" id="sticker-unknown" data-on="stickers-ready" data-t="stickers.unknown"></p>
           <button type="button" class="btn" id="sticker-next" data-on="stickers-ready" data-t="stickers.next"></button>
@@ -702,6 +707,20 @@ search providers asked: 0 of 3</pre>
   </div>
 </div>
 
+<div class="modal-scrim" data-on="stickers-remove-dialog stickers-remove-unreadable">
+  <div class="modal" id="sticker-remove-dialog" role="dialog" aria-modal="true" aria-labelledby="sticker-remove-title" aria-describedby="sticker-remove-hint">
+    <h2 id="sticker-remove-title" data-t="stickers.removeTitle"></h2>
+    <p id="sticker-remove-name"><strong data-on="stickers-remove-dialog" data-t="stickers.sample"></strong>
+      <strong data-on="stickers-remove-unreadable" data-t="stickers.unreadable"></strong></p>
+    <code class="full-id" id="sticker-remove-id"><span data-on="stickers-remove-dialog">c41a25b19854e2f0c9d1a78b45a0e131<br>c4d8f597ad2b6e3091c8d02934ad7712</span><span data-on="stickers-remove-unreadable">a12bc34d580ef196dcb30a4459fdc91a<br>086fe1b5ab7a102cfbb94a81d0311e96</span></code>
+    <p id="sticker-remove-hint" data-t="stickers.removeHint"></p>
+    <div class="actions">
+      <button type="button" class="btn focus" id="sticker-remove-cancel" data-t="action.cancel"></button>
+      <button type="button" class="btn danger" id="sticker-remove-confirm" data-t="stickers.removeConfirm"></button>
+    </div>
+  </div>
+</div>
+
 <!-- After a revocation the wipe is done; only the reason is left to say. -->
 <div class="modal-scrim" data-on="device-code-dialog device-code-error device-code-bad">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="device-code-title">
@@ -775,6 +794,8 @@ for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
 document.title = `${t['app.name']} — ${screen}`;
+if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
+  document.getElementById('sticker-remove-cancel').focus();
 </script>
 </body>
 </html>
