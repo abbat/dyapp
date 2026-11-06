@@ -49,9 +49,7 @@ score = 72.2
 [flaky]
 # Practice B5: quarantined flaky tests (JUnit "classname name") and the date each was found;
 # tests/scripts/check-flaky.py fails on an unlisted flaky test and on an entry older than 7 days.
-# The next four were renewed by the maintainer: macOS opened no window, so they stayed unproven there.
-# macOS: the app stopped while waiting for the local-node check; the retry passed.
-"ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-11-04
+# The next three were renewed by the maintainer: macOS opened no window, so they stayed unproven there.
 # iOS: the cancelled retry passed on the second iteration.
 "NetworkDraftTests testCancelRetryKeepsPriorActiveNetwork()" = 2026-11-04
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
@@ -66,22 +64,14 @@ score = 72.2
 "ProfileUITests testTypedFieldsRefuseBadHeightAndSurviveRestart()" = 2026-11-05
 # macOS: the profile form stayed disabled with its read error; the retry passed.
 "ChatsUITests testFullPhotoLoadsWithoutATapOnAnUnmeteredNetwork()" = 2026-11-05
-# macOS: the app crashed in a display link flush during the test; the retry passed.
-"SearchUITests testFoundRowOpensItsProfileAndBackKeepsTheSample()" = 2026-11-05
-# macOS: the same display link crash, 9 s into the test; the retry passed.
-"ProfileUITests testHideThenPublishShowsAgain()" = 2026-11-05
 # iOS: failed once with the cause not read yet; the retry passed.
 "LaunchTests testWrongNetworkDisablesContinue()" = 2026-11-05
-# macOS: the display link crash hit its first try; the crash can pick any test.
-"ProfileUITests testRemovalWithdrawsAndOffersRemoveAnywayWithoutANode()" = 2026-11-05
 # iOS: the tap on Save right after typing did nothing, the keyboard still up; the retry passed.
 "ProfileUITests testPlacePickerSavesOnlyASuggestedPlace()" = 2026-11-05
 # iOS: a filter under the navigation bar took no focus on its tap; the retry passed.
 "SearchUITests testSampleOffersFiltersThatRefuseBadRanges()" = 2026-11-05
 # iOS: the tap on a just shown liked row opened nothing, the row in plain view; the retry passed.
 "ChatsUITests testLikeBackFromLikedYouMatchesAndMessageOpensTheChat()" = 2026-11-05
-# macOS: the layout-pass crash right after the setup's Continue; the retry passed.
-"ChatsUITests testSharedProfileOpensFromItsCardAndSharesToAChat()" = 2026-11-06
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
