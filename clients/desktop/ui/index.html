@@ -522,6 +522,24 @@
           <p class="caption" data-i18n="devices.hint"></p>
           <div class="actions"><button id="device-link" class="btn" type="button" data-i18n="devices.link"></button></div>
         </div>
+        <div id="sticker-collection" class="card">
+          <h2 data-i18n="stickers.title"></h2>
+          <details id="sticker-packs">
+            <summary data-i18n="stickers.collection"></summary>
+            <p class="caption" data-i18n="stickers.hint"></p>
+            <div class="actions">
+              <button id="sticker-import" class="btn" type="button" data-i18n="stickers.import"></button>
+              <button id="sticker-refresh" class="btn" type="button" data-i18n="stickers.refresh"></button>
+            </div>
+            <input id="sticker-file" type="file" accept=".tar,application/x-tar" hidden>
+            <p id="sticker-status" class="notice" role="status" aria-live="polite" hidden></p>
+            <details id="sticker-details" hidden><summary data-i18n="stickers.details"></summary>
+              <p id="sticker-reason" class="caption"></p></details>
+            <ul id="sticker-list"></ul>
+            <p id="sticker-unknown" class="notice" data-i18n="stickers.unknown" hidden></p>
+            <button id="sticker-next" class="btn" type="button" data-i18n="stickers.next" hidden></button>
+          </details>
+        </div>
         <div id="blocked" class="card">
           <h2 data-i18n="settings.blocked"></h2>
           <table class="rows"><tbody id="blocked-list"></tbody></table>
@@ -835,6 +853,7 @@
   <script src="contact-notes.js"></script>
   <script src="saved-profiles.js"></script>
   <script src="photo-settings.js"></script>
+  <script src="stickers.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>
   <script src="peer-photos.js"></script>

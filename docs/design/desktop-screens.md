@@ -21,12 +21,11 @@ contracts.
 data-on state in the prototype, so the page and the prototype cannot drift apart unnoticed.
 The prototype wording is a draft; the shipped strings stay in `clients/desktop/ui/i18n`.
 
-Local sticker import and collection-list commands are available to the Linux/Windows page;
-their controls remain planned. Calls include the viewed identity's Peer ID to reject delayed
+Local sticker import and collection-list commands back the Linux/Windows Settings card. Calls include the viewed identity's Peer ID to reject delayed
 requests after a switch. TAR/WebP validation and file reads run in the blocking pool while an
 identity lease keeps the slot open. Lists return 32-entry pages with sizes and individual errors.
 
-## Sticker collection (prototype; controls planned)
+## Sticker collection
 
 Settings contains the card `sticker-collection` and native disclosure `sticker-packs`.
 `sticker-import` opens a TAR picker; cancelling it changes nothing. The browser must
@@ -42,8 +41,8 @@ Refresh after a read failure. `sticker-list` shows names, counts and encrypted s
 and identifies unreadable entries by short PackID while retaining them.
 `sticker-unknown` explains space occupied by unrecognized or interrupted files.
 Quota failure preserves the collection and asks for a smaller pack. Importing does
-not publish or send anything. The shipped collection controller, sending and removal
-controls remain planned.
+not publish or send anything. The shipped controller now connects these controls to local
+commands. Sending and removal controls remain planned.
 
 ## First run
 

@@ -41,6 +41,13 @@ note. Failed writes keep your text for retry; failed reads require **Retry loadi
 note** before editing. Save before leaving the profile: unsaved edits are discarded
 on Back or identity change.
 
+## Sticker packs
+
+In Settings → Stickers → Saved packs, choose **Import TAR…** to save a local pack
+(up to 8 MiB). Importing sends nothing. Refresh restarts the list; Next page shows
+more packs. The 300 MiB limit never removes a saved pack automatically. Errors keep
+existing packs; open Details and retry. Sending and removal controls are planned.
+
 ## Interests
 
 Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).

@@ -167,8 +167,11 @@ The Store also lists validated names, sticker counts and encrypted sizes in Pack
 pages of 32, reporting unreadable entries and unrecognized-file counts without deleting them.
 Linux/Windows expose local import and paged-list commands. Both require the caller's viewed
 identity, retain its lease through blocking work, and use the identity's sealing secret.
-Import validates the bounded TAR before creating local state. The collection UI and the
-request/response flow below remain planned.
+Import validates the bounded TAR before creating local state. Settings now offers TAR import,
+a paged collection list, retry and text-only error details in English and Russian. Files above
+8 MiB are refused before browser reading. Each opening owns its callbacks; closing or changing
+identity discards pending display updates and prevents imports whose file read has not finished.
+The request/response flow below, sending and removal controls remain planned.
 
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat

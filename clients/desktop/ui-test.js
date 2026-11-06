@@ -666,6 +666,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
     } else if (step === 'add') {
       if (state.status !== 'ready') throw new Error('identity not reopened');
       await checkSettingsInventory(state.peerId, state.mode);
+      await window.checkStickerCollection();
       await openArea('settings');
       document.getElementById('settings-create').click();
       await waitFor('setup');

@@ -137,6 +137,26 @@ an empty blue status strip; the strip is hidden when it has no message.
 No open prototype finding. Async view/identity guards, actual picker behavior and
 the shipped implementation still require their own verification.
 
+## Desktop sticker collection shipped review (2026-11-07)
+
+Rechecked H1–H10 with the actual Settings markup/controller and EN/RU strings in
+WebKitGTK at 440 and 1280 px, using six mocked-response states. Captures:
+`build/ux-research/sticker-live`. Existing cards, native disclosure/buttons,
+local-only wording, wrapped labels, busy state, retry and quota recovery preserve
+the prototype decisions. Backend reasons render as plain text in Details (H9).
+Source review found severity 2 H5 retained diagnostic text after closing; closing
+now clears it and resets the disclosure. Severity 2 H7 pagination could hide the focused
+Next button on the final page; focus now returns to Refresh. Capture the focus before
+disabling buttons, since native WebKit releases it immediately. Quota classification
+matches the exact backend error so a hostile filename cannot impersonate it. No open finding.
+
+The actual-controller smoke covers pre-read size rejection, cancellation, duplicate
+import, delayed file/list replies across reopening, identity change, one-page
+pagination and text-only errors. It also runs under a small local DOM harness;
+that harness proves callback behavior, not native file-picker or IPC behavior.
+The same checked-in smoke also passed locally in WebKit with actual DOM and mocked IPC,
+including keyboard focus. Native Linux/Windows backend integration remains for CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

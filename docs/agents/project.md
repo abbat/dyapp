@@ -17,6 +17,11 @@ callbacks must capture the per-opening view object plus identity generation; com
 the result object or Peer ID admits old responses. Invalidate initial state reads once a local
 action starts, and keep busy guards on that view so old completions cannot unlock a new one.
 
+Disabling a focused native button can release focus immediately. Capture focus before setting
+busy controls, then restore it to a remaining action when pagination hides the old control.
+A lightweight DOM stub may miss this behavior; run the same smoke in the prepared WebKit
+prototype image with mocked IPC when testing focus or native disclosure events.
+
 Before the first app release, stored client databases have no compatibility promise. Change the
 version-1 schema directly and remove obsolete database migration paths; do not spend work on
 migrating development databases. Recreate a development database or restore a matching backup.
