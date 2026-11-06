@@ -206,6 +206,16 @@ struct ContentView: View {
     }
     #endif
 
+    /// The macOS detail column selects the sidebar's network entry, as a push there has no way back on
+    /// macOS 12. During setup the sidebar is that form, so only the detail closes. iOS pushes instead.
+    private var openNetwork: (() -> Void)? {
+        #if os(macOS)
+        return { startLink = activeNetwork == .needsSetup ? nil : .network }
+        #else
+        return nil
+        #endif
+    }
+
     @ViewBuilder
     private func startEntry(
         _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate, _ peerId: String
@@ -331,16 +341,6 @@ struct ContentView: View {
         }
         view.openNetwork = openNetwork
         return view
-    }
-
-    /// The macOS detail column selects the sidebar's network entry, as a push there has no way back on
-    /// macOS 12. During setup the sidebar is that form, so only the detail closes. iOS pushes instead.
-    private var openNetwork: (() -> Void)? {
-        #if os(macOS)
-        return { startLink = activeNetwork == .needsSetup ? nil : .network }
-        #else
-        return nil
-        #endif
     }
 
     private func createIdentity() {

@@ -72,6 +72,10 @@ score = 72.2
 "SearchUITests testSampleOffersFiltersThatRefuseBadRanges()" = 2026-11-05
 # iOS: the tap on a just shown liked row opened nothing, the row in plain view; the retry passed.
 "ChatsUITests testLikeBackFromLikedYouMatchesAndMessageOpensTheChat()" = 2026-11-05
+# iOS: after Save the adult confirmation stayed disabled for 10 s; the retry passed. Clean on macOS.
+"ProfileUITests testProfileDraftRestartFailedPublishAndSignedReadback()" = 2026-11-06
+# iOS: the create button had no hit point on its reveal, its frame unusable; the retry passed.
+"LaunchTests testSettingsRemoveCancelThenSelectSurvivorAfterConfirm()" = 2026-11-06
 
 [size]
 # Practice B6: a source file has at most max_lines lines (tests/scripts/check-repository.py).
