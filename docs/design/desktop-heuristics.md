@@ -180,6 +180,23 @@ at wide layouts by adding an explicit midpoint line break. Error copy deliberate
 does not promise the file was kept after an unlink/sync failure (H1, H9).
 No open prototype finding. Native behavior still requires its own checks.
 
+## Desktop sticker removal shipped review (2026-11-07)
+
+Reviewed H1–H10 with actual markup/controller and mocked IPC in WebKitGTK, EN/RU
+at 440 and 1280 px. Captures: `build/ux-research/sticker-remove-live` and corrected
+native dialogs in `sticker-remove-live-fixed`. Cancel/Escape, exact pack name/ID,
+copy scope, pending/success/unknown result, and wrapped text retain the reviewed
+prototype behavior. No open finding.
+
+Fixed severity 2 H4 unstyled native dialog by reusing the existing modal class,
+and severity 2 H6 a missing Cancel locale key by reusing the translated page action.
+Fixed severity 2 H1 premature collection-refreshed wording: it now appears only
+after the read completes. The checked-in smoke passed Node and real WebKit DOM
+with mocked IPC for Cancel/Escape, stale dialogs on navigation/identity/reopening,
+duplicate confirmation, delayed completion, unreadable packs, uncertain outcomes,
+refresh and focus recovery. It never deletes a real pack. Core file/SQLite tests
+passed; native Store/slot/IPC execution remains a CI acceptance item.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

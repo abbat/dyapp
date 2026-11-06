@@ -39,8 +39,10 @@ on Back or identity change.
 
 In Settings → Stickers → Saved packs, choose **Import TAR…** to save a local pack
 (up to 8 MiB). Importing sends nothing. Refresh restarts the list; Next page shows
-more packs. The 300 MiB limit never removes a saved pack automatically. Errors keep
-existing packs; open Details and retry. Sending and removal controls are planned.
+more packs. The 300 MiB limit never removes a saved pack automatically. Import/read errors keep
+existing packs; open Details and retry. **Remove…** next to a pack asks for confirmation;
+Cancel or Escape changes nothing. Removal affects only this saved copy and also works for
+unreadable packs. After an uncertain error, refresh before retrying. Sending remains planned.
 
 ## Interests
 

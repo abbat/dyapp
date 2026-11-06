@@ -837,6 +837,16 @@
         data-i18n="publish.confirm" disabled></button>
     </div>
   </dialog>
+  <dialog id="sticker-remove-dialog" class="modal" aria-labelledby="sticker-remove-title" aria-describedby="sticker-remove-hint" hidden>
+    <h2 id="sticker-remove-title" data-i18n="stickers.removeTitle"></h2>
+    <p id="sticker-remove-name"></p>
+    <code id="sticker-remove-id" class="full-id"></code>
+    <p id="sticker-remove-hint" data-i18n="stickers.removeHint"></p>
+    <div class="actions">
+      <button id="sticker-remove-cancel" class="btn" type="button" data-i18n="page.cancel" autofocus></button>
+      <button id="sticker-remove-confirm" class="btn danger" type="button" data-i18n="stickers.removeConfirm"></button>
+    </div>
+  </dialog>
   <script src="peer-names.js"></script>
   <script src="privacy-ui.js"></script>
   <script src="profile-seeking.js"></script>

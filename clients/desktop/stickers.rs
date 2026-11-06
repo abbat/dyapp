@@ -85,6 +85,29 @@ fn import(
     Ok(*pack.id())
 }
 
+fn remove(dir: &Path, identity: &Identity, pack_id: &[u8; 32]) -> Result<bool, String> {
+    chats::open(dir, identity)?
+        .remove_saved_sticker_pack(pack_id)
+        .map_err(|error| error.to_string())
+}
+
+/// Explicitly confirmed local removal also works when the sealing secret is unavailable.
+#[tauri::command]
+pub(crate) async fn remove_saved_sticker_pack(
+    state: tauri::State<'_, IdentityState>,
+    identity_id: String,
+    pack_id: [u8; 32],
+) -> Result<bool, String> {
+    let lease = state.lease()?;
+    owner_matches(&lease.active().0, &identity_id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (identity, dir) = lease.active();
+        remove(dir, identity, &pack_id)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 /// The caller names its viewed identity so a delayed invocation cannot target another slot.
 #[tauri::command]
 pub(crate) async fn import_sticker_pack(

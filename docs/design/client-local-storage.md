@@ -89,8 +89,9 @@ saves can appear on refresh. The core also offers explicit removal by PackID, in
 content without its sealing key. It uses the same writer lock as save, refuses symlinks, keeps
 unrelated/pending files, and returns false for an absent pack. Unix directory sync follows unlink.
 A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
-best-effort removal of this local copy. Desktop confirmation/removal controls, chat integration
-and cache management remain planned.
+best-effort removal of this local copy. Desktop now offers a per-pack confirmation, including
+unreadable entries, and refreshes the collection after success or ambiguous failure. Chat
+integration and cache management remain planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

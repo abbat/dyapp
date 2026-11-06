@@ -173,8 +173,9 @@ a paged collection list, retry and text-only error details in English and Russia
 identity discards pending display updates and prevents imports whose file read has not finished.
 The core supports explicit removal of a selected saved PackID, including corrupt content,
 without pruning other packs or interrupted files. Removal frees the counted file bytes and is
-serialized with saving; it does not erase other copies. The desktop confirmation/removal
-controls and the request/response flow below remain planned.
+serialized with saving; it does not erase other copies. Desktop offers a per-row Remove action
+with native confirmation, Cancel/Escape and a full PackID. Old dialogs and completions cannot
+change another view or identity. The request/response flow below and sending remain planned.
 
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat

@@ -917,6 +917,7 @@ fn main() {
             contact_notes::set_contact_note,
             stickers::import_sticker_pack,
             stickers::saved_sticker_packs,
+            stickers::remove_saved_sticker_pack,
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,

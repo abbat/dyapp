@@ -1,4 +1,11 @@
 {
+  "stickers.remove": "Remove…",
+  "stickers.removeTitle": "Remove this saved pack?",
+  "stickers.removeConfirm": "Remove pack",
+  "stickers.removeHint": "Only the saved pack on this computer is removed. Copies in chats or on other devices are not erased. You can import the TAR again if you still have it.",
+  "stickers.removing": "Removing the saved pack…",
+  "stickers.removed": "Pack removed from this computer. Collection refreshed.",
+  "stickers.removeError": "Removal could not be confirmed. Refresh before trying again; the pack may already be gone.",
   "stickers.title": "Stickers",
   "stickers.collection": "Saved packs",
   "stickers.hint": "TAR files up to 8 MiB. Saved on this computer for this identity; importing does not send anything. Limit: 300 MiB, without automatic removal.",

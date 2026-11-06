@@ -39,6 +39,12 @@ fn imported_collection_reopens_with_the_slot_secret() {
     std::fs::create_dir_all(&root).unwrap();
     let (slot, identity) = crate::slots::create(&root, "file", &crate::save, &crate::load).unwrap();
     let sessions = chats::Sessions::default();
+    let packs = slot.dir.join("sticker-packs");
+    std::fs::create_dir(&packs).unwrap();
+    std::fs::write(packs.join("09".repeat(32)), b"corrupt pack").unwrap();
+    assert!(!slot.seal_path().exists());
+    assert!(remove(&slot.dir, &identity, &[9; 32]).unwrap());
+    assert!(!slot.seal_path().exists());
     let archive = archive();
     let id = import(&root, &slot.dir, &identity, &sessions, &archive).unwrap();
     assert_eq!(
@@ -55,4 +61,9 @@ fn imported_collection_reopens_with_the_slot_secret() {
     drop(key);
     let (store, key) = local_store(&root, &slot.dir, &identity, &sessions).unwrap();
     assert!(store.saved_sticker_pack(&key, &id).unwrap().is_some());
+    drop(store);
+    assert!(remove(&slot.dir, &identity, &id).unwrap());
+    assert!(!remove(&slot.dir, &identity, &id).unwrap());
+    let (store, key) = local_store(&root, &slot.dir, &identity, &sessions).unwrap();
+    assert!(store.saved_sticker_pack(&key, &id).unwrap().is_none());
 }

@@ -42,9 +42,9 @@ and identifies unreadable entries by short PackID while retaining them.
 `sticker-unknown` explains space occupied by unrecognized or interrupted files.
 Quota failure preserves the collection and asks for a smaller pack. Importing does
 not publish or send anything. The shipped controller now connects these controls to local
-commands. Sending and removal controls remain planned.
+commands. Sending remains planned.
 
-### Confirmed pack removal (prototype; controls planned)
+### Confirmed pack removal
 
 Per-row actions `sticker-remove-1` and `sticker-remove-2` open
 `sticker-remove-dialog`; confirmation does not depend on readable pack content.
@@ -55,13 +55,13 @@ local-copy removal and possible re-import, not erasure of copies elsewhere.
 States `stickers-remove-dialog` and `stickers-remove-unreadable` show the normal
 and unreadable-pack confirmations. `sticker-remove-cancel` has initial focus and
 sends nothing; `sticker-remove-confirm` explicitly admits removal. The shipped
-implementation must close/invalidate the dialog on navigation or identity change,
-retain the exact originating view and PackID, and prevent duplicate writes.
+implementation closes the dialog on navigation, identity change or view replacement,
+retains the exact originating view and copied PackID, and prevents duplicate writes.
 After confirmation the dialog closes: `stickers-removing` disables repeated actions,
 `stickers-removed` refreshes the remaining list, and `stickers-remove-error` states
 that the outcome is unknown and offers Refresh. It must never promise preservation
-after an unlink/sync error. Native command, dialog behavior and removal controls
-remain planned.
+after an unlink/sync error. The native command requires the viewed identity and retains
+its lease through blocking removal, without loading or generating a sealing key.
 
 ## First run
 

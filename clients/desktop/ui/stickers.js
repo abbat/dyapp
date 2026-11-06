@@ -5,6 +5,9 @@
   const text = (key) => window.strings[`stickers.${key}`];
   let view = null;
   let pickedFor = null;
+  let removing = null;
+  const dialog = el('remove-dialog');
+  const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
   const active = (target) => target && view === target && panel.open
     && identityCurrent(target.generation) && !document.getElementById('settings').hidden;
   const message = (key, error = false) => {
@@ -15,13 +18,14 @@
   const busy = (target, value) => {
     target.busy = value;
     for (const id of ['import', 'refresh', 'next']) el(id).disabled = value;
+    for (const button of el('list').querySelectorAll('button')) button.disabled = value;
   };
   const failure = (key, error) => {
     message(key, true);
     el('details').hidden = false;
     el('reason').textContent = String(error);
   };
-  const row = (entry) => {
+  const row = (entry, target) => {
     const item = document.createElement('li');
     const name = document.createElement('strong');
     name.textContent = entry.error ? text('unreadable') : entry.name;
@@ -30,14 +34,30 @@
     info.textContent = entry.error ? text('unreadableHint')
       : text('item').replace('{count}', entry.stickers).replace('{size}', sizeText(entry.bytes));
     const id = document.createElement('code');
-    id.textContent = ` @${entry.id.map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 8)}`;
-    item.append(name, id, info);
+    id.textContent = ` @${hexId(entry.id).slice(0, 8)}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn quiet';
+    remove.textContent = text('remove');
+    remove.setAttribute('aria-label', `${text('remove')} ${name.textContent} ${hexId(entry.id).slice(0, 8)}`);
+    remove.addEventListener('click', () => {
+      if (!active(target) || target.busy || !remove.isConnected) return;
+      closeDialog();
+      removing = { target, id: [...entry.id], button: remove };
+      el('remove-name').textContent = name.textContent;
+      const fullId = hexId(entry.id);
+      el('remove-id').replaceChildren(fullId.slice(0, 32), document.createElement('br'), fullId.slice(32));
+      dialog.hidden = false;
+      dialog.showModal();
+      el('remove-cancel').focus();
+    });
+    item.append(name, id, info, remove);
     return item;
   };
-  const load = async (target, after = null, saved = false) => {
+  const load = async (target, after = null, notice = '') => {
     const paging = document.activeElement === el('next');
     busy(target, true);
-    message(saved ? 'saved' : 'loading');
+    message('loading');
     el('details').hidden = true;
     let lastPage = false;
     try {
@@ -45,12 +65,12 @@
       if (!active(target)) return;
       target.next = page.next;
       lastPage = !page.next;
-      el('list').replaceChildren(...page.entries.map(row));
+      el('list').replaceChildren(...page.entries.map((entry) => row(entry, target)));
       el('next').hidden = !page.next;
       el('unknown').hidden = !page.unrecognizedFiles;
       const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
       message('');
-      el('status').textContent = `${saved ? `${text('saved')} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
+      el('status').textContent = `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
       el('status').hidden = false;
     } catch (error) {
       if (active(target)) failure('error', error);
@@ -61,8 +81,45 @@
       }
     }
   };
+  const closeDialog = () => {
+    removing = null;
+    if (dialog.open) dialog.close();
+    dialog.hidden = true;
+    el('remove-name').textContent = '';
+    el('remove-id').replaceChildren();
+  };
+  dialog.addEventListener('close', () => { if (!dialog.open) closeDialog(); });
+  const cancelRemoval = () => {
+    const selection = removing;
+    closeDialog();
+    if (selection && active(selection.target) && selection.button.isConnected) selection.button.focus();
+  };
+  el('remove-cancel').addEventListener('click', cancelRemoval);
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); cancelRemoval(); });
+  el('remove-confirm').addEventListener('click', () => {
+    const selection = removing;
+    if (!dialog.open || !selection || !active(selection.target) || selection.target.busy) return;
+    closeDialog();
+    const target = selection.target;
+    busy(target, true);
+    message('removing');
+    window.stickerRemoved = (async () => {
+      try {
+        await target.call('remove_saved_sticker_pack', { identityId: target.identityId, packId: selection.id });
+        if (active(target)) await load(target, null, 'removed');
+      } catch (error) {
+        if (active(target)) {
+          await load(target);
+          if (active(target)) failure('removeError', error);
+        }
+      } finally {
+        if (active(target)) { busy(target, false); el('refresh').focus(); }
+      }
+    })();
+  });
   const close = () => {
     view = null;
+    closeDialog();
     pickedFor = null;
     panel.open = false;
     el('file').value = '';
@@ -75,6 +132,7 @@
     message('');
   };
   const open = (call = invoke) => {
+    closeDialog();
     const target = { generation: identityGeneration, identityId: current?.peerId, call, busy: false, next: null };
     view = target;
     el('list').replaceChildren();
@@ -96,7 +154,7 @@
       await target.call('import_sticker_pack', {
         identityId: target.identityId, bytes: Array.from(new Uint8Array(bytes)),
       });
-      if (active(target)) await load(target, null, true);
+      if (active(target)) await load(target, null, 'saved');
     } catch (error) {
       if (active(target)) failure(String(error) === 'saved sticker pack quota exceeded' ? 'quota' : 'importFailed', error);
     } finally {
