@@ -478,4 +478,5 @@
     <string name="profile_share">Share profile…</string>
     <string name="profile_share_empty">No open chats to share to yet.</string>
     <string name="profile_shared">Profile sent.</string>
+    <string name="shared_profile_card">Profile %1$s</string>
 </resources>

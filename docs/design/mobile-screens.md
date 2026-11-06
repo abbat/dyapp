@@ -6,7 +6,8 @@ contact names where available. It explains an empty list, prevents repeat sends
 while busy, keeps choices after a failed send, and distinguishes queued delivery
 from success. After either stored outcome the user can open the destination chat.
 Cancel before selection sends nothing. This native dialog is not represented in
-the static prototype yet; received profile cards are still planned.
+the static prototype yet. Exact profile links in live messages render as buttons;
+only a press loads the verified profile, whose Back returns to the original chat.
 
 Control IDs and states for every screen of the Android client. The static prototype in
 `clients/android/prototype/` is the layout reference: Material 3 phone layout, light and dark,

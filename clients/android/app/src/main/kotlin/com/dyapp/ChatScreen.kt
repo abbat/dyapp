@@ -243,7 +243,8 @@ private fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) {
         if (own) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(Modifier.padding(12.dp), Arrangement.spacedBy(4.dp)) {
-            Text(chatPreview(message))
+            val shared = sharedProfilePeer(message)
+            if (shared == null) Text(chatPreview(message)) else SharedProfileCard(shared)
             chatMeta(message).takeIf { it.isNotEmpty() }?.let { Caption(it) }
         }
     }

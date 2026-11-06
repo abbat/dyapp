@@ -18,7 +18,10 @@ screens (H2, H4). Cancel before selection sends nothing, busy state prevents
 repeat sends, and only open conversations are eligible (H3, H5). Contact labels
 reuse existing names and the list scrolls (H6–H8). Failure keeps destinations
 available for retry (H9); the Android manuals describe delivery and planned card
-support (H10). No open code-review finding; device layout remains unverified.
+support (H10). Received live links now render a labelled profile button; loading
+starts only on press, with the existing missing/error/retry page and Back to the
+original thread (H1, H3, H4, H5, H9). Deleted or mixed-text links stay plain text.
+No open code-review finding; device layout remains unverified.
 
 ## Method
 

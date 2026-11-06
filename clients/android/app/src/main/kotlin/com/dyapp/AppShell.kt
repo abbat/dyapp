@@ -117,7 +117,9 @@ private fun ShellRoutes(
         val actions = ProfileActions(backLabel, closeView, { toChats(viewed) }) { toChats(null) }
         ProfileViewScreen(opened, viewed, viewFound, feed, actions) { toChats(it) }
     } else if (chat != null) {
-        ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
+        CompositionLocalProvider(LocalSharedProfile provides { peer -> viewFound = null; viewPeer = peer }) {
+            ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
+        }
     } else {
         val openChat = { peer: String -> feed.lists.blocked = null; chatPeer = peer }
         ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, openFound) {
