@@ -146,6 +146,10 @@ tag for recovery and do not remove caches or images without confirmation.
 
 ## Rules for agents
 
+Bash checks that discover work must capture discovery in a separate assignment and reject an
+empty selection before iteration. `for item in $(discover)` can exit successfully after failed
+discovery and run nothing; regression tests must cover discovery errors and empty work sets.
+
 - **No automatic installs** (packages, toolchains, SDKs, `sudo`) and **no deletion** of files or
   data without explicit confirmation from the user. The `rm -f` / `apt-get -y` forms in AGENTS.md
   only say *how* to avoid interactive prompts, not that these actions are allowed.
