@@ -81,6 +81,10 @@ For Docker quality checks of an isolated branch, use a normal local clone (`git 
 under `/tmp/ai`. A Git worktree's `.git` pointer and a `--shared` clone's object alternates are
 not available inside the Docker checkout; the small-batches check then fails before linting.
 
+Rust tests run with the crate directory as their working directory. Repository-local test
+artifacts must derive the root `build/` path from `CARGO_MANIFEST_DIR`; `current_dir()/build`
+creates unignored fixture files under the crate and can break repository source checks.
+
 ## Local check output
 
 The shared wrapper, `tools/scripts/run-check.py <check-id> -- <command> ...`,

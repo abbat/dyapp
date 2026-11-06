@@ -3,10 +3,12 @@ use image_webp::{ColorType, WebPEncoder};
 use prost::Message;
 
 fn store(owner: &str, path: Option<&Path>) -> Store {
-    let dir = std::env::current_dir().unwrap().join("build").join(format!(
-        "saved-pack-test-{}",
-        dyapp_identity::Identity::generate().peer_id()
-    ));
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../build")
+        .join(format!(
+            "saved-pack-test-{}",
+            dyapp_identity::Identity::generate().peer_id()
+        ));
     let path = match path {
         Some(path) => path.to_path_buf(),
         None => {
