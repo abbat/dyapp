@@ -150,8 +150,12 @@ accepts matching bytes already available from a saved pack when the descriptor i
 or has a different hash; that descriptor still cannot authorize fetching. This payload is not yet
 registered under an outer tag or enabled in session receive/send: history projection
 and common-media integration must land with that registration. The common SQLite media table
-now has a checked kind discriminator and shared insertion checks; photo queries exclude the
-reserved sticker kind. Sticker persistence and merged-history readers remain planned.
+has a checked kind discriminator and shared insertion checks. The Store writes and reads
+sticker payloads with optional descriptors, checks verified context and cross-kind ID conflicts,
+and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
+from restoring them. Common originals references include only hash-matching descriptors, so
+no sticker-only cache is needed. Photo queries exclude sticker rows. Sticker session integration,
+merged-history readers and UI remain planned.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The

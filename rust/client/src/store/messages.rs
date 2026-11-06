@@ -18,6 +18,8 @@ pub(super) use clear::clear_pair_tx;
 mod inbound_tests;
 mod media;
 mod operations;
+mod stickers;
+pub use stickers::ChatSticker;
 #[cfg(test)]
 mod outbound_tests;
 #[cfg(test)]

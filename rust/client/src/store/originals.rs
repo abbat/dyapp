@@ -127,14 +127,30 @@ impl Store {
     pub(crate) fn attachment_blobs(&self) -> Result<HashSet<String>, Error> {
         let mut query = self
             .db
-            .prepare("SELECT `descriptor` FROM `chat_attachments`")?;
-        let rows = query.query_map([], |row| row.get::<_, Vec<u8>>(0))?;
-        rows.map(|row| {
-            let body = Body::decode(&row?).map_err(|_| Error::InboxConflict)?;
-            let message = body.attachment_message().ok_or(Error::InboxConflict)?;
-            Ok(file_name(&message.attachment.blob_sha256))
-        })
-        .collect()
+            .prepare("SELECT `media_kind`, `descriptor` FROM `chat_attachments`")?;
+        let rows = query.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
+        })?;
+        let mut blobs = HashSet::new();
+        for row in rows {
+            let (kind, bytes) = row?;
+            let hash = match kind {
+                1 => {
+                    let body = Body::decode(&bytes).map_err(|_| Error::InboxConflict)?;
+                    let message = body.attachment_message().ok_or(Error::InboxConflict)?;
+                    Some(message.attachment.blob_sha256)
+                }
+                2 => crate::chat::sticker::Sticker::decode(&bytes)
+                    .map_err(|_| Error::InboxConflict)?
+                    .download()
+                    .map(|attachment| attachment.blob_sha256),
+                _ => return Err(Error::InboxConflict),
+            };
+            if let Some(hash) = hash {
+                blobs.insert(file_name(&hash));
+            }
+        }
+        Ok(blobs)
     }
 
     /// Erases kept originals of attachments gone from every chat and what the limit no longer
