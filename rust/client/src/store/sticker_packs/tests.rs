@@ -103,6 +103,61 @@ fn quota_and_pending_files_never_evict_saved_content() {
 }
 
 #[test]
+fn explicit_removal_recovers_quota_and_is_identity_local() {
+    let mut owner = store("alice", None);
+    let mut foreign = store("bob", None);
+    let first = pack("First");
+    let other = pack("Other");
+    assert!(!owner.remove_saved_sticker_pack(first.id()).unwrap());
+    owner.save_sticker_pack(&[7; 32], &first).unwrap();
+    foreign.save_sticker_pack(&[8; 32], &first).unwrap();
+    let dir = directory(&owner).unwrap();
+    fs::write(dir.join(".interrupted.pending"), [0]).unwrap();
+    let limit = used(&dir).unwrap();
+    assert!(matches!(
+        owner.save_pack_with_limit(&[7; 32], &other, limit),
+        Err(Error::Quota)
+    ));
+    assert!(owner.remove_saved_sticker_pack(first.id()).unwrap());
+    assert!(!owner.remove_saved_sticker_pack(first.id()).unwrap());
+    assert!(owner
+        .saved_sticker_pack(&[7; 32], first.id())
+        .unwrap()
+        .is_none());
+    assert!(owner.save_pack_with_limit(&[7; 32], &other, limit).unwrap());
+    assert!(foreign
+        .saved_sticker_pack(&[8; 32], first.id())
+        .unwrap()
+        .is_some());
+    assert_eq!(fs::read(dir.join(".interrupted.pending")).unwrap(), [0]);
+    let path = PathBuf::from(owner.db.path().unwrap());
+    drop(owner);
+    let reopened = store("alice", Some(&path));
+    assert!(reopened
+        .saved_sticker_pack(&[7; 32], first.id())
+        .unwrap()
+        .is_none());
+    assert!(reopened
+        .saved_sticker_pack(&[7; 32], other.id())
+        .unwrap()
+        .is_some());
+}
+
+#[test]
+fn explicit_removal_can_recover_a_corrupt_pack_without_its_key() {
+    let mut store = store("alice", None);
+    let first = pack("First");
+    let other = pack("Other");
+    store.save_sticker_pack(&[7; 32], &first).unwrap();
+    store.save_sticker_pack(&[7; 32], &other).unwrap();
+    let dir = directory(&store).unwrap();
+    let kept = fs::read(dir.join(hex(other.id()))).unwrap();
+    fs::write(dir.join(hex(first.id())), b"broken").unwrap();
+    assert!(store.remove_saved_sticker_pack(first.id()).unwrap());
+    assert_eq!(fs::read(dir.join(hex(other.id()))).unwrap(), kept);
+}
+
+#[test]
 fn corrupt_content_is_preserved_and_cannot_be_overwritten() {
     let mut store = store("alice", None);
     let pack = pack("Cats");
@@ -126,6 +181,10 @@ fn sqlite_writer_lock_prevents_overlapping_publications() {
         .unwrap();
     assert!(matches!(
         second.save_sticker_pack(&[7; 32], &pack("Cats")),
+        Err(Error::Sql(_))
+    ));
+    assert!(matches!(
+        second.remove_saved_sticker_pack(pack("Cats").id()),
         Err(Error::Sql(_))
     ));
     drop(lock);
@@ -203,5 +262,18 @@ fn symlinks_are_refused_without_touching_the_target() {
     symlink(&target, dir.join(hex(pack.id()))).unwrap();
     assert!(store.save_sticker_pack(&[7; 32], &pack).is_err());
     assert!(store.saved_sticker_pack(&[7; 32], pack.id()).is_err());
+    assert!(store.remove_saved_sticker_pack(pack.id()).is_err());
     assert_eq!(fs::read(target).unwrap(), b"keep");
+    let mut other = self::store("bob", None);
+    let foreign_dir = directory(&other)
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("unrelated-packs");
+    fs::create_dir(&foreign_dir).unwrap();
+    let foreign_file = foreign_dir.join(hex(pack.id()));
+    fs::write(&foreign_file, b"keep directory target").unwrap();
+    symlink(&foreign_dir, directory(&other).unwrap()).unwrap();
+    assert!(other.remove_saved_sticker_pack(pack.id()).is_err());
+    assert_eq!(fs::read(foreign_file).unwrap(), b"keep directory target");
 }

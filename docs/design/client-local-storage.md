@@ -75,7 +75,7 @@ no `chat_attachments` row names, then the least recently read past the `kept_ori
 Saved sticker packs use identity-local `sticker-packs/<PackID>` files and the same sealing
 secret as photo originals. The pack content is shareable; local sealing protects the saved
 collection. Keys bind the owner, pack ID and canonical record digest. Reads authenticate and
-fully revalidate the pack. Corrupt files and files opened with a wrong key remain untouched.
+fully revalidate the pack. Reads/saves leave corrupt files and files opened with a wrong key untouched.
 An existing SQLite writer transaction serializes quota checks and atomic file publication;
 no pack BLOB or index is stored in SQLite. The fixed 300 MiB quota counts actual file bytes,
 including headers and interrupted temporary files. Nothing is evicted automatically. Files are
@@ -85,7 +85,12 @@ Collection metadata is returned in pages of 32 entries ordered by PackID, with a
 cursor. Only one selected pack is decoded at a time; no images are retained by the listing.
 Unreadable pack IDs remain visible with individual errors. Unrecognized filenames, including
 interrupted writes, are counted separately. Each page scans the directory again; concurrent
-saves can appear on refresh. Deletion, chat integration and cache management remain planned.
+saves can appear on refresh. The core also offers explicit removal by PackID, including corrupt
+content without its sealing key. It uses the same writer lock as save, refuses symlinks, keeps
+unrelated/pending files, and returns false for an absent pack. Unix directory sync follows unlink.
+A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
+best-effort removal of this local copy. Desktop confirmation/removal controls, chat integration
+and cache management remain planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

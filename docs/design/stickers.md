@@ -171,7 +171,10 @@ Import validates the bounded TAR before creating local state. Settings now offer
 a paged collection list, retry and text-only error details in English and Russian. Files above
 8 MiB are refused before browser reading. Each opening owns its callbacks; closing or changing
 identity discards pending display updates and prevents imports whose file read has not finished.
-The request/response flow below, sending and removal controls remain planned.
+The core supports explicit removal of a selected saved PackID, including corrupt content,
+without pruning other packs or interrupted files. Removal frees the counted file bytes and is
+serialized with saving; it does not erase other copies. The desktop confirmation/removal
+controls and the request/response flow below remain planned.
 
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat

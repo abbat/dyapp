@@ -133,6 +133,30 @@ impl Store {
         }
         read(&dir.join(hex(id)), secret, &self.owner_peer_id, id)
     }
+    /// Removes only the explicitly selected pack, including corrupt content; missing is false.
+    /// Callers must obtain user confirmation. An error after unlink may still mean removal
+    /// happened, so refresh before retrying. This does not erase copies held elsewhere.
+    pub fn remove_saved_sticker_pack(&mut self, id: &[u8; 32]) -> Result<bool, Error> {
+        let dir = directory(self)?;
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if !valid_directory(&dir)? {
+            return Ok(false);
+        }
+        let path = dir.join(hex(id));
+        match fs::symlink_metadata(&path) {
+            Ok(meta) if meta.is_file() && !meta.is_symlink() => {}
+            Ok(_) => return Err(Error::Invalid),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(error.into()),
+        }
+        fs::remove_file(path)?;
+        #[cfg(unix)]
+        File::open(&dir)?.sync_all()?;
+        tx.commit()?;
+        Ok(true)
+    }
     /// Saves a validated pack atomically. Returns false for an already saved, readable pack.
     pub fn save_sticker_pack(&mut self, secret: &[u8; 32], pack: &Pack) -> Result<bool, Error> {
         self.save_pack_with_limit(secret, pack, SAVED_BYTES)
