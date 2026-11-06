@@ -123,7 +123,11 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
         if !change.valid(peer) {
-            return Err(crate::store::Error::InvalidName.into());
+            return Err(match change {
+                PeerChange::Note(_) => crate::store::Error::InvalidSetting,
+                _ => crate::store::Error::InvalidName,
+            }
+            .into());
         }
         let hlc = self.store.tick(crate::now() * 1000)?;
         let groups: Vec<_> = self.own_groups().map(|g| g.id().to_vec()).collect();

@@ -61,6 +61,12 @@ struct Peer {
     name_device: Vec<u8>,
     #[prost(bytes = "vec", tag = "17")]
     favorite_device: Vec<u8>,
+    #[prost(string, tag = "18")]
+    note: String,
+    #[prost(int64, tag = "19")]
+    note_hlc: i64,
+    #[prost(bytes = "vec", tag = "20")]
+    note_device: Vec<u8>,
 }
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -146,7 +152,8 @@ impl Store {
         let mut peers = self.db.prepare(
             "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
                     `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`,
-                    `favorite`, `favorite_hlc`, `blocked_device`, `muted_device`, `name_device`, `favorite_device`
+                    `favorite`, `favorite_hlc`, `blocked_device`, `muted_device`, `name_device`, `favorite_device`,
+                    `note`, `note_hlc`, `note_device`
              FROM `peers` ORDER BY `peer_id`",
         )?;
         let peers = peers.query_map([], |row| {
@@ -168,6 +175,9 @@ impl Store {
                 muted_device: row.get(14)?,
                 name_device: row.get(15)?,
                 favorite_device: row.get(16)?,
+                note: row.get(17)?,
+                note_hlc: row.get(18)?,
+                note_device: row.get(19)?,
             })
         })?;
         let mut likes = self.db.prepare(
@@ -219,6 +229,7 @@ impl Store {
                     peer.muted_hlc,
                     peer.name_hlc,
                     peer.favorite_hlc,
+                    peer.note_hlc,
                 ]
             }))
             .max()
@@ -227,12 +238,15 @@ impl Store {
         let clock = newest.max(state.hlc).max(load_hlc(&self.db)?.into());
         let tx = self.db.transaction()?;
         for peer in &state.peers {
+            if !crate::chat::valid_note(&peer.note) {
+                return Err(Error::InvalidSetting);
+            }
             tx.execute(
                 "INSERT OR REPLACE INTO `peers` (`peer_id`, `blocked`, `muted`, `local_name`,
                      `seen_devices`, `seen_version`, `verified`, `new_device`, `blocked_hlc`,
                      `muted_hlc`, `name_hlc`, `favorite`, `favorite_hlc`,
-                     `blocked_device`, `muted_device`, `name_device`, `favorite_device`)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                     `blocked_device`, `muted_device`, `name_device`, `favorite_device`, `note`, `note_hlc`, `note_device`)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
                 params![
                     peer.peer_id,
                     peer.blocked,
@@ -250,7 +264,10 @@ impl Store {
                     peer.blocked_device,
                     peer.muted_device,
                     peer.name_device,
-                    peer.favorite_device
+                    peer.favorite_device,
+                    peer.note,
+                    peer.note_hlc,
+                    peer.note_device
                 ],
             )?;
         }
@@ -308,6 +325,42 @@ mod tests {
         store.clear_link_pending().unwrap();
         assert_eq!(store.link_pending().unwrap(), None);
         assert!(store.is_linked_device().unwrap());
+    }
+
+    #[test]
+    fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
+        use crate::chat::PeerChange;
+        let owner = Identity::generate();
+        let old = Store::open(&temp_db_path(), &owner).unwrap();
+        let high = 1u64 << 40;
+        old.apply_peer_change(
+            "bob",
+            &PeerChange::Note("Case\nLine".into()),
+            high.into(),
+            &[2; 32],
+        )
+        .unwrap();
+        let snapshot = old.link_state().unwrap();
+        let mut linked = Store::open(&temp_db_path(), &owner).unwrap();
+        linked.import_link_state(&snapshot).unwrap();
+        assert_eq!(linked.contact_note("bob").unwrap(), "Case\nLine");
+        assert!(u64::from(linked.tick(0).unwrap()) > high);
+        assert!(!linked
+            .receive_peer_change(
+                "bob",
+                &PeerChange::Note("older actor".into()),
+                high,
+                0,
+                &[1; 32]
+            )
+            .unwrap());
+        let mut invalid = LinkState::decode(snapshot.as_slice()).unwrap();
+        invalid.peers[0].note = "hidden\u{202e}".into();
+        assert!(matches!(
+            linked.import_link_state(&invalid.encode_to_vec()),
+            Err(Error::InvalidSetting)
+        ));
+        assert_eq!(linked.contact_note("bob").unwrap(), "Case\nLine");
     }
 
     #[test]

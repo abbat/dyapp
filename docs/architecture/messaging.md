@@ -294,7 +294,9 @@ devices an owner lists without a leaf in the group, and `Group::add` commits the
 ([ADR 0040](../decisions/0040-device-linking.md)). `Session::add_own_devices` does this for every
 group after a mailbox pass, the group of only the owner's devices included, which carries
 `Body::PeerChange` (tag 13: a block, mute, pass, contact name or private favorite with its HLC; accepted only in
-that group). Favorite changes use kind 5 and a strict single-byte 0/1 value, and never
+that group). Private notes use kind 6 with UTF-8 text bounded to 2000 Unicode code
+points; case and LF line breaks remain intact, each line must be clean NFC text,
+and empty text clears the note with its HLC. Favorite changes use kind 5 and a strict single-byte 0/1 value, and never
 create a like or a message to the saved peer. Private changes merge by HLC, then the
 MLS-authenticated sender device key, then field value for conflicting reuse of the
 same device clock; arrival order is not a tie-break. Link snapshots preserve those

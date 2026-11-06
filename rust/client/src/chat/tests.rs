@@ -1,7 +1,7 @@
 use super::{
     apply_all, message, pad, remove, unpad, AttachmentMessage, AttachmentWire, Body, Delivery,
-    Event, PeerChange, Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_RECEIPT_IDS,
-    MAX_TEXT_BYTES, MAX_TOKENS, MIN_PADDED_BYTES,
+    Event, PeerChange, Receipt, TokenAnswer, TokenAsk, TokenRequest, MAX_NOTE_CHARS,
+    MAX_RECEIPT_IDS, MAX_TEXT_BYTES, MAX_TOKENS, MIN_PADDED_BYTES,
 };
 use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
 use crate::interactions::{Interaction, Kind};
@@ -378,6 +378,9 @@ fn peer_changes_are_strict() {
         PeerChange::Favorite(false),
         PeerChange::Name(String::new()),
         PeerChange::Name(longest.clone()),
+        PeerChange::Note(String::new()),
+        PeerChange::Note("Case\nСохраняется\n".into()),
+        PeerChange::Note("😀".repeat(MAX_NOTE_CHARS)),
     ] {
         assert!(body(change.clone()).encode()[2..10] == 7u64.to_be_bytes());
         assert!(Body::decode(&body(change.clone()).encode()).ok() == Some(body(change)));
@@ -390,18 +393,24 @@ fn peer_changes_are_strict() {
     };
     for bad in [
         with(1, 0),
-        with(1, 6),
+        with(1, 7),
         with(10, b'g'),
         with(74, 2),
         good[..good.len() - 1].to_vec(),
         good[..9].to_vec(),
         [good.as_slice(), &[1]].concat(),
+        body(PeerChange::Note("😀".repeat(MAX_NOTE_CHARS + 1))).encode(),
+        body(PeerChange::Note("hidden\u{202e}".into())).encode(),
+        body(PeerChange::Note("tab\t".into())).encode(),
+        body(PeerChange::Note("e\u{301}".into())).encode(),
         body(PeerChange::Name(format!("{longest}n"))).encode(),
         body(PeerChange::Name("a\u{202e}b".to_owned())).encode(),
         [&body(PeerChange::Name(String::new())).encode()[..], &[0xff]].concat(),
     ] {
         assert!(Body::decode(&bad).is_err());
     }
+    let largest = body(PeerChange::Note("😀".repeat(MAX_NOTE_CHARS))).encode();
+    assert_eq!(pad(&largest).len(), 8192);
     assert!(!PeerChange::Muted(true).valid("ab"));
     assert!(PeerChange::Muted(true).valid(&peer));
 }

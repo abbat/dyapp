@@ -127,6 +127,15 @@ through the existing own-device group, never a like to the saved peer. Favorites
 reopen and are included, with their HLC, in linked-device state. Client controls and native
 end-to-end verification remain planned.
 
+Private contact notes use `PeerChange::Note` on the same own-device path. The initial
+limit is 2000 Unicode code points; text retains case and LF line breaks, with clean
+NFC text on every line. Empty text is a stamped clear, so an older update cannot
+resurrect it. `peers` keeps the note, its HLC and authenticated sender device key;
+link snapshots preserve all three and advance the local clock past the note.
+The codec, store merge and snapshot import reject invalid text. Notes never enter
+public profiles, search records or messages to the contact. Desktop editing controls
+and native end-to-end verification remain planned.
+
 A linked device starts from a copy of the local state: peers (blocks, mutes, favorites, contact names, seen
 devices, verified marks), likes in both directions, passes, the interaction clock and the hidden
 flag ([ADR 0040](../decisions/0040-device-linking.md)). The clock goes past every copied row, so
@@ -136,7 +145,7 @@ and the value is only a stable fallback if one device reuses a clock with confli
 content. The authenticated MLS device key is stored per field and copied when linking.
 A lone local change without an own-device group may have an empty actor; HLC remains
 primary. No extra network payload field is needed. A newer clock always wins,
-regardless of actor or value. Later blocks, mutes, favorites, names and passes travel in the
+regardless of actor or value. Later blocks, mutes, favorites, names, notes and passes travel in the
 private group of own devices ([chats and matches](chats-and-matches.md#own-devices)). A device list change keeps a hidden profile hidden:
 it publishes to profile storage and holds a newer tombstone for search.
 

@@ -2,7 +2,7 @@ use super::*;
 use crate::store::tests::temp_db_path;
 
 #[tokio::test]
-async fn favorite_without_own_devices_creates_no_peer_message() {
+async fn private_changes_without_own_devices_create_no_peer_message() {
     let (owner, device, own_profile) = person();
     let (_, contact, profile) = person();
     let peer = profile.peer_id.clone();
@@ -41,7 +41,20 @@ async fn favorite_without_own_devices_creates_no_peer_message() {
         .await
         .unwrap();
     assert!(!session.store().favorite(&peer).unwrap());
-    assert!(session.store().due_outbound(0).unwrap().is_empty());
+    for note in ["Private\nNote", ""] {
+        session
+            .change_peer(
+                &mut [],
+                &peer,
+                crate::chat::PeerChange::Note(note.into()),
+                &seal,
+            )
+            .await
+            .unwrap();
+        assert_eq!(session.store().contact_note(&peer).unwrap(), note);
+        assert!(session.store().due_outbound(0).unwrap().is_empty());
+        assert_eq!(session.store().conversation(&peer).unwrap(), before);
+    }
 }
 
 #[test]

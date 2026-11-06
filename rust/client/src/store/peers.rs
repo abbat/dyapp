@@ -33,7 +33,10 @@ CREATE TABLE `peers` (
     `blocked_device` BLOB NOT NULL DEFAULT x'',
     `muted_device` BLOB NOT NULL DEFAULT x'',
     `name_device` BLOB NOT NULL DEFAULT x'',
-    `favorite_device` BLOB NOT NULL DEFAULT x''
+    `favorite_device` BLOB NOT NULL DEFAULT x'',
+    `note` TEXT NOT NULL DEFAULT '',
+    `note_hlc` INTEGER NOT NULL DEFAULT 0,
+    `note_device` BLOB NOT NULL DEFAULT x''
 ) STRICT;
 ";
 
@@ -76,6 +79,12 @@ fn apply_change(
             "name_device",
             Value::from(name.clone()),
         ),
+        PeerChange::Note(note) => {
+            if !crate::chat::valid_note(note) {
+                return Err(Error::InvalidSetting);
+            }
+            ("note", "note_hlc", "note_device", Value::from(note.clone()))
+        }
         PeerChange::Passed(on) => return write_pass(db, peer_id, *on, at, source_device),
     };
     let at = i64::try_from(u64::from(at)).map_err(|_| Error::ClockRange)?;
@@ -207,6 +216,19 @@ impl Store {
         )?;
         let rows = query.query_map([], |row| row.get(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Private note of this identity about a peer; absent means empty.
+    pub fn contact_note(&self, peer_id: &str) -> Result<String, Error> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT `note` FROM `peers` WHERE `peer_id` = ?1",
+                [peer_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .unwrap_or_default())
     }
 
     /// Name `peer_id` on this profile only; an empty name clears it.
@@ -416,6 +438,7 @@ mod tests {
                 store.favorite("bob").unwrap(),
                 store.local_name("bob").unwrap(),
                 store.passed_peers().unwrap(),
+                store.contact_note("bob").unwrap(),
             )
         };
         for (a, b) in [
@@ -423,6 +446,10 @@ mod tests {
             (PeerChange::Muted(true), PeerChange::Muted(false)),
             (PeerChange::Favorite(true), PeerChange::Favorite(false)),
             (PeerChange::Passed(true), PeerChange::Passed(false)),
+            (
+                PeerChange::Note("Private".into()),
+                PeerChange::Note(String::new()),
+            ),
             (
                 PeerChange::Name("zulu".into()),
                 PeerChange::Name("alpha".into()),
@@ -567,6 +594,49 @@ mod tests {
         assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
         let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         assert!(other.favorite_peers().unwrap().is_empty());
+        assert!(Store::open(&path, &Identity::generate()).is_err());
+    }
+
+    #[test]
+    fn notes_survive_reopen_and_clear_without_replaying_old_text() {
+        let path = temp_db_path();
+        let owner = Identity::generate();
+        let store = Store::open(&path, &owner).unwrap();
+        assert_eq!(store.contact_note("bob").unwrap(), "");
+        store
+            .apply_peer_change(
+                "bob",
+                &PeerChange::Note("Case\nLine".into()),
+                10u64.into(),
+                &[1; 32],
+            )
+            .unwrap();
+        drop(store);
+        let mut store = Store::open(&path, &owner).unwrap();
+        assert_eq!(store.contact_note("bob").unwrap(), "Case\nLine");
+        let invalid = PeerChange::Note("x".repeat(crate::chat::MAX_NOTE_CHARS + 1));
+        let write = prepare_put(&[7; 32], vec![1]).unwrap();
+        assert!(matches!(
+            store.stage_peer_change("bob", &invalid, 11, b"sealed", &[write], &[1; 32]),
+            Err(Error::InvalidSetting)
+        ));
+        assert!(store.due_outbound(0).unwrap().is_empty());
+        assert!(store.sealed_device().unwrap().is_none());
+        assert_eq!(store.contact_note("bob").unwrap(), "Case\nLine");
+        store
+            .apply_peer_change(
+                "bob",
+                &PeerChange::Note(String::new()),
+                12u64.into(),
+                &[1; 32],
+            )
+            .unwrap();
+        assert!(!store
+            .receive_peer_change("bob", &PeerChange::Note("old".into()), 10, 0, &[2; 32])
+            .unwrap());
+        assert_eq!(store.contact_note("bob").unwrap(), "");
+        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        assert_eq!(other.contact_note("bob").unwrap(), "");
         assert!(Store::open(&path, &Identity::generate()).is_err());
     }
 

@@ -25,6 +25,13 @@ pub const SIGNAL_PADDED_BYTES: usize = 256;
 pub const MAX_SIGNAL_BYTES: usize = 1024;
 /// Maximum text bytes in a chat text or edit, before MLS padding.
 pub const MAX_TEXT_BYTES: usize = 64 * 1024;
+/// Initial private contact-note limit, in Unicode code points.
+pub const MAX_NOTE_CHARS: usize = 2_000;
+
+/// Plain private note text: clean NFC lines, retaining case and LF line breaks.
+pub fn valid_note(note: &str) -> bool {
+    note.chars().count() <= MAX_NOTE_CHARS && note.split('\n').all(is_clean_text)
+}
 const MESSAGE_ID_BYTES: usize = 16;
 const PEER_ID_CHARS: usize = 64;
 const OPERATION_HEADER_BYTES: usize = 2 * MESSAGE_ID_BYTES + 8;
@@ -101,13 +108,16 @@ pub enum PeerChange {
     Name(String),
     /// Privately saved for later, without sending a like.
     Favorite(bool),
+    /// Private contact note; empty text clears it on the owner's devices.
+    Note(String),
 }
 
 impl PeerChange {
-    /// Whether `peer` is a Peer ID and a name fits the rules of a local contact name.
+    /// Whether the Peer ID and any private text fit their respective limits.
     pub fn valid(&self, peer: &str) -> bool {
         let name_fits = match self {
             Self::Name(name) => name.chars().count() <= MAX_FIELD_CHARS && is_clean_text(name),
+            Self::Note(note) => valid_note(note),
             _ => true,
         };
         name_fits && peer.len() == PEER_ID_CHARS && peer.bytes().all(|c| c.is_ascii_hexdigit())
@@ -376,6 +386,7 @@ impl Body {
                     PeerChange::Passed(on) => (3, vec![u8::from(*on)]),
                     PeerChange::Name(name) => (4, name.clone().into_bytes()),
                     PeerChange::Favorite(on) => (5, vec![u8::from(*on)]),
+                    PeerChange::Note(note) => (6, note.clone().into_bytes()),
                 };
                 let head = [&[13, kind], hlc.to_be_bytes().as_slice()].concat();
                 [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
@@ -650,6 +661,7 @@ fn peer_change(body: &[u8]) -> Option<Body> {
         3 => PeerChange::Passed(flag?),
         4 => PeerChange::Name(String::from_utf8(value.to_vec()).ok()?),
         5 => PeerChange::Favorite(flag?),
+        6 => PeerChange::Note(String::from_utf8(value.to_vec()).ok()?),
         _ => return None,
     };
     let peer = String::from_utf8(peer.to_vec()).ok()?;

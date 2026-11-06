@@ -6,6 +6,12 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+When extending private own-device peer state, carry the field value, HLC and MLS-authenticated
+sender device key through the atomic store merge and linked-device snapshot. Include its HLC
+when advancing the imported clock, validate text at codec/store/import boundaries, and test
+reordered equal-clock events and clears. Send private state only through own-device groups;
+a contact conversation must never receive it.
+
 Before the first app release, stored client databases have no compatibility promise. Change the
 version-1 schema directly and remove obsolete database migration paths; do not spend work on
 migrating development databases. Recreate a development database or restore a matching backup.
