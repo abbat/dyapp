@@ -17,6 +17,7 @@ pub mod scores;
 pub mod search;
 pub mod seeds;
 pub mod session;
+pub mod sticker_tar;
 pub mod store;
 pub mod tokens;
 pub mod updates;

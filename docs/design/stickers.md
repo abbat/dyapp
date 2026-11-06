@@ -1,7 +1,12 @@
 # Sticker packs
 
-Status: planned, required for v0.0.1. Nothing here is implemented yet. The numbers marked
-*assumed* are measured by the first implementation and may change.
+Status: required for v0.0.1. The bounded in-memory TAR reader exists in
+`rust/client/src/sticker_tar.rs`; manifest, WebP validation, storage, protocol and UI
+remain planned. The numbers marked *assumed* need measurement and may change.
+The reader caps the archive envelope at 8 MiB (including TAR padding), files at
+121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
+6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
+exercise archive parsing only; the fixture sticker payload is deliberately not WebP.
 
 A user imports a sticker pack from a file, sends stickers from it in a chat, and a peer can save
 the whole pack and send from it too. Every sticker travels as an ordinary sealed
