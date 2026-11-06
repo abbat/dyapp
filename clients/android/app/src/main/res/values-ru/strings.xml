@@ -485,4 +485,7 @@
     <string name="chat_photo_gone">Фото больше недоступно.</string>
     <string name="chat_photo_failed">Не удалось загрузить фото. Повторите попытку.</string>
     <string name="chat_photo_hours">Хранение оригинала: ещё %1$s ч. Сохранённая копия может оставаться доступной.</string>
+    <string name="chat_photo_full">Слишком много недоставленных вложений. Повторите позже.</string>
+    <string name="chat_photo_attach">Прикрепить фото…</string>
+    <string name="chat_photo_confirm">Отправить это фото в этот чат?</string>
 </resources>

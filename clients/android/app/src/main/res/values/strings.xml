@@ -486,4 +486,7 @@
     <string name="chat_photo_gone">Photo is no longer available.</string>
     <string name="chat_photo_failed">Could not load the photo. Try again.</string>
     <string name="chat_photo_hours">Original retention: %1$s more hours. A saved copy may still be available.</string>
+    <string name="chat_photo_full">Too many undelivered attachments. Try again later.</string>
+    <string name="chat_photo_attach">Attach photo…</string>
+    <string name="chat_photo_confirm">Send this photo to this chat?</string>
 </resources>

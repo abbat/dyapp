@@ -6,8 +6,11 @@ and Download photo explicitly requests the original. Open conversations apply co
 auto-download permission again after network changes. Loading disables repeat taps;
 missing originals and retryable errors have separate messages. Layout uses clamped
 claims until a bounded original supplies real dimensions. The last-day retention
-hint is approximate and does not prevent opening a kept copy. Photo sending and
-settings controls remain planned; these native states are not in the static prototype.
+hint is approximate and does not prevent opening a kept copy. Download-setting
+controls remain planned; these native states are not in the static prototype.
+Sending is now available in open chats through a system picker and explicit preview
+confirmation. Refused uploads retain prepared bytes for retry; queued sends clear
+them. Picker composition is keyed by identity and destination chat.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

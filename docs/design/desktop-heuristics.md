@@ -32,7 +32,11 @@ and an explicit original fetch; busy controls prevent duplicate requests (H3, H5
 Metadata and named buttons avoid memorizing IDs (H6); existing scroll and native
 button semantics remain available (H7). Images have bounded layout and decoding
 (H8); errors retain retry and unavailable originals have their own wording (H9).
-Both manuals explain retention and network policy (H10). No open source-review
+Both manuals explain retention and network policy (H10). The photo picker now
+shows a preview before confirmation; Cancel sends nothing, busy buttons prevent
+repeated sends, and FULL retains the photo with a retry explanation (H1, H3, H5,
+H9). The picker composition is keyed by identity and chat to discard stale drafts.
+No open source-review
 finding. Device rendering and instrumentation still require Android CI.
 
 ## Method

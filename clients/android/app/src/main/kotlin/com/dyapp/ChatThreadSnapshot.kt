@@ -10,6 +10,7 @@ internal class ChatThreadSnapshot(
     val items: List<ChatItem>,
     val loadPhoto: ((ChatPhoto) -> ByteArray)? = null,
     val autoPhoto: (() -> Boolean)? = null,
+    val sendPhoto: ((PreparedPhoto) -> ChatStatus?)? = null,
 )
 
 @androidx.compose.runtime.Composable
@@ -19,8 +20,11 @@ internal fun MediaChatContent(snapshot: ChatThreadSnapshot?, peer: String, me: S
     androidx.compose.runtime.CompositionLocalProvider(
         LocalChatItems provides snapshot?.items, LocalChatPhotoLoader provides snapshot?.loadPhoto,
         LocalChatPhotoAuto provides snapshot?.autoPhoto,
+        LocalChatPhotoSender provides snapshot?.sendPhoto,
     ) {
-        ChatContent(peer, me, snapshot?.history, form, actions)
+        androidx.compose.runtime.key(me, peer) {
+            ChatContent(peer, me, snapshot?.history, form, actions)
+        }
     }
 }
 
