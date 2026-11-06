@@ -19,8 +19,11 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     }
     // One drag can take the whole timeout on a slow simulator, so a few always run.
     var drags = 0
+    // A row of a screen still sliding in has an empty frame, and `isHittable` then fails the test
+    // instead of returning false.
     let search = {
-        while !(row.exists && row.isHittable) && (Date() < deadline || drags < 3) {
+        while !(row.exists && app.frame.intersects(row.frame) && row.isHittable)
+            && (Date() < deadline || drags < 3) {
             if above { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
             drags += 1
         }

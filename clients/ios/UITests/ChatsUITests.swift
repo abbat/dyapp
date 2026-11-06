@@ -249,9 +249,11 @@ final class ChatsUITests: XCTestCase {
         month.tap()
         month.typeText("5")
         reveal(app.buttons["profile-save"], in: app).tap()
-        // The save took 15 s on a slow simulator before the switch turned on.
+        // The save took 15 s on a slow simulator before the switch turned on. Below the keyboard
+        // the switch's row is not created, so a wait in place never sees it.
+        let adult = reveal(app.switches["profile-confirm-adult"], in: app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.switches["profile-confirm-adult"]
+            predicate: NSPredicate(format: "enabled == true"), object: adult
         ),
         ], timeout: 30), .completed, app.debugDescription)
         publish(app)
