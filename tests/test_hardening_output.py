@@ -1,4 +1,4 @@
-"""Exercise the standalone release hardening checker with synthetic ELF headers."""
+"""Exercise the release hardening checker with synthetic ELF headers."""
 import json
 import os
 from pathlib import Path
@@ -14,7 +14,7 @@ GOOD = {"e_type": 3, "interp": True, "stack": 6, "relro": True,
 
 
 def elf(e_type=3, interp=True, stack=6, relro=True, dynamic=(), names=()):
-    """A minimal ELF64 file: headers, a string table and a dynamic section, all in one PT_LOAD."""
+    """ELF64 headers, string table and dynamic section in one PT_LOAD."""
     strtab = b"\x00" + b"".join(name + b"\x00" for name in names)
     phnum = 3 + interp + (stack is not None) + relro
     strtab_at = 64 + 56 * phnum
@@ -30,7 +30,8 @@ def elf(e_type=3, interp=True, stack=6, relro=True, dynamic=(), names=()):
         return struct.pack("<IIQQQQQQ", kind, flags, offset, offset, offset,
                            filesz, filesz, 8)
 
-    segments = segment(1, 5, 0, size) + segment(2, 6, dynamic_at, len(dynamic_bytes))
+    segments = segment(1, 5, 0, size)
+    segments += segment(2, 6, dynamic_at, len(dynamic_bytes))
     segments += segment(6, 4, 64, 56 * phnum)
     if interp:
         segments += segment(3)
@@ -62,7 +63,8 @@ class Hardening(unittest.TestCase):
                 path.write_bytes(elf(**{**GOOD, **change}))
                 return path
 
-            for name, change in [("flags", {}), ("now-flag-1", {"dynamic": {0x6FFFFFFB: 1}}),
+            for name, change in [("flags", {}),
+                                 ("now-flag-1", {"dynamic": {0x6FFFFFFB: 1}}),
                                  ("bind-now", {"dynamic": {24: 0}})]:
                 result = run(fixture(name, **change))
                 self.assertEqual(result.stdout, "OK hardening\n", name)
@@ -78,14 +80,17 @@ class Hardening(unittest.TestCase):
                 "lazy": ({"dynamic": {}}, "RELRO is partial"),
                 "rpath": ({"dynamic": {30: 0x8, 15: 1}}, "RPATH or RUNPATH"),
                 "runpath": ({"dynamic": {30: 0x8, 29: 1}}, "RPATH or RUNPATH"),
-                "no-canary": ({"names": [b"__stack_chk_fail_local"]}, "no stack protector"),
+                "no-canary": ({"names": [b"__stack_chk_fail_local"]},
+                              "no stack protector"),
             }
             for name, (change, cause) in bad.items():
                 result = run(fixture(name, **change))
                 self.assertEqual(result.returncode, 1, name)
-                self.assertTrue(result.stdout.startswith("FAIL hardening:"), name)
+                self.assertTrue(
+                    result.stdout.startswith("FAIL hardening:"), name)
                 self.assertIn(cause, result.stdout, name)
-                self.assertIn(f'FIX: {policy["hardening"]["fix"]}\n', result.stdout)
+                self.assertIn(f'FIX: {policy["hardening"]["fix"]}\n',
+                              result.stdout)
                 self.assertIn(": raw captured output", result.stdout)
                 legacy = run(root / name, raw=True)
                 self.assertNotEqual(legacy.returncode, 0, name)

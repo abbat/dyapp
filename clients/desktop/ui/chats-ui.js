@@ -555,7 +555,7 @@ const openChat = async (peerId, call = invoke) => {
       }
       item.append(message.photo ? photoBubble(message, peerId,
         message.author !== current.peerId && history.state !== 'open', call)
-        : message.sharedPeer && !message.deleted ? profileCard(message.sharedPeer, call) : body);
+        : message.sharedPeer && !message.deleted ? window.profileCard(message.sharedPeer, call) : body);
       const hosts = chatLinkHosts(message.deleted ? '' : message.text);
       if (hosts.length) {
         const host = document.createElement('span');
@@ -908,7 +908,7 @@ const forwardChatText = async (call = invoke) => {
 };
 document.getElementById('chat-forward-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  if (forwardTarget?.share) window.profileShared = shareProfile();
+  if (forwardTarget?.share) window.profileShared = window.shareProfile();
   else window.chatForwarded = forwardChatText();
 });
 window.showChats = async (call = invoke) => {

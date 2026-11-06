@@ -46,7 +46,7 @@ const openShared = async (peerId, card, call = invoke) => {
     if (identityCurrent(generation)) chatComposeStatus.textContent = `${window.strings['chats.profileFailed']} ${String(error)}`;
   }
 };
-const profileCard = (peerId, call) => {
+window.profileCard = (peerId, call) => {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'btn';
@@ -55,7 +55,7 @@ const profileCard = (peerId, call) => {
   card.addEventListener('click', () => { window.sharedOpened = openShared(peerId, card, call); });
   return card;
 };
-const shareProfile = async (call = invoke) => {
+window.shareProfile = async (call = invoke) => {
   const target = forwardTarget;
   const targetPeerId = forwardSelect.value;
   if (!target || forwardBusy || forwardConfirm.disabled || !targetPeerId) return;

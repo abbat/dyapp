@@ -16,7 +16,8 @@ import tempfile
 
 PT_LOAD, PT_DYNAMIC, PT_INTERP = 1, 2, 3
 PT_GNU_STACK, PT_GNU_RELRO = 0x6474E551, 0x6474E552
-DT_STRTAB, DT_STRSZ, DT_RPATH, DT_BIND_NOW, DT_RUNPATH, DT_FLAGS = 5, 10, 15, 24, 29, 30
+DT_STRTAB, DT_STRSZ, DT_RPATH = 5, 10, 15
+DT_BIND_NOW, DT_RUNPATH, DT_FLAGS = 24, 29, 30
 DT_FLAGS_1 = 0x6FFFFFFB
 DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
 
@@ -53,15 +54,15 @@ def problems(binary):
             if tag == 0:
                 break
             tags.setdefault(tag, value)
-    if not (DT_BIND_NOW in tags or tags.get(DT_FLAGS, 0) & DF_BIND_NOW
-            or tags.get(DT_FLAGS_1, 0) & DF_1_NOW):
+    bind_now = DT_BIND_NOW in tags or tags.get(DT_FLAGS, 0) & DF_BIND_NOW
+    if not (bind_now or tags.get(DT_FLAGS_1, 0) & DF_1_NOW):
         found.append('lazy binding, RELRO is partial')
     if DT_RPATH in tags or DT_RUNPATH in tags:
         found.append('RPATH or RUNPATH set')
     strtab = next((offset + tags[DT_STRTAB] - vaddr
                    for kind, _, offset, vaddr, size in segments
                    if kind == PT_LOAD and DT_STRTAB in tags
-                   and vaddr <= tags[DT_STRTAB] < vaddr + size), None)
+                   if vaddr <= tags[DT_STRTAB] < vaddr + size), None)
     names = (data[strtab:strtab + tags.get(DT_STRSZ, 0)]
              if strtab is not None else b'')
     if b'__stack_chk_fail' not in names.split(b'\x00'):
@@ -91,7 +92,7 @@ if __name__ == '__main__':
         try:
             main()
         except (Exception, SystemExit) as error:
-            # Copied alone into the release image, like check-auditable.py; tests bind FIX to
+            # Copied alone into the release image; tests bind FIX to
             # check-output.json.
             message = str(error)
             directory = os.environ.get('DYAPP_CHECK_LOG_DIR',
