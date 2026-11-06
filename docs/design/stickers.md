@@ -103,7 +103,7 @@ naming the file. PAX metadata records are skipped.
 | First frame | not fully transparent |
 | Metadata | EXIF and XMP refused |
 | Saved packs on a device | 300 MiB; over it import or save fails with an error, nothing is evicted |
-| Received sticker cache | 50 MiB (*assumed*), least recently used goes first |
+| Individual chat stickers | Same storage settings and cleanup as other chat media; no separate sticker quota |
 | Single sticker uploads | 16 MiB charged per sender (*assumed*) |
 
 A pack over 6 MiB fails with the overflow in the message, and its author splits it.
@@ -208,10 +208,14 @@ and tags 14 and 15 from a non-match are refused.
 
 - Packs, cache and recents belong to one device and are not synced between linked devices.
 - They live in the identity's folder and go with it.
-- Deleting a pack keeps stickers in history visible while the cache holds them, then the fallback
-  shows. A deleted pack is no longer answered for.
-- Sticker bytes stay in the cache after a message is deleted, until evicted; this is covered by
-  [best-effort deletion](../decisions/0011-best-effort-deletion.md).
+- Individual stickers follow the common [chat-media storage policy](client-local-storage.md),
+  including auto-download, the shared off/256 MiB/1 GiB originals setting, LRU and cleanup of
+  unreferenced media when history is cleared. They have no separate 50 MiB cache or sticker-only
+  retention policy. Integration with this common storage path remains planned.
+- Deleting a pack leaves independently retained chat-media copies available under that policy;
+  otherwise history shows the fallback. A deleted pack is no longer answered for.
+- Local cleanup has the same [best-effort deletion](../decisions/0011-best-effort-deletion.md)
+  limits as other chat media.
 
 ## Accepted leaks
 
@@ -222,7 +226,7 @@ as they could any file they received.
 ## To measure
 
 - Real sizes and decode CPU of 512 px, 3 s WebP against the 256 KiB limit.
-- The 16 MiB budget and 50 MiB cache.
+- The 16 MiB decoder budget and sticker usage within the shared chat-media storage limit.
 - Whether the client upload path shards as the node quota assumes: a 6 MiB pack is charged 10 MiB
   when sharded.
 - Library growth from `image-webp` against the release size check.
