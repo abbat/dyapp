@@ -133,8 +133,9 @@ NFC text on every line. Empty text is a stamped clear, so an older update cannot
 resurrect it. `peers` keeps the note, its HLC and authenticated sender device key;
 link snapshots preserve all three and advance the local clock past the note.
 The codec, store merge and snapshot import reject invalid text. Notes never enter
-public profiles, search records or messages to the contact. Desktop editing controls
-and native end-to-end verification remain planned.
+public profiles, search records or messages to the contact. The shared Linux/Windows shell exposes local `contact_note` and synchronized
+`set_contact_note` commands with an identity lease; the editor and native end-to-end
+verification remain planned.
 
 A linked device starts from a copy of the local state: peers (blocks, mutes, favorites, contact names, seen
 devices, verified marks), likes in both directions, passes, the interaction clock and the hidden

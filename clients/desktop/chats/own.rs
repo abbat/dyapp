@@ -19,7 +19,7 @@ use crate::IdentityState;
 
 /// Makes `change` about `peer_id` here and, once the owner's devices share a group, stages it for
 /// them: the next catch-up sends it, so this needs no network. Hold [`Sessions`] around the call.
-/// `invalidName` refuses a name or Peer ID that does not fit.
+/// Invalid notes or their target return `invalidNote`; other invalid changes return `invalidName`.
 pub async fn change_peer(
     root: &Path,
     dir: &Path,
@@ -28,7 +28,15 @@ pub async fn change_peer(
     change: PeerChange,
 ) -> Result<(), String> {
     if !change.valid(peer_id) {
-        return Err("invalidName".into());
+        return Err(if matches!(change, PeerChange::Note(_)) {
+            "invalidNote"
+        } else {
+            "invalidName"
+        }
+        .into());
+    }
+    if matches!(change, PeerChange::Note(_)) && peer_id == identity.peer_id() {
+        return Err("invalidNote".into());
     }
     let mut store = open(dir, identity)?;
     let owner = identity.peer_id();

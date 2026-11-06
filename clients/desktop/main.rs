@@ -15,6 +15,7 @@ mod chat_photos;
 #[path = "chats.rs"]
 mod chats;
 mod clipboard;
+mod contact_notes;
 mod favorites;
 #[path = "file_store.rs"]
 mod file_store;
@@ -911,6 +912,8 @@ fn main() {
             favorites::favorite_peers,
             favorites::favorite_state,
             favorites::set_favorite,
+            contact_notes::contact_note,
+            contact_notes::set_contact_note,
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,
