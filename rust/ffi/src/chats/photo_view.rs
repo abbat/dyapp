@@ -3,7 +3,22 @@
 #[cfg(test)]
 mod tests;
 
-use super::ChatDelivery;
+use super::{ChatDelivery, ChatMessage};
+
+/// A text or photo in the Store's merged order; native clients must preserve this order.
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Enum)]
+pub enum ChatItem {
+    /// A text, edit or deletion placeholder with read-receipt projection.
+    Text {
+        /// The projected text and its receipt status.
+        message: ChatMessage,
+    },
+    /// Safe photo metadata; originals are not downloaded by reading history.
+    Photo {
+        /// Safe attachment metadata.
+        photo: ChatPhoto,
+    },
+}
 use dyapp_client::attachment::layout_size;
 use dyapp_client::store::messages::ChatAttachment;
 

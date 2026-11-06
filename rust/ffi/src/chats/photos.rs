@@ -7,6 +7,48 @@ use dyapp_client::store::Conversation;
 
 #[uniffi::export]
 impl ChatSession {
+    /// Text and photo metadata in core pair-wide order, with the same text read marks as chat_history.
+    /// Reading history never fetches originals or reveals attachment keys.
+    pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
+        use super::ChatItem;
+        use dyapp_client::store::messages::ChatItem as Stored;
+        let session = self.session.lock().map_err(failed)?;
+        let store = session.store();
+        if store.blocked(&peer_id).map_err(failed)? {
+            return Err(failed("blocked"));
+        }
+        let mut items: Vec<ChatItem> = store
+            .current_chat_items(&peer_id)
+            .map_err(failed)?
+            .into_iter()
+            .map(|item| match item {
+                Stored::Text(message) => ChatItem::Text {
+                    message: message.into(),
+                },
+                Stored::Attachment(photo) => ChatItem::Photo {
+                    photo: photo.into(),
+                },
+            })
+            .collect();
+        let mut texts: Vec<_> = items
+            .iter()
+            .filter_map(|item| match item {
+                ChatItem::Text { message } => Some(message.clone()),
+                ChatItem::Photo { .. } => None,
+            })
+            .collect();
+        super::reads::project_reads(store, &peer_id, &self.key.identity.peer_id(), &mut texts)?;
+        let mut texts = texts.into_iter();
+        for item in &mut items {
+            if let ChatItem::Text { message } = item {
+                *message = texts
+                    .next()
+                    .ok_or_else(|| failed("history projection mismatch"))?;
+            }
+        }
+        Ok(items)
+    }
+
     /// Safe metadata in core history order, without downloading any original.
     /// A blocked peer is refused just as for text history.
     pub fn chat_photos(&self, peer_id: String) -> Result<Vec<super::ChatPhoto>, CoreError> {
