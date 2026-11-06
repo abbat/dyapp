@@ -31,6 +31,7 @@ mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
 mod reads;
+mod send_photo;
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
 pub use notices::ChatNotice;
