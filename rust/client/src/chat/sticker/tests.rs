@@ -108,6 +108,67 @@ fn labels_follow_manifest_rules_at_encode_and_decode() {
 }
 
 #[test]
+fn rendering_binds_validated_pixels_to_the_message_hash() {
+    let lossy = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fuzz/corpus/sticker_webp/lossy.webp"
+    ));
+    let animated = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fuzz/corpus/sticker_webp/animated.webp"
+    ));
+    for bytes in [lossy.as_slice(), animated.as_slice()] {
+        let mut sticker = sample();
+        sticker.sha256 = dyapp_identity::sha256(bytes);
+        assert!(sticker.download().is_none()); // Unrelated descriptor, valid saved-pack copy.
+        let frame = sticker.first_frame(bytes).unwrap();
+        assert_eq!(
+            frame.pixels.len(),
+            (frame.width * frame.height * 4) as usize
+        );
+        assert!(frame
+            .pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|pixel| pixel[3] != 0));
+        sticker.attachment = None;
+        assert!(sticker.first_frame(bytes).is_ok());
+        sticker.sha256[0] ^= 1;
+        assert_eq!(
+            sticker.first_frame(bytes).err().unwrap().to_string(),
+            "attachment: sticker hash mismatch"
+        );
+    }
+}
+
+#[test]
+fn matching_hash_does_not_authorize_invalid_images_or_metadata() {
+    let mut transparent = Vec::new();
+    image_webp::WebPEncoder::new(&mut transparent)
+        .encode(&[0; 4], 1, 1, image_webp::ColorType::Rgba8)
+        .unwrap();
+    let mut sticker = sample();
+    sticker.attachment = None;
+    for bytes in [
+        transparent,
+        b"not WebP".to_vec(),
+        vec![],
+        vec![0; MAX_STICKER_BYTES + 1],
+    ] {
+        sticker.sha256 = dyapp_identity::sha256(&bytes);
+        assert!(sticker.first_frame(&bytes).is_err());
+    }
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fuzz/corpus/sticker_webp/lossy.webp"
+    ));
+    sticker.sha256 = dyapp_identity::sha256(bytes);
+    sticker.emoji = "two labels".into();
+    assert!(sticker.first_frame(bytes).is_err());
+}
+
+#[test]
 fn normal_body_decoder_does_not_admit_payloads_before_projection() {
     let payload = sample().encode().unwrap();
     for tag in [14, 15, 16] {

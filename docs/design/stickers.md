@@ -144,7 +144,10 @@ fixed-size IDs, a signed-range HLC and an optional existing attachment descripto
 The nested descriptor's message ID/HLC must equal the sticker's; its release secret
 is zero, preview is empty and plaintext size is 1..=256 KiB. A mismatched plaintext
 hash preserves fallback metadata but `download()` returns no descriptor. Compressed
-bytes still require hash and WebP validation after fetching. This payload is not yet
+bytes go through `Sticker::first_frame`: it bounds the input, binds its SHA-256 to
+the message and returns only validated RGBA8 through the shared WebP decoder. It also
+accepts matching bytes already available from a saved pack when the descriptor is absent
+or has a different hash; that descriptor still cannot authorize fetching. This payload is not yet
 registered under an outer tag or enabled in session receive/send: history projection
 and common-media integration must land with that registration.
 

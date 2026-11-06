@@ -128,6 +128,22 @@ impl Sticker {
         Ok(sticker)
     }
 
+    /// Checks independently available bytes against this message and returns only validated RGBA8.
+    /// A missing or mismatched download descriptor does not invalidate a saved-pack copy.
+    pub fn first_frame(
+        &self,
+        plaintext: &[u8],
+    ) -> Result<crate::sticker_webp::decode::Frame, Error> {
+        self.check()?;
+        if plaintext.is_empty() || plaintext.len() > MAX_STICKER_BYTES {
+            return Err(Error::Attachment("invalid sticker size"));
+        }
+        if dyapp_identity::sha256(plaintext) != self.sha256 {
+            return Err(Error::Attachment("sticker hash mismatch"));
+        }
+        crate::sticker_webp::decode::first_frame(plaintext).map_err(Error::Attachment)
+    }
+
     /// A descriptor eligible for fetching; image hash and WebP validation still follow fetch.
     pub fn download(&self) -> Option<&Attachment> {
         self.check().ok()?;
