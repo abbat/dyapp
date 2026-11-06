@@ -186,6 +186,7 @@ const openFound = (found, card, call = invoke) => {
   const generation = identityGeneration;
   stopSafetyCamera();
   viewed = { found, card };
+  for (const id of ['view-pass', 'view-unpass']) document.getElementById(id).disabled = false;
   document.getElementById('view-message').disabled = false;
   document.getElementById('view-safety-image').value = '';
   document.getElementById('view-safety-scan-status').hidden = true;
@@ -279,9 +280,15 @@ document.getElementById('unlike-confirm').addEventListener('click', () => {
 });
 // A pass stays with the own devices: the card leaves its list at once and the open profile can undo it.
 const sendPass = async (passed, call = invoke) => {
-  const { found, card } = viewed;
+  const target = viewed;
+  if (!target || target.passBusy) return;
+  const { found, card } = target;
   const generation = identityGeneration;
-  const currentView = () => identityCurrent(generation) && viewed?.found === found;
+  const currentView = () => identityCurrent(generation) && viewed === target;
+  target.passBusy = true;
+  const buttons = ['view-pass', 'view-unpass'].map((id) => document.getElementById(id));
+  for (const button of buttons) button.disabled = true;
+  viewStatus.textContent = window.strings['view.pass.saving'];
   try {
     const likes = await call('pass_peer', { peerId: found.peerId, passed });
     if (!currentView()) return;
@@ -294,6 +301,9 @@ const sendPass = async (passed, call = invoke) => {
     viewStatus.textContent = window.strings[passed ? 'view.passed' : 'view.unpassed'];
   } catch (error) {
     if (currentView()) viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
+  } finally {
+    target.passBusy = false;
+    if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
 for (const [id, passed] of [['view-pass', true], ['view-unpass', false]]) {

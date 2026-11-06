@@ -702,6 +702,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await nameChecks.checkInterests();
       await nameChecks.checkFavoriteAction();
       await nameChecks.checkContactNotes();
+      await nameChecks.checkPassActions();
       await nameChecks.checkSavedProfiles();
       await nameChecks.checkChatMute();
       await photoChecks.checkChatPhoto();

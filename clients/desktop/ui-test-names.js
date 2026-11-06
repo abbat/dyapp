@@ -575,7 +575,53 @@ const checkContactNotes = async () => {
   closeFound();
   card.remove();
 };
+const checkPassActions = async () => {
+  await openArea('search-area');
+  const card = document.createElement('button');
+  document.getElementById('search-results').append(card);
+  const found = { peerId: '3'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const likes = (passed = false) => ({ ours: false, matched: false, passed });
+  const read = (command) => Promise.resolve(command === 'peer_likes' ? likes() : false);
+  openFound(found, card, read);
+  let finish;
+  let writes = 0;
+  const pendingCall = () => { writes += 1; return new Promise((resolve) => { finish = resolve; }); };
+  const pending = sendPass(true, pendingCall);
+  await sendPass(true, pendingCall);
+  if (writes !== 1 || !document.getElementById('view-pass').disabled
+    || viewStatus.textContent !== window.strings['view.pass.saving']) throw new Error('pass duplicated or hid busy state');
+  finish(likes(true));
+  await pending;
+  if (!card.hidden || document.getElementById('view-unpass').hidden) throw new Error('pass not shown');
+  await sendPass(false, () => Promise.reject('disk'));
+  if (document.getElementById('view-unpass').disabled || !card.hidden
+    || !viewStatus.textContent.includes('disk')) throw new Error('failed undo lost retry/state');
+  await sendPass(false, () => Promise.resolve(likes()));
+  if (card.hidden || !document.getElementById('view-unpass').hidden) throw new Error('undo not shown');
+  const old = sendPass(true, pendingCall);
+  closeFound();
+  openFound(found, card, read);
+  await Promise.resolve();
+  let finishNew;
+  const newer = sendPass(false, () => new Promise((resolve) => { finishNew = resolve; }));
+  finish(likes(true));
+  await old;
+  if (card.hidden || !document.getElementById('view-pass').disabled
+    || viewStatus.textContent !== window.strings['view.pass.saving']) throw new Error('old pass changed reopened busy view');
+  finishNew(likes());
+  await newer;
+  let failOld;
+  const oldFailure = sendPass(true, () => new Promise((_, reject) => { failOld = reject; }));
+  closeFound();
+  openFound(found, card, read);
+  await Promise.resolve();
+  failOld('old error');
+  await oldFailure;
+  if (viewStatus.textContent || document.getElementById('view-pass').disabled) throw new Error('late pass error changed reopened view');
+  closeFound();
+  card.remove();
+};
 globalThis.uiSmokeNames = Object.freeze({
   checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
-  checkSavedProfiles, checkContactNotes,
+  checkSavedProfiles, checkContactNotes, checkPassActions,
 });

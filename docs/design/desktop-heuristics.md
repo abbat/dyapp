@@ -91,6 +91,17 @@ offer the same action for retry; read failures have a dedicated Retry (H9).
 The hint explains that Back/identity change discards unsaved edits (H3, H5).
 No open source-review finding. Native EN/RU rendering and smoke execution await CI.
 
+## Desktop pass action review (2026-11-06)
+
+Reviewed pass/undo, pending write, failure/retry and close/reopen of the same
+profile against H1–H10 from source. Found and fixed severity 2 duplicate writes
+and stale completion on a reopened profile (H5). The controls now disable during
+one operation and show a localized saving status (H1); failure preserves the
+previous state and permits retry (H9). Undo, existing wording/cards and labelled
+buttons retain H2–H4, H6–H8; private own-device behavior is unchanged (H10).
+Newly opened views reset their controls, and old completions cannot unlock them.
+No open source-review finding; native EN/RU smoke execution remains for CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

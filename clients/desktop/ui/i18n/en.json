@@ -1,4 +1,5 @@
 {
+  "view.pass.saving": "Saving private pass…",
   "notes.title": "Private note",
   "notes.hint": "Only your devices share this note. It is never published or sent to this person. Up to 2000 characters; case and line breaks are kept. Save before leaving this profile; unsaved edits are discarded.",
   "notes.save": "Save note",
