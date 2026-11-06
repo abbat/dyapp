@@ -292,17 +292,7 @@ pub async fn search(
     .await;
     employer.retain(&mut results.profiles);
     compatibility::rank(&own, &mut results.profiles);
-    let mut cache = cache.lock().map_err(|e| e.to_string())?;
-    let profiles = results
-        .profiles
-        .into_iter()
-        .map(|found| {
-            let shown = Found::from(&found);
-            // An older, equal or previous-network result is not cached.
-            cache.accept_if_current(epoch, found);
-            shown
-        })
-        .collect();
+    let profiles = project_current(cache, epoch, results.profiles)?;
     let partial = results.partial || !reached.failures.is_empty();
     reached.failures.extend(results.failures);
     Ok(Results {
@@ -311,6 +301,27 @@ pub async fn search(
         partial,
         failures: reached.failures.into_iter().map(Failure::from).collect(),
     })
+}
+
+// Finalize under the activation lock: suppress returned results as well as stale cache writes.
+fn project_current(
+    cache: &Mutex<ProfileCache>,
+    epoch: u64,
+    profiles: Vec<VerifiedProfile>,
+) -> Result<Vec<Found>, String> {
+    let mut cache = cache.lock().map_err(|e| e.to_string())?;
+    if !cache.current(epoch) {
+        return Err("notConnected".into());
+    }
+    Ok(profiles
+        .into_iter()
+        .map(|found| {
+            let shown = Found::from(&found);
+            // Equal versions remain displayable even when they add nothing to the cache.
+            cache.accept_if_current(epoch, found);
+            shown
+        })
+        .collect())
 }
 
 /// Blocks a well-formed peer on this device; later searches drop it. A known Peer ID need
@@ -409,17 +420,25 @@ mod tests {
             let (epoch, _) = cache.lock().unwrap().snapshot();
             started_tx.send(()).unwrap();
             resume_rx.await.unwrap();
-            cache.lock().unwrap().accept_if_current(epoch, stale)
+            project_current(&cache, epoch, vec![stale])
         });
         started_rx.await.unwrap();
         let current = verified(&Identity::generate());
         assert!(state.0.lock().unwrap().accept_if_current(0, current));
-        checks.remember_connected(0, dir.clone(), second.clone()).unwrap();
-        assert_eq!(state.activate_network(&checks, &dir).unwrap().name, "second");
-        assert_eq!(network::load(&dir, Settings::Active).unwrap(), Some(second.clone()));
+        checks
+            .remember_connected(0, dir.clone(), second.clone())
+            .unwrap();
+        assert_eq!(
+            state.activate_network(&checks, &dir).unwrap().name,
+            "second"
+        );
+        assert_eq!(
+            network::load(&dir, Settings::Active).unwrap(),
+            Some(second.clone())
+        );
         assert!(state.0.lock().unwrap().snapshot().1.all().is_empty());
         resume_tx.send(()).unwrap();
-        assert!(!worker.await.unwrap());
+        assert_eq!(worker.await.unwrap(), Err("notConnected".into()));
         let new_epoch = state.0.lock().unwrap().snapshot().0;
         assert!(state
             .0
@@ -436,6 +455,40 @@ mod tests {
         let cached = state.0.lock().unwrap();
         assert_eq!(cached.epoch(), epoch);
         assert_eq!(cached.snapshot().1.all().len(), 1);
+    }
+
+    #[test]
+    fn result_projection_rejects_old_network_but_allows_repeated_profiles() {
+        let owner = Identity::generate();
+        let verified = dyapp_profile::verify(
+            &Profile {
+                version: 1,
+                ..Profile::default()
+            }
+            .sign(&owner),
+        )
+        .unwrap();
+        let cache = Mutex::new(ProfileCache::default());
+        let epoch = cache.lock().unwrap().epoch();
+        let profiles = vec![verified];
+        let first = project_current(&cache, epoch, profiles.clone()).unwrap();
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].peer_id, owner.peer_id());
+        assert_eq!(
+            project_current(&cache, epoch, profiles.clone()).unwrap(),
+            first
+        );
+        cache.lock().unwrap().clear();
+        assert_eq!(
+            project_current(&cache, epoch, profiles),
+            Err("notConnected".into())
+        );
+        // Even an empty old-network result must not return obsolete provider metadata.
+        assert_eq!(
+            project_current(&cache, epoch, Vec::new()),
+            Err("notConnected".into())
+        );
+        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
     }
 
     #[test]

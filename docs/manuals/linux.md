@@ -12,6 +12,8 @@ opening it fetches the verified profile, where **Message** opens a chat.
 Unavailable or locally blocked profiles show an error. Blocked profiles are checked
 before the network request and again before displaying its result. If the active
 network changes while the profile loads, retry the card on the new network.
+A search still running on the previous network also fails without showing its results;
+run it again on the active network.
 
 ## First launch
 
