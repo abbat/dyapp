@@ -15,11 +15,13 @@ mod chat_photos;
 #[path = "chats.rs"]
 mod chats;
 mod clipboard;
+mod favorites;
 #[path = "file_store.rs"]
 mod file_store;
 #[path = "identity_gate.rs"]
 mod identity_gate;
 mod identity_runtime;
+mod ui_smoke;
 use identity_runtime::{describe, respond, IdentityState};
 #[path = "link.rs"]
 mod link;
@@ -32,12 +34,12 @@ mod node;
 mod node_usage_commands;
 #[path = "notify.rs"]
 mod notify;
+#[path = "peer_photos.rs"]
+mod peer_photos;
 #[path = "privacy.rs"]
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
-#[path = "peer_photos.rs"]
-mod peer_photos;
 #[path = "profile_photos.rs"]
 mod profile_photos;
 mod safety;
@@ -906,6 +908,9 @@ fn main() {
             chats::commands::liked_you,
             chats::share::shared_profile,
             chats::share::share_profile,
+            favorites::favorite_peers,
+            favorites::favorite_state,
+            favorites::set_favorite,
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,
@@ -967,21 +972,7 @@ fn main() {
                 if let Some(axe) = &axe {
                     webview.eval(axe.as_str()).expect("load axe-core");
                 }
-                webview
-                    .eval(format!(
-                        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
-                        include_str!("ui-test-common.js"),
-                        include_str!("video-frame-renderer.js"),
-                        include_str!("video-frame-smoke.js"),
-                        include_str!("ui-test-identity.js"),
-                        include_str!("ui-test-chats.js"),
-                        include_str!("ui-test-presence.js"),
-                        include_str!("ui-test-names.js"),
-                        include_str!("ui-test-photos.js"),
-                        include_str!("ui-test-guards.js"),
-                        include_str!("ui-test.js")
-                    ))
-                    .expect("start UI test");
+                webview.eval(ui_smoke::scripts()).expect("start UI test");
             }
         })
         .build(tauri::generate_context!())

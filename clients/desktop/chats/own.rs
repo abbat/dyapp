@@ -32,6 +32,14 @@ pub async fn change_peer(
     }
     let mut store = open(dir, identity)?;
     let owner = identity.peer_id();
+    if let PeerChange::Favorite(favorite) = &change {
+        if peer_id == owner {
+            return Err("invalidName".into());
+        }
+        if *favorite && store.blocked(peer_id).map_err(|error| error.to_string())? {
+            return Err("blocked".into());
+        }
+    }
     let groups = store.known_groups().map_err(|e| e.to_string())?;
     if !groups.iter().any(|(_, peer)| *peer == owner) {
         let at = store
@@ -43,8 +51,8 @@ pub async fn change_peer(
     }
     let device = crate::device_key(root, dir, identity)?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, &device, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session =
+        Session::open_or_create(store, identity, &device, &seal_key).map_err(|e| e.to_string())?;
     session
         .change_peer(&mut [], peer_id, change, &seal_key)
         .await
@@ -152,11 +160,7 @@ pub(crate) async fn revoke_device(
     // The client store is not `Sync`, as in `crate::publish_profile`.
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        tauri::async_runtime::block_on(crate::profile::revoke_device(
-            &dir,
-            &identity,
-            &device_key,
-        ))
+        tauri::async_runtime::block_on(crate::profile::revoke_device(&dir, &identity, &device_key))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -215,9 +219,8 @@ mod tests {
     fn a_lone_device_applies_a_change_with_its_clock_value() {
         let (dir, alice) = (temp_dir(), Identity::generate());
         let peer = Identity::generate().peer_id();
-        let change = |change| {
-            tauri::async_runtime::block_on(change_peer(&dir, &dir, &alice, &peer, change))
-        };
+        let change =
+            |change| tauri::async_runtime::block_on(change_peer(&dir, &dir, &alice, &peer, change));
         change(PeerChange::Blocked(true)).unwrap();
         assert!(open(&dir, &alice).unwrap().blocked(&peer).unwrap());
         change(PeerChange::Blocked(false)).unwrap();
