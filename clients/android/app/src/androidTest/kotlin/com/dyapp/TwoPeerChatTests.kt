@@ -71,6 +71,7 @@ class TwoPeerChatTests {
                 compose.waitForThreadText("Hello back")
                 peer.awaitMessage(me, "the reply") { it.text == "Hello back" }
                 shareOwnProfile(peer, me)
+                openUnavailableProfile(peer, me)
             }
         } finally {
             forgetNetworks()
@@ -119,6 +120,19 @@ class TwoPeerChatTests {
         } finally {
             forgetNetworks()
         }
+    }
+
+    private fun openUnavailableProfile(peer: TestPeer, me: String) {
+        val missing = "b".repeat(64)
+        peer.session.sendText(me, checkNotNull(uniffi.dyapp.profileLinkText(missing)))
+        val card = hasTestTag("shared-profile-$missing")
+        compose.waitUntil(RECEIVE_WAIT_MS) { compose.shown(card) }
+        compose.onNode(card).performClick()
+        val unavailable = compose.activity.getString(R.string.view_not_found)
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasText(unavailable)) }
+        compose.onNodeWithTag("view-retry").assertExists()
+        compose.onNodeWithTag("view-back").performClick()
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-thread")) }
     }
 
     private fun shareOwnProfile(peer: TestPeer, me: String) {
