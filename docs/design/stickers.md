@@ -22,7 +22,12 @@ names and one-grapheme labels (both at most 64 code points), hashes and bounded 
 count. Parsed entries stay bound to the original bytes when invoking file checks;
 unknown formats ask to update. Unknown JSON fields are ignored for extensions.
 [ADR 0044](../decisions/0044-sticker-manifest-validation.md) records the parser choices.
-Immutable exchange records, storage, protocol and UI remain planned. Decoder CPU,
+`sticker_pack::import_tar` and `from_peer` build immutable protobuf pack records
+through the shared JSON/file/hash/first-frame validator. Original manifest bytes
+are field 1; field 2 repeats files in manifest order. Peer field lengths/counts are
+scanned before allocation. The full encoded record plus chunked AES-GCM tags must
+fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
+Storage, chat protocol and UI integration remain planned. Decoder CPU,
 representative-file measurements, fuzzing and release-size verification remain required.
 The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at

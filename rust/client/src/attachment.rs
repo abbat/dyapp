@@ -87,6 +87,13 @@ pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
     (width as u32, height as u32)
 }
 
+/// Exact encrypted blob length, including one GCM tag per chunk (even for empty input).
+/// Returns `None` if the length cannot fit this platform's address space.
+pub fn sealed_size(plaintext_bytes: usize) -> Option<usize> {
+    let chunks = plaintext_bytes.div_ceil(CHUNK_BYTES).max(1);
+    plaintext_bytes.checked_add(chunks.checked_mul(TAG_BYTES)?)
+}
+
 // Chunked AES-256-GCM. `key` must not seal different bytes twice: the nonces are the chunk indexes.
 pub(crate) fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, Error> {
     let cipher = Aes256Gcm::new(key.into());
@@ -280,13 +287,18 @@ mod tests {
 
     #[test]
     fn round_trips_any_size() {
-        for size in [0, 1, CHUNK_BYTES, CHUNK_BYTES + 1, CHUNK_BYTES * 2 + 100] {
+        assert_eq!(sealed_size(usize::MAX), None);
+        for size in [
+            0,
+            1,
+            CHUNK_BYTES - 1,
+            CHUNK_BYTES,
+            CHUNK_BYTES + 1,
+            CHUNK_BYTES * 2 + 100,
+        ] {
             let plaintext = vec![9; size];
             let (attachment, blob) = seal(&plaintext).unwrap();
-            assert_eq!(
-                blob.len(),
-                size + size.div_ceil(CHUNK_BYTES).max(1) * TAG_BYTES
-            );
+            assert_eq!(Some(blob.len()), sealed_size(size));
             assert_eq!(open(&attachment, &blob).unwrap(), plaintext, "{size}");
         }
     }

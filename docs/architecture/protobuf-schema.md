@@ -17,6 +17,19 @@
 
 The files are the source; comments in them define each field.
 
+## Sticker pack attachment records
+
+`rust/client/src/sticker_pack.rs` defines an immutable attachment plaintext record:
+bytes field 1 is the original JSON manifest and repeated bytes field 2 contains
+sticker files in manifest order. The pack ID is SHA-256 of the original manifest,
+not the protobuf encoding. TAR import and peer records use the same JSON, file,
+hash and first-frame checks. Peer input is scanned for field counts and lengths
+before protobuf allocation; duplicate manifests are rejected and unknown fields
+are skipped. The encoded record plus one 16-byte AES-GCM tag per 64 KiB attachment
+chunk must fit 6 MiB. The bounded validated pack exposes read-only state.
+Chat sticker/request/answer variants, storage and UI integration remain planned;
+outer chat tag 13 already belongs to private own-device state.
+
 ## Signed records
 
 `SignedRecord` carries the signer's Ed25519 public key, a payload and a signature over
