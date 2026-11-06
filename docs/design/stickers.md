@@ -135,6 +135,10 @@ belongs to private own-device `PeerChange`. Never decode sticker content under t
 Tag 13 leaves room for an optional thumbnail. No client release exists yet, so no older client
 needs a stub.
 
+The existing tag-6 descriptor conversion and validation live in
+`rust/client/src/chat/attachment_wire.rs`, shared within the chat codec. Sticker-body
+integration remains planned; it must reuse this validation boundary.
+
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The
 codec already takes any 32 bytes there.
