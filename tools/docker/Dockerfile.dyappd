@@ -10,12 +10,15 @@ COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY proto proto
 COPY rust rust
-COPY tools/scripts/check-auditable.py tools/scripts/
+COPY tools/scripts/check-auditable.py tools/scripts/check-hardening.py tools/scripts/
 # The library paths split on purpose and hold no spaces; if ldd fails, cp gets no source and fails.
+# Debian's hardening flags reach the bundled C code as in tools/scripts/build-deb.sh.
 # hadolint ignore=SC2046
-RUN cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
+RUN CFLAGS="$(dpkg-buildflags --get CFLAGS) $(dpkg-buildflags --get CPPFLAGS)" \
+    cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd \
     && install -D -s -m 0755 build/release/dyappd /out/usr/bin/dyappd \
     && python3 -B tools/scripts/check-auditable.py /out/usr/bin/dyappd Cargo.lock \
+    && python3 -B tools/scripts/check-hardening.py /out/usr/bin/dyappd \
     && cp -L --parents $(ldd build/release/dyappd | grep -o '/[^ ]*') /out \
     && install -d -m 0700 -o 65532 -g 65532 /out/var/lib/dyappd
 

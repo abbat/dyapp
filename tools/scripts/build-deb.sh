@@ -3,6 +3,11 @@
 # with one release dyappd, and the same pair for the desktop client (dyapp_..., dyapp-...). Runs in the Debian 12 image (tools/docker/Dockerfile.deb), so the binary
 # needs no newer glibc than Debian 12 has.
 set -euo pipefail
+# Debian's hardening flags for the C code that cc and cmake build (AWS-LC, SQLite): Debian 12's gcc
+# adds no stack protector or FORTIFY by itself, and cc reads CFLAGS but not CPPFLAGS. Rust code
+# gets PIE, NX and full RELRO from its toolchain.
+CFLAGS="$(dpkg-buildflags --get CFLAGS) $(dpkg-buildflags --get CPPFLAGS)"
+export CFLAGS
 cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 arch=$(dpkg --print-architecture)
@@ -10,6 +15,7 @@ root=build/deb-root
 rm -rf "$root"
 install -D -s -m 0755 build/release/dyappd "$root/usr/bin/dyappd"
 python3 -B tools/scripts/check-auditable.py "$root/usr/bin/dyappd" Cargo.lock
+python3 -B tools/scripts/check-hardening.py "$root/usr/bin/dyappd"
 install -D -m 0644 packaging/debian/dyappd.service \
     "$root/lib/systemd/system/dyappd.service"
 install -D -m 0644 rust/bootstrap/dyappd.toml "$root/etc/dyappd.toml"
@@ -54,6 +60,7 @@ client_version=$(sed -n 's/^version = "\(.*\)"/\1/p' clients/linux/Cargo.toml | 
 root=build/client-root
 rm -rf "$root" build/shlibs
 install -D -s -m 0755 build/client/release/dyapp-linux "$root/usr/bin/dyapp"
+python3 -B tools/scripts/check-hardening.py "$root/usr/bin/dyapp"
 install -D -m 0644 packaging/linux/dyapp.desktop "$root/usr/share/applications/dyapp.desktop"
 install -D -m 0644 packaging/linux/io.github.abbat.dyapp.metainfo.xml \
     "$root/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml"

@@ -96,6 +96,13 @@ make image    # → образ контейнера dyappd:latest
 Список называет скомпилированные crate; это не SPDX SBOM, и он ничего не говорит о том, достижим
 ли код из бюллетеня.
 
+**Защитные флаги.** Обе сборки компилируют встроенный код на C (AWS-LC, SQLite) с флагами Debian из
+`dpkg-buildflags` (`-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2` и другие), так как gcc в
+Debian 12 сам их не добавляет. `tools/scripts/check-hardening.py` проверяет `dyappd` и
+настольный клиент `dyapp`: PIE, неисполняемый стек, полный RELRO (немедленное связывание), нет
+RPATH и RUNPATH, импортирован `__stack_chk_fail`. Запустите его с `--raw` на установленном
+бинарнике, чтобы увидеть профиль.
+
 ## Установка
 
 ### Пакет Debian 12

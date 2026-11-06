@@ -50,7 +50,7 @@ Shell aggregate raw mode uses the first argument.
 | `check-repository.py`, `check-batches.py`, `docs-sync.py`, `triggers.py` validation, `check-panics.py`, `check-dependency-age.py`, `check-advisory-ignores.py` | repository and policy validation |
 | `check_coverage.py` | coverage ratchet; metrics remain in report files |
 | `check-junit-results.py`, `check-apple-results.py`, `check-instrumentation-results.py` | reject incomplete, empty or failing test inventories |
-| `check-container-isolation.sh`, `check-auditable.py` | self-contained isolation/ELF checks; fixtures bind their fix pointers to the map |
+| `check-container-isolation.sh`, `check-auditable.py`, `check-hardening.py` | self-contained isolation/ELF checks; fixtures bind their fix pointers to the map |
 | `network-test.py` | finite network/memory acceptance; raw mode retains node diagnostics |
 | `run-cargo-unit-binaries.py`, `desktop-smoke.py` | real binary inventory and desktop test execution |
 | `check-artifact-size.py`, `report-artifact-size.py`, `check-reproducible.py` | release validation/measurement; JSON files retain their schemas |

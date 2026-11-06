@@ -57,6 +57,7 @@
   "rust-network": {"fix":"docs/testing/bootstrap-acceptance.md#layers","format":"rust-test"},
   "docker": {"fix":"docs/testing/docker.md#troubleshooting","format":"lines","nested":true,"gradle":true,"pattern":"^(?:FAIL |FIX:|DETAILS:|.+: raw captured output$|error(?:\\[[^]]+\\])?:|Error response from daemon:|Cannot connect to the Docker daemon)"},
   "auditable": {"fix":"docs/development/code-quality.md#dependency-checks-cargo-deny","format":"lines","pattern":".+"},
+  "hardening": {"fix":"docs/manuals/bootstrap.md#getting-dyappd","format":"lines","pattern":".+"},
   "coverage": {"fix":"docs/testing/README.md#coverage-policy","format":"python"},
   "apple-results": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},
   "instrumentation": {"fix":"docs/testing/ui-testing.md#troubleshooting","format":"python"},

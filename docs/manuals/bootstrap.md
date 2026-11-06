@@ -95,6 +95,12 @@ keeps. `tools/scripts/check-auditable.py` checks that the list names `dyapp-boot
 (cargo-audit) or extract the list with `rust-audit-info`. The list names the crates compiled in;
 it is not an SPDX SBOM and says nothing about whether an advisory's code is reachable.
 
+**Hardening.** Both builds compile the bundled C code (AWS-LC, SQLite) with Debian's
+`dpkg-buildflags` (`-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2` and the rest), since Debian
+12's gcc adds neither by itself. `tools/scripts/check-hardening.py` checks `dyappd` and the desktop
+client `dyapp`: a PIE, no executable stack, full RELRO (immediate binding), no RPATH or RUNPATH,
+and an imported `__stack_chk_fail`. Run it with `--raw` on an installed binary to see the profile.
+
 ## Installing
 
 ### Debian 12 package
