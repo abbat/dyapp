@@ -21,20 +21,33 @@ struct PlacePicker: View {
     var idPrefix = "profile"
     var anyLabel: LocalizedStringKey = "profile.unset"
     var placeShown = true
+    #if os(macOS)
+    @State private var choosing = false
+    #endif
 
     var body: some View {
-        NavigationLink {
-            CountryList(anyLabel: anyLabel, pick: pickCountry)
-        } label: {
-            HStack {
-                Text("profile.country")
-                Spacer()
-                if country.isEmpty { Text(anyLabel) } else { Text(verbatim: countryName(country)) }
-            }
-        }
-        .disabled(disabled)
-        .accessibilityIdentifier(idPrefix + "-country")
+        countryRow
+            .disabled(disabled)
+            .accessibilityIdentifier(idPrefix + "-country")
         if placeShown { placeRows }
+    }
+
+    @ViewBuilder private var countryRow: some View {
+        #if os(macOS)
+        // A push from the macOS 12 detail column has no way back: the list opens as a sheet.
+        Button { choosing = true } label: { countryLabel }
+            .sheet(isPresented: $choosing) { CountryList(anyLabel: anyLabel, pick: pickCountry) }
+        #else
+        NavigationLink { CountryList(anyLabel: anyLabel, pick: pickCountry) } label: { countryLabel }
+        #endif
+    }
+
+    private var countryLabel: some View {
+        HStack {
+            Text("profile.country")
+            Spacer()
+            if country.isEmpty { Text(anyLabel) } else { Text(verbatim: countryName(country)) }
+        }
     }
 
     @ViewBuilder private var placeRows: some View {
@@ -75,17 +88,28 @@ private struct CountryList: View {
         .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
 
     var body: some View {
+        #if os(macOS)
+        // A sheet has no toolbar for `.searchable`: a plain field and Cancel, reusing the search wording.
+        VStack {
+            TextField("search.title", text: $query).accessibilityIdentifier("country-search")
+            list
+            Button("search.cancel") { dismiss() }.accessibilityIdentifier("country-cancel")
+        }
+        .padding()
+        .frame(minWidth: 320, minHeight: 420)
+        #else
+        list
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
+            .navigationTitle("profile.country")
+        #endif
+    }
+
+    private var list: some View {
         List {
             CountryRows(anyLabel: anyLabel, countries: countries.filter {
                 query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
             }, choose: choose)
         }
-        #if os(iOS)
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
-        #else
-        .searchable(text: $query)
-        #endif
-        .navigationTitle("profile.country")
     }
 
     private func choose(_ code: String) {

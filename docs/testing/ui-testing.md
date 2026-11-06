@@ -63,7 +63,9 @@ iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 The Android place picker test picks Germany, refuses to save unlisted text, picks Berlin from
 the "Berl" suggestions, checks the country and place in the publish dialog, then clears the
 country and checks both are gone from the dialog. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
-Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it.
+Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it. The macOS
+`testPlacePickerOpensASheetAndSavesASuggestedPlace` opens the country sheet, cancels it, opens it again,
+picks Germany, then Berlin, saves and previews it.
 The Android publish test checks that closing the dialog clears both confirmations and an unsaved
 edit disables publishing until saved, then confirms both, runs the proof without an active network
 and expects the localized not-connected failure, retry label and cleared confirmations.
@@ -641,8 +643,10 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
 - On macOS 12 a `NavigationLink` inside the detail column replaces it with no back button, so
   sub-pages there are state with an explicit Back, and a link to a page the sidebar already has
   (the network form from settings or search, the profile after Continue) selects that sidebar
-  entry. On iOS, `.task` on a root row is cancelled when a page is pushed, so polling lives on
-  the root `NavigationView`.
+  entry. A list picked from inside a form (the country list) is a sheet with its own field and
+  Cancel: a sheet has no toolbar, which is where `.searchable` puts its field on macOS. On iOS,
+  `.task` on a root row is cancelled when a page is pushed, so polling lives on the root
+  `NavigationView`.
 - `.task` on a `Section` is unreliable; put it on the first row. Buttons inside an iOS form row
   need `.buttonStyle(.borderless)`, or one tap fires all of them.
 - `TextField` inside `.alert` needs iOS 16 and macOS 13, so rename screens are sheets.

@@ -156,6 +156,11 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    private func waitGone(_ element: XCUIElement) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, element.debugDescription)
+    }
+
     private func fillAboutAndSeeking(_ app: XCUIApplication) {
         let about = app.textViews["profile-about"]
         reveal(about, in: app)
@@ -318,6 +323,57 @@ extension ProfileUITests {
         app.launch()
         openRemoval(app, says: "withdrawn from search first").buttons["Remove permanently"].click()
         XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 60), app.debugDescription)
+        app.terminate()
+    }
+
+    /// The country list is a sheet, as a push from the detail column has no way back on macOS 12;
+    /// Cancel and a pick both return to the profile, where a suggested place saves.
+    @objc
+    func testPlacePickerOpensASheetAndSavesASuggestedPlace() {
+        let app = isolatedApp()
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let country = app.buttons["profile-country"]
+        reveal(country, in: app)
+        country.click()
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
+        sheet.buttons["country-cancel"].click()
+        waitGone(sheet)
+        country.click()
+        let search = app.textFields["country-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
+        search.click()
+        search.typeText("Germany")
+        app.buttons["country-DE"].click()
+        waitGone(sheet)
+
+        // "Berl" suggests Berlin, GeoNames 2950159; picking it saves its ID.
+        let place = app.textFields["profile-place"]
+        reveal(place, in: app)
+        place.click()
+        place.typeText("Berl")
+        let berlin = app.buttons["place-2950159"]
+        XCTAssertTrue(berlin.waitForExistence(timeout: 10), app.debugDescription)
+        reveal(berlin, in: app)
+        berlin.click()
+        let save = app.buttons["profile-save"]
+        reveal(save, in: app)
+        save.click()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == 'Draft saved' OR label == 'Draft saved'"),
+            object: app.staticTexts["profile-status"]
+        ),
+        ], timeout: 10), .completed, app.debugDescription)
+        let preview = app.buttons["profile-preview"]
+        reveal(preview, in: app)
+        preview.click()
+        let row = app.descendants(matching: .any)["preview-place"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue((row.value as? String ?? row.label).contains("Berlin") || row.label.contains("Berlin"),
+                      app.debugDescription)
         app.terminate()
     }
 
