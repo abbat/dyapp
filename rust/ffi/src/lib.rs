@@ -12,7 +12,8 @@ mod android;
 mod chats;
 pub use chats::{
     chat_photo_hours_left, new_chat_state_key, ChatBlock, ChatDelivery, ChatHistory, ChatItem,
-    ChatLikes, ChatMessage, ChatNotice, ChatPhoto, ChatRevocation, ChatRow, ChatSession, ChatState,
+    ChatLikes, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatRevocation, ChatRow,
+    ChatSession, ChatState,
 };
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};

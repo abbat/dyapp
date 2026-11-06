@@ -27,6 +27,8 @@ use zeroize::Zeroizing;
 mod actions;
 mod notices;
 mod original;
+mod photo_settings;
+pub use photo_settings::ChatPhotoDownload;
 mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
@@ -507,6 +509,18 @@ mod tests {
         assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
         assert!(chats.chat_rows().unwrap().is_empty());
         let peer = "ab".repeat(32);
+        assert_eq!(
+            chats.photo_download().unwrap(),
+            ChatPhotoDownload::ByNetwork
+        );
+        for mode in [
+            ChatPhotoDownload::Always,
+            ChatPhotoDownload::OnTap,
+            ChatPhotoDownload::ByNetwork,
+        ] {
+            chats.set_photo_download(mode).unwrap();
+            assert_eq!(chats.photo_download().unwrap(), mode);
+        }
         // Even Always must keep a stranger behind a tap, regardless of network reports.
         chats
             .session
