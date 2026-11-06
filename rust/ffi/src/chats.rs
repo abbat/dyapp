@@ -26,6 +26,7 @@ use zeroize::Zeroizing;
 
 mod actions;
 mod notices;
+mod photos;
 mod reads;
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
@@ -501,6 +502,22 @@ mod tests {
         assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
         assert!(chats.chat_rows().unwrap().is_empty());
         let peer = "ab".repeat(32);
+        // Even Always must keep a stranger behind a tap, regardless of network reports.
+        chats
+            .session
+            .lock()
+            .unwrap()
+            .store()
+            .set_auto_download(dyapp_client::attachment::AutoDownload::Always)
+            .unwrap();
+        assert!(!chats.chat_photo_auto(peer.clone()).unwrap());
+        chats
+            .session
+            .lock()
+            .unwrap()
+            .store()
+            .set_auto_download(dyapp_client::attachment::AutoDownload::ByNetwork)
+            .unwrap();
         assert_eq!(
             chats.like(peer.clone(), true).unwrap_err().to_string(),
             "unpublished"
@@ -574,6 +591,10 @@ mod tests {
             }
         );
         assert_eq!(send(&peer, "hi"), "blocked");
+        assert_eq!(
+            chats.chat_photo_auto(peer.clone()).unwrap_err().to_string(),
+            "blocked"
+        );
         assert_eq!(err(chats.clear_chat(peer.clone())), "blocked");
         assert_eq!(edit(&peer, vec![2; 16], "hi"), "blocked");
         assert_eq!(
