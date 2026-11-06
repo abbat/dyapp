@@ -60,6 +60,10 @@ Mobile apps still read `last_message`.
 Attachment bodies carry a message-scoped logical ID and HLC. The Store has a separate
 `chat_attachments` projection for verified descriptors, keyed by group, author and logical ID;
 its direct write and pair read API preserve forwarded and local unread metadata across restart.
+The pre-release schema includes `media_kind`: 1 for existing attachments and 2 reserved for
+sticker payloads. Photo history and latest-photo/unread queries filter kind 1 before ranking.
+Media insertion shares identity/group validation, idempotence and cross-kind ID conflict checks;
+sticker persistence and merged-history exposure remain planned.
 Session receive commits allowed attachments with the sealed MLS snapshot, inbox body digest
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS

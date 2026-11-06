@@ -149,7 +149,9 @@ the message and returns only validated RGBA8 through the shared WebP decoder. It
 accepts matching bytes already available from a saved pack when the descriptor is absent
 or has a different hash; that descriptor still cannot authorize fetching. This payload is not yet
 registered under an outer tag or enabled in session receive/send: history projection
-and common-media integration must land with that registration.
+and common-media integration must land with that registration. The common SQLite media table
+now has a checked kind discriminator and shared insertion checks; photo queries exclude the
+reserved sticker kind. Sticker persistence and merged-history readers remain planned.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The

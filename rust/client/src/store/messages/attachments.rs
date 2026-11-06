@@ -125,65 +125,23 @@ impl Store {
         unread: bool,
     ) -> Result<bool, Error> {
         let message = body.attachment_message().ok_or(Error::InboxConflict)?;
-        let forwarded = matches!(body, Body::Forwarded(_));
-        let hlc = i64::try_from(message.hlc).map_err(|_| Error::ClockRange)?;
-        if sender.group.is_empty() || sender.device.len() != 32 || sender.author.is_empty() {
-            return Err(Error::InboxConflict);
-        }
-        let peer: String = tx
-            .query_row(
-                "SELECT `peer_id` FROM `conversation_groups` WHERE `group_id` = ?1",
-                [sender.group],
-                |row| row.get(0),
-            )
-            .optional()?
-            .ok_or(Error::GroupMismatch)?;
-        if (sender.author != owner && sender.author != peer) || (sender.author == owner && unread) {
-            return Err(Error::InboxConflict);
-        }
-        let key = MessageKey {
-            group: sender.group.to_vec(),
-            author: sender.author.to_owned(),
-            id: message.id,
-        };
-        let text_exists: bool = tx
-            .query_row(
-                "SELECT 1 FROM `chat_messages` WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-                params![sender.group, sender.author, message.id.as_slice()],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()?
-            .is_some();
-        if text_exists {
-            return Err(Error::InboxConflict);
-        }
         let descriptor = body.encode();
         if Body::decode(&descriptor).map_err(|_| Error::InboxConflict)? != *body {
             return Err(Error::InboxConflict);
         }
-        let saved: Option<(i64, Vec<u8>, i64)> = tx
-            .query_row(
-                "SELECT `original_hlc`, `descriptor`, `forwarded` FROM `chat_attachments`
-                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-                params![&key.group, &key.author, key.id.as_slice()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?;
-        if let Some((old_hlc, old_descriptor, old_forwarded)) = saved {
-            if old_hlc != hlc
-                || old_descriptor != descriptor
-                || old_forwarded != i64::from(forwarded)
-            {
-                return Err(Error::InboxConflict);
-            }
-            return Ok(false);
-        }
-        tx.execute(
-            "INSERT INTO `chat_attachments` (`group_id`, `author`, `message_id`, `original_hlc`, `descriptor`, `forwarded`, `unread`)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![&key.group, &key.author, key.id.as_slice(), hlc, descriptor, i64::from(forwarded), i64::from(unread)],
-        )?;
-        Ok(true)
+        super::media::record(
+            tx,
+            owner,
+            sender,
+            super::media::MediaRecord {
+                id: message.id,
+                hlc: message.hlc,
+                kind: 1,
+                descriptor,
+                forwarded: matches!(body, Body::Forwarded(_)),
+            },
+            unread,
+        )
     }
 
     /// Read descriptors across the pair's cataloged groups in stable sender-time order.
@@ -197,7 +155,7 @@ impl Store {
                     `a`.`delivery_state`, `a`.`delivery_generation`
              FROM `chat_attachments` AS `a`
              JOIN `conversation_groups` AS `g` ON `a`.`group_id` = `g`.`group_id`
-             WHERE `g`.`peer_id` = ?1
+             WHERE `g`.`peer_id` = ?1 AND `a`.`media_kind` = 1
              ORDER BY `a`.`original_hlc`, `a`.`author`, `a`.`message_id`, `a`.`group_id`",
         )?;
         let rows = query.query_map([peer_id], stored_attachment)?;
@@ -240,6 +198,7 @@ impl Store {
                         SUM(`a`.`unread`) OVER (PARTITION BY `g`.`peer_id`) AS `unread_count`
                  FROM `chat_attachments` AS `a`
                  JOIN `conversation_groups` AS `g` ON `a`.`group_id` = `g`.`group_id`
+                 WHERE `a`.`media_kind` = 1
              )
              WHERE `attachment_rank` = 1",
         )?;
@@ -391,6 +350,47 @@ mod tests {
                 .len(),
             0
         );
+    }
+
+    #[test]
+    fn photo_queries_filter_other_media_before_ranking_and_unread_count() {
+        let owner = Identity::generate();
+        let peer = Identity::generate().peer_id();
+        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        catalog_group(&mut store, &[9], &peer);
+        let sender = VerifiedChatSender {
+            group: &[9],
+            author: &peer,
+            device: &[8; 32],
+        };
+        store
+            .record_chat_attachment(sender, &body(1, 100), true)
+            .unwrap();
+        store
+            .record_chat_attachment(sender, &body(2, 101), true)
+            .unwrap();
+        // A later media kind must not replace the newest photo or enter its unread count.
+        store
+            .db
+            .execute(
+                "UPDATE `chat_attachments` SET `media_kind` = 2 WHERE `message_id` = ?1",
+                [[2; 16].as_slice()],
+            )
+            .unwrap();
+        let photos = store.current_chat_attachments(&peer).unwrap();
+        assert_eq!(photos.len(), 1);
+        assert_eq!(photos[0].key.id, [1; 16]);
+        let latest = store.latest_chat_attachments().unwrap();
+        assert_eq!(latest[&peer].0.key.id, [1; 16]);
+        assert_eq!(latest[&peer].1, 1);
+        assert!(store
+            .db
+            .execute("UPDATE `chat_attachments` SET `media_kind` = 3", [],)
+            .is_err());
+        assert!(matches!(
+            store.record_chat_attachment(sender, &body(2, 101), true),
+            Err(Error::InboxConflict)
+        ));
     }
 
     #[test]

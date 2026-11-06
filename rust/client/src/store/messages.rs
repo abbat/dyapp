@@ -16,6 +16,7 @@ mod clear;
 pub(super) use clear::clear_pair_tx;
 #[cfg(test)]
 mod inbound_tests;
+mod media;
 mod operations;
 #[cfg(test)]
 mod outbound_tests;
@@ -49,6 +50,7 @@ CREATE TABLE `chat_messages` (
     UNIQUE (`group_id`, `author`, `message_id`)
 ) STRICT;
 CREATE TABLE `chat_attachments` (
+    `media_kind` INTEGER NOT NULL DEFAULT 1 CHECK (`media_kind` IN (1, 2)),
     `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),
     `author` TEXT NOT NULL CHECK (length(`author`) > 0),
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
