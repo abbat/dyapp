@@ -134,8 +134,9 @@ resurrect it. `peers` keeps the note, its HLC and authenticated sender device ke
 link snapshots preserve all three and advance the local clock past the note.
 The codec, store merge and snapshot import reject invalid text. Notes never enter
 public profiles, search records or messages to the contact. The shared Linux/Windows shell exposes local `contact_note` and synchronized
-`set_contact_note` commands with an identity lease; the editor and native end-to-end
-verification remain planned.
+`set_contact_note` commands with an identity lease. Loaded contact profiles have a
+separate private editor with explicit save/clear and retry; unsaved text is discarded
+when leaving the profile or switching identity. Native end-to-end verification remains planned.
 
 A linked device starts from a copy of the local state: peers (blocks, mutes, favorites, contact names, seen
 devices, verified marks), likes in both directions, passes, the interaction clock and the hidden

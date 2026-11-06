@@ -208,6 +208,7 @@ const openFound = (found, card, call = invoke) => {
     .then((likes) => { if (identityCurrent(generation) && viewed?.found === found) showLikes(likes); }, () => {});
   showFound(found);
   window.favoriteShown = window.showFavorite(call);
+  window.noteShown = window.showContactNote(call);
   window.peerPhotosShown = window.showFoundPhotos(found, call);
   searchMain.hidden = true;
   profileView.hidden = false;
@@ -216,6 +217,7 @@ const openFound = (found, card, call = invoke) => {
 const closeFound = () => {
   stopSafetyCamera();
   window.clearFavorite();
+  window.clearContactNote();
   document.getElementById('view-message').disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;

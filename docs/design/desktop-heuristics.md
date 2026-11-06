@@ -79,6 +79,18 @@ Long local labels wrap within their row (H8, severity 2); the smoke fixture uses
 64-character local-name limit.
 No open source-review finding; native EN/RU rendering and smoke tests await CI.
 
+## Desktop private note editor review (2026-11-06)
+
+Reviewed unknown/loading/empty/saved/draft, failed read/write/clear, busy state,
+Back and profile/identity changes against H1–H10 from source. Status distinguishes
+local save from later own-device sync (H1); privacy and the limit are explicit
+(H2, H10). Explicit Save and Clear, labelled text and native keyboard controls reuse
+existing cards (H3, H4, H6–H8). Unknown reads block editing, busy writes prevent
+repeats, and late replies are discarded (H5). Failed writes retain the draft and
+offer the same action for retry; read failures have a dedicated Retry (H9).
+The hint explains that Back/identity change discards unsaved edits (H3, H5).
+No open source-review finding. Native EN/RU rendering and smoke execution await CI.
+
 ## Method
 
 Each state was opened in English and Russian at 440 and 1280 px (`make ui-prototype`) and

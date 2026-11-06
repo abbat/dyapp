@@ -479,7 +479,103 @@ const checkSavedProfiles = async () => {
   await pendingList;
   if (panel.open || rows.children.length) throw new Error('saved list crossed identity change');
 };
+const checkContactNotes = async () => {
+  await openArea('search-area');
+  const card = document.createElement('button');
+  document.getElementById('search-results').append(card);
+  const found = { peerId: '5'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  let saved = '';
+  let readError = true;
+  let writeError = null;
+  let hold = false;
+  let finish;
+  const writes = [];
+  const call = (command, args) => {
+    if (command === 'contact_note') return readError ? Promise.reject('disk') : Promise.resolve(saved);
+    if (command === 'set_contact_note') {
+      writes.push(args);
+      if (writeError) return Promise.reject(writeError);
+      if (hold) return new Promise((resolve) => { finish = () => { saved = args.note; resolve(); }; });
+      saved = args.note;
+      return Promise.resolve();
+    }
+    if (['like_peer', 'send_chat_text', 'save_profile', 'publish_profile'].includes(command)) {
+      throw new Error('private note reached public/contact command');
+    }
+    if (command === 'peer_likes') return Promise.resolve({ ours: false, matched: false });
+    return Promise.resolve(false);
+  };
+  const text = document.getElementById('view-note-text');
+  const save = document.getElementById('view-note-save');
+  const status = document.getElementById('view-note-status');
+  const panel = document.getElementById('view-note');
+  const edit = (value) => { text.value = value; text.dispatchEvent(new Event('input')); };
+  openFound(found, card, call);
+  await window.noteShown;
+  await window.saveContactNote();
+  if (!text.disabled || writes.length || status.textContent !== window.strings['notes.loadFailed']) {
+    throw new Error('unknown note was editable or failed silently');
+  }
+  readError = false;
+  document.getElementById('view-note-retry').click();
+  await window.noteShown;
+  edit('Case\nЛичная заметка');
+  writeError = 'disk';
+  await window.saveContactNote();
+  if (text.value !== 'Case\nЛичная заметка' || save.disabled
+    || status.textContent !== window.strings['notes.saveFailed']) throw new Error('failed note save lost draft/retry');
+  writeError = null;
+  hold = true;
+  const pending = window.saveContactNote();
+  await window.saveContactNote();
+  if (writes.length !== 2 || !save.disabled || !text.disabled) throw new Error('duplicate note writes');
+  finish();
+  await pending;
+  hold = false;
+  if (saved !== 'Case\nЛичная заметка') throw new Error('note case/lines changed');
+  await shot('profile-private-note');
+  if (publicFields(profileDraft()).join('\n').includes(saved) || JSON.stringify(searchQuery()).includes(saved)) {
+    throw new Error('private note leaked into preview/search');
+  }
+  closeFound();
+  openFound(found, card, call);
+  await window.noteShown;
+  if (text.value !== saved) throw new Error('reopened note was lost');
+  edit('Unsaved edit');
+  writeError = 'disk';
+  await window.saveContactNote(true);
+  if (text.value !== 'Unsaved edit') throw new Error('failed clear lost unsaved edit');
+  writeError = null;
+  await window.saveContactNote(true);
+  if (saved || text.value) throw new Error('clear note failed');
+  edit('😀'.repeat(2001));
+  const count = writes.length;
+  await window.saveContactNote();
+  if (writes.length !== count) throw new Error('over-limit note reached write');
+  edit('New draft');
+  hold = true;
+  const lateWrite = window.saveContactNote();
+  closeFound();
+  openFound({ ...found, peerId: '4'.repeat(64) }, card, call);
+  await window.noteShown;
+  finish();
+  await lateWrite;
+  if (text.value) throw new Error('late write replaced another profile note');
+  hold = false;
+  let finishRead;
+  const lateRead = window.showContactNote(() => new Promise((resolve) => { finishRead = resolve; }));
+  document.dispatchEvent(new Event('dyapp:identity-change'));
+  finishRead('Other identity secret');
+  await lateRead;
+  if (!panel.hidden || text.value) throw new Error('late note read crossed identity change');
+  closeFound();
+  openFound({ ...found, peerId: current.peerId }, card, call);
+  await window.noteShown;
+  if (!panel.hidden) throw new Error('own profile showed contact note');
+  closeFound();
+  card.remove();
+};
 globalThis.uiSmokeNames = Object.freeze({
   checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
-  checkSavedProfiles,
+  checkSavedProfiles, checkContactNotes,
 });

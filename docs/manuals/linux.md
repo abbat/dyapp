@@ -25,6 +25,16 @@ device; **Refresh saved profiles** retries loading. A row fetches the verified
 profile only when opened. An unavailable or deleted profile can still be removed.
 Blocked peers are hidden from this list.
 
+## Private contact notes
+
+On a loaded profile, **Private note** is separate from the public profile. Enter up
+to 2000 characters; case and line breaks are kept. **Save note** stores the change
+for this identity and shares it only with your own devices when connected. The
+person receives no note, like or notification. **Clear saved note** reverses a saved
+note. Failed writes keep your text for retry; failed reads require **Retry loading
+note** before editing. Save before leaving the profile: unsaved edits are discarded
+on Back or identity change.
+
 ## Interests
 
 Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).
