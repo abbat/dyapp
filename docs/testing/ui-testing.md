@@ -664,8 +664,11 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
   and prints a `reveal:` line in `tests.log` for each row it has to move. A form row below the
   screen or the keyboard does not exist, so reveal it before waiting on its state; a wait in place
   times out, and its polls log `Capturing element debug description`. A row of a screen still
-  sliding in has an empty frame, on which `isHittable` fails the test, so `reveal` checks the frame
-  first.
+  sliding in has an empty frame, on which `isHittable` fails the test, and so do `frame` and
+  `isHittable` on a row that vanished since `exists`. So `reveal` reads the row through
+  `snapshot()`, which throws instead, and calls `isHittable` only for a row it sees on screen.
+  When the drag that moves a row loses it, `reveal` first looks past the edge it moved the row
+  toward.
 - With a `--ui-test-slot-root` the macOS window saves its frame under a name of that root, so
   each test starts at the default frame. To seed a frame, pass
   `-NSWindow Frame main-<root> "x y w h sx sy sw sh"` before the root.

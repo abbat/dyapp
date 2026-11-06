@@ -19,32 +19,43 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     }
     // One drag can take the whole timeout on a slow simulator, so a few always run.
     var drags = 0
-    // A row of a screen still sliding in has an empty frame, and `isHittable` then fails the test
-    // instead of returning false.
-    let search = {
-        while !(row.exists && app.frame.intersects(row.frame) && row.isHittable)
-            && (Date() < deadline || drags < 3) {
-            if above { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
+    // A row's frame and `isHittable` fail the test when the row vanished since `exists`, and
+    // `isHittable` does so for a row of a screen still sliding in, with an empty frame. A
+    // snapshot throws instead and gives existence and frame at once.
+    let onScreen = { () -> CGRect? in
+        guard let frame = try? row.snapshot().frame, !frame.isEmpty, app.frame.intersects(frame)
+        else { return nil }
+        return frame
+    }
+    // `up` drags the form down, toward rows above the screen.
+    let search = { (up: Bool, most: Int) in
+        var made = 0
+        while !(onScreen() != nil && row.isHittable) && made < most && (Date() < deadline || drags < 3) {
+            if up { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
             drags += 1
+            made += 1
         }
     }
-    search()
+    search(above, .max)
     // A row under the navigation bar, or past the form's end above the App lock button and the
     // keyboard, still reports hittable, but a tap on its centre lands on what covers it. So move
-    // it by its own frame. The form can jump back to its top on this drag and lose the row, so
-    // search again; a later pass moves the row found after such a jump.
-    for _ in 0..<3 where row.exists {
+    // it by its own frame. This drag can lose the row: the form jumps back to its top, or the
+    // drag overshoots and the row is past the screen's edge it was moved toward. So look that way
+    // first, then search again; a later pass moves the row found after such a jump.
+    for _ in 0..<3 {
+        guard let found = onScreen() else { break }
         let area = visibleArea(of: app)
-        let centre = row.frame.midY
+        let centre = found.midY
         guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else { break }
-        print("reveal: \(row.identifier) at \(row.frame), visible y \(area), dragging")
+        print("reveal: \(row.identifier) at \(found), visible y \(area), dragging")
         let span = area.upperBound - area.lowerBound - 2 * halfRow
         let distance = min(max(centre - (area.lowerBound + area.upperBound) / 2, -span), span)
         let start = distance > 0 ? area.upperBound - halfRow : area.lowerBound + halfRow
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0))
         edge.withOffset(CGVector(dx: 0, dy: start))
             .press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 0, dy: start - distance)))
-        search()
+        if onScreen() == nil { search(distance > 0, 3) }
+        search(above, .max)
     }
     return element
 }
