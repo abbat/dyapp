@@ -160,6 +160,11 @@ pack" button. The fallback also covers an expired blob, auto-download off and a 
 
 ### Save a pack
 
+The shared Store now saves validated packs as sealed identity-local files, with bounded
+reads, idempotent saves and a 300 MiB quota without eviction. Wrong-key and corrupt files
+are preserved. Desktop protects the sealing secret even before the first MLS session.
+The request/response flow below and its UI remain planned.
+
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat
 answers with tag 15, at most once per peer and pack per day, reusing one pack blob. Requests for a

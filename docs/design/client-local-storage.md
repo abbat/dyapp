@@ -72,6 +72,17 @@ removed. `Store::sweep_originals` runs after each keep, Clear chat and limit cha
 no `chat_attachments` row names, then the least recently read past the `kept_originals` setting
 (off, 256 MiB by default, or 1 GiB). Removing an identity removes the folder.
 
+Saved sticker packs use identity-local `sticker-packs/<PackID>` files and the same sealing
+secret as photo originals. The pack content is shareable; local sealing protects the saved
+collection. Keys bind the owner, pack ID and canonical record digest. Reads authenticate and
+fully revalidate the pack. Corrupt files and files opened with a wrong key remain untouched.
+An existing SQLite writer transaction serializes quota checks and atomic file publication;
+no pack BLOB or index is stored in SQLite. The fixed 300 MiB quota counts actual file bytes,
+including headers and interrupted temporary files. Nothing is evicted automatically. Files are
+synced before rename (and the directory is synced on Unix). A crash can leave a temporary file
+consuming quota. Desktop refuses to regenerate a missing sealing secret while pack files exist.
+Listing, deletion, chat integration and cache management remain planned.
+
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
 

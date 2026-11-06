@@ -29,6 +29,7 @@ mod profile_draft;
 pub mod profile_photos;
 mod reads;
 mod search_publish;
+pub mod sticker_packs;
 mod tokens;
 pub use chat_list::ChatRow;
 pub use conversations::Conversation;

@@ -16,8 +16,11 @@ pub(crate) fn sealing_key(
         .find(|slot| slot.dir == dir && slot.state == slots::State::Ready)
         .ok_or("Unknown identity")?;
     let saved = load_key(&slot, &slot.seal_path(), &slot.seal_name())?;
-    if saved.is_none() && store.sealed_device().map_err(|e| e.to_string())?.is_some() {
-        return Err("MLS sealing key is missing or state is unreadable".into());
+    if saved.is_none()
+        && (store.sealed_device().map_err(|e| e.to_string())?.is_some()
+            || store.has_sticker_packs().map_err(|e| e.to_string())?)
+    {
+        return Err("Identity sealing key is missing or state is unreadable".into());
     }
     let secret = match saved {
         Some(secret) => secret,
@@ -40,6 +43,26 @@ mod tests {
     use dyapp_client::session::Session;
     use dyapp_client::store::Store;
     use dyapp_identity::Identity;
+
+    #[test]
+    fn saved_pack_files_prevent_key_regeneration_before_mls() {
+        let root = std::env::current_dir().unwrap().join("build").join(format!(
+            "dyapp-pack-seal-test-{}",
+            Identity::generate().peer_id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
+        let store = Store::open(&slot.dir.join("client.db"), &owner).unwrap();
+        let packs = slot.dir.join("sticker-packs");
+        std::fs::create_dir(&packs).unwrap();
+        std::fs::write(packs.join(".interrupted.pending"), b"preserve").unwrap();
+        assert!(sealing_key(&root, &slot.dir, &store).is_err());
+        assert!(!slot.seal_path().exists());
+        assert_eq!(
+            std::fs::read(packs.join(".interrupted.pending")).unwrap(),
+            b"preserve"
+        );
+    }
 
     #[test]
     fn per_slot_seal_secret_persists_and_missing_key_refuses_existing_state() {
