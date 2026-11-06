@@ -165,7 +165,10 @@ reads, idempotent saves and a 300 MiB quota without eviction. Wrong-key and corr
 are preserved. Desktop protects the sealing secret even before the first MLS session.
 The Store also lists validated names, sticker counts and encrypted sizes in PackID-ordered
 pages of 32, reporting unreadable entries and unrecognized-file counts without deleting them.
-The request/response flow below and its UI remain planned.
+Linux/Windows expose local import and paged-list commands. Both require the caller's viewed
+identity, retain its lease through blocking work, and use the identity's sealing secret.
+Import validates the bounded TAR before creating local state. The collection UI and the
+request/response flow below remain planned.
 
 "Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat

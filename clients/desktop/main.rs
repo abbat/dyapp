@@ -22,6 +22,7 @@ mod file_store;
 #[path = "identity_gate.rs"]
 mod identity_gate;
 mod identity_runtime;
+mod stickers;
 mod ui_smoke;
 use identity_runtime::{describe, respond, IdentityState};
 #[path = "link.rs"]
@@ -914,6 +915,8 @@ fn main() {
             favorites::set_favorite,
             contact_notes::contact_note,
             contact_notes::set_contact_note,
+            stickers::import_sticker_pack,
+            stickers::saved_sticker_packs,
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,

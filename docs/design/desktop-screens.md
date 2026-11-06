@@ -21,6 +21,11 @@ contracts.
 data-on state in the prototype, so the page and the prototype cannot drift apart unnoticed.
 The prototype wording is a draft; the shipped strings stay in `clients/desktop/ui/i18n`.
 
+Local sticker import and collection-list commands are available to the Linux/Windows page;
+their controls remain planned. Calls include the viewed identity's Peer ID to reject delayed
+requests after a switch. TAR/WebP validation and file reads run in the blocking pool while an
+identity lease keeps the slot open. Lists return 32-entry pages with sizes and individual errors.
+
 ## First run
 
 `wizard-identity`: step 1 of 2. The system keyring is preselected when available; the file option
