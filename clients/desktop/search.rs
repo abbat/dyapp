@@ -105,7 +105,14 @@ impl TryFrom<Condition> for proto::Condition {
             field: condition.field,
             op: op.into(),
             ints: condition.ints,
-            strings: condition.strings,
+            strings: if condition.field == 19 {
+                if condition.strings.len() > dyapp_p2p_net::search_results::MAX_IN_VALUES {
+                    return Err("invalidInterests".into());
+                }
+                profile::canonical_interests(&condition.strings)?
+            } else {
+                condition.strings
+            },
         })
     }
 }
@@ -489,6 +496,29 @@ mod tests {
             Err("notConnected".into())
         );
         assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+    }
+
+    #[test]
+    fn interest_query_matches_canonical_published_tags() {
+        let condition = |field, text: &str| Condition {
+            field,
+            op: "in".into(),
+            ints: Vec::new(),
+            strings: vec![text.into()],
+        };
+        let query = proto::Condition::try_from(condition(19, "  E\u{301}COLE  ")).unwrap();
+        assert_eq!(query.strings, ["école"]);
+        let profile = Profile {
+            interests: profile::canonical_interests(&[" ÉCOLE ".into()]).unwrap(),
+            ..Profile::default()
+        };
+        assert!(dyapp_p2p_net::search_results::passes(&[query], 0, &profile));
+        assert!(proto::Condition::try_from(condition(19, "  ")).is_err());
+        let mut excessive = condition(19, "music");
+        excessive.strings = vec!["music".into(); dyapp_p2p_net::search_results::MAX_IN_VALUES + 1];
+        assert!(proto::Condition::try_from(excessive).is_err());
+        let country = proto::Condition::try_from(condition(4, "DE")).unwrap();
+        assert_eq!(country.strings, ["DE"]);
     }
 
     #[test]

@@ -76,6 +76,9 @@ pub struct Draft {
     /// Plain text, see [`dyapp_profile::valid_about`].
     #[serde(default)]
     pub about: String,
+    /// Canonical public tags, normalized before saving.
+    #[serde(default)]
+    pub interests: Vec<String>,
     #[serde(default)]
     pub smoking: u32,
     #[serde(default)]
@@ -225,6 +228,7 @@ impl From<&Profile> for Draft {
             birth_day: profile.birth_day,
             height: profile.height,
             about: profile.about.clone(),
+            interests: profile.interests.clone(),
             smoking: profile.smoking,
             drinking: profile.drinking,
             tattoos: profile.tattoos,
@@ -294,6 +298,22 @@ pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
     view(&stored(&store)?, today()?, Some(&store))
 }
 
+/// Canonical public tags shared by the desktop draft and field-19 search conditions.
+pub(crate) fn canonical_interests(tags: &[String]) -> Result<Vec<String>, String> {
+    if tags.len() > dyapp_profile::MAX_INTERESTS {
+        return Err("invalidInterests".into());
+    }
+    tags.iter()
+        .map(|tag| {
+            let tag = dyapp_profile::normalize_interest(tag);
+            if tag.is_empty() || tag.chars().count() > MAX_FIELD_CHARS || !is_clean_text(&tag) {
+                return Err("invalidInterests".into());
+            }
+            Ok(tag)
+        })
+        .collect()
+}
+
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.
 pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, String> {
     for (field, value) in [
@@ -338,6 +358,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
     if !dyapp_profile::valid_height(draft.height) {
         return Err("invalidHeight".into());
     }
+    let interests = canonical_interests(&draft.interests)?;
     let about = draft.about.trim();
     if !dyapp_profile::valid_about(about) {
         return Err("invalidAbout".into());
@@ -374,6 +395,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
         birth_day: draft.birth_day,
         height: draft.height,
         about: about.to_owned(),
+        interests,
         smoking: draft.smoking,
         drinking: draft.drinking,
         tattoos: draft.tattoos,
@@ -557,10 +579,7 @@ pub async fn devices(
     let draft = stored(&open(dir, identity)?)?;
     let held = match network::load(dir, Settings::Active) {
         Ok(Some(active)) if live => match connect(&active).await {
-            Ok(mut node) => publish::newest(&mut node, identity)
-                .await
-                .ok()
-                .flatten(),
+            Ok(mut node) => publish::newest(&mut node, identity).await.ok().flatten(),
             Err(_) => None,
         },
         _ => None,
@@ -676,12 +695,20 @@ pub async fn finish_link(
     let mut node = connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let now = unix_now()?;
-    Session::finish_link(store, &mut node, identity, device, KEY_PACKAGES, &seal_key, now)
-        .await
-        .map_err(|error| match error {
-            session::Error::Revoked => crate::chats::own::REVOKED.to_owned(),
-            error => error.to_string(),
-        })?;
+    Session::finish_link(
+        store,
+        &mut node,
+        identity,
+        device,
+        KEY_PACKAGES,
+        &seal_key,
+        now,
+    )
+    .await
+    .map_err(|error| match error {
+        session::Error::Revoked => crate::chats::own::REVOKED.to_owned(),
+        error => error.to_string(),
+    })?;
     send_held(&open(dir, identity)?, &mut node, &active).await
 }
 

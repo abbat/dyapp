@@ -83,6 +83,49 @@ fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
 }
 
 #[test]
+fn interests_are_canonical_persisted_and_explicitly_cleared() {
+    let (dir, owner) = (temp_dir(), Identity::generate());
+    let draft = Draft {
+        interests: vec!["  Музыка  ".into(), " E\u{301}COLE ".into()],
+        ..Draft::default()
+    };
+    let saved = save(&dir, &owner, draft).unwrap();
+    assert_eq!(saved.draft.interests, ["музыка", "école"]);
+    assert_eq!(
+        load(&dir, &owner).unwrap().draft.interests,
+        saved.draft.interests
+    );
+    let mut published = stored(&open(&dir, &owner).unwrap()).unwrap();
+    published.version = 1;
+    assert!(dyapp_profile::verify(&published.sign(&owner)).is_ok());
+    let refused = Draft {
+        interests: vec!["  ".into()],
+        ..saved.draft.clone()
+    };
+    assert_eq!(save(&dir, &owner, refused), Err("invalidInterests".into()));
+    assert_eq!(
+        load(&dir, &owner).unwrap().draft.interests,
+        saved.draft.interests
+    );
+    save(&dir, &owner, Draft::default()).unwrap();
+    assert!(load(&dir, &owner).unwrap().draft.interests.is_empty());
+}
+
+#[test]
+fn interest_limits_apply_after_normalization() {
+    let longest = "x".repeat(MAX_FIELD_CHARS);
+    assert!(canonical_interests(&vec![longest; dyapp_profile::MAX_INTERESTS]).is_ok());
+    for tags in [
+        vec!["x".into(); dyapp_profile::MAX_INTERESTS + 1],
+        vec!["x".repeat(MAX_FIELD_CHARS + 1)],
+        vec!["a\u{202e}b".into()],
+        vec!["".into()],
+    ] {
+        assert_eq!(canonical_interests(&tags), Err("invalidInterests".into()));
+    }
+}
+
+#[test]
 fn height_is_saved_cleared_and_refused_out_of_range() {
     let (dir, alice) = (temp_dir(), Identity::generate());
     let tall = |height| Draft {
