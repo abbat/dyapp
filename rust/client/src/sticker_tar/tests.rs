@@ -56,6 +56,9 @@ fn root_file_bytes_are_borrowed_and_pax_is_skipped() {
 #[test]
 fn paths_sidecars_links_directories_and_duplicates_are_refused() {
     for name in [
+        "",
+        ".",
+        "..",
         "../cat.webp",
         "/cat.webp",
         "dir/cat.webp",
@@ -71,6 +74,35 @@ fn paths_sidecars_links_directories_and_duplicates_are_refused() {
     duplicate.truncate(duplicate.len() - 2 * BLOCK);
     duplicate.extend_from_slice(&archive("cat.webp", b'0', b"y"));
     assert!(read(&duplicate).unwrap_err().contains("cat.webp"));
+}
+
+#[test]
+fn numeric_and_prefix_guards_reject_independent_malformed_fields() {
+    assert_eq!(octal(b" \0 ").unwrap_err(), "invalid TAR octal number");
+    assert_eq!(octal(b"8").unwrap_err(), "invalid TAR octal number");
+    assert_eq!(octal(b" 17\0 ").unwrap(), 15);
+    let mut bytes = archive("cat.webp", b'0', b"x");
+    bytes[345] = b'p'; // Nonempty USTAR prefix, with an otherwise valid root filename.
+    checksum(&mut bytes[..BLOCK]);
+    assert!(read(&bytes)
+        .unwrap_err()
+        .contains("only root regular files"));
+}
+
+#[test]
+fn archive_and_file_limits_are_protocol_bytes() {
+    for (name, limit) in [("manifest.json", 65_536), ("cat.webp", 262_144)] {
+        let data = vec![0; limit];
+        let bytes = archive(name, b'0', &data);
+        assert_eq!(read(&bytes).unwrap()[name].len(), limit);
+        let bytes = archive(name, b'0', &vec![0; limit + 1]);
+        assert!(read(&bytes).unwrap_err().contains("import limit"));
+    }
+    // Zero end blocks plus padding are valid through exactly 8 MiB.
+    assert!(read(&vec![0; 8_388_608]).is_ok());
+    assert!(read(&vec![0; 8_388_608 + 512])
+        .unwrap_err()
+        .contains("too large"));
 }
 
 #[test]

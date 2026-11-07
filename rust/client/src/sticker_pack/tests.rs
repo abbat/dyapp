@@ -114,10 +114,64 @@ fn protobuf_preflight_rejects_repetition_lengths_and_duplicate_manifest() {
 }
 
 #[test]
+fn protobuf_preflight_checks_each_limit_before_allocation() {
+    // Preflight admits bounded opaque fields; JSON and image validation run afterwards.
+    for size in [1, 65_536] {
+        let bytes = Record {
+            manifest: vec![b'x'; size],
+            files: vec![],
+        }
+        .encode_to_vec();
+        preflight(&bytes).unwrap();
+    }
+    for size in [0, 65_537] {
+        let bytes = Record {
+            manifest: vec![b'x'; size],
+            files: vec![],
+        }
+        .encode_to_vec();
+        // An empty required field must be encoded explicitly (prost omits empty bytes).
+        let bytes = if size == 0 { vec![10, 0] } else { bytes };
+        assert!(preflight(&bytes)
+            .unwrap_err()
+            .contains("duplicate or invalid byte size"));
+    }
+    for size in [1, 262_144] {
+        let bytes = Record {
+            manifest: vec![b'x'],
+            files: vec![vec![0; size]],
+        }
+        .encode_to_vec();
+        preflight(&bytes).unwrap();
+    }
+    for size in [0, 262_145] {
+        let bytes = Record {
+            manifest: vec![b'x'],
+            files: vec![vec![0; size]],
+        }
+        .encode_to_vec();
+        assert!(preflight(&bytes)
+            .unwrap_err()
+            .contains("file count or byte limit"));
+    }
+    let mut bytes = Record {
+        manifest: vec![b'x'],
+        files: vec![vec![0]; 120],
+    }
+    .encode_to_vec();
+    preflight(&bytes).unwrap();
+    bytes.extend([18, 1, 0]); // 121st otherwise valid file.
+    assert!(preflight(&bytes)
+        .unwrap_err()
+        .contains("file count or byte limit"));
+}
+
+#[test]
 fn sealed_size_includes_every_chunk_and_protobuf_field() {
-    let overhead = MAX_SEALED_BYTES.div_ceil(crate::attachment::CHUNK_BYTES) * 16;
-    let max_plaintext = MAX_SEALED_BYTES - overhead;
-    assert_eq!(sealed_size(max_plaintext), Some(MAX_SEALED_BYTES));
+    let sealed_limit: usize = 6_291_456; // Protocol 6 MiB, independent of implementation constants.
+    let overhead = sealed_limit.div_ceil(crate::attachment::CHUNK_BYTES) * 16;
+    let max_plaintext = sealed_limit - overhead;
+    assert_eq!(sealed_size(max_plaintext), Some(sealed_limit));
     check_size(max_plaintext).unwrap();
     assert!(check_size(max_plaintext + 1).is_err());
     assert!(check_size(usize::MAX).is_err());

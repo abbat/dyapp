@@ -16,6 +16,10 @@ Android network-policy tests use public API 31 `NetworkCapabilities.capabilities
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
 
+Importer boundary tests use literal protocol byte limits and assert the specific rejection
+stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,
+can hide a broken size guard; validate inclusive limits and each independent invalid operand.
+
 When extending private own-device peer state, carry the field value, HLC and MLS-authenticated
 sender device key through the atomic store merge and linked-device snapshot. Include its HLC
 when advancing the imported clock, validate text at codec/store/import boundaries, and test

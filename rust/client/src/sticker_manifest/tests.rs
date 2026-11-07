@@ -101,7 +101,8 @@ fn membership_digests_and_unsafe_names_fail_by_name() {
 
 #[test]
 fn manifest_count_and_sticker_byte_limits_are_inclusive() {
-    let max_manifest = vec![b'm'; MAX_MANIFEST_BYTES];
+    // Literal protocol limits deliberately do not follow a mutated production constant.
+    let max_manifest = vec![b'm'; 65_536];
     let max_sticker = vec![7; MAX_STICKER_BYTES];
     let entries = [entry("cat.webp", &max_sticker)];
     let files = BTreeMap::from([
@@ -118,12 +119,12 @@ fn manifest_count_and_sticker_byte_limits_are_inclusive() {
         ("manifest.json", b"m".as_slice()),
         ("cat.webp", big_sticker.as_slice()),
     ]);
-    rejected(b"m", &entries, &files, "cat.webp");
+    rejected(b"m", &entries, &files, "invalid sticker byte size");
     let files = BTreeMap::from([
         ("manifest.json", b"m".as_slice()),
         ("cat.webp", b"".as_slice()),
     ]);
-    rejected(b"m", &entries, &files, "cat.webp");
+    rejected(b"m", &entries, &files, "invalid sticker byte size");
     let names: Vec<_> = (0..MAX_STICKERS + 1).map(|i| format!("{i}.webp")).collect();
     let entries: Vec<_> = names.iter().map(|name| entry(name, b"x")).collect();
     let mut files: BTreeMap<_, _> = names
