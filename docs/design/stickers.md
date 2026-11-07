@@ -28,7 +28,8 @@ are field 1; field 2 repeats files in manifest order. Peer field lengths/counts 
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Pack storage, the composer's collection manager and tag-14 receive are implemented;
-sending, pack controls and image UI remain planned. Decoder CPU,
+sticker metadata staging/sending is available in Session; upload reuse, pack controls
+and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
@@ -153,7 +154,11 @@ uses this validator before admission. Session receive applies attachment convers
 and commits sticker metadata, HLC, inbox/ACK and the MLS snapshot in one transaction.
 Pre-match media is acknowledged without projection; forwarded stickers are refused.
 Body serialization is permissive like other bodies; encryption validates by decoding first.
-Sticker sending and pack request/answer authorization remain planned. The common SQLite media table
+Session sticker sends now commit fresh ID/HLC, common-media delivery state, exact outbox
+writes and MLS snapshot atomically. Its template ID/HLC are ignored; malformed labels or
+descriptors fail before encryption. Sending requires an open, unblocked pair conversation.
+Own stickers support terminal Delete through the normal operation path, never Edit.
+Upload/reuse and pack request/answer authorization remain planned. The common SQLite media table
 has a checked kind discriminator and shared insertion checks. The Store writes and reads
 sticker payloads with optional descriptors, checks verified context and cross-kind ID conflicts,
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay

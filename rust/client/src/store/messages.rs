@@ -283,6 +283,7 @@ impl Store {
         let (id, generation) = match body {
             Body::Text { id, .. } => (id, id),
             Body::Attachment(message) => (&message.id, &message.id),
+            Body::Sticker(sticker) => (&sticker.id, &sticker.id),
             Body::Forwarded(inner) => match inner.as_ref() {
                 Body::Text { id, .. } => (id, id),
                 Body::Attachment(message) => (&message.id, &message.id),
@@ -308,6 +309,7 @@ impl Store {
         }
         let timed_text = match body {
             Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+            Body::Sticker(sticker) => Some(Timestamp::from(sticker.hlc)),
             Body::Forwarded(inner) => match inner.as_ref() {
                 Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
                 _ => None,
@@ -330,7 +332,7 @@ impl Store {
             }
             i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
         }
-        if body.attachment_message().is_some() {
+        if body.is_media_message() {
             if !conversations::on_attachment(tx, owner, sender.group, sender.author, *id)? {
                 return Err(Error::RequestPending);
             }
@@ -359,7 +361,9 @@ impl Store {
                 return Err(Error::OutboxConflict);
             }
         }
-        let changed = if body.attachment_message().is_some() {
+        let changed = if let Body::Sticker(sticker) = body {
+            Self::record_chat_sticker_tx(tx, owner, sender, sticker, false)?
+        } else if body.attachment_message().is_some() {
             Self::record_chat_attachment_tx(tx, owner, sender, body, false)?
         } else {
             match body {
@@ -382,7 +386,7 @@ impl Store {
         if !changed {
             return Err(Error::InboxConflict);
         }
-        let updated = if body.attachment_message().is_some() {
+        let updated = if body.is_media_message() {
             tx.execute(
                 "UPDATE `chat_attachments` SET `delivery_generation` = ?4, `delivery_state` = 0
                  WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
@@ -451,7 +455,7 @@ impl Store {
                     shown = false;
                     return Ok(());
                 }
-                shown = if body.attachment_message().is_some() || matches!(body, Body::Sticker(_)) {
+                shown = if body.is_media_message() {
                     conversations::on_attachment(tx, &owner, &key.group, &key.author, key.id)?
                 } else {
                     match body {

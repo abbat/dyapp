@@ -87,6 +87,16 @@ impl Store {
         Ok(inserted)
     }
 
+    /// Whether this exact message is a stored sticker eligible for a terminal delete.
+    pub(crate) fn has_chat_sticker(&self, key: &MessageKey) -> Result<bool, Error> {
+        Ok(self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM `chat_attachments`
+             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3 AND `media_kind` = 2)",
+            rusqlite::params![&key.group, &key.author, key.id.as_slice()],
+            |row| row.get(0),
+        )?)
+    }
+
     /// Read a pair's stickers in original sender-time order, including unavailable media.
     pub fn current_chat_stickers(&self, peer_id: &str) -> Result<Vec<ChatSticker>, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {

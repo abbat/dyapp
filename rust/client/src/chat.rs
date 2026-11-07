@@ -271,6 +271,11 @@ impl Body {
         }
     }
 
+    /// Whether the body projects into the common chat media table.
+    pub(crate) fn is_media_message(&self) -> bool {
+        self.attachment_message().is_some() || matches!(self, Self::Sticker(_))
+    }
+
     /// Makes a text body with a caller-owned logical ID, shared by all device deliveries.
     pub fn text_with_id(id: [u8; 16], text: Vec<u8>) -> Self {
         Self::Text {

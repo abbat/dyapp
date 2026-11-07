@@ -74,6 +74,10 @@ are reserved for planned [sticker-pack requests/answers](../design/stickers.md).
 Tag 14 uses the bounded sticker validator, cannot be forwarded, and follows attachment
 conversation guards. Receive commits its common media projection, HLC, inbox/ACK and
 sealed MLS state atomically. Projection failure retains the old snapshot and no ACK.
+`Session::stage_sticker` assigns a fresh ID/HLC and atomically commits the sticker,
+common-media pending delivery, MLS snapshot and exact outbox writes. Send wrappers
+use normal retry; upload/reuse is separate. Only open, unblocked pair chats may send.
+Own stickers allow Delete through the normal operation ledger; Edit is refused.
 Legacy tag 1 contains a 16-byte
 logical ID before at most 64 KiB of text. Tag 12 adds an eight-byte big-endian HLC
 after the ID, with the same text limit. No client release existed on 2026-11-01,

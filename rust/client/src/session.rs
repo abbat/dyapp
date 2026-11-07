@@ -305,6 +305,7 @@ impl Session {
                     body,
                     Body::Text { .. }
                         | Body::Forwarded(_)
+                        | Body::Sticker(_)
                         | Body::Edit { .. }
                         | Body::Delete { .. }
                 )
@@ -601,43 +602,6 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
         self.stage_chat_operation(group_id, target, None, seal_key)
-    }
-
-    fn stage_chat_operation(
-        &mut self,
-        group_id: &[u8],
-        target: [u8; 16],
-        replacement: Option<&[u8]>,
-        seal_key: &[u8; 32],
-    ) -> Result<([u8; 16], Vec<PreparedEnvelope>), Error> {
-        let key = MessageKey {
-            group: group_id.to_vec(),
-            author: self.store.owner_peer_id().to_owned(),
-            id: target,
-        };
-        let current = self
-            .store
-            .chat_message(&key)?
-            .ok_or(Error::UnknownMessage)?;
-        if current.deleted {
-            return Err(Error::UnknownMessage);
-        }
-        let (operation, hlc) = self.store.draft_chat_operation(crate::now() * 1000)?;
-        let body = match replacement {
-            Some(text) => Body::Edit {
-                target,
-                operation,
-                hlc,
-                text: text.to_vec(),
-            },
-            None => Body::Delete {
-                target,
-                operation,
-                hlc,
-            },
-        };
-        let writes = self.stage_message(group_id, &body, seal_key)?;
-        Ok((operation, writes))
     }
 
     /// Send an edit after staging its exact encrypted writes and local current text.
@@ -991,6 +955,8 @@ mod attachment;
 mod forward;
 mod link;
 mod local;
+mod operations;
 mod receive;
+mod sticker;
 #[cfg(test)]
 mod tests;
