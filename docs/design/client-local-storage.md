@@ -144,6 +144,10 @@ Admitted downloads retain a typed fetch/invalid/quota/storage failure, saturatin
 and 1 s..1 h retry deadline across restart. Due lists contain at most 32 metadata-only jobs.
 Duplicate answers cannot reset backoff. Explicit download retry rotates the generation while
 retaining the first answer and clicked hash; stale workers cannot defer or retire that retry.
+An explicit fresh-answer request instead rotates generation and clears the old answer/failure
+with new exact tag-15 outbox writes and MLS in one transaction. It retains the clicked hash even
+after history was cleared. Failed staging preserves the old descriptor and sealed snapshot;
+advanced in-memory MLS is invalidated and restored from the committed snapshot.
 Session receive now routes outer 15/16 through these atomic Store operations. Allowed-chat
 controls remain eligible for common delivery receipts and are consumed before UI/history.
 Dedicated Session staging now binds a selected received MessageKey or current response job

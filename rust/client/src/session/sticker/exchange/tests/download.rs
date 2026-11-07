@@ -4,7 +4,7 @@ use crate::store::sticker_packs::exchange::download::{
     PackDownloadFailure as Failure, PackDownloadJob,
 };
 
-fn admitted() -> (Invite, std::path::PathBuf, Pack, PackDownloadJob) {
+pub(super) fn admitted() -> (Invite, std::path::PathBuf, Pack, PackDownloadJob) {
     let (mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     let key = selected(&mut pair, &pack);

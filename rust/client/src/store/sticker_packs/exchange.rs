@@ -193,5 +193,6 @@ impl Store {
 mod answer;
 pub mod download;
 pub mod response;
+mod retry;
 #[cfg(test)]
 mod tests;

@@ -97,5 +97,6 @@ impl Session {
     }
 }
 
+mod retry;
 #[cfg(test)]
 mod tests;

@@ -293,7 +293,12 @@ Blocked/closed pairs retire only current intent. Missing joined groups and fetch
 storage failures keep typed scheduled retries. Tests reject malformed/wrong-ID packs, missing
 clicked hashes, unsolicited/stale completions and a block during fetch. A stop after transport
 leaves intent unchanged; unreadable local files retain retryable storage status. Five admitted
-local recoveries leave one for the next pass. Desktop polling and fresh-answer requests remain planned.
+local recoveries leave one for the next pass. Explicit fresh-answer staging now rotates the token,
+clears the previous descriptor/failure and commits new tag-15 writes with MLS atomically. It keeps
+the originally clicked hash even after local history was cleared; failure retains the old answer.
+Old callbacks cannot change the new attempt. Ordinary download retry retains its useful descriptor.
+Already queued requests and the sender's daily answer limit remain in effect. Desktop polling and
+request UI remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
