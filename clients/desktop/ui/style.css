@@ -218,7 +218,8 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .photo-tile { width: 128px; margin: 0; }
 .photo-tile canvas, .photo-tile .sample { display: block; width: 128px; height: 128px; object-fit: cover;
   border-radius: var(--radius); background: var(--line); }
-.photo-tools { display: flex; justify-content: space-between; }
+.photo-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: space-between; }
+.photo-tile > * + * { margin-top: var(--space-2); }
 .photo-tools .btn { padding-inline: var(--space-2); }
 .view-actions ~ .caption { margin-top: var(--space-3); }
 .safety-number { font: 600 1.1rem/1.7 var(--font); letter-spacing: 0.04em; overflow-wrap: anywhere; }
@@ -253,7 +254,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .chat-photo.blurred canvas { filter: blur(12px); }
 .chat-photo .caption { display: block; }
 .chat-photo canvas[hidden], .chat-photo .photo-status:empty { display: none; }
-.msg-menu { display: flex; justify-content: flex-end; gap: var(--space-1); }
+.msg-menu { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .msg-menu .btn { min-height: 28px; padding: 0 var(--space-2); font: var(--text-caption); }
 .composer { display: flex; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-4); }
 .composer textarea { font-family: var(--font); min-height: 40px; min-width: 0; flex: 1; }
@@ -335,7 +336,14 @@ dialog.modal::backdrop { background: #0007; }
 @media (max-width: 640px) { .modal .actions { flex-direction: column-reverse; } }
 
 /* Heuristic review fixes (docs/design/desktop-heuristics.md). */
-.full-id { display: block; word-break: break-all; margin-top: var(--space-1); }
+.full-id, code.identifier { display: block; margin-block: var(--space-3);
+  padding: var(--space-2); max-width: 100%; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--accent-soft); font-family: var(--mono);
+  overflow-wrap: normal; word-break: normal; }
+.identifier-chunk { display: inline-block; margin-inline-end: var(--space-1); }
+.identifier-chunk:last-child { margin-inline-end: 0; }
+code.identifier + br { display: none; }
+.actions + p, .actions ~ .notice, .rows + p { margin-top: var(--space-3); }
 .notice .btn.quiet, .btn.link { padding-inline: 0; }
 .avatars .avatar + .avatar { position: relative; }
 .chat { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--space-6)); }

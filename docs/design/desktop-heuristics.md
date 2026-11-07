@@ -1,12 +1,13 @@
 # Desktop heuristic review
 
-A review of every state of the desktop prototype (`clients/desktop/prototype/`, see
-[desktop screens](desktop-screens.md)) against Jakob Nielsen's
-[10 usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/). It was
-done on 2026-10-29, before the shell was built, and every finding is fixed in the prototype. The
-shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the shell; its findings
-are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
-[When to review](#when-to-review).
+Reviews cover the [desktop prototype and shipped UI](desktop-screens.md) against
+[Nielsen's heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/)
+and [ADR 0046 criteria](review-criteria.md). Initial reviews date from 2026-10-29;
+checkpoint evidence and its limits follow. See [When to review](#when-to-review).
+
+Shared identifier review (2026-11-07): one separated monospace container with eight-grapheme breaks.
+Actual WebKit tests preserve raw copy, same-value updates, emoji/combining sequences and literal markup.
+Full captures and L2/I1 measurements: `build/ux-research/linux-rubric-final/`.
 
 ## Shipped Settings category navigation (2026-11-07)
 
@@ -61,9 +62,8 @@ S1–S8: root has seven entries, preferences have defaults, Account separates de
 actions from Appearance, theme/language default to System. Photos has a numeric MiB
 budget, usage and Clear rather than an enumeration. Duplicate category headings and
 an undersized switch were corrected during review. The scoped L2/I1 comparison has
-no new findings; existing data-row identifier findings are unchanged. This is a layout
-checkpoint: picker entry, shipped integration and collection search/paging behavior
-remain planned and do not gain execution coverage from static screenshots.
+no new findings at this checkpoint. Later shipped/category/list/cache checks above
+cover integration; static screenshots alone do not verify native IPC.
 
 ## Sticker chat-list review (2026-11-07)
 

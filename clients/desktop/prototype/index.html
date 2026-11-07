@@ -841,6 +841,7 @@ search providers asked: 0 of 3</pre>
 const screen = location.hash.slice(1) || 'profile';
 const lang = new URLSearchParams(location.search).get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
+window.strings = t;
 const shownScreen = screen === 'chat-draft' ? 'chat' : screen;
 const has = (el, name) => el.dataset[name].split(' ').includes(shownScreen);
 document.documentElement.lang = lang;
@@ -870,5 +871,6 @@ document.title = `${t['app.name']} — ${screen}`;
 if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
   document.getElementById('sticker-remove-cancel').focus();
 </script>
+<script src="../ui/identifiers.js"></script>
 </body>
 </html>

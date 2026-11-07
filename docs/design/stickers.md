@@ -27,7 +27,7 @@ through the shared JSON/file/hash/first-frame validator. Original manifest bytes
 are field 1; field 2 repeats files in manifest order. Peer field lengths/counts are
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
-Pack storage and the Settings collection are implemented; chat protocol and image UI remain planned. Decoder CPU,
+Pack storage and the composer's collection manager are implemented; chat protocol and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
@@ -196,7 +196,7 @@ The Store also lists validated names, sticker counts and encrypted sizes in Pack
 pages of 32, reporting unreadable entries and unrecognized-file counts without deleting them.
 Linux/Windows expose local import and paged-list commands. Both require the caller's viewed
 identity, retain its lease through blocking work, and use the identity's sealing secret.
-Import validates the bounded TAR before creating local state. Settings now offers TAR import,
+Import validates the bounded TAR before creating local state. The composer's manager offers TAR import,
 a paged collection list, retry and text-only error details in English and Russian. Files above
 8 MiB are refused before browser reading. Each opening owns its callbacks; closing or changing
 identity discards pending display updates and prevents imports whose file read has not finished.

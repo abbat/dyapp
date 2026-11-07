@@ -99,17 +99,8 @@ android = { checkboxes = 5, rows = 4 }
 # Some are the measure's false positives (list rows that touch, a dot or pill beside its text);
 # mark a reviewed one with a comment instead of fixing the prototype.
 desktop = [
-    "I1 #sticker-remove-dialog code#sticker-remove-id | p#sticker-remove-hint",
     # The overlap of liked avatars is intended.
     "L2 #chats-liked span.avatar.photo.p3 | span.avatar",
-    "L2 #devices table.rows | p#devices-status",
-    "L2 #msg-menu button.btn.quiet | button#msg-delete",
-    "L2 #profile-photos span.sample | div.photo-tools",
-    "L2 #profile-photos span.sample | figcaption.caption",
-    "L2 #sticker-packs div.actions | p#sticker-error",
-    "L2 #sticker-packs div.actions | p#sticker-status",
-    "L2 #sticker-packs div.actions | p.notice.error",
-    "L2 #view-safety-panel div.actions | p#view-safety-scan-status",
 ]
 android = [
     "I1  code | span.caption",

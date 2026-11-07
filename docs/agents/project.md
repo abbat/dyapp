@@ -32,6 +32,10 @@ when advancing the imported clock, validate text at codec/store/import boundarie
 reordered equal-clock events and clears. Send private state only through own-device groups;
 a contact conversation must never receive it.
 
+Desktop code values use `ui/identifiers.js` in both prototype and shipped UI. It inserts
+WBR nodes, never whitespace, so textContent/copy contracts stay raw. Its observer watches
+only text/child changes and disconnects while formatting to avoid observing its own edits.
+
 Paginated identity actions retain stable element references: a button can be detached with
 its old row, so a later page must reattach that reference instead of querying the document.
 Refresh reads also need a per-read sequence guard in addition to identity generation.

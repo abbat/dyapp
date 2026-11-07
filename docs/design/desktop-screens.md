@@ -21,7 +21,12 @@ contracts.
 data-on state in the prototype, so the page and the prototype cannot drift apart unnoticed.
 The prototype wording is a draft; the shipped strings stay in `clients/desktop/ui/i18n`.
 
-Local sticker import and collection-list commands back the Linux/Windows Settings card. Calls include the viewed identity's Peer ID to reject delayed
+Both desktop views share the identifier formatter: code values have a separated monospace
+container and breaks after eight grapheme clusters. Break nodes leave textContent and copy
+ranges unchanged. Dynamic replacements use the same formatter. Engines without grapheme
+segmentation preserve Unicode intact rather than split combining characters or emoji.
+
+Local sticker import and collection-list commands back the Linux/Windows composer manager. Calls include the viewed identity's Peer ID to reject delayed
 requests after a switch. TAR/WebP validation and file reads run in the blocking pool while an
 identity lease keeps the slot open. Lists return 32-entry pages with sizes and individual errors.
 

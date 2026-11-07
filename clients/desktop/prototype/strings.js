@@ -2,6 +2,7 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'identifier.label': 'Identifier',
     'app.name': 'DYApp',
     'action.copy': 'Copy',
     'action.cancel': 'Cancel',
@@ -339,6 +340,7 @@ const STRINGS = {
     'remove.loses': 'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'identifier.label': 'Идентификатор',
     'app.name': 'DYApp',
     'action.copy': 'Копировать',
     'action.cancel': 'Отмена',
