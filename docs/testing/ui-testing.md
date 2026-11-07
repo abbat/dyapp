@@ -538,7 +538,10 @@ and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<wid
 non-zero when any page fails to load or save. Pass `desktop` and optional screen names after the
 script path to capture only named states; use a fresh `/shots` mount under `build/` when preserving
 existing screenshots. The prototype has no logic, so this checks layout and wording only; the
-maintainer reviews the files by eye.
+maintainer reviews the files by eye. Each page also records the gaps between neighbouring visible
+blocks in `layout.json` next to the screenshots, and `check-layout.py` then fails on a new finding
+of criteria L2 or I1 of [UI review criteria](../design/review-criteria.md) against the `[layout]`
+baseline in `tests/scripts/baselines.toml`.
 
 ### Android prototype screenshots
 
@@ -546,7 +549,8 @@ maintainer reviews the files by eye.
 `clients/android/prototype/index.html` with the same image: every state of
 [Mobile screens](../design/mobile-screens.md) in English and Russian, light and dark, at 360 and
 412 px wide, saved to `build/ux-research/prototype-android/<state>[-dark]-<lang>-<width>.png`.
-The desktop prototype is mounted too, because the Android one loads its strings.
+The desktop prototype is mounted too, because the Android one loads its strings. The layout check
+runs with the `android` baseline.
 
 ### Reports on the host
 

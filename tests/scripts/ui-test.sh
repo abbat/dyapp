@@ -45,10 +45,12 @@ case "${1:-help}" in
     linux) shots; run linux-test ;;
     prototype)
         mkdir -p build/ux-research/prototype && rm -f build/ux-research/prototype/*.png
-        run prototype-shots ;;
+        run prototype-shots
+        python3 -B tests/scripts/check-layout.py desktop build/ux-research/prototype/layout.json ;;
     prototype-android)
         mkdir -p build/ux-research/prototype-android && rm -f build/ux-research/prototype-android/*.png
-        run prototype-shots-android ;;
+        run prototype-shots-android
+        python3 -B tests/scripts/check-layout.py android build/ux-research/prototype-android/layout.json ;;
     all)
         run android-build
         run android-unit-test

@@ -83,3 +83,67 @@ max_lines = 1000
 
 [size.files]
 # Files over the limit: each may shrink, never grow; lower its budget when it shrinks. None now.
+
+[settings]
+# Criteria S5 (an immediate binary setting is a switch) and S2 (no list that grows with use) in
+# docs/design/review-criteria.md: checkboxes and list rows (tr, li, .list-item) inside each
+# prototype's settings section, counted by tests/scripts/check-repository.py. A count may only
+# fall, and the budget falls with it. The target is no checkboxes and only the hub's category
+# rows; a hub that needs more rows raises the budget in its own reviewed change.
+desktop = { checkboxes = 5, rows = 8 }
+android = { checkboxes = 5, rows = 4 }
+
+[layout]
+# Criteria L2 and I1 (docs/design/review-criteria.md), measured by tests/scripts/check-layout.py
+# on the prototype screenshots. Known findings: a new one fails, a fixed one must be removed.
+# Some are the measure's false positives (list rows that touch, a dot or pill beside its text);
+# mark a reviewed one with a comment instead of fixing the prototype.
+desktop = [
+  "I1 #sticker-remove-dialog code#sticker-remove-id | p#sticker-remove-hint",
+  # The overlap of liked avatars is intended.
+  "L2 #chats-liked span.avatar.photo.p3 | span.avatar",
+  "L2 #devices table.rows | p#devices-status",
+  "L2 #msg-menu button.btn.quiet | button#msg-delete",
+  "L2 #profile-photos span.sample | div.photo-tools",
+  "L2 #profile-photos span.sample | figcaption.caption",
+  "L2 #sticker-packs div.actions | p#sticker-error",
+  "L2 #sticker-packs div.actions | p#sticker-status",
+  "L2 #sticker-packs div.actions | p.notice.error",
+  "L2 #view-safety-panel div.actions | p#view-safety-scan-status",
+]
+android = [
+  "I1  code | span.caption",
+  "I1 #chat-2 code | span#chat-muted",
+  "I1 #identity-menu code | span.caption",
+  "I1 #pick-1 code | span.caption",
+  "I1 #pick-2 code | span.caption",
+  "I1 #result-2 code | span.caption",
+  "I1 #settings-identities code | span.caption",
+  "I1 #switch-to-2 code | span.caption",
+  "L2  button#connection-status | button#identity-switcher",
+  "L2  button#lock-back | span.title",
+  "L2  input#network-name | p.caption",
+  "L2  span.title | button#connection-status",
+  "L2  textarea#seeds | p.caption",
+  "L2 #chat button#chat-back | button#chat-profile",
+  "L2 #chat button#chat-profile | button#chat-more",
+  "L2 #chat-list button#chat-1 | button#chat-2",
+  "L2 #connection-status span.dot | span",
+  "L2 #connection-status span.dot.busy | span",
+  "L2 #connection-status span.dot.off | span",
+  "L2 #identities button#pick-1 | button#pick-2",
+  "L2 #identity-menu button#switch-to-2 | button#add-identity-menu",
+  "L2 #identity-menu div.list-item | button#switch-to-2",
+  "L2 #msg-menu button.btn.text | button#msg-delete",
+  "L2 #nav-chats span.pill | span",
+  "L2 #nav-network span.pill | span",
+  "L2 #nav-profile span.pill | span",
+  "L2 #nav-search span.pill | span",
+  "L2 #nav-settings span.pill | span",
+  "L2 #network input#network-name-field | p.caption",
+  "L2 #network textarea#network-seeds | p.caption",
+  "L2 #profile input#profile-name | p#profile-name-hint",
+  "L2 #search-results button#result-1 | button#result-2",
+  "L2 #search-results button#result-2 | div.actions",
+  "L2 #search-results p#search-status | button#result-1",
+]

@@ -440,6 +440,31 @@ def screen_errors(texts):
     return errors
 
 
+SETTINGS = re.compile(r'<section id="settings".*?</section>', re.S)
+SETTINGS_COUNTS = {
+    "checkboxes": re.compile(r'type="checkbox"'),
+    "rows": re.compile(r'<tr\b|<li\b|class="list-item\b'),
+}
+
+
+def settings_errors(texts, budgets):
+    """Criteria S5 and S2 (docs/design/review-criteria.md) as a ratchet: the
+    prototype settings sections may only lose checkboxes and list rows."""
+    errors = []
+    for prototype in SCREENS.values():
+        platform = Path(prototype).parts[1]
+        found = SETTINGS.search(texts.get(prototype, ""))
+        section = found.group() if found else ""
+        for name, pattern in SETTINGS_COUNTS.items():
+            count = len(pattern.findall(section))
+            budget = budgets[platform][name]
+            if count != budget:
+                change = "more than" if count > budget else "fewer: lower"
+                errors.append(f"{prototype}: {count} settings {name}, "
+                              f"{change} the budget {budget}")
+    return errors
+
+
 def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
     targets = "".join(text for name, text in texts.items()
@@ -569,16 +594,22 @@ def main():
     lines = texts["AGENTS.md"].count("\n")
     if lines > AGENTS_LINES:
         raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
-    size = tomllib.loads(texts["tests/scripts/baselines.toml"])["size"]
+    baselines = tomllib.loads(texts["tests/scripts/baselines.toml"])
+    size = baselines["size"]
     errors = "\n".join(size_errors(texts, size))
     if errors:
         raise ValueError(f"Size budgets ([size] in baselines.toml):\n{errors}")
+    errors = "\n".join(settings_errors(texts, baselines["settings"]))
+    if errors:
+        raise ValueError(
+            f"Settings budgets ([settings] in baselines.toml):\n{errors}")
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, no format or private-use "
           "characters, ASCII paths, crates follow the unsafe "
           "policy, no tracker IDs, protobuf and serde types have round-trip "
           "properties, network handlers have fuzz targets, UI strings "
           "come from catalogues, screen pages match their prototypes, "
+          "prototype settings keep their checkbox and row budgets, "
           "mutants skips give a reason, "
           f"source files <= {size['max_lines']} "
           "lines or their budget; "

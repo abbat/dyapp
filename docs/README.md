@@ -47,6 +47,7 @@ it are entry points that tools discover by path (see
 - [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client, checked against the static Android prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
 - [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of the prototype and the shipped desktop UI, its fixes and the rule to re-check screen changes
+- [UI review criteria](design/review-criteria.md): sourced settings, layout, identifier and dialog criteria, and the checks that enforce them; [decision](decisions/0046-ui-review-criteria.md)
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX

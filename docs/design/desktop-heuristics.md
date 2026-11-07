@@ -235,6 +235,10 @@ A finding names the state, the heuristic, what a user meets and the fix. H7 (sho
 (help) were checked but are out of scope for the prototype: keyboard shortcuts and a help page
 are not designed yet.
 
+Since 2026-11-07 each review also applies [UI review criteria](review-criteria.md) to the whole
+screen: settings S1-S8, layout L1-L2, identifiers I1-I4, dialogs and text. These heuristics miss
+structure and spacing. A failed criterion is severity 3 and blocks the screen.
+
 ## Findings
 
 ### Severity 3

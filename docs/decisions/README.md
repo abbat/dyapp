@@ -81,5 +81,6 @@ fails only the push that carries it.
 | [0043](0043-seeking-and-mutual-search.md) | Who a profile is looking for and mutual search |
 | [0044](0044-sticker-manifest-validation.md) | Shared JSON and Unicode sticker manifest validation |
 | [0045](0045-sticker-webp-decoding.md) | Shared bounded first-frame WebP decoding |
+| [0046](0046-ui-review-criteria.md) | UI review criteria with automated ratchets |
 
 All listed ADRs are accepted except ADR 0024, which records the rejected v0.0.1 TUF proposal.

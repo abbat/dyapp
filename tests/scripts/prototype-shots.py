@@ -5,15 +5,75 @@ Runs under xvfb-run in the prototype image: loads
 /<platform>/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
 /shots/<screen>-<lang>-<width>.png. The platform is desktop (default) or
 android; optional screen names select a subset. Android shots also come in the
-dark theme as <screen>-dark-...
+dark theme as <screen>-dark-... It also measures the gaps between visible
+neighbouring blocks and writes them to /shots/layout.json for
+check-layout.py.
 """
+import json
 import sys
 
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
+gi.require_version("JavaScriptCore", "4.1")
 from gi.repository import GLib, Gtk, WebKit2  # noqa: E402 -- versions set
+
+# Neighbouring visible blocks of one parent, stacked or side by side, closer
+# than 12 px: the raw input of the layout criteria in check-layout.py.
+MEASURE = """JSON.stringify((() => {
+  const style = e => getComputedStyle(e);
+  const box = e => {
+    const s = style(e);
+    if (s.display === 'none' || s.visibility === 'hidden'
+        || s.position === 'absolute' || s.position === 'fixed') return null;
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? r : null;
+  };
+  const block = e => !/^(inline|contents|table-row|table-cell)/
+      .test(style(e).display);
+  const name = e => e.tagName.toLowerCase() + (e.id ? '#' + e.id
+      : e.classList.length ? '.' + [...e.classList].join('.') : '');
+  const scope = e => {
+    for (let p = e.parentElement; p; p = p.parentElement)
+      if (p.id) return '#' + p.id;
+    return '';
+  };
+  const control = e => /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(e.tagName);
+  const framed = e => {
+    const s = style(e);
+    return control(e) || parseFloat(s.borderTopWidth) > 0
+        || parseFloat(s.borderBottomWidth) > 0
+        || !/^(transparent|rgba\\(0, 0, 0, 0\\))$/.test(s.backgroundColor);
+  };
+  const ident = e => e.classList.contains('full-id')
+      || (e.tagName === 'CODE' && style(e).display === 'block');
+  const found = [];
+  // Menu and navigation items touch by platform convention; page regions
+  // (landmarks) are separated by their own surfaces.
+  const items = 'nav, [role=menu], [role=menubar], [role=tablist]';
+  const region = /^(NAV|MAIN|HEADER|ASIDE|FOOTER)$/;
+  for (const parent of document.querySelectorAll('body *')) {
+    if (parent.matches(items)) continue;
+    const kids = [...parent.children].map(e => [e, box(e)])
+        .filter(([e, r]) => r && block(e) && !region.test(e.tagName));
+    for (let i = 1; i < kids.length; i++) {
+      const [a, ra] = kids[i - 1], [b, rb] = kids[i];
+      const across = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+      const along = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      // Either order: dialogs reverse their buttons on narrow screens.
+      const gap = across > 0 ? Math.max(rb.top - ra.bottom, ra.top - rb.bottom)
+          : along > 0 ? Math.max(rb.left - ra.right, ra.left - rb.right)
+          : null;
+      if (gap === null || gap >= 12) continue;
+      found.push({scope: scope(a), a: name(a), b: name(b),
+                  gap: Math.round(gap), framed: framed(a) || framed(b),
+                  identifier: ident(a) || ident(b),
+                  label: /^(LABEL|LEGEND)$/.test(a.tagName)});
+    }
+  }
+  return found;
+})())"""
 
 DESKTOP = [
     "wizard-identity", "wizard-network", "picker", "recovery",
@@ -69,6 +129,7 @@ jobs = [(s, lang, w, theme) for theme in THEMES for w in WIDTHS
         for lang in LANGS for s in SCREENS]
 total = len(jobs)
 failed = []
+layout = {}
 window = Gtk.OffscreenWindow()
 view = WebKit2.WebView()
 window.add(view)
@@ -88,10 +149,29 @@ def next_job():
                   f"&shot={len(jobs)}#{screen}")
 
 
-def saved(_view, result):
-    screen, lang, width, theme = jobs.pop(0)
+def shot_name():
+    screen, lang, width, theme = jobs[0]
     dark = "-dark" if theme == "dark" else ""
-    name = f"{OUT}/{screen}{dark}-{lang}-{width}.png"
+    return f"{screen}{dark}-{lang}-{width}"
+
+
+def snapshot():
+    view.get_snapshot(WebKit2.SnapshotRegion.FULL_DOCUMENT,
+                      WebKit2.SnapshotOptions.NONE, None, saved)
+
+
+def measured(_view, result):
+    try:
+        layout[shot_name()] = json.loads(
+            view.evaluate_javascript_finish(result).to_string())
+    except GLib.Error as error:
+        failed.append(f"{shot_name()} layout: {error.message}")
+    snapshot()
+
+
+def saved(_view, result):
+    name = f"{OUT}/{shot_name()}.png"
+    jobs.pop(0)
     try:
         view.get_snapshot_finish(result).write_to_png(name)
     except GLib.Error as error:
@@ -102,10 +182,8 @@ def saved(_view, result):
 def loaded(_view, event):
     if event == WebKit2.LoadEvent.FINISHED:
         # Let layout settle after the inline script hides the other screens.
-        GLib.timeout_add(150, lambda: view.get_snapshot(
-            WebKit2.SnapshotRegion.FULL_DOCUMENT,
-            WebKit2.SnapshotOptions.NONE, None, saved,
-        ) and False)
+        GLib.timeout_add(150, lambda: view.evaluate_javascript(
+            MEASURE, -1, None, None, None, measured) and False)
 
 
 def load_failed(_view, _event, uri, error):
@@ -119,6 +197,8 @@ view.connect("load-changed", loaded)
 view.connect("load-failed", load_failed)
 GLib.idle_add(lambda: next_job() and False)
 Gtk.main()
+with open(f"{OUT}/layout.json", "w", encoding="utf-8") as out:
+    json.dump(layout, out, indent=1, sort_keys=True)
 for line in failed:
     print(line, file=sys.stderr)
 print(f"{total - len(failed)} screenshots in {OUT}")
