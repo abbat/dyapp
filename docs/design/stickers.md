@@ -238,7 +238,11 @@ pack never sent into this chat are ignored, so a peer cannot probe what someone 
 The Store now records per-peer/PackID sharing proof atomically with an own sticker. An incoming
 sticker grants no permission. The proof survives local Clear/Delete and canonical group changes:
 the peer already saw that pack ID. It is historical evidence only; response handling must also
-check an open, unblocked chat and that the pack is still saved. That handling remains planned.
+check an open, unblocked chat and that the pack is still saved. The Store now queues authorized
+response jobs with MLS/inbox/ACK, at most one generation per peer/PackID and 64 pending jobs
+per identity. Due reads return at most 32 jobs. Failures use the outbox's 1 s exponential
+backoff capped at 1 h; duplicate requests cannot reset it. Stored daily cooldown is checked
+before queueing. Successful response/outbox completion and network workers remain planned.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,

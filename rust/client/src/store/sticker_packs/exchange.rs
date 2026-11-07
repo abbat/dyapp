@@ -41,6 +41,18 @@ pub(super) fn ready(db: &Connection, owner: &str, group: &[u8], peer: &str) -> R
     Ok(())
 }
 
+// Only policy refusal is an ACK-drop; corrupt local state must roll back.
+fn inbound_allowed(db: &Connection, owner: &str, group: &[u8], peer: &str) -> Result<bool, Error> {
+    if peer == owner {
+        return Ok(false);
+    }
+    match ready(db, owner, group, peer) {
+        Ok(()) => Ok(true),
+        Err(Error::BlockedPeer | Error::ChatClosed | Error::GroupMismatch) => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 fn clicked(db: &Connection, key: &MessageKey) -> Result<Sticker, Error> {
     let stored: Option<(Vec<u8>, i64)> = db
         .query_row(
@@ -168,5 +180,6 @@ impl Store {
 }
 
 mod answer;
+pub mod response;
 #[cfg(test)]
 mod tests;

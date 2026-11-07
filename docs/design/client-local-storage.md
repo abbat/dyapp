@@ -137,6 +137,12 @@ peer descriptor admitted for that outstanding request. It commits with MLS/inbox
 cross-peer and blocked/non-open answers keep only an inbox digest and ACK. Stored descriptor
 reads require the request token and an open/unblocked pair. Corruption rolls back admission.
 Download/save, Session control routing and request UI remain planned.
+`sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
+attempt count and last successful response time. Request admission checks historical sharing
+proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
+and due reads return 32. Duplicate requests retain token and retry deadline. Retry timing reuses
+the outbox's 1 s doubling schedule capped at 1 h. Advancing the rolling daily cooldown with a
+successful response outbox, and the network worker, remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

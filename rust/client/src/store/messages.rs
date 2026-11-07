@@ -79,6 +79,17 @@ CREATE TABLE `chat_operations` (
     CHECK (`pending` = 1 OR `pending_text` IS NULL),
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
+CREATE TABLE `sticker_pack_responses` (
+    `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),
+    `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
+    `last_answered_ms` INTEGER CHECK (`last_answered_ms` IS NULL OR `last_answered_ms` >= 0),
+    `pending_group` BLOB CHECK (`pending_group` IS NULL OR length(`pending_group`) > 0),
+    `job_token` BLOB CHECK (`job_token` IS NULL OR length(`job_token`) = 16),
+    `retry_at_ms` INTEGER NOT NULL DEFAULT 0 CHECK (`retry_at_ms` >= 0),
+    `attempts` INTEGER NOT NULL DEFAULT 0 CHECK (`attempts` BETWEEN 0 AND 13),
+    CHECK ((`pending_group` IS NULL) = (`job_token` IS NULL)),
+    PRIMARY KEY (`peer_id`, `pack_id`)
+) STRICT;
 CREATE TABLE `sticker_pack_requests` (
     `answer` BLOB CHECK (`answer` IS NULL OR length(`answer`) BETWEEN 1 AND 2048),
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),

@@ -33,11 +33,8 @@ impl Store {
         let mut accepted = false;
         let inserted = self.stage_inbound_with(
             sealed, inbox, InboxKind::StateChange, &digest, None, |tx| {
-                if sender.author == owner { return Ok(()); }
-                match ready(tx, &owner, sender.group, sender.author) {
-                    Ok(()) => {}
-                    Err(Error::BlockedPeer | Error::ChatClosed | Error::GroupMismatch) => return Ok(()),
-                    Err(error) => return Err(error),
+                if !super::inbound_allowed(tx, &owner, sender.group, sender.author)? {
+                    return Ok(());
                 }
                 let stored: Option<Option<Vec<u8>>> = tx.query_row(
                     "SELECT `answer` FROM `sticker_pack_requests` WHERE `peer_id` = ?1 AND `pack_id` = ?2",
