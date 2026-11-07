@@ -6,9 +6,11 @@ const savedRefresh = document.getElementById('saved-profile-refresh');
 let savedRun = 0;
 let savedSelection = 0;
 let savedCall = invoke;
-const savedCurrent = (context) => context.run === savedRun
-  && identityCurrent(context.generation) && savedPanel.open;
-const savedMessage = (key) => { savedStatus.textContent = key ? window.strings[`favorites.${key}`] : ''; };
+const savedCurrent = (context) =>
+  context.run === savedRun && identityCurrent(context.generation) && savedPanel.open;
+const savedMessage = (key) => {
+  savedStatus.textContent = key ? window.strings[`favorites.${key}`] : '';
+};
 const savedRow = (peerId, context) => {
   const row = document.createElement('li');
   row.className = 'actions';
@@ -21,7 +23,10 @@ const savedRow = (peerId, context) => {
   remove.type = 'button';
   remove.className = 'btn quiet';
   remove.textContent = window.strings['favorites.remove'];
-  remove.setAttribute('aria-label', `${window.strings['favorites.remove']} ${window.peerName(peerId)}`);
+  remove.setAttribute(
+    'aria-label',
+    `${window.strings['favorites.remove']} ${window.peerName(peerId)}`,
+  );
   let busy = false;
   const run = async (opening) => {
     if (busy || !savedCurrent(context) || !row.isConnected) return;
@@ -33,8 +38,14 @@ const savedRow = (peerId, context) => {
     try {
       if (opening) {
         const [found] = await withPlaces([await context.call('shared_profile', { peerId })]);
-        if (selection === savedSelection && savedCurrent(context) && row.isConnected && !searchMain.hidden
-          && !document.getElementById('search-area').hidden) openFound(found, open, context.call);
+        if (
+          selection === savedSelection &&
+          savedCurrent(context) &&
+          row.isConnected &&
+          !searchMain.hidden &&
+          !document.getElementById('search-area').hidden
+        )
+          openFound(found, open, context.call);
       } else {
         await context.call('set_favorite', { peerId, favorite: false });
         if (!savedCurrent(context) || !row.isConnected) return;
@@ -53,8 +64,12 @@ const savedRow = (peerId, context) => {
       }
     }
   };
-  open.addEventListener('click', () => { window.savedOpened = run(true); });
-  remove.addEventListener('click', () => { window.savedRemoved = run(false); });
+  open.addEventListener('click', () => {
+    window.savedOpened = run(true);
+  });
+  remove.addEventListener('click', () => {
+    window.savedRemoved = run(false);
+  });
   row.append(open, remove);
   return row;
 };
@@ -97,8 +112,13 @@ savedPanel.addEventListener('toggle', () => {
     savedRefresh.disabled = false;
   }
 });
-savedRefresh.addEventListener('click', () => { window.savedShown = window.showSaved(); });
-document.addEventListener('dyapp:identity-change', () => { closeSaved(); savedCall = invoke; });
+savedRefresh.addEventListener('click', () => {
+  window.savedShown = window.showSaved();
+});
+document.addEventListener('dyapp:identity-change', () => {
+  closeSaved();
+  savedCall = invoke;
+});
 document.addEventListener('dyapp:area-change', (event) => {
   if (event.detail !== 'search-area') closeSaved();
 });

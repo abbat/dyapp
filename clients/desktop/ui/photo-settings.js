@@ -19,8 +19,13 @@ document.getElementById('photo-mode').addEventListener('change', (event) => {
   const generation = identityGeneration;
   const request = ++photoModeRequest;
   window.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
-    () => { if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = true; },
-    () => { if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = false; },
+    () => {
+      if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = true;
+    },
+    () => {
+      if (identityCurrent(generation) && request === photoModeRequest)
+        photoModeError.hidden = false;
+    },
   );
 });
 document.addEventListener('dyapp:area-change', (event) => {

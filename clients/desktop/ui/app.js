@@ -1,13 +1,27 @@
 // Practice D1: visible strings come from the matching i18n catalogue by data-i18n key.
 // With --pseudo-locale each English string is accented and 40% longer.
 const { invoke } = window.__TAURI__.core;
-const accents = { a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú', y: 'ý', A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú' };
-const pseudo = (text) => `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
+const accents = {
+  a: 'á',
+  e: 'é',
+  i: 'í',
+  o: 'ó',
+  u: 'ú',
+  y: 'ý',
+  A: 'Á',
+  E: 'É',
+  I: 'Í',
+  O: 'Ó',
+  U: 'Ú',
+};
+const pseudo = (text) =>
+  `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
 
-window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russian')])
-  .then(async ([pseudoLocale, testRussian]) => {
+window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russian')]).then(
+  async ([pseudoLocale, testRussian]) => {
     const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
-      .split(/[-_]/)[0].toLowerCase();
+      .split(/[-_]/)[0]
+      .toLowerCase();
     // Settings → Language overrides the system unless a test or the pseudo-locale sets it.
     const chosen = localStorage.getItem('language');
     const wanted = chosen === 'en' || chosen === 'ru' ? chosen : systemLanguage;
@@ -18,8 +32,9 @@ window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russ
     window.locale = language;
     window.pseudoLocale = pseudoLocale;
     document.documentElement.lang = language;
-    window.strings = Object.fromEntries(Object.entries(catalogue)
-      .map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]));
+    window.strings = Object.fromEntries(
+      Object.entries(catalogue).map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]),
+    );
     for (const element of document.querySelectorAll('[data-i18n]')) {
       element.textContent = window.strings[element.dataset.i18n];
     }
@@ -31,7 +46,8 @@ window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russ
     for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
       element.placeholder = window.strings[element.dataset.i18nPlaceholder];
     }
-  });
+  },
+);
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
 const identity = document.getElementById('identity');
@@ -47,8 +63,14 @@ const switchIdentity = document.getElementById('switch-identity');
 const removeIdentity = document.getElementById('remove-identity');
 const removeDialog = document.getElementById('remove');
 const wizardNetwork = document.getElementById('wizard-network');
-const sections = [setup, identity, document.getElementById('picker'),
-  document.getElementById('recovery'), wizardNetwork, document.getElementById('link')];
+const sections = [
+  setup,
+  identity,
+  document.getElementById('picker'),
+  document.getElementById('recovery'),
+  wizardNetwork,
+  document.getElementById('link'),
+];
 // The opened identity or recovery state the remove dialog acts on.
 let current = null;
 
@@ -61,8 +83,9 @@ const show = (section, status) => {
   // Ready keeps identity actions in Settings; recovery has no other way out.
   switchIdentity.hidden = section !== sections[3];
   // The backend refuses to remove a damaged or unreadable slot.
-  removeIdentity.hidden = !(section === sections[3]
-    && ['missing', 'incomplete', 'deleting'].includes(current?.reason));
+  removeIdentity.hidden = !(
+    section === sections[3] && ['missing', 'incomplete', 'deleting'].includes(current?.reason)
+  );
   // Setup and the picker opened from an open identity can go back to it.
   for (const id of ['setup-cancel', 'picker-cancel']) document.getElementById(id).hidden = !current;
   // An open identity links from Settings, with its network.
@@ -82,30 +105,34 @@ const showError = () => {
   bootRetry.focus();
 };
 
-const reasonText = (reason) => window.strings[`recovery.${reason}`]
-  || window.strings['recovery.unavailable'];
+const reasonText = (reason) =>
+  window.strings[`recovery.${reason}`] || window.strings['recovery.unavailable'];
 
 // Copies `text()`, by default the text of `source`; where the webview refuses, shows it in
 // `source` and selects it for Ctrl+C instead.
 window.clipboardCopyToken = 0;
-const copyFrom = (button, source, text = () => source.textContent) => button.addEventListener('click', () => {
-  window.clipboardCopyToken += 1;
-  const generation = identityGeneration;
-  const value = text();
-  window.copied = Promise.resolve(value)
-    .then((copy) => (identityCurrent(generation) ? navigator.clipboard.writeText(copy) : null))
-    .then(() => {
-      if (!identityCurrent(generation)) return;
-      button.textContent = window.strings['action.copied'];
-      setTimeout(() => {
-        if (identityCurrent(generation)) button.textContent = window.strings['action.copy'];
-      }, 2000);
-    }, () => {
-      if (!identityCurrent(generation)) return;
-      source.textContent = value;
-      window.getSelection().selectAllChildren(source);
-    });
-});
+const copyFrom = (button, source, text = () => source.textContent) =>
+  button.addEventListener('click', () => {
+    window.clipboardCopyToken += 1;
+    const generation = identityGeneration;
+    const value = text();
+    window.copied = Promise.resolve(value)
+      .then((copy) => (identityCurrent(generation) ? navigator.clipboard.writeText(copy) : null))
+      .then(
+        () => {
+          if (!identityCurrent(generation)) return;
+          button.textContent = window.strings['action.copied'];
+          setTimeout(() => {
+            if (identityCurrent(generation)) button.textContent = window.strings['action.copy'];
+          }, 2000);
+        },
+        () => {
+          if (!identityCurrent(generation)) return;
+          source.textContent = value;
+          window.getSelection().selectAllChildren(source);
+        },
+      );
+  });
 
 // A result belongs to the identity view that started it, even after its Rust lease ends.
 let identityGeneration = 0;
@@ -131,7 +158,10 @@ const act = async (pending, fresh = false) => {
 // shares the tail. It helps to recognize a peer and is no check; the full ID stays in the title.
 const shortPeerId = (id, known) => {
   let length = Math.min(6, id.length);
-  while (length < id.length && known.some((other) => other !== id && other.endsWith(id.slice(-length)))) {
+  while (
+    length < id.length &&
+    known.some((other) => other !== id && other.endsWith(id.slice(-length)))
+  ) {
     length += 1;
   }
   return `@${id.slice(-length)}`;
@@ -173,7 +203,9 @@ const identityButton = (item) => {
   button.type = 'button';
   button.className = 'list-button';
   Object.assign(button.dataset, { status: item.status, mode: item.mode || '' });
-  button.append(...who(button, item.status === 'ready' && item.peerId, item.reason, modeText(item)));
+  button.append(
+    ...who(button, item.status === 'ready' && item.peerId, item.reason, modeText(item)),
+  );
   button.addEventListener('click', () => act(invoke('select_identity', { slot: item.slot })));
   return button;
 };
@@ -208,12 +240,16 @@ const sizeText = (bytes) => {
   }
   const digits = unit ? 1 : 0;
   const number = new Intl.NumberFormat(window.locale, {
-    minimumFractionDigits: digits, maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(value);
   return `${number} ${window.strings[`usage.unit.${units[unit]}`]}`;
 };
-const knownSize = (bytes) => (bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes));
-const usageText = (id, text) => { document.getElementById(id).textContent = text; };
+const knownSize = (bytes) =>
+  bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes);
+const usageText = (id, text) => {
+  document.getElementById(id).textContent = text;
+};
 let usageTimer;
 window.showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
@@ -228,9 +264,14 @@ window.showUsage = async (call = invoke) => {
     usageText('usage-messages-path', usage.messagesPath);
     document.getElementById('usage-node-row').hidden = usage.nodePath === null;
     const limited = usage.node !== null && usage.nodeLimit !== null;
-    usageText('usage-node', limited ? window.strings['usage.of']
-      .replace('{used}', sizeText(usage.node)).replace('{limit}', sizeText(usage.nodeLimit))
-      : knownSize(usage.node));
+    usageText(
+      'usage-node',
+      limited
+        ? window.strings['usage.of']
+            .replace('{used}', sizeText(usage.node))
+            .replace('{limit}', sizeText(usage.nodeLimit))
+        : knownSize(usage.node),
+    );
     usageText('usage-node-path', usage.nodePath ?? '');
     const bar = document.getElementById('usage-node-bar');
     bar.hidden = !limited;
@@ -256,11 +297,16 @@ const showStatus = async (call = invoke) => {
   try {
     const status = await call('status');
     if (!identityCurrent(generation)) return;
-    traffic.textContent = status.traffic === null ? strings['statusbar.noTraffic']
-      : strings['statusbar.traffic'].replace('{in}', sizeText(status.traffic[0]))
-        .replace('{out}', sizeText(status.traffic[1]));
-    messages.textContent = status.messages === null ? strings['statusbar.noMessages']
-      : strings['statusbar.messages'].replace('{size}', sizeText(status.messages));
+    traffic.textContent =
+      status.traffic === null
+        ? strings['statusbar.noTraffic']
+        : strings['statusbar.traffic']
+            .replace('{in}', sizeText(status.traffic[0]))
+            .replace('{out}', sizeText(status.traffic[1]));
+    messages.textContent =
+      status.messages === null
+        ? strings['statusbar.noMessages']
+        : strings['statusbar.messages'].replace('{size}', sizeText(status.messages));
   } catch (_) {
     if (!identityCurrent(generation)) return;
     traffic.textContent = strings['statusbar.noTraffic'];
@@ -275,7 +321,9 @@ const trayShow = document.getElementById('tray-show');
 const trayClose = document.getElementById('tray-close');
 const setTray = async (prefs, call = invoke) => {
   const generation = identityGeneration;
-  const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map((key) => window.strings[key]);
+  const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
+    (key) => window.strings[key],
+  );
   const tray = await call('set_tray', { prefs, labels });
   if (!identityCurrent(generation)) return tray;
   trayShow.checked = tray.show;
@@ -317,7 +365,9 @@ const setMenu = (open) => {
   else delete document.documentElement.dataset.screen;
   menuOpen.setAttribute('aria-expanded', String(open));
 };
-menuOpen.addEventListener('click', () => setMenu(document.documentElement.dataset.screen !== 'menu'));
+menuOpen.addEventListener('click', () =>
+  setMenu(document.documentElement.dataset.screen !== 'menu'),
+);
 document.getElementById('scrim').addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenu(false);
@@ -383,11 +433,15 @@ const saveNodeSettings = (node, call = invoke) => {
   nodeSave.disabled = true;
   nodeStatus(node.enabled ? 'starting' : 'off');
   return call('save_node_settings', { settings: node })
-    .then((result) => { if (identityCurrent(generation)) nodeResult(result); })
+    .then((result) => {
+      if (identityCurrent(generation)) nodeResult(result);
+    })
     .catch((error) => {
       if (identityCurrent(generation)) nodeStatus('error', String(error));
     })
-    .finally(() => { if (identityCurrent(generation)) nodeSave.disabled = false; });
+    .finally(() => {
+      if (identityCurrent(generation)) nodeSave.disabled = false;
+    });
 };
 nodeForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -396,8 +450,12 @@ nodeForm.addEventListener('submit', (event) => {
     diskMb: Number(nodeDisk.value),
     maxConnections: Number(nodeConnections.value),
   };
-  if (!Number.isInteger(node.diskMb) || node.diskMb < 4
-    || !Number.isInteger(node.maxConnections) || node.maxConnections < 1) {
+  if (
+    !Number.isInteger(node.diskMb) ||
+    node.diskMb < 4 ||
+    !Number.isInteger(node.maxConnections) ||
+    node.maxConnections < 1
+  ) {
     nodeStatus('invalidLimits');
     return;
   }
@@ -423,9 +481,14 @@ const birthValue = (part) => {
   return value === '' ? null : Number(value);
 };
 const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
-window.placeText = (country, id) => (id ? invoke('place_name', {
-  country, id: Number(id), lang: window.locale,
-}).then((place) => (place ? placeLabel(place) : id)) : Promise.resolve(''));
+window.placeText = (country, id) =>
+  id
+    ? invoke('place_name', {
+        country,
+        id: Number(id),
+        lang: window.locale,
+      }).then((place) => (place ? placeLabel(place) : id))
+    : Promise.resolve('');
 const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
 // The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
 // so typed text that is no suggestion fails validation instead of being saved or searched.
@@ -434,14 +497,18 @@ const placePicker = (countryInput, input, list, country, call = invoke) => {
   let ids = new Map();
   const show = (places) => {
     ids = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
-    list.replaceChildren(...[...ids.keys()].map((label) => {
-      const option = document.createElement('option');
-      option.value = label;
-      return option;
-    }));
+    list.replaceChildren(
+      ...[...ids.keys()].map((label) => {
+        const option = document.createElement('option');
+        option.value = label;
+        return option;
+      }),
+    );
   };
-  const check = () => input.setCustomValidity(
-    input.value && !ids.has(input.value) ? window.strings['profile.placeUnknown'] : '');
+  const check = () =>
+    input.setCustomValidity(
+      input.value && !ids.has(input.value) ? window.strings['profile.placeUnknown'] : '',
+    );
   const set = (place) => {
     show(place ? [place] : []);
     input.value = place ? placeLabel(place) : '';
@@ -454,7 +521,10 @@ const placePicker = (countryInput, input, list, country, call = invoke) => {
     const generation = identityGeneration;
     const selectedCountry = country();
     window.placesShown = call('search_places', {
-      country: selectedCountry, prefix: text, lang: window.locale, limit: 20,
+      country: selectedCountry,
+      prefix: text,
+      lang: window.locale,
+      limit: 20,
     }).then((places) => {
       if (!identityCurrent(generation)) return;
       if (input.value === text && country() === selectedCountry) show(places);
@@ -465,19 +535,31 @@ const placePicker = (countryInput, input, list, country, call = invoke) => {
 };
 const placeCountry = document.getElementById('profile-country');
 const placeInput = document.getElementById('profile-place');
-const profilePlace = placePicker(placeCountry, placeInput,
-  document.getElementById('profile-places'), () => placeCountry.value);
+const profilePlace = placePicker(
+  placeCountry,
+  placeInput,
+  document.getElementById('profile-places'),
+  () => placeCountry.value,
+);
 const profileDraft = () => ({
   name: document.getElementById('profile-name').value,
-  ...Object.fromEntries(scaleFields.map((scale) => [
-    camel(scale.key), Number(document.getElementById(
-      `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`).value),
-  ])),
-  birthYear: birthValue('year'), birthMonth: birthValue('month'), birthDay: birthValue('day'),
+  ...Object.fromEntries(
+    scaleFields.map((scale) => [
+      camel(scale.key),
+      Number(
+        document.getElementById(`profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`)
+          .value,
+      ),
+    ]),
+  ),
+  birthYear: birthValue('year'),
+  birthMonth: birthValue('month'),
+  birthDay: birthValue('day'),
   height: Number(document.getElementById('profile-height').value) || null,
   about: document.getElementById('profile-about').value,
   interests: window.profileInterestTags(),
-  country: placeCountry.value, place: profilePlace.id(),
+  country: placeCountry.value,
+  place: profilePlace.id(),
   ...seekingDraft(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
@@ -487,18 +569,22 @@ const statusMessage = (status, open, key, detail) => {
   status.classList.toggle('error', offline);
   document.getElementById(open).hidden = !offline;
 };
-const profileMessage = (key, detail = '') => statusMessage(profileStatus, 'profile-open-network', key, detail);
+const profileMessage = (key, detail = '') =>
+  statusMessage(profileStatus, 'profile-open-network', key, detail);
 // While the search window holds the published profile, say when it reaches search and send it
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = document.getElementById('profile-search-wait');
 let searchWaitTimer;
 const sendSearchProfile = (generation = identityGeneration, call = invoke) => {
   if (!identityCurrent(generation)) return Promise.resolve();
-  return call('send_search_profile').then((view) => {
-    if (!identityCurrent(generation)) return;
-    showSearchWait(view);
-    showHidden(view);
-  }, () => {});
+  return call('send_search_profile').then(
+    (view) => {
+      if (!identityCurrent(generation)) return;
+      showSearchWait(view);
+      showHidden(view);
+    },
+    () => {},
+  );
 };
 const showSearchWait = (view, send = sendSearchProfile) => {
   clearTimeout(searchWaitTimer);
@@ -509,14 +595,20 @@ const showSearchWait = (view, send = sendSearchProfile) => {
   searchWait.textContent = minutes
     ? window.strings['profile.searchIn'].replace('{minutes}', String(minutes))
     : window.strings['profile.searchPending'];
-  searchWaitTimer = setTimeout(() => {
-    if (identityCurrent(generation)) send(generation);
-  }, (minutes || 1) * 60_000);
+  searchWaitTimer = setTimeout(
+    () => {
+      if (identityCurrent(generation)) send(generation);
+    },
+    (minutes || 1) * 60_000,
+  );
 };
 const showProfile = async (call = invoke) => {
   const generation = identityGeneration;
-  const [scales, view, countries] = await Promise.all(
-    [call('profile_scales'), call('load_profile'), call('place_countries')]);
+  const [scales, view, countries] = await Promise.all([
+    call('profile_scales'),
+    call('load_profile'),
+    call('place_countries'),
+  ]);
   if (!identityCurrent(generation)) return;
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile(generation);
@@ -530,12 +622,15 @@ const showProfile = async (call = invoke) => {
     const unset = document.createElement('option');
     unset.value = '0';
     unset.textContent = window.strings['profile.unset'];
-    select.append(unset, ...scale.choices.map((choice) => {
-      const option = document.createElement('option');
-      option.value = String(choice.code);
-      option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
-      return option;
-    }));
+    select.append(
+      unset,
+      ...scale.choices.map((choice) => {
+        const option = document.createElement('option');
+        option.value = String(choice.code);
+        option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+        return option;
+      }),
+    );
     select.value = String(view.draft[camel(scale.key)] || 0);
     const row = document.createElement('div');
     row.className = 'field';
@@ -546,7 +641,8 @@ const showProfile = async (call = invoke) => {
   document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
   for (const part of ['year', 'month', 'day']) {
-    document.getElementById(`birth-${part}`).value = view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
+    document.getElementById(`birth-${part}`).value =
+      view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
   document.getElementById('profile-height').value = view.draft.height || '';
   document.getElementById('profile-about').value = view.draft.about;
@@ -555,20 +651,27 @@ const showProfile = async (call = invoke) => {
   const unsetCountry = document.createElement('option');
   unsetCountry.value = '';
   unsetCountry.textContent = window.strings['profile.unset'];
-  placeCountry.replaceChildren(unsetCountry, ...countries
-    .map((code) => [code, countryName(code)])
-    .sort(([, a], [, b]) => a.localeCompare(b, window.locale))
-    .map(([code, name]) => {
-      const option = document.createElement('option');
-      option.value = code;
-      option.textContent = name;
-      return option;
-    }));
+  placeCountry.replaceChildren(
+    unsetCountry,
+    ...countries
+      .map((code) => [code, countryName(code)])
+      .sort(([, a], [, b]) => a.localeCompare(b, window.locale))
+      .map(([code, name]) => {
+        const option = document.createElement('option');
+        option.value = code;
+        option.textContent = name;
+        return option;
+      }),
+  );
   document.getElementById('profile-name').value = view.draft.name;
   placeCountry.value = view.draft.country;
-  const place = view.draft.place && await call('place_name', {
-    country: view.draft.country, id: Number(view.draft.place), lang: window.locale,
-  });
+  const place =
+    view.draft.place &&
+    (await call('place_name', {
+      country: view.draft.country,
+      id: Number(view.draft.place),
+      lang: window.locale,
+    }));
   if (!identityCurrent(generation)) return;
   profilePlace.set(place);
   showAge(view);
@@ -581,10 +684,15 @@ const showHidden = (view) => {
   profileHidden.disabled = !profilePublished;
   profileHidden.checked = view.hidden;
   document.getElementById('profile-hidden-notice').hidden = !view.hidden;
-  if (view.hidden) profileMessage(view.searchMinutes == null
-    ? 'profile.status.hidden' : 'profile.status.hidePending');
-  else profileMessage(view.published ? 'profile.lastPublished' : 'profile.draft',
-    view.published ? String(view.published) : '');
+  if (view.hidden)
+    profileMessage(
+      view.searchMinutes == null ? 'profile.status.hidden' : 'profile.status.hidePending',
+    );
+  else
+    profileMessage(
+      view.published ? 'profile.lastPublished' : 'profile.draft',
+      view.published ? String(view.published) : '',
+    );
 };
 const showAge = (view) => {
   const [youngest, oldest] = view.ages || [];
@@ -596,8 +704,14 @@ const showAge = (view) => {
 const publicFacts = (draft, place) => {
   const facts = scaleFields.flatMap((scale) => {
     const option = scale.choices.find((choice) => choice.code === draft[camel(scale.key)]);
-    return option ? [[window.strings[`profile.field.${scale.key}`],
-      window.strings[`profile.value.${scale.key}.${option.key}`]]] : [];
+    return option
+      ? [
+          [
+            window.strings[`profile.field.${scale.key}`],
+            window.strings[`profile.value.${scale.key}.${option.key}`],
+          ],
+        ]
+      : [];
   });
   if (draft.country) facts.push([window.strings['profile.country'], countryName(draft.country)]);
   if (draft.place) facts.push([window.strings['profile.place'], place]);
@@ -607,7 +721,8 @@ const publicFacts = (draft, place) => {
   }
   if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
   if (draft.about) facts.push([window.strings['profile.about'], draft.about]);
-  if (draft.interests?.length) facts.push([window.strings['profile.interests'], draft.interests.join('; ')]);
+  if (draft.interests?.length)
+    facts.push([window.strings['profile.interests'], draft.interests.join('; ')]);
   facts.push(...seekingFacts(draft));
   return facts;
 };
@@ -615,28 +730,29 @@ const publicFacts = (draft, place) => {
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
   if (draft.name) fields.unshift(`${window.strings['profile.name']}: ${draft.name}`);
-  if (draft.photos?.length) fields.push(`${window.strings['profile.photos']}: ${draft.photos.length}`);
+  if (draft.photos?.length)
+    fields.push(`${window.strings['profile.photos']}: ${draft.photos.length}`);
   return fields.length ? fields : [window.strings['profile.empty']];
 };
-const listItems = (values) => values.map((value) => {
-  const item = document.createElement('li');
-  item.textContent = value;
-  return item;
-});
+const listItems = (values) =>
+  values.map((value) => {
+    const item = document.createElement('li');
+    item.textContent = value;
+    return item;
+  });
 const saveProfile = async (call = invoke) => {
   if (!profileFormValid()) return null;
   const generation = identityGeneration;
-  const view = await call('save_profile', { draft: profileDraft() })
-    .catch((error) => {
-      if (!identityCurrent(generation)) return null;
-      const refusal = {
-        invalidName: 'profile.nameInvalid',
-        invalidHeight: 'profile.heightInvalid',
-        invalidAbout: 'profile.aboutInvalid',
-        invalidInterests: 'profile.interestsInvalid',
-      }[String(error)];
-      throw refusal ? window.strings[refusal] : error;
-    });
+  const view = await call('save_profile', { draft: profileDraft() }).catch((error) => {
+    if (!identityCurrent(generation)) return null;
+    const refusal = {
+      invalidName: 'profile.nameInvalid',
+      invalidHeight: 'profile.heightInvalid',
+      invalidAbout: 'profile.aboutInvalid',
+      invalidInterests: 'profile.interestsInvalid',
+    }[String(error)];
+    throw refusal ? window.strings[refusal] : error;
+  });
   if (!identityCurrent(generation) || !view) return null;
   window.showProfileInterests(view.draft.interests);
   showAge(view);
@@ -645,10 +761,14 @@ const saveProfile = async (call = invoke) => {
 };
 // The dialog lists exactly the public fields and asks both consents afresh each time.
 const openPublishDialog = (view) => {
-  document.getElementById('profile-public-fields')
+  document
+    .getElementById('profile-public-fields')
     .replaceChildren(...listItems(publicFields(view.draft, placeInput.value)));
-  document.getElementById('profile-date-warning').hidden = !(view.draft.birthYear
-    && view.draft.birthMonth && view.draft.birthDay);
+  document.getElementById('profile-date-warning').hidden = !(
+    view.draft.birthYear &&
+    view.draft.birthMonth &&
+    view.draft.birthDay
+  );
   profileAttested.checked = false;
   profileDisclosure.checked = false;
   publishConfirm.disabled = true;
@@ -666,8 +786,10 @@ const startElapsed = () => {
   const tick = () => {
     if (!identityCurrent(generation)) return;
     const seconds = Math.floor((Date.now() - start) / 1000);
-    elapsed.textContent = window.strings['publish.elapsed']
-      .replace('{time}', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
+    elapsed.textContent = window.strings['publish.elapsed'].replace(
+      '{time}',
+      `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
+    );
   };
   tick();
   elapsedTimer = setInterval(tick, 1000);
@@ -692,17 +814,23 @@ const profileFailure = (error) => {
   if (['notConnected', 'full'].includes(code)) return profileMessage(`profile.${code}`);
   // The saved draft is now what the other device published.
   if (code === 'changed') {
-    return showProfile().then(() => profileMessage('profile.changed'),
-      (failed) => profileMessage('profile.publishFailed', String(failed)));
+    return showProfile().then(
+      () => profileMessage('profile.changed'),
+      (failed) => profileMessage('profile.publishFailed', String(failed)),
+    );
   }
   profileMessage('profile.publishFailed', code);
 };
-profileForm.addEventListener('input', () => { if (!profileBusy) profileMessage('profile.draft'); });
+profileForm.addEventListener('input', () => {
+  if (!profileBusy) profileMessage('profile.draft');
+});
 const submitProfile = async (save = saveProfile) => {
   if (profileBusy || !profileFormValid()) return;
   const generation = identityGeneration;
   setProfileBusy(true);
-  try { await save(); } catch (error) {
+  try {
+    await save();
+  } catch (error) {
     if (identityCurrent(generation)) profileMessage('profile.failed', String(error));
   } finally {
     if (identityCurrent(generation)) setProfileBusy(false);
@@ -744,7 +872,9 @@ publishDialog.addEventListener('cancel', (event) => {
   event.preventDefault();
   profileCancel.click();
 });
-publishDialog.addEventListener('close', () => { publishDialog.hidden = true; });
+publishDialog.addEventListener('close', () => {
+  publishDialog.hidden = true;
+});
 const confirmPublish = async (call = invoke) => {
   if (profileBusy || !profileAttested.checked || !profileDisclosure.checked) return;
   const generation = identityGeneration;
@@ -774,7 +904,9 @@ const confirmPublish = async (call = invoke) => {
     }
   }
 };
-publishConfirm.addEventListener('click', () => { window.publishDone = confirmPublish(); });
+publishConfirm.addEventListener('click', () => {
+  window.publishDone = confirmPublish();
+});
 // On hides the profile with a tombstone; off publishes the saved draft again through the dialog.
 const hideProfile = async (call = invoke) => {
   if (!profileHidden.checked) {
@@ -796,7 +928,9 @@ const hideProfile = async (call = invoke) => {
     if (identityCurrent(generation)) setProfileBusy(false);
   }
 };
-profileHidden.addEventListener('change', () => { window.hideDone = hideProfile(); });
+profileHidden.addEventListener('change', () => {
+  window.hideDone = hideProfile();
+});
 
 async function render(state, generation = identityGeneration, fresh = false) {
   if (!identityCurrent(generation)) return state;
@@ -841,8 +975,10 @@ async function render(state, generation = identityGeneration, fresh = false) {
   if (state.status === 'recovery') {
     document.getElementById('recovery-reason').textContent = reasonText(state.reason);
     // The state code and the slot row, for a bug report.
-    document.getElementById('recovery-details').textContent = [state.reason,
-      [state.slot, state.mode].filter(Boolean).join(' ')].join('\n');
+    document.getElementById('recovery-details').textContent = [
+      state.reason,
+      [state.slot, state.mode].filter(Boolean).join(' '),
+    ].join('\n');
     document.getElementById('recovery-more').open = false;
     document.getElementById('recovery-peer').textContent = state.peerId || '';
     document.getElementById('recovery-peer-row').hidden = !state.peerId;
@@ -857,7 +993,8 @@ async function render(state, generation = identityGeneration, fresh = false) {
   linkIdentity.disabled = false;
   (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
   document.getElementById('system-reason').textContent = systemChoice.disabled
-    ? window.strings[state.systemReason] : '';
+    ? window.strings[state.systemReason]
+    : '';
   show(setup, 'status.choose');
   return state;
 }
@@ -870,13 +1007,15 @@ const create = (wizard) => {
 };
 createIdentity.addEventListener('click', () => create(true));
 linkIdentity.addEventListener('click', () => create('link'));
-copyFrom(document.getElementById('copy-recovery-details'),
-  document.getElementById('recovery-details'));
+copyFrom(
+  document.getElementById('copy-recovery-details'),
+  document.getElementById('recovery-details'),
+);
 switchIdentity.addEventListener('click', () => act({ status: 'picker' }));
-document.getElementById('add-identity')
+document
+  .getElementById('add-identity')
   .addEventListener('click', () => act(invoke('storage_options')));
-document.getElementById('retry')
-  .addEventListener('click', () => act(invoke('identity_state')));
+document.getElementById('retry').addEventListener('click', () => act(invoke('identity_state')));
 // A failed switch or removal keeps the backend's selection, but stopped its node; rendering the
 // reread state restarts that node.
 bootRetry.addEventListener('click', () => {

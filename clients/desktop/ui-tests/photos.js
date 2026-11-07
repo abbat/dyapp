@@ -8,14 +8,27 @@ const checkChatPhoto = async () => {
   const paint = source.getContext('2d');
   paint.fillStyle = '#c03030';
   paint.fillRect(0, 0, 8, 8);
-  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  const jpeg = await new Promise((resolve) => {
+    source.toBlob(resolve, 'image/jpeg');
+  });
   const original = await jpeg.arrayBuffer();
   const preview = [...new Uint8Array(original)];
   const peer = 'e'.repeat(64);
   const photo = { mime: 'image/jpeg', width: 400, height: 200, size: 2048, preview, hoursLeft: 5 };
-  const entry = (author, id, shape) => ({ groupId: [1], author, id: Array(16).fill(id), text: null,
-    edited: false, deleted: false, unread: false, forwarded: false, delivery: null, read: false,
-    sentAtMs: 1000, photo: shape });
+  const entry = (author, id, shape) => ({
+    groupId: [1],
+    author,
+    id: Array(16).fill(id),
+    text: null,
+    edited: false,
+    deleted: false,
+    unread: false,
+    forwarded: false,
+    delivery: null,
+    read: false,
+    sentAtMs: 1000,
+    photo: shape,
+  });
   let state = 'requestReceived';
   const downloads = ['notConnected', original, 'notFound'];
   let fetched = null;
@@ -25,8 +38,15 @@ const checkChatPhoto = async () => {
   const messages = [entry(peer, 1, photo)];
   const call = (command, args) => {
     if (command === 'chat_rows') {
-      return Promise.resolve([{ peerId: peer, state: 'open', unreadCount: 1, activeRecently: false,
-        lastMessage: entry(peer, 1, { ...photo, preview: [] }) }]);
+      return Promise.resolve([
+        {
+          peerId: peer,
+          state: 'open',
+          unreadCount: 1,
+          activeRecently: false,
+          lastMessage: entry(peer, 1, { ...photo, preview: [] }),
+        },
+      ]);
     }
     if (command === 'chat_history') {
       return Promise.resolve({ state, messages, activeRecently: false });
@@ -64,23 +84,34 @@ const checkChatPhoto = async () => {
     throw new Error(`the preview was not drawn: ${canvas.width}x${canvas.height}`);
   }
   const caption = box.querySelector('.caption').textContent;
-  for (const part of [strings['chats.photo'], 'image/jpeg', sizeText(2048),
-    strings['chats.photoExpires'].replace('{hours}', 5)]) {
+  for (const part of [
+    strings['chats.photo'],
+    'image/jpeg',
+    sizeText(2048),
+    strings['chats.photoExpires'].replace('{hours}', 5),
+  ]) {
     if (!caption.includes(part)) throw new Error(`the caption lost ${part}: ${caption}`);
   }
   if (!box.classList.contains('blurred')) throw new Error('a stranger preview was not blurred');
   await shot('chat-photo-blurred');
   if (!document.getElementById('chat-attach').disabled) throw new Error('a request enabled Attach');
   box.querySelector('.photo-show').click();
-  if (box.classList.contains('blurred') || box.querySelector('.photo-show')
-    || document.activeElement !== canvas) {
+  if (
+    box.classList.contains('blurred') ||
+    box.querySelector('.photo-show') ||
+    document.activeElement !== canvas
+  ) {
     throw new Error('Show did not reveal the preview and keep the focus');
   }
   await shot('chat-photo-shown');
 
   state = 'open';
-  messages.splice(0, 1, entry(peer, 1, { ...photo, hoursLeft: 0 }),
-    entry(current.peerId, 2, { ...photo, preview: [1, 2, 3], hoursLeft: null }));
+  messages.splice(
+    0,
+    1,
+    entry(peer, 1, { ...photo, hoursLeft: 0 }),
+    entry(current.peerId, 2, { ...photo, preview: [1, 2, 3], hoursLeft: null }),
+  );
   await openChat(peer, call);
   const [incoming, own] = document.querySelectorAll('#chat-messages .chat-photo');
   await own.ready;
@@ -99,11 +130,15 @@ const checkChatPhoto = async () => {
   if (incoming.querySelector('.photo-download')) throw new Error('expired, yet offered');
 
   const button = own.querySelector('.photo-download');
-  const finished = (expected) => new Promise((resolve) => {
-    const seen = () => own.querySelector('.photo-status').textContent === expected;
-    const check = () => { if (seen()) resolve(); else setTimeout(check, 10); };
-    check();
-  });
+  const finished = (expected) =>
+    new Promise((resolve) => {
+      const seen = () => own.querySelector('.photo-status').textContent === expected;
+      const check = () => {
+        if (seen()) resolve();
+        else setTimeout(check, 10);
+      };
+      check();
+    });
   button.click();
   await finished(strings['chats.photoFailed']);
   if (fetched.id[0] !== 2 || fetched.author !== current.peerId || !button.isConnected) {
@@ -126,10 +161,13 @@ const checkChatPhoto = async () => {
   await openChat(peer, call);
   const gone = document.querySelectorAll('#chat-messages .chat-photo')[1];
   gone.querySelector('.photo-download').click();
-  const missing = () => gone.querySelector('.photo-status').textContent
-    === strings['chats.photoGone'];
+  const missing = () =>
+    gone.querySelector('.photo-status').textContent === strings['chats.photoGone'];
   await new Promise((resolve) => {
-    const check = () => { if (missing()) resolve(); else setTimeout(check, 10); };
+    const check = () => {
+      if (missing()) resolve();
+      else setTimeout(check, 10);
+    };
     check();
   });
   if (gone.querySelector('.photo-download')) throw new Error('a missing original offered a retry');
@@ -139,11 +177,17 @@ const checkChatPhoto = async () => {
   messages.splice(1, 1, entry(current.peerId, 4, { ...photo, preview: [], hoursLeft: null }));
   await openChat(peer, call);
   const waiting = () => document.querySelectorAll('#chat-messages .chat-photo')[1];
-  const seen = (check) => new Promise((resolve) => {
-    const again = () => { if (check()) resolve(); else setTimeout(again, 10); };
-    again();
+  const seen = (check) =>
+    new Promise((resolve) => {
+      const again = () => {
+        if (check()) resolve();
+        else setTimeout(again, 10);
+      };
+      again();
+    });
+  await new Promise((resolve) => {
+    setTimeout(resolve, 50);
   });
-  await new Promise((resolve) => { setTimeout(resolve, 50); });
   if (!waiting().querySelector('.photo-download') || fetched.id[0] === 4) {
     throw new Error('a refused policy still fetched');
   }
@@ -155,9 +199,16 @@ const checkChatPhoto = async () => {
   // A kept original needs no node: no expiry in its caption, and it opens under any policy.
   autoAllowed = false;
   downloads.push(original);
-  messages.splice(1, 1, entry(current.peerId, 5, {
-    ...photo, preview: [], hoursLeft: 0, kept: true,
-  }));
+  messages.splice(
+    1,
+    1,
+    entry(current.peerId, 5, {
+      ...photo,
+      preview: [],
+      hoursLeft: 0,
+      kept: true,
+    }),
+  );
   await openChat(peer, call);
   if (waiting().textContent.includes(strings['chats.photoExpired'])) {
     throw new Error('a kept original showed as expired');
@@ -167,8 +218,21 @@ const checkChatPhoto = async () => {
   if (document.getElementById('chat-attach').hidden) throw new Error('an open chat hid Attach');
   const secret = [...new TextEncoder().encode('GPS-SECRET')];
   const plain = [...new Uint8Array(original)];
-  const tagged = new File([new Uint8Array([...plain.slice(0, 2), 0xff, 0xe1, 0, secret.length + 2,
-    ...secret, ...plain.slice(2)])], 'a.jpg', { type: 'image/jpeg' });
+  const tagged = new File(
+    [
+      new Uint8Array([
+        ...plain.slice(0, 2),
+        0xff,
+        0xe1,
+        0,
+        secret.length + 2,
+        ...secret,
+        ...plain.slice(2),
+      ]),
+    ],
+    'a.jpg',
+    { type: 'image/jpeg' },
+  );
   await sendChatPhoto(tagged, call);
   const holds = (bytes) => bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
   if (sent.peerId !== peer || sent.width !== 8 || sent.photo[0] !== 0xff || !sent.preview.length) {
@@ -185,8 +249,10 @@ const checkChatPhoto = async () => {
   sends.push('notConnected');
   await refused(tagged, 'chats.notConnected');
   await refused(new File(['GIF89a'], 'a.gif', { type: 'image/gif' }), 'chats.photoUnsupported');
-  await refused(new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
-    'chats.photoUnsupported');
+  await refused(
+    new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
+    'chats.photoUnsupported',
+  );
   if (document.getElementById('chat-attach').disabled) throw new Error('Attach stayed off');
   document.getElementById('chat-back').click();
   await window.showChats(() => Promise.resolve([]));
@@ -197,7 +263,8 @@ const checkChatPhoto = async () => {
   if (!mode('byNetwork').checked) throw new Error('the photo mode did not default to by network');
   mode('onTap').click();
   await window.photoModeSaved;
-  if (await invoke('auto_download_mode') !== 'onTap') throw new Error('the photo mode was not saved');
+  if ((await invoke('auto_download_mode')) !== 'onTap')
+    throw new Error('the photo mode was not saved');
   await shot('settings-photos');
   mode('byNetwork').click();
   await window.photoModeSaved;
@@ -236,7 +303,9 @@ const checkProfilePhotos = async () => {
   source.width = 4;
   source.height = 4;
   source.getContext('2d').fillRect(0, 0, 4, 4);
-  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  const jpeg = await new Promise((resolve) => {
+    source.toBlob(resolve, 'image/jpeg');
+  });
   const file = new File([jpeg], 'photo.jpg', { type: 'image/jpeg' });
   const bytes = await jpeg.arrayBuffer();
   const hashes = [];
@@ -274,12 +343,18 @@ const checkProfilePhotos = async () => {
 
   for (let added = 0; added < 6; added += 1) await addProfilePhoto(file, call);
   await Promise.all([...grid.children].map((tile) => tile.ready));
-  if (grid.children.length !== 6 || !add.disabled || byId('profile-photo-limit').hidden
-    || !byId('profile-photo-hint').hidden) {
+  if (
+    grid.children.length !== 6 ||
+    !add.disabled ||
+    byId('profile-photo-limit').hidden ||
+    !byId('profile-photo-hint').hidden
+  ) {
     throw new Error('six photos did not disable Add photo with the reason');
   }
-  if (status.textContent !== strings['profile.draft']) throw new Error('a photo was not a draft change');
-  if (grid.children[0].querySelector('canvas').hidden) throw new Error('a stored photo was not drawn');
+  if (status.textContent !== strings['profile.draft'])
+    throw new Error('a photo was not a draft change');
+  if (grid.children[0].querySelector('canvas').hidden)
+    throw new Error('a stored photo was not drawn');
   if (grid.children[0].querySelector('.left') || grid.children[5].querySelector('.right')) {
     throw new Error('a photo offered a move past the end');
   }
@@ -288,7 +363,8 @@ const checkProfilePhotos = async () => {
   grid.children[0].querySelector('.right').click();
   await window.profilePhotoChanged;
   if (String(hashes.slice(0, 2)) !== '2,1') throw new Error('Move right did not reorder the draft');
-  if (!grid.children[1].contains(document.activeElement)) throw new Error('the move lost the focus');
+  if (!grid.children[1].contains(document.activeElement))
+    throw new Error('the move lost the focus');
 
   const dialog = byId('photo-remove-dialog');
   grid.children[0].querySelector('.remove').click();
@@ -324,8 +400,15 @@ const checkProfilePhotos = async () => {
   setProfileBusy(false);
   if (add.disabled) throw new Error('Add photo stayed disabled after the form was free');
 
-  if (!publicFields({ name: '', photos: [[1], [2]], birthYear: null, birthMonth: null,
-    birthDay: null }).includes(`${strings['profile.photos']}: 2`)) {
+  if (
+    !publicFields({
+      name: '',
+      photos: [[1], [2]],
+      birthYear: null,
+      birthMonth: null,
+      birthDay: null,
+    }).includes(`${strings['profile.photos']}: 2`)
+  ) {
     throw new Error('the publish dialog did not count the photos');
   }
   profileFailure('full');
@@ -334,8 +417,10 @@ const checkProfilePhotos = async () => {
   const kept = document.getElementById('birth-year').value;
   document.getElementById('birth-year').value = '1971';
   await profileFailure('changed');
-  if (status.textContent !== strings['profile.changed']
-    || document.getElementById('birth-year').value !== kept) {
+  if (
+    status.textContent !== strings['profile.changed'] ||
+    document.getElementById('birth-year').value !== kept
+  ) {
     throw new Error('a profile from another device was not shown in place of the edit');
   }
 };
@@ -346,13 +431,20 @@ const checkPeerPhotos = async () => {
   source.width = 4;
   source.height = 4;
   source.getContext('2d').fillRect(0, 0, 4, 4);
-  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  const jpeg = await new Promise((resolve) => {
+    source.toBlob(resolve, 'image/jpeg');
+  });
   const bytes = await jpeg.arrayBuffer();
   const fetches = [];
   const held = new Set();
   const refused = new Set();
-  const chatRows = ['ab', 'cd'].map((byte) => ({ peerId: byte.repeat(32), state: 'open',
-    lastMessage: null, unreadCount: 0, activeRecently: false }));
+  const chatRows = ['ab', 'cd'].map((byte) => ({
+    peerId: byte.repeat(32),
+    state: 'open',
+    lastMessage: null,
+    unreadCount: 0,
+    activeRecently: false,
+  }));
   let auto = false;
   const call = (command, args) => {
     if (command === 'fetch_peer_photos') {
@@ -366,13 +458,24 @@ const checkPeerPhotos = async () => {
     if (command === 'peer_photo_auto') return Promise.resolve(auto);
     if (command === 'chat_rows') return Promise.resolve(chatRows);
     if (command === 'contact_names') {
-      return Promise.resolve(chatRows.map(({ peerId }, index) => (
-        { peerId, name: '', verified: null, photo: index ? [] : [9] })));
+      return Promise.resolve(
+        chatRows.map(({ peerId }, index) => ({
+          peerId,
+          name: '',
+          verified: null,
+          photo: index ? [] : [9],
+        })),
+      );
     }
     return Promise.reject('unsupported');
   };
-  const person = (byte, photos, fullPhotos) => ({ peerId: byte.repeat(32), version: 1, place: '',
-    fullPhotos, draft: { photos, gender: 0, birthYear: null, birthMonth: null, birthDay: null } });
+  const person = (byte, photos, fullPhotos) => ({
+    peerId: byte.repeat(32),
+    version: 1,
+    place: '',
+    fullPhotos,
+    draft: { photos, gender: 0, birthYear: null, birthMonth: null, birthDay: null },
+  });
   const { strings } = window;
   const found = person('ab', [[1], [2]], [[3], [4]]);
   const card = resultCard(found, 'peer-photo-card');
@@ -396,8 +499,11 @@ const checkPeerPhotos = async () => {
   await window.showChats(call);
   await window.chatPhotosShown;
   const [shownRow, plainRow] = chatRows.map(({ peerId }) => liveRow('chat-list', peerId));
-  if (!shownRow.querySelector('.avatar canvas') || plainRow.querySelector('canvas')
-    || !plainRow.querySelector('.avatar').textContent) {
+  if (
+    !shownRow.querySelector('.avatar canvas') ||
+    plainRow.querySelector('canvas') ||
+    !plainRow.querySelector('.avatar').textContent
+  ) {
     throw new Error('a chat row did not show its photo, or letters without one');
   }
 
@@ -412,29 +518,47 @@ const checkPeerPhotos = async () => {
   openFound(found, card, call);
   await window.peerPhotosShown;
   if (fetches.some(({ full }) => full) || !main.querySelector('canvas') || load.hidden) {
-    throw new Error('on a metered network the view did not wait for a tap with the thumbnail shown');
+    throw new Error(
+      'on a metered network the view did not wait for a tap with the thumbnail shown',
+    );
   }
-  if (thumbs().length !== 2 || !thumbs()[0].hasAttribute('aria-current')
-    || main.getAttribute('aria-label') !== strings['profile.photoLabel'].replace('{n}', '1').replace('{count}', '2')) {
+  if (
+    thumbs().length !== 2 ||
+    !thumbs()[0].hasAttribute('aria-current') ||
+    main.getAttribute('aria-label') !==
+      strings['profile.photoLabel'].replace('{n}', '1').replace('{count}', '2')
+  ) {
     throw new Error('the gallery did not name the photo or mark it current');
   }
   load.click();
   await window.peerPhotoLoaded;
-  if (byId('view-status').textContent !== strings['view.photoFailed'] || load.hidden || load.disabled
-    || document.activeElement !== load) {
+  if (
+    byId('view-status').textContent !== strings['view.photoFailed'] ||
+    load.hidden ||
+    load.disabled ||
+    document.activeElement !== load
+  ) {
     throw new Error('a failed full photo did not say so and offer the button again');
   }
   refused.clear();
   load.click();
   await window.peerPhotoLoaded;
-  if (!load.hidden || document.activeElement !== main || !fetches.at(-1).full
-    || String(fetches.at(-1).hashes) !== '3') {
+  if (
+    !load.hidden ||
+    document.activeElement !== main ||
+    !fetches.at(-1).full ||
+    String(fetches.at(-1).hashes) !== '3'
+  ) {
     throw new Error('a tap did not load the full photo and move the focus to it');
   }
   await shot('peer-photos');
   thumbs()[1].click();
   await window.peerPhotoChosen;
-  if (load.hidden || thumbs()[0].hasAttribute('aria-current') || !thumbs()[1].hasAttribute('aria-current')) {
+  if (
+    load.hidden ||
+    thumbs()[0].hasAttribute('aria-current') ||
+    !thumbs()[1].hasAttribute('aria-current')
+  ) {
     throw new Error('the second photo was not chosen or waited for no tap');
   }
 
@@ -462,7 +586,11 @@ const checkPeerPhotos = async () => {
   held.clear();
   refused.add(1);
   await window.showFoundPhotos(person('ef', [[1]], [[]]), call);
-  if (main.querySelector('canvas') || main.getAttribute('aria-hidden') !== 'true' || !main.textContent) {
+  if (
+    main.querySelector('canvas') ||
+    main.getAttribute('aria-hidden') !== 'true' ||
+    !main.textContent
+  ) {
     throw new Error('a missing photo did not show the letters');
   }
   byId('view-back').click();
@@ -473,7 +601,9 @@ const addRealPhoto = async () => {
   source.width = 640;
   source.height = 640;
   source.getContext('2d').fillRect(0, 0, 640, 640);
-  const jpeg = await new Promise((resolve) => { source.toBlob(resolve, 'image/jpeg'); });
+  const jpeg = await new Promise((resolve) => {
+    source.toBlob(resolve, 'image/jpeg');
+  });
   await openArea('profile-area');
   await addProfilePhoto(new File([jpeg], 'photo.jpg', { type: 'image/jpeg' }));
   if (byId('profile-photos').children.length !== 1) {
@@ -497,10 +627,16 @@ const photoSteps = {
       throw new Error(`no full image, side ${shownSide()}: ${byId('view-status').textContent}`);
     }
     byId('view-back').click();
-    await livePoll(() => document.querySelector(`#search-results [data-peer-id="${peer}"] .avatar canvas`),
-      'the thumbnail on the card');
+    await livePoll(
+      () => document.querySelector(`#search-results [data-peer-id="${peer}"] .avatar canvas`),
+      'the thumbnail on the card',
+    );
   },
 };
 globalThis.uiSmokePhotos = Object.freeze({
-  addRealPhoto, checkChatPhoto, checkProfilePhotos, checkPeerPhotos, photoSteps,
+  addRealPhoto,
+  checkChatPhoto,
+  checkProfilePhotos,
+  checkPeerPhotos,
+  photoSteps,
 });

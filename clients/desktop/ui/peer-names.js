@@ -18,7 +18,9 @@ const loadPeerNames = async (peerIds, call) => {
     const names = await call('contact_names', { peerIds });
     if (!identityCurrent(generation) || !Array.isArray(names)) return;
     for (const entry of names) peerNames.set(entry.peerId, entry);
-  } catch { /* the page falls back to the short Peer ID */ }
+  } catch {
+    /* the page falls back to the short Peer ID */
+  }
 };
 document.addEventListener('dyapp:identity-change', () => peerNames.clear());
 
@@ -33,7 +35,9 @@ const closeRename = () => {
   renameTarget = null;
   renameSave.disabled = false;
 };
-renameDialog.addEventListener('close', () => { if (!renameDialog.open) closeRename(); });
+renameDialog.addEventListener('close', () => {
+  if (!renameDialog.open) closeRename();
+});
 document.getElementById('chat-rename-cancel').addEventListener('click', closeRename);
 document.getElementById('chat-rename').addEventListener('click', () => {
   if (!activeChat) return;
@@ -57,9 +61,10 @@ const saveRename = async (call = invoke) => {
   } catch (error) {
     if (renameTarget !== target) return;
     renameSave.disabled = false;
-    renameError.textContent = String(error) === 'invalidName'
-      ? window.strings['chats.renameInvalid']
-      : `${window.strings['chats.renameFailed']} ${error}`;
+    renameError.textContent =
+      String(error) === 'invalidName'
+        ? window.strings['chats.renameInvalid']
+        : `${window.strings['chats.renameFailed']} ${error}`;
     renameError.hidden = false;
     return;
   }

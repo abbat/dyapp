@@ -2,17 +2,22 @@
 // chats-ui.js in the shared page scope; it reuses that file's Forward dialog.
 // Forward and Share use one dialog; its title and button name the action.
 const showForwardDialog = (action, targets) => {
-  for (const [id, key] of [['chat-forward-title', `chats.${action}Title`], ['chat-forward-confirm', `chats.${action}`]]) {
+  for (const [id, key] of [
+    ['chat-forward-title', `chats.${action}Title`],
+    ['chat-forward-confirm', `chats.${action}`],
+  ]) {
     const element = document.getElementById(id);
     element.dataset.i18n = key;
     element.textContent = window.strings[key];
   }
-  forwardSelect.replaceChildren(...targets.map((row) => {
-    const option = document.createElement('option');
-    option.value = row.peerId;
-    option.textContent = window.peerName(row.peerId);
-    return option;
-  }));
+  forwardSelect.replaceChildren(
+    ...targets.map((row) => {
+      const option = document.createElement('option');
+      option.value = row.peerId;
+      option.textContent = window.peerName(row.peerId);
+      return option;
+    }),
+  );
   forwardConfirm.disabled = !targets.length;
   forwardError.hidden = !!targets.length;
   forwardError.textContent = targets.length ? '' : window.strings['chats.forwardNoTargets'];
@@ -26,16 +31,23 @@ const openShare = async (peerId, call = invoke) => {
   const generation = identityGeneration;
   const rows = await call('chat_rows').catch(() => []);
   if (!identityCurrent(generation) || forwardDialog.open) return;
-  await loadPeerNames(rows.map((row) => row.peerId), call).catch(() => {});
+  await loadPeerNames(
+    rows.map((row) => row.peerId),
+    call,
+  ).catch(() => {});
   if (!identityCurrent(generation) || forwardDialog.open) return;
   forwardTarget = { share: peerId, generation };
-  showForwardDialog('share', rows.filter((row) => row.state === 'open' && row.peerId !== peerId));
+  showForwardDialog(
+    'share',
+    rows.filter((row) => row.state === 'open' && row.peerId !== peerId),
+  );
 };
 document.getElementById('view-share').addEventListener('click', () => {
   const found = viewed?.found;
   if (found) window.shareOpened = openShare(found.peerId);
 });
-const profileCardText = (peerId) => `${window.strings['chats.profileCard']} ${window.shortPeer(peerId)}`;
+const profileCardText = (peerId) =>
+  `${window.strings['chats.profileCard']} ${window.shortPeer(peerId)}`;
 // Nothing about the shared peer is fetched until the card is pressed, and then only verified.
 const openShared = async (peerId, card, call = invoke) => {
   const generation = identityGeneration;
@@ -43,7 +55,8 @@ const openShared = async (peerId, card, call = invoke) => {
     const [found] = await withPlaces([await call('shared_profile', { peerId })]);
     if (identityCurrent(generation) && card.isConnected) openFound(found, card, call);
   } catch (error) {
-    if (identityCurrent(generation)) chatComposeStatus.textContent = `${window.strings['chats.profileFailed']} ${String(error)}`;
+    if (identityCurrent(generation))
+      chatComposeStatus.textContent = `${window.strings['chats.profileFailed']} ${String(error)}`;
   }
 };
 window.profileCard = (peerId, call) => {
@@ -52,7 +65,9 @@ window.profileCard = (peerId, call) => {
   card.className = 'btn';
   card.dataset.peerId = peerId;
   card.textContent = profileCardText(peerId);
-  card.addEventListener('click', () => { window.sharedOpened = openShared(peerId, card, call); });
+  card.addEventListener('click', () => {
+    window.sharedOpened = openShared(peerId, card, call);
+  });
   return card;
 };
 window.shareProfile = async (call = invoke) => {

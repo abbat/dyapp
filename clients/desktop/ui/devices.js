@@ -19,9 +19,16 @@ let disconnecting = null;
 let disconnected = false;
 let devicesRead = 0;
 let shownDevices = '';
-document.addEventListener('dyapp:identity-change', () => { shownDevices = ''; devicesRead += 1; });
+document.addEventListener('dyapp:identity-change', () => {
+  shownDevices = '';
+  devicesRead += 1;
+});
 
-const deviceShort = (key) => key.slice(0, 3).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+const deviceShort = (key) =>
+  key
+    .slice(0, 3)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 const disconnectOffline = (offline) => {
   disconnectProblem.hidden = !offline;
   disconnectAction.hidden = offline;
@@ -77,14 +84,26 @@ const showDevices = async (call = invoke) => {
     if (!rows) {
       if (!live) {
         devicesCard.hidden = true;
-        window.renderSettingsRows('devices', null, deviceRow, () => '', () => showDevices());
+        window.renderSettingsRows(
+          'devices',
+          null,
+          deviceRow,
+          () => '',
+          () => showDevices(),
+        );
       }
       return;
     }
     rows.sort((a, b) => b.this - a.this);
     const text = JSON.stringify(rows);
-    if (text !== shownDevices) window.renderSettingsRows('devices', rows, deviceRow,
-      (device) => device.key.map((byte) => byte.toString(16).padStart(2, '0')).join(''), () => showDevices());
+    if (text !== shownDevices)
+      window.renderSettingsRows(
+        'devices',
+        rows,
+        deviceRow,
+        (device) => device.key.map((byte) => byte.toString(16).padStart(2, '0')).join(''),
+        () => showDevices(),
+      );
     shownDevices = text;
     devicesCard.hidden = rows.length === 0;
   }
@@ -151,7 +170,9 @@ window.closeDeviceDialogs = () => {
   for (const dialog of [disconnectDialog, codeDialog, confirmDialog]) dialog.close();
 };
 for (const dialog of [codeDialog, confirmDialog]) {
-  dialog.addEventListener('close', () => { dialog.hidden = true; });
+  dialog.addEventListener('close', () => {
+    dialog.hidden = true;
+  });
 }
 document.getElementById('device-link').addEventListener('click', () => {
   codeField.value = '';
@@ -163,7 +184,9 @@ document.getElementById('device-code-next').addEventListener('click', () => {
   window.codeChecked = checkCode();
 });
 confirmCancel.addEventListener('click', () => confirmDialog.close());
-confirmAction.addEventListener('click', () => { window.linkSent = sendLink(); });
+confirmAction.addEventListener('click', () => {
+  window.linkSent = sendLink();
+});
 // Escape waits for a running step, like Cancel, so its result is not lost.
 confirmDialog.addEventListener('cancel', (event) => {
   if (confirmCancel.disabled) event.preventDefault();
@@ -173,5 +196,7 @@ disconnectDialog.addEventListener('cancel', (event) => {
 });
 disconnectCancel.addEventListener('click', () => disconnectDialog.close());
 for (const button of [disconnectAction, disconnectRetry]) {
-  button.addEventListener('click', () => { window.disconnectDone = disconnectNow(); });
+  button.addEventListener('click', () => {
+    window.disconnectDone = disconnectNow();
+  });
 }

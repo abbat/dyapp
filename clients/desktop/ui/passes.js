@@ -24,23 +24,29 @@ window.showPassed = async (call = invoke) => {
     failed = true;
   }
   if (!identityCurrent(generation) || read !== passedRead) return;
-  window.renderSettingsRows('passed', failed ? null : peers, (peerId, index) => {
-    const row = document.createElement('tr');
-    const name = document.createElement('td');
-    name.className = 'who';
-    name.append(...who(row, peerId, null, ''));
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn';
-    button.id = `unpass-${index + 1}`;
-    button.textContent = window.strings['settings.unpass'];
-    button.addEventListener('click', () => {
-      window.passedShown = unpassPeer(peerId, button, call);
-    });
-    const action = document.createElement('td');
-    action.append(button);
-    row.append(name, action);
-    return row;
-  }, (peer) => `${peer} ${window.peerName(peer)}`, () => window.showPassed());
+  window.renderSettingsRows(
+    'passed',
+    failed ? null : peers,
+    (peerId, index) => {
+      const row = document.createElement('tr');
+      const name = document.createElement('td');
+      name.className = 'who';
+      name.append(...who(row, peerId, null, ''));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn';
+      button.id = `unpass-${index + 1}`;
+      button.textContent = window.strings['settings.unpass'];
+      button.addEventListener('click', () => {
+        window.passedShown = unpassPeer(peerId, button, call);
+      });
+      const action = document.createElement('td');
+      action.append(button);
+      row.append(name, action);
+      return row;
+    },
+    (peer) => `${peer} ${window.peerName(peer)}`,
+    () => window.showPassed(),
+  );
   document.getElementById('passed-none').hidden = peers.length > 0;
 };

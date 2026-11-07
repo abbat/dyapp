@@ -25,25 +25,32 @@ const peerCanvas = async (hash, call) => {
 };
 const peerPhotoAuto = async (call) => {
   try {
-    return await call('peer_photo_auto') === true;
+    return (await call('peer_photo_auto')) === true;
   } catch {
     return false;
   }
 };
-const peerPhotoLabel = (index, count) => window.strings['profile.photoLabel']
-  .replace('{n}', index + 1).replace('{count}', count);
+const peerPhotoLabel = (index, count) =>
+  window.strings['profile.photoLabel'].replace('{n}', index + 1).replace('{count}', count);
 
 // ponytail: the liked list redraws on each mail pass with news, so a missing thumbnail connects
 // again then; remember misses here if that shows up in traffic.
 window.showCardPhotos = async (found, cards, call = invoke) => {
-  const wanted = found.map((item, index) => [item.draft.photos?.[0], cards[index]])
+  const wanted = found
+    .map((item, index) => [item.draft.photos?.[0], cards[index]])
     .filter(([hash]) => hash?.length);
   if (!wanted.length) return;
-  await fetchPeerPhotos(wanted.map(([hash]) => hash), false, call);
-  await Promise.all(wanted.map(async ([hash, card]) => {
-    const canvas = await peerCanvas(hash, call);
-    if (canvas) card.querySelector('.avatar').append(canvas);
-  }));
+  await fetchPeerPhotos(
+    wanted.map(([hash]) => hash),
+    false,
+    call,
+  );
+  await Promise.all(
+    wanted.map(async ([hash, card]) => {
+      const canvas = await peerCanvas(hash, call);
+      if (canvas) card.querySelector('.avatar').append(canvas);
+    }),
+  );
 };
 
 const thumbButton = (canvas, index, count, letters) => {
@@ -83,8 +90,10 @@ window.showFoundPhotos = async (found, call = invoke) => {
   viewLoad.hidden = true;
   if (!count) return;
   await fetchPeerPhotos(thumbnails, false, call);
-  const [auto, canvases] = await Promise.all([peerPhotoAuto(call),
-    Promise.all(thumbnails.map((hash) => peerCanvas(hash, call)))]);
+  const [auto, canvases] = await Promise.all([
+    peerPhotoAuto(call),
+    Promise.all(thumbnails.map((hash) => peerCanvas(hash, call))),
+  ]);
   if (first !== viewPhotoRun) return;
   const buttons = canvases.map((canvas, index) => thumbButton(canvas, index, count, letters));
   // Undefined when another choice took over, otherwise whether the full image is showing.
@@ -115,7 +124,9 @@ window.showFoundPhotos = async (found, call = invoke) => {
     return Boolean(full);
   };
   buttons.forEach((button, index) => {
-    button.addEventListener('click', () => { window.peerPhotoChosen = choose(index, auto); });
+    button.addEventListener('click', () => {
+      window.peerPhotoChosen = choose(index, auto);
+    });
   });
   if (count > 1) viewThumbs.replaceChildren(...buttons);
   await choose(0, auto);

@@ -5,8 +5,13 @@ const checkContactNames = async () => {
   const named = 'a'.repeat(64);
   const claimed = 'b'.repeat(64);
   const plain = 'c'.repeat(64);
-  const row = (peerId) => ({ peerId, state: 'open', lastMessage: null, unreadCount: 0,
-    activeRecently: false });
+  const row = (peerId) => ({
+    peerId,
+    state: 'open',
+    lastMessage: null,
+    unreadCount: 0,
+    activeRecently: false,
+  });
   const names = new Map([
     [named, { peerId: named, name: 'Aunt Vera', verified: null }],
     [claimed, { peerId: claimed, name: 'Bank Support', verified: false }],
@@ -32,8 +37,11 @@ const checkContactNames = async () => {
   if (label(named) !== 'Aunt Vera') throw new Error('a local name was not shown');
   const public_ = label(claimed);
   const mark = window.strings['peer.unverified'];
-  if (!public_.includes('Bank Support') || !public_.includes(mark)
-    || !public_.includes(shortPeerId(claimed, knownPeers))) {
+  if (
+    !public_.includes('Bank Support') ||
+    !public_.includes(mark) ||
+    !public_.includes(shortPeerId(claimed, knownPeers))
+  ) {
     throw new Error(`a public name lost its mark or Peer ID: ${public_}`);
   }
   if (label(plain) !== shortPeerId(plain, knownPeers)) throw new Error('no name lost the Peer ID');
@@ -87,15 +95,21 @@ const checkPublicName = async () => {
     throw new Error('the publish list left out the public name');
   }
   let refused = '';
-  await saveProfile(() => Promise.reject('invalidName')).catch((error) => { refused = error; });
+  await saveProfile(() => Promise.reject('invalidName')).catch((error) => {
+    refused = error;
+  });
   if (refused !== window.strings['profile.nameInvalid']) {
     throw new Error(`a refused public name was not explained: ${refused}`);
   }
-  await saveProfile(() => Promise.reject('invalidHeight')).catch((error) => { refused = error; });
+  await saveProfile(() => Promise.reject('invalidHeight')).catch((error) => {
+    refused = error;
+  });
   if (refused !== window.strings['profile.heightInvalid']) {
     throw new Error(`a refused height was not explained: ${refused}`);
   }
-  await saveProfile(() => Promise.reject('invalidAbout')).catch((error) => { refused = error; });
+  await saveProfile(() => Promise.reject('invalidAbout')).catch((error) => {
+    refused = error;
+  });
   if (refused !== window.strings['profile.aboutInvalid']) {
     throw new Error(`a refused about was not explained: ${refused}`);
   }
@@ -103,8 +117,12 @@ const checkPublicName = async () => {
   await openArea('search-area');
   const peer = 'd'.repeat(64);
   let verified = false;
-  const found = { peerId: peer, version: 1, place: '',
-    draft: { name: 'Anna', birthYear: null, birthMonth: null, birthDay: null, country: '' } };
+  const found = {
+    peerId: peer,
+    version: 1,
+    place: '',
+    draft: { name: 'Anna', birthYear: null, birthMonth: null, birthDay: null, country: '' },
+  };
   const call = (command, args) => {
     if (command === 'search_profiles') {
       return Promise.resolve({ profiles: [found], offered: [], partial: false, failures: [] });
@@ -112,8 +130,14 @@ const checkPublicName = async () => {
     if (command === 'contact_names') {
       return Promise.resolve(args.peerIds.map((peerId) => ({ peerId, name: 'Anna', verified })));
     }
-    if (command === 'confirm_contact') { verified = true; return Promise.resolve(found); }
-    if (command === 'unverify_contact') { verified = false; return Promise.resolve(); }
+    if (command === 'confirm_contact') {
+      verified = true;
+      return Promise.resolve(found);
+    }
+    if (command === 'unverify_contact') {
+      verified = false;
+      return Promise.resolve();
+    }
     return Promise.resolve(0);
   };
   await runSearch(call);
@@ -127,8 +151,11 @@ const checkPublicName = async () => {
   openFound(found, card, call);
   const title = document.getElementById('view-title');
   const peerShort = shortPeerId(peer, knownPeers);
-  if (!title.textContent.startsWith('Anna') || !title.textContent.endsWith(peerShort)
-    || document.getElementById('view-peer').textContent !== peerShort) {
+  if (
+    !title.textContent.startsWith('Anna') ||
+    !title.textContent.endsWith(peerShort) ||
+    document.getElementById('view-peer').textContent !== peerShort
+  ) {
     throw new Error(`the view lost the name or the Peer ID: ${title.textContent}`);
   }
   await confirmContact(call);
@@ -148,8 +175,16 @@ const checkChatMute = async () => {
   let refuse = null;
   const call = (command, args) => {
     if (command === 'chat_rows') {
-      return Promise.resolve([{ peerId: peer, state: 'open', lastMessage: null, unreadCount: 1,
-        activeRecently: false, muted }]);
+      return Promise.resolve([
+        {
+          peerId: peer,
+          state: 'open',
+          lastMessage: null,
+          unreadCount: 1,
+          activeRecently: false,
+          muted,
+        },
+      ]);
     }
     if (command === 'chat_history') {
       return Promise.resolve({ state: 'open', messages: [], activeRecently: false, muted });
@@ -166,8 +201,9 @@ const checkChatMute = async () => {
   await window.showChats(call);
   await openChat(peer, call);
   const button = document.getElementById('chat-mute');
-  const shows = (key, mark) => button.textContent === window.strings[key]
-    && liveRow('chat-list', peer).textContent.includes(window.strings['chats.muted']) === mark;
+  const shows = (key, mark) =>
+    button.textContent === window.strings[key] &&
+    liveRow('chat-list', peer).textContent.includes(window.strings['chats.muted']) === mark;
   if (!shows('chats.mute', false)) throw new Error('an unmuted chat looks muted');
   await muteChat(call);
   if (!muted || !shows('chats.unmute', true)) throw new Error('Mute did not show');
@@ -189,14 +225,26 @@ const checkProfileShare = async () => {
   const chatPeer = '7'.repeat(64);
   const sharedPeer = '8'.repeat(64);
   const requestPeer = '9'.repeat(64);
-  const link = { author: chatPeer, groupId: [4], id: [5], text: `dyapp-profile:1:${sharedPeer}`,
-    sharedPeer, forwarded: false, deleted: false, edited: false, sentAtMs: null };
+  const link = {
+    author: chatPeer,
+    groupId: [4],
+    id: [5],
+    text: `dyapp-profile:1:${sharedPeer}`,
+    sharedPeer,
+    forwarded: false,
+    deleted: false,
+    edited: false,
+    sentAtMs: null,
+  };
   const rows = [
     { peerId: chatPeer, state: 'open', lastMessage: link, unreadCount: 0 },
     { peerId: sharedPeer, state: 'open', lastMessage: null, unreadCount: 0 },
     { peerId: requestPeer, state: 'requestReceived', lastMessage: null, unreadCount: 0 },
   ];
-  const found = { peerId: sharedPeer, draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const found = {
+    peerId: sharedPeer,
+    draft: { birthYear: null, birthMonth: null, birthDay: null },
+  };
   let shareError = null;
   let fetchError = null;
   let sharedArgs;
@@ -218,7 +266,9 @@ const checkProfileShare = async () => {
   };
   renderChatRows(rows);
   const text = `${window.strings['chats.profileCard']} ${window.shortPeer(sharedPeer)}`;
-  if (!document.querySelector(`#chat-list [data-peer-id="${chatPeer}"]`)?.textContent.includes(text)) {
+  if (
+    !document.querySelector(`#chat-list [data-peer-id="${chatPeer}"]`)?.textContent.includes(text)
+  ) {
     throw new Error('chat preview did not name the shared profile');
   }
   await openChat(chatPeer, call);
@@ -229,8 +279,10 @@ const checkProfileShare = async () => {
   fetchError = 'unpublished';
   card.click();
   await window.sharedOpened;
-  if (!chatComposeStatus.textContent.includes(window.strings['chats.profileFailed'])
-    || !chatComposeStatus.textContent.includes('unpublished')) {
+  if (
+    !chatComposeStatus.textContent.includes(window.strings['chats.profileFailed']) ||
+    !chatComposeStatus.textContent.includes('unpublished')
+  ) {
     throw new Error('failed profile card was silent');
   }
   fetchError = 'blocked';
@@ -247,21 +299,34 @@ const checkProfileShare = async () => {
   }
   if (!document.getElementById('view-share')) throw new Error('profile page has no Share');
   await openShare(sharedPeer, call);
-  if (!forwardDialog.open || forwardSelect.options.length !== 1 || forwardSelect.value !== chatPeer
-    || document.getElementById('chat-forward-title').textContent !== window.strings['chats.shareTitle']
-    || forwardConfirm.textContent !== window.strings['chats.share']) {
+  if (
+    !forwardDialog.open ||
+    forwardSelect.options.length !== 1 ||
+    forwardSelect.value !== chatPeer ||
+    document.getElementById('chat-forward-title').textContent !==
+      window.strings['chats.shareTitle'] ||
+    forwardConfirm.textContent !== window.strings['chats.share']
+  ) {
     throw new Error('Share picker included a request or the shared peer');
   }
   shareError = 'nodeFailed';
   await shareProfile(call);
-  if (!forwardDialog.open || forwardConfirm.disabled
-    || !forwardError.textContent.includes(window.strings['chats.shareFailed'])) {
+  if (
+    !forwardDialog.open ||
+    forwardConfirm.disabled ||
+    !forwardError.textContent.includes(window.strings['chats.shareFailed'])
+  ) {
     throw new Error('failed Share closed the picker');
   }
   shareError = null;
   await shareProfile(call);
-  if (sharedArgs?.peerId !== sharedPeer || sharedArgs.targetPeerId !== chatPeer || forwardDialog.open
-    || activeChat?.peerId !== chatPeer || chatComposeStatus.textContent !== window.strings['chats.shareSent']) {
+  if (
+    sharedArgs?.peerId !== sharedPeer ||
+    sharedArgs.targetPeerId !== chatPeer ||
+    forwardDialog.open ||
+    activeChat?.peerId !== chatPeer ||
+    chatComposeStatus.textContent !== window.strings['chats.shareSent']
+  ) {
     throw new Error('Share did not send the profile to the chosen chat');
   }
   closeFound();
@@ -273,23 +338,30 @@ const checkInterests = async () => {
   const before = input.value;
   input.value = '  Музыка  \nJazz, blues\n\n';
   const tags = profileDraft().interests;
-  if (tags.join('|') !== 'Музыка|Jazz, blues') throw new Error('interest lines lost tags or punctuation');
+  if (tags.join('|') !== 'Музыка|Jazz, blues')
+    throw new Error('interest lines lost tags or punctuation');
   input.value = Array(33).fill('music').join('\n');
   input.dispatchEvent(new Event('input'));
   if (input.checkValidity()) throw new Error('too many interests passed the form');
   window.showProfileInterests(['Музыка', 'Jazz, blues']);
   if (!input.checkValidity()) throw new Error('loaded interests retained an old error');
   const canonical = ['музыка', 'jazz, blues'];
-  await saveProfile(() => Promise.resolve({ draft: { ...profileDraft(), interests: canonical }, ages: null }));
-  if (input.value !== canonical.join('\n')) throw new Error('save did not show canonical interests');
+  await saveProfile(() =>
+    Promise.resolve({ draft: { ...profileDraft(), interests: canonical }, ages: null }),
+  );
+  if (input.value !== canonical.join('\n'))
+    throw new Error('save did not show canonical interests');
   const fields = publicFields({ ...profileDraft(), interests: canonical });
   if (!fields.includes(`${window.strings['profile.interests']}: ${canonical.join('; ')}`)) {
     throw new Error('public preview lost canonical interests');
   }
   await shot('profile-interests');
   let refusal;
-  await saveProfile(() => Promise.reject('invalidInterests')).catch((error) => { refusal = error; });
-  if (refusal !== window.strings['profile.interestsInvalid']) throw new Error('interest error not explained');
+  await saveProfile(() => Promise.reject('invalidInterests')).catch((error) => {
+    refusal = error;
+  });
+  if (refusal !== window.strings['profile.interestsInvalid'])
+    throw new Error('interest error not explained');
   window.showProfileInterests([]);
   if (profileDraft().interests.length) throw new Error('clearing interests retained tags');
   input.value = before;
@@ -298,7 +370,8 @@ const checkInterests = async () => {
   showSearchFilters([19]);
   search.value = ' Музыка ';
   const filter = searchQuery().conditions.find((condition) => condition.field === 19);
-  if (filter?.op !== 'eq' || filter.strings[0] !== 'Музыка') throw new Error('interest filter was not sent');
+  if (filter?.op !== 'eq' || filter.strings[0] !== 'Музыка')
+    throw new Error('interest filter was not sent');
   await shot('search-interest');
   showSearchFilters([]);
   if (searchQuery().conditions.some((condition) => condition.field === 19)) {
@@ -310,7 +383,10 @@ const checkFavoriteAction = async () => {
   await openArea('search-area');
   const card = document.createElement('button');
   document.getElementById('search-results').append(card);
-  const found = { peerId: '6'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const found = {
+    peerId: '6'.repeat(64),
+    draft: { birthYear: null, birthMonth: null, birthDay: null },
+  };
   let saved = false;
   let readError = true;
   let changeError = null;
@@ -318,11 +394,18 @@ const checkFavoriteAction = async () => {
   let finish;
   const writes = [];
   const call = (command, args) => {
-    if (command === 'favorite_state') return readError ? Promise.reject('disk') : Promise.resolve(saved);
+    if (command === 'favorite_state')
+      return readError ? Promise.reject('disk') : Promise.resolve(saved);
     if (command === 'set_favorite') {
       writes.push(args);
       if (changeError) return Promise.reject(changeError);
-      if (hold) return new Promise((resolve) => { finish = () => { saved = args.favorite; resolve(); }; });
+      if (hold)
+        return new Promise((resolve) => {
+          finish = () => {
+            saved = args.favorite;
+            resolve();
+          };
+        });
       saved = args.favorite;
       return Promise.resolve();
     }
@@ -334,7 +417,8 @@ const checkFavoriteAction = async () => {
   await window.favoriteShown;
   const button = document.getElementById('view-favorite-toggle');
   const status = document.getElementById('view-favorite-status');
-  if (button.textContent !== window.strings['favorites.retry']) throw new Error('unknown saved state cannot retry');
+  if (button.textContent !== window.strings['favorites.retry'])
+    throw new Error('unknown saved state cannot retry');
   await window.toggleFavorite();
   if (writes.length) throw new Error('retrying unknown state mutated a favorite');
   readError = false;
@@ -351,37 +435,52 @@ const checkFavoriteAction = async () => {
   if (writes.length !== 2 || !button.disabled) throw new Error('favorite allowed duplicate writes');
   finish();
   await pending;
-  if (!saved || button.textContent !== window.strings['favorites.remove']) throw new Error('saved favorite not shown');
+  if (!saved || button.textContent !== window.strings['favorites.remove'])
+    throw new Error('saved favorite not shown');
   await shot('profile-favorite-saved');
   hold = false;
   await window.toggleFavorite();
-  if (saved || button.textContent !== window.strings['favorites.add']) throw new Error('favorite removal failed');
+  if (saved || button.textContent !== window.strings['favorites.add'])
+    throw new Error('favorite removal failed');
 
   hold = true;
   const closedWrite = window.toggleFavorite();
   closeFound();
   finish();
   await closedWrite;
-  if (!document.getElementById('view-favorite').hidden) throw new Error('late write reopened favorite controls');
+  if (!document.getElementById('view-favorite').hidden)
+    throw new Error('late write reopened favorite controls');
   saved = false;
   hold = false;
   let release;
-  openFound(found, card, (command, args) => command === 'favorite_state'
-    ? new Promise((resolve) => { release = resolve; }) : call(command, args));
+  openFound(found, card, (command, args) =>
+    command === 'favorite_state'
+      ? new Promise((resolve) => {
+          release = resolve;
+        })
+      : call(command, args),
+  );
   const stale = window.favoriteShown;
   const next = { ...found, peerId: '5'.repeat(64) };
   openFound(next, card, call);
   await window.favoriteShown;
   release(true);
   await stale;
-  if (button.textContent !== window.strings['favorites.add']) throw new Error('stale read changed another profile');
-  openFound(found, card, (command, args) => command === 'favorite_state'
-    ? new Promise((resolve) => { release = resolve; }) : call(command, args));
+  if (button.textContent !== window.strings['favorites.add'])
+    throw new Error('stale read changed another profile');
+  openFound(found, card, (command, args) =>
+    command === 'favorite_state'
+      ? new Promise((resolve) => {
+          release = resolve;
+        })
+      : call(command, args),
+  );
   const switched = window.favoriteShown;
   document.dispatchEvent(new Event('dyapp:identity-change'));
   release(true);
   await switched;
-  if (!document.getElementById('view-favorite').hidden) throw new Error('favorite state crossed identity change');
+  if (!document.getElementById('view-favorite').hidden)
+    throw new Error('favorite state crossed identity change');
   closeFound();
   card.remove();
 };
@@ -397,12 +496,20 @@ const checkSavedProfiles = async () => {
   let holdProfile = false;
   const call = (command, args) => {
     if (command === 'favorite_peers') return Promise.resolve(peers);
-    if (command === 'contact_names') return Promise.resolve(args.peerIds.map((peerId) => ({
-      peerId, name: `Saved locally ${'x'.repeat(50)}`, verified: null,
-    })));
+    if (command === 'contact_names')
+      return Promise.resolve(
+        args.peerIds.map((peerId) => ({
+          peerId,
+          name: `Saved locally ${'x'.repeat(50)}`,
+          verified: null,
+        })),
+      );
     if (command === 'shared_profile') {
       ++fetches;
-      if (holdProfile) return new Promise((resolve) => { releaseProfile = resolve; });
+      if (holdProfile)
+        return new Promise((resolve) => {
+          releaseProfile = resolve;
+        });
       return unavailable ? Promise.reject('unpublished') : Promise.resolve(found);
     }
     if (command === 'set_favorite') {
@@ -438,13 +545,20 @@ const checkSavedProfiles = async () => {
   refuseRemove = true;
   buttons()[1].click();
   await window.savedRemoved;
-  if (rows.children.length !== 1 || status.textContent !== window.strings['favorites.changeFailed']) {
+  if (
+    rows.children.length !== 1 ||
+    status.textContent !== window.strings['favorites.changeFailed']
+  ) {
     throw new Error('failed removal changed saved rows');
   }
   refuseRemove = false;
   buttons()[1].click();
   await window.savedRemoved;
-  if (rows.children.length || fetches !== 1 || status.textContent !== window.strings['favorites.empty']) {
+  if (
+    rows.children.length ||
+    fetches !== 1 ||
+    status.textContent !== window.strings['favorites.empty']
+  ) {
     throw new Error('saved removal fetched a profile or missed empty state');
   }
   peers = [peer];
@@ -452,14 +566,16 @@ const checkSavedProfiles = async () => {
   await window.showSaved(call);
   buttons()[0].click();
   await window.savedOpened;
-  if (profileView.hidden || viewed?.found.peerId !== peer) throw new Error('saved row did not open verified profile');
+  if (profileView.hidden || viewed?.found.peerId !== peer)
+    throw new Error('saved row did not open verified profile');
   document.getElementById('view-back').click();
   await window.savedShown;
   buttons()[0].click();
   await window.savedOpened;
   await blockViewed(call);
   await window.savedShown;
-  if (rows.children.length || !profileView.hidden) throw new Error('blocked saved row remained visible');
+  if (rows.children.length || !profileView.hidden)
+    throw new Error('blocked saved row remained visible');
   peers = [peer];
   await window.showSaved(call);
   holdProfile = true;
@@ -468,12 +584,18 @@ const checkSavedProfiles = async () => {
   showArea('profile-area');
   releaseProfile(found);
   await pendingOpen;
-  if (document.getElementById('profile-area').hidden) throw new Error('late saved profile changed navigation');
+  if (document.getElementById('profile-area').hidden)
+    throw new Error('late saved profile changed navigation');
   await openArea('search-area');
   panel.open = true;
   let releaseList;
-  const pendingList = window.showSaved((command, args) => command === 'favorite_peers'
-    ? new Promise((resolve) => { releaseList = resolve; }) : call(command, args));
+  const pendingList = window.showSaved((command, args) =>
+    command === 'favorite_peers'
+      ? new Promise((resolve) => {
+          releaseList = resolve;
+        })
+      : call(command, args),
+  );
   document.dispatchEvent(new Event('dyapp:identity-change'));
   releaseList([peer]);
   await pendingList;
@@ -483,7 +605,10 @@ const checkContactNotes = async () => {
   await openArea('search-area');
   const card = document.createElement('button');
   document.getElementById('search-results').append(card);
-  const found = { peerId: '5'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const found = {
+    peerId: '5'.repeat(64),
+    draft: { birthYear: null, birthMonth: null, birthDay: null },
+  };
   let saved = '';
   let readError = true;
   let writeError = null;
@@ -491,11 +616,18 @@ const checkContactNotes = async () => {
   let finish;
   const writes = [];
   const call = (command, args) => {
-    if (command === 'contact_note') return readError ? Promise.reject('disk') : Promise.resolve(saved);
+    if (command === 'contact_note')
+      return readError ? Promise.reject('disk') : Promise.resolve(saved);
     if (command === 'set_contact_note') {
       writes.push(args);
       if (writeError) return Promise.reject(writeError);
-      if (hold) return new Promise((resolve) => { finish = () => { saved = args.note; resolve(); }; });
+      if (hold)
+        return new Promise((resolve) => {
+          finish = () => {
+            saved = args.note;
+            resolve();
+          };
+        });
       saved = args.note;
       return Promise.resolve();
     }
@@ -509,11 +641,18 @@ const checkContactNotes = async () => {
   const save = document.getElementById('view-note-save');
   const status = document.getElementById('view-note-status');
   const panel = document.getElementById('view-note');
-  const edit = (value) => { text.value = value; text.dispatchEvent(new Event('input')); };
+  const edit = (value) => {
+    text.value = value;
+    text.dispatchEvent(new Event('input'));
+  };
   openFound(found, card, call);
   await window.noteShown;
   await window.saveContactNote();
-  if (!text.disabled || writes.length || status.textContent !== window.strings['notes.loadFailed']) {
+  if (
+    !text.disabled ||
+    writes.length ||
+    status.textContent !== window.strings['notes.loadFailed']
+  ) {
     throw new Error('unknown note was editable or failed silently');
   }
   readError = false;
@@ -522,19 +661,27 @@ const checkContactNotes = async () => {
   edit('Case\nЛичная заметка');
   writeError = 'disk';
   await window.saveContactNote();
-  if (text.value !== 'Case\nЛичная заметка' || save.disabled
-    || status.textContent !== window.strings['notes.saveFailed']) throw new Error('failed note save lost draft/retry');
+  if (
+    text.value !== 'Case\nЛичная заметка' ||
+    save.disabled ||
+    status.textContent !== window.strings['notes.saveFailed']
+  )
+    throw new Error('failed note save lost draft/retry');
   writeError = null;
   hold = true;
   const pending = window.saveContactNote();
   await window.saveContactNote();
-  if (writes.length !== 2 || !save.disabled || !text.disabled) throw new Error('duplicate note writes');
+  if (writes.length !== 2 || !save.disabled || !text.disabled)
+    throw new Error('duplicate note writes');
   finish();
   await pending;
   hold = false;
   if (saved !== 'Case\nЛичная заметка') throw new Error('note case/lines changed');
   await shot('profile-private-note');
-  if (publicFields(profileDraft()).join('\n').includes(saved) || JSON.stringify(searchQuery()).includes(saved)) {
+  if (
+    publicFields(profileDraft()).join('\n').includes(saved) ||
+    JSON.stringify(searchQuery()).includes(saved)
+  ) {
     throw new Error('private note leaked into preview/search');
   }
   closeFound();
@@ -563,7 +710,12 @@ const checkContactNotes = async () => {
   if (text.value) throw new Error('late write replaced another profile note');
   hold = false;
   let finishRead;
-  const lateRead = window.showContactNote(() => new Promise((resolve) => { finishRead = resolve; }));
+  const lateRead = window.showContactNote(
+    () =>
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+  );
   document.dispatchEvent(new Event('dyapp:identity-change'));
   finishRead('Other identity secret');
   await lateRead;
@@ -579,45 +731,80 @@ const checkPassActions = async () => {
   await openArea('search-area');
   const card = document.createElement('button');
   document.getElementById('search-results').append(card);
-  const found = { peerId: '3'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const found = {
+    peerId: '3'.repeat(64),
+    draft: { birthYear: null, birthMonth: null, birthDay: null },
+  };
   const likes = (passed = false) => ({ ours: false, matched: false, passed });
   const read = (command) => Promise.resolve(command === 'peer_likes' ? likes() : false);
   openFound(found, card, read);
   let finish;
   let writes = 0;
-  const pendingCall = () => { writes += 1; return new Promise((resolve) => { finish = resolve; }); };
+  const pendingCall = () => {
+    writes += 1;
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  };
   const pending = sendPass(true, pendingCall);
   await sendPass(true, pendingCall);
-  if (writes !== 1 || !document.getElementById('view-pass').disabled
-    || viewStatus.textContent !== window.strings['view.pass.saving']) throw new Error('pass duplicated or hid busy state');
+  if (
+    writes !== 1 ||
+    !document.getElementById('view-pass').disabled ||
+    viewStatus.textContent !== window.strings['view.pass.saving']
+  )
+    throw new Error('pass duplicated or hid busy state');
   finish(likes(true));
   await pending;
-  if (!card.hidden || document.getElementById('view-unpass').hidden) throw new Error('pass not shown');
+  if (!card.hidden || document.getElementById('view-unpass').hidden)
+    throw new Error('pass not shown');
   await sendPass(false, () => Promise.reject('disk'));
-  if (document.getElementById('view-unpass').disabled || !card.hidden
-    || !viewStatus.textContent.includes('disk')) throw new Error('failed undo lost retry/state');
+  if (
+    document.getElementById('view-unpass').disabled ||
+    !card.hidden ||
+    !viewStatus.textContent.includes('disk')
+  )
+    throw new Error('failed undo lost retry/state');
   await sendPass(false, () => Promise.resolve(likes()));
-  if (card.hidden || !document.getElementById('view-unpass').hidden) throw new Error('undo not shown');
+  if (card.hidden || !document.getElementById('view-unpass').hidden)
+    throw new Error('undo not shown');
   const old = sendPass(true, pendingCall);
   closeFound();
   openFound(found, card, read);
   await Promise.resolve();
   let finishNew;
-  const newer = sendPass(false, () => new Promise((resolve) => { finishNew = resolve; }));
+  const newer = sendPass(
+    false,
+    () =>
+      new Promise((resolve) => {
+        finishNew = resolve;
+      }),
+  );
   finish(likes(true));
   await old;
-  if (card.hidden || !document.getElementById('view-pass').disabled
-    || viewStatus.textContent !== window.strings['view.pass.saving']) throw new Error('old pass changed reopened busy view');
+  if (
+    card.hidden ||
+    !document.getElementById('view-pass').disabled ||
+    viewStatus.textContent !== window.strings['view.pass.saving']
+  )
+    throw new Error('old pass changed reopened busy view');
   finishNew(likes());
   await newer;
   let failOld;
-  const oldFailure = sendPass(true, () => new Promise((_, reject) => { failOld = reject; }));
+  const oldFailure = sendPass(
+    true,
+    () =>
+      new Promise((_, reject) => {
+        failOld = reject;
+      }),
+  );
   closeFound();
   openFound(found, card, read);
   await Promise.resolve();
   failOld('old error');
   await oldFailure;
-  if (viewStatus.textContent || document.getElementById('view-pass').disabled) throw new Error('late pass error changed reopened view');
+  if (viewStatus.textContent || document.getElementById('view-pass').disabled)
+    throw new Error('late pass error changed reopened view');
   closeFound();
   card.remove();
 };
@@ -625,12 +812,19 @@ const checkProfileActionGuards = async () => {
   await openArea('search-area');
   const card = document.createElement('button');
   document.getElementById('search-results').append(card);
-  const found = { peerId: '2'.repeat(64), draft: { birthYear: null, birthMonth: null, birthDay: null } };
+  const found = {
+    peerId: '2'.repeat(64),
+    draft: { birthYear: null, birthMonth: null, birthDay: null },
+  };
   const likes = (ours) => ({ ours, matched: ours, passed: false });
   const read = (command) => Promise.resolve(command === 'peer_likes' ? likes(false) : false);
   let finishRead;
-  const heldRead = (command) => command === 'peer_likes'
-    ? new Promise((resolve) => { finishRead = resolve; }) : read(command);
+  const heldRead = (command) =>
+    command === 'peer_likes'
+      ? new Promise((resolve) => {
+          finishRead = resolve;
+        })
+      : read(command);
   openFound(found, card, heldRead);
   const oldRead = finishRead;
   closeFound();
@@ -638,16 +832,23 @@ const checkProfileActionGuards = async () => {
   await Promise.resolve();
   oldRead(likes(true));
   await Promise.resolve();
-  if (!document.getElementById('view-unlike').hidden) throw new Error('old likes read changed reopened view');
+  if (!document.getElementById('view-unlike').hidden)
+    throw new Error('old likes read changed reopened view');
   closeFound();
   openFound(found, card, heldRead);
   await sendLike(true, () => Promise.resolve(likes(true)));
   finishRead(likes(false));
   await Promise.resolve();
-  if (document.getElementById('view-unlike').hidden) throw new Error('initial read overwrote local like');
+  if (document.getElementById('view-unlike').hidden)
+    throw new Error('initial read overwrote local like');
   let finishLike;
   let writes = 0;
-  const heldLike = () => { writes += 1; return new Promise((resolve) => { finishLike = resolve; }); };
+  const heldLike = () => {
+    writes += 1;
+    return new Promise((resolve) => {
+      finishLike = resolve;
+    });
+  };
   const pending = sendLike(false, heldLike);
   await sendLike(true, heldLike);
   await sendPass(true, heldLike);
@@ -656,11 +857,20 @@ const checkProfileActionGuards = async () => {
   openFound(found, card, read);
   await Promise.resolve();
   let finishNew;
-  const newer = sendLike(true, () => new Promise((resolve) => { finishNew = resolve; }));
+  const newer = sendLike(
+    true,
+    () =>
+      new Promise((resolve) => {
+        finishNew = resolve;
+      }),
+  );
   finishLike(likes(false));
   await pending;
-  if (!document.getElementById('view-like').disabled
-    || viewStatus.textContent !== window.strings['view.sending']) throw new Error('old like unlocked reopened view');
+  if (
+    !document.getElementById('view-like').disabled ||
+    viewStatus.textContent !== window.strings['view.sending']
+  )
+    throw new Error('old like unlocked reopened view');
   finishNew(likes(true));
   await newer;
   if (document.getElementById('view-unlike').hidden) throw new Error('new like not shown');
@@ -668,6 +878,14 @@ const checkProfileActionGuards = async () => {
   card.remove();
 };
 globalThis.uiSmokeNames = Object.freeze({
-  checkContactNames, checkPublicName, checkChatMute, checkProfileShare, checkInterests, checkFavoriteAction,
-  checkSavedProfiles, checkContactNotes, checkPassActions, checkProfileActionGuards,
+  checkContactNames,
+  checkPublicName,
+  checkChatMute,
+  checkProfileShare,
+  checkInterests,
+  checkFavoriteAction,
+  checkSavedProfiles,
+  checkContactNotes,
+  checkPassActions,
+  checkProfileActionGuards,
 });

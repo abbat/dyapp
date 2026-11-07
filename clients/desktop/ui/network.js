@@ -24,8 +24,8 @@ const showConnection = (state, name) => {
   // The rail hides the label, so the title names the button there.
   connectionStatus.title = window.strings[`connection.${state}`];
   if (name !== undefined) {
-    document.getElementById('connection-network').textContent = name
-      || window.strings['network.name.public'];
+    document.getElementById('connection-network').textContent =
+      name || window.strings['network.name.public'];
   }
 };
 connectionStatus.addEventListener('click', () => showArea('network-area'));
@@ -35,7 +35,10 @@ const connectAtLaunch = async (call = invoke) => {
   const run = ++connectionRun;
   const active = await call('load_network', { file: 'active' }).catch(() => null);
   if (!identityCurrent(generation) || run !== connectionRun) return;
-  if (!active) { showConnection('offline'); return; }
+  if (!active) {
+    showConnection('offline');
+    return;
+  }
   showConnection('connecting', active.name);
   const answered = await call('connect_network', { waitMs: 15000 }).catch(() => false);
   if (identityCurrent(generation) && run === connectionRun) {
@@ -47,7 +50,10 @@ const networkStatus = (key, detail) => {
   document.getElementById('network-status').textContent = detail ? `${text} ${detail}` : text;
 };
 const draft = () => ({
-  seeds: seeds.value.split('\n').map((row) => row.trim()).filter(Boolean),
+  seeds: seeds.value
+    .split('\n')
+    .map((row) => row.trim())
+    .filter(Boolean),
   name: networkName.value,
 });
 
@@ -64,7 +70,7 @@ const showNetwork = async (call = invoke) => {
   try {
     const active = await call('load_network', { file: 'active' });
     if (!identityCurrent(generation)) return;
-    const saved = await call('load_network', { file: 'draft' }) || active;
+    const saved = (await call('load_network', { file: 'draft' })) || active;
     if (!identityCurrent(generation)) return;
     seeds.value = saved ? saved.seeds.join('\n') : '';
     networkName.value = saved ? saved.name : '';
@@ -129,8 +135,12 @@ const check = async (call = invoke) => {
     seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
     networkStatus(summary(result));
     if (!result.some((row) => row.status === 'connected')) {
-      showNetworkError(summary(result).slice('network.'.length), result.map((row, at) => [
-        `${rows.seeds[at]}:`, row.status, row.reason].filter(Boolean).join(' ')));
+      showNetworkError(
+        summary(result).slice('network.'.length),
+        result.map((row, at) =>
+          [`${rows.seeds[at]}:`, row.status, row.reason].filter(Boolean).join(' '),
+        ),
+      );
       return;
     }
     await call('activate_connection');
@@ -171,12 +181,13 @@ network.addEventListener('submit', (event) => {
 // Edits are kept even if the app closes before a check.
 const saveNetworkDraft = (call = invoke) => {
   const generation = identityGeneration;
-  return call('save_network_draft', { draft: draft() })
-    .catch((error) => {
-      if (identityCurrent(generation)) networkStatus('network.failed', String(error));
-    });
+  return call('save_network_draft', { draft: draft() }).catch((error) => {
+    if (identityCurrent(generation)) networkStatus('network.failed', String(error));
+  });
 };
-network.addEventListener('change', () => { saveNetworkDraft(); });
+network.addEventListener('change', () => {
+  saveNetworkDraft();
+});
 cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 // First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
 const peerCode = document.getElementById('peer-id');
@@ -187,8 +198,9 @@ const linkNetworkCancel = document.getElementById('link-network-cancel');
 const wizardStep = (on) => {
   const linking = on === 'link';
   (on ? document.getElementById('wizard-peer') : peerCard).append(peerCode);
-  (on ? document.getElementById('wizard-form') : document.getElementById('network-area'))
-    .append(network);
+  (on ? document.getElementById('wizard-form') : document.getElementById('network-area')).append(
+    network,
+  );
   network.classList.toggle('card', !on);
   skipNetwork.hidden = !on || linking;
   linkNetworkCancel.hidden = !linking;
@@ -204,5 +216,7 @@ const leaveWizard = () => {
 skipNetwork.addEventListener('click', leaveWizard);
 linkNetworkCancel.addEventListener('click', leaveWizard);
 copyFrom(document.getElementById('copy-peer-id'), peerCode);
-copyFrom(document.getElementById('copy-network-details'),
-  document.getElementById('network-error-details'));
+copyFrom(
+  document.getElementById('copy-network-details'),
+  document.getElementById('network-error-details'),
+);

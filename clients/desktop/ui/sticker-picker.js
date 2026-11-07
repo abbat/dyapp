@@ -5,7 +5,8 @@
   const text = (key) => window.strings[`stickerPicker.${key}`];
   let view = null;
   let returnTo = null;
-  const active = (target) => target && view === target && dialog.open && identityCurrent(target.generation);
+  const active = (target) =>
+    target && view === target && dialog.open && identityCurrent(target.generation);
   const notice = (key, error = false) => {
     el('status').textContent = key ? text(key) : '';
     el('status').hidden = !key;
@@ -18,7 +19,8 @@
       if (button !== el('cancel')) button.disabled = value || button.dataset.unavailable === 'true';
     }
     if (!value && [document.body, dialog, target.focus].includes(document.activeElement)) {
-      const focus = target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
+      const focus =
+        target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
       focus.focus();
     }
   };
@@ -27,129 +29,208 @@
     view = null;
     if (dialog.open) dialog.close();
     dialog.hidden = true;
-    el('choices').replaceChildren(); el('grid').replaceChildren();
+    el('choices').replaceChildren();
+    el('grid').replaceChildren();
     if (restore && target?.button.isConnected && !target.button.disabled) target.button.focus();
   };
   const load = async (target, after = 0) => {
     const read = ++target.read;
-    target.phase = 'page'; target.after = after; target.next = null;
+    target.phase = 'page';
+    target.after = after;
+    target.next = null;
     el('next').dataset.unavailable = 'true';
-    busy(target, true); notice('loading'); el('grid').replaceChildren();
+    busy(target, true);
+    notice('loading');
+    el('grid').replaceChildren();
     el('retry').hidden = true;
     try {
       const page = await target.call(target.pack ? 'saved_sticker_page' : 'recent_sticker_page', {
-        identityId: target.identityId, ...(target.pack ? { packId: target.pack.id } : {}), after,
+        identityId: target.identityId,
+        ...(target.pack ? { packId: target.pack.id } : {}),
+        after,
       });
       if (!active(target) || target.read !== read) return;
-      target.after = after; target.next = page.next;
+      target.after = after;
+      target.next = page.next;
       el('previous').dataset.unavailable = String(!target.pages.length);
       el('next').dataset.unavailable = String(page.next === null);
-      el('grid').replaceChildren(...page.entries.map((entry) => {
-        const packId = target.pack?.id || entry.packId;
-        const name = target.pack?.name || entry.packName;
-        const button = document.createElement('button');
-        button.type = 'button'; button.className = 'btn';
-        const label = window.stickerMessageText({ emoji: entry.emoji, packName: name });
-        button.setAttribute('aria-label', label);
-        const canvas = window.stickerPixels(entry.frame, label, 96);
-        canvas.setAttribute('aria-hidden', 'true'); button.append(canvas);
-        button.addEventListener('click', () => {
-          if (active(target) && !target.busy) window.stickerSent = send(target, packId, entry.index);
-        });
-        return button;
-      }));
+      el('grid').replaceChildren(
+        ...page.entries.map((entry) => {
+          const packId = target.pack?.id || entry.packId;
+          const name = target.pack?.name || entry.packName;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn';
+          const label = window.stickerMessageText({ emoji: entry.emoji, packName: name });
+          button.setAttribute('aria-label', label);
+          const canvas = window.stickerPixels(entry.frame, label, 96);
+          canvas.setAttribute('aria-hidden', 'true');
+          button.append(canvas);
+          button.addEventListener('click', () => {
+            if (active(target) && !target.busy)
+              window.stickerSent = send(target, packId, entry.index);
+          });
+          return button;
+        }),
+      );
       notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
     } catch {
-      if (active(target) && target.read === read) { notice('error', true); el('retry').hidden = false; }
+      if (active(target) && target.read === read) {
+        notice('error', true);
+        el('retry').hidden = false;
+      }
     } finally {
       if (active(target) && target.read === read) busy(target, false);
     }
   };
   const choose = (target, pack) => {
-    target.pack = pack; target.pages = [];
+    target.pack = pack;
+    target.pages = [];
     for (const button of el('choices').children)
-      button.setAttribute('aria-pressed', String(button.dataset.pack === (pack ? JSON.stringify(pack.id) : 'recent')));
+      button.setAttribute(
+        'aria-pressed',
+        String(button.dataset.pack === (pack ? JSON.stringify(pack.id) : 'recent')),
+      );
     return load(target);
   };
   const packs = async (target, after = null) => {
-    target.phase = 'packs'; target.packAfter = after;
-    busy(target, true); notice('loading');
+    target.phase = 'packs';
+    target.packAfter = after;
+    busy(target, true);
+    notice('loading');
     try {
-      const page = await target.call('saved_sticker_packs', { identityId: target.identityId, after });
+      const page = await target.call('saved_sticker_packs', {
+        identityId: target.identityId,
+        after,
+      });
       if (!active(target)) return;
-      target.packAfter = after; target.packNext = page.next;
-      const choices = [{ name: text('recent'), id: null }, ...page.entries.filter((entry) => !entry.error)];
-      el('choices').replaceChildren(...choices.map((pack) => {
-        const button = document.createElement('button');
-        button.type = 'button'; button.className = 'btn'; button.textContent = pack.name;
-        button.dataset.pack = pack.id ? JSON.stringify(pack.id) : 'recent';
-        button.addEventListener('click', () => {
-          if (active(target) && !target.busy) window.stickersShown = choose(target, pack.id ? pack : null);
-        });
-        return button;
-      }));
+      target.packAfter = after;
+      target.packNext = page.next;
+      const choices = [
+        { name: text('recent'), id: null },
+        ...page.entries.filter((entry) => !entry.error),
+      ];
+      el('choices').replaceChildren(
+        ...choices.map((pack) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn';
+          button.textContent = pack.name;
+          button.dataset.pack = pack.id ? JSON.stringify(pack.id) : 'recent';
+          button.addEventListener('click', () => {
+            if (active(target) && !target.busy)
+              window.stickersShown = choose(target, pack.id ? pack : null);
+          });
+          return button;
+        }),
+      );
       el('packs-previous').dataset.unavailable = String(!target.packPages.length);
       el('packs-next').dataset.unavailable = String(!page.next);
       await choose(target, null);
     } catch {
-      if (active(target)) { notice('error', true); el('retry').hidden = false; busy(target, false); }
+      if (active(target)) {
+        notice('error', true);
+        el('retry').hidden = false;
+        busy(target, false);
+      }
     }
   };
   const send = async (target, packId, index) => {
-    busy(target, true); notice('sending');
+    busy(target, true);
+    notice('sending');
     try {
-      await target.call('send_saved_sticker', { identityId: target.identityId,
-        selection: { peerId: target.peerId, packId, index } });
+      await target.call('send_saved_sticker', {
+        identityId: target.identityId,
+        selection: { peerId: target.peerId, packId, index },
+      });
       if (!active(target)) return;
       close();
       await target.onSent?.();
     } catch {
-      if (active(target)) { notice('sendError', true); busy(target, false); }
+      if (active(target)) {
+        notice('sendError', true);
+        busy(target, false);
+      }
     }
   };
   const open = ({ peerId, call = invoke, onSent }) => {
     close(false);
-    const target = { peerId, identityId: current.peerId, generation: identityGeneration, call, onSent,
-      button: document.getElementById('chat-stickers'), pages: [], packPages: [], read: 0, busy: false };
-    view = target; dialog.hidden = false; dialog.showModal(); el('cancel').focus();
+    const target = {
+      peerId,
+      identityId: current.peerId,
+      generation: identityGeneration,
+      call,
+      onSent,
+      button: document.getElementById('chat-stickers'),
+      pages: [],
+      packPages: [],
+      read: 0,
+      busy: false,
+    };
+    view = target;
+    dialog.hidden = false;
+    dialog.showModal();
+    el('cancel').focus();
     return packs(target);
   };
   el('cancel').addEventListener('click', () => close());
-  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
-  dialog.addEventListener('close', () => { if (!dialog.open) close(); });
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
+  });
+  dialog.addEventListener('close', () => {
+    if (!dialog.open) close();
+  });
   el('retry').addEventListener('click', () => {
-    if (active(view) && !view.busy) window.stickersShown = view.phase === 'page'
-      ? load(view, view.after) : packs(view, view.packAfter);
+    if (active(view) && !view.busy)
+      window.stickersShown =
+        view.phase === 'page' ? load(view, view.after) : packs(view, view.packAfter);
   });
-  for (const direction of ['previous', 'next']) el(direction).addEventListener('click', () => {
-    const target = view;
-    if (!active(target) || target.busy) return;
-    let after;
-    if (direction === 'next') { target.pages.push(target.after); after = target.next; }
-    else after = target.pages.pop();
-    window.stickersShown = load(target, after);
-  });
-  for (const direction of ['previous', 'next']) el(`packs-${direction}`).addEventListener('click', () => {
-    const target = view;
-    if (!active(target) || target.busy) return;
-    let after;
-    if (direction === 'next') { target.packPages.push(target.packAfter); after = target.packNext; }
-    else after = target.packPages.pop();
-    window.stickersShown = packs(target, after);
-  });
+  for (const direction of ['previous', 'next'])
+    el(direction).addEventListener('click', () => {
+      const target = view;
+      if (!active(target) || target.busy) return;
+      let after;
+      if (direction === 'next') {
+        target.pages.push(target.after);
+        after = target.next;
+      } else after = target.pages.pop();
+      window.stickersShown = load(target, after);
+    });
+  for (const direction of ['previous', 'next'])
+    el(`packs-${direction}`).addEventListener('click', () => {
+      const target = view;
+      if (!active(target) || target.busy) return;
+      let after;
+      if (direction === 'next') {
+        target.packPages.push(target.packAfter);
+        after = target.packNext;
+      } else after = target.packPages.pop();
+      window.stickersShown = packs(target, after);
+    });
   el('manage').addEventListener('click', () => {
     if (!active(view) || view.busy) return;
-    returnTo = view; close(false);
+    returnTo = view;
+    close(false);
     window.stickersShown = window.stickerCollection.open(returnTo.call);
   });
   document.addEventListener('dyapp:sticker-manager-close', () => {
-    const target = returnTo; returnTo = null;
+    const target = returnTo;
+    returnTo = null;
     if (target && identityCurrent(target.generation)) window.stickersShown = open(target);
   });
-  const invalidate = () => { returnTo = null; close(false); };
+  const invalidate = () => {
+    returnTo = null;
+    close(false);
+  };
   document.addEventListener('dyapp:identity-change', invalidate);
   document.addEventListener('dyapp:area-change', invalidate);
-  window.stickerPicker = { open, close: invalidate, leave: (peerId) => {
-    if ((view && view.peerId !== peerId) || (returnTo && returnTo.peerId !== peerId)) invalidate();
-  } };
+  window.stickerPicker = {
+    open,
+    close: invalidate,
+    leave: (peerId) => {
+      if ((view && view.peerId !== peerId) || (returnTo && returnTo.peerId !== peerId))
+        invalidate();
+    },
+  };
 })();

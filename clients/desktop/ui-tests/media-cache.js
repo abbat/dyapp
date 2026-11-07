@@ -5,7 +5,9 @@ window.checkMediaCache = async () => {
   const dialog = document.getElementById('photo-keep-dialog');
   const cancel = document.getElementById('photo-keep-cancel');
   const confirm = document.getElementById('photo-keep-confirm');
-  const check = (ok, reason) => { if (!ok) throw Error(reason); };
+  const check = (ok, reason) => {
+    if (!ok) throw Error(reason);
+  };
   let config = { enabled: true, limitBytes: 393216123, usedBytes: 16 };
   const writes = [];
   const call = async (command, args) => {
@@ -31,7 +33,10 @@ window.checkMediaCache = async () => {
   edit('384');
   check(dialog.open && writes.length === 1, 'Lower budget did not ask');
   cancel.click();
-  check(config.limitBytes === 512 * 1048576 && el('limit').value === '512', 'Cancel changed budget');
+  check(
+    config.limitBytes === 512 * 1048576 && el('limit').value === '512',
+    'Cancel changed budget',
+  );
   edit('384');
   confirm.click();
   await window.mediaCacheSaved;
@@ -40,8 +45,10 @@ window.checkMediaCache = async () => {
   check(dialog.open && config.enabled, 'Disabling cache did not ask');
   confirm.click();
   await window.mediaCacheSaved;
-  check(!config.enabled && el('limit').disabled && config.limitBytes === 384 * 1048576,
-    'Disabling lost quota');
+  check(
+    !config.enabled && el('limit').disabled && config.limitBytes === 384 * 1048576,
+    'Disabling lost quota',
+  );
   el('enabled').click();
   await window.mediaCacheSaved;
   check(config.enabled && !el('limit').disabled, 'Enabling did not retain numeric quota');
@@ -56,14 +63,24 @@ window.checkMediaCache = async () => {
   for (const value of ['', '0', '10241']) edit(value);
   check(writes.length === count && !dialog.open, 'Invalid budget reached IPC');
   let finishOld;
-  const old = window.showMediaCache(() => new Promise((resolve) => { finishOld = resolve; }));
+  const old = window.showMediaCache(
+    () =>
+      new Promise((resolve) => {
+        finishOld = resolve;
+      }),
+  );
   await window.showMediaCache(call);
   finishOld({ enabled: false, limitBytes: 1048576, usedBytes: 99 });
   await old;
   check(el('enabled').checked && el('limit').value === '384', 'Old read repainted new cache');
   let finishWrite;
-  await window.showMediaCache((command) => command === 'media_cache' ? Promise.resolve(config)
-    : new Promise((resolve) => { finishWrite = resolve; }));
+  await window.showMediaCache((command) =>
+    command === 'media_cache'
+      ? Promise.resolve(config)
+      : new Promise((resolve) => {
+          finishWrite = resolve;
+        }),
+  );
   edit('1024');
   const oldWrite = window.mediaCacheSaved;
   check(el('enabled').disabled && el('clear').disabled, 'Busy cache accepted more actions');
@@ -71,12 +88,15 @@ window.checkMediaCache = async () => {
   finishWrite({ enabled: false, limitBytes: 1048576, usedBytes: 0 });
   await oldWrite;
   check(el('enabled').checked && el('limit').value === '384', 'Old write repainted new cache');
-  await window.showMediaCache((command) => command === 'media_cache' ? Promise.resolve(config)
-    : Promise.reject(Error('uncertain write')));
+  await window.showMediaCache((command) =>
+    command === 'media_cache' ? Promise.resolve(config) : Promise.reject(Error('uncertain write')),
+  );
   edit('1024');
   await window.mediaCacheSaved;
-  check(el('enabled').disabled && el('limit').disabled && !el('refresh').disabled,
-    'Uncertain write did not require fresh read');
+  check(
+    el('enabled').disabled && el('limit').disabled && !el('refresh').disabled,
+    'Uncertain write did not require fresh read',
+  );
   await window.showMediaCache(call);
   edit('256');
   document.dispatchEvent(new Event('dyapp:identity-change'));

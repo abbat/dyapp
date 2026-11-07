@@ -1,11 +1,17 @@
 // Local collections are held as data; only one page of rows is mounted.
 (() => {
   const states = new Map();
-  const ids = { identities: 'settings-identities', devices: 'devices-list', blocked: 'blocked-list', passed: 'passed-list' };
+  const ids = {
+    identities: 'settings-identities',
+    devices: 'devices-list',
+    blocked: 'blocked-list',
+    passed: 'passed-list',
+  };
   const text = (key) => window.strings[`settings.collection.${key}`];
   const render = (state) => {
     const term = state.search.value.trim().toLocaleLowerCase();
-    const items = (state.items || []).map((item, index) => ({ item, index }))
+    const items = (state.items || [])
+      .map((item, index) => ({ item, index }))
       .filter(({ item }) => state.find(item).toLocaleLowerCase().includes(term));
     const pages = Math.max(1, Math.ceil(items.length / 32));
     state.page = Math.min(state.page, pages - 1);
@@ -15,12 +21,22 @@
     state.list.replaceChildren(...rows.map(({ item, index }) => state.row(item, index)));
     state.previous.disabled = state.page === 0;
     state.next.disabled = state.page === pages - 1;
-    state.status.textContent = state.items === null ? text('failed')
-      : items.length ? text('page').replace('{page}', state.page + 1).replace('{pages}', pages)
-        .replace('{count}', items.length) : text('empty');
+    state.status.textContent =
+      state.items === null
+        ? text('failed')
+        : items.length
+          ? text('page')
+              .replace('{page}', state.page + 1)
+              .replace('{pages}', pages)
+              .replace('{count}', items.length)
+          : text('empty');
     for (const button of document.querySelectorAll(`[data-settings-open="${state.name}"]`)) {
       let count = button.querySelector('.settings-count');
-      if (!count) { count = document.createElement('span'); count.className = 'settings-count'; button.append(count); }
+      if (!count) {
+        count = document.createElement('span');
+        count.className = 'settings-count';
+        button.append(count);
+      }
       count.textContent = state.items === null ? '?' : String(state.items.length);
     }
   };
@@ -58,18 +74,29 @@
     const move = (amount) => {
       state.page += amount;
       render(state);
-      (amount > 0 && next.disabled ? previous : amount < 0 && previous.disabled ? next
-        : amount > 0 ? next : previous).focus();
+      (amount > 0 && next.disabled
+        ? previous
+        : amount < 0 && previous.disabled
+          ? next
+          : amount > 0
+            ? next
+            : previous
+      ).focus();
     };
     previous.addEventListener('click', () => move(-1));
     next.addEventListener('click', () => move(1));
-    search.addEventListener('input', () => { state.page = 0; render(state); });
+    search.addEventListener('input', () => {
+      state.page = 0;
+      render(state);
+    });
     refresh.addEventListener('click', () => {
       const generation = identityGeneration;
       refresh.disabled = true;
-      window.settingsCollectionRefreshed = Promise.resolve().then(() => state.reload()).finally(() => {
-        if (identityCurrent(generation)) refresh.disabled = false;
-      });
+      window.settingsCollectionRefreshed = Promise.resolve()
+        .then(() => state.reload())
+        .finally(() => {
+          if (identityCurrent(generation)) refresh.disabled = false;
+        });
     });
     states.set(name, state);
     return state;

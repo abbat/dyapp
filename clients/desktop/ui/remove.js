@@ -12,8 +12,11 @@ const showRemove = async (call = invoke) => {
   const state = current;
   const items = await call('list_identities');
   if (!identityCurrent(generation)) return;
-  const copies = state.peerId && items.some((item) => item.slot !== state.slot
-    && item.status === 'ready' && item.peerId === state.peerId);
+  const copies =
+    state.peerId &&
+    items.some(
+      (item) => item.slot !== state.slot && item.status === 'ready' && item.peerId === state.peerId,
+    );
   const whoRow = document.getElementById('remove-who');
   whoRow.replaceChildren(...who(whoRow, state.peerId, state.reason, modeText(state)));
   const peer = document.getElementById('remove-peer');
@@ -22,12 +25,13 @@ const showRemove = async (call = invoke) => {
   const path = document.getElementById('remove-path');
   path.hidden = !state.keyPath;
   path.querySelector('code').textContent = state.keyPath || '';
-  document.getElementById('remove-copies').textContent = !state.peerId ? ''
+  document.getElementById('remove-copies').textContent = !state.peerId
+    ? ''
     : window.strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
   // A missing key or another copy means nothing irreplaceable is lost.
   document.getElementById('remove-warning').hidden = !state.peerId || copies;
   // A published profile is withdrawn from search before the key goes.
-  const view = state.status === 'ready' && await call('load_profile').catch(() => null);
+  const view = state.status === 'ready' && (await call('load_profile').catch(() => null));
   if (!identityCurrent(generation)) return;
   removePublished = Boolean(view?.published);
   document.getElementById('remove-text').hidden = !removePublished;
@@ -40,18 +44,29 @@ const showRemove = async (call = invoke) => {
   document.getElementById('remove-cancel').focus();
 };
 // A queued close from the previous opening must not hide a newly reopened modal.
-removeDialog.addEventListener('close', () => { if (!removeDialog.open) removeDialog.hidden = true; });
+removeDialog.addEventListener('close', () => {
+  if (!removeDialog.open) removeDialog.hidden = true;
+});
 for (const button of [removeIdentity, settingsRemove]) {
   button.addEventListener('click', () => {
     const generation = identityGeneration;
-    showRemove().catch(() => { if (identityCurrent(generation)) showError(); });
+    showRemove().catch(() => {
+      if (identityCurrent(generation)) showError();
+    });
   });
 }
 for (const id of ['setup-cancel', 'picker-cancel']) {
-  document.getElementById(id).addEventListener('click', () => (current.status === 'ready'
-    ? show(identity, 'status.ready') : show(sections[3], 'status.recovery')));
+  document
+    .getElementById(id)
+    .addEventListener('click', () =>
+      current.status === 'ready'
+        ? show(identity, 'status.ready')
+        : show(sections[3], 'status.recovery'),
+    );
 }
-removeConfirm.addEventListener('change', () => { removeAction.disabled = !removeConfirm.checked; });
+removeConfirm.addEventListener('change', () => {
+  removeAction.disabled = !removeConfirm.checked;
+});
 const removeNow = () => {
   const removed = current;
   // Nothing is open after a removal until the backend reports the next state.
@@ -59,7 +74,9 @@ const removeNow = () => {
   return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
 };
 const revokedDialog = document.getElementById('revoked');
-revokedDialog.addEventListener('close', () => { revokedDialog.hidden = true; });
+revokedDialog.addEventListener('close', () => {
+  revokedDialog.hidden = true;
+});
 document.getElementById('revoked-ok').addEventListener('click', () => revokedDialog.close());
 // The runtime found the device of `slot` revoked. Nothing is asked: the owner already decided on
 // another device, and the profile stays theirs, so there is no tombstone either. A failed removal

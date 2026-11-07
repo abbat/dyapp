@@ -6,8 +6,8 @@ const noteClear = document.getElementById('view-note-clear');
 const noteRetry = document.getElementById('view-note-retry');
 const noteStatus = document.getElementById('view-note-status');
 let noteView = null;
-const noteCurrent = (target) => noteView === target
-  && viewed === target.view && identityCurrent(target.generation);
+const noteCurrent = (target) =>
+  noteView === target && viewed === target.view && identityCurrent(target.generation);
 const renderNote = (target) => {
   noteText.disabled = target.busy || !target.loaded;
   noteSave.disabled = target.busy || !target.loaded || noteText.value === target.saved;
@@ -28,8 +28,15 @@ window.showContactNote = async (call = invoke) => {
   window.clearContactNote();
   const view = viewed;
   if (!view || view.found.peerId === current?.peerId) return;
-  const target = { view, generation: identityGeneration, call, saved: '', loaded: false,
-    busy: true, status: 'loading' };
+  const target = {
+    view,
+    generation: identityGeneration,
+    call,
+    saved: '',
+    loaded: false,
+    busy: true,
+    status: 'loading',
+  };
   noteView = target;
   notePanel.hidden = false;
   renderNote(target);
@@ -45,7 +52,10 @@ window.showContactNote = async (call = invoke) => {
     if (!noteCurrent(target)) return;
     target.status = 'loadFailed';
   } finally {
-    if (noteCurrent(target)) { target.busy = false; renderNote(target); }
+    if (noteCurrent(target)) {
+      target.busy = false;
+      renderNote(target);
+    }
   }
 };
 window.saveContactNote = async (clear = false) => {
@@ -69,7 +79,10 @@ window.saveContactNote = async (clear = false) => {
     if (!noteCurrent(target)) return;
     target.status = String(error) === 'invalidNote' ? 'invalid' : 'saveFailed';
   } finally {
-    if (noteCurrent(target)) { target.busy = false; renderNote(target); }
+    if (noteCurrent(target)) {
+      target.busy = false;
+      renderNote(target);
+    }
   }
 };
 noteText.addEventListener('input', () => {
@@ -79,8 +92,12 @@ noteText.addEventListener('input', () => {
     renderNote(noteView);
   }
 });
-noteSave.addEventListener('click', () => { window.noteChanged = window.saveContactNote(); });
-noteClear.addEventListener('click', () => { window.noteChanged = window.saveContactNote(true); });
+noteSave.addEventListener('click', () => {
+  window.noteChanged = window.saveContactNote();
+});
+noteClear.addEventListener('click', () => {
+  window.noteChanged = window.saveContactNote(true);
+});
 noteRetry.addEventListener('click', () => {
   if (noteView && noteCurrent(noteView) && !noteView.busy) {
     window.noteShown = window.showContactNote(noteView.call);

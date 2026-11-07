@@ -10,8 +10,12 @@ const COUNTRY_FIELD = 4;
 const PLACE_FIELD = 20;
 const searchCountry = document.getElementById('search-country');
 const searchCountryCode = () => searchCountry.value.trim().toUpperCase();
-const searchPlace = placePicker(searchCountry, document.getElementById('search-place'),
-  document.getElementById('search-places'), searchCountryCode);
+const searchPlace = placePicker(
+  searchCountry,
+  document.getElementById('search-place'),
+  document.getElementById('search-places'),
+  searchCountryCode,
+);
 const BIRTH_AGE_FIELD = 1001;
 const HEIGHT_FIELD = 46;
 const SEEKING_GENDERS_FIELD = 53;
@@ -22,68 +26,105 @@ const searchMessage = (key, detail = '') =>
 // Hidden filters are disabled, so they neither block validation nor reach the query.
 const showFilter = (element, shown) => {
   element.hidden = !shown;
-  for (const input of element.querySelectorAll('input, select')) input.disabled = !shown || searchBusy;
+  for (const input of element.querySelectorAll('input, select'))
+    input.disabled = !shown || searchBusy;
 };
 const showSearchFilters = (offered) => {
   const scales = document.getElementById('search-scales');
-  const kept = new Map([...scales.querySelectorAll('select')].map((select) => [select.id, select.value]));
-  scales.replaceChildren(...scaleFields.filter((scale) => offered.includes(scale.field)).map((scale) => {
-    const label = document.createElement('label');
-    const select = document.createElement('select');
-    select.id = `search-${scale.key}`;
-    select.dataset.field = String(scale.field);
-    label.htmlFor = select.id;
-    label.textContent = window.strings[`profile.field.${scale.key}`];
-    const any = document.createElement('option');
-    any.value = '0';
-    any.textContent = window.strings['search.any'];
-    select.append(any, ...scale.choices.map((choice) => {
-      const option = document.createElement('option');
-      option.value = String(choice.code);
-      option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
-      return option;
-    }));
-    select.value = kept.get(select.id) || '0';
-    const row = document.createElement('div');
-    row.className = 'field';
-    row.append(label, select);
-    return row;
-  }));
+  const kept = new Map(
+    [...scales.querySelectorAll('select')].map((select) => [select.id, select.value]),
+  );
+  scales.replaceChildren(
+    ...scaleFields
+      .filter((scale) => offered.includes(scale.field))
+      .map((scale) => {
+        const label = document.createElement('label');
+        const select = document.createElement('select');
+        select.id = `search-${scale.key}`;
+        select.dataset.field = String(scale.field);
+        label.htmlFor = select.id;
+        label.textContent = window.strings[`profile.field.${scale.key}`];
+        const any = document.createElement('option');
+        any.value = '0';
+        any.textContent = window.strings['search.any'];
+        select.append(
+          any,
+          ...scale.choices.map((choice) => {
+            const option = document.createElement('option');
+            option.value = String(choice.code);
+            option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+            return option;
+          }),
+        );
+        select.value = kept.get(select.id) || '0';
+        const row = document.createElement('div');
+        row.className = 'field';
+        row.append(label, select);
+        return row;
+      }),
+  );
   showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
   showFilter(document.getElementById('search-height'), offered.includes(HEIGHT_FIELD));
   showFilter(document.getElementById('search-interest-row'), offered.includes(19));
   showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
-  showFilter(document.getElementById('search-place-row'),
-    offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD));
+  showFilter(
+    document.getElementById('search-place-row'),
+    offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD),
+  );
   showFilter(scales, true);
-  showFilter(document.getElementById('search-mutual-row'),
-    offered.includes(SEEKING_GENDERS_FIELD) && offered.includes(SEEKING_AGE_FIELD));
+  showFilter(
+    document.getElementById('search-mutual-row'),
+    offered.includes(SEEKING_GENDERS_FIELD) && offered.includes(SEEKING_AGE_FIELD),
+  );
   document.getElementById('search-filters').hidden = !offered.length;
 };
 const searchQuery = () => {
-  const filled = (id) => !document.getElementById(id).disabled && document.getElementById(id).value.trim();
+  const filled = (id) =>
+    !document.getElementById(id).disabled && document.getElementById(id).value.trim();
   const conditions = [...document.querySelectorAll('#search-scales select:enabled')]
     .filter((select) => select.value !== '0')
-    .map((select) => ({ field: Number(select.dataset.field), op: 'eq', ints: [Number(select.value)] }));
-  if (filled('search-country')) conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [searchCountryCode()] });
-  if (filled('search-interest')) conditions.push({ field: 19, op: 'eq', strings: [filled('search-interest')] });
+    .map((select) => ({
+      field: Number(select.dataset.field),
+      op: 'eq',
+      ints: [Number(select.value)],
+    }));
+  if (filled('search-country'))
+    conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [searchCountryCode()] });
+  if (filled('search-interest'))
+    conditions.push({ field: 19, op: 'eq', strings: [filled('search-interest')] });
   const place = filled('search-place') && searchPlace.id();
   if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
   const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
   const [from, to] = [filled('search-height-min'), filled('search-height-max')];
-  if (from || to) conditions.push({ field: HEIGHT_FIELD, op: 'range', ints: [Number(from || 50), Number(to || 272)] });
+  if (from || to)
+    conditions.push({
+      field: HEIGHT_FIELD,
+      op: 'range',
+      ints: [Number(from || 50), Number(to || 272)],
+    });
   const company = document.getElementById('search-company').value.trim();
   const kind = company ? document.getElementById('search-employer').value : 'any';
-  const employer = kind === 'same' ? { kind, company }
-    : kind === 'exclude' ? { kind, companies: company.split(';').map((name) => name.trim()).filter(Boolean) }
-    : { kind: 'any' };
+  const employer =
+    kind === 'same'
+      ? { kind, company }
+      : kind === 'exclude'
+        ? {
+            kind,
+            companies: company
+              .split(';')
+              .map((name) => name.trim())
+              .filter(Boolean),
+          }
+        : { kind: 'any' };
   const mutual = document.getElementById('search-mutual');
   return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
 const failureText = (failure) => {
   const text = window.strings[`search.failure.${failure.kind}`];
-  return failure.kind === 'rateLimited' ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}` : text;
+  return failure.kind === 'rateLimited'
+    ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}`
+    : text;
 };
 // Age in years from public birth fields today, a range while the birthday may be ahead.
 const ageText = (draft) => {
@@ -91,9 +132,14 @@ const ageText = (draft) => {
   const now = new Date();
   const years = now.getFullYear() - draft.birthYear;
   const [month, day] = [now.getMonth() + 1, now.getDate()];
-  const passed = draft.birthMonth === null ? null
-    : draft.birthMonth !== month ? draft.birthMonth < month
-      : draft.birthDay === null ? null : draft.birthDay <= day;
+  const passed =
+    draft.birthMonth === null
+      ? null
+      : draft.birthMonth !== month
+        ? draft.birthMonth < month
+        : draft.birthDay === null
+          ? null
+          : draft.birthDay <= day;
   return passed === null ? `${years - 1}–${years}` : String(passed ? years : years - 1);
 };
 const genderText = (draft) => {
@@ -101,8 +147,8 @@ const genderText = (draft) => {
   const option = scale?.choices.find((choice) => choice.code === draft.gender);
   return option ? window.strings[`profile.value.gender.${option.key}`] : '';
 };
-const summaryText = (found) => [genderText(found.draft), ageText(found.draft), found.place]
-  .filter(Boolean).join(' · ');
+const summaryText = (found) =>
+  [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
 // self-declared claim as verified.
 const resultCard = (found, id) => {
@@ -117,9 +163,13 @@ const resultCard = (found, id) => {
 };
 const searchMain = document.getElementById('search-main');
 const profileView = document.getElementById('profile-view');
-const withPlaces = (profiles) => Promise.all(profiles.map(async (profile) => ({
-  ...profile, place: await window.placeText(profile.draft.country, profile.draft.place),
-})));
+const withPlaces = (profiles) =>
+  Promise.all(
+    profiles.map(async (profile) => ({
+      ...profile,
+      place: await window.placeText(profile.draft.country, profile.draft.place),
+    })),
+  );
 const viewStatus = document.getElementById('view-status');
 const showLikes = (likes) => {
   document.getElementById('view-like').hidden = likes.ours || likes.passed;
@@ -143,7 +193,9 @@ const stopSafetyCamera = () => {
   clearTimeout(cameraTimer);
   cameraTimer = null;
   cameraPending = false;
-  cameraStream?.getTracks().forEach((track) => { track.stop(); });
+  cameraStream?.getTracks().forEach((track) => {
+    track.stop();
+  });
   cameraStream = null;
   const preview = document.getElementById('view-safety-preview');
   preview.srcObject = null;
@@ -172,14 +224,15 @@ const showFound = (found) => {
   document.getElementById('view-peer').textContent = short;
   document.getElementById('view-title').textContent = window.peerName(found.peerId);
   document.getElementById('view-summary').textContent = summaryText(found);
-  document.getElementById('view-fields').replaceChildren(...publicFacts(found.draft, found.place)
-    .flatMap(([label, value]) => {
+  document.getElementById('view-fields').replaceChildren(
+    ...publicFacts(found.draft, found.place).flatMap(([label, value]) => {
       const term = document.createElement('dt');
       const detail = document.createElement('dd');
       term.textContent = label;
       detail.textContent = value;
       return [term, detail];
-    }));
+    }),
+  );
 };
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card, call = invoke) => {
@@ -187,7 +240,8 @@ const openFound = (found, card, call = invoke) => {
   stopSafetyCamera();
   const target = { found, card, actionStarted: false };
   viewed = target;
-  for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass']) document.getElementById(id).disabled = false;
+  for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass'])
+    document.getElementById(id).disabled = false;
   document.getElementById('view-message').disabled = false;
   document.getElementById('view-safety-image').value = '';
   document.getElementById('view-safety-scan-status').hidden = true;
@@ -202,14 +256,20 @@ const openFound = (found, card, call = invoke) => {
   document.getElementById('view-confirm').disabled = false;
   document.getElementById('view-unverify').disabled = false;
   showVerified(false);
-  call('contact_verified', { peerId: found.peerId }).then((verified) => {
-    if (identityCurrent(generation) && viewed === target) showVerified(verified === true);
-  }, () => {});
+  call('contact_verified', { peerId: found.peerId }).then(
+    (verified) => {
+      if (identityCurrent(generation) && viewed === target) showVerified(verified === true);
+    },
+    () => {},
+  );
   showLikes({ ours: false, matched: false });
-  call('peer_likes', { peerId: found.peerId })
-    .then((likes) => {
-      if (identityCurrent(generation) && viewed === target && !target.actionStarted) showLikes(likes);
-    }, () => {});
+  call('peer_likes', { peerId: found.peerId }).then(
+    (likes) => {
+      if (identityCurrent(generation) && viewed === target && !target.actionStarted)
+        showLikes(likes);
+    },
+    () => {},
+  );
   showFound(found);
   window.favoriteShown = window.showFavorite(call);
   window.noteShown = window.showContactNote(call);
@@ -232,7 +292,10 @@ document.getElementById('view-back').addEventListener('click', () => {
   const { card } = viewed;
   const area = card.closest('section')?.id;
   closeFound();
-  if (area === 'search-area') { window.refreshSaved(); return; }
+  if (area === 'search-area') {
+    window.refreshSaved();
+    return;
+  }
   if (!area || !card.isConnected) return;
   showArea(area);
   card.focus();
@@ -246,7 +309,9 @@ const sendLike = async (liked, call = invoke) => {
   const currentView = () => identityCurrent(generation) && viewed === target;
   target.actionBusy = true;
   target.actionStarted = true;
-  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) => document.getElementById(id));
+  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) =>
+    document.getElementById(id),
+  );
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = window.strings['view.sending'];
   try {
@@ -257,15 +322,18 @@ const sendLike = async (liked, call = invoke) => {
   } catch (error) {
     if (!currentView()) return;
     const code = String(error);
-    viewStatus.textContent = window.strings[`view.like.${code}`]
-      ?? `${window.strings['view.like.failed']} ${code}`;
+    viewStatus.textContent =
+      window.strings[`view.like.${code}`] ?? `${window.strings['view.like.failed']} ${code}`;
     // A failed send can still be staged, so the stored state decides the button and says that
     // the catch-up pass will retry it.
-    await call('peer_likes', { peerId: found.peerId }).then((likes) => {
-      if (!currentView()) return;
-      showLikes(likes);
-      if (likes.ours === liked) viewStatus.textContent = window.strings['view.like.pending'];
-    }, () => {});
+    await call('peer_likes', { peerId: found.peerId }).then(
+      (likes) => {
+        if (!currentView()) return;
+        showLikes(likes);
+        if (likes.ours === liked) viewStatus.textContent = window.strings['view.like.pending'];
+      },
+      () => {},
+    );
   } finally {
     target.actionBusy = false;
     if (currentView()) for (const button of buttons) button.disabled = false;
@@ -280,7 +348,9 @@ document.getElementById('view-unlike').addEventListener('click', () => {
   unlikeDialog.showModal();
   document.getElementById('unlike-cancel').focus();
 });
-unlikeDialog.addEventListener('close', () => { unlikeDialog.hidden = true; });
+unlikeDialog.addEventListener('close', () => {
+  unlikeDialog.hidden = true;
+});
 document.getElementById('unlike-cancel').addEventListener('click', () => unlikeDialog.close());
 document.getElementById('unlike-confirm').addEventListener('click', () => {
   unlikeDialog.close();
@@ -295,7 +365,9 @@ const sendPass = async (passed, call = invoke) => {
   const currentView = () => identityCurrent(generation) && viewed === target;
   target.actionBusy = true;
   target.actionStarted = true;
-  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) => document.getElementById(id));
+  const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) =>
+    document.getElementById(id),
+  );
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = window.strings['view.pass.saving'];
   try {
@@ -304,24 +376,32 @@ const sendPass = async (passed, call = invoke) => {
     showLikes(likes);
     card.hidden = passed;
     if (card.closest('#chats-liked-list')) {
-      document.getElementById('chats-liked-count').textContent = String(document
-        .querySelectorAll('#chats-liked-list [data-peer-id]:not([hidden])').length);
+      document.getElementById('chats-liked-count').textContent = String(
+        document.querySelectorAll('#chats-liked-list [data-peer-id]:not([hidden])').length,
+      );
     }
     viewStatus.textContent = window.strings[passed ? 'view.passed' : 'view.unpassed'];
   } catch (error) {
-    if (currentView()) viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
+    if (currentView())
+      viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
   } finally {
     target.actionBusy = false;
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
-for (const [id, passed] of [['view-pass', true], ['view-unpass', false]]) {
+for (const [id, passed] of [
+  ['view-pass', true],
+  ['view-unpass', false],
+]) {
   document.getElementById(id).addEventListener('click', () => {
     window.passDone = sendPass(passed);
   });
 }
-copyFrom(document.getElementById('copy-view-peer'), document.getElementById('view-peer'),
-  () => viewed.found.peerId);
+copyFrom(
+  document.getElementById('copy-view-peer'),
+  document.getElementById('view-peer'),
+  () => viewed.found.peerId,
+);
 const copySafety = (call = invoke) => {
   const button = document.getElementById('copy-safety-number');
   const source = document.getElementById('view-safety-number');
@@ -329,20 +409,26 @@ const copySafety = (call = invoke) => {
   const generation = identityGeneration;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const token = ++window.clipboardCopyToken;
-  return call('copy_safety_number', { peerId: found?.peerId }).then((copy) => {
-    if (currentView()) {
-      button.textContent = window.strings['action.copied'];
-      setTimeout(() => { if (currentView()) button.textContent = window.strings['view.safety.copy']; }, 2000);
-    }
-    // Clear the old sensitive value even if the user switched identities before copy completed.
-    setTimeout(() => {
-      window.safetyClearDone = token === window.clipboardCopyToken
-        ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
-        : Promise.resolve(false);
-    }, 60000);
-  }, () => {
-    if (currentView()) window.getSelection().selectAllChildren(source);
-  });
+  return call('copy_safety_number', { peerId: found?.peerId }).then(
+    (copy) => {
+      if (currentView()) {
+        button.textContent = window.strings['action.copied'];
+        setTimeout(() => {
+          if (currentView()) button.textContent = window.strings['view.safety.copy'];
+        }, 2000);
+      }
+      // Clear the old sensitive value even if the user switched identities before copy completed.
+      setTimeout(() => {
+        window.safetyClearDone =
+          token === window.clipboardCopyToken
+            ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
+            : Promise.resolve(false);
+      }, 60000);
+    },
+    () => {
+      if (currentView()) window.getSelection().selectAllChildren(source);
+    },
+  );
 };
 document.getElementById('copy-safety-number').addEventListener('click', () => {
   window.safetyCopied = copySafety();
@@ -380,15 +466,20 @@ const loadSafety = (call = invoke) => {
   return Promise.all([
     call('contact_safety_number', { peerId: found.peerId }),
     call('contact_safety_qr', { peerId: found.peerId }),
-  ]).then(([number, matrix]) => {
-    if (!currentView()) return;
-    drawContactQr(matrix);
-    document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
-    panel.hidden = false;
-    button.setAttribute('aria-expanded', 'true');
-  })
-    .catch(() => { if (currentView()) viewStatus.textContent = window.strings['view.safety.failed']; })
-    .finally(() => { if (currentView()) button.disabled = false; });
+  ])
+    .then(([number, matrix]) => {
+      if (!currentView()) return;
+      drawContactQr(matrix);
+      document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
+      panel.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+    })
+    .catch(() => {
+      if (currentView()) viewStatus.textContent = window.strings['view.safety.failed'];
+    })
+    .finally(() => {
+      if (currentView()) button.disabled = false;
+    });
 };
 document.getElementById('view-safety').addEventListener('click', () => {
   window.safetyDone = loadSafety();
@@ -401,26 +492,29 @@ const confirmContact = (call = invoke) => {
   const button = document.getElementById('view-confirm');
   button.disabled = true;
   showSafetyStatus('view.safety.confirm.checking');
-  return call('confirm_contact', { peerId: found.peerId }).then(async (fresh) => {
-    if (!currentView()) return;
-    button.disabled = false;
-    showVerified(true);
-    showSafetyStatus('view.safety.confirm.done');
-    document.getElementById('view-unverify').focus();
-    const [placed] = await withPlaces([fresh]).catch(() => [{ ...fresh, place: found.place }]);
-    await loadPeerNames([found.peerId], call);
-    if (!currentView()) return;
-    Object.assign(found, placed);
-    showFound(found);
-    card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
-    window.showCardPhotos([found], [card], call);
-  }, (error) => {
-    if (!currentView()) return;
-    const key = `view.safety.confirm.${error}`;
-    showSafetyStatus(window.strings[key] ? key : 'view.safety.confirm.failed');
-    button.disabled = false;
-    button.focus();
-  });
+  return call('confirm_contact', { peerId: found.peerId }).then(
+    async (fresh) => {
+      if (!currentView()) return;
+      button.disabled = false;
+      showVerified(true);
+      showSafetyStatus('view.safety.confirm.done');
+      document.getElementById('view-unverify').focus();
+      const [placed] = await withPlaces([fresh]).catch(() => [{ ...fresh, place: found.place }]);
+      await loadPeerNames([found.peerId], call);
+      if (!currentView()) return;
+      Object.assign(found, placed);
+      showFound(found);
+      card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
+      window.showCardPhotos([found], [card], call);
+    },
+    (error) => {
+      if (!currentView()) return;
+      const key = `view.safety.confirm.${error}`;
+      showSafetyStatus(window.strings[key] ? key : 'view.safety.confirm.failed');
+      button.disabled = false;
+      button.focus();
+    },
+  );
 };
 const removeMark = (call = invoke) => {
   const { found, card } = viewed;
@@ -428,23 +522,26 @@ const removeMark = (call = invoke) => {
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-unverify');
   button.disabled = true;
-  return call('unverify_contact', { peerId: found.peerId }).then(async () => {
-    if (!currentView()) return;
-    button.disabled = false;
-    showVerified(false);
-    showSafetyStatus('view.safety.confirm.removed');
-    document.getElementById('view-confirm').focus();
-    await loadPeerNames([found.peerId], call);
-    if (!currentView()) return;
-    showFound(found);
-    card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
-    window.showCardPhotos([found], [card], call);
-  }, () => {
-    if (!currentView()) return;
-    button.disabled = false;
-    showSafetyStatus('view.safety.confirm.removeFailed');
-    button.focus();
-  });
+  return call('unverify_contact', { peerId: found.peerId }).then(
+    async () => {
+      if (!currentView()) return;
+      button.disabled = false;
+      showVerified(false);
+      showSafetyStatus('view.safety.confirm.removed');
+      document.getElementById('view-confirm').focus();
+      await loadPeerNames([found.peerId], call);
+      if (!currentView()) return;
+      showFound(found);
+      card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
+      window.showCardPhotos([found], [card], call);
+    },
+    () => {
+      if (!currentView()) return;
+      button.disabled = false;
+      showSafetyStatus('view.safety.confirm.removeFailed');
+      button.focus();
+    },
+  );
 };
 const verifyDialog = document.getElementById('verify-dialog');
 document.getElementById('view-confirm').addEventListener('click', () => {
@@ -452,7 +549,9 @@ document.getElementById('view-confirm').addEventListener('click', () => {
   verifyDialog.showModal();
   document.getElementById('verify-cancel').focus();
 });
-verifyDialog.addEventListener('close', () => { verifyDialog.hidden = true; });
+verifyDialog.addEventListener('close', () => {
+  verifyDialog.hidden = true;
+});
 document.addEventListener('dyapp:identity-change', () => {
   if (verifyDialog.open) verifyDialog.close();
 });
@@ -480,8 +579,11 @@ globalThis.scanQrFile = async (file) => {
   const generation = identityGeneration;
   const panel = document.getElementById('view-safety-panel');
   const token = ++safetyScanToken;
-  const current = () => identityCurrent(generation) && token === safetyScanToken
-    && viewed?.found === found && !panel.hidden;
+  const current = () =>
+    identityCurrent(generation) &&
+    token === safetyScanToken &&
+    viewed?.found === found &&
+    !panel.hidden;
   const report = (key) => {
     if (!current()) return;
     showSafetyStatus(`view.safety.scan.${key}`);
@@ -532,9 +634,13 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
     return;
   }
   const token = ++safetyScanToken;
-  const current = () => identityCurrent(generation) && token === safetyScanToken
-    && viewed?.found === found && !panel.hidden
-    && !document.getElementById('search-area').hidden && !document.hidden;
+  const current = () =>
+    identityCurrent(generation) &&
+    token === safetyScanToken &&
+    viewed?.found === found &&
+    !panel.hidden &&
+    !document.getElementById('search-area').hidden &&
+    !document.hidden;
   const button = document.getElementById('view-safety-camera');
   const preview = document.getElementById('view-safety-preview');
   cameraPending = true;
@@ -543,10 +649,14 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
   window.cameraDone = (async () => {
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: false,
-        video: { width: { ideal: 640 }, height: { ideal: 480 } } });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+      });
       if (!current()) {
-        stream.getTracks().forEach((track) => { track.stop(); });
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
         return;
       }
       cameraStream = stream;
@@ -572,7 +682,12 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
             const context = canvas.getContext('2d', { willReadFrequently: true });
             context.drawImage(preview, 0, 0, width, height);
             const pixels = grayscaleFrame(context, width, height);
-            const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+            const result = await invoke('scan_contact_qr', {
+              peerId: found.peerId,
+              width,
+              height,
+              pixels,
+            });
             if (!current()) return;
             if (result !== 'notFound' && result !== 'unreadable') {
               stopSafetyCamera();
@@ -596,9 +711,11 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
       cameraTimer = setTimeout(scan, 300);
     } catch (error) {
       if (!current()) return;
-      const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name) ? 'denied'
+      const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name)
+        ? 'denied'
         : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
-          ? 'unavailable' : 'failed';
+          ? 'unavailable'
+          : 'failed';
       stopSafetyCamera();
       showSafetyStatus(`view.safety.camera.${kind}`);
     }
@@ -629,8 +746,10 @@ const blockViewed = async (call = invoke) => {
   const wasLiked = Boolean(card.closest('#chats-liked-list'));
   const savedRow = card.closest('#saved-profile-rows li');
   (savedRow || card).remove();
-  if (wasLiked) document.getElementById('chats-liked-count').textContent =
-    String(document.getElementById('chats-liked-list').children.length);
+  if (wasLiked)
+    document.getElementById('chats-liked-count').textContent = String(
+      document.getElementById('chats-liked-list').children.length,
+    );
   closeFound();
   if (savedRow) window.refreshSaved();
   return searchMessage(`search.blocked.${result.revocation}`);
@@ -644,7 +763,10 @@ const showSearchError = (key, details) => {
   document.getElementById('search-failures').textContent = details;
   searchError.hidden = false;
 };
-copyFrom(document.getElementById('copy-search-details'), document.getElementById('search-failures'));
+copyFrom(
+  document.getElementById('copy-search-details'),
+  document.getElementById('search-failures'),
+);
 // Loading blocks repeated requests, not navigation.
 const setSearchBusy = (busy) => {
   searchBusy = busy;
@@ -664,8 +786,11 @@ const clearSearch = () => {
 // A reversed range is explained at its upper field before anything is sent.
 const checkRange = (from, to) => {
   const [low, high] = [document.getElementById(from).value, document.getElementById(to).value];
-  document.getElementById(to).setCustomValidity(
-    low && high && Number(low) > Number(high) ? window.strings['search.rangeReversed'] : '');
+  document
+    .getElementById(to)
+    .setCustomValidity(
+      low && high && Number(low) > Number(high) ? window.strings['search.rangeReversed'] : '',
+    );
 };
 const runSearch = async (call = invoke) => {
   checkRange('search-age-min', 'search-age-max');
@@ -683,10 +808,15 @@ const runSearch = async (call = invoke) => {
     const found = await withPlaces(result.profiles);
     if (!identityCurrent(generation)) return;
     knownPeers = [...new Set([...knownPeers, ...result.profiles.map((item) => item.peerId)])];
-    await loadPeerNames(found.map((item) => item.peerId), call);
+    await loadPeerNames(
+      found.map((item) => item.peerId),
+      call,
+    );
     if (!identityCurrent(generation)) return;
     showSearchFilters(result.offered);
-    searchResults.replaceChildren(...found.map((item, index) => resultCard(item, `result-${index + 1}`)));
+    searchResults.replaceChildren(
+      ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
+    );
     window.showCardPhotos(found, [...searchResults.children], call);
     const count = String(found.length);
     if (result.partial || result.failures.length) {
@@ -701,8 +831,14 @@ const runSearch = async (call = invoke) => {
     const code = String(error);
     if (code === 'notConnected') searchMessage('search.notConnected');
     else searchMessage('search.failed', '');
-    showSearchError({ notConnected: 'search.offline', mutualUnavailable: 'search.mutualUnavailable',
-      invalidInterests: 'search.interestInvalid' }[code] || 'search.error', code);
+    showSearchError(
+      {
+        notConnected: 'search.offline',
+        mutualUnavailable: 'search.mutualUnavailable',
+        invalidInterests: 'search.interestInvalid',
+      }[code] || 'search.error',
+      code,
+    );
   } finally {
     if (identityCurrent(generation)) setSearchBusy(false);
   }
@@ -724,5 +860,7 @@ for (const id of ['profile-open-network', 'search-open-network', 'chats-open-net
   document.getElementById(id).addEventListener('click', () => showArea('network-area'));
 }
 for (const button of [searchRetry, searchAgain]) {
-  button.addEventListener('click', () => { window.searchDone = runSearch(); });
+  button.addEventListener('click', () => {
+    window.searchDone = runSearch();
+  });
 }

@@ -2,22 +2,31 @@
 // WBR nodes add visual chunk boundaries without changing textContent or copied text.
 Promise.resolve(window.stringsShown).then(() => {
   const previous = new WeakMap();
-  const segmenter = typeof Intl.Segmenter === 'function'
-    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  const segmenter =
+    typeof Intl.Segmenter === 'function'
+      ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+      : null;
   const format = (element) => {
     element.classList.add('identifier');
     if (!element.hasAttribute('aria-label') && !element.hasAttribute('aria-labelledby')) {
       element.setAttribute('role', 'group');
       element.setAttribute('aria-label', window.strings['identifier.label']);
     }
-    if ([...element.children].some((child) => child.tagName !== 'WBR'
-      && !child.classList.contains('identifier-chunk'))) return;
+    if (
+      [...element.children].some(
+        (child) => child.tagName !== 'WBR' && !child.classList.contains('identifier-chunk'),
+      )
+    )
+      return;
     const raw = element.textContent;
     const cached = previous.get(element);
     if (cached?.text === raw && cached.nodes === element.childNodes.length) return;
     // Older engines retain Unicode text intact rather than split an emoji sequence.
-    const characters = segmenter ? [...segmenter.segment(raw)].map((part) => part.segment)
-      : [...raw].every((character) => character.codePointAt(0) < 128) ? Array.from(raw) : [raw];
+    const characters = segmenter
+      ? [...segmenter.segment(raw)].map((part) => part.segment)
+      : [...raw].every((character) => character.codePointAt(0) < 128)
+        ? Array.from(raw)
+        : [raw];
     const nodes = [];
     for (let start = 0; start < characters.length; start += 8) {
       if (start) nodes.push(document.createElement('wbr'));

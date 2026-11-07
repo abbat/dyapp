@@ -73,15 +73,21 @@ const closeEdit = () => {
   editCancel.disabled = false;
   editSave.disabled = false;
 };
-editDialog.addEventListener('close', () => { if (!editDialog.open) closeEdit(); });
+editDialog.addEventListener('close', () => {
+  if (!editDialog.open) closeEdit();
+});
 editDialog.addEventListener('cancel', (event) => {
   if (editBusy) event.preventDefault();
 });
 editCancel.addEventListener('click', closeEdit);
 const updateEdit = () => {
   const bytes = new TextEncoder().encode(editInput.value).length;
-  editSave.disabled = editBusy || !editTarget || !editInput.value.trim()
-    || editInput.value === editTarget.text || bytes > 65536;
+  editSave.disabled =
+    editBusy ||
+    !editTarget ||
+    !editInput.value.trim() ||
+    editInput.value === editTarget.text ||
+    bytes > 65536;
   if (bytes > 65536) {
     editError.textContent = window.strings['chats.tooLong'];
     editError.hidden = false;
@@ -93,11 +99,20 @@ editInput.addEventListener('input', () => {
   updateEdit();
 });
 const openEdit = (message) => {
-  if (!activeChat?.messages.includes(message)
-    || message.author !== current.peerId || message.deleted) return;
-  editTarget = { peerId: activeChat.peerId, groupId: message.groupId,
-    messageId: message.id, text: message.text, generation: identityGeneration,
-    request: chatOpenRequest };
+  if (
+    !activeChat?.messages.includes(message) ||
+    message.author !== current.peerId ||
+    message.deleted
+  )
+    return;
+  editTarget = {
+    peerId: activeChat.peerId,
+    groupId: message.groupId,
+    messageId: message.id,
+    text: message.text,
+    generation: identityGeneration,
+    request: chatOpenRequest,
+  };
   editInput.value = message.text;
   editError.hidden = true;
   editError.textContent = '';
@@ -120,16 +135,27 @@ const closeDelete = () => {
   deleteCancel.disabled = false;
   deleteConfirm.disabled = false;
 };
-deleteDialog.addEventListener('close', () => { if (!deleteDialog.open) closeDelete(); });
+deleteDialog.addEventListener('close', () => {
+  if (!deleteDialog.open) closeDelete();
+});
 deleteDialog.addEventListener('cancel', (event) => {
   if (deleteBusy) event.preventDefault();
 });
 deleteCancel.addEventListener('click', closeDelete);
 const openDelete = (message) => {
-  if (!activeChat?.messages.includes(message)
-    || message.author !== current.peerId || message.deleted) return;
-  deleteTarget = { peerId: activeChat.peerId, groupId: message.groupId,
-    messageId: message.id, generation: identityGeneration, request: chatOpenRequest };
+  if (
+    !activeChat?.messages.includes(message) ||
+    message.author !== current.peerId ||
+    message.deleted
+  )
+    return;
+  deleteTarget = {
+    peerId: activeChat.peerId,
+    groupId: message.groupId,
+    messageId: message.id,
+    generation: identityGeneration,
+    request: chatOpenRequest,
+  };
   deleteError.hidden = true;
   deleteError.textContent = '';
   deleteDialog.hidden = false;
@@ -153,7 +179,9 @@ const closeForward = () => {
   forwardSelect.disabled = false;
   forwardSelect.replaceChildren();
 };
-forwardDialog.addEventListener('close', () => { if (!forwardDialog.open) closeForward(); });
+forwardDialog.addEventListener('close', () => {
+  if (!forwardDialog.open) closeForward();
+});
 forwardDialog.addEventListener('cancel', (event) => {
   if (forwardBusy) event.preventDefault();
 });
@@ -161,11 +189,19 @@ forwardCancel.addEventListener('click', closeForward);
 // showForwardDialog is in chats-share.js.
 const openForward = (message) => {
   if (!activeChat?.messages.includes(message) || message.deleted || !message.text) return;
-  forwardTarget = { sourcePeerId: activeChat.peerId, sourceGroupId: message.groupId,
-    sourceAuthor: message.author, sourceMessageId: message.id, text: message.text,
-    generation: identityGeneration, request: chatOpenRequest };
-  showForwardDialog('forward', visibleChatRows.filter((row) => row.state === 'open'
-    && row.peerId !== activeChat.peerId));
+  forwardTarget = {
+    sourcePeerId: activeChat.peerId,
+    sourceGroupId: message.groupId,
+    sourceAuthor: message.author,
+    sourceMessageId: message.id,
+    text: message.text,
+    generation: identityGeneration,
+    request: chatOpenRequest,
+  };
+  showForwardDialog(
+    'forward',
+    visibleChatRows.filter((row) => row.state === 'open' && row.peerId !== activeChat.peerId),
+  );
 };
 const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
@@ -177,14 +213,20 @@ const closeClear = () => {
   clearCancel.disabled = false;
   clearConfirm.disabled = false;
 };
-clearDialog.addEventListener('close', () => { if (!clearDialog.open) closeClear(); });
+clearDialog.addEventListener('close', () => {
+  if (!clearDialog.open) closeClear();
+});
 clearDialog.addEventListener('cancel', (event) => {
   if (clearBusy) event.preventDefault();
 });
 clearCancel.addEventListener('click', closeClear);
 document.getElementById('chat-clear').addEventListener('click', () => {
   if (!activeChat) return;
-  clearTarget = { peerId: activeChat.peerId, generation: identityGeneration, request: chatOpenRequest };
+  clearTarget = {
+    peerId: activeChat.peerId,
+    generation: identityGeneration,
+    request: chatOpenRequest,
+  };
   document.getElementById('chat-clear-name').textContent = window.peerName(activeChat.peerId);
   document.getElementById('chat-clear-peer').textContent = activeChat.peerId;
   clearError.hidden = true;
@@ -193,25 +235,39 @@ document.getElementById('chat-clear').addEventListener('click', () => {
   clearDialog.showModal();
   clearCancel.focus();
 });
-const chatTime = (message) => message?.sentAtMs == null ? '' :
-  new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'short', timeStyle: 'short' })
-    .format(new Date(message.sentAtMs));
+const chatTime = (message) =>
+  message?.sentAtMs == null
+    ? ''
+    : new Intl.DateTimeFormat(document.documentElement.lang, {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(message.sentAtMs));
 const chatLinkHosts = (text) => {
   const hosts = new Set();
   for (const match of (text || '').matchAll(/https?:\/\/[^\s<>"']+/gi)) {
     try {
       const url = new URL(match[0].replace(/[),.!?]+$/u, ''));
       if (url.protocol === 'http:' || url.protocol === 'https:') hosts.add(url.host);
-    } catch { /* A malformed URL remains plain text. */ }
+    } catch {
+      /* A malformed URL remains plain text. */
+    }
   }
   return [...hosts];
 };
-const chatPreview = (message) => !message ? window.strings['chats.noMessages']
-  : message.deleted ? window.strings['chats.deleted']
-    : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
-      message.sticker ? window.stickerMessageText(message.sticker)
-        : message.photo ? window.strings['chats.photo'] : message.sharedPeer ? profileCardText(message.sharedPeer)
-        : message.text || ''}`;
+const chatPreview = (message) =>
+  !message
+    ? window.strings['chats.noMessages']
+    : message.deleted
+      ? window.strings['chats.deleted']
+      : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
+          message.sticker
+            ? window.stickerMessageText(message.sticker)
+            : message.photo
+              ? window.strings['chats.photo']
+              : message.sharedPeer
+                ? profileCardText(message.sharedPeer)
+                : message.text || ''
+        }`;
 // The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
 const PREVIEW_SIDE = 240;
 const ORIGINAL_SIDE = 480;
@@ -251,9 +307,13 @@ const photoCaption = (photo) => {
   return parts.join(' · ');
 };
 const photoKey = (message) => `${message.author}:${message.id}`;
-const photoError = (code) => window.strings[{
-  notFound: 'chats.photoGone', corrupted: 'chats.photoBroken',
-}[code] || 'chats.photoFailed'];
+const photoError = (code) =>
+  window.strings[
+    {
+      notFound: 'chats.photoGone',
+      corrupted: 'chats.photoBroken',
+    }[code] || 'chats.photoFailed'
+  ];
 const photoButton = (key, name, click) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -268,13 +328,15 @@ const downloadOriginal = async (message, peerId, call) => {
   const key = photoKey(message);
   if (photoFetches.has(key) || photoOriginals.has(key)) return;
   const { mime } = message.photo;
-  const latest = () => (identityCurrent(generation) && photoOriginalsPeer === peerId
-    ? photoBoxes.get(key) : null);
+  const latest = () =>
+    identityCurrent(generation) && photoOriginalsPeer === peerId ? photoBoxes.get(key) : null;
   photoFetches.add(key);
   latest()?.showFetching();
   try {
     const bytes = await call('chat_photo_original', {
-      peerId, author: message.author, id: message.id,
+      peerId,
+      author: message.author,
+      id: message.id,
     });
     const box = latest();
     if (!box) return;
@@ -347,24 +409,28 @@ const photoBubble = (message, peerId, blurred, call) => {
     box.append(show);
   } else offerDownload();
   canvas.hidden = !photo.preview.length;
-  box.ready = photo.preview.length ? drawPhoto(canvas, new Uint8Array(photo.preview), 'image/jpeg')
-    .catch(() => {
-      canvas.hidden = true;
-      if (box.classList.contains('blurred')) {
-        show.remove();
-        box.classList.remove('blurred');
-        offerDownload();
-      }
-    }) : Promise.resolve();
+  box.ready = photo.preview.length
+    ? drawPhoto(canvas, new Uint8Array(photo.preview), 'image/jpeg').catch(() => {
+        canvas.hidden = true;
+        if (box.classList.contains('blurred')) {
+          show.remove();
+          box.classList.remove('blurred');
+          offerDownload();
+        }
+      })
+    : Promise.resolve();
   return box;
 };
 // What the policy allows on this network, latest first, one at a time, among as many photos as
 // stay in memory. Asked only while something waits. A refusal forgets the tries, so a switch to an
 // unmetered network retries a failed fetch. A kept original opens either way: it costs no network.
 const fetchAllowedPhotos = async (peerId, call) => {
-  const waiting = () => [...photoBoxes].filter(([, box]) => box.isConnected)
-    .slice(-MAX_KEPT_ORIGINALS).reverse()
-    .filter(([key, box]) => box.fetchPhoto && !photoAutoTried.has(key));
+  const waiting = () =>
+    [...photoBoxes]
+      .filter(([, box]) => box.isConnected)
+      .slice(-MAX_KEPT_ORIGINALS)
+      .reverse()
+      .filter(([key, box]) => box.fetchPhoto && !photoAutoTried.has(key));
   if (photoAutoRunning || !waiting().length) return;
   photoAutoRunning = true;
   try {
@@ -426,7 +492,9 @@ const chatRow = (row) => {
     meta.append(document.createElement('br'), unread);
   }
   button.append(avatar, content, meta);
-  button.addEventListener('click', () => { window.chatOpened = openChat(row.peerId); });
+  button.addEventListener('click', () => {
+    window.chatOpened = openChat(row.peerId);
+  });
   return button;
 };
 const renderChatRows = (rows, call = invoke) => {
@@ -438,8 +506,13 @@ const renderChatRows = (rows, call = invoke) => {
   document.getElementById('chats-requests-count').textContent = String(requests.length);
   chatList.replaceChildren(...conversations.map(chatRow));
   const cards = [...chatRequests.children, ...chatList.children];
-  window.chatPhotosShown = window.showCardPhotos(cards.map((card) => ({
-    draft: { photos: [window.peerPhoto(card.dataset.peerId)] } })), cards, call);
+  window.chatPhotosShown = window.showCardPhotos(
+    cards.map((card) => ({
+      draft: { photos: [window.peerPhoto(card.dataset.peerId)] },
+    })),
+    cards,
+    call,
+  );
   if (!requests.length) chatRequests.textContent = window.strings['chats.noRequests'];
   if (!conversations.length) chatList.textContent = window.strings['chats.noConversations'];
 };
@@ -450,7 +523,7 @@ const showNewDevice = (peerId) => {
 // A failed read keeps what is shown; the next mail pass asks again.
 const linkedDevice = async (call) => {
   try {
-    return await call('linked_device') === true;
+    return (await call('linked_device')) === true;
   } catch {
     return false;
   }
@@ -484,7 +557,8 @@ const acknowledgeDevice = async (call = invoke) => {
 };
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
-  chatRenderKey = null; chatRenderCall = null;
+  chatRenderKey = null;
+  chatRenderCall = null;
   window.stickerPicker?.close();
   window.stickerMessages?.clear();
   window.stickerRequests?.clear();
@@ -527,12 +601,17 @@ document.addEventListener('dyapp:identity-change', () => {
 const sendRead = async (peerId, call) => {
   try {
     await call('send_read_receipts', { peerId });
-  } catch { /* the page shows nothing for a background receipt */ }
+  } catch {
+    /* the page shows nothing for a background receipt */
+  }
 };
 const openChat = async (peerId, call = invoke) => {
   const previous = activeChat;
   window.stickerPicker?.leave(peerId);
-  if (previous?.peerId !== peerId) { window.stickerMessages?.clear(); window.stickerRequests?.clear(); }
+  if (previous?.peerId !== peerId) {
+    window.stickerMessages?.clear();
+    window.stickerRequests?.clear();
+  }
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
@@ -559,17 +638,22 @@ const openChat = async (peerId, call = invoke) => {
     document.getElementById('chat-linked-notice').hidden = !linked;
     const renderKey = JSON.stringify([generation, peerId, window.peerName(peerId), history]);
     if (!previous || renderKey !== chatRenderKey || chatRenderCall !== call) {
-      window.stickerMessages?.clear(); window.stickerRequests?.clear();
-      chatMessages.replaceChildren(...history.messages.map((message) => window.chatMessage(message, peerId, history, call)));
+      window.stickerMessages?.clear();
+      window.stickerRequests?.clear();
+      chatMessages.replaceChildren(
+        ...history.messages.map((message) => window.chatMessage(message, peerId, history, call)),
+      );
     } else {
       // Mounted action callbacks retain these objects; their reference guards must still match.
       history.messages = previous.messages;
     }
-    chatRenderKey = renderKey; chatRenderCall = call;
+    chatRenderKey = renderKey;
+    chatRenderCall = call;
     fetchAllowedPhotos(peerId, call);
     const cleared = clearedPeer === peerId && !history.messages.length;
     document.getElementById('chat-cleared').hidden = !cleared;
-    if (!history.messages.length && !cleared) chatMessages.textContent = window.strings['chats.noMessages'];
+    if (!history.messages.length && !cleared)
+      chatMessages.textContent = window.strings['chats.noMessages'];
     const peer = document.getElementById('chat-peer');
     peer.textContent = peerLabel(peer, peerId);
     document.getElementById('chat-state').textContent =
@@ -613,7 +697,11 @@ const blockChat = async (call = invoke) => {
   try {
     result = await call('block_peer', { peerId });
   } catch (error) {
-    if (identityCurrent(generation) && request === chatOpenRequest && activeChat?.peerId === peerId) {
+    if (
+      identityCurrent(generation) &&
+      request === chatOpenRequest &&
+      activeChat?.peerId === peerId
+    ) {
       chatBlocking = false;
       updateComposer();
       chatsMessage('chats.blockFailed', String(error));
@@ -625,13 +713,18 @@ const blockChat = async (call = invoke) => {
   const listRequest = ++chatsRequest;
   renderChatRows(visibleChatRows.filter((row) => row.peerId !== peerId));
   if (request === chatOpenRequest && activeChat?.peerId === peerId) closeChat();
-  else { chatBlocking = false; updateComposer(); }
+  else {
+    chatBlocking = false;
+    updateComposer();
+  }
   chatsMessage(`chats.blocked.${result.revocation}`);
   const rows = await call('chat_rows').catch(() => null);
   if (identityCurrent(generation) && listRequest === chatsRequest && rows) renderChatRows(rows);
 };
 for (const id of ['chat-block', 'request-block']) {
-  document.getElementById(id).addEventListener('click', () => { window.chatBlocked = blockChat(); });
+  document.getElementById(id).addEventListener('click', () => {
+    window.chatBlocked = blockChat();
+  });
 }
 const muteChat = async (call = invoke) => {
   if (!activeChat) return;
@@ -649,18 +742,26 @@ const muteChat = async (call = invoke) => {
   if (!identityCurrent(generation)) return;
   // Invalidate a mailbox refresh that started before the flag was written.
   chatsRequest += 1;
-  renderChatRows(visibleChatRows.map((row) => (row.peerId === peerId ? { ...row, muted } : row)), call);
+  renderChatRows(
+    visibleChatRows.map((row) => (row.peerId === peerId ? { ...row, muted } : row)),
+    call,
+  );
   if (activeChat?.peerId !== peerId) return;
   activeChat.muted = muted;
   chatComposeStatus.textContent = '';
   updateComposer();
 };
-document.getElementById('chat-mute').addEventListener('click', () => { window.chatMuted = muteChat(); });
+document.getElementById('chat-mute').addEventListener('click', () => {
+  window.chatMuted = muteChat();
+});
 const clearChat = async (call = invoke) => {
   const target = clearTarget;
   if (!target || clearBusy) return;
-  const currentClear = () => clearTarget === target && identityCurrent(target.generation)
-    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  const currentClear = () =>
+    clearTarget === target &&
+    identityCurrent(target.generation) &&
+    target.request === chatOpenRequest &&
+    activeChat?.peerId === target.peerId;
   clearBusy = true;
   clearCancel.disabled = true;
   clearConfirm.disabled = true;
@@ -683,15 +784,17 @@ const clearChat = async (call = invoke) => {
   closeClear();
   await openChat(target.peerId, call);
 };
-clearConfirm.addEventListener('click', () => { window.chatCleared = clearChat(); });
+clearConfirm.addEventListener('click', () => {
+  window.chatCleared = clearChat();
+});
 // One send of the open chat: holds the composer, tells a queued message from a failed one and
 // redraws. `sent` runs before the redraw; `failure` words an unstaged error.
 const sendInChat = async (send, sent, failure, call) => {
   const { peerId, messages } = activeChat;
   const generation = identityGeneration;
   const request = chatOpenRequest;
-  const currentSend = () => identityCurrent(generation) && request === chatOpenRequest
-    && activeChat?.peerId === peerId;
+  const currentSend = () =>
+    identityCurrent(generation) && request === chatOpenRequest && activeChat?.peerId === peerId;
   const existing = new Set(messages.map((message) => JSON.stringify(message.id)));
   chatSending = true;
   chatComposeStatus.textContent = window.strings['chats.sending'];
@@ -706,8 +809,11 @@ const sendInChat = async (send, sent, failure, call) => {
     // Show that local text instead of allowing a second copy from the same draft.
     const history = await call('chat_history', { peerId }).catch(() => null);
     if (!currentSend()) return;
-    result = history?.messages.some((message) => message.author === current.peerId
-      && !existing.has(JSON.stringify(message.id))) ? 'queued' : 'failed';
+    result = history?.messages.some(
+      (message) => message.author === current.peerId && !existing.has(JSON.stringify(message.id)),
+    )
+      ? 'queued'
+      : 'failed';
   }
   if (!currentSend()) return;
   chatSending = false;
@@ -726,14 +832,19 @@ const sendInChat = async (send, sent, failure, call) => {
 const sendChatText = async (call = invoke) => {
   if (!activeChat || chatSending || chatSend.disabled) return;
   const text = chatInput.value;
-  await sendInChat((peerId) => call('send_chat_text', { peerId, text }),
-    () => { chatInput.value = ''; },
+  await sendInChat(
+    (peerId) => call('send_chat_text', { peerId, text }),
+    () => {
+      chatInput.value = '';
+    },
     (error) => {
       if (error === 'peerUnavailable') return window.strings['chats.peerUnavailable'];
       // The peer's unlike landed after this chat was drawn.
       if (String(error).endsWith('chat is closed')) return window.strings['chats.closedNotice'];
       return `${window.strings['chats.sendFailed']} ${error}`;
-    }, call);
+    },
+    call,
+  );
 };
 document.getElementById('chat-composer').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -743,25 +854,39 @@ const editChatText = async (call = invoke) => {
   const target = editTarget;
   if (!target || editSave.disabled || editBusy) return;
   const text = editInput.value;
-  const currentEdit = () => editTarget === target && identityCurrent(target.generation)
-    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  const currentEdit = () =>
+    editTarget === target &&
+    identityCurrent(target.generation) &&
+    target.request === chatOpenRequest &&
+    activeChat?.peerId === target.peerId;
   editBusy = true;
   editCancel.disabled = true;
   updateEdit();
   let result = 'editSent';
   let errorText = '';
   try {
-    await call('edit_chat_text', { peerId: target.peerId, groupId: target.groupId,
-      messageId: target.messageId, text });
+    await call('edit_chat_text', {
+      peerId: target.peerId,
+      groupId: target.groupId,
+      messageId: target.messageId,
+      text,
+    });
   } catch (error) {
     errorText = String(error);
     // The edit may be committed locally even when network delivery failed.
     const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
     if (!currentEdit()) return;
-    result = history?.messages.some((message) => message.author === current.peerId
-      && JSON.stringify(message.id) === JSON.stringify(target.messageId)
-      && JSON.stringify(message.groupId) === JSON.stringify(target.groupId)
-      && message.edited && !message.deleted && message.text === text) ? 'editQueued' : 'failed';
+    result = history?.messages.some(
+      (message) =>
+        message.author === current.peerId &&
+        JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
+        JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
+        message.edited &&
+        !message.deleted &&
+        message.text === text,
+    )
+      ? 'editQueued'
+      : 'failed';
   }
   if (!currentEdit()) return;
   editBusy = false;
@@ -785,25 +910,37 @@ document.getElementById('chat-edit-form').addEventListener('submit', (event) => 
 const deleteChatText = async (call = invoke) => {
   const target = deleteTarget;
   if (!target || deleteBusy) return;
-  const currentDelete = () => deleteTarget === target && identityCurrent(target.generation)
-    && target.request === chatOpenRequest && activeChat?.peerId === target.peerId;
+  const currentDelete = () =>
+    deleteTarget === target &&
+    identityCurrent(target.generation) &&
+    target.request === chatOpenRequest &&
+    activeChat?.peerId === target.peerId;
   deleteBusy = true;
   deleteCancel.disabled = true;
   deleteConfirm.disabled = true;
   let result = 'deleteSent';
   let errorText = '';
   try {
-    await call('delete_chat_text', { peerId: target.peerId, groupId: target.groupId,
-      messageId: target.messageId });
+    await call('delete_chat_text', {
+      peerId: target.peerId,
+      groupId: target.groupId,
+      messageId: target.messageId,
+    });
   } catch (error) {
     errorText = String(error);
     // A failed delivery can follow a durable local delete and terminal placeholder.
     const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
     if (!currentDelete()) return;
-    result = history?.messages.some((message) => message.author === current.peerId
-      && JSON.stringify(message.id) === JSON.stringify(target.messageId)
-      && JSON.stringify(message.groupId) === JSON.stringify(target.groupId)
-      && message.deleted && message.text == null) ? 'deleteQueued' : 'failed';
+    result = history?.messages.some(
+      (message) =>
+        message.author === current.peerId &&
+        JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
+        JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
+        message.deleted &&
+        message.text == null,
+    )
+      ? 'deleteQueued'
+      : 'failed';
   }
   if (!currentDelete()) return;
   deleteBusy = false;
@@ -820,34 +957,53 @@ const deleteChatText = async (call = invoke) => {
     chatComposeStatus.textContent = window.strings[`chats.${result}`];
   }
 };
-deleteConfirm.addEventListener('click', () => { window.chatDeleted = deleteChatText(); });
+deleteConfirm.addEventListener('click', () => {
+  window.chatDeleted = deleteChatText();
+});
 const forwardChatText = async (call = invoke) => {
   const source = forwardTarget;
   const targetPeerId = forwardSelect.value;
   if (!source || forwardBusy || forwardConfirm.disabled || !targetPeerId) return;
-  const currentForward = () => forwardTarget === source && identityCurrent(source.generation)
-    && source.request === chatOpenRequest && activeChat?.peerId === source.sourcePeerId;
+  const currentForward = () =>
+    forwardTarget === source &&
+    identityCurrent(source.generation) &&
+    source.request === chatOpenRequest &&
+    activeChat?.peerId === source.sourcePeerId;
   forwardBusy = true;
   forwardCancel.disabled = true;
   forwardConfirm.disabled = true;
   forwardSelect.disabled = true;
   const before = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
   if (!currentForward()) return;
-  const oldIds = new Set(before?.messages.map((message) =>
-    JSON.stringify([message.groupId, message.id])) || []);
+  const oldIds = new Set(
+    before?.messages.map((message) => JSON.stringify([message.groupId, message.id])) || [],
+  );
   let result = 'forwardSent';
   let errorText = '';
   try {
-    await call('forward_chat_text', { sourcePeerId: source.sourcePeerId,
-      sourceGroupId: source.sourceGroupId, sourceAuthor: source.sourceAuthor,
-      sourceMessageId: source.sourceMessageId, targetPeerId });
+    await call('forward_chat_text', {
+      sourcePeerId: source.sourcePeerId,
+      sourceGroupId: source.sourceGroupId,
+      sourceAuthor: source.sourceAuthor,
+      sourceMessageId: source.sourceMessageId,
+      targetPeerId,
+    });
   } catch (error) {
     errorText = String(error);
     const after = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
     if (!currentForward()) return;
-    result = before && after?.messages.some((message) => message.author === current.peerId
-      && message.forwarded && !message.deleted && message.text === source.text
-      && !oldIds.has(JSON.stringify([message.groupId, message.id]))) ? 'forwardQueued' : 'failed';
+    result =
+      before &&
+      after?.messages.some(
+        (message) =>
+          message.author === current.peerId &&
+          message.forwarded &&
+          !message.deleted &&
+          message.text === source.text &&
+          !oldIds.has(JSON.stringify([message.groupId, message.id])),
+      )
+        ? 'forwardQueued'
+        : 'failed';
   }
   if (!currentForward()) return;
   forwardBusy = false;
@@ -876,7 +1032,10 @@ window.showChats = async (call = invoke) => {
   const currentChats = () => identityCurrent(generation) && request === chatsRequest;
   chatsMessage('chats.loading');
   // Keep the device-local projection visible even if mailbox or profile lookup fails.
-  const receiveError = await call('receive_mail').then(() => null, (error) => String(error));
+  const receiveError = await call('receive_mail').then(
+    () => null,
+    (error) => String(error),
+  );
   if (!currentChats()) return;
   let rows;
   try {
@@ -886,14 +1045,19 @@ window.showChats = async (call = invoke) => {
     return;
   }
   if (!currentChats()) return;
-  await loadPeerNames(rows.map((row) => row.peerId), call);
+  await loadPeerNames(
+    rows.map((row) => row.peerId),
+    call,
+  );
   if (!currentChats()) return;
   renderChatRows(rows, call);
   try {
     const found = await withPlaces(await call('liked_you'));
     if (!currentChats()) return;
     knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
-    likedList.replaceChildren(...found.map((item, index) => resultCard(item, `liked-${index + 1}`)));
+    likedList.replaceChildren(
+      ...found.map((item, index) => resultCard(item, `liked-${index + 1}`)),
+    );
     window.showCardPhotos(found, [...likedList.children], call);
     document.getElementById('chats-liked-count').textContent = String(found.length);
     if (receiveError === 'notConnected') chatsMessage('chats.notConnected');
@@ -916,15 +1080,26 @@ window.mailUpdated = async (changed, call = invoke) => {
   if (document.getElementById('chats-area').hidden) return;
   window.stickerRequests?.refresh(changed);
   // Retry and signed receipts can change delivery status without a new visible chat event.
-  if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
-    && !chatSending && !chatBlocking) {
+  if (
+    activeChat &&
+    !editDialog.open &&
+    !deleteDialog.open &&
+    !clearDialog.open &&
+    !chatSending &&
+    !chatBlocking
+  ) {
     await openChat(activeChat.peerId, call);
   } else if (!changed) {
     const request = chatsRequest;
     const rows = await call('chat_rows').catch(() => null);
     // An unchanged list is left alone so an offline poll cannot take keyboard focus from a row.
-    if (rows && identityCurrent(generation) && request === chatsRequest
-      && JSON.stringify(rows) !== JSON.stringify(visibleChatRows)) renderChatRows(rows);
+    if (
+      rows &&
+      identityCurrent(generation) &&
+      request === chatsRequest &&
+      JSON.stringify(rows) !== JSON.stringify(visibleChatRows)
+    )
+      renderChatRows(rows);
   } else {
     window.chatsDone = window.showChats(call);
   }
@@ -938,9 +1113,13 @@ window.announcePresence = async (call = invoke) => {
   if (document.hidden) return;
   try {
     await call('announce_presence');
-  } catch { /* the page shows nothing for a background signal */ }
+  } catch {
+    /* the page shows nothing for a background signal */
+  }
 };
-window.addEventListener('focus', () => { window.announcePresence(); });
+window.addEventListener('focus', () => {
+  window.announcePresence();
+});
 likedButton.addEventListener('click', () => {
   const open = likedButton.getAttribute('aria-expanded') !== 'true';
   likedButton.setAttribute('aria-expanded', String(open));

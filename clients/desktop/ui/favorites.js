@@ -3,12 +3,19 @@ const favoritePanel = document.getElementById('view-favorite');
 const favoriteButton = document.getElementById('view-favorite-toggle');
 const favoriteStatus = document.getElementById('view-favorite-status');
 let favoriteView = null;
-const favoriteCurrent = (target) => favoriteView === target
-  && viewed === target.view && identityCurrent(target.generation);
+const favoriteCurrent = (target) =>
+  favoriteView === target && viewed === target.view && identityCurrent(target.generation);
 const renderFavorite = (target) => {
   favoriteButton.disabled = target.busy;
-  const key = target.busy ? (target.saved === null ? 'loading' : 'saving')
-    : target.saved === null ? 'retry' : target.saved ? 'remove' : 'add';
+  const key = target.busy
+    ? target.saved === null
+      ? 'loading'
+      : 'saving'
+    : target.saved === null
+      ? 'retry'
+      : target.saved
+        ? 'remove'
+        : 'add';
   favoriteButton.textContent = window.strings[`favorites.${key}`];
   favoriteStatus.textContent = target.status ? window.strings[`favorites.${target.status}`] : '';
   favoriteStatus.hidden = !target.status;
@@ -22,7 +29,14 @@ window.showFavorite = async (call = invoke) => {
   window.clearFavorite();
   const view = viewed;
   if (!view || view.found.peerId === current?.peerId) return;
-  const target = { view, generation: identityGeneration, call, saved: null, busy: true, status: '' };
+  const target = {
+    view,
+    generation: identityGeneration,
+    call,
+    saved: null,
+    busy: true,
+    status: '',
+  };
   favoriteView = target;
   favoritePanel.hidden = false;
   renderFavorite(target);
@@ -35,7 +49,10 @@ window.showFavorite = async (call = invoke) => {
     if (!favoriteCurrent(target)) return;
     target.status = 'loadFailed';
   } finally {
-    if (favoriteCurrent(target)) { target.busy = false; renderFavorite(target); }
+    if (favoriteCurrent(target)) {
+      target.busy = false;
+      renderFavorite(target);
+    }
   }
 };
 window.toggleFavorite = async () => {
@@ -55,8 +72,13 @@ window.toggleFavorite = async () => {
     if (!favoriteCurrent(target)) return;
     target.status = String(error) === 'blocked' ? 'blocked' : 'changeFailed';
   } finally {
-    if (favoriteCurrent(target)) { target.busy = false; renderFavorite(target); }
+    if (favoriteCurrent(target)) {
+      target.busy = false;
+      renderFavorite(target);
+    }
   }
 };
-favoriteButton.addEventListener('click', () => { window.favoriteChanged = window.toggleFavorite(); });
+favoriteButton.addEventListener('click', () => {
+  window.favoriteChanged = window.toggleFavorite();
+});
 document.addEventListener('dyapp:identity-change', window.clearFavorite);

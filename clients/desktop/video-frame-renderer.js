@@ -92,9 +92,14 @@ globalThis.createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFr
         return null;
       };
       return {
-        ...counts, lastSequence, lastError, ageSamples: ages.length,
-        ageObservations, ageOver1000,
-        p50AgeMs: percentile(0.5), p95AgeMs: percentile(0.95),
+        ...counts,
+        lastSequence,
+        lastError,
+        ageSamples: ages.length,
+        ageObservations,
+        ageOver1000,
+        p50AgeMs: percentile(0.5),
+        p95AgeMs: percentile(0.95),
       };
     },
   };

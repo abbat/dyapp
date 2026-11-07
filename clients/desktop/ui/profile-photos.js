@@ -23,8 +23,12 @@ window.limitProfilePhotos = () => {
   profilePhotoLimit.hidden = !full;
 };
 const profilePhotoFailure = (error) => {
-  const key = { tooLarge: 'profile.photoTooLarge', unsupported: 'profile.photoUnsupported',
-    corrupted: 'profile.photoUnsupported', photoRefused: 'profile.photoRefused' }[error];
+  const key = {
+    tooLarge: 'profile.photoTooLarge',
+    unsupported: 'profile.photoUnsupported',
+    corrupted: 'profile.photoUnsupported',
+    photoRefused: 'profile.photoRefused',
+  }[error];
   if (key) profileMessage(key);
   else profileMessage('profile.failed', String(error));
 };
@@ -46,25 +50,42 @@ const changeProfilePhotos = async (work, call, focus) => {
     }
   }
 };
-const addProfilePhoto = (file, call = invoke) => changeProfilePhotos(async () => {
-  const { photo, preview } = await preparePhoto(file, PROFILE_PHOTO_SIDES,
-    PROFILE_PHOTO_QUALITIES, MAX_PROFILE_PHOTO_BYTES);
-  return call('add_profile_photo', { full: photo, thumbnail: preview });
-}, call, () => profilePhotoAdd.focus());
-const moveProfilePhoto = (from, to, name, call) => changeProfilePhotos(
-  () => call('move_profile_photo', { from, to }), call, () => {
-    const tile = profilePhotoGrid.children[to];
-    (tile.querySelector(`.${name}`) || tile.querySelector('button')).focus();
-  });
+const addProfilePhoto = (file, call = invoke) =>
+  changeProfilePhotos(
+    async () => {
+      const { photo, preview } = await preparePhoto(
+        file,
+        PROFILE_PHOTO_SIDES,
+        PROFILE_PHOTO_QUALITIES,
+        MAX_PROFILE_PHOTO_BYTES,
+      );
+      return call('add_profile_photo', { full: photo, thumbnail: preview });
+    },
+    call,
+    () => profilePhotoAdd.focus(),
+  );
+const moveProfilePhoto = (from, to, name, call) =>
+  changeProfilePhotos(
+    () => call('move_profile_photo', { from, to }),
+    call,
+    () => {
+      const tile = profilePhotoGrid.children[to];
+      (tile.querySelector(`.${name}`) || tile.querySelector('button')).focus();
+    },
+  );
 const askProfilePhotoRemoval = (index, call) => {
-  profilePhotoRemoval = () => changeProfilePhotos(
-    () => call('remove_profile_photo', { index }), call, () => profilePhotoAdd.focus());
+  profilePhotoRemoval = () =>
+    changeProfilePhotos(
+      () => call('remove_profile_photo', { index }),
+      call,
+      () => profilePhotoAdd.focus(),
+    );
   profilePhotoDialog.hidden = false;
   profilePhotoDialog.showModal();
   profilePhotoCancel.focus();
 };
-const profilePhotoText = (key, index, count) => window.strings[key]
-  .replace('{n}', index + 1).replace('{count}', count);
+const profilePhotoText = (key, index, count) =>
+  window.strings[key].replace('{n}', index + 1).replace('{count}', count);
 const profilePhotoTool = (glyph, name, label, click) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -83,7 +104,9 @@ const profilePhotoTile = (hash, index, count, call) => {
   canvas.setAttribute('aria-label', profilePhotoText('profile.photoLabel', index, count));
   tile.ready = call('profile_photo', { hash })
     .then((bytes) => drawPhoto(canvas, bytes, 'image/jpeg', PROFILE_TILE_SIDE))
-    .catch(() => { canvas.hidden = true; });
+    .catch(() => {
+      canvas.hidden = true;
+    });
   tile.append(canvas);
   if (index === 0) {
     const main = document.createElement('figcaption');
@@ -91,19 +114,36 @@ const profilePhotoTile = (hash, index, count, call) => {
     main.textContent = window.strings['profile.photoMain'];
     tile.append(main);
   }
-  const moved = (to, name) => () => { window.profilePhotoChanged = moveProfilePhoto(index, to, name, call); };
+  const moved = (to, name) => () => {
+    window.profilePhotoChanged = moveProfilePhoto(index, to, name, call);
+  };
   const tools = document.createElement('div');
   tools.className = 'photo-tools';
   if (index > 0) {
-    tools.append(profilePhotoTool('←', 'left',
-      profilePhotoText('profile.photoLeft', index, count), moved(index - 1, 'left')));
+    tools.append(
+      profilePhotoTool(
+        '←',
+        'left',
+        profilePhotoText('profile.photoLeft', index, count),
+        moved(index - 1, 'left'),
+      ),
+    );
   }
   if (index < count - 1) {
-    tools.append(profilePhotoTool('→', 'right',
-      profilePhotoText('profile.photoRight', index, count), moved(index + 1, 'right')));
+    tools.append(
+      profilePhotoTool(
+        '→',
+        'right',
+        profilePhotoText('profile.photoRight', index, count),
+        moved(index + 1, 'right'),
+      ),
+    );
   }
-  tools.append(profilePhotoTool('×', 'remove', profilePhotoText('profile.photoRemove', index, count),
-    () => askProfilePhotoRemoval(index, call)));
+  tools.append(
+    profilePhotoTool('×', 'remove', profilePhotoText('profile.photoRemove', index, count), () =>
+      askProfilePhotoRemoval(index, call),
+    ),
+  );
   tile.append(tools);
   return tile;
 };
@@ -114,8 +154,12 @@ let ownPhotoRun = 0;
 const paintOwnAvatar = async (avatar) => {
   const photo = ownPhoto;
   const canvas = document.createElement('canvas');
-  const drawn = !photo || await drawPhoto(canvas, photo, 'image/jpeg', PROFILE_TILE_SIDE)
-    .then(() => true, () => false);
+  const drawn =
+    !photo ||
+    (await drawPhoto(canvas, photo, 'image/jpeg', PROFILE_TILE_SIDE).then(
+      () => true,
+      () => false,
+    ));
   if (photo !== ownPhoto) return;
   avatar.querySelector('canvas')?.remove();
   if (photo && drawn) avatar.append(canvas);
@@ -138,8 +182,9 @@ document.addEventListener('dyapp:identity-change', () => {
 window.showProfilePhotos = (hashes = [], call = invoke) => {
   window.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;
-  profilePhotoGrid.replaceChildren(...hashes.map((hash, index) => profilePhotoTile(
-    hash, index, hashes.length, call)));
+  profilePhotoGrid.replaceChildren(
+    ...hashes.map((hash, index) => profilePhotoTile(hash, index, hashes.length, call)),
+  );
   window.limitProfilePhotos();
 };
 profilePhotoAdd.addEventListener('click', () => profilePhotoInput.click());
@@ -148,7 +193,9 @@ profilePhotoInput.addEventListener('change', () => {
   if (file) window.profilePhotoChanged = addProfilePhoto(file);
   profilePhotoInput.value = '';
 });
-profilePhotoDialog.addEventListener('close', () => { profilePhotoDialog.hidden = true; });
+profilePhotoDialog.addEventListener('close', () => {
+  profilePhotoDialog.hidden = true;
+});
 profilePhotoCancel.addEventListener('click', () => profilePhotoDialog.close());
 document.getElementById('photo-remove-confirm').addEventListener('click', () => {
   profilePhotoDialog.close();

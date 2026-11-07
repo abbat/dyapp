@@ -79,9 +79,15 @@ const startLink = async (call = invoke) => {
   }
 };
 
-document.addEventListener('dyapp:identity-change', () => { stopLink(); });
-document.getElementById('device-join').addEventListener('click', () => { startLink(); });
-linkNew.addEventListener('click', () => { startLink(); });
+document.addEventListener('dyapp:identity-change', () => {
+  stopLink();
+});
+document.getElementById('device-join').addEventListener('click', () => {
+  startLink();
+});
+linkNew.addEventListener('click', () => {
+  startLink();
+});
 document.getElementById('link-cancel').addEventListener('click', () => {
   stopLink();
   show(identity, 'status.ready');

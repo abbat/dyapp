@@ -33,12 +33,17 @@ window.showPrivacy = async (call = invoke) => {
 };
 const savePrivacy = (call = invoke) => {
   const generation = identityGeneration;
-  const privacy = Object.fromEntries(Object.entries(privacyInputs)
-    .map(([key, id]) => [key, document.getElementById(id).checked]));
+  const privacy = Object.fromEntries(
+    Object.entries(privacyInputs).map(([key, id]) => [key, document.getElementById(id).checked]),
+  );
   privacy.noticeContent = noticeContent.value;
   return call('set_privacy', { privacy }).then(
-    () => { if (identityCurrent(generation)) privacyFailure(false); },
-    () => { if (identityCurrent(generation)) privacyFailure(true); },
+    () => {
+      if (identityCurrent(generation)) privacyFailure(false);
+    },
+    () => {
+      if (identityCurrent(generation)) privacyFailure(true);
+    },
   );
 };
 for (const id of ['privacy', 'notifications']) {

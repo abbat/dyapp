@@ -46,35 +46,41 @@ const showBlocked = async (call = invoke) => {
     failed = true;
   }
   document.getElementById('blocked-revoke-status').textContent = '';
-  window.renderSettingsRows('blocked', failed ? null : peers, (peerId, index) => {
-    const row = document.createElement('tr');
-    const name = document.createElement('td');
-    name.className = 'who';
-    name.append(...who(row, peerId, null, ''));
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn';
-    button.id = `unblock-${index + 1}`;
-    button.textContent = window.strings['settings.unblock'];
-    button.addEventListener('click', () => {
-      window.blockedShown = unblockPeer(peerId, button);
-    });
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'btn';
-    retry.id = `retry-revocation-${index + 1}`;
-    retry.textContent = window.strings['settings.blocked.retry'];
-    retry.addEventListener('click', () => {
-      window.revocationRetried = retryRevocation(peerId, retry);
-    });
-    const action = document.createElement('td');
-    const buttons = document.createElement('div');
-    buttons.className = 'actions';
-    buttons.append(retry, button);
-    action.append(buttons);
-    row.append(name, action);
-    return row;
-  }, (peer) => `${peer} ${window.peerName(peer)}`, () => showBlocked());
+  window.renderSettingsRows(
+    'blocked',
+    failed ? null : peers,
+    (peerId, index) => {
+      const row = document.createElement('tr');
+      const name = document.createElement('td');
+      name.className = 'who';
+      name.append(...who(row, peerId, null, ''));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn';
+      button.id = `unblock-${index + 1}`;
+      button.textContent = window.strings['settings.unblock'];
+      button.addEventListener('click', () => {
+        window.blockedShown = unblockPeer(peerId, button);
+      });
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn';
+      retry.id = `retry-revocation-${index + 1}`;
+      retry.textContent = window.strings['settings.blocked.retry'];
+      retry.addEventListener('click', () => {
+        window.revocationRetried = retryRevocation(peerId, retry);
+      });
+      const action = document.createElement('td');
+      const buttons = document.createElement('div');
+      buttons.className = 'actions';
+      buttons.append(retry, button);
+      action.append(buttons);
+      row.append(name, action);
+      return row;
+    },
+    (peer) => `${peer} ${window.peerName(peer)}`,
+    () => showBlocked(),
+  );
   document.getElementById('blocked-none').hidden = peers.length > 0;
 };
 
@@ -91,13 +97,26 @@ const showSettingsIdentities = async (call = invoke) => {
   try {
     const items = await call('list_identities');
     if (!identityCurrent(generation) || read !== identitiesRead) return;
-    window.renderSettingsRows('identities', knowPeers(items), window.settingsIdentity,
-      (item) => [item.peerId, item.peerId && window.peerName(item.peerId), item.slot, modeText(item)]
-        .filter(Boolean).join(' '), () => showSettingsIdentities());
+    window.renderSettingsRows(
+      'identities',
+      knowPeers(items),
+      window.settingsIdentity,
+      (item) =>
+        [item.peerId, item.peerId && window.peerName(item.peerId), item.slot, modeText(item)]
+          .filter(Boolean)
+          .join(' '),
+      () => showSettingsIdentities(),
+    );
     error.hidden = true;
   } catch (_) {
     if (!identityCurrent(generation) || read !== identitiesRead) return;
-    window.renderSettingsRows('identities', null, window.settingsIdentity, () => '', () => showSettingsIdentities());
+    window.renderSettingsRows(
+      'identities',
+      null,
+      window.settingsIdentity,
+      () => '',
+      () => showSettingsIdentities(),
+    );
     error.textContent = window.strings['storage.error'];
     error.hidden = false;
   }

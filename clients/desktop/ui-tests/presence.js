@@ -13,8 +13,9 @@ const checkChatPresence = async () => {
       return Promise.resolve({ state: 'open', messages: [], activeRecently });
     }
     if (command === 'chat_rows') {
-      return Promise.resolve([{ peerId: peer, state: 'open', lastMessage: null, unreadCount: 0,
-        activeRecently }]);
+      return Promise.resolve([
+        { peerId: peer, state: 'open', lastMessage: null, unreadCount: 0, activeRecently },
+      ]);
     }
     return Promise.resolve(0);
   };
@@ -37,7 +38,9 @@ const checkChatPresence = async () => {
   const focus = async () => {
     sent.length = 0;
     let pass;
-    window.announcePresence = () => { pass = shown(call); };
+    window.announcePresence = () => {
+      pass = shown(call);
+    };
     window.dispatchEvent(new Event('focus'));
     window.announcePresence = shown;
     await pass;
@@ -47,8 +50,10 @@ const checkChatPresence = async () => {
   const hidden = await focus();
   delete document.hidden;
   if (hidden) throw new Error('a hidden window sent presence');
-  if (!await focus()) throw new Error('coming to the foreground sent no presence');
-  const failed = shown(() => { throw new Error('offline'); });
+  if (!(await focus())) throw new Error('coming to the foreground sent no presence');
+  const failed = shown(() => {
+    throw new Error('offline');
+  });
   await failed;
 };
 // A failed send that stayed stored is pending; one that left nothing stored remains a failure.
@@ -57,10 +62,16 @@ const checkLikePending = async () => {
   const found = { peerId, draft: { attributes: {} } };
   const card = document.createElement('button');
   searchResults.append(card);
-  for (const [ours, expected] of [[true, 'view.like.pending'], [false, 'view.like.notConnected']]) {
+  for (const [ours, expected] of [
+    [true, 'view.like.pending'],
+    [false, 'view.like.notConnected'],
+  ]) {
     openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
-    await sendLike(true, (command) => (command === 'like_peer' ? Promise.reject('notConnected')
-      : Promise.resolve({ ours, matched: false })));
+    await sendLike(true, (command) =>
+      command === 'like_peer'
+        ? Promise.reject('notConnected')
+        : Promise.resolve({ ours, matched: false }),
+    );
     if (viewStatus.textContent !== window.strings[expected]) {
       throw new Error(`failed like shows ${viewStatus.textContent}`);
     }
@@ -72,8 +83,8 @@ const liveMatched = async (peer) => (await invoke('peer_likes', { peerId: peer }
 // One more than the old mailbox limit of 100, so the last text only arrives past that limit.
 const FLOOD_TEXTS = 102;
 const FLOOD_STEP_MS = 60000;
-const floodTexts = async (peer) => (await liveHistory(peer))
-  .filter((text) => text?.startsWith('flood '));
+const floodTexts = async (peer) =>
+  (await liveHistory(peer)).filter((text) => text?.startsWith('flood '));
 const presenceSteps = {
   'presence-like': async (peer) => {
     await liveFound(peer);
@@ -86,7 +97,10 @@ const presenceSteps = {
     liveRow('chats-liked-list', peer).click();
     document.getElementById('view-pass').click();
     await window.passDone;
-    if (document.getElementById('view-unpass').hidden || !document.getElementById('view-like').hidden) {
+    if (
+      document.getElementById('view-unpass').hidden ||
+      !document.getElementById('view-like').hidden
+    ) {
       throw new Error('the pass left the profile actions unchanged');
     }
     document.getElementById('view-back').click();
@@ -113,7 +127,7 @@ const presenceSteps = {
     liveRow('chats-liked-list', peer).click();
     document.getElementById('view-like').click();
     await window.likeDone;
-    if (!await liveMatched(peer)) throw new Error('the second like made no match');
+    if (!(await liveMatched(peer))) throw new Error('the second like made no match');
   },
   'presence-send': async (peer) => {
     await openArea('chats-area');
@@ -124,13 +138,14 @@ const presenceSteps = {
     }, 'the match');
     // The launch or focus send may have taken it already; either way the hour is now used.
     await invoke('announce_presence');
-    if (await invoke('announce_presence') !== false) throw new Error('the throttle let a resend');
+    if ((await invoke('announce_presence')) !== false) throw new Error('the throttle let a resend');
   },
   'presence-shown': async (peer) => {
     const mark = window.strings['chats.active'];
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes(mark), 'the presence');
     await liveOpen(liveRow('chat-list', peer));
-    if (document.getElementById('chat-presence').hidden) throw new Error('chat has no presence mark');
+    if (document.getElementById('chat-presence').hidden)
+      throw new Error('chat has no presence mark');
   },
   'match-send': async (peer) => {
     await liveFound(peer);
@@ -140,7 +155,10 @@ const presenceSteps = {
     await liveSend('match text');
   },
   'match-received': async (peer) => {
-    await liveChats(() => liveRow('chat-list', peer)?.textContent.includes('match text'), 'the text');
+    await liveChats(
+      () => liveRow('chat-list', peer)?.textContent.includes('match text'),
+      'the text',
+    );
   },
   // Stops inside the check's limit: the next run of this step goes on from the stored history, so
   // the per-send cost decides how many runs it takes, not whether the step fails.
@@ -156,7 +174,8 @@ const presenceSteps = {
     const last = `flood ${FLOOD_TEXTS - 1}`;
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes(last), 'the last text');
     const stored = (await floodTexts(peer)).length;
-    if (stored !== FLOOD_TEXTS) throw new Error(`${stored} of ${FLOOD_TEXTS} pending texts arrived`);
+    if (stored !== FLOOD_TEXTS)
+      throw new Error(`${stored} of ${FLOOD_TEXTS} pending texts arrived`);
   },
   'notice-send': (peer) => invoke('send_chat_text', { peerId: peer, text: '<b>notice</b> text' }),
   // desktop-smoke.py runs fake-notify.py here and reads the notice it kept. The window comes back
@@ -169,11 +188,15 @@ const presenceSteps = {
     content.dispatchEvent(new Event('change', { bubbles: true }));
     await window.privacySaved;
     const back = invokeTest('ui_test_hide', { close: false });
-    await new Promise((resolve) => { setTimeout(resolve, 1500); });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1500);
+    });
     await invoke('receive_mail');
     await back;
   },
 };
 globalThis.uiSmokePresence = Object.freeze({
-  checkChatPresence, checkLikePending, presenceSteps,
+  checkChatPresence,
+  checkLikePending,
+  presenceSteps,
 });

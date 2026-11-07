@@ -27,7 +27,8 @@ Object.assign(STRINGS.en, {
   'settings.passed.hint': 'A pass hides someone from your search and Liked you. They are not told.',
   'settings.blocked.retry': 'Retry token revocation',
   'settings.blocked.none': 'Nobody is blocked.',
-  'settings.blocked.hint': 'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
+  'settings.blocked.hint':
+    'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
   'nav.back': 'Назад',
@@ -53,8 +54,10 @@ Object.assign(STRINGS.ru, {
   'lock.current': 'Текущий PIN',
   'lock.change': 'Сменить PIN',
   'lock.turnOff': 'Отключить PIN',
-  'settings.passed.hint': 'Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Человек об этом не узнает.',
+  'settings.passed.hint':
+    'Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Человек об этом не узнает.',
   'settings.blocked.retry': 'Повторить отзыв токенов',
   'settings.blocked.none': 'Никто не заблокирован.',
-  'settings.blocked.hint': 'Блокировка скрывает человека из вашего поиска и чатов и отзывает его сетевые токены. Человек об этом не узнает. Если отзыв ещё ожидается, повторите его.',
+  'settings.blocked.hint':
+    'Блокировка скрывает человека из вашего поиска и чатов и отзывает его сетевые токены. Человек об этом не узнает. Если отзыв ещё ожидается, повторите его.',
 });
