@@ -65,6 +65,38 @@ const thumbButton = (canvas, index, count, letters) => {
   return button;
 };
 
+// Returns undefined when another choice takes over, otherwise whether the full image is showing.
+const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call }) => {
+  const choose = async (index, load) => {
+    const choice = ++viewPhotoRun;
+    const current = () => choice === viewPhotoRun;
+    buttons.forEach((button, at) => {
+      if (at === index) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    });
+    const thumbnail = await peerCanvas(thumbnails[index], call);
+    if (!current()) return undefined;
+    showMain(thumbnail, index);
+    const hash = originals[index] ?? [];
+    if (!hash.length) {
+      viewLoad.hidden = true;
+      return false;
+    }
+    let full = await peerCanvas(hash, call);
+    if (!full && load) {
+      await fetchPeerPhotos([hash], true, call);
+      full = await peerCanvas(hash, call);
+    }
+    if (!current()) return undefined;
+    if (full) showMain(full, index);
+    viewLoad.hidden = Boolean(full) || auto;
+    loadViewPhoto = () => choose(index, true);
+    return Boolean(full);
+  };
+
+  return choose;
+};
+
 window.showFoundPhotos = async (found, call = invoke) => {
   const letters = window.shortPeer(found.peerId).slice(1, 3);
   const thumbnails = found.draft.photos ?? [];
@@ -96,33 +128,7 @@ window.showFoundPhotos = async (found, call = invoke) => {
   ]);
   if (first !== viewPhotoRun) return;
   const buttons = canvases.map((canvas, index) => thumbButton(canvas, index, count, letters));
-  // Undefined when another choice took over, otherwise whether the full image is showing.
-  const choose = async (index, load) => {
-    const choice = ++viewPhotoRun;
-    const current = () => choice === viewPhotoRun;
-    buttons.forEach((button, at) => {
-      if (at === index) button.setAttribute('aria-current', 'true');
-      else button.removeAttribute('aria-current');
-    });
-    const thumbnail = await peerCanvas(thumbnails[index], call);
-    if (!current()) return undefined;
-    showMain(thumbnail, index);
-    const hash = originals[index] ?? [];
-    if (!hash.length) {
-      viewLoad.hidden = true;
-      return false;
-    }
-    let full = await peerCanvas(hash, call);
-    if (!full && load) {
-      await fetchPeerPhotos([hash], true, call);
-      full = await peerCanvas(hash, call);
-    }
-    if (!current()) return undefined;
-    if (full) showMain(full, index);
-    viewLoad.hidden = Boolean(full) || auto;
-    loadViewPhoto = () => choose(index, true);
-    return Boolean(full);
-  };
+  const choose = foundPhotoChoice({ thumbnails, originals, buttons, showMain, auto, call });
   buttons.forEach((button, index) => {
     button.addEventListener('click', () => {
       window.peerPhotoChosen = choose(index, auto);

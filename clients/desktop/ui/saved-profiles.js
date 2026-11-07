@@ -11,6 +11,52 @@ const savedCurrent = (context) =>
 const savedMessage = (key) => {
   savedStatus.textContent = key ? window.strings[`favorites.${key}`] : '';
 };
+const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
+  const [found] = await withPlaces([await context.call('shared_profile', { peerId })]);
+  if (
+    selection === savedSelection &&
+    savedCurrent(context) &&
+    row.isConnected &&
+    !searchMain.hidden &&
+    !document.getElementById('search-area').hidden
+  )
+    openFound(found, open, context.call);
+};
+const removeSavedProfile = async ({ peerId, context, row }) => {
+  await context.call('set_favorite', { peerId, favorite: false });
+  if (!savedCurrent(context) || !row.isConnected) return;
+  await window.showSaved(context.call);
+  if (savedPanel.open && identityCurrent(context.generation)) savedRefresh.focus();
+};
+const savedRowFailure = (opening, selection, context, row) => {
+  if ((!opening || selection === savedSelection) && savedCurrent(context) && row.isConnected) {
+    savedMessage(opening ? 'openFailed' : 'changeFailed');
+  }
+};
+const savedRowAction = ({ peerId, context, row, open, remove }) => {
+  let busy = false;
+  const run = async (opening) => {
+    if (busy || !savedCurrent(context) || !row.isConnected) return;
+    const selection = opening ? ++savedSelection : savedSelection;
+    busy = true;
+    open.disabled = true;
+    remove.disabled = true;
+    savedMessage(opening ? 'opening' : 'saving');
+    try {
+      if (opening) await openSavedProfile({ peerId, context, row, open, selection });
+      else await removeSavedProfile({ peerId, context, row });
+    } catch {
+      savedRowFailure(opening, selection, context, row);
+    } finally {
+      if (savedCurrent(context) && row.isConnected) {
+        busy = false;
+        open.disabled = false;
+        remove.disabled = false;
+      }
+    }
+  };
+  return run;
+};
 const savedRow = (peerId, context) => {
   const row = document.createElement('li');
   row.className = 'actions';
@@ -27,43 +73,7 @@ const savedRow = (peerId, context) => {
     'aria-label',
     `${window.strings['favorites.remove']} ${window.peerName(peerId)}`,
   );
-  let busy = false;
-  const run = async (opening) => {
-    if (busy || !savedCurrent(context) || !row.isConnected) return;
-    const selection = opening ? ++savedSelection : savedSelection;
-    busy = true;
-    open.disabled = true;
-    remove.disabled = true;
-    savedMessage(opening ? 'opening' : 'saving');
-    try {
-      if (opening) {
-        const [found] = await withPlaces([await context.call('shared_profile', { peerId })]);
-        if (
-          selection === savedSelection &&
-          savedCurrent(context) &&
-          row.isConnected &&
-          !searchMain.hidden &&
-          !document.getElementById('search-area').hidden
-        )
-          openFound(found, open, context.call);
-      } else {
-        await context.call('set_favorite', { peerId, favorite: false });
-        if (!savedCurrent(context) || !row.isConnected) return;
-        await window.showSaved(context.call);
-        if (savedPanel.open && identityCurrent(context.generation)) savedRefresh.focus();
-      }
-    } catch {
-      if ((!opening || selection === savedSelection) && savedCurrent(context) && row.isConnected) {
-        savedMessage(opening ? 'openFailed' : 'changeFailed');
-      }
-    } finally {
-      if (savedCurrent(context) && row.isConnected) {
-        busy = false;
-        open.disabled = false;
-        remove.disabled = false;
-      }
-    }
-  };
+  const run = savedRowAction({ peerId, context, row, open, remove });
   open.addEventListener('click', () => {
     window.savedOpened = run(true);
   });
