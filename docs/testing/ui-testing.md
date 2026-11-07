@@ -5,6 +5,10 @@ to follow the actual category buttons, including parent collections, before oper
 controls. The helper rejects a hidden destination; it does not expose panes directly
 or add waits for navigation. Settings navigation has its own Back/focus/reset smoke.
 
+Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,
+not DOM fragment rectangles: chunk spans and WBRs can produce many rectangles on one line.
+The check waits for fonts, retains narrow/wide wrapping assertions and rejects horizontal clipping.
+
 Prototype screenshots wait for `document.fonts.ready` and two animation frames, with a
 30-second failure deadline, before measuring layout. The desktop composer check changes
 text through input events and compares the field's current bounds and focus as Send

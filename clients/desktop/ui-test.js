@@ -804,6 +804,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkEmptyProfilePreview();
     }
     if (!document.getElementById('identity').hidden) await openArea('profile-area');
+    await document.fonts.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (existing && !step) await shot('ready');
     const ready = document.getElementById('app-ready');
@@ -818,7 +819,17 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       document.body.style.width = `${width}px`;
       const range = document.createRange();
       range.selectNodeContents(peer);
-      return range.getClientRects().length;
+      // Chunk spans and WBRs create multiple rectangles on the same visual line.
+      const bands = [];
+      const boxes = [...range.getClientRects()].filter((box) => box.width > 0 && box.height > 0)
+        .sort((left, right) => left.top - right.top);
+      for (const box of boxes) {
+        const line = bands.at(-1);
+        if (line && box.top < line.bottom) line.bottom = Math.max(line.bottom, box.bottom);
+        else bands.push({ bottom: box.bottom });
+      }
+      if (peer.scrollWidth > peer.clientWidth) throw Error('Peer ID overflows its container');
+      return bands.length;
     };
     const narrowLines = peerLinesAt(350);
     const wideLines = peerLinesAt(960);
@@ -848,6 +859,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
         && document.getElementById('remove-identity').hidden,
     };
     const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+    if (!checks.peerIdReflows) failed.push(`visual lines narrow=${narrowLines} wide=${wideLines}`);
     if (!checks.onTop) {
       const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
       failed.push(`covered by ${top?.id || top?.className || top?.tagName} at ${Math.round(rect.x)}`
