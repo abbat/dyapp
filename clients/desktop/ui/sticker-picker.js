@@ -17,7 +17,7 @@
     for (const button of dialog.querySelectorAll('button')) {
       if (button !== el('cancel')) button.disabled = value || button.dataset.unavailable === 'true';
     }
-    if (!value && (document.activeElement === document.body || document.activeElement === dialog)) {
+    if (!value && [document.body, dialog, target.focus].includes(document.activeElement)) {
       const focus = target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
       focus.focus();
     }

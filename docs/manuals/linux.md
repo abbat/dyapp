@@ -49,8 +49,10 @@ Cancel or Escape changes nothing. Removal affects only this saved copy and also 
 unreadable packs. After an uncertain error, refresh before retrying. A queued sticker appears in
 the thread with its delivery status; closing the picker does not recall a committed send.
 
-Sticker history is prepared to show emoji and pack name without downloading media.
-Received-image display and Add pack remain planned.
+Visible stickers load under the same automatic-download policy as chat photos. **Load sticker**
+explicitly retries an image. When unavailable, the emoji and pack name stay readable; saved
+packs can supply the image locally. Stickers have no bubble or caption. You can delete your own
+sticker in an open chat; Edit and Forward are unavailable. Adding its pack remains planned.
 
 **Clear chat** names the contact and full Peer ID before confirmation. It removes this
 computer's messages/originals and cancels pending pack requests. Saved packs and local recent

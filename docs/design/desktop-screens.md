@@ -511,8 +511,10 @@ Received sticker prototype states are `chat-sticker-image`, `chat-sticker-fallba
 `chat-sticker-quota` and `chat-sticker-saved`. They distinguish loading one image from adding
 its pack, preserve a readable fallback, and expose Retry, Request fresh copy, Stop waiting
 or Manage packs where useful. The image has no bubble; the pack stays until removed.
-The prototype uses local canvas drawings solely for geometry. Native safe pixel and request
-commands exist, but their shipped controllers remain planned. Review evidence belongs in
+The prototype uses local canvas drawings solely for geometry. The shipped client now draws
+native safe pixels with viewport-driven loading, explicit Load sticker, readable fallback and
+own Delete; message images have no bubble and stay within 192 pt. Request commands exist,
+but their shipped controller remains planned. Review evidence belongs in
 [the sticker interaction record](desktop-sticker-review.md).
 
 Privacy settings are local to the identity and never published. Defaults: no profile

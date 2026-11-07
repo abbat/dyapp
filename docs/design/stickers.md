@@ -350,16 +350,16 @@ composer now opens a canvas picker with recents, saved-pack choices, eight thumb
 and Previous/Next. Pack choices also page at 32 records. Cancel/Escape returns to the composer;
 Manage packs opens the existing import/removal dialog and returns to the picker. Sending queues
 a standalone sticker through the common outbox and preserves the text draft. Per-opening/read
-and identity guards prevent stale replies from repainting another view. Received-image and
-Add-pack controllers remain planned.
+and identity guards prevent stale replies from repainting another view. The Add-pack controller
+remains planned.
 
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.
 - A sticker is sent alone, with no caption and no bubble, at most 192 pt.
 - Delete works through tag 9. The desktop delete command now accepts live own stickers only
-  with the exact peer/group/message selection; edit remains restricted to text. The sticker
-  Delete button is still pending message-controller integration. Edit and forward are hidden
-  and refused by the codec.
+  with the exact peer/group/message selection; edit remains restricted to text. Own stickers
+  expose Delete under the same open-chat action policy as text; Edit and Forward remain hidden
+  and are refused by the codec.
 - The chat list and notifications show emoji and "Sticker", including the closed-app paths
   (`MailNotice`, `MailJob`).
 - The accessibility label is "Sticker: 😺, pack Cats".
@@ -381,7 +381,11 @@ Add-pack controllers remain planned.
   kept bytes, then a validated saved pack, and fetches only under the photo automatic policy or
   an explicit tap. Selection and transition guards run around I/O; retention uses the common cache.
   Its binary response is little-endian u32 width and height followed by RGBA8, at most 512×512;
-  peer WebP and capabilities never reach the WebView. Canvas rendering remains planned.
+  peer WebP and capabilities never reach the WebView. The desktop draws these pixels on a canvas,
+  at most 192 pt, without a bubble. IntersectionObserver starts visible automatic reads under the
+  shared native media policy. Load sticker explicitly retries with manual permission; emoji/name
+  fallback remains on policy denial, missing media, malformed frames or transport failure.
+  Per-view/identity guards reject old replies after switching or clearing the conversation.
 - Deleting a pack leaves independently retained chat-media copies available under that policy;
   otherwise history shows the fallback. A deleted pack is no longer answered for.
 - Local cleanup has the same [best-effort deletion](../decisions/0011-best-effort-deletion.md)

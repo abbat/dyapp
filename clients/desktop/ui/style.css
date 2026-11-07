@@ -248,7 +248,10 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .sticker-picker .actions.sticker-pagination { flex-direction: row; margin-bottom: var(--space-4); }
 .sticker-choices [aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); }
 .sticker-message { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); max-width: 100%; padding: var(--space-3) 0; }
-.sticker-message > canvas { max-width: 192pt; max-height: 192pt; width: auto; height: auto; }
+.sticker-message canvas { max-width: min(192pt, 100%); max-height: 192pt; width: auto; height: auto; }
+.sticker-message.out { align-self: flex-end; }
+.sticker-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); max-width: 100%; }
+.sticker-body > :empty { display: none; }
 .sticker-message p, .sticker-message .actions { margin: 0; }
 .sticker-message .actions { flex-wrap: wrap; }
 .thread .cleared { align-self: center; margin-top: var(--space-6); }

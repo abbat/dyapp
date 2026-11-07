@@ -116,7 +116,9 @@ MEASURE = """JSON.stringify((() => {
     const image = sticker.querySelector('canvas');
     if (box(image) && (!image.getAttribute('aria-label')
         || image.getBoundingClientRect().width
-          > parseFloat(style(image).maxWidth)))
+          > parseFloat(style(image).maxHeight)
+        || image.getBoundingClientRect().height
+          > parseFloat(style(image).maxHeight)))
       throw new Error('sticker image lacks name or exceeds its size limit');
   }
   // Menu and navigation items touch by platform convention; page regions

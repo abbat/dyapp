@@ -483,6 +483,7 @@ const acknowledgeDevice = async (call = invoke) => {
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
   window.stickerPicker?.close();
+  window.stickerMessages?.clear();
   chatOpenRequest += 1;
   forgetPhotos();
   photoOriginalsPeer = null;
@@ -526,6 +527,7 @@ const sendRead = async (peerId, call) => {
 };
 const openChat = async (peerId, call = invoke) => {
   window.stickerPicker?.leave(peerId);
+  window.stickerMessages?.clear();
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;

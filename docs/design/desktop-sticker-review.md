@@ -89,5 +89,16 @@ old reads after reopening and peer changes, malformed pixels, focus and pack/gri
 Sixteen ready/empty/error/sending captures cover EN/RU at 440/1280 under
 `build/ux-research/linux-sticker-picker-live/`. An added pack pager initially touched the grid;
 shared token spacing fixes it and the dynamic controller geometry check passes. Native IPC
-execution remains a CI check. Received-image and request controllers remain planned.
+execution remains a CI check.
+
+The shipped message controller now uses viewport callbacks and safe binary RGBA framing.
+Sixteen image/fallback/unavailable/malformed-frame captures cover EN/RU at 440/1280 in
+`build/ux-research/linux-sticker-messages-live/`. Actual-controller checks cover automatic
+policy denial, manual retry, exact owner/message binding, raw-byte representations and offsets,
+malformed/trailing bytes, stale replies after Clear, accessible canvas, own Delete and hidden
+Edit/Forward. Measured image dimensions stay within 192 pt and sibling gaps meet token minima.
+Keyboard focus follows a manually loaded image, including WebKit retaining the hidden button
+as active until layout; the recovery also handles focus released to the body without stealing
+focus moved elsewhere. The same correction applies to picker paging. Contrast tokens are unchanged.
+Request controls and acceptance across repeated mailbox redraws remain separate checkpoints.
 Prototype and mocked-controller validation do not establish native transport acceptance.

@@ -57,6 +57,8 @@ action starts, and keep busy guards on that view so old completions cannot unloc
 
 Disabling a focused native button can release focus immediately. Capture focus before setting
 busy controls, then restore it to a remaining action when pagination hides the old control.
+WebKit can also retain focus on a disabled button until hidden layout is applied: recovery must
+handle that element as well as the body, while preserving focus the user moved elsewhere.
 A lightweight DOM stub may miss this behavior; run the same smoke in the prepared WebKit
 prototype image with mocked IPC when testing focus or native disclosure events.
 

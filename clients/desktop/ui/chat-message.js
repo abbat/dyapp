@@ -1,8 +1,10 @@
 // Message-row construction shares the chat controller's classic-script scope.
 window.chatMessage = (message, peerId, history, call) => {
   const { openEdit, openDelete, openForward, chatLinkHosts, photoBubble } = window.chatMessageHelpers;
-  const item = document.createElement('p');
-  item.className = message.author === current.peerId ? 'msg out' : 'msg';
+  const sticker = message.sticker && !message.deleted;
+  const item = document.createElement(sticker ? 'div' : 'p');
+  item.className = sticker ? 'sticker-message' : 'msg';
+  if (message.author === current.peerId) item.classList.add('out');
   if (message.deleted) item.classList.add('deleted');
   const label = document.createElement('b');
   label.textContent = message.author === current.peerId ?
@@ -10,7 +12,8 @@ window.chatMessage = (message, peerId, history, call) => {
   const body = document.createElement('span');
   body.textContent = message.deleted ? window.strings['chats.deleted']
     : message.sticker ? window.stickerMessageText(message.sticker) : message.text || '';
-  item.append(label, document.createTextNode(': '));
+  if (sticker) item.append(label);
+  else item.append(label, document.createTextNode(': '));
   if (message.forwarded && !message.deleted) {
     const forwarded = document.createElement('span');
     forwarded.className = 'caption';
@@ -19,7 +22,8 @@ window.chatMessage = (message, peerId, history, call) => {
   }
   item.append(message.photo ? photoBubble(message, peerId,
     message.author !== current.peerId && history.state !== 'open', call)
-    : message.sharedPeer && !message.deleted ? window.profileCard(message.sharedPeer, call) : body);
+    : sticker ? window.stickerMessages.bubble(message, peerId, call)
+      : message.sharedPeer && !message.deleted ? window.profileCard(message.sharedPeer, call) : body);
   const hosts = chatLinkHosts(message.deleted ? '' : message.text);
   if (hosts.length) {
     const host = document.createElement('span');
@@ -53,6 +57,13 @@ window.chatMessage = (message, peerId, history, call) => {
     remove.textContent = window.strings['chats.delete'];
     remove.addEventListener('click', () => openDelete(message));
     item.append(document.createTextNode(' '), edit, document.createTextNode(' '), remove);
+  }
+  if (sticker && message.author === current.peerId && history.state !== 'closed') {
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'btn quiet';
+    remove.textContent = window.strings['chats.delete'];
+    remove.addEventListener('click', () => openDelete(message));
+    item.append(remove);
   }
   if (!message.deleted && message.text) {
     const forward = document.createElement('button');

@@ -670,6 +670,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await window.checkStickerRemoval();
       await window.checkChatComposer();
       await window.checkStickerPicker();
+      await window.checkStickerMessages();
       await window.checkClearDialog();
       await window.checkIdentifiers();
       await window.checkSettingsNavigation();
