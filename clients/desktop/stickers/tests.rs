@@ -1,20 +1,31 @@
 use super::*;
 
 fn archive() -> Vec<u8> {
+    archive_count(1)
+}
+pub(super) fn archive_count(count: usize) -> Vec<u8> {
     let image = include_bytes!("../../../tests/fuzz/corpus/sticker_webp/lossy.webp");
     let hash: String = dyapp_identity::sha256(image)
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
+    let names: Vec<_> = (0..count).map(|index| format!("cat{index}.webp")).collect();
+    let stickers: Vec<_> = names
+        .iter()
+        .map(|name| {
+            serde_json::json!({
+                "file":name,"emoji":"😺","sha256":hash,
+            })
+        })
+        .collect();
     let manifest = serde_json::to_vec(&serde_json::json!({
-        "format":1,"name":"Animals","stickers":[{"file":"cat.webp","emoji":"😺","sha256":hash}]
+        "format":1,"name":"Animals","stickers":stickers
     }))
     .unwrap();
     let mut archive = Vec::new();
-    for (name, bytes) in [
-        ("manifest.json", manifest.as_slice()),
-        ("cat.webp", image.as_slice()),
-    ] {
+    let entries = std::iter::once(("manifest.json", manifest.as_slice()))
+        .chain(names.iter().map(|name| (name.as_str(), image.as_slice())));
+    for (name, bytes) in entries {
         let mut header = [0; 512];
         header[..name.len()].copy_from_slice(name.as_bytes());
         header[124..136].copy_from_slice(format!("{:011o}\0", bytes.len()).as_bytes());

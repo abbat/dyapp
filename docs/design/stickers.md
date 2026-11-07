@@ -315,6 +315,11 @@ and tags 14 and 15 from a non-match are refused.
 
 ## UI
 
+Desktop `saved_sticker_page` now exposes a validated saved pack in pages of at most eight
+entries. Each entry carries only its index, emoji and an RGBA thumbnail resized to at most
+96 px with the existing image library. The response also carries clean pack name/ID, total and
+next offset; it contains no WebP, attachment key or capability. Canvas picker UI remains planned.
+
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.
 - A sticker is sent alone, with no caption and no bubble, at most 192 pt.

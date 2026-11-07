@@ -1,6 +1,8 @@
 //! Local sticker commands keep the identity lease through blocking validation and storage.
 #[path = "stickers/chat.rs"]
 pub(crate) mod chat;
+#[path = "stickers/picker.rs"]
+pub(crate) mod picker;
 use crate::{chats, IdentityState};
 use dyapp_client::{
     sticker_pack,
