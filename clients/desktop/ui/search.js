@@ -78,6 +78,19 @@ const showSearchFilters = (offered) => {
   );
   document.getElementById('search-filters').hidden = !offered.length;
 };
+const searchEmployer = () => {
+  const company = document.getElementById('search-company').value.trim();
+  const kind = company ? document.getElementById('search-employer').value : 'any';
+  if (kind === 'same') return { kind, company };
+  if (kind === 'exclude') {
+    const companies = company
+      .split(';')
+      .map((name) => name.trim())
+      .filter(Boolean);
+    return { kind, companies };
+  }
+  return { kind: 'any' };
+};
 const searchQuery = () => {
   const filled = (id) =>
     !document.getElementById(id).disabled && document.getElementById(id).value.trim();
@@ -103,20 +116,7 @@ const searchQuery = () => {
       op: 'range',
       ints: [Number(from || 50), Number(to || 272)],
     });
-  const company = document.getElementById('search-company').value.trim();
-  const kind = company ? document.getElementById('search-employer').value : 'any';
-  const employer =
-    kind === 'same'
-      ? { kind, company }
-      : kind === 'exclude'
-        ? {
-            kind,
-            companies: company
-              .split(';')
-              .map((name) => name.trim())
-              .filter(Boolean),
-          }
-        : { kind: 'any' };
+  const employer = searchEmployer();
   const mutual = document.getElementById('search-mutual');
   return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
@@ -619,6 +619,84 @@ globalThis.scanQrFile = async (file) => {
     bitmap?.close();
   }
 };
+const safetyCameraFrame = (preview) => {
+  if (!preview.videoWidth || !preview.videoHeight) return null;
+  const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
+  const width = Math.max(1, Math.round(preview.videoWidth * scale));
+  const height = Math.max(1, Math.round(preview.videoHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(preview, 0, 0, width, height);
+  return { width, height, pixels: grayscaleFrame(context, width, height) };
+};
+const scanSafetyCameraFrame = async (found, frame, current) => {
+  const result = await invoke('scan_contact_qr', { peerId: found.peerId, ...frame });
+  if (!current()) return true;
+  if (result === 'notFound' || result === 'unreadable') return false;
+  stopSafetyCamera();
+  showSafetyStatus(`view.safety.scan.${result}`);
+  return true;
+};
+const safetyCameraScanner = (found, preview, current) => {
+  const scan = async () => {
+    if (!current() || !cameraStream) return;
+    try {
+      const frame = safetyCameraFrame(preview);
+      if (frame && (await scanSafetyCameraFrame(found, frame, current))) return;
+      if (!current()) return;
+      if (cameraStream.getVideoTracks()[0]?.readyState === 'ended') {
+        stopSafetyCamera();
+        showSafetyStatus('view.safety.camera.unavailable');
+        return;
+      }
+      cameraTimer = setTimeout(scan, 300);
+    } catch (_) {
+      if (current()) {
+        stopSafetyCamera();
+        showSafetyStatus('view.safety.camera.failed');
+      }
+    }
+  };
+  return scan;
+};
+const startSafetyCamera = async (found, preview, current) => {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+    if (!current()) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
+      return;
+    }
+    cameraStream = stream;
+    cameraPending = false;
+    preview.srcObject = stream;
+    preview.hidden = false;
+    await preview.play();
+    if (!current()) {
+      if (cameraStream === stream) stopSafetyCamera();
+      return;
+    }
+    showSafetyStatus('view.safety.camera.scanning');
+    const scan = safetyCameraScanner(found, preview, current);
+    cameraTimer = setTimeout(scan, 300);
+  } catch (error) {
+    if (!current()) return;
+    const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name)
+      ? 'denied'
+      : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
+        ? 'unavailable'
+        : 'failed';
+    stopSafetyCamera();
+    showSafetyStatus(`view.safety.camera.${kind}`);
+  }
+};
 document.getElementById('view-safety-camera').addEventListener('click', () => {
   if (cameraPending || cameraStream) {
     stopSafetyCamera();
@@ -646,80 +724,7 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
   cameraPending = true;
   button.textContent = window.strings['view.safety.camera.stop'];
   showSafetyStatus('view.safety.camera.starting');
-  window.cameraDone = (async () => {
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-      });
-      if (!current()) {
-        stream.getTracks().forEach((track) => {
-          track.stop();
-        });
-        return;
-      }
-      cameraStream = stream;
-      cameraPending = false;
-      preview.srcObject = stream;
-      preview.hidden = false;
-      await preview.play();
-      if (!current()) {
-        if (cameraStream === stream) stopSafetyCamera();
-        return;
-      }
-      showSafetyStatus('view.safety.camera.scanning');
-      const scan = async () => {
-        if (!current() || !cameraStream) return;
-        try {
-          if (preview.videoWidth && preview.videoHeight) {
-            const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
-            const width = Math.max(1, Math.round(preview.videoWidth * scale));
-            const height = Math.max(1, Math.round(preview.videoHeight * scale));
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const context = canvas.getContext('2d', { willReadFrequently: true });
-            context.drawImage(preview, 0, 0, width, height);
-            const pixels = grayscaleFrame(context, width, height);
-            const result = await invoke('scan_contact_qr', {
-              peerId: found.peerId,
-              width,
-              height,
-              pixels,
-            });
-            if (!current()) return;
-            if (result !== 'notFound' && result !== 'unreadable') {
-              stopSafetyCamera();
-              showSafetyStatus(`view.safety.scan.${result}`);
-              return;
-            }
-          }
-          if (cameraStream.getVideoTracks()[0]?.readyState === 'ended') {
-            stopSafetyCamera();
-            showSafetyStatus('view.safety.camera.unavailable');
-            return;
-          }
-          cameraTimer = setTimeout(scan, 300);
-        } catch (_) {
-          if (current()) {
-            stopSafetyCamera();
-            showSafetyStatus('view.safety.camera.failed');
-          }
-        }
-      };
-      cameraTimer = setTimeout(scan, 300);
-    } catch (error) {
-      if (!current()) return;
-      const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name)
-        ? 'denied'
-        : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
-          ? 'unavailable'
-          : 'failed';
-      stopSafetyCamera();
-      showSafetyStatus(`view.safety.camera.${kind}`);
-    }
-  })();
+  window.cameraDone = startSafetyCamera(found, preview, current);
 });
 document.getElementById('view-safety-select').addEventListener('click', () => {
   document.getElementById('view-safety-image').click();
@@ -792,6 +797,21 @@ const checkRange = (from, to) => {
       low && high && Number(low) > Number(high) ? window.strings['search.rangeReversed'] : '',
     );
 };
+const renderSearchResults = (result, found, call) => {
+  showSearchFilters(result.offered);
+  searchResults.replaceChildren(
+    ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
+  );
+  window.showCardPhotos(found, [...searchResults.children], call);
+  const count = String(found.length);
+  if (result.partial || result.failures.length) {
+    searchMessage('search.partial', count);
+    showSearchError('search.partialError', result.failures.map(failureText).join('\n'));
+  } else if (!found.length) searchMessage('search.empty');
+  else searchMessage('search.results', count);
+  document.getElementById('search-empty').hidden = found.length > 0;
+  searchAgain.hidden = !found.length;
+};
 const runSearch = async (call = invoke) => {
   checkRange('search-age-min', 'search-age-max');
   checkRange('search-height-min', 'search-height-max');
@@ -813,19 +833,7 @@ const runSearch = async (call = invoke) => {
       call,
     );
     if (!identityCurrent(generation)) return;
-    showSearchFilters(result.offered);
-    searchResults.replaceChildren(
-      ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
-    );
-    window.showCardPhotos(found, [...searchResults.children], call);
-    const count = String(found.length);
-    if (result.partial || result.failures.length) {
-      searchMessage('search.partial', count);
-      showSearchError('search.partialError', result.failures.map(failureText).join('\n'));
-    } else if (!found.length) searchMessage('search.empty');
-    else searchMessage('search.results', count);
-    document.getElementById('search-empty').hidden = found.length > 0;
-    searchAgain.hidden = !found.length;
+    renderSearchResults(result, found, call);
   } catch (error) {
     if (!identityCurrent(generation)) return;
     const code = String(error);

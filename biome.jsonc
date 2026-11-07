@@ -19,7 +19,8 @@
       "clients/desktop/ui/chat-photos.js",
       "clients/desktop/ui/contact-notes.js",
       "clients/desktop/ui/identifiers.js",
-      "clients/desktop/ui/network.js"
+      "clients/desktop/ui/network.js",
+      "clients/desktop/ui/search.js"
     ],
     "linter": { "rules": {
       "complexity": {
