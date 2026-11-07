@@ -59,6 +59,12 @@ class UnusedPublicToolTest(unittest.TestCase):
             ' + fixture_api::orphan() + fixture_api::ORPHAN); }\n')
         self.check(root, environment, "stale-expectation", False,
                    ("hawk::unfulfilled_expectation",))
+        main.write_text(
+            'fn main() { println!("{}", fixture_api::used() + '
+            'fixture_api::USED); }\n')
+        api.write_text(base)
+        self.check(root, environment, "missing-marked-api", False,
+                   ("hawk::unknown_item",))
 
     def check(self, root, environment, name, success, expected=()):
         result = subprocess.run(

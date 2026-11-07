@@ -13,7 +13,7 @@ env:
   CARGO_PROFILE_DEV_DEBUG: "0"
   CXXFLAGS: "-g0"
   RUST_BACKTRACE: "1"
-  DYAPP_CHECK_LOG_DIR: /tmp/ai/rust-check-output
+  DYAPP_CHECK_LOG_DIR: build/rust-check-output
 
 jobs:
   quality:
@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: quality-check-output
-          path: /tmp/ai/rust-check-output/*.log
+          path: build/rust-check-output/*.log
           if-no-files-found: warn
       - name: batch report
         if: always()
@@ -53,6 +53,15 @@ jobs:
           name: commit-batches
           path: build/batches.json
           if-no-files-found: error
+      - name: public API audit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unused-public-apis
+          path: |
+            build/unused-public.json
+            build/unused-public.stderr
+          if-no-files-found: warn
       - name: panic budget report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -105,7 +114,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: core-check-output
-          path: /tmp/ai/rust-check-output/*.log
+          path: build/rust-check-output/*.log
           if-no-files-found: warn
 
   mutants:
@@ -168,5 +177,5 @@ jobs:
           name: fuzz-crashes
           path: |
             build/fuzz-artifacts/
-            /tmp/ai/rust-check-output/*.log
+            build/rust-check-output/*.log
           if-no-files-found: warn

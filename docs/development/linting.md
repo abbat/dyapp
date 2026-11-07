@@ -84,10 +84,21 @@ reasoned expectations at its include or derive boundary.
 
 The dev image and CI bootstrap provision [Hawk 0.1.17](https://github.com/astral-sh/hawk/tree/0.1.17)
 with a pinned release checksum. Its compiler wrappers require the existing Rust 1.99.0
-toolchain. The quality suite tests it on a two-crate fixture: live cross-crate calls, dead
-functions/constants, exact external exports and stale exceptions. Hawk is experimental;
-a blocking workspace-unused-public gate is planned after an audit of FFI, platform consumers
-and Tauri exports.
+toolchain. `make quality` and `make lint-rust-api` reject unclassified `hawk::dead_public`
+findings. The analysis includes all features, tests, doctests, the shipped daemon and FFI core;
+missing coverage, malformed reports and compiler failures fail the check. The report and compiler
+log stay in `build/unused-public.json` and `build/unused-public.stderr`, also archived by CI.
+
+`hawk.toml` marks existing unused APIs with exact `expect` entries and reasons. No core code is
+removed: video APIs remain as groundwork for the next version. Separate entries explain real
+standalone desktop consumers and generated protobuf enum reflection helpers. An expectation
+fails when its item becomes used, disappears or no longer matches. New unused APIs require
+classification rather than increasing an aggregate budget or excluding a crate.
+
+Hawk is experimental. The quality suite tests live cross-crate calls, dead functions/constants,
+external exports and stale expectations on a two-crate fixture. The runner uses a 64 MiB main
+stack and 128 MiB Rust worker stack, required by the measured workspace analysis. This check
+compiles code and is deliberately separate from the compilation-free `make quick-check`.
 
 `codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings` and
 the cargo-deny checks, all with `continue-on-error`: they are advisory and mark only their step

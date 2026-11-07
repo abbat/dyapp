@@ -14,6 +14,7 @@
   "swiftlint": {"fix":"docs/development/linting.md#swift-swiftlintyml","format":"lines","pattern":"^.+:\\d+:\\d+:"},
   "detekt": {"fix":"docs/development/linting.md#kotlin-detektyml","format":"lines","pattern":"^.+:\\d+:\\d+:"},
   "rustfmt": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^Diff in .+:\\d+:|^[+-](?![+-])|^error:"},
+  "unused-public": {"fix":"docs/development/linting.md#rust","format":"json"},
   "cargo-shear": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"(?i)unused|^\\s{2,}[\\w-]+\\s*$"},
   "clippy": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
   "panics": {"fix":"docs/development/code-quality.md#explicit-panic-budgets","format":"json","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s|.*panicked)"},

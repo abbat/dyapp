@@ -1,0 +1,207 @@
+# Audit the shipped daemon and the core consumed by foreign-language clients.
+# Existing unused APIs are marked, never removed; new findings fail quality.
+[[production]]
+package = "dyapp-bootstrap"
+bin = "dyappd"
+reason = "shipped bootstrap node"
+
+[[production]]
+package = "dyapp-ffi"
+lib = "dyapp_ffi"
+reason = "core API consumed by the native clients"
+
+# Real desktop consumers live in standalone Linux/Windows Cargo workspaces.
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::Session::announce_presence"
+kind = "inherent_method"
+level = "expect"
+reason = "Used by clients/desktop/chats/presence.rs outside this Cargo workspace."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::forward::<impl session::Session>::send_forwarded_text_to"
+kind = "inherent_method"
+level = "expect"
+reason = "Used by clients/desktop/chats/forward.rs outside this Cargo workspace."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::forward::<impl session::Session>::send_forwarded_text"
+kind = "inherent_method"
+level = "expect"
+reason = "Called by the forwarding API used by the standalone desktop workspace."
+
+# Currently unused convenience APIs; retained by maintainer instruction.
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::Session::unblock"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::sticker::<impl session::Session>::send_sticker"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::sticker::<impl session::Session>::send_sticker_to"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::sticker::exchange::<impl session::Session>::send_sticker_pack_request"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::sticker::exchange::<impl session::Session>::send_sticker_pack_response"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "session::sticker::exchange::retry::<impl session::Session>::send_fresh_sticker_pack_request"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained for future-use review under the no-deletion policy."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_messaging"
+item = "message::Message::mark_failed"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused status helper; retained under the no-deletion policy."
+
+# Next-version video groundwork must remain in the core.
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_video"
+item = "codec::CodecFormat::is_open_source"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained as groundwork for the next video release."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_video"
+item = "codec::CodecNegotiation::remote_codecs"
+kind = "inherent_method"
+level = "expect"
+reason = "Currently unused; retained as groundwork for the next video release."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_video"
+item = "sframe::EXPORTER_LABEL"
+kind = "constant"
+level = "expect"
+reason = "Currently unused; retained as groundwork for the next video release."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_video"
+item = "sframe::BASE_KEY_BYTES"
+kind = "constant"
+level = "expect"
+reason = "Currently unused; retained as groundwork for the next video release."
+
+# prost owns these wire-schema reflection helpers; no crate-wide exclusion.
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Status::as_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Status::from_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Role::as_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Role::from_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Capability::as_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Capability::from_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::EnvelopeClass::as_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::EnvelopeClass::from_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Op::as_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_p2p_net"
+item = "proto::Op::from_str_name"
+kind = "inherent_method"
+level = "expect"
+reason = "prost-generated enum reflection API; retained with its wire schema."

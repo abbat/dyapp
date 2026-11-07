@@ -219,11 +219,14 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 
 Quality/security commands use the [shared output contract](code-quality.md#check-output):
 one `OK` per command or `FAIL`/`FIX`/`DETAILS`, with full raw command logs uploaded
-as `quality-check-output` / `core-check-output` from `/tmp/ai/rust-check-output`.
-JSON budget/artifact files remain unchanged. Database revision output from the
+as `quality-check-output` / `core-check-output` from `build/rust-check-output`. The quality job also uploads the Hawk JSON report and
+compiler log as `unused-public-apis`; the shared `unused-public` stage rejects new unclassified
+public APIs and stale annotations without removing retained core code.
+Existing JSON budget/artifact schemas remain unchanged. Database revision output from the
 local offline security setup is kept in its raw log.
 
-`quality` does not run `cargo test`: the tests run once, in `core`. Locally `make test` runs them.
+`quality` does not execute Rust test binaries: Hawk compiles test and doctest targets for
+analysis, while `core` runs the tests. Locally `make test` executes them.
 
 ### `core` → **build**
 

@@ -135,6 +135,7 @@ pulls anything).
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
 | Security | `make security` (= `audit`, `deny`) | `tests/scripts/docker-test.sh security` |
 | MSRV / type check | `make msrv` | `cargo check --workspace --all-features --all-targets` |
+| Rust public API audit | `make lint-rust-api` | Hawk in Docker; compiles the root workspace, included in `make quality` |
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
