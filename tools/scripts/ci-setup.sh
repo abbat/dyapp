@@ -55,6 +55,7 @@ if [[ $1 == rust ]]; then
     curl -fsSL -o "$tmp/zizmor.tgz" https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
     curl -fsSL -o "$tmp/detekt-cli.jar" https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
     curl -fsSL -o "$tmp/age.tgz" https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz
+    curl -fsSL -o "$tmp/hawk.tgz" https://github.com/astral-sh/hawk/releases/download/0.1.17/cargo-hawk-x86_64-unknown-linux-gnu.tar.gz
     (cd "$tmp" && printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  typos.tgz' \
         '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156  taplo.gz' \
         '9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e  shear.tgz' \
@@ -65,17 +66,19 @@ if [[ $1 == rust ]]; then
         'fd1249e77e57c21d6e5e6c1102f2f19ee5fda140b6126f6ff24a70e789a5d526  biome' \
         '81a389a894f3e22233b9e94f385d784744362ee7ed3fffde532ea6f1c9b392fd  rumdl.tgz' \
         'c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507  hadolint' \
-        'fad1e38d6909bbb583a4da81d8c02a01046e2cd663bde7e337dd24277393764b  buf' | sha256sum -c -)
+        'fad1e38d6909bbb583a4da81d8c02a01046e2cd663bde7e337dd24277393764b  buf' \
+        'f5a76a43aa6be1e55e44f5eac13310193ba77729673799250065f1d201018016  hawk.tgz' | sha256sum -c -)
     tar -xzf "$tmp/typos.tgz" -C "$tmp" ./typos
     tar -xzf "$tmp/rumdl.tgz" -C "$tmp" rumdl
     tar -xzf "$tmp/shear.tgz" -C "$tmp" cargo-shear
+    tar -xzf "$tmp/hawk.tgz" -C "$tmp" --strip-components=1
     tar -xzf "$tmp/zizmor.tgz" -C "$tmp" zizmor
     tar -xzf "$tmp/age.tgz" -C "$tmp" --strip-components=1 age/age age/age-keygen
     gunzip "$tmp/taplo.gz"
     unzip -p "$tmp/swiftlint.zip" swiftlint-static > "$tmp/swiftlint"
     sudo install -m 755 "$tmp/typos" "$tmp/taplo" "$tmp/cargo-shear" "$tmp/swiftlint" \
         "$tmp/zizmor" "$tmp/age" "$tmp/age-keygen" "$tmp/biome" "$tmp/rumdl" "$tmp/hadolint" "$tmp/buf" \
-        /usr/local/bin/
+        "$tmp/cargo-hawk" "$tmp/cargo-hawk-driver" "$tmp/cargo-hawk-rustdoc" /usr/local/bin/
     sudo install -m 644 "$tmp/detekt-cli.jar" /usr/local/lib/
     rm -rf "$tmp"
 fi

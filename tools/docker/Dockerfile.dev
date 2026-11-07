@@ -1,3 +1,12 @@
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS hawk-tools
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR /build
+# Hawk's compiler wrappers must stay together and match Rust 1.99.0.
+RUN curl -fsSL --retry 7 -o hawk.tar.gz https://github.com/astral-sh/hawk/releases/download/0.1.17/cargo-hawk-x86_64-unknown-linux-gnu.tar.gz && \
+    echo 'f5a76a43aa6be1e55e44f5eac13310193ba77729673799250065f1d201018016  hawk.tar.gz' | sha256sum -c - && \
+    tar -xzf hawk.tar.gz --strip-components=1 && \
+    test -x cargo-hawk && test -x cargo-hawk-driver && test -x cargo-hawk-rustdoc
+
 FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49
 ARG DYAPP_CPUS=4
 ENV RUSTUP_TOOLCHAIN=1.99.0 CARGO_BUILD_JOBS=$DYAPP_CPUS \
@@ -70,5 +79,6 @@ ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
 # Swift 6.4.0 Jammy ships the formatter; keep its runtime beside the binary for its rpath.
 COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/bin/swift-format /usr/local/bin/swift-format
 COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/lib/swift/linux /usr/local/lib/swift/linux
+COPY --from=hawk-tools /build/cargo-hawk /build/cargo-hawk-driver /build/cargo-hawk-rustdoc /usr/local/bin/
 USER 1000:1000
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]
