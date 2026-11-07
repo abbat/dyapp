@@ -115,7 +115,14 @@ unrelated/pending files, and returns false for an absent pack. Unix directory sy
 A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
 best-effort removal of this local copy. Desktop now offers a per-pack confirmation, including
 unreadable entries, and refreshes the collection after success or ambiguous failure.
-Sticker image delivery and received-sticker cache integration remain planned.
+The initial schema also has `sticker_uploads`, keyed by plaintext hash. It keeps owner-only
+attachment descriptors (including release capabilities), charged sizes, expiry and a reservation
+token; no image BLOB is stored. An immediate writer transaction reserves at most 16 MiB in
+node accounting units, including GCM overhead, across pending and confirmed uploads. Pending
+work resumes the same descriptor for eight days; confirmation retains it seven days, with
+refresh during its final day. A reservation token rejects stale confirmations even when the
+ciphertext is unchanged. Clock rollback and corrupt descriptors fail closed. Only expired
+ledger metadata is pruned. Network wiring and received-sticker cache integration remain planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

@@ -185,8 +185,14 @@ The pack blob holds a protobuf record of the manifest bytes and the files in man
 The first send of a sticker uploads it as its own attachment and waits for the upload, as a photo
 does. The descriptor is stored and reused for every later send, in any chat, and the blob is
 uploaded again when under a day of the 168 h retention is left. Node quota charges small blobs five
-times, so a 256 KiB sticker costs about 1.25 MiB of the 64 MiB owner quota. Past the sender's budget
-a sticker goes without a descriptor and the peer sees the fallback.
+times in its internal accounting units; a 256 KiB sticker including GCM tags costs 1,311,040
+units. The node scales its owner quota by the same factor. The separate application cap is
+16 MiB in charged units. Past that cap a sticker goes without a descriptor and the peer sees
+the fallback. The Store ledger implements atomic reservation, restart-safe reuse and final-day
+refresh: confirmed descriptors last seven days, uncertain uploads reserve eight days. Each
+refresh has a random reservation token so a late completion cannot confirm its successor.
+Expired ledger metadata can be pruned; saved packs and chat history are untouched.
+Network orchestration of this ledger remains planned.
 
 ### Receive
 

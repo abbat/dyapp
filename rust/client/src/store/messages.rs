@@ -79,6 +79,16 @@ CREATE TABLE `chat_operations` (
     CHECK (`pending` = 1 OR `pending_text` IS NULL),
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
+CREATE TABLE `sticker_uploads` (
+    `reservation` BLOB NOT NULL CHECK (length(`reservation`) = 16),
+    `hash` BLOB NOT NULL PRIMARY KEY CHECK (length(`hash`) = 32),
+    `descriptor` BLOB NOT NULL CHECK (length(`descriptor`) BETWEEN 1 AND 2048),
+    `charge` INTEGER NOT NULL CHECK (`charge` BETWEEN 85 AND 16777216),
+    `created` INTEGER NOT NULL CHECK (`created` >= 0),
+    `expires` INTEGER NOT NULL,
+    `ready` INTEGER NOT NULL CHECK (`ready` IN (0, 1)),
+    CHECK (`expires` = `created` + CASE `ready` WHEN 1 THEN 604800 ELSE 691200 END)
+) STRICT;
 CREATE TABLE `chat_cleared` (
     `group_id` BLOB NOT NULL,
     `author` TEXT NOT NULL,
