@@ -1,4 +1,5 @@
 use super::*;
+mod adversarial;
 use crate::store::sticker_packs::{exchange::response::PackResponseJob, uploads::UploadPlan};
 
 fn pending() -> (Invite, std::path::PathBuf, Pack, PackResponseJob) {

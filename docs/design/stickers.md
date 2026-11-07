@@ -262,7 +262,9 @@ most four due jobs per call, honoring a stop callback between jobs and after upl
 owner, partner/open/block/sharing state, loads a validated saved pack, reuses the typed ledger
 and photo attach/put transport, and strips release capability before staging the answer.
 Missing/invalid packs retire work without deleting files; transient reads/uploads keep a
-scheduled retry. Reuse also verifies immutable plaintext and ciphertext binding. Failed local
+scheduled retry. Reuse also verifies immutable plaintext and ciphertext binding. Corrupt ready
+keys cannot stage a response or a new sticker history row. Tests cover wrong owner, stop/block,
+removed packs and five due jobs leaving one for the next batch. Failed local
 staging reopens committed MLS before further work. After successful staging, mailbox failures
 belong to the common outbox. Desktop polling integration and receiver download/save remain planned.
 
