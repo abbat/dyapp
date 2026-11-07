@@ -5,6 +5,21 @@ described in [ci-base.md](ci-base.md#quality--quality) and
 [ci-matrix.md](ci-matrix.md#other-workflows); whether any check is required for merge is **not
 established** ([required checks](ci-matrix.md#required-checks)).
 
+## New languages and areas
+
+A new language, client or file type gets its checks in the same change that adds its first file:
+
+- a formatter in check mode;
+- a lint with limits on function complexity, length and nesting;
+- dead code: unused files, exports, declarations and resources;
+- type checking where the language has it, in strict mode;
+- the file size limit in `tests/scripts/check-repository.py`.
+
+Each tool has a pinned version in the quality image and a row in the table below. A check that
+cannot run yet is listed with a planned status and a tracking issue; it is not left out. Adding
+checks later costs more: the backlog of violations has to be reformatted, budgeted or rewritten
+first.
+
 ## Where each linter runs
 
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
