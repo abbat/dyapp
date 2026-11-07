@@ -305,7 +305,7 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   (app commands work; Rust reaches the page through `webview.eval`), and the CSP blocks `data:`
   and `blob:` images, so draw through `createImageBitmap` and a canvas. Classic scripts share
   top-level names, but biome checks each file alone: expose a name used elsewhere as `window.x`.
-  Add a new `clients/desktop/ui-test-*.js` to the ordered list in `ui_smoke.rs`. Modules
+  Add a new `clients/desktop/ui-tests/*.js` to the ordered list in `ui-tests/mod.rs`. Modules
   under `clients/desktop/chats/` need an explicit `#[path]`. `make fmt` checks native desktop
   modules too; `make fmt-write` applies formatting in the Docker container.
   Label readonly code with `dl`/`dt`/`dd`: the implicit code role cannot use `aria-labelledby`,

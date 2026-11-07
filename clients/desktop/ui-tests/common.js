@@ -145,7 +145,7 @@ globalThis.checkSafetyNumber = async () => {
     throw new Error('loopback QR image did not match');
   }
   // Opening the panel marks nothing, Cancel sends nothing, and the real command refuses this
-  // own-profile fixture; ui-test-identity.js answers the command for the other outcomes.
+  // own-profile fixture; identity.js answers the command for the other outcomes.
   const confirm = document.getElementById('view-confirm');
   const dialog = document.getElementById('verify-dialog');
   const mark = document.getElementById('view-verified');

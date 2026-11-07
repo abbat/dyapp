@@ -1,4 +1,4 @@
-"""ui-test.js is evaluated in the app page: it must not redeclare globals."""
+"""The smoke suite runs in the app page without redeclaring its globals."""
 from html.parser import HTMLParser
 from pathlib import Path
 import re
@@ -33,7 +33,7 @@ class NavigationTest(unittest.TestCase):
         navigation.feed((UI / "ui/index.html").read_text())
         self.assertTrue(navigation.targets)
         self.assertLessEqual(navigation.targets, navigation.sections)
-        calls = [(path.name, target) for path in UI.glob("ui-test*.js")
+        calls = [(path.name, target) for path in (UI / "ui-tests").glob("*.js")
                  for target in area_calls(path.read_text())]
         self.assertTrue(calls)
         for path, target in calls:
@@ -46,11 +46,25 @@ class NavigationTest(unittest.TestCase):
             ["chats", "chats-area"])
 
 
+class SmokeInventoryTest(unittest.TestCase):
+    def test_all_smoke_scripts_are_registered_and_includes_exist(self):
+        directory = UI / "ui-tests"
+        includes = re.findall(r'include_str!\("([^"]+)"\)',
+                              (directory / "mod.rs").read_text())
+        self.assertTrue(includes)
+        for name in includes:
+            self.assertTrue((directory / name).is_file(), name)
+        self.assertEqual(set(directory.glob("*.js")),
+                         {directory / name for name in includes
+                          if "/" not in name})
+        self.assertFalse(list(UI.glob("ui-test*.js")))
+
+
 class GlobalsTest(unittest.TestCase):
     def test_ui_test_names_do_not_shadow_app_globals(self):
         app = {name for path in (UI / "ui").glob("*.js")
                for name in TOP.findall(path.read_text())}
-        suite = set(TOP.findall((UI / "ui-test.js").read_text()))
+        suite = set(TOP.findall((UI / "ui-tests/main.js").read_text()))
         # A clash is a SyntaxError on eval: the suite never starts.
         self.assertEqual(sorted(app & suite), [])
 

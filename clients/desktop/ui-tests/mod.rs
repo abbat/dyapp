@@ -1,0 +1,31 @@
+//! Shared native smoke script order, kept separate from application command registration.
+pub(crate) fn scripts() -> String {
+    [
+        include_str!("common.js"),
+        include_str!("../video-frame-renderer.js"),
+        include_str!("../video-frame-smoke.js"),
+        include_str!("identity.js"),
+        include_str!("chats.js"),
+        include_str!("presence.js"),
+        include_str!("names.js"),
+        include_str!("photos.js"),
+        include_str!("guards.js"),
+        include_str!("stickers.js"),
+        include_str!("composer.js"),
+        include_str!("sticker-picker.js"),
+        include_str!("sticker-messages.js"),
+        include_str!("chat-redraw.js"),
+        include_str!("sticker-requests.js"),
+        include_str!("sticker-file.js"),
+        include_str!("sticker-peers.js"),
+        include_str!("sharing.js"),
+        include_str!("clear.js"),
+        include_str!("identifiers.js"),
+        include_str!("settings-nav.js"),
+        include_str!("settings-lists.js"),
+        include_str!("media-cache.js"),
+        include_str!("sticker-removal.js"),
+        include_str!("main.js"),
+    ]
+    .join("\n")
+}

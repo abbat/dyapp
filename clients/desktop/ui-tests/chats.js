@@ -1,5 +1,5 @@
 // Desktop UI smoke: Chats list, first text, send, Clear and the two-client scenario.
-// Evaluated after ui-test-identity.js in the same page scope.
+// Evaluated after identity.js in the same page scope.
 // The local projection renders requests, unread counts and original timestamps without a node.
 const checkChatProjection = async () => {
   await openArea('chats-area');

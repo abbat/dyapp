@@ -23,6 +23,7 @@ mod file_store;
 mod identity_gate;
 mod identity_runtime;
 mod stickers;
+#[path = "ui-tests/mod.rs"]
 mod ui_smoke;
 use identity_runtime::{describe, respond, IdentityState};
 #[path = "link.rs"]

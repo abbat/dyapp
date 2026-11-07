@@ -548,9 +548,10 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   safety number, and leaves an ordinary Peer ID copy alone. It tests the
   plugin in CI's desktop session; clipboard-history exclusion still needs a
   real desktop-session check.
-- **Screenshots.** The debug shell concatenates `ui-test-common.js`, the video frame helpers,
-  `ui-test-identity.js`, `ui-test-chats.js`, `ui-test-presence.js`, `ui-test-guards.js` and
-  `ui-test.js` into one
+- **Screenshots.** Smoke scripts live in `clients/desktop/ui-tests/`, outside the shipped
+  `ui/` assets; `ui-tests/mod.rs` defines their evaluation order. The debug shell concatenates `common.js`, the video frame helpers,
+  `identity.js`, `chats.js`, `presence.js`, `guards.js` and
+  `main.js` into one
   WebView script, in that order. The final file dispatches named smoke cases; the earlier files
   expose shared helpers in the same eval scope.
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
