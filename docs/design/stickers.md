@@ -290,7 +290,10 @@ answers, reusing a validated local file when available. Otherwise it fetches thr
 attachment path, validates the complete pack and clicked hash, and uses guarded publication.
 Stop checks surround work and successful fetches; an in-flight transport retains its own deadline.
 Blocked/closed pairs retire only current intent. Missing joined groups and fetch/validation/quota/
-storage failures keep typed scheduled retries. Desktop polling and fresh-answer requests remain planned.
+storage failures keep typed scheduled retries. Tests reject malformed/wrong-ID packs, missing
+clicked hashes, unsolicited/stale completions and a block during fetch. A stop after transport
+leaves intent unchanged; unreadable local files retain retryable storage status. Five admitted
+local recoveries leave one for the next pass. Desktop polling and fresh-answer requests remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

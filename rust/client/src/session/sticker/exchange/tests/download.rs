@@ -1,4 +1,5 @@
 use super::*;
+mod adversarial;
 use crate::store::sticker_packs::exchange::download::{
     PackDownloadFailure as Failure, PackDownloadJob,
 };

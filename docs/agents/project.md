@@ -58,6 +58,8 @@ Before the first app release, stored client databases have no compatibility prom
 version-1 schema directly and remove obsolete database migration paths; do not spend work on
 migrating development databases. Recreate a development database or restore a matching backup.
 Keep fail-closed checks for missing secrets, wrong identity and unknown schema versions.
+The ADR trigger checker also matches `CREATE TABLE` in test fixtures. Such commits need the
+storage ADR trailer even when the production schema does not change.
 
 | Path | What it is |
 |------|------------|

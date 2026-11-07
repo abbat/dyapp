@@ -78,7 +78,7 @@ impl Session {
         Ok(())
     }
 
-    fn complete_pack_download(
+    pub(super) fn complete_pack_download(
         &mut self,
         group: &[u8],
         job: &PackDownloadJob,
