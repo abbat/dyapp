@@ -2,6 +2,16 @@
 //! Desktop window and tray). On Linux a tray exists only while a StatusNotifierItem host is on the
 //! session bus; when it goes away the window is shown again, so the app never stays unreachable.
 
+/// Ctrl+Q: ends the process; the window state is saved on the way out.
+#[tauri::command]
+pub(crate) fn quit(app: tauri::AppHandle) {
+    // The UI smoke ends its window steps here, so this exit is its pass.
+    if std::env::args().any(|arg| arg == "--ui-test") {
+        println!("UI_SMOKE_PASS:");
+    }
+    app.exit(0);
+}
+
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};

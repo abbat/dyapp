@@ -1,5 +1,13 @@
 # FFI Contract
 
+`ChatSession.media_cache`, `set_media_cache(enabled, limit_bytes)` and
+`clear_media_cache` expose the device-local encrypted originals cache. The record contains
+only enabled state, remembered byte budget and used bytes. Calls hold the same session
+mutex as media retrieval, use no network and preserve history and saved sticker packs.
+Desktop exposes the same three commands with the viewed identity ID and a lease retained
+through background filesystem work. A fetch already in flight may retain a new copy after
+a desktop clear; the returned usage is measured from disk.
+
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
 > generated during the Android build, Swift bindings by `tools/scripts/build-apple-core.sh`

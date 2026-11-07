@@ -25,9 +25,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
 mod actions;
+mod media_cache;
 mod notices;
 mod original;
 mod photo_settings;
+pub use media_cache::ChatMediaCache;
 pub use photo_settings::ChatPhotoDownload;
 mod photo_view;
 mod photos;
@@ -523,6 +525,17 @@ mod tests {
             chats.set_photo_download(mode).unwrap();
             assert_eq!(chats.photo_download().unwrap(), mode);
         }
+        // Cache controls remain offline and preserve the disabled quota across clearing.
+        let cache = chats.set_media_cache(false, 393_216_123).unwrap();
+        assert!(!cache.enabled);
+        assert_eq!(cache.limit_bytes, 393_216_123);
+        assert!(chats.set_media_cache(true, 0).is_err());
+        let originals = std::path::Path::new(&dir).join("originals");
+        std::fs::create_dir(&originals).unwrap();
+        std::fs::write(originals.join("cached"), b"download").unwrap();
+        assert_eq!(chats.media_cache().unwrap().used_bytes, 8);
+        assert_eq!(chats.clear_media_cache().unwrap(), cache);
+        assert!(chats.chat_rows().unwrap().is_empty());
         // Even Always must keep a stranger behind a tap, regardless of network reports.
         chats
             .session

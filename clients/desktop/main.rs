@@ -707,16 +707,6 @@ fn ui_test_result(
     app.exit(if success { 0 } else { 1 });
 }
 
-/// Ctrl+Q: ends the process; the window state is saved on the way out.
-#[tauri::command]
-fn quit(app: tauri::AppHandle) {
-    // The UI smoke ends its window steps here, so this exit is its pass.
-    if std::env::args().any(|arg| arg == "--ui-test") {
-        println!("UI_SMOKE_PASS:");
-    }
-    app.exit(0);
-}
-
 /// Settings → Window: the tray icon and close-to-tray, stored when `prefs` is given; `labels` are
 /// Open and Quit in the UI language. Async: building the icon must not hold the main thread.
 #[tauri::command]
@@ -927,6 +917,9 @@ fn main() {
             chat_photos::set_auto_download_mode,
             chat_photos::kept_originals_mib,
             chat_photos::set_kept_originals_mib,
+            chat_photos::cache::media_cache,
+            chat_photos::cache::set_media_cache,
+            chat_photos::cache::clear_media_cache,
             chats::commands::send_chat_text,
             chats::forward::forward_chat_text,
             chats::send_photo::send_chat_photo,
@@ -967,7 +960,7 @@ fn main() {
             #[cfg(all(target_os = "linux", debug_assertions))]
             video_frames::ui_test_video_frames,
             set_tray,
-            quit
+            tray::quit
         ])
         .on_page_load(move |webview, payload| {
             if test_mode && payload.event() == PageLoadEvent::Finished {

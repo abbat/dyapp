@@ -91,6 +91,8 @@ async fn original(
     Ok(bytes)
 }
 
+pub(crate) mod cache;
+
 fn keep(
     dir: &Path,
     identity: &Identity,
