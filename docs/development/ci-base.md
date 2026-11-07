@@ -201,7 +201,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
 | Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
 | TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |
-| Web lint | `biome lint --error-on-warnings clients/desktop`: JavaScript, HTML and CSS; rules in `biome.jsonc` ([linting](linting.md#web-biomejsonc)) |
+| Web lint | `biome check --error-on-warnings clients/desktop clients/android/prototype`: JavaScript, HTML and CSS lint and formatting; rules in `biome.jsonc` ([linting](linting.md#web-biomejsonc)) |
 | Markdown lint | `rumdl check .`; rules in `.rumdl.toml` ([linting](linting.md#markdown-rumdltoml)) |
 | Dockerfile lint | `hadolint tools/docker/Dockerfile.* tests/docker/Dockerfile.*`; rules in `.hadolint.yaml` ([linting](linting.md#dockerfiles-hadolintyaml)) |
 | Protobuf lint | `buf lint proto`; rules in `proto/buf.yaml` ([linting](linting.md#protobuf-protobufyaml)) |

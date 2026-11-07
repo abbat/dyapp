@@ -1,0 +1,5 @@
+# Formatting explicitly opts into a writable checkout; checks retain read-only mounts.
+services:
+  dev:
+    volumes:
+      - ../..:/workspace:rw

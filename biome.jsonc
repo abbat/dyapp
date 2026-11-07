@@ -5,8 +5,13 @@
     "includes": ["clients/desktop/**/*.js", "clients/desktop/**/*.html", "clients/desktop/**/*.css",
       "clients/android/prototype/*"]
   },
-  // Lint only: the files keep their hand formatting.
-  "formatter": { "enabled": false },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": { "formatter": { "quoteStyle": "single" } },
   "assist": { "enabled": false },
   "html": { "linter": { "enabled": true } },
   "linter": {

@@ -42,7 +42,7 @@ step() {
                 GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact .
             check typos typos
             check taplo taplo fmt --check
-            check biome biome lint --error-on-warnings --colors=off clients/desktop clients/android/prototype
+            step web-check
             check rumdl rumdl check --color never --no-cache .
             check hadolint hadolint --no-color tools/docker/Dockerfile.* tests/docker/Dockerfile.*
             check buf buf lint proto
@@ -57,6 +57,12 @@ step() {
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
             check panics python3 -B tests/scripts/check-panics.py --raw
             check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
+            ;;
+        web-check)
+            check biome biome check --error-on-warnings --colors=off clients/desktop clients/android/prototype
+            ;;
+        web-format)
+            biome format --write clients/desktop clients/android/prototype
             ;;
         fmt-write)
             cargo fmt --all
@@ -197,7 +203,7 @@ step() {
 if [[ ${1:-} != --raw ]]; then
     stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
-        quality|fmt|fmt-write|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

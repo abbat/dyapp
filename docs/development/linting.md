@@ -39,7 +39,7 @@ first.
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
-| JavaScript, HTML, CSS | Biome 2.6.3 (`biome lint` on `clients/desktop`) | `biome.jsonc` | yes | — | enforced; lint only, no formatter |
+| JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
 | Dockerfiles | hadolint 2.15.1 on `tools/docker`, `tests/docker` | `.hadolint.yaml` | yes | — | enforced |
 | Protobuf | `buf lint` 1.75.0 on `proto` | `proto/buf.yaml` | yes | — | enforced; `STANDARD` rules |
@@ -171,10 +171,11 @@ once it passes.
 
 ## Web (`biome.jsonc`)
 
-The quality step runs `biome lint --error-on-warnings clients/desktop`: the desktop UI
-(`clients/desktop/ui`) and its static prototype, JavaScript, HTML and CSS. Name the directory:
-without it Biome also walks `build/`. The formatter and the assist actions are off, so the files
-keep their hand formatting. The recommended rules apply except three, each justified in the config:
+The quality step and `make lint-web` run `biome check --error-on-warnings` on
+`clients/desktop` and `clients/android/prototype`: JavaScript, HTML and CSS, including smoke
+scripts. `make fmt-web` formats all these files in the dev Docker container with an explicit
+writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
+JavaScript quotes and 100 columns. Assist actions remain disabled. The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).
 
