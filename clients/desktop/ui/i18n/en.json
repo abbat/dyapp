@@ -70,6 +70,7 @@
   "stickers.removed": "Pack removed from this computer. Collection refreshed.",
   "stickers.removeError": "Removal could not be confirmed. Refresh before trying again; the pack may already be gone.",
   "stickers.title": "Stickers",
+  "stickers.notice": "Sticker",
   "stickers.message": "Sticker: {emoji}, pack {name}",
   "stickers.collection": "Saved packs",
   "stickers.hint": "TAR files up to 8 MiB. Saved on this computer for this identity; importing does not send anything. Limit: 300 MiB, without automatic removal.",

@@ -134,4 +134,16 @@ oversize refusal. Exported TAR bytes match the public WebP fixture, manifest and
 Artifacts are under `build/ux-research/linux-sticker-file/`. The actual import/readback and
 separate-process restart are now wired into native CI for both storage modes, with captures.
 Local IPC is mocked and the OS chooser window is not automated; these limits remain explicit.
+
+## Linux notification preview
+
+Reviewed generic, name-only and text previews alongside matched/request/closed/read states.
+The text setting permits only the current unread kind: Sticker adds its emoji and translated
+label, while a newer read sticker cannot expose an older unread text. No image or pack lookup
+occurs. Metadata stays bounded and markup escaped. Translation reaches the existing detached
+send thread with tray labels, avoiding a session/tray/main-thread lock cycle. Default privacy,
+muted/blocked gating and focus behavior stay intact. Native unit cases cover both languages,
+escaping, missing-media fallback and privacy; execution remains CI-only. The OS owns the
+notification layout, with unchanged short text surface and no new dialog/control finding.
+
 Prototype and mocked-controller validation do not establish native transport acceptance.

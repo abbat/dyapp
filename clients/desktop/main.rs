@@ -713,7 +713,7 @@ fn ui_test_result(
 async fn set_tray(
     app: tauri::AppHandle,
     prefs: Option<tray::Prefs>,
-    labels: [String; 3],
+    labels: [String; 4],
 ) -> tray::State {
     tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
 }

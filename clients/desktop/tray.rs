@@ -31,7 +31,10 @@ pub struct Prefs {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { show: true, close_to_tray: false }
+        Self {
+            show: true,
+            close_to_tray: false,
+        }
     }
 }
 
@@ -47,8 +50,8 @@ pub struct State {
 struct Inner {
     prefs: Option<Prefs>,
     available: bool,
-    /// Open, Quit and the notice text in the UI language; the icon waits for them.
-    labels: Option<[String; 3]>,
+    /// Open, Quit, fixed notice and Sticker in the UI language; the icon waits for them.
+    labels: Option<[String; 4]>,
     shown: bool,
 }
 
@@ -82,7 +85,7 @@ pub fn set(
     app: &AppHandle,
     config: Option<&Path>,
     prefs: Option<Prefs>,
-    labels: [String; 3],
+    labels: [String; 4],
 ) -> State {
     let tray = app.state::<Tray>();
     let mut inner = tray.lock();
@@ -94,7 +97,10 @@ pub fn set(
     });
     if let Some(prefs) = prefs {
         // Without the icon there is nothing to close to.
-        let prefs = Prefs { close_to_tray: prefs.show && prefs.close_to_tray, ..prefs };
+        let prefs = Prefs {
+            close_to_tray: prefs.show && prefs.close_to_tray,
+            ..prefs
+        };
         if let (Some(dir), Ok(json)) = (config, serde_json::to_vec(&prefs)) {
             let _ = fs::create_dir_all(dir);
             let _ = fs::write(dir.join(FILE), json);
@@ -105,7 +111,11 @@ pub fn set(
     inner.labels = Some(labels);
     apply(app, &tray, &mut inner, rebuild);
     let prefs = inner.prefs.unwrap_or_default();
-    State { available: inner.available, show: prefs.show, close_to_tray: prefs.close_to_tray }
+    State {
+        available: inner.available,
+        show: prefs.show,
+        close_to_tray: prefs.close_to_tray,
+    }
 }
 
 /// Shows the icon when the host, the labels and the setting allow it, and removes it otherwise.
@@ -116,7 +126,7 @@ fn apply(app: &AppHandle, tray: &Tray, inner: &mut Inner, rebuild: bool) {
         app.remove_tray_by_id(ID);
         inner.shown = false;
     }
-    if let (Some([open, quit, _]), false) = (labels, inner.shown) {
+    if let (Some([open, quit, _, _]), false) = (labels, inner.shown) {
         inner.shown = build(app, &open, &quit).is_ok();
     }
     let close = inner.prefs.is_some_and(|prefs| prefs.close_to_tray);
@@ -144,12 +154,12 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
     builder.build(app).map(drop)
 }
 
-/// The Open label and the text of a new-mail notice, once the page has given them.
-pub fn notice_labels(app: &AppHandle) -> Option<(String, String)> {
+/// Open, fixed notice and Sticker labels, once the page has given them.
+pub fn notice_labels(app: &AppHandle) -> Option<(String, String, String)> {
     let tray = app.state::<Tray>();
     let inner = tray.lock();
     let labels = inner.labels.as_ref();
-    labels.map(|[open, _, notice]| (open.clone(), notice.clone()))
+    labels.map(|[open, _, notice, sticker]| (open.clone(), notice.clone(), sticker.clone()))
 }
 
 pub fn show(app: &AppHandle) {
@@ -198,11 +208,20 @@ pub fn watch(app: AppHandle) {
     }
     std::thread::spawn(move || {
         tauri::async_runtime::block_on(async move {
-            let Ok(bus) = zbus::Connection::session().await else { return };
-            let Ok(dbus) = zbus::fdo::DBusProxy::new(&bus).await else { return };
-            let Ok(name) = zbus::names::BusName::try_from(WATCHER) else { return };
+            let Ok(bus) = zbus::Connection::session().await else {
+                return;
+            };
+            let Ok(dbus) = zbus::fdo::DBusProxy::new(&bus).await else {
+                return;
+            };
+            let Ok(name) = zbus::names::BusName::try_from(WATCHER) else {
+                return;
+            };
             loop {
-                available(&app, dbus.name_has_owner(name.clone()).await.unwrap_or(false));
+                available(
+                    &app,
+                    dbus.name_has_owner(name.clone()).await.unwrap_or(false),
+                );
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
         });

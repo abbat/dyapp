@@ -366,8 +366,10 @@ controls distinguish new, saved, pending and typed failures; they never expose a
   with the exact peer/group/message selection; edit remains restricted to text. Own stickers
   expose Delete under the same open-chat action policy as text; Edit and Forward remain hidden
   and are refused by the codec.
-- The chat list and notifications show emoji and "Sticker", including the closed-app paths
-  (`MailNotice`, `MailJob`).
+- The desktop chat list shows emoji and pack fallback. Linux notification Text previews now show
+  emoji plus localized Sticker for the latest unread sticker; generic/name-only, muted/blocked
+  and non-open-chat rules stay unchanged. No media or pack lookup is needed. Windows toasts and
+  the mobile closed-app paths (`MailNotice`, `MailJob`) remain separate platform work.
 - The accessibility label is "Sticker: 😺, pack Cats".
 - Settings lists packs with their size, and offers import and delete.
 - Errors name the file and the reason. Imported filenames are quoted with escaped

@@ -57,7 +57,9 @@ requests its pack from the sender. Offline requests stay queued. **Stop waiting*
 acceptance, while an already sent request cannot be recalled. **Retry** keeps the current answer;
 **Request fresh copy** asks again after a verification failure (the sender can answer once a day).
 Quota or storage errors link to Manage packs. Uncertain actions refresh status before allowing
-another choice; saved packs stay on this computer until you remove them.
+another choice; saved packs stay on this computer until you remove them. If notification content
+is set to include message text, a new unread sticker shows its emoji and “Sticker”. The default
+notification still hides sender and content; stickers do not trigger a media download for previews.
 
 **Clear chat** names the contact and full Peer ID before confirmation. It removes this
 computer's messages/originals and cancels pending pack requests. Saved packs and local recent

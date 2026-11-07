@@ -42,21 +42,47 @@ fn newest<'a>(before: &[ChatRow], after: &'a [ChatRow]) -> Option<&'a ChatRow> {
     })
 }
 
-/// The row's unread text on one line, bounded and escaped: a server may read the body as markup,
-/// and a peer chooses this text.
-// ponytail: a server without `body-markup` shows the entities; ask GetCapabilities if one matters.
-fn body(row: &ChatRow) -> String {
+/// UI labels are resolved on the detached send thread, after the session lock is released.
+#[derive(Default)]
+enum Preview {
+    #[default]
+    Empty,
+    Text(String),
+    Sticker(String),
+}
+impl Preview {
+    // A server may interpret markup. A server without body-markup shows these entities.
+    fn render(self, sticker_label: &str) -> String {
+        let text = match self {
+            Self::Empty => String::new(),
+            Self::Text(text) => text,
+            Self::Sticker(emoji) => format!("{emoji} {sticker_label}"),
+        };
+        text.chars()
+            .take(BODY_CHARS)
+            .map(|c| if c.is_control() { ' ' } else { c })
+            .collect::<String>()
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+    }
+}
+fn body(row: &ChatRow) -> Preview {
+    // Core retains older text behind the newest media marker; never expose that stale text.
+    if let Some(item) = &row.last_sticker {
+        return if item.unread {
+            Preview::Sticker(item.sticker.emoji.clone())
+        } else {
+            Preview::Empty
+        };
+    }
     let last = row.last_attachment.is_none();
     let message = row.last_message.as_ref().filter(|m| last && m.unread);
     let text = message.and_then(|m| m.current.text.as_deref());
     let text = text.and_then(|text| std::str::from_utf8(text).ok());
-    let one_line = text.unwrap_or_default().chars().take(BODY_CHARS);
-    one_line
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect::<String>()
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+    text.map_or(Preview::Empty, |text| {
+        Preview::Text(text.chars().take(BODY_CHARS).collect())
+    })
 }
 
 /// The name and text the setting allows; empty ones leave the fixed text alone. Only an open chat
@@ -66,10 +92,10 @@ fn content(
     before: &[ChatRow],
     after: &[ChatRow],
     name: impl FnOnce(&str) -> String,
-) -> (String, String) {
+) -> (String, Preview) {
     let row = newest(before, after).filter(|row| row.state == Conversation::Open);
     match (mode, row) {
-        (NoticeContent::Name, Some(row)) => (name(&row.peer_id), String::new()),
+        (NoticeContent::Name, Some(row)) => (name(&row.peer_id), Preview::Empty),
         (NoticeContent::Text, Some(row)) => (name(&row.peer_id), body(row)),
         _ => Default::default(),
     }
@@ -82,7 +108,7 @@ fn due(
     identity: &Identity,
     before: Result<(Vec<ChatRow>, usize), String>,
     after: Result<(Vec<ChatRow>, usize), String>,
-) -> Option<(String, String)> {
+) -> Option<(String, Preview)> {
     let ((old, old_likes), (new, new_likes)) = (before.ok()?, after.ok()?);
     let unread = |rows: &[ChatRow]| rows.iter().map(|row| row.unread_count).sum::<usize>();
     let privacy = crate::privacy::load(dir, identity).ok()?;
@@ -117,7 +143,8 @@ pub(crate) fn around_pass<T>(
         std::thread::spawn(move || {
             let window = app.get_webview_window("main");
             if !window.is_some_and(|window| window.is_focused().unwrap_or(false)) {
-                if let Some((open, fixed)) = crate::tray::notice_labels(&app) {
+                if let Some((open, fixed, sticker)) = crate::tray::notice_labels(&app) {
+                    let body = body.render(&sticker);
                     send(if name.is_empty() { &fixed } else { &name }, &body, &open);
                 }
             }
@@ -291,7 +318,8 @@ mod tests {
             row("new", state, "<b>hi</b> & bye\nnext", 1),
             row("old", Conversation::Open, "seen", 1),
         ];
-        content(mode, &before, &after, |peer| format!("name of {peer}"))
+        let (name, body) = content(mode, &before, &after, |peer| format!("name of {peer}"));
+        (name, body.render("Sticker"))
     }
 
     #[test]
@@ -323,9 +351,63 @@ mod tests {
     #[test]
     fn a_body_is_bounded_and_holds_only_an_unread_text() {
         let mut long = row("a", Conversation::Open, &"x".repeat(BODY_CHARS * 2), 1);
-        assert_eq!(body(&long).chars().count(), BODY_CHARS);
+        assert_eq!(body(&long).render("Sticker").chars().count(), BODY_CHARS);
         long.last_message.as_mut().unwrap().unread = false;
-        assert_eq!(body(&long), "");
+        assert_eq!(body(&long).render("Sticker"), "");
+    }
+
+    #[test]
+    fn sticker_preview_is_localized_and_never_reveals_older_text_or_pack_metadata() {
+        let mut row = row("peer", Conversation::Open, "older private text", 2);
+        row.last_sticker = Some(dyapp_client::store::messages::ChatSticker {
+            key: MessageKey {
+                group: vec![1],
+                author: "peer".into(),
+                id: [2; 16],
+            },
+            sticker: dyapp_client::chat::sticker::Sticker {
+                id: [2; 16],
+                hlc: 2,
+                pack_id: [3; 32],
+                sha256: [4; 32],
+                emoji: "😺".into(),
+                pack_name: "private pack name".into(),
+                attachment: None,
+            },
+            unread: true,
+            delivery: None,
+        });
+        let shown = |mode, row: &ChatRow, label| {
+            let (name, preview) =
+                content(mode, &[], std::slice::from_ref(row), |_| "sender".into());
+            (name, preview.render(label))
+        };
+        assert_eq!(
+            shown(NoticeContent::default(), &row, "Sticker"),
+            (String::new(), String::new())
+        );
+        assert_eq!(
+            shown(NoticeContent::Name, &row, "Sticker"),
+            ("sender".to_owned(), String::new())
+        );
+        assert_eq!(
+            shown(NoticeContent::Text, &row, "Sticker"),
+            ("sender".to_owned(), "😺 Sticker".to_owned())
+        );
+        assert_eq!(
+            shown(NoticeContent::Text, &row, "Стикер"),
+            ("sender".to_owned(), "😺 Стикер".to_owned())
+        );
+        row.last_sticker.as_mut().unwrap().sticker.emoji = "<".into();
+        assert_eq!(body(&row).render("Sticker"), "&lt; Sticker");
+        row.last_sticker.as_mut().unwrap().unread = false;
+        assert_eq!(body(&row).render("Sticker"), "");
+        row.last_sticker.as_mut().unwrap().unread = true;
+        row.state = Conversation::Closed;
+        assert_eq!(
+            shown(NoticeContent::Text, &row, "Sticker"),
+            (String::new(), String::new())
+        );
     }
 
     #[cfg(unix)]

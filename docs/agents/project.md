@@ -22,6 +22,11 @@ which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property te
 an explicit feature and dependency-policy decision; no `PROPTEST_FORK`/`PROPTEST_TIMEOUT`
 overrides are supported by the current configuration.
 
+Core ChatRow retains older last_message text behind a newer last_sticker marker. Notification
+formatting must let that media marker dominate even when already read, rather than exposing old
+unread text. Resolve tray/UI labels only on the detached notification thread: acquiring the tray
+lock while a Sessions lease is held can introduce a lock cycle through the main thread.
+
 Sticker manifests may repeat an image hash with different emoji labels. Recent-sticker lookup
 must match both hash and emoji within the PackID to preserve the selected fallback/accessibility label.
 
