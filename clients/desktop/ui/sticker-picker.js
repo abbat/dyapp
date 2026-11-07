@@ -12,17 +12,20 @@
     el('status').hidden = !key;
     el('status').classList.toggle('error', error);
   };
+  const restorePickerFocus = (target) => {
+    if ([document.body, dialog, target.focus].includes(document.activeElement)) {
+      const focus =
+        target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
+      focus.focus();
+    }
+  };
   const busy = (target, value) => {
     if (value && !target.busy) target.focus = document.activeElement;
     target.busy = value;
     for (const button of dialog.querySelectorAll('button')) {
       if (button !== el('cancel')) button.disabled = value || button.dataset.unavailable === 'true';
     }
-    if (!value && [document.body, dialog, target.focus].includes(document.activeElement)) {
-      const focus =
-        target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
-      focus.focus();
-    }
+    if (!value) restorePickerFocus(target);
   };
   const close = (restore = true) => {
     const target = view;
@@ -33,6 +36,31 @@
     el('grid').replaceChildren();
     if (restore && target?.button.isConnected && !target.button.disabled) target.button.focus();
   };
+  const entryButton = (target, entry) => {
+    const packId = target.pack?.id || entry.packId;
+    const name = target.pack?.name || entry.packName;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn';
+    const label = window.stickerMessageText({ emoji: entry.emoji, packName: name });
+    button.setAttribute('aria-label', label);
+    const canvas = window.stickerPixels(entry.frame, label, 96);
+    canvas.setAttribute('aria-hidden', 'true');
+    button.append(canvas);
+    button.addEventListener('click', () => {
+      if (active(target) && !target.busy) window.stickerSent = send(target, packId, entry.index);
+    });
+    return button;
+  };
+  const renderPage = (target, page, after) => {
+    target.after = after;
+    target.next = page.next;
+    el('previous').dataset.unavailable = String(!target.pages.length);
+    el('next').dataset.unavailable = String(page.next === null);
+    el('grid').replaceChildren(...page.entries.map((entry) => entryButton(target, entry)));
+    notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
+  };
+  const pageCurrent = (target, read) => active(target) && target.read === read;
   const load = async (target, after = 0) => {
     const read = ++target.read;
     target.phase = 'page';
@@ -49,38 +77,15 @@
         ...(target.pack ? { packId: target.pack.id } : {}),
         after,
       });
-      if (!active(target) || target.read !== read) return;
-      target.after = after;
-      target.next = page.next;
-      el('previous').dataset.unavailable = String(!target.pages.length);
-      el('next').dataset.unavailable = String(page.next === null);
-      el('grid').replaceChildren(
-        ...page.entries.map((entry) => {
-          const packId = target.pack?.id || entry.packId;
-          const name = target.pack?.name || entry.packName;
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'btn';
-          const label = window.stickerMessageText({ emoji: entry.emoji, packName: name });
-          button.setAttribute('aria-label', label);
-          const canvas = window.stickerPixels(entry.frame, label, 96);
-          canvas.setAttribute('aria-hidden', 'true');
-          button.append(canvas);
-          button.addEventListener('click', () => {
-            if (active(target) && !target.busy)
-              window.stickerSent = send(target, packId, entry.index);
-          });
-          return button;
-        }),
-      );
-      notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
+      if (!pageCurrent(target, read)) return;
+      renderPage(target, page, after);
     } catch {
-      if (active(target) && target.read === read) {
+      if (pageCurrent(target, read)) {
         notice('error', true);
         el('retry').hidden = false;
       }
     } finally {
-      if (active(target) && target.read === read) busy(target, false);
+      if (pageCurrent(target, read)) busy(target, false);
     }
   };
   const choose = (target, pack) => {

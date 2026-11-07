@@ -34,6 +34,7 @@
     for (const button of target.actions.children) button.disabled = value;
   };
   const finish = (target, focus) => {
+    if (!active(target)) return;
     busy(target, false);
     if (focus && [document.body, focus].includes(document.activeElement)) {
       const next =
@@ -53,6 +54,11 @@
     target.actions.append(button);
   };
   const manage = (target) => window.stickerCollection.open(target.call);
+  const failedActions = (target, value, action) => {
+    if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
+    else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
+    if (value.generation && value.failure === 'invalid') action('fresh', 'fresh');
+  };
   const render = (target, value) => {
     const signature = JSON.stringify(value);
     target.value = value;
@@ -66,11 +72,7 @@
     ).replace('{name}', () => target.name);
     const action = (key, kind) => add(target, key, () => change(target, kind));
     if (value.state === 'new') action('add', 'request');
-    if (value.state === 'failed') {
-      if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
-      else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
-      if (value.generation && value.failure === 'invalid') action('fresh', 'fresh');
-    }
+    if (value.state === 'failed') failedActions(target, value, action);
     if (value.generation) action('stop', 'stopWaiting');
     if (value.state === 'saved' || ['quota', 'storage', 'stickerMissing'].includes(value.failure))
       add(target, 'manage', () => manage(target));
@@ -94,13 +96,30 @@
     } catch {
       if (active(target)) failedRead(target);
     } finally {
-      if (active(target)) finish(target, focus);
+      finish(target, focus);
     }
   };
+  const receiveAfterChange = (target, kind) => {
+    if (kind !== 'stopWaiting') {
+      window.stickerRequestDelivered = target
+        .call('receive_mail')
+        .then((count) => {
+          if (active(target)) return window.mailUpdated(count, target.call);
+        })
+        .catch(() => {});
+    }
+  };
+  const actionFailure = (error) => {
+    if (String(error) === 'unpublished') return 'unpublished';
+    if (String(error) === 'too many pending sticker pack requests') return 'limit';
+    return 'actionFailed';
+  };
+  const requestGeneration = (target) =>
+    target.value.generation ? [...target.value.generation] : null;
   const change = async (target, kind) => {
     if (!active(target) || target.busy || !target.value) return;
     const focus = focusHere(target);
-    const generation = target.value.generation ? [...target.value.generation] : null;
+    const generation = requestGeneration(target);
     busy(target, true);
     target.error.textContent = '';
     try {
@@ -112,29 +131,15 @@
       );
       if (!active(target)) return;
       render(target, value);
-      if (kind !== 'stopWaiting') {
-        window.stickerRequestDelivered = target
-          .call('receive_mail')
-          .then((count) => {
-            if (active(target)) return window.mailUpdated(count, target.call);
-          })
-          .catch(() => {});
-      }
+      receiveAfterChange(target, kind);
     } catch (error) {
       if (!active(target)) return;
       // A failure can follow a committed action. Read back before enabling another action.
       target.busy = false;
       await read(target);
-      if (active(target))
-        target.error.textContent = text(
-          String(error) === 'unpublished'
-            ? 'unpublished'
-            : String(error) === 'too many pending sticker pack requests'
-              ? 'limit'
-              : 'actionFailed',
-        );
+      if (active(target)) target.error.textContent = text(actionFailure(error));
     } finally {
-      if (active(target)) finish(target, focus);
+      finish(target, focus);
     }
   };
   const observer = new IntersectionObserver((entries) => {

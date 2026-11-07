@@ -6,6 +6,34 @@
   const text = (key) => window.strings[`stickerImage.${key}`];
   const active = (target) =>
     target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
+  const renderFrame = (target, bytes, focused) => {
+    const canvas = window.stickerBinaryPixels(bytes, target.fallback.textContent);
+    target.image.replaceChildren(canvas);
+    target.fallback.hidden = true;
+    target.button.hidden = true;
+    target.status.textContent = '';
+    target.loaded = true;
+    if (focused && [document.body, target.button].includes(document.activeElement)) {
+      canvas.tabIndex = -1;
+      canvas.focus();
+    }
+    observer.unobserve(target.root);
+    pending.delete(target.root);
+  };
+  const finishLoad = (target, focused) => {
+    if (!active(target)) return;
+    target.busy = false;
+    target.button.disabled = false;
+    target.button.textContent = text('load');
+    if (focused && [document.body, target.button].includes(document.activeElement))
+      target.button.focus();
+  };
+  const frameFailure = (error) => {
+    const code = String(error);
+    if (code === 'onTap') return 'tap';
+    if (['expired', 'notFound'].includes(code)) return 'unavailable';
+    return 'failed';
+  };
   const load = async (target, manual) => {
     if (!active(target) || target.busy || target.loaded) return;
     const focused = manual && document.activeElement === target.button;
@@ -23,36 +51,12 @@
         manual,
       });
       if (!active(target)) return;
-      const canvas = window.stickerBinaryPixels(bytes, target.fallback.textContent);
-      target.image.replaceChildren(canvas);
-      target.fallback.hidden = true;
-      target.button.hidden = true;
-      target.status.textContent = '';
-      target.loaded = true;
-      if (focused && [document.body, target.button].includes(document.activeElement)) {
-        canvas.tabIndex = -1;
-        canvas.focus();
-      }
-      observer.unobserve(target.root);
-      pending.delete(target.root);
+      renderFrame(target, bytes, focused);
     } catch (error) {
       if (!active(target)) return;
-      const code = String(error);
-      target.status.textContent = text(
-        code === 'onTap'
-          ? 'tap'
-          : ['expired', 'notFound'].includes(code)
-            ? 'unavailable'
-            : 'failed',
-      );
+      target.status.textContent = text(frameFailure(error));
     } finally {
-      if (active(target)) {
-        target.busy = false;
-        target.button.disabled = false;
-        target.button.textContent = text('load');
-        if (focused && [document.body, target.button].includes(document.activeElement))
-          target.button.focus();
-      }
+      finishLoad(target, focused);
     }
   };
   const observer = new IntersectionObserver((entries) => {

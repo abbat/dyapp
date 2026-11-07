@@ -63,6 +63,13 @@
     item.append(name, id, info, remove);
     return item;
   };
+  const showCollectionStatus = (page, notice) => {
+    const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
+    message('');
+    el('status').textContent =
+      `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
+    el('status').hidden = false;
+  };
   const load = async (target, after = null, notice = '') => {
     const paging = document.activeElement === el('next');
     busy(target, true);
@@ -80,11 +87,7 @@
       el('list').replaceChildren(...page.entries.map((entry) => row(entry, target)));
       el('next').hidden = !page.next;
       el('unknown').hidden = !page.unrecognizedFiles;
-      const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
-      message('');
-      el('status').textContent =
-        `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
-      el('status').hidden = false;
+      showCollectionStatus(page, notice);
     } catch (error) {
       if (active(target)) failure('error', error);
     } finally {
@@ -115,6 +118,25 @@
     event.preventDefault();
     cancelRemoval();
   });
+  const removeSelected = async (target, packId) => {
+    try {
+      await target.call('remove_saved_sticker_pack', {
+        identityId: target.identityId,
+        packId,
+      });
+      if (active(target)) await load(target, null, 'removed');
+    } catch (error) {
+      if (active(target)) {
+        await load(target);
+        if (active(target)) failure('removeError', error);
+      }
+    } finally {
+      if (active(target)) {
+        busy(target, false);
+        el('refresh').focus();
+      }
+    }
+  };
   el('remove-confirm').addEventListener('click', () => {
     const selection = removing;
     if (!dialog.open || !selection || !active(selection.target) || selection.target.busy) return;
@@ -122,25 +144,7 @@
     const target = selection.target;
     busy(target, true);
     message('removing');
-    window.stickerRemoved = (async () => {
-      try {
-        await target.call('remove_saved_sticker_pack', {
-          identityId: target.identityId,
-          packId: selection.id,
-        });
-        if (active(target)) await load(target, null, 'removed');
-      } catch (error) {
-        if (active(target)) {
-          await load(target);
-          if (active(target)) failure('removeError', error);
-        }
-      } finally {
-        if (active(target)) {
-          busy(target, false);
-          el('refresh').focus();
-        }
-      }
-    })();
+    window.stickerRemoved = removeSelected(target, selection.id);
   });
   const close = () => {
     view = null;
@@ -179,16 +183,27 @@
     el('unknown').hidden = true;
     return load(target);
   };
-  const importFile = async (file, target = view) => {
-    if (!file || !active(target) || target.busy) return;
+  const prepareImport = (file, target) => {
+    if (!file || !active(target) || target.busy) return false;
     el('details').hidden = true;
     if (file.size > 8 * 1024 * 1024) {
       message('tooLarge', true);
-      return;
+      return false;
     }
     busy(target, true);
     message('importing');
     el('details').hidden = true;
+    return true;
+  };
+  const showImportFailure = (target, error) => {
+    if (active(target))
+      failure(
+        String(error) === 'saved sticker pack quota exceeded' ? 'quota' : 'importFailed',
+        error,
+      );
+  };
+  const importFile = async (file, target = view) => {
+    if (!prepareImport(file, target)) return;
     try {
       const bytes = await file.arrayBuffer();
       if (!active(target)) return;
@@ -202,11 +217,7 @@
       });
       if (active(target)) await load(target, null, 'saved');
     } catch (error) {
-      if (active(target))
-        failure(
-          String(error) === 'saved sticker pack quota exceeded' ? 'quota' : 'importFailed',
-          error,
-        );
+      showImportFailure(target, error);
     } finally {
       if (active(target)) busy(target, false);
     }

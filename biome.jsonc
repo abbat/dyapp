@@ -23,7 +23,11 @@
       "clients/desktop/ui/search.js",
       "clients/desktop/ui/peer-photos.js",
       "clients/desktop/ui/saved-profiles.js",
-      "clients/desktop/ui-tests/removal.js"
+      "clients/desktop/ui-tests/removal.js",
+      "clients/desktop/ui/sticker-picker.js",
+      "clients/desktop/ui/sticker-requests.js",
+      "clients/desktop/ui/sticker-messages.js",
+      "clients/desktop/ui/stickers.js"
     ],
     "linter": { "rules": {
       "complexity": {
