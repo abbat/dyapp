@@ -134,6 +134,8 @@ pub(crate) async fn chat_sticker_pack_status(
     .map_err(|e| e.to_string())?
 }
 
+#[path = "requests/actions.rs"]
 pub(crate) mod actions;
 #[cfg(test)]
+#[path = "requests/tests.rs"]
 mod tests;

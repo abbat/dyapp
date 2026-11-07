@@ -117,4 +117,5 @@ pub(crate) async fn recent_sticker_page(
 }
 
 #[cfg(test)]
+#[path = "recents/tests.rs"]
 mod tests;

@@ -86,4 +86,5 @@ pub(crate) async fn send_saved_sticker(
 }
 
 #[cfg(test)]
+#[path = "send/tests.rs"]
 mod tests;

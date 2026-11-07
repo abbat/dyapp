@@ -97,6 +97,8 @@ pub(crate) async fn saved_sticker_page(
     .map_err(|e| e.to_string())?
 }
 
+#[path = "picker/recents.rs"]
 pub(crate) mod recents;
 #[cfg(test)]
+#[path = "picker/tests.rs"]
 mod tests;

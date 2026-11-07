@@ -204,4 +204,5 @@ pub(crate) async fn chat_sticker_frame(
 }
 
 #[cfg(test)]
+#[path = "chat/tests.rs"]
 mod tests;

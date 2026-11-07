@@ -6,6 +6,11 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+A Rust module loaded with `#[path]` needs explicit paths for its nested file modules, including
+`#[cfg(test)]` children, when their files live in a subdirectory. The native desktop crates are
+outside root quality compilation; a dependency-free rustc fixture can verify module resolution.
+After moving a command, update ordinary Rust callers as well as Tauri command registration.
+
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
 release secrets and fetch descriptors out of screen records. Project authenticated timestamps

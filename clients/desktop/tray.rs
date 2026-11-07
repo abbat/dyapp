@@ -141,7 +141,7 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
         .menu(&Menu::with_items(app, &[&open, &quit])?)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show(app),
-            "quit" => crate::quit(app.clone()),
+            "quit" => self::quit(app.clone()),
             _ => {}
         });
     // Without XDG_RUNTIME_DIR the default is /tmp/tray-icon, which another user may own.

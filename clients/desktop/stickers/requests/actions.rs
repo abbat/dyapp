@@ -146,4 +146,5 @@ pub(crate) async fn change_sticker_pack_request(
 }
 
 #[cfg(test)]
+#[path = "actions/tests.rs"]
 mod tests;
