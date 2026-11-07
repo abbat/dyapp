@@ -208,6 +208,8 @@ and chat history are untouched.
 transport. It checks owner and conversation before reserving, reconstructs only hash-matching
 ciphertext and strips the release secret before staging. A failed upload retains its reservation
 without adding a chat message. Confirmed reuse and quota fallback still use fresh message IDs.
+After metadata staging, a transient mailbox failure returns that ID because the exact outbox is
+already durable; delivery state shows the queued retry. Callers must not create a duplicate send.
 Desktop picker/command wiring and live node integration coverage remain planned.
 
 ### Receive

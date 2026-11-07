@@ -142,11 +142,13 @@ async fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capabilit
         .finish_sticker_upload(&pending, crate::now())
         .unwrap();
     // No node is needed to reuse metadata; mailbox delivery may remain pending.
-    let _ = session
+    let id = session
         .send_pack_sticker_to(&mut [], &bob_id, &peer, &pack, 0, &seal)
-        .await;
+        .await
+        .unwrap();
     let rows = session.store.current_chat_stickers(&peer).unwrap();
     assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].key.id, id);
     let descriptor = rows[0].sticker.attachment.as_ref().unwrap();
     assert_eq!(descriptor.release_secret, [0; 32]);
     assert_eq!(descriptor.blob_sha256, pending.attachment.blob_sha256);

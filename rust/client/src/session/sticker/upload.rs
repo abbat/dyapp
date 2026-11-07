@@ -46,6 +46,7 @@ pub(super) fn ciphertext(descriptor: &Attachment, bytes: &[u8]) -> Result<Vec<u8
 impl Session {
     /// Upload/reuse one validated saved-pack entry, then stage its metadata through the outbox.
     /// Upload failure leaves a resumable reservation and does not stage a chat message.
+    /// After staging, transient mailbox failure returns the ID: the durable outbox owns retry.
     pub async fn send_pack_sticker_to(
         &mut self,
         nodes: &mut [Node],
@@ -92,7 +93,11 @@ impl Session {
             descriptor.release_secret = [0; 32];
             descriptor
         });
-        self.send_sticker(nodes, &group, &sticker, seal_key).await
+        let (id, writes) = self.stage_sticker(&group, &sticker, seal_key)?;
+        match self.send_staged(nodes, writes, seal_key).await {
+            Ok(()) | Err(Error::Client(_)) => Ok(id),
+            Err(error) => Err(error),
+        }
     }
 }
 
