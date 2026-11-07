@@ -255,7 +255,10 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .msg-menu { display: flex; justify-content: flex-end; gap: var(--space-1); }
 .msg-menu .btn { min-height: 28px; padding: 0 var(--space-2); font: var(--text-caption); }
 .composer { display: flex; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-4); }
-.composer textarea { font-family: var(--font); min-height: 40px; }
+.composer textarea { font-family: var(--font); min-height: 40px; min-width: 0; flex: 1; }
+.composer .icon-button { width: 40px; min-width: 40px; height: 40px; padding: var(--space-2); }
+.composer .icon-button .icon { margin: 0; }
+.composer .send-slot { width: 40px; flex: none; }
 
 /* Shell: sidebar > icon rail (641-1007 px) > off-canvas menu (<= 640 px). */
 .shell { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: 1fr auto;

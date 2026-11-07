@@ -49,6 +49,39 @@ MEASURE = """JSON.stringify((() => {
   const ident = e => e.classList.contains('full-id')
       || (e.tagName === 'CODE' && style(e).display === 'block');
   const found = [];
+  const input = document.getElementById('chat-input');
+  const stickers = document.getElementById('chat-stickers');
+  if (stickers && box(input)) {
+    const attach = document.getElementById('chat-attach');
+    const send = document.getElementById('chat-send');
+    for (const button of [attach, stickers, send]) {
+      if (!button.getAttribute('aria-label') || !button.title)
+        throw new Error('composer icon lacks translated name or tooltip');
+    }
+    if (input.disabled) {
+      if (!attach.disabled || !stickers.disabled || !send.disabled)
+        throw new Error('unwritable chat enables a composer action');
+    } else {
+      const previous = document.activeElement;
+      const value = input.value;
+      input.focus();
+      const before = input.getBoundingClientRect();
+      for (const draft of ['message', '']) {
+        input.value = draft;
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        const after = input.getBoundingClientRect();
+        if (send.hidden !== !draft || send.disabled !== !draft)
+          throw new Error('Send visibility does not follow the draft');
+        if (after.width !== before.width || after.left !== before.left
+            || document.activeElement !== input)
+          throw new Error('Send visibility shifts the input or its focus');
+      }
+      input.value = value;
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+      input.blur();
+      previous.focus();
+    }
+  }
   // Menu and navigation items touch by platform convention; page regions
   // (landmarks) are separated by their own surfaces.
   const items = 'nav, [role=menu], [role=menubar], [role=tablist]';
@@ -83,7 +116,7 @@ DESKTOP = [
     "search", "search-loading", "search-empty", "search-error",
     "profile-view", "profile-view-safety", "verify-dialog",
     "profile-view-verified", "profile-view-match", "unlike-dialog",
-    "chats", "chat", "chat-closed", "chat-first", "chat-request",
+    "chats", "chat", "chat-draft", "chat-closed", "chat-first", "chat-request",
     "chat-new-device",
     "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
     "delete-dialog",
@@ -115,6 +148,22 @@ ANDROID = [
     "chat-menu", "chat-clear-dialog", "chat-cleared", "delete-dialog",
     "settings", "lock-settings", "switcher", "remove-dialog", "remove-offline",
 ]
+# Await actual font/layout readiness; the timer is a failure deadline.
+READY_MEASURE = """
+let timer;
+try {
+  await Promise.race([
+    document.fonts.ready.then(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)))),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('layout readiness deadline')),
+                         30000);
+    })
+  ]);
+  return """ + MEASURE + """;
+} finally { clearTimeout(timer); }
+"""
+
 PLATFORM = sys.argv[1] if len(sys.argv) > 1 else "desktop"
 ALL_SCREENS = {"desktop": DESKTOP, "android": ANDROID}[PLATFORM]
 requested = sys.argv[2:]
@@ -168,7 +217,7 @@ def snapshot():
 def measured(_view, result):
     try:
         layout[shot_name()] = json.loads(
-            view.evaluate_javascript_finish(result).to_string())
+            view.call_async_javascript_function_finish(result).to_string())
     except GLib.Error as error:
         failed.append(f"{shot_name()} layout: {error.message}")
     snapshot()
@@ -186,9 +235,8 @@ def saved(_view, result):
 
 def loaded(_view, event):
     if event == WebKit2.LoadEvent.FINISHED:
-        # Let layout settle after the inline script hides the other screens.
-        GLib.timeout_add(150, lambda: view.evaluate_javascript(
-            MEASURE, -1, None, None, None, measured) and False)
+        view.call_async_javascript_function(
+            READY_MEASURE, -1, None, None, None, None, measured)
 
 
 def load_failed(_view, _event, uri, error):

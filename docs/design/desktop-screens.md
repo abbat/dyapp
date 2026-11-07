@@ -292,6 +292,14 @@ and timed cleanup are best effort
 
 ## Chats
 
+The prototype composer orders `chat-attach`, `chat-input`, `chat-stickers`, then
+`chat-send`. Paperclip, sticker and send icons have localized accessible names and
+tooltips. Empty text hides Send inside a reserved slot, preserving textarea width
+and focus; `chat-draft` previews a nonempty draft. Pending-request and closed states
+disable the controls. The sticker button opens the collection manager. The shipped
+composer integration follows in a separate checkpoint; Enter/Shift+Enter behavior
+continues to belong to its existing send handler.
+
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
 learns nothing until a reply. The Linux screen now renders ordered, pair-wide local requests
@@ -471,7 +479,8 @@ searchable `settings-blocked` and `settings-passed` lists. Account links to
 the shipped client; its existing inline controls below remain implemented until integration.
 Immediate binary settings use switches; theme and language default to System. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
-has its own `sticker-manager` screen in `stickers-*` states; picker integration follows.
+has its own `sticker-manager` screen in `stickers-*` states, entered from the prototype
+composer's `chat-stickers` button. Shipped picker integration remains planned.
 
 Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning

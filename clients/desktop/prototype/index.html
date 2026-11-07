@@ -32,6 +32,9 @@
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-attach" viewBox="0 0 24 24"><path d="m9 16 8-8a3 3 0 0 0-4-4L4 13a5 5 0 0 0 7 7l9-9"/><path d="m7 14 8-8"/></symbol>
+  <symbol id="i-sticker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14q4 5 8 0M8 9h1M15 9h1"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 18 9-18 9 3-9zM6 12h15"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
@@ -413,7 +416,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <section id="chat" class="chat" data-on="chat chat-draft chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
       <div class="chat-head">
         <button type="button" class="btn quiet" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
@@ -452,10 +455,10 @@ search providers asked: 0 of 3</pre>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
       </div>
       <div class="composer">
-        <textarea id="chat-input" rows="1" data-tp="chat.placeholder" data-disabled="chat-first chat-closed"></textarea>
-        <!-- The sample box is empty, so Send is off everywhere; typing turns it on. -->
-        <button type="button" class="btn quiet" id="chat-attach" data-t="chat.attach" data-disabled="chat-first chat-closed"></button>
-        <button type="button" class="btn primary" id="chat-send" data-t="chat.send" disabled></button>
+        <button type="button" class="btn quiet icon-button" id="chat-attach" aria-label="Attach photo" title="Attach photo" data-ta="chat.attach" data-tt="chat.attach" data-disabled="chat-first chat-closed"><svg class="icon" aria-hidden="true"><use href="#i-attach"/></svg></button>
+        <textarea id="chat-input" rows="1" aria-label="Message" data-ta="chat.placeholder" data-tp="chat.placeholder" data-disabled="chat-first chat-closed"></textarea>
+        <button type="button" class="btn quiet icon-button" id="chat-stickers" aria-label="Stickers" title="Stickers" data-ta="chat.stickers" data-tt="chat.stickers" data-disabled="chat-first chat-closed"><svg class="icon" aria-hidden="true"><use href="#i-sticker"/></svg></button>
+        <span class="send-slot"><button type="button" class="btn primary icon-button" id="chat-send" aria-label="Send" title="Send" data-ta="chat.send" data-tt="chat.send" disabled hidden><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button></span>
       </div>
       <p class="caption" data-on="chat-first" data-t="chat.first.wait"></p>
     </section>
@@ -838,7 +841,8 @@ search providers asked: 0 of 3</pre>
 const screen = location.hash.slice(1) || 'profile';
 const lang = new URLSearchParams(location.search).get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const has = (el, name) => el.dataset[name].split(' ').includes(screen);
+const shownScreen = screen === 'chat-draft' ? 'chat' : screen;
+const has = (el, name) => el.dataset[name].split(' ').includes(shownScreen);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
 if (screen === 'profile-dark') document.documentElement.dataset.theme = 'dark';
@@ -852,6 +856,14 @@ for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.da
 for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
+for (const el of document.querySelectorAll('[data-tt]')) el.title = t[el.dataset.tt];
+const draft = document.getElementById('chat-input');
+const send = document.getElementById('chat-send');
+const updateSend = () => { send.hidden = !draft.value.trim(); send.disabled = draft.disabled || send.hidden; };
+if (screen === 'chat-draft') draft.value = t['chat.m1'];
+draft.addEventListener('input', updateSend);
+updateSend();
+document.getElementById('chat-stickers').addEventListener('click', () => { location.hash = 'stickers-empty'; });
 for (const control of document.querySelectorAll('[role=switch]')) control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
 window.addEventListener('hashchange', () => location.reload());
 document.title = `${t['app.name']} — ${screen}`;

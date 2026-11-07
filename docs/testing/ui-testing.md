@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Prototype screenshots wait for `document.fonts.ready` and two animation frames, with a
+30-second failure deadline, before measuring layout. The desktop composer check changes
+text through input events and compares the field's current bounds and focus as Send
+appears/disappears; it does not assume a window coordinate or add a layout sleep.
+
 Android profile-sharing coverage extends the existing two-peer request/reply test:
 the peer sends a profile link, the app opens it, shares through the destination
 picker, and checks delivery in the peer's history before testing card/back

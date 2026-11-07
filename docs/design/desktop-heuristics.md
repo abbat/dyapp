@@ -8,6 +8,20 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Composer prototype row (2026-11-07)
+
+The requested messenger pattern uses paperclip, sticker and send symbols, in that
+keyboard order around the text field, with translated accessible names and native
+tooltips. Targets are 40 px and the hidden Send retains its slot, so typing does not
+shift the field or focus. H1–H10 review includes empty/draft/closed/request states
+and the adjacent thread/collection manager. This compact pattern intentionally
+uses tooltips rather than permanent icon text; NN/g's stricter preference for visible
+labels remains a trade-off of the requested design, not a claim that icons are universal.
+Sources checked: [Apple Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons),
+[Material icon buttons](https://m3.material.io/components/icon-buttons/accessibility)
+(JS-only, text not verified) and [NN/g Icon Usability](https://www.nngroup.com/articles/icon-usability/).
+Static layout review does not prove native send or TAR-picker execution.
+
 ## Settings hub prototype structure (2026-11-07)
 
 Reviewed category root, Appearance, Privacy, Notifications, Photos, Node, Account,
