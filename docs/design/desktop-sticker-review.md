@@ -119,6 +119,10 @@ status reads, offline staging before delivery, duplicate-click protection, obser
 uncertain-action readback without automatic retry, manager return, malformed status and late
 reads after Clear. Unbroken pack names remain literal and fit the view. Status/action blocks
 meet the token gaps and viewport bounds; image16 and redraw4 integration cases still pass.
-Pending status follows the existing mailbox callback, with no page timer. These checks mock IPC;
+Pending status follows the existing mailbox callback, with no page timer. Deferred-history
+checks also verify that a transparent same-chat refresh preserves writable input, Send, draft
+and keyboard focus. A closed snapshot disables composing; switching peers disables it immediately
+and does not carry the old draft. These use the actual input listener and composer policy.
+These checks mock IPC;
 native commands, file input and real-peer round trips remain separate CI acceptance.
 Prototype and mocked-controller validation do not establish native transport acceptance.

@@ -539,9 +539,13 @@ const openChat = async (peerId, call = invoke) => {
   if (newDevicePeer !== peerId) showNewDevice(null);
   if (photoOriginalsPeer !== peerId) forgetPhotos();
   photoOriginalsPeer = peerId;
-  activeChat = null;
-  updateComposer();
-  chatsMessage('chats.loading');
+  // A transparent refresh keeps the draft writable until the new snapshot changes its policy.
+  if (previous?.peerId !== peerId) {
+    if (previous) chatInput.value = '';
+    activeChat = null;
+    updateComposer();
+    chatsMessage('chats.loading');
+  }
   try {
     const history = await call('chat_history', { peerId });
     if (!currentChat()) return;

@@ -48,6 +48,9 @@ its classic-script helper retains the controller helpers for media, delivery and
 Unchanged chat render inputs preserve mounted rows and their original message objects:
 Edit/Delete use reference membership guards. Include identity, peer, displayed name, full history
 and call-function identity in reuse checks, and reset them on leaving or closing the chat.
+A same-peer background read keeps the existing composer active until refreshed policy changes it;
+disabling it first can blur a textarea during typing. A different-peer open follows closeChat's
+draft-clearing policy, including direct navigation after Forward.
 
 Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
 The classic scripts share lexical helpers; keep that order when moving controller code to
