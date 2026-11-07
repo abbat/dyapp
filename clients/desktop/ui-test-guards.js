@@ -7,12 +7,12 @@ const checkStaleSettingsInventory = async () => {
   const switchAndLoad = async () => {
     await act(Promise.resolve({ status: 'picker' }));
     await act(Promise.resolve(readyState));
-    await openArea('settings');
+    await openArea('settings', 'identities');
     const items = await invokeTest('list_identities');
     await showSettingsIdentities(() => Promise.resolve(items));
     return [...list.children].map((row) => row.dataset.peerId).join();
   };
-  await openArea('settings');
+  await openArea('settings', 'identities');
   let finishLoad;
   const oldLoad = showSettingsIdentities(() => new Promise((resolve) => { finishLoad = resolve; }));
   const rows = await switchAndLoad();
@@ -40,7 +40,7 @@ const checkStaleNode = async () => {
   const switchAndShow = async () => {
     await act(Promise.resolve({ status: 'picker' }));
     await act(Promise.resolve(readyState));
-    await openArea('settings');
+    await openArea('settings', 'node');
     await window.nodeShown;
     await showNode((command) => Promise.resolve(command === 'node_status'
       ? { status: 'off', peerId: '' } : saved));
@@ -51,7 +51,7 @@ const checkStaleNode = async () => {
       || document.getElementById('node-disk').value !== '40'
       || document.getElementById('node-connections').value !== '2') throw new Error(message);
   };
-  await openArea('settings');
+  await openArea('settings', 'node');
   let finishStatus;
   const oldStatus = showNode(() => new Promise((resolve) => { finishStatus = resolve; }));
   await switchAndShow();
@@ -111,13 +111,13 @@ const checkStaleTray = async () => {
   const show = document.getElementById('tray-show');
   const close = document.getElementById('tray-close');
   const note = document.getElementById('tray-note');
-  await openArea('settings');
+  await openArea('settings', 'appearance');
   await window.trayShown;
   let finishOld;
   const oldTray = setTray(null, () => new Promise((resolve) => { finishOld = resolve; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'appearance');
   await window.trayShown;
   await setTray(null, () => Promise.resolve({
     available: true, show: true, closeToTray: true,
@@ -474,7 +474,7 @@ const checkStalePlaceSuggestions = async () => {
 const removeOpened = async (state, mode) => {
   const { strings } = window;
   if (state.status === 'ready') {
-    await openArea('settings');
+    await openArea('settings', 'identities');
     document.getElementById('settings-remove').click();
     await waitFor('remove');
     if (!document.getElementById('remove-action').disabled) {
@@ -643,14 +643,14 @@ const privacyIds = ['send-views', 'send-read-receipts', 'send-typing', 'presence
   'message-notifications'];
 const privacyState = () => privacyIds.map((id) => document.getElementById(id).checked).join();
 const expectPrivacy = async (expected) => {
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   if (privacyState() !== expected || shown('privacy-error')) {
     throw new Error(`privacy settings ${privacyState()}, expected ${expected}`);
   }
 };
 const checkPrivacy = async (restarted) => {
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   await window.blockedShown;
   const expected = restarted ? 'true,true,false,false,false' : 'false,false,true,true,true';
@@ -666,16 +666,19 @@ const checkPrivacy = async (restarted) => {
     throw new Error(`notice content ${noticeChoice.value}, disabled ${noticeChoice.disabled}`);
   }
   if (restarted) return;
+  openSettings('notifications');
   noticeChoice.value = 'text';
   noticeChoice.dispatchEvent(new Event('change', { bubbles: true }));
   await window.privacySaved;
   for (const id of ['send-views', 'send-read-receipts', 'send-typing', 'presence-nobody',
     'message-notifications']) {
+    openSettings(id === 'message-notifications' ? 'notifications' : 'privacy');
     document.getElementById(id).click();
     await window.privacySaved;
   }
   if (shown('privacy-error')) throw new Error('privacy settings not saved');
   const root = document.documentElement;
+  openSettings('appearance');
   document.getElementById('theme-dark').click();
   if (root.dataset.theme !== 'dark') throw new Error('dark theme not applied');
   document.getElementById('theme-system').click();
@@ -684,7 +687,7 @@ const checkPrivacy = async (restarted) => {
   const blocked = await invokeTest('block_peer', { peerId: blockedPeer });
   if (blocked.revocation !== 'notNeeded') throw new Error(`unexpected block state: ${blocked.revocation}`);
   await openArea('profile-area');
-  await openArea('settings');
+  await openArea('settings', 'blocked');
   await window.blockedShown;
   const retry = document.getElementById('retry-revocation-1');
   if (!retry || !document.getElementById('unblock-1')
@@ -715,7 +718,7 @@ const checkDevices = async () => {
   };
   await showDevices(() => Promise.resolve([]));
   if (!card.hidden) throw new Error('an unpublished identity shows Devices');
-  await openArea('settings');
+  await openArea('settings', 'devices');
   await showDevices(list);
   await stale;
   const shownKeys = [...document.querySelectorAll('#devices-list code')].map((key) => key.textContent);
@@ -859,7 +862,7 @@ const checkLinkScreen = async () => {
   document.getElementById('link-network-cancel').click();
   if (!identity.checkVisibility() || seen('link-network-cancel')
     || !document.getElementById('skip-network').hidden) throw new Error('link network step stayed');
-  await openArea('settings');
+  await openArea('settings', 'identities');
   if (!seen('device-join') || document.getElementById('devices').contains(document.getElementById('device-join'))) {
     throw new Error('an unpublished identity cannot link this computer');
   }
@@ -915,7 +918,7 @@ const linkWaitStep = async (mode, seed) => {
   return linkJoined.peerId;
 };
 const linkSendStep = async (code) => {
-  await openArea('settings');
+  await openArea('settings', 'devices');
   await window.devicesShown;
   document.getElementById('device-link').click();
   document.getElementById('device-code').value = code;
@@ -928,7 +931,7 @@ const linkSendStep = async (code) => {
   }
 };
 const linkDisconnectStep = async () => {
-  await openArea('settings');
+  await openArea('settings', 'devices');
   await liveDevices(2);
   await showDevices();
   document.getElementById('device-disconnect-1').click();

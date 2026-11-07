@@ -9,9 +9,22 @@ const waitFor = (id) => new Promise((resolve, reject) => {
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`${id} not shown`)); }, 10000);
 });
 // Opens a sidebar area of the shell and waits until it shows.
-const openArea = async (area) => {
+const openArea = async (area, pane = null) => {
   document.querySelector(`#sidebar [data-area="${area}"]`).click();
   await waitFor(area);
+  if (area === 'settings' && pane) openSettings(pane);
+};
+const openSettings = (pane) => {
+  const root = document.getElementById('settings-root');
+  for (let depth = 0; root.hidden && depth < 2; depth += 1) document.getElementById('settings-back').click();
+  if (root.hidden) throw Error('Settings Back did not return to root');
+  const parent = { identities: 'account', devices: 'account', blocked: 'privacy', passed: 'privacy' };
+  for (const name of [parent[pane], pane].filter(Boolean)) {
+    const button = [...document.querySelectorAll(`[data-settings-open="${name}"]`)]
+      .find((item) => !item.closest('[hidden]'));
+    if (!button) throw Error(`Settings destination ${name} is not visible`);
+    button.click();
+  }
 };
 // The hidden attribute must remove an element from the layout, whatever its display rule.
 const hiddenRendered = () => [...document.querySelectorAll('[hidden]')]
@@ -96,7 +109,7 @@ const pickReady = async (mode) => {
   await waitFor('identity');
 };
 const checkSettingsInventory = async (peerId, mode) => {
-  await openArea('settings');
+  await openArea('settings', 'identities');
   const expected = await invokeTest('list_identities');
   const list = document.getElementById('settings-identities');
   await new Promise((resolve, reject) => {
@@ -122,13 +135,14 @@ const checkSettingsInventory = async (peerId, mode) => {
   await openArea('profile-area');
 };
 const switchFromSettings = async (mode) => {
-  await openArea('settings');
+  await openArea('settings', 'identities');
   document.getElementById('settings-switch').click();
   await waitFor('picker');
   // Cancel goes back to the open identity without switching.
   document.getElementById('picker-cancel').click();
   await waitFor('identity');
   if (document.getElementById('settings').hidden) throw new Error('picker Cancel left Settings');
+  openSettings('identities');
   document.getElementById('settings-switch').click();
   await waitFor('picker');
   await pickReady(mode);
@@ -578,13 +592,13 @@ const checkStaleProfileTimers = async () => {
 // Old Settings and status polls must not paint B or schedule another A poll.
 const checkStaleUsageStatus = async () => {
   const readyState = current;
-  await openArea('settings');
+  await openArea('settings', 'node');
   await window.usageShown;
   let finishUsage;
   const oldUsage = showUsage(() => new Promise((resolve) => { finishUsage = resolve; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'node');
   await window.usageShown;
   const path = document.getElementById('usage-identity-dir').textContent;
   const originalTimeout = globalThis.setTimeout;
@@ -623,13 +637,13 @@ const checkStaleUsageStatus = async () => {
 // A privacy response from A must leave B's toggles and error state alone.
 const checkStalePrivacy = async () => {
   const readyState = current;
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   let finishLoad;
   const oldLoad = showPrivacy(() => new Promise((resolve) => { finishLoad = resolve; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   const newer = { sendViews: true, sendReadReceipts: true, sendTyping: false,
     presenceMatches: false, notifications: false, noticeContent: 'name' };
@@ -646,7 +660,7 @@ const checkStalePrivacy = async () => {
   const oldFailure = showPrivacy(() => new Promise((_, reject) => { failLoad = reject; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   failLoad(new Error('old load'));
   await oldFailure;
@@ -656,7 +670,7 @@ const checkStalePrivacy = async () => {
   const oldSave = savePrivacy(() => new Promise((resolve) => { finishSave = resolve; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   // The blocked list loads alongside and hides the error when it finishes.
   await window.blockedShown;
@@ -671,7 +685,7 @@ const checkStalePrivacy = async () => {
   const oldSaveFailure = savePrivacy(() => new Promise((_, reject) => { failSave = reject; }));
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
-  await openArea('settings');
+  await openArea('settings', 'privacy');
   await window.privacyShown;
   failSave(new Error('old save'));
   await oldSaveFailure;
@@ -687,7 +701,7 @@ const checkStaleBlocked = async () => {
   const switchToNewList = async () => {
     await act(Promise.resolve({ status: 'picker' }));
     await act(Promise.resolve(readyState));
-    await openArea('settings');
+    await openArea('settings', 'blocked');
     await window.blockedShown;
     await showBlocked(() => Promise.resolve([newPeer]));
     status.textContent = 'new identity';
@@ -698,7 +712,7 @@ const checkStaleBlocked = async () => {
       || document.getElementById('unblock-1').disabled
       || document.getElementById('retry-revocation-1').disabled) throw new Error(message);
   };
-  await openArea('settings');
+  await openArea('settings', 'blocked');
   await window.blockedShown;
   let finishLoad;
   const oldLoad = showBlocked(() => new Promise((resolve) => { finishLoad = resolve; }));

@@ -18,7 +18,7 @@ const saveNode = async (enabled, disk) => {
 const checkUsage = async (limit) => {
   const { strings } = window;
   await openArea('profile-area');
-  await openArea('settings');
+  await openArea('settings', 'node');
   await window.usageShown;
   const text = (id) => document.getElementById(id).textContent;
   const bar = document.getElementById('usage-node-bar');
@@ -39,7 +39,7 @@ const checkUsage = async (limit) => {
 // Settings → Storage on every platform: the store sits in the identity folder and has a size; a
 // row the app cannot fill is hidden, and no size reads as a made-up zero.
 const checkStorageCard = async () => {
-  await openArea('settings');
+  await openArea('settings', 'node');
   await window.usageShown;
   const text = (id) => document.getElementById(id).textContent;
   const shown = (id) => !document.getElementById(id).hidden;
@@ -341,7 +341,7 @@ const checkSavedProfile = async () => {
 // Removal withdraws a published profile first. With the node stopped no node takes the tombstone:
 // Retry fails again and Cancel keeps the identity.
 const removeOfflineIdentity = async () => {
-  await openArea('settings');
+  await openArea('settings', 'identities');
   byId('settings-remove').click();
   await waitFor('remove');
   if (!shown('remove-text') || !shown('remove-ask') || shown('remove-offline')) {
@@ -365,7 +365,7 @@ const removeOfflineIdentity = async () => {
 };
 // With the node back the tombstone goes first, then the key; a new identity opens for the checks.
 const removeWithTombstone = async (mode) => {
-  await openArea('settings');
+  await openArea('settings', 'identities');
   byId('settings-remove').click();
   await waitFor('remove');
   byId('remove-confirm').click();
@@ -629,7 +629,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       };
       if (state.status === 'setup') await chooseStorage(mode);
       if (kind !== 'none') await tray((now) => now.available);
-      await openArea('settings');
+      await openArea('settings', 'appearance');
       await window.trayShown;
       const show = document.getElementById('tray-show');
       const close = document.getElementById('tray-close');
@@ -670,7 +670,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await window.checkStickerRemoval();
       await window.checkChatComposer();
       await window.checkSettingsNavigation();
-      await openArea('settings');
+      await openArea('settings', 'identities');
       document.getElementById('settings-create').click();
       await waitFor('setup');
       await chooseStorage(mode);

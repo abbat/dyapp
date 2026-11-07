@@ -100,7 +100,7 @@ const presenceSteps = {
     if (document.querySelector(`#search-results [data-peer-id="${peer}"]`)) {
       throw new Error('search showed the passed peer');
     }
-    await openArea('settings');
+    await openArea('settings', 'passed');
     await window.passedShown;
     document.getElementById('unpass-1').click();
     await window.passedShown;
@@ -162,7 +162,7 @@ const presenceSteps = {
   // desktop-smoke.py runs fake-notify.py here and reads the notice it kept. The window comes back
   // only through the click, or ui_test_hide fails.
   'notice-click': async () => {
-    await openArea('settings');
+    await openArea('settings', 'notifications');
     await window.showPrivacy();
     const content = document.getElementById('notice-content');
     content.value = 'text';

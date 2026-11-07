@@ -191,7 +191,7 @@ const checkChatPhoto = async () => {
   document.getElementById('chat-back').click();
   await window.showChats(() => Promise.resolve([]));
 
-  await openArea('settings');
+  await openArea('settings', 'photos');
   await window.photoModeShown;
   const mode = (value) => document.querySelector(`input[name="photo-mode"][value="${value}"]`);
   if (!mode('byNetwork').checked) throw new Error('the photo mode did not default to by network');

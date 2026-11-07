@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Desktop native smokes use `openArea('settings', category)` and `openSettings(category)`
+to follow the actual category buttons, including parent collections, before operating
+controls. The helper rejects a hidden destination; it does not expose panes directly
+or add waits for navigation. Settings navigation has its own Back/focus/reset smoke.
+
 Prototype screenshots wait for `document.fonts.ready` and two animation frames, with a
 30-second failure deadline, before measuring layout. The desktop composer check changes
 text through input events and compares the field's current bounds and focus as Send
