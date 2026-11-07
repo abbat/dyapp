@@ -22,6 +22,8 @@ pub(crate) mod forward;
 pub(crate) mod names;
 #[path = "chats/operations.rs"]
 pub(crate) mod operations;
+#[path = "chats/own.rs"]
+pub(crate) mod own;
 #[path = "chats/presence.rs"]
 pub(crate) mod presence;
 #[path = "chats/reads.rs"]
@@ -30,8 +32,6 @@ mod reads;
 pub(crate) mod send_photo;
 #[path = "chats/share.rs"]
 pub(crate) mod share;
-#[path = "chats/own.rs"]
-pub(crate) mod own;
 #[path = "chats/view.rs"]
 mod view;
 pub use view::{BlockResult, ChatHistoryView, ChatRowView, MessageView, Revocation};
@@ -72,7 +72,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
                 .map_err(|e| e.to_string())?,
             peer_id: row.peer_id,
             state: row.state.into(),
-            last_message: view::last_item(row.last_message, row.last_attachment),
+            last_message: view::last_item(row.last_message, row.last_attachment, row.last_sticker),
             unread_count: row.unread_count,
             muted,
         });

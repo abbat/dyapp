@@ -61,18 +61,13 @@ impl ChatItem {
         match self {
             Self::Text(message) => message.order(),
             Self::Attachment(attachment) => Some(attachment.order()),
-            Self::Sticker(sticker) => Some((
-                sticker.sticker.hlc,
-                &sticker.key.author,
-                &sticker.key.id,
-                &sticker.key.group,
-            )),
+            Self::Sticker(sticker) => Some(sticker.order()),
         }
     }
 }
 
-/// Columns of a stored attachment, in the order `Store::attachment_from` expects.
-type StoredAttachment = (
+/// Shared media columns consumed by the photo and sticker validators.
+pub(super) type StoredMedia = (
     Vec<u8>,
     String,
     Vec<u8>,
@@ -84,7 +79,7 @@ type StoredAttachment = (
     Option<Vec<u8>>,
 );
 
-fn stored_attachment(row: &Row<'_>) -> rusqlite::Result<StoredAttachment> {
+pub(super) fn stored_media(row: &Row<'_>) -> rusqlite::Result<StoredMedia> {
     Ok((
         row.get(0)?,
         row.get(1)?,
@@ -166,7 +161,7 @@ impl Store {
              WHERE `g`.`peer_id` = ?1 AND `a`.`media_kind` = 1
              ORDER BY `a`.`original_hlc`, `a`.`author`, `a`.`message_id`, `a`.`group_id`",
         )?;
-        let rows = query.query_map([peer_id], stored_attachment)?;
+        let rows = query.query_map([peer_id], stored_media)?;
         rows.map(|row| self.attachment_from(peer_id, row?))
             .collect()
     }
@@ -217,7 +212,7 @@ impl Store {
         )?;
         let rows = query.query_map([], |row| {
             Ok((
-                stored_attachment(row)?,
+                stored_media(row)?,
                 row.get::<_, String>(9)?,
                 row.get::<_, i64>(10)?,
             ))
@@ -231,11 +226,7 @@ impl Store {
         .collect()
     }
 
-    fn attachment_from(
-        &self,
-        peer_id: &str,
-        stored: StoredAttachment,
-    ) -> Result<ChatAttachment, Error> {
+    fn attachment_from(&self, peer_id: &str, stored: StoredMedia) -> Result<ChatAttachment, Error> {
         let (group, author, id, hlc, descriptor, unread, forwarded, delivery, generation) = stored;
         if (author != self.owner_peer_id && author != peer_id)
             || !matches!(unread, 0 | 1)

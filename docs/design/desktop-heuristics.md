@@ -8,6 +8,21 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Sticker chat-list review (2026-11-07)
+
+Reviewed latest-sticker preview, unread badge, long name, muted row and adjacent
+deleted/photo/request rows in EN/RU at 440/1280 px using the shipped chatRow and
+chatPreview code/style with mocked avatars/metadata. Shots:
+`build/ux-research/sticker-list-live/`. H1–H10: counts/time remain visible, labels
+match history, native row buttons retain keyboard access, no media fetch occurs,
+and long previews ellipsize without horizontal overflow. Opening history preserves
+the full label; deleted messages have a distinct fallback. Core tests verify
+cross-kind counts/order, read/clear, closed media-only history and restart.
+Rechecked ADR 0046 criteria: row spacing and grouping are unchanged (L1/L2),
+long Russian previews fit through ellipsis (T1), existing contrast/focus remains (T2).
+Settings, identifier and dialog criteria do not apply to this list preview change.
+No open source/layout finding. Native DTO execution still requires CI.
+
 ## Sticker fallback history review (2026-11-07)
 
 Reviewed incoming/own fallback, 64-character unbroken pack name, HTML-like name,

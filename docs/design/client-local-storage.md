@@ -52,7 +52,9 @@ key. A database with a missing sealing secret fails closed instead of silently c
 
 `current_chat_items` merges a pair's texts, photos and typed sticker fallbacks: legacy texts first in arrival order,
 then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across both
-kinds and sets `last_attachment` when a photo is newer than the last text. The desktop chat JSON
+kinds. `last_attachment` or `last_sticker` identifies the newest media preview, using the same
+HLC/author/message/group ordering as history; unread counts include every kind once.
+Closed conversations remain listed while any text or media history exists. The desktop chat JSON
 carries a photo as an entry with `photo` set: MIME type, clamped claimed shape, plaintext size, hours left and
 the bounded preview, which a list row leaves empty. It never carries the key or the release secret.
 Mobile apps still read `last_message`.
@@ -73,7 +75,8 @@ Clear chat. Known stickers cannot be edited into text. Sticker session/inbox int
 The merged history now includes stickers in HLC order. Desktop JSON and UniFFI expose only
 identity/time, labels, pack/sticker hashes and local status; no descriptor reaches a screen.
 Desktop and Android show a localized text fallback without fetching, editing or forwarding it.
-Sticker session/inbox, chat-list, image rendering and pack-request UI remain planned.
+Desktop list previews show the same localized sticker fallback. Mobile list previews still use
+the legacy text field. Sticker session/inbox, image rendering and pack-request UI remain planned.
 Session receive commits allowed attachments with the sealed MLS snapshot, inbox body digest
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS

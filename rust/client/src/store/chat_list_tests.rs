@@ -1,3 +1,5 @@
+mod stickers;
+
 use super::messages::{ChatItem, VerifiedChatSender};
 use super::{Conversation, Error, InboxKey, Store};
 use crate::attachment::Attachment;

@@ -157,7 +157,8 @@ from restoring them. Common originals references include only hash-matching desc
 no sticker-only cache is needed. Photo queries exclude sticker rows. Sticker session integration,
 merged history now includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
 Desktop and Android render a localized emoji/name fallback without fetching or edit/forward actions.
-Chat-list integration, image rendering and Add pack actions remain planned. At the Store boundary, tag-9 deletion of a
+Desktop chat-list previews now include the newest sticker and count its unread state;
+image rendering, mobile list previews and Add pack actions remain planned. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded

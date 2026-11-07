@@ -245,6 +245,7 @@ mod tests {
             state,
             last_message: Some(last_message),
             last_attachment: None,
+            last_sticker: None,
             unread_count,
         }
     }
@@ -260,7 +261,11 @@ mod tests {
         let like = |store: &mut dyapp_client::store::Store, sender: &str, target: &str, n: u8| {
             let kind = Kind::Like;
             let (event_id, hlc) = ([n; 16], u64::from(n) << 16);
-            let interaction = Interaction { kind, event_id, hlc };
+            let interaction = Interaction {
+                kind,
+                event_id,
+                hlc,
+            };
             store
                 .apply_interaction(sender, target, &[n; 32], interaction)
                 .unwrap();

@@ -1,7 +1,9 @@
 //! Pair-wide Chats list projection from local conversations and current message rows.
 
 use super::messages::attachments::ItemOrder;
-use super::messages::{ChatAttachment, ChatMessage, CurrentMessage, DeliveryState, MessageKey};
+use super::messages::{
+    ChatAttachment, ChatMessage, ChatSticker, CurrentMessage, DeliveryState, MessageKey,
+};
 use super::{Conversation, Error, Store};
 use dyapp_messaging::hlc::Timestamp;
 
@@ -16,28 +18,33 @@ pub struct ChatRow {
     pub last_message: Option<ChatMessage>,
     /// The newest attachment when it is newer than `last_message`: the row's preview.
     pub last_attachment: Option<ChatAttachment>,
-    /// Incoming current texts and attachments not yet viewed on this device.
+    /// Newest sticker when it is newer than both the text and photo preview.
+    pub last_sticker: Option<ChatSticker>,
+    /// Incoming current texts and media not yet viewed on this device.
     pub unread_count: usize,
 }
 
 impl ChatRow {
     fn latest(&self) -> Option<ItemOrder<'_>> {
         let text = || self.last_message.as_ref().and_then(ChatMessage::order);
-        self.last_attachment
+        self.last_sticker
             .as_ref()
-            .map(ChatAttachment::order)
+            .map(ChatSticker::order)
+            .or_else(|| self.last_attachment.as_ref().map(ChatAttachment::order))
             .or_else(text)
     }
 
     /// Timed rows, then legacy rows, then empty conversations.
     fn group(&self) -> (bool, bool) {
-        let empty = self.last_message.is_none() && self.last_attachment.is_none();
+        let empty = self.last_message.is_none()
+            && self.last_attachment.is_none()
+            && self.last_sticker.is_none();
         (empty, self.latest().is_none())
     }
 }
 
 impl Store {
-    /// Read active conversations, latest current texts and attachments, and local unread counts.
+    /// Read active conversations, latest texts/media and local unread counts.
     /// A closed conversation with nothing left in it is not listed.
     /// Timed rows sort first by original HLC; legacy rows use local arrival order. Empty
     /// conversations follow rows with messages, then Peer ID breaks any remaining tie.
@@ -66,7 +73,11 @@ impl Store {
             FROM `conversations` AS `c`
             LEFT JOIN `ranked` AS `r`
               ON `c`.`peer_id` = `r`.`peer_id` AND `r`.`message_rank` = 1
-            WHERE `c`.`state` <> 4 OR `r`.`group_id` IS NOT NULL
+            WHERE `c`.`state` <> 4 OR `r`.`group_id` IS NOT NULL OR EXISTS (
+                SELECT 1 FROM `chat_attachments` AS `a`
+                JOIN `conversation_groups` AS `g` ON `a`.`group_id` = `g`.`group_id`
+                WHERE `g`.`peer_id` = `c`.`peer_id`
+            )
             ORDER BY (`r`.`group_id` IS NULL),
                      (`r`.`original_hlc` IS NOT NULL) DESC,
                      CASE WHEN `r`.`original_hlc` IS NULL
@@ -93,6 +104,7 @@ impl Store {
             ))
         })?;
         let mut attachments = self.latest_chat_attachments()?;
+        let mut stickers = self.latest_chat_stickers()?;
         let mut result = Vec::new();
         for row in rows {
             let (
@@ -169,17 +181,29 @@ impl Store {
                 Some((attachment, count)) => (Some(attachment), count),
                 None => (None, 0),
             };
-            let last_attachment = last_attachment.filter(|attachment| {
+            let mut last_attachment = last_attachment.filter(|attachment| {
                 let text = last_message.as_ref().and_then(ChatMessage::order);
                 text < Some(attachment.order())
             });
+            let (last_sticker, unread_stickers) = match stickers.remove(&peer_id) {
+                Some((sticker, count)) => (Some(sticker), count),
+                None => (None, 0),
+            };
+            let last_sticker = last_sticker.filter(|sticker| {
+                last_message.as_ref().and_then(ChatMessage::order) < Some(sticker.order())
+                    && last_attachment.as_ref().map(ChatAttachment::order) < Some(sticker.order())
+            });
+            if last_sticker.is_some() {
+                last_attachment = None;
+            }
             let unread_texts = usize::try_from(count).map_err(|_| Error::InboxConflict)?;
             result.push(ChatRow {
                 peer_id,
                 state,
                 last_message,
                 last_attachment,
-                unread_count: unread_texts + unread_attachments,
+                last_sticker,
+                unread_count: unread_texts + unread_attachments + unread_stickers,
             });
         }
         // The sort is stable, so legacy and empty rows keep the order the query gave them.

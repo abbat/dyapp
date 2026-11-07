@@ -248,7 +248,11 @@ pub(super) fn mark_photos(views: &mut [MessageView], now_ms: u64, dir: &Path) {
 pub(super) fn last_item(
     text: Option<ChatMessage>,
     photo: Option<ChatAttachment>,
+    sticker: Option<ChatSticker>,
 ) -> Option<MessageView> {
+    if let Some(sticker) = sticker {
+        return Some(sticker.into());
+    }
     let Some(photo) = photo else {
         return text.map(Into::into);
     };
@@ -346,7 +350,7 @@ mod tests {
             unread: true,
             delivery: None,
         };
-        let view = MessageView::from(stored);
+        let view = last_item(None, None, Some(stored)).unwrap();
         assert_eq!(view.sent_at_ms, Some(5));
         assert!(view.text.is_none() && view.photo.is_none() && view.unread);
         let json = serde_json::to_value(view).unwrap();
@@ -436,10 +440,10 @@ mod tests {
 
     #[test]
     fn a_list_row_names_the_photo_without_its_preview() {
-        let row = last_item(None, Some(photo())).unwrap().photo.unwrap();
+        let row = last_item(None, Some(photo()), None).unwrap().photo.unwrap();
         assert!(row.preview.is_empty());
         assert_eq!(row.mime, "image/jpeg");
-        assert!(last_item(None, None).is_none());
+        assert!(last_item(None, None, None).is_none());
     }
 
     #[test]
