@@ -32,6 +32,10 @@ when advancing the imported clock, validate text at codec/store/import boundarie
 reordered equal-clock events and clears. Send private state only through own-device groups;
 a contact conversation must never receive it.
 
+Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
+The classic scripts share lexical helpers; keep that order when moving controller code to
+stay below the per-file line limit, and retain the existing native smoke entry points.
+
 Desktop search result objects can be reused after Back and reopening a profile. Async UI
 callbacks must capture the per-opening view object plus identity generation; comparing only
 the result object or Peer ID admits old responses. Invalidate initial state reads once a local

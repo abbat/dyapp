@@ -180,7 +180,7 @@ const identityButton = (item) => {
 
 // Remove applies to the open identity only, so it sits in that row.
 const settingsRemove = document.getElementById('settings-remove');
-const settingsIdentity = (item) => {
+window.settingsIdentity = (item) => {
   const row = document.createElement('tr');
   const name = document.createElement('td');
   name.className = 'who';
@@ -212,7 +212,7 @@ const sizeText = (bytes) => {
 const knownSize = (bytes) => (bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes));
 const usageText = (id, text) => { document.getElementById(id).textContent = text; };
 let usageTimer;
-const showUsage = async (call = invoke) => {
+window.showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
   const generation = identityGeneration;
   const card = document.getElementById('usage');
@@ -239,7 +239,7 @@ const showUsage = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     card.hidden = true;
   }
-  if (identityCurrent(generation)) usageTimer = setTimeout(showUsage, 10_000);
+  if (identityCurrent(generation)) usageTimer = setTimeout(window.showUsage, 10_000);
 };
 
 // The status bar: client traffic every 2 s, unavailable until a client swarm starts.
@@ -307,110 +307,6 @@ languageChoice.addEventListener('change', () => {
   window.location.reload();
 });
 
-// Settings → Blocked people: Unblock shows the peer in later searches again.
-const unblockPeer = async (peerId, button, call = invoke) => {
-  const generation = identityGeneration;
-  button.disabled = true;
-  try {
-    await call('unblock_peer', { peerId });
-  } catch (_) {
-    if (identityCurrent(generation)) privacyError.hidden = false;
-  }
-  if (identityCurrent(generation)) await showBlocked();
-};
-const retryRevocation = async (peerId, retry, call = invoke) => {
-  const generation = identityGeneration;
-  retry.disabled = true;
-  const status = document.getElementById('blocked-revoke-status');
-  try {
-    const result = await call('block_peer', { peerId });
-    if (identityCurrent(generation)) {
-      status.textContent = window.strings[`settings.blocked.${result.revocation}`];
-    }
-  } catch (error) {
-    if (identityCurrent(generation)) {
-      status.textContent = `${window.strings['settings.blocked.failed']} ${String(error)}`;
-    }
-  } finally {
-    if (identityCurrent(generation)) retry.disabled = false;
-  }
-};
-const showBlocked = async (call = invoke) => {
-  const generation = identityGeneration;
-  const list = document.getElementById('blocked-list');
-  let peers = [];
-  try {
-    peers = await call('blocked_peers');
-    if (!identityCurrent(generation)) return;
-    privacyError.hidden = true;
-  } catch (_) {
-    if (!identityCurrent(generation)) return;
-    privacyError.hidden = false;
-  }
-  document.getElementById('blocked-revoke-status').textContent = '';
-  list.replaceChildren(...peers.map((peerId, index) => {
-    const row = document.createElement('tr');
-    const name = document.createElement('td');
-    name.className = 'who';
-    name.append(...who(row, peerId, null, ''));
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn';
-    button.id = `unblock-${index + 1}`;
-    button.textContent = window.strings['settings.unblock'];
-    button.addEventListener('click', () => {
-      window.blockedShown = unblockPeer(peerId, button);
-    });
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'btn';
-    retry.id = `retry-revocation-${index + 1}`;
-    retry.textContent = window.strings['settings.blocked.retry'];
-    retry.addEventListener('click', () => {
-      window.revocationRetried = retryRevocation(peerId, retry);
-    });
-    const action = document.createElement('td');
-    const buttons = document.createElement('div');
-    buttons.className = 'actions';
-    buttons.append(retry, button);
-    action.append(buttons);
-    row.append(name, action);
-    return row;
-  }));
-  document.getElementById('blocked-none').hidden = peers.length > 0;
-};
-
-const showSettingsIdentities = async (call = invoke) => {
-  const generation = identityGeneration;
-  const list = document.getElementById('settings-identities');
-  const error = document.getElementById('settings-error');
-  // Remove waits under the error until a row for the open identity takes it.
-  error.after(settingsRemove);
-  list.replaceChildren();
-  error.hidden = true;
-  try {
-    const items = await call('list_identities');
-    if (!identityCurrent(generation)) return;
-    list.replaceChildren(...knowPeers(items).map(settingsIdentity));
-    error.hidden = true;
-  } catch (_) {
-    if (!identityCurrent(generation)) return;
-    list.replaceChildren();
-    error.textContent = window.strings['storage.error'];
-    error.hidden = false;
-  }
-};
-const showSettings = () => {
-  window.nodeShown = showNode();
-  window.usageShown = showUsage();
-  window.trayShown = setTray(null);
-  window.privacyShown = showPrivacy();
-  window.blockedShown = showBlocked();
-  window.passedShown = window.showPassed();
-  window.devicesShown = showDevices();
-  return showSettingsIdentities();
-};
-
 // The shell: one area at a time; below 640 px the sidebar slides in over a scrim.
 const menuOpen = document.getElementById('menu-open');
 const setMenu = (open) => {
@@ -434,7 +330,7 @@ const showArea = (area) => {
   setMenu(false);
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
-  if (area === 'settings') showSettings();
+  if (area === 'settings') window.showSettings();
   if (area === 'chats-area') window.chatsDone = window.showChats();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {
@@ -458,7 +354,7 @@ const nodeStatus = (status, detail) => {
   nodeForm.dataset.status = status;
 };
 const nodeResult = (result) => nodeStatus(result.status, result.peerId);
-const showNode = async (call = invoke) => {
+window.showNode = async (call = invoke) => {
   const generation = identityGeneration;
   try {
     const result = await call('node_status');
