@@ -495,9 +495,21 @@ uses a Keep switch, numeric MiB budget, measured usage, Refresh and confirmed Cl
 uncertain failures require readback before another write.
 Immediate binary settings use switches; theme and language default to System. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
-has its own `sticker-manager` screen in `stickers-*` states, entered from the prototype
-composer's `chat-stickers` button. The shipped manager follows that entry; image
-selection and sending remain planned.
+has its own `sticker-manager` screen in `stickers-*` states. The prototype composer's
+`chat-stickers` opens `sticker-picker-ready`, with `sticker-picker-empty`,
+`sticker-picker-recent`, `sticker-picker-loading`, `sticker-picker-error` and
+`sticker-picker-sending` variants. The picker has pack-choice buttons, eight labelled image
+buttons, paging, Cancel and Manage packs. Its `sticker-picker-manage` opens the collection.
+The shipped button still opens management; picker integration remains planned.
+
+Received sticker prototype states are `chat-sticker-image`, `chat-sticker-fallback`,
+`chat-sticker-pending`, `chat-sticker-downloading`, `chat-sticker-failed`,
+`chat-sticker-quota` and `chat-sticker-saved`. They distinguish loading one image from adding
+its pack, preserve a readable fallback, and expose Retry, Request fresh copy, Stop waiting
+or Manage packs where useful. The image has no bubble; the pack stays until removed.
+The prototype uses local canvas drawings solely for geometry. Native safe pixel and request
+commands exist, but their shipped controllers remain planned. Review evidence belongs in
+[the sticker interaction record](desktop-sticker-review.md).
 
 Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning

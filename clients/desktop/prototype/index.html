@@ -443,6 +443,25 @@ search providers asked: 0 of 3</pre>
         <div class="actions"><button type="button" class="btn" id="request-block" data-t="view.block"></button></div></div>
       <div class="thread" id="chat-thread">
         <span class="day" data-off="chat-cleared" data-t="chat.today"></span>
+        <div class="sticker-message" id="sticker-message" data-on="chat-sticker-image chat-sticker-fallback chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota chat-sticker-saved">
+          <canvas width="192" height="192" data-demo-sticker role="img" data-ta="stickerPicker.label" data-off="chat-sticker-fallback"></canvas>
+          <p class="caption" data-on="chat-sticker-fallback" data-t="stickerPicker.fallback"></p>
+          <button type="button" class="btn" data-on="chat-sticker-fallback" data-t="stickerPicker.loadImage"></button>
+          <p class="caption" data-on="chat-sticker-pending" role="status" data-t="stickerRequest.waiting"></p>
+          <p class="caption" data-on="chat-sticker-downloading" role="status" data-t="stickerRequest.downloading"></p>
+          <p class="notice error" data-on="chat-sticker-failed" role="alert" data-t="stickerRequest.invalid"></p>
+          <p class="notice error" data-on="chat-sticker-quota" role="alert" data-t="stickers.quota"></p>
+          <p class="caption" data-on="chat-sticker-saved" role="status" data-t="stickerRequest.saved"></p>
+          <div class="actions">
+            <button type="button" class="btn" data-on="chat-sticker-image chat-sticker-fallback" data-t="stickerRequest.add"></button>
+            <button type="button" class="btn" data-on="chat-sticker-failed chat-sticker-quota" data-t="action.retry"></button>
+            <button type="button" class="btn" data-on="chat-sticker-failed" data-t="stickerRequest.fresh"></button>
+            <button type="button" class="btn" data-on="chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota" data-t="stickerRequest.stop"></button>
+            <button type="button" class="btn" data-on="chat-sticker-quota chat-sticker-saved" data-t="stickerPicker.manage"></button>
+          </div>
+          <time class="caption">14:35</time>
+        </div>
+
         <p class="caption cleared" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
         <div class="msg out" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
         <div class="msg in" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
@@ -838,6 +857,31 @@ search providers asked: 0 of 3</pre>
   </div>
 </div>
 
+
+<div class="modal-scrim" data-on="sticker-picker-empty sticker-picker-ready sticker-picker-recent sticker-picker-loading sticker-picker-error sticker-picker-sending">
+  <div class="modal sticker-picker" id="sticker-picker" role="dialog" aria-modal="true" aria-labelledby="sticker-picker-title">
+    <h2 id="sticker-picker-title" data-t="stickers.title"></h2>
+    <nav class="sticker-choices" data-ta="stickerPicker.packs">
+      <button type="button" class="btn" id="sticker-picker-recent" data-t="stickerPicker.recent" aria-pressed="false"></button>
+      <button type="button" class="btn" id="sticker-picker-pack" data-t="stickers.sample" aria-pressed="true"></button>
+    </nav>
+    <p class="notice" role="status" data-on="sticker-picker-empty" data-t="stickerPicker.empty"></p>
+    <p class="notice" role="status" data-on="sticker-picker-loading" data-t="stickers.loading"></p>
+    <p class="notice" role="status" data-on="sticker-picker-sending" data-t="stickerPicker.sending"></p>
+    <p class="notice error" role="alert" data-on="sticker-picker-error" data-t="stickerPicker.error"></p>
+    <div class="sticker-grid" id="sticker-picker-grid" data-on="sticker-picker-ready sticker-picker-recent sticker-picker-sending"></div>
+    <div class="actions sticker-pagination" data-on="sticker-picker-ready sticker-picker-recent sticker-picker-sending">
+      <button type="button" class="btn" disabled data-t="stickerPicker.previous"></button>
+      <button type="button" class="btn" data-t="stickerPicker.next" data-disabled="sticker-picker-sending"></button>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn focus" id="sticker-picker-cancel" data-t="action.cancel"></button>
+      <button type="button" class="btn" data-on="sticker-picker-error" data-t="action.retry"></button>
+      <button type="button" class="btn" id="sticker-picker-manage" data-t="stickerPicker.manage"></button>
+    </div>
+  </div>
+</div>
+
 <script src="strings.js"></script>
 <script>
 // Show the screen named by the hash in the language named by ?lang=; nothing else.
@@ -845,8 +889,9 @@ const screen = location.hash.slice(1) || 'profile';
 const lang = new URLSearchParams(location.search).get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
 window.strings = t;
-const shownScreen = screen === 'chat-draft' ? 'chat' : screen;
-const has = (el, name) => el.dataset[name].split(' ').includes(shownScreen);
+const shownScreen = screen === 'chat-draft' || screen.startsWith('sticker-picker-')
+  || screen.startsWith('chat-sticker-') ? 'chat' : screen;
+const has = (el, name) => el.dataset[name].split(' ').some((state) => state === shownScreen || state === screen);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
 if (screen === 'profile-dark') document.documentElement.dataset.theme = 'dark';
@@ -867,13 +912,14 @@ const updateSend = () => { send.hidden = !draft.value.trim(); send.disabled = dr
 if (screen === 'chat-draft') draft.value = t['chat.m1'];
 draft.addEventListener('input', updateSend);
 updateSend();
-document.getElementById('chat-stickers').addEventListener('click', () => { location.hash = 'stickers-empty'; });
+document.getElementById('chat-stickers').addEventListener('click', () => { location.hash = 'sticker-picker-ready'; });
 for (const control of document.querySelectorAll('[role=switch]')) control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
 window.addEventListener('hashchange', () => location.reload());
 document.title = `${t['app.name']} — ${screen}`;
 if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
   document.getElementById('sticker-remove-cancel').focus();
 </script>
+<script src="sticker-states.js"></script>
 <script src="../ui/identifiers.js"></script>
 </body>
 </html>

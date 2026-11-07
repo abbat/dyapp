@@ -41,9 +41,46 @@ current chat and cleared chat add 12 states with no L2/I1 findings:
 Shared contrast/focus tokens are unchanged. Native application execution and real IPC remain CI
 checks; mocked IPC does not prove them. C1/C2 are closed; no finding is accepted as an exception.
 
-## Remaining sticker screens
+## Picker and received packs: design checkpoint (2026-11-07)
 
-The native core and IPC support safe pixels, bounded thumbnails, queued sends and pack
-request status/actions. Picker, recents and Add-pack screen/controller work remains planned.
-Review those states and their neighbours before changing their screen code; do not infer
-native transport acceptance from mocked IPC or static screenshots.
+Before prototype changes, reviewed the current composer, collection manager, plain sticker
+fallback and message actions. The composer currently opens management rather than sending;
+the native commands already provide bounded pixels and guarded request actions. Keep the
+manager as a separate destination, with an explicit return to the picker. The proposed picker
+uses a dialog with pack choices, eight image buttons, Previous/Next and Cancel. Recents omit
+unavailable entries. A standalone sticker preserves an unrelated text draft.
+
+| Heuristic | Interaction and acceptance requirement |
+|---|---|
+| H1 status | Announce loading, empty, sending, queued, waiting, downloading, added and failure distinctly. A completed durable send closes the picker; delivery stays in the thread. |
+| H2 familiar language | Use pack names, emoji and ordinary Request/Retry/Stop waiting wording; no mailbox, token or descriptor terms. |
+| H3 control | Cancel/Escape returns focus; closing never claims to recall a committed send. Stop waiting cancels acceptance; Clear chat also cancels pending requests. |
+| H4 consistency | Use existing dialogs, button/focus tokens, collection manager and shared media auto-download policy. |
+| H5 prevention | Disable duplicate actions while busy; retain identity/view/selection guards; request packets only after an explicit action. |
+| H6 recognition | Image buttons have emoji and pack accessibility labels; fallback names the sticker and pack. Pack names wrap rather than losing their distinguishing suffix. |
+| H7 efficiency | Keyboard buttons and bounded paging; viewport-driven message loading; explicit image retry and pack request remain separate. |
+| H8 restraint | No caption or bubble, image at most 192 pt; no Edit/Forward, own Delete remains available. Safe pixels only. |
+| H9 recovery | Keep fallback on unavailable media; distinguish quota/storage/invalid/fetch failures. Retry keeps a useful answer; a fresh request is explicit. |
+| H10 guidance | Explain that saved packs stay until removed, pending requests can stop, and offline requests wait for connection. |
+
+The dialog uses normal pack-choice buttons with an announced selected state, avoiding an
+incomplete ARIA tab keyboard contract. The bounded grid has eight independent labelled buttons.
+L1/L2, D1-D3 and T1-T2 apply to the dialog, grid, request actions and neighbouring composer.
+No new Settings preference or identifier confirmation is introduced; collection removal keeps
+its existing I1-I4 review. Reusing the collection manager reduces duplicate import/quota UI;
+the extra transition costs one action and requires focus restoration on return.
+
+Prototype validation captured 64 states (13 sticker variants plus chat, draft and collection
+neighbours; EN/RU at 440/1280) under `build/ux-research/linux-sticker-picker/`. Font/layout
+readiness callbacks and failure deadlines replace sleeps. All 64 pass L2/I1 measurements;
+geometry assertions check full pack names, bounded labelled canvas choices, paging order,
+viewport containment and message image size. Visual review covers narrow Russian and wide
+English picker/error and received-failure states; shared contrast/focus tokens are unchanged.
+
+| Finding | Severity | Fix and evidence | State |
+|---|---|---|---|
+| P1 | 3 | Long Russian pack names initially clipped horizontally. Choices now wrap within a bounded scrolling region; all captures pass the dynamic text-width check. | Closed |
+| P2 | 2 | The generic narrow-dialog rule reversed Previous/Next. A specific paging rule retains their reading order; the geometry assertion passes at both widths. | Closed |
+
+No finding is accepted as an exception. Shipped picker/message controllers remain planned.
+Prototype validation does not establish native transport or actual IPC acceptance.

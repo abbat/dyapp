@@ -82,6 +82,43 @@ MEASURE = """JSON.stringify((() => {
       previous.focus();
     }
   }
+  const picker = document.getElementById('sticker-picker');
+  if (picker && box(picker)) {
+    const bounds = picker.getBoundingClientRect();
+    if (bounds.left < 0 || bounds.right > innerWidth)
+      throw new Error('sticker picker exceeds viewport');
+    for (const button of picker.querySelectorAll('.sticker-choices button')) {
+      if (!button.textContent.trim()
+          || button.scrollWidth > button.clientWidth)
+        throw new Error('sticker pack choice clips its name');
+    }
+    const paging = picker.querySelector('.sticker-pagination');
+    if (box(paging)) {
+      const [previous, next] = paging.children;
+      if (previous.getBoundingClientRect().left
+          >= next.getBoundingClientRect().left)
+        throw new Error('sticker paging order reversed');
+    }
+    const grid = document.getElementById('sticker-picker-grid');
+    if (box(grid)) {
+      if (grid.children.length !== 8)
+        throw new Error('sticker picker is not bounded');
+      for (const button of grid.children)
+        if (!button.getAttribute('aria-label')
+            || !button.querySelector('canvas'))
+          throw new Error('sticker choice lacks pixels or name');
+    }
+  }
+  const sticker = document.getElementById('sticker-message');
+  if (sticker && box(sticker)) {
+    if (sticker.classList.contains('msg'))
+      throw new Error('sticker has a bubble');
+    const image = sticker.querySelector('canvas');
+    if (box(image) && (!image.getAttribute('aria-label')
+        || image.getBoundingClientRect().width
+          > parseFloat(style(image).maxWidth)))
+      throw new Error('sticker image lacks name or exceeds its size limit');
+  }
   // Menu and navigation items touch by platform convention; page regions
   // (landmarks) are separated by their own surfaces.
   const items = 'nav, [role=menu], [role=menubar], [role=tablist]';
@@ -125,6 +162,11 @@ DESKTOP = [
     "settings-photos", "settings-node", "settings-account", "settings-about",
     "settings-identities-screen", "settings-devices", "settings-blocked",
     "settings-passed",
+    "sticker-picker-empty", "sticker-picker-ready", "sticker-picker-recent",
+    "sticker-picker-loading", "sticker-picker-error", "sticker-picker-sending",
+    "chat-sticker-image", "chat-sticker-fallback", "chat-sticker-pending",
+    "chat-sticker-downloading", "chat-sticker-failed",
+    "chat-sticker-quota", "chat-sticker-saved",
     "stickers-empty", "stickers-ready", "stickers-loading",
     "stickers-error", "stickers-importing", "stickers-quota",
     "stickers-remove-dialog", "stickers-remove-unreadable",
