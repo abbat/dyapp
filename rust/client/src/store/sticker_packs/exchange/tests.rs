@@ -4,7 +4,7 @@ use crate::chat::sticker::Sticker;
 use crate::store::{messages::VerifiedChatSender, tests::catalog_group};
 use dyapp_identity::Identity;
 
-fn database() -> (Store, Identity, std::path::PathBuf, String) {
+pub(super) fn database() -> (Store, Identity, std::path::PathBuf, String) {
     let root =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/pack-exchange-tests");
     std::fs::create_dir_all(&root).unwrap();
@@ -24,7 +24,7 @@ fn database() -> (Store, Identity, std::path::PathBuf, String) {
         .unwrap();
     (store, owner, path, peer)
 }
-fn selected(store: &mut Store, peer: &str, id: u8) -> MessageKey {
+pub(super) fn selected(store: &mut Store, peer: &str, id: u8) -> MessageKey {
     store
         .record_chat_sticker(
             VerifiedChatSender {

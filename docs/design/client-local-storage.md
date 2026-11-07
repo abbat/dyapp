@@ -132,7 +132,11 @@ the clicked received sticker's hash and a random generation token. Staging reche
 received row, catalog, block and open state under an immediate writer transaction, then commits
 intent, MLS snapshot and exact chat-scoped outbox writes together. Retry preserves the first hash
 and token; retirement compares the token so an old save cannot clear new intent. Retirement does
-not revoke already queued mailbox writes. Answer admission and request UI remain planned.
+not revoke already queued mailbox writes. A nullable bounded `answer` holds the first canonical
+peer descriptor admitted for that outstanding request. It commits with MLS/inbox/ACK; unsolicited,
+cross-peer and blocked/non-open answers keep only an inbox digest and ACK. Stored descriptor
+reads require the request token and an open/unblocked pair. Corruption rolls back admission.
+Download/save, Session control routing and request UI remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

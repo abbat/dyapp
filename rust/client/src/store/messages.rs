@@ -80,6 +80,7 @@ CREATE TABLE `chat_operations` (
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
 CREATE TABLE `sticker_pack_requests` (
+    `answer` BLOB CHECK (`answer` IS NULL OR length(`answer`) BETWEEN 1 AND 2048),
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),
     `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
     `sticker_hash` BLOB NOT NULL CHECK (length(`sticker_hash`) = 32),

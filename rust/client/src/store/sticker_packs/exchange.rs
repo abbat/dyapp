@@ -167,5 +167,6 @@ impl Store {
     }
 }
 
+mod answer;
 #[cfg(test)]
 mod tests;

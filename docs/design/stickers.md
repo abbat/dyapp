@@ -245,7 +245,12 @@ writes atomically. Each request is derived from an existing received sticker in 
 unblocked pair; it retains the selected hash and generation across restart and retry. A stale
 save completion cannot retire a new request. Tests cover changed block/open state, wrong or
 cleared selections, quota exhaustion, retry at capacity and simultaneous last-slot requests.
-Session/control-tag wiring and answer admission remain planned.
+The Store now admits one canonical answer only into the matching pending peer/PackID row,
+with MLS snapshot, inbox digest and ACK in one commit. Unsolicited, cross-peer, blocked and
+closed-chat answers are ACKed without retaining a descriptor. Replays and competing answers
+cannot replace the first descriptor; reads require the active request token. Corrupt stored
+answers fail closed. This stores metadata only: download/save and Session/control-tag wiring
+remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
