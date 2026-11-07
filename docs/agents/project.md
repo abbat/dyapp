@@ -12,6 +12,10 @@ release secrets and fetch descriptors out of screen records. Project authenticat
 through core helpers such as `ChatSticker::sent_at_ms()`: the separate native Desktop crates do
 not inherit the root workspace's dependencies, and root quality does not compile them.
 
+Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
+`addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
+tests independent of an emulator's live connection and callback timing.
+
 When extending private own-device peer state, carry the field value, HLC and MLS-authenticated
 sender device key through the atomic store merge and linked-device snapshot. Include its HLC
 when advancing the imported clock, validate text at codec/store/import boundaries, and test

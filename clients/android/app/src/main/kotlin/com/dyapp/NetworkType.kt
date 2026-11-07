@@ -34,11 +34,11 @@ internal object NetworkType {
 
     fun start(context: Context) {
         val manager = context.getSystemService(ConnectivityManager::class.java)
-        report(isMetered(manager.getNetworkCapabilities(manager.activeNetwork)))
+        report(isMetered(manager.getNetworkCapabilities(manager.activeNetwork)?.capabilities))
         // Initial read and callbacks run on the main thread, so a stale read cannot overwrite a callback.
         manager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                report(isMetered(capabilities))
+                report(isMetered(capabilities.capabilities))
             }
 
             override fun onLost(network: Network) {
@@ -48,5 +48,6 @@ internal object NetworkType {
     }
 }
 
-internal fun isMetered(capabilities: NetworkCapabilities?) =
-    capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true
+// Public API 31 snapshots keep policy tests independent of hidden SDK mutators and live networks.
+internal fun isMetered(capabilities: IntArray?) =
+    capabilities?.contains(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true

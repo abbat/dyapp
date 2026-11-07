@@ -9,12 +9,12 @@ class NetworkTypeTests {
     @Test
     fun onlyExplicitlyUnmeteredNetworksAllowAutomaticDownloads() {
         assertTrue(isMetered(null))
-        val capabilities = NetworkCapabilities()
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-        assertTrue(isMetered(capabilities))
-        capabilities.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-        assertFalse(isMetered(capabilities))
-        capabilities.removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-        assertTrue(isMetered(capabilities))
+        assertTrue(isMetered(intArrayOf()))
+        assertTrue(isMetered(intArrayOf(NetworkCapabilities.NET_CAPABILITY_INTERNET)))
+        assertFalse(isMetered(intArrayOf(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)))
+        assertFalse(isMetered(intArrayOf(
+            NetworkCapabilities.NET_CAPABILITY_INTERNET,
+            NetworkCapabilities.NET_CAPABILITY_NOT_METERED,
+        )))
     }
 }
