@@ -5,7 +5,7 @@ use crate::store::{messages::VerifiedChatSender, Error, InboxKey, InboxKind, Sto
 use rusqlite::{params, OptionalExtension};
 
 const COOLDOWN_MS: i64 = 86_400_000;
-fn time(now_ms: u64) -> Result<i64, Error> {
+pub(super) fn time(now_ms: u64) -> Result<i64, Error> {
     let now = i64::try_from(now_ms).map_err(|_| Error::ClockRange)?;
     now.checked_add(COOLDOWN_MS).ok_or(Error::ClockRange)?;
     Ok(now)

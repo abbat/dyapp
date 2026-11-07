@@ -48,7 +48,8 @@ impl Store {
                     Some(None) => {}
                 }
                 tx.execute(
-                    "UPDATE `sticker_pack_requests` SET `answer` = ?3 WHERE `peer_id` = ?1 AND `pack_id` = ?2",
+                    "UPDATE `sticker_pack_requests` SET `answer` = ?3, `retry_at_ms` = 0,
+                     `attempts` = 0, `failure` = NULL WHERE `peer_id` = ?1 AND `pack_id` = ?2",
                     params![sender.author, answer.pack_id.as_slice(), &bytes])?;
                 accepted = true;
                 Ok(())

@@ -277,8 +277,12 @@ The Store now admits one canonical answer only into the matching pending peer/Pa
 with MLS snapshot, inbox digest and ACK in one commit. Unsolicited, cross-peer, blocked and
 closed-chat answers are ACKed without retaining a descriptor. Replays and competing answers
 cannot replace the first descriptor; reads require the active request token. Corrupt stored
-answers fail closed. Dedicated Session staging/send APIs are implemented; whole-pack upload
-and download/save workers remain planned.
+answers fail closed. Admitted answers now have durable download failure codes (fetch, invalid,
+quota or storage) and the same 1 s..1 h backoff. Due reads expose at most 32 metadata-only jobs;
+duplicate answers cannot reset the deadline. Explicit download retry keeps the descriptor and
+clicked hash but rotates the token, so old callbacks cannot complete or defer the new attempt.
+Waiting requests, failures and retries survive restart. Guarded saving, the download worker and
+an explicit fresh-answer request remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

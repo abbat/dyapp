@@ -191,6 +191,7 @@ impl Store {
 }
 
 mod answer;
+pub mod download;
 pub mod response;
 #[cfg(test)]
 mod tests;
