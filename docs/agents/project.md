@@ -32,6 +32,10 @@ when advancing the imported clock, validate text at codec/store/import boundarie
 reordered equal-clock events and clears. Send private state only through own-device groups;
 a contact conversation must never receive it.
 
+Paginated identity actions retain stable element references: a button can be detached with
+its old row, so a later page must reattach that reference instead of querying the document.
+Refresh reads also need a per-read sequence guard in addition to identity generation.
+
 Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
 The classic scripts share lexical helpers; keep that order when moving controller code to
 stay below the per-file line limit, and retain the existing native smoke entry points.

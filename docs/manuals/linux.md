@@ -102,6 +102,9 @@ Photos shows a numeric cache budget (1–10240 MiB), measured usage and **Clear 
 A lower budget, disabling retention or clearing asks first. Disabling keeps your chosen
 budget. This affects retained photo originals, not chat history or saved sticker packs.
 After an uncertain error, **Refresh cache usage** is required before another change.
+Collection links show totals. Their separate screens search local names and IDs
+(device keys for Devices), display up to 32 rows, and offer Previous/Next and Refresh.
+List errors appear on that screen; Refresh retries the read.
 
 **Settings → Account → Identities** lists local identities with their key storage kind and marks
 the active one. The list and the picker show a short Peer ID like a git hash: "@" and the last 6

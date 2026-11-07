@@ -12,7 +12,10 @@ const waitFor = (id) => new Promise((resolve, reject) => {
 const openArea = async (area, pane = null) => {
   document.querySelector(`#sidebar [data-area="${area}"]`).click();
   await waitFor(area);
-  if (area === 'settings' && pane) openSettings(pane);
+  if (area === 'settings') {
+    await window.settingsShown;
+    if (pane) openSettings(pane);
+  }
 };
 const openSettings = (pane) => {
   const root = document.getElementById('settings-root');

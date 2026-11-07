@@ -1,4 +1,5 @@
 // Settings → Passed people: Undo pass shows the peer in later searches and Liked you again.
+let passedRead = 0;
 const unpassPeer = async (peerId, button, call) => {
   const generation = identityGeneration;
   button.disabled = true;
@@ -10,10 +11,11 @@ const unpassPeer = async (peerId, button, call) => {
   }
   if (!identityCurrent(generation)) return;
   await window.showPassed(call);
-  if (failed && identityCurrent(generation)) privacyError.hidden = false;
+  if (failed && identityCurrent(generation)) window.settingsCollectionFailed('passed');
 };
 window.showPassed = async (call = invoke) => {
   const generation = identityGeneration;
+  const read = ++passedRead;
   let peers = [];
   let failed = false;
   try {
@@ -21,9 +23,8 @@ window.showPassed = async (call = invoke) => {
   } catch (_) {
     failed = true;
   }
-  if (!identityCurrent(generation)) return;
-  if (failed) privacyError.hidden = false;
-  document.getElementById('passed-list').replaceChildren(...peers.map((peerId, index) => {
+  if (!identityCurrent(generation) || read !== passedRead) return;
+  window.renderSettingsRows('passed', failed ? null : peers, (peerId, index) => {
     const row = document.createElement('tr');
     const name = document.createElement('td');
     name.className = 'who';
@@ -40,6 +41,6 @@ window.showPassed = async (call = invoke) => {
     action.append(button);
     row.append(name, action);
     return row;
-  }));
+  }, (peer) => `${peer} ${window.peerName(peer)}`, () => window.showPassed());
   document.getElementById('passed-none').hidden = peers.length > 0;
 };

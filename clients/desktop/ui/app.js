@@ -188,7 +188,10 @@ window.settingsIdentity = (item) => {
   const active = document.createElement('td');
   active.className = 'caption';
   active.textContent = item.slot === current.slot ? window.strings['settings.active'] : '';
-  if (item.slot === current.slot) active.append(document.createElement('br'), settingsRemove);
+  if (item.slot === current.slot) {
+    settingsRemove.hidden = false;
+    active.append(document.createElement('br'), settingsRemove);
+  }
   row.append(name, active);
   row.dataset.active = String(item.slot === current.slot);
   return row;
@@ -330,7 +333,7 @@ const showArea = (area) => {
   setMenu(false);
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
-  if (area === 'settings') window.showSettings();
+  if (area === 'settings') window.settingsShown = window.showSettings();
   if (area === 'chats-area') window.chatsDone = window.showChats();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {

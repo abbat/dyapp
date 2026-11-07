@@ -671,6 +671,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await window.checkChatComposer();
       await window.checkSettingsNavigation();
       await window.checkMediaCache();
+      await window.checkSettingsLists();
       await openArea('settings', 'identities');
       document.getElementById('settings-create').click();
       await waitFor('setup');

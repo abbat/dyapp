@@ -479,7 +479,10 @@ Notifications, Photos, Node, Account and About. States `settings-appearance`,
 searchable `settings-blocked` and `settings-passed` lists. Account links to
 `settings-identities-screen` and `settings-devices`. The shipped client implements
 this category navigation with separate collection panes and immediate switches.
-Collection search/paging remains a planned integration step. The shipped Photos pane
+Collection panes search local names/IDs (device keys for Devices), mount at most 32
+rows, expose Previous/Next/Refresh and show total counts on their entry buttons.
+Paging bounds DOM work; native list commands still return their complete local data.
+The shipped Photos pane
 uses a Keep switch, numeric MiB budget, measured usage, Refresh and confirmed Clear;
 uncertain failures require readback before another write.
 Immediate binary settings use switches; theme and language default to System. Photos

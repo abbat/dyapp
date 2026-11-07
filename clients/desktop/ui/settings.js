@@ -1,14 +1,20 @@
 // Settings controllers share app.js helpers; loaded after it, before UI interaction.
+let identitiesRead = 0;
+let blockedRead = 0;
 // Settings → Blocked people: Unblock shows the peer in later searches again.
 const unblockPeer = async (peerId, button, call = invoke) => {
   const generation = identityGeneration;
   button.disabled = true;
+  let failed = false;
   try {
     await call('unblock_peer', { peerId });
   } catch (_) {
-    if (identityCurrent(generation)) privacyError.hidden = false;
+    failed = true;
   }
-  if (identityCurrent(generation)) await showBlocked();
+  if (identityCurrent(generation)) {
+    await showBlocked();
+    if (failed && identityCurrent(generation)) window.settingsCollectionFailed('blocked');
+  }
 };
 const retryRevocation = async (peerId, retry, call = invoke) => {
   const generation = identityGeneration;
@@ -29,18 +35,18 @@ const retryRevocation = async (peerId, retry, call = invoke) => {
 };
 const showBlocked = async (call = invoke) => {
   const generation = identityGeneration;
-  const list = document.getElementById('blocked-list');
+  const read = ++blockedRead;
   let peers = [];
+  let failed = false;
   try {
     peers = await call('blocked_peers');
-    if (!identityCurrent(generation)) return;
-    privacyError.hidden = true;
+    if (!identityCurrent(generation) || read !== blockedRead) return;
   } catch (_) {
-    if (!identityCurrent(generation)) return;
-    privacyError.hidden = false;
+    if (!identityCurrent(generation) || read !== blockedRead) return;
+    failed = true;
   }
   document.getElementById('blocked-revoke-status').textContent = '';
-  list.replaceChildren(...peers.map((peerId, index) => {
+  window.renderSettingsRows('blocked', failed ? null : peers, (peerId, index) => {
     const row = document.createElement('tr');
     const name = document.createElement('td');
     name.className = 'who';
@@ -68,26 +74,30 @@ const showBlocked = async (call = invoke) => {
     action.append(buttons);
     row.append(name, action);
     return row;
-  }));
+  }, (peer) => `${peer} ${window.peerName(peer)}`, () => showBlocked());
   document.getElementById('blocked-none').hidden = peers.length > 0;
 };
 
 const showSettingsIdentities = async (call = invoke) => {
   const generation = identityGeneration;
+  const read = ++identitiesRead;
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
   // Remove waits under the error until a row for the open identity takes it.
+  settingsRemove.hidden = true;
   error.after(settingsRemove);
   list.replaceChildren();
   error.hidden = true;
   try {
     const items = await call('list_identities');
-    if (!identityCurrent(generation)) return;
-    list.replaceChildren(...knowPeers(items).map(window.settingsIdentity));
+    if (!identityCurrent(generation) || read !== identitiesRead) return;
+    window.renderSettingsRows('identities', knowPeers(items), window.settingsIdentity,
+      (item) => [item.peerId, item.peerId && window.peerName(item.peerId), item.slot, modeText(item)]
+        .filter(Boolean).join(' '), () => showSettingsIdentities());
     error.hidden = true;
   } catch (_) {
-    if (!identityCurrent(generation)) return;
-    list.replaceChildren();
+    if (!identityCurrent(generation) || read !== identitiesRead) return;
+    window.renderSettingsRows('identities', null, window.settingsIdentity, () => '', () => showSettingsIdentities());
     error.textContent = window.strings['storage.error'];
     error.hidden = false;
   }

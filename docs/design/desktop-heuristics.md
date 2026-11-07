@@ -15,12 +15,12 @@ Back/identity reset against H1–H10 and S1–S8. Appearance keeps global theme/
 and tray preferences; Account isolates identity removal. Notifications has its own
 form and visible error state while retaining the shared privacy record. Immediate
 binary preferences use native checkbox-backed switches; node configuration retains
-its explicit Save action. Nested Back returns to the correct parent and restores
-focus. Existing availability flags remain owned by their backend controllers.
+its explicit Save action. Nested Back restores parent/focus; backend availability is preserved.
 Actual-source WebKit navigation smoke checks category isolation, nested Back, focus,
 identity reset and switch semantics. Numeric cache event tests cover exact byte roundtrips,
 confirmed lower/off/clear, unknown/busy/error state and stale callbacks; EN/RU440/1280
-shots: linux-cache-live. Search/paging and native execution remain separate checks.
+shots: linux-cache-live. Collections use count links, local name/ID search and 32-row pages;
+65-entry WebKit smoke covers action identity, Back/Next focus, empty search and errors.
 
 ## Shipped composer and collection dialog (2026-11-07)
 

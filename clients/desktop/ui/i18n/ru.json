@@ -1,4 +1,11 @@
 {
+  "settings.collection.search": "Поиск в списке",
+  "settings.collection.previous": "Предыдущая страница",
+  "settings.collection.next": "Следующая страница",
+  "settings.collection.refresh": "Обновить список",
+  "settings.collection.empty": "Подходящих записей нет.",
+  "settings.collection.failed": "Не удалось прочитать список. Обновите его для повтора.",
+  "settings.collection.page": "Страница {page} из {pages} · записей: {count}",
   "photos.cache.clearWarning": "Все сохранённые на этом компьютере оригиналы фото будут стёрты. История чатов и наборы стикеров останутся. Через 7 дней оригиналы могут быть недоступны на узлах.",
   "photos.cache.title": "Кэш открытых медиа",
   "photos.cache.limit": "Лимит кэша (MiB, 1–10240)",

@@ -1,7 +1,6 @@
 // Settings > Devices: the devices of the open identity, the disconnect dialog and sending the
 // identity to a new device.
 const devicesCard = document.getElementById('devices');
-const devicesList = document.getElementById('devices-list');
 const devicesStatus = document.getElementById('devices-status');
 const disconnectDialog = document.getElementById('disconnect');
 const disconnectProblem = document.getElementById('disconnect-problem');
@@ -20,6 +19,7 @@ let disconnecting = null;
 let disconnected = false;
 let devicesRead = 0;
 let shownDevices = '';
+document.addEventListener('dyapp:identity-change', () => { shownDevices = ''; devicesRead += 1; });
 
 const deviceShort = (key) => key.slice(0, 3).map((byte) => byte.toString(16).padStart(2, '0')).join('');
 const disconnectOffline = (offline) => {
@@ -75,12 +75,16 @@ const showDevices = async (call = invoke) => {
     const rows = await call('list_devices', { live }).catch(() => null);
     if (read !== devicesRead || !identityCurrent(generation)) return;
     if (!rows) {
-      if (!live) devicesCard.hidden = true;
+      if (!live) {
+        devicesCard.hidden = true;
+        window.renderSettingsRows('devices', null, deviceRow, () => '', () => showDevices());
+      }
       return;
     }
     rows.sort((a, b) => b.this - a.this);
     const text = JSON.stringify(rows);
-    if (text !== shownDevices) devicesList.replaceChildren(...rows.map(deviceRow));
+    if (text !== shownDevices) window.renderSettingsRows('devices', rows, deviceRow,
+      (device) => device.key.map((byte) => byte.toString(16).padStart(2, '0')).join(''), () => showDevices());
     shownDevices = text;
     devicesCard.hidden = rows.length === 0;
   }

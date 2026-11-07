@@ -1,4 +1,11 @@
 {
+  "settings.collection.search": "Search this list",
+  "settings.collection.previous": "Previous page",
+  "settings.collection.next": "Next page",
+  "settings.collection.refresh": "Refresh list",
+  "settings.collection.empty": "No matching entries.",
+  "settings.collection.failed": "Could not read this list. Refresh to retry.",
+  "settings.collection.page": "Page {page} of {pages} · {count} entries",
   "photos.cache.clearWarning": "All locally kept photo originals will be erased. Chat history and saved sticker packs stay. Originals may no longer be available from the nodes after 7 days.",
   "photos.cache.title": "Opened media cache",
   "photos.cache.limit": "Cache budget (MiB, 1–10240)",
