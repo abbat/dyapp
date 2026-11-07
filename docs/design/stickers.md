@@ -28,7 +28,7 @@ are field 1; field 2 repeats files in manifest order. Peer field lengths/counts 
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Pack storage, the composer's collection manager and tag-14 receive are implemented;
-sticker metadata staging/sending is available in Session; upload reuse, pack controls
+Session supports saved-pack upload reuse and metadata sends; pack controls
 and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
@@ -158,7 +158,7 @@ Session sticker sends now commit fresh ID/HLC, common-media delivery state, exac
 writes and MLS snapshot atomically. Its template ID/HLC are ignored; malformed labels or
 descriptors fail before encryption. Sending requires an open, unblocked pair conversation.
 Own stickers support terminal Delete through the normal operation path, never Edit.
-Upload/reuse and pack request/answer authorization remain planned. The common SQLite media table
+Saved-pack upload/reuse is implemented; pack request/answer authorization remains planned. The common SQLite media table
 has a checked kind discriminator and shared insertion checks. The Store writes and reads
 sticker payloads with optional descriptors, checks verified context and cross-kind ID conflicts,
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
@@ -195,7 +195,11 @@ Every pending retry renews the uncertainty window before network I/O; repeated c
 cannot extend confirmed retention. Tests cover late retry, corrupt rows and simultaneous
 reservations for the last quota slot. Expired ledger metadata can be pruned; saved packs
 and chat history are untouched.
-Network orchestration of this ledger remains planned.
+`Session::send_pack_sticker_to` now connects this ledger to the shared photo attach/put
+transport. It checks owner and conversation before reserving, reconstructs only hash-matching
+ciphertext and strips the release secret before staging. A failed upload retains its reservation
+without adding a chat message. Confirmed reuse and quota fallback still use fresh message IDs.
+Desktop picker/command wiring and live node integration coverage remain planned.
 
 ### Receive
 

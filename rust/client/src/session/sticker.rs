@@ -1,6 +1,7 @@
 //! Sticker metadata sends reuse the chat outbox; uploading bytes is a separate step.
 #[cfg(test)]
 mod tests;
+mod upload;
 use super::{Body, Error, Node, PreparedEnvelope, Session};
 use crate::chat::sticker::Sticker;
 

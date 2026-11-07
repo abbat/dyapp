@@ -5,6 +5,35 @@ use crate::attachment::Attachment;
 use crate::chat::AttachmentMessage;
 use dyapp_identity::Identity;
 
+pub(super) async fn upload(
+    nodes: &mut [Node],
+    identity: &Identity,
+    attachment: &Attachment,
+    blob: &[u8],
+) -> Result<(), Error> {
+    let mut last = crate::Error::Request("no node".into());
+    let mut uploaded = false;
+    for node in nodes.iter_mut() {
+        let upload = async {
+            if !node.attach_media(identity, attachment).await?.is_empty() {
+                node.put_media(&identity.peer_id(), blob.to_vec()).await?;
+            }
+            Ok(())
+        };
+        match upload.await {
+            Ok(()) => {
+                uploaded = true;
+                break;
+            }
+            Err(error) => last = error,
+        }
+    }
+    if !uploaded {
+        return Err(last.into());
+    }
+    Ok(())
+}
+
 impl Session {
     /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the
     /// first of `nodes` that takes it, then send its [`Attachment`], with any preview, MIME type
@@ -19,26 +48,7 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
         attachment.check()?;
-        let mut last = crate::Error::Request("no node".into());
-        let mut uploaded = false;
-        for node in nodes.iter_mut() {
-            let upload = async {
-                if !node.attach_media(identity, attachment).await?.is_empty() {
-                    node.put_media(&identity.peer_id(), blob.to_vec()).await?;
-                }
-                Ok(())
-            };
-            match upload.await {
-                Ok(()) => {
-                    uploaded = true;
-                    break;
-                }
-                Err(error) => last = error,
-            }
-        }
-        if !uploaded {
-            return Err(last.into());
-        }
+        upload(nodes, identity, attachment, blob).await?;
         let mut id = [0; 16];
         getrandom::fill(&mut id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;

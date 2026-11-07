@@ -122,7 +122,8 @@ node accounting units, including GCM overhead, across pending and confirmed uplo
 work resumes the same descriptor for eight days; confirmation retains it seven days, with
 refresh during its final day. A reservation token rejects stale confirmations even when the
 ciphertext is unchanged. Clock rollback and corrupt descriptors fail closed. Only expired
-ledger metadata is pruned. Network wiring and received-sticker cache integration remain planned.
+ledger metadata is pruned. Session sends from saved packs now use the shared node upload path;
+only the owner ledger retains the release capability. Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
