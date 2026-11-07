@@ -191,7 +191,10 @@ units. The node scales its owner quota by the same factor. The separate applicat
 the fallback. The Store ledger implements atomic reservation, restart-safe reuse and final-day
 refresh: confirmed descriptors last seven days, uncertain uploads reserve eight days. Each
 refresh has a random reservation token so a late completion cannot confirm its successor.
-Expired ledger metadata can be pruned; saved packs and chat history are untouched.
+Every pending retry renews the uncertainty window before network I/O; repeated completion
+cannot extend confirmed retention. Tests cover late retry, corrupt rows and simultaneous
+reservations for the last quota slot. Expired ledger metadata can be pruned; saved packs
+and chat history are untouched.
 Network orchestration of this ledger remains planned.
 
 ### Receive

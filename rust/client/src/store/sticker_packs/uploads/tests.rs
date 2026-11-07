@@ -1,4 +1,5 @@
 use super::*;
+mod adversarial;
 use dyapp_identity::Identity;
 
 fn database() -> (Store, Identity, std::path::PathBuf) {
