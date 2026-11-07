@@ -25,6 +25,7 @@ pub(crate) fn scripts() -> String {
         include_str!("settings-lists.js"),
         include_str!("media-cache.js"),
         include_str!("sticker-removal.js"),
+        include_str!("removal.js"),
         include_str!("main.js"),
     ]
     .join("\n")

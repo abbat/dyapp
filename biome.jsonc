@@ -22,7 +22,8 @@
       "clients/desktop/ui/network.js",
       "clients/desktop/ui/search.js",
       "clients/desktop/ui/peer-photos.js",
-      "clients/desktop/ui/saved-profiles.js"
+      "clients/desktop/ui/saved-profiles.js",
+      "clients/desktop/ui-tests/removal.js"
     ],
     "linter": { "rules": {
       "complexity": {

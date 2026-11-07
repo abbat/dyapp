@@ -550,11 +550,10 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   plugin in CI's desktop session; clipboard-history exclusion still needs a
   real desktop-session check.
 - **Screenshots.** Smoke scripts live in `clients/desktop/ui-tests/`, outside the shipped
-  `ui/` assets; `ui-tests/mod.rs` defines their evaluation order. The debug shell concatenates `common.js`, the video frame helpers,
-  `identity.js`, `chats.js`, `presence.js`, `guards.js` and
-  `main.js` into one
-  WebView script, in that order. The final file dispatches named smoke cases; the earlier files
-  expose shared helpers in the same eval scope.
+  `ui/` assets; `ui-tests/mod.rs` defines their evaluation order. The debug shell concatenates
+  the registered helpers into one WebView script, with `main.js` last to dispatch named cases.
+  `removal.js` covers offline withdrawal and tombstone removal; a failure reports the returned
+  state and remaining identity count. The earlier files expose helpers in the same eval scope.
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke calls the test-only
   `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs

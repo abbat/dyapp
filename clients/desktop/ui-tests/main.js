@@ -414,46 +414,6 @@ const checkSavedProfile = async () => {
 };
 // The status bar: traffic is unavailable until a search starts the client swarm, then counts the
 // reply; the message store always has a size once the identity is open.
-// Removal withdraws a published profile first. With the node stopped no node takes the tombstone:
-// Retry fails again and Cancel keeps the identity.
-const removeOfflineIdentity = async () => {
-  await openArea('settings', 'identities');
-  byId('settings-remove').click();
-  await waitFor('remove');
-  if (!shown('remove-text') || !shown('remove-ask') || shown('remove-offline')) {
-    throw new Error('removal does not say the profile is withdrawn first');
-  }
-  byId('remove-confirm').click();
-  byId('remove-action').click();
-  await window.removeDone;
-  if (
-    !shown('remove-offline') ||
-    shown('remove-ask') ||
-    document.activeElement.id !== 'remove-cancel-offline'
-  ) {
-    throw new Error('no offline choice when the tombstone failed');
-  }
-  await shot('remove-offline');
-  byId('remove-retry').click();
-  await window.removeDone;
-  if (!shown('remove-offline') || byId('remove-retry').disabled) {
-    throw new Error('Retry did not offer the offline choice again');
-  }
-  byId('remove-cancel-offline').click();
-  if (byId('remove').open || !shown('settings')) throw new Error('Cancel did not keep Settings');
-};
-// With the node back the tombstone goes first, then the key; a new identity opens for the checks.
-const removeWithTombstone = async (mode) => {
-  await openArea('settings', 'identities');
-  byId('settings-remove').click();
-  await waitFor('remove');
-  byId('remove-confirm').click();
-  byId('remove-action').click();
-  await window.removeDone;
-  if (shown('remove-offline')) throw new Error('removal stopped although a node answered');
-  await waitFor('setup');
-  await chooseStorage(mode);
-};
 const checkStatus = async (traffic) => {
   const { strings } = window;
   window.statusShown = showStatus();
@@ -671,8 +631,8 @@ Promise.all([
       node: checkNode,
       'network-settings-failure': checkNetworkInSettings,
       'settings-privacy-restart': () => checkPrivacy(true),
-      'remove-offline': removeOfflineIdentity,
-      'remove-tombstone': () => removeWithTombstone(mode),
+      'remove-offline': window.identityRemovalChecks.offline,
+      'remove-tombstone': () => window.identityRemovalChecks.tombstone(mode),
       'profile-save': saveProfileForRestart,
       'profile-restart': checkSavedProfile,
       'sticker-import': window.stickerFileChecks.importPack,

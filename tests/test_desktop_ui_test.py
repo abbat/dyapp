@@ -75,7 +75,8 @@ class GlobalsTest(unittest.TestCase):
     def test_ui_test_names_do_not_shadow_app_globals(self):
         app = {name for path in (UI / "ui").glob("*.js")
                for name in TOP.findall(path.read_text())}
-        suite = set(TOP.findall((UI / "ui-tests/main.js").read_text()))
+        suite = {name for path in (UI / "ui-tests").glob("*.js")
+                 for name in TOP.findall(path.read_text())}
         # A clash is a SyntaxError on eval: the suite never starts.
         self.assertEqual(sorted(app & suite), [])
 
