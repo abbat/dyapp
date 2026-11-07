@@ -176,7 +176,7 @@ impl Store {
         pending(&self.db, peer, pack)
     }
 
-    /// Retire acceptance intent after saving a validated pack, only for the observed generation.
+    /// Retire local acceptance intent only for the observed saved, cancelled or refused generation.
     /// This does not revoke mailbox writes already queued for delivery.
     pub fn finish_sticker_pack(
         &self,

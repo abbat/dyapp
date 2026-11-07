@@ -148,6 +148,9 @@ An explicit fresh-answer request instead rotates generation and clears the old a
 with new exact tag-15 outbox writes and MLS in one transaction. It retains the clicked hash even
 after history was cleared. Failed staging preserves the old descriptor and sealed snapshot;
 advanced in-memory MLS is invalidated and restored from the committed snapshot.
+Desktop pack actions now stage Request/Fresh locally without requiring a live node. The common
+mailbox pass owns delivery. Initial Request is idempotent; Retry/Fresh/StopWaiting compare the
+viewed generation. StopWaiting only retires local acceptance and does not recall queued writes.
 Session receive now routes outer 15/16 through these atomic Store operations. Allowed-chat
 controls remain eligible for common delivery receipts and are consumed before UI/history.
 Dedicated Session staging now binds a selected received MessageKey or current response job

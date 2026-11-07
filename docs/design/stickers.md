@@ -311,6 +311,11 @@ and retry deadline. Saved status requires the clicked hash in the authenticated 
 imported pack can retire matching waiting intent through guarded saving even before an answer
 arrives; its original clicked hash must also belong to the pack. A claimed unrelated hash is
 reported as `stickerMissing`, never Added. Tokens identify attempts and carry no media capability.
+`change_sticker_pack_request` stages Request/Fresh locally before any connection attempt; the
+common mailbox pass delivers them, so offline actions remain queued. Repeated initial Request
+is idempotent. Retry/Fresh/StopWaiting require the observed token; Retry keeps the descriptor,
+Fresh stages a new answer request, and StopWaiting retires only local acceptance. It cannot
+recall already queued packets. Retry/stop do not advance MLS. The live UI still needs wiring.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
