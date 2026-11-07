@@ -28,6 +28,8 @@ pub enum ChatItem {
     Text(ChatMessage),
     /// A media message.
     Attachment(ChatAttachment),
+    /// A sticker, even when its media descriptor is unavailable.
+    Sticker(super::ChatSticker),
 }
 
 /// Original HLC, author, logical ID and group ID: the order shared by texts and attachments.
@@ -59,6 +61,12 @@ impl ChatItem {
         match self {
             Self::Text(message) => message.order(),
             Self::Attachment(attachment) => Some(attachment.order()),
+            Self::Sticker(sticker) => Some((
+                sticker.sticker.hlc,
+                &sticker.key.author,
+                &sticker.key.id,
+                &sticker.key.group,
+            )),
         }
     }
 }
@@ -172,6 +180,11 @@ impl Store {
             .into_iter()
             .map(ChatItem::Text)
             .chain(attachments.into_iter().map(ChatItem::Attachment))
+            .chain(
+                self.current_chat_stickers(peer_id)?
+                    .into_iter()
+                    .map(ChatItem::Sticker),
+            )
             .collect();
         // The sort is stable, so legacy texts keep the arrival order they were read in.
         items.sort_by(|a, b| a.order().cmp(&b.order()));

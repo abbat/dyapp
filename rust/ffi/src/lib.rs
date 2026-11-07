@@ -13,7 +13,7 @@ mod chats;
 pub use chats::{
     chat_photo_hours_left, new_chat_state_key, ChatBlock, ChatDelivery, ChatHistory, ChatItem,
     ChatLikes, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatRevocation, ChatRow,
-    ChatSession, ChatState,
+    ChatSession, ChatState, ChatSticker,
 };
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};

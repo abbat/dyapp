@@ -5,7 +5,7 @@ mod tests;
 
 use super::{ChatDelivery, ChatMessage};
 
-/// A text or photo in the Store's merged order; native clients must preserve this order.
+/// A text, photo or sticker in the Store's merged order; native clients preserve this order.
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum ChatItem {
     /// A text, edit or deletion placeholder with read-receipt projection.
@@ -17,6 +17,11 @@ pub enum ChatItem {
     Photo {
         /// Safe attachment metadata.
         photo: ChatPhoto,
+    },
+    /// A sticker fallback, without downloading or decoding media.
+    Sticker {
+        /// Safe sticker metadata.
+        sticker: super::ChatSticker,
     },
 }
 use dyapp_client::attachment::layout_size;

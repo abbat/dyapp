@@ -8,6 +8,21 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Sticker fallback history review (2026-11-07)
+
+Reviewed incoming/own fallback, 64-character unbroken pack name, HTML-like name,
+adjacent text/photo and deleted placeholder in EN/RU at 440/1280 px. WebKitGTK
+renders the shipped message-building code and stylesheet with mocked media/IPC;
+shots: `build/ux-research/sticker-fallback-live/`. H1–H10: the fallback names the
+sticker and pack (H1, H2, H6); reading performs no fetch, edit or forward (H3, H5).
+Existing message ordering, alignment, text and translations remain consistent
+(H4, H7, H8); names wrap without horizontal overflow and enter only textContent.
+The existing deletion label stays distinct (H9); manuals/design identify image and
+Add pack support as planned (H10). No open layout/source finding. The prepared
+image lacks some family-emoji glyphs, so these shots do not verify native font
+coverage. Android's typed fallback and adjacent branches were reviewed from source;
+native Compose rendering, generated bindings and desktop DTO execution await CI.
+
 ## Android profile sharing review (2026-11-06)
 
 Reviewed the loaded profile, destination picker, empty list, send-in-progress,

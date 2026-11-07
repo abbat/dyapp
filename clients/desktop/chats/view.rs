@@ -1,7 +1,9 @@
 //! Local chat projection converted to desktop JSON without exposing internal request IDs.
 
 use dyapp_client::attachment::{hours_left, layout_size};
-use dyapp_client::store::messages::{ChatAttachment, ChatItem, ChatMessage, DeliveryState};
+use dyapp_client::store::messages::{
+    ChatAttachment, ChatItem, ChatMessage, ChatSticker, DeliveryState,
+};
 use dyapp_client::store::originals;
 use dyapp_client::store::Conversation;
 use dyapp_identity::profile_link::parse_profile_link;
@@ -96,7 +98,17 @@ pub struct PhotoView {
     pub preview: Vec<u8>,
 }
 
-/// Current text, deletion marker or photo, in the Store's pair-wide order.
+/// Safe sticker fallback metadata; no fetch descriptor or compressed bytes reach the page.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StickerView {
+    pub pack_id: [u8; 32],
+    pub sha256: [u8; 32],
+    pub emoji: String,
+    pub pack_name: String,
+}
+
+/// Current text, deletion marker, photo or sticker, in the Store's pair-wide order.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageView {
@@ -115,6 +127,7 @@ pub struct MessageView {
     pub sent_at_ms: Option<u64>,
     /// Set for a photo, which has no `text` and is neither edited nor deleted.
     pub photo: Option<PhotoView>,
+    pub sticker: Option<StickerView>,
     /// The Peer ID of a text that is exactly a shared profile link, shown as a profile card.
     pub shared_peer: Option<String>,
 }
@@ -142,6 +155,7 @@ impl From<ChatMessage> for MessageView {
             read: false,
             sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
             photo: None,
+            sticker: None,
         }
     }
 }
@@ -163,6 +177,7 @@ impl From<ChatAttachment> for MessageView {
             delivery: photo.delivery.map(Into::into),
             read: false,
             sent_at_ms,
+            sticker: None,
             photo: Some(PhotoView {
                 mime: attachment.mime,
                 width,
@@ -178,11 +193,38 @@ impl From<ChatAttachment> for MessageView {
     }
 }
 
+impl From<ChatSticker> for MessageView {
+    fn from(stored: ChatSticker) -> Self {
+        Self {
+            group_id: stored.key.group,
+            author: stored.key.author,
+            id: stored.key.id,
+            text: None,
+            edited: false,
+            deleted: false,
+            unread: stored.unread,
+            forwarded: false,
+            delivery: stored.delivery.map(Into::into),
+            read: false,
+            sent_at_ms: Some(dyapp_messaging::hlc::Timestamp::from(stored.sticker.hlc).wall_ms()),
+            photo: None,
+            shared_peer: None,
+            sticker: Some(StickerView {
+                pack_id: stored.sticker.pack_id,
+                sha256: stored.sticker.sha256,
+                emoji: stored.sticker.emoji,
+                pack_name: stored.sticker.pack_name,
+            }),
+        }
+    }
+}
+
 impl From<ChatItem> for MessageView {
     fn from(item: ChatItem) -> Self {
         match item {
             ChatItem::Text(message) => message.into(),
             ChatItem::Attachment(photo) => photo.into(),
+            ChatItem::Sticker(sticker) => sticker.into(),
         }
     }
 }
@@ -278,10 +320,45 @@ mod tests {
         let peer = "ab".repeat(32);
         let mut shared = message(None, false);
         shared.current.text = Some(format!("dyapp-profile:1:{peer}").into_bytes());
-        assert_eq!(MessageView::from(shared.clone()).shared_peer, Some(peer.clone()));
+        assert_eq!(
+            MessageView::from(shared.clone()).shared_peer,
+            Some(peer.clone())
+        );
         // Only the whole body is a link.
         shared.current.text = Some(format!("see dyapp-profile:1:{peer}").into_bytes());
         assert_eq!(MessageView::from(shared).shared_peer, None);
+    }
+
+    #[test]
+    fn sticker_view_exposes_only_fallback_metadata() {
+        let media = photo();
+        let stored = dyapp_client::store::messages::ChatSticker {
+            key: media.key,
+            sticker: dyapp_client::chat::sticker::Sticker {
+                id: [2; 16],
+                hlc: 5 << 16,
+                pack_id: [1; 32],
+                sha256: [2; 32],
+                emoji: "😺".into(),
+                pack_name: "Cats".into(),
+                attachment: Some(media.message.attachment),
+            },
+            unread: true,
+            delivery: None,
+        };
+        let view = MessageView::from(stored);
+        assert_eq!(view.sent_at_ms, Some(5));
+        assert!(view.text.is_none() && view.photo.is_none() && view.unread);
+        let json = serde_json::to_value(view).unwrap();
+        let mut fields: Vec<_> = json["sticker"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        fields.sort();
+        assert_eq!(fields, ["emoji", "packId", "packName", "sha256"]);
+        assert_eq!(json["sticker"]["packName"], "Cats");
     }
 
     fn photo() -> ChatAttachment {

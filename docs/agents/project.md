@@ -6,6 +6,10 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
+`ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
+release secrets and fetch descriptors out of screen records.
+
 When extending private own-device peer state, carry the field value, HLC and MLS-authenticated
 sender device key through the atomic store merge and linked-device snapshot. Include its HLC
 when advancing the imported clock, validate text at codec/store/import boundaries, and test

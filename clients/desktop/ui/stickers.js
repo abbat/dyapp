@@ -186,5 +186,7 @@
   });
   document.addEventListener('dyapp:identity-change', close);
   document.addEventListener('dyapp:area-change', (event) => { if (event.detail !== 'settings') close(); });
+  window.stickerMessageText = (sticker) => text('message')
+    .replace('{emoji}', () => sticker.emoji).replace('{name}', () => sticker.packName);
   window.stickerCollection = { open, close, importFile };
 })();

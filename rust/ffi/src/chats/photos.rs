@@ -17,7 +17,7 @@ pub fn chat_photo_hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
 
 #[uniffi::export]
 impl ChatSession {
-    /// Text and photo metadata in core pair-wide order, with the same text read marks as chat_history.
+    /// Text, photo and sticker metadata in core pair order, with chat_history's text read marks.
     /// Reading history never fetches originals or reveals attachment keys.
     pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
         use super::ChatItem;
@@ -32,6 +32,9 @@ impl ChatSession {
             .map_err(failed)?
             .into_iter()
             .map(|item| match item {
+                Stored::Sticker(sticker) => ChatItem::Sticker {
+                    sticker: sticker.into(),
+                },
                 Stored::Text(message) => ChatItem::Text {
                     message: message.into(),
                 },
@@ -44,7 +47,7 @@ impl ChatSession {
             .iter()
             .filter_map(|item| match item {
                 ChatItem::Text { message } => Some(message.clone()),
-                ChatItem::Photo { .. } => None,
+                ChatItem::Photo { .. } | ChatItem::Sticker { .. } => None,
             })
             .collect();
         super::reads::project_reads(store, &peer_id, &self.key.identity.peer_id(), &mut texts)?;

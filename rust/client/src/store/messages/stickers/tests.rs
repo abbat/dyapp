@@ -169,6 +169,46 @@ fn shared_media_references_follow_history_and_hash_binding() {
 }
 
 #[test]
+fn merged_history_keeps_fallback_between_legacy_text_and_later_photo() {
+    use super::super::ChatItem;
+    let owner = Identity::generate();
+    let peer = Identity::generate().peer_id();
+    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    catalog_group(&mut store, &[9], &peer);
+    store
+        .record_chat_text(
+            &MessageKey {
+                group: vec![9],
+                author: peer.clone(),
+                id: [9; 16],
+            },
+            b"legacy",
+        )
+        .unwrap();
+    let message = sticker(2, false);
+    store
+        .record_chat_sticker(sender(&peer), &message, true)
+        .unwrap();
+    let photo = sticker(3, true);
+    store
+        .record_chat_attachment(
+            sender(&peer),
+            &Body::Attachment(AttachmentMessage {
+                id: photo.id,
+                hlc: photo.hlc,
+                attachment: photo.attachment.unwrap(),
+            }),
+            true,
+        )
+        .unwrap();
+    let items = store.current_chat_items(&peer).unwrap();
+    assert_eq!(items.len(), 3);
+    assert!(matches!(&items[0], ChatItem::Text(text) if text.key.id == [9; 16]));
+    assert!(matches!(&items[1], ChatItem::Sticker(stored) if stored.sticker == message));
+    assert!(matches!(&items[2], ChatItem::Attachment(photo) if photo.key.id == [3; 16]));
+}
+
+#[test]
 fn corrupt_persisted_context_and_payload_fail_closed() {
     for sql in [
         "UPDATE `chat_attachments` SET `original_hlc` = 99",

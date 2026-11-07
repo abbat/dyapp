@@ -7,6 +7,8 @@ window.checkStickerCollection = async () => {
   const page = { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
   const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
   const check = (ok, reason) => { if (!ok) throw new Error(reason); };
+  const fallback = window.stickerMessageText({ emoji: '😺', packName: '$&<img>{emoji}' });
+  check(fallback.includes('$&<img>{emoji}') && !fallback.includes('{name}'), 'plain sticker label');
   const open = (call) => { panel.open = true; return ui.open(call); };
   const calls = [];
   const call = async (command, args) => { calls.push({ command, args }); return page; };

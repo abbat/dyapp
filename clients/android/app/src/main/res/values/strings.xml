@@ -480,6 +480,7 @@
     <string name="profile_shared">Profile sent.</string>
     <string name="shared_profile_card">Profile %1$s</string>
     <string name="chat_photo">Photo</string>
+    <string name="chat_sticker_fallback">Sticker: %1$s, pack %2$s</string>
     <string name="chat_photo_metadata">%1$s · %2$s bytes</string>
     <string name="chat_photo_show">Show preview</string>
     <string name="chat_photo_download">Download photo</string>

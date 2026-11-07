@@ -50,6 +50,9 @@ existing packs; open Details and retry. **Remove…** next to a pack asks for co
 Cancel or Escape changes nothing. Removal affects only this saved copy and also works for
 unreadable packs. After an uncertain error, refresh before retrying. Sending remains planned.
 
+Sticker history is prepared to show emoji and pack name without downloading media.
+Image display, chat delivery and Add pack remain planned.
+
 ## Interests
 
 Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).

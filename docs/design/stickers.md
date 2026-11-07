@@ -27,7 +27,7 @@ through the shared JSON/file/hash/first-frame validator. Original manifest bytes
 are field 1; field 2 repeats files in manifest order. Peer field lengths/counts are
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
-Storage, chat protocol and UI integration remain planned. Decoder CPU,
+Pack storage and the Settings collection are implemented; chat protocol and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
@@ -155,7 +155,9 @@ sticker payloads with optional descriptors, checks verified context and cross-ki
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
 no sticker-only cache is needed. Photo queries exclude sticker rows. Sticker session integration,
-merged-history readers and UI remain planned. At the Store boundary, tag-9 deletion of a
+merged history now includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
+Desktop and Android render a localized emoji/name fallback without fetching or edit/forward actions.
+Chat-list integration, image rendering and Add pack actions remain planned. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded

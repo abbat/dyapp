@@ -96,6 +96,7 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
         .map(|item| match item {
             ChatItem::Text(message) => message.key.id[0],
             ChatItem::Attachment(attachment) => attachment.key.id[0],
+            ChatItem::Sticker(sticker) => sticker.key.id[0],
         })
         .collect();
     assert_eq!(order, [1, 8, 5, 2, 6]);

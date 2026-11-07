@@ -201,7 +201,8 @@ const chatLinkHosts = (text) => {
 const chatPreview = (message) => !message ? window.strings['chats.noMessages']
   : message.deleted ? window.strings['chats.deleted']
     : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
-      message.photo ? window.strings['chats.photo'] : message.sharedPeer ? profileCardText(message.sharedPeer)
+      message.sticker ? window.stickerMessageText(message.sticker)
+        : message.photo ? window.strings['chats.photo'] : message.sharedPeer ? profileCardText(message.sharedPeer)
         : message.text || ''}`;
 // The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
 const PREVIEW_SIDE = 240;
@@ -545,7 +546,8 @@ const openChat = async (peerId, call = invoke) => {
       label.textContent = message.author === current.peerId ?
         window.strings['chats.you'] : window.peerName(peerId);
       const body = document.createElement('span');
-      body.textContent = message.deleted ? window.strings['chats.deleted'] : message.text || '';
+      body.textContent = message.deleted ? window.strings['chats.deleted']
+        : message.sticker ? window.stickerMessageText(message.sticker) : message.text || '';
       item.append(label, document.createTextNode(': '));
       if (message.forwarded && !message.deleted) {
         const forwarded = document.createElement('span');
@@ -576,7 +578,7 @@ const openChat = async (peerId, call = invoke) => {
         edited.textContent = ` (${window.strings['chats.edited']})`;
         item.append(edited);
       }
-      if (message.author === current.peerId && !message.deleted && !message.photo
+      if (message.author === current.peerId && !message.deleted && !message.photo && !message.sticker
         && history.state !== 'closed') {
         const edit = document.createElement('button');
         edit.type = 'button';

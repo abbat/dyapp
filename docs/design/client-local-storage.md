@@ -50,7 +50,7 @@ migration. Existing development databases must be recreated or restored from a m
 The desktop no longer rewraps MLS snapshots or held tokens from the old device-derived sealing
 key. A database with a missing sealing secret fails closed instead of silently creating a new one.
 
-`current_chat_items` merges a pair's texts and attachments: legacy texts first in arrival order,
+`current_chat_items` merges a pair's texts, photos and typed sticker fallbacks: legacy texts first in arrival order,
 then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across both
 kinds and sets `last_attachment` when a photo is newer than the last text. The desktop chat JSON
 carries a photo as an entry with `photo` set: MIME type, clamped claimed shape, plaintext size, hours left and
@@ -70,7 +70,10 @@ by another. Sticker deletion shares the text operation ledger and terminal place
 media row goes, a late original binds its digest/time without resurrection, and pending early
 edits are discarded. The caller must sweep originals after committing media deletion, as after
 Clear chat. Known stickers cannot be edited into text. Sticker session/inbox integration,
-merged history and platform exposure remain planned.
+The merged history now includes stickers in HLC order. Desktop JSON and UniFFI expose only
+identity/time, labels, pack/sticker hashes and local status; no descriptor reaches a screen.
+Desktop and Android show a localized text fallback without fetching, editing or forwarding it.
+Sticker session/inbox, chat-list, image rendering and pack-request UI remain planned.
 Session receive commits allowed attachments with the sealed MLS snapshot, inbox body digest
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS
