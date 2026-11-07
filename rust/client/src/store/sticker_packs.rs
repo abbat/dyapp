@@ -14,6 +14,8 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+/// Durable, bounded per-chat requests for packs selected from received stickers.
+pub mod exchange;
 /// Bounded collection metadata and per-entry read errors.
 pub mod list;
 /// Reusable sender descriptors and charged upload reservations.

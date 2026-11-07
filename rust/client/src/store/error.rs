@@ -52,6 +52,9 @@ pub enum Error {
     /// A second own text to a peer who has not answered the first; one request stays pending.
     #[error("client store message request is still pending")]
     RequestPending,
+    /// Outstanding pack requests have reached the identity-local bound.
+    #[error("too many pending sticker pack requests")]
+    PackRequestsFull,
     /// A match ended; a new match reopens the chat.
     #[error("client store chat is closed")]
     ChatClosed,

@@ -37,7 +37,7 @@ impl Store {
     }
 }
 
-fn load(db: &rusqlite::Connection, peer_id: &str) -> Result<Conversation, Error> {
+pub(super) fn load(db: &rusqlite::Connection, peer_id: &str) -> Result<Conversation, Error> {
     let row: Option<(i64, Option<Vec<u8>>)> = db
         .query_row(
             "SELECT `state`, `request_id` FROM `conversations` WHERE `peer_id` = ?1",

@@ -240,6 +240,12 @@ sticker grants no permission. The proof survives local Clear/Delete and canonica
 the peer already saw that pack ID. It is historical evidence only; response handling must also
 check an open, unblocked chat and that the pack is still saved. That handling remains planned.
 
+The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
+writes atomically. Each request is derived from an existing received sticker in an open,
+unblocked pair; it retains the selected hash and generation across restart and retry. A stale
+save completion cannot retire a new request. Session/control-tag wiring and answer admission
+remain planned.
+
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
 like `originals/` and kept until the user deletes it. A saved pack equals an imported one: its owner

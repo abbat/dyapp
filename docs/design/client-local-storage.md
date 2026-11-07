@@ -126,7 +126,14 @@ ledger metadata is pruned. Session sends from saved packs now use the shared nod
 only the owner ledger retains the release capability. `sticker_shared_packs` records the exact
 peer/PackID pairs this owner shared, atomically with own sticker projection. Incoming stickers do
 not grant permission. Historical proof survives Clear/Delete but alone cannot authorize a response;
-open/block checks and saved-pack existence are still required. Received-sticker cache integration remains planned.
+open/block checks and saved-pack existence are still required.
+`sticker_pack_requests` bounds outstanding intent to 64 peer/PackID pairs per identity. It keeps
+the clicked received sticker's hash and a random generation token. Staging rechecks the exact
+received row, catalog, block and open state under an immediate writer transaction, then commits
+intent, MLS snapshot and exact chat-scoped outbox writes together. Retry preserves the first hash
+and token; retirement compares the token so an old save cannot clear new intent. Retirement does
+not revoke already queued mailbox writes. Answer admission and request UI remain planned.
+Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
