@@ -11,7 +11,7 @@ use dyapp_identity::Identity;
 pub const LEGACY: &str = "legacy-primary";
 
 /// Files belonging to the slot that a confirmed removal may erase.
-const REMOVABLE: [&str; 16] = [
+const REMOVABLE: [&str; 18] = [
     "device.key",
     "seal.key",
     "storage-mode",
@@ -27,6 +27,9 @@ const REMOVABLE: [&str; 16] = [
     "client.db-journal",
     "node.json",
     "node.json.tmp",
+    // Identity-local photo originals and sealed sticker packs.
+    "originals",
+    "sticker-packs",
     // The node's key and stores.
     "node",
 ];
@@ -687,8 +690,16 @@ mod tests {
         };
         let load = |_: &Slot| Ok::<_, String>(key.get().map(|secret| Identity::from_secret(&secret)));
         let (slot, alice) = create(&root, "file", &save, &load).unwrap();
-        for name in REMOVABLE.iter().filter(|name| !["storage-mode", "state"].contains(name)) {
+        for name in REMOVABLE.iter().filter(|name| {
+            !["storage-mode", "state", "node", "originals", "sticker-packs"].contains(name)
+        }) {
             fs::write(slot.dir.join(name), "secret").unwrap();
+        }
+        // These subtrees model actual stores independently of the removal allowlist.
+        for directory in ["node", "originals", "sticker-packs"] {
+            let nested = slot.dir.join(directory).join("nested");
+            fs::create_dir_all(&nested).unwrap();
+            fs::write(nested.join("payload"), "stored content").unwrap();
         }
         let erase = |_: &Slot| {
             key.set(None);

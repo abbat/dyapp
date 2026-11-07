@@ -123,7 +123,10 @@ Removal names the exact Peer ID and requires confirmation, especially for the la
 Mark the slot as deleting before removing its file or credential; if removal fails, retain the
 slot and show the error. After a crash, resume cleanup only after confirming that the selected
 key is absent. Removing the active slot returns to the picker, never switches identities
-silently. Local removal does not guarantee erasure of a published profile from the network.
+silently. Confirmed cleanup includes the identity's `originals/` photo cache and sealed
+`sticker-packs/` store, along with its database, settings and node data. An unrecognized entry
+still blocks cleanup and leaves the slot marked deleting for recovery. Local removal does not
+guarantee erasure of a published profile from the network.
 
 On the first launch after an upgrade, discover the legacy marker and expose `legacy-primary`
 without moving the key or credential. If no active pointer exists, select it only when it is

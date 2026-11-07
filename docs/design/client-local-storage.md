@@ -96,7 +96,9 @@ preserves history, saved packs and the preference. Clearing refuses unexpected d
 or symlinks before removing cache entries. The old MiB APIs remain numeric wrappers for
 clients awaiting the new controls. Desktop Photos now exposes numeric MiB, measured usage,
 Refresh and confirmed Clear; uncertain writes require readback. No released database exists: old development setting
-encodings fail closed instead of being migrated. Removing an identity removes the folder.
+encodings fail closed instead of being migrated. Confirmed identity removal clears its database,
+`originals/` and `sticker-packs/` subtrees as part of the owned slot folder. Unknown slot entries
+still block recursive cleanup.
 
 Saved sticker packs use identity-local `sticker-packs/<PackID>` files and the same sealing
 secret as photo originals. The pack content is shareable; local sealing protects the saved
