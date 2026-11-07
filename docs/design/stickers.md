@@ -331,7 +331,10 @@ and tags 14 and 15 from a non-match are refused.
 - Individual stickers follow the common [chat-media storage policy](client-local-storage.md),
   including auto-download, the shared off/256 MiB/1 GiB originals setting, LRU and cleanup of
   unreferenced media when history is cleared. They have no separate 50 MiB cache or sticker-only
-  retention policy. Integration with this common storage path remains planned.
+  retention policy. Core reference tracking and sealed-file storage now share the photo path:
+  restart, shared LRU/off settings and last-reference cleanup are covered with real files and
+  validated first-frame pixels. Saved packs survive these operations. Native fetch/render
+  integration remains planned.
 - Deleting a pack leaves independently retained chat-media copies available under that policy;
   otherwise history shows the fallback. A deleted pack is no longer answered for.
 - Local cleanup has the same [best-effort deletion](../decisions/0011-best-effort-deletion.md)

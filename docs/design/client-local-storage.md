@@ -178,7 +178,9 @@ binds even confirmed descriptors to immutable plaintext/ciphertext hashes before
 Transient read/upload failures retain scheduled work; missing/invalid packs retire only the job.
 After local stage failure it restores committed MLS before continuing. Desktop polling now runs
 these bounded workers after mailbox pages.
-Received-sticker cache integration remains planned.
+The shared originals path already retains hash-matching sticker descriptors. Actual-file tests
+cover restart, validated first-frame pixels, shared photo/sticker LRU, cache off and cleanup after
+the last chat reference; saved packs remain untouched. Native sticker fetch/render remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

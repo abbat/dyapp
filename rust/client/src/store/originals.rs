@@ -1,4 +1,4 @@
-//! Originals of chat photos this device opened, in `originals/` of the identity's folder, so they
+//! Originals of chat media this device opened, in `originals/` of the identity's folder, so they
 //! outlive a restart and the nodes' retention. A file is sealed under a key derived from the
 //! identity's sealing secret, which lies outside the Store: the Store holds each attachment's key
 //! in the clear, so the node's blob would not protect it. Files follow the attachment rows, so
@@ -21,6 +21,8 @@ const MIB: u64 = 1024 * 1024;
 const KEY_LABEL: &[u8] = b"dyapp-kept-original-v1";
 
 mod settings;
+#[cfg(test)]
+mod stickers;
 pub use settings::MediaCacheConfig;
 
 fn file_name(blob_sha256: &[u8; 32]) -> String {
