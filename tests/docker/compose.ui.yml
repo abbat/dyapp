@@ -105,6 +105,8 @@ services:
       # The checkout builds into build/linux as the host user, so the image holds no build output.
       - ../..:/app:ro
       - ../../build/linux:/app/build
+      # Tauri writes capability schemas here even for cargo clippy.
+      - ../../build/linux-tauri-gen:/app/clients/linux/gen
       - ../../build/ux-research/current:/shots
     environment:
       HOME: /tmp

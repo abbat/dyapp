@@ -11,9 +11,11 @@ use dyapp_identity::Identity;
 use super::MessageView;
 use crate::profile;
 
+type PendingRead = (Vec<u8>, [u8; 16]);
+
 /// The latest partner text of each group that still owes a receipt. A request owes none: only an
 /// accepted conversation may learn when the chat was opened.
-fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<(Vec<u8>, [u8; 16])>, String> {
+fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<PendingRead>, String> {
     if store.conversation(peer_id).map_err(|e| e.to_string())? != Conversation::Open {
         return Ok(Vec::new());
     }

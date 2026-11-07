@@ -57,7 +57,9 @@ the fast staged checks, see [code-quality.md](code-quality.md#git-hooks).
 Native Linux CI runs Clippy on every target before building and testing the desktop crate.
 `make lint-linux` runs that Clippy check alone in the Linux test container; it requires the
 Linux images prepared with Clippy and rustfmt 1.99.0. The command may compile dependencies
-on a cold cache. `make fmt` checks formatting without compilation.
+on a cold cache. Tauri's generated capability schemas use a separate bind mount from
+`build/linux-tauri-gen`; the source checkout stays read-only. `make fmt` checks formatting
+without compilation.
 
 Quality container (the gate):
 
@@ -191,7 +193,12 @@ The quality step and `make lint-web` run `biome check --error-on-warnings` on
 `clients/desktop` and `clients/android/prototype`: JavaScript, HTML and CSS, including smoke
 scripts. `make fmt-web` formats all these files in the dev Docker container with an explicit
 writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
-JavaScript quotes and 100 columns. Assist actions remain disabled. The recommended rules apply except three, each justified in the config:
+JavaScript quotes and 100 columns. Assist actions remain disabled.
+The complexity rollout currently enforces cognitive complexity 15 and function length 50 code
+lines on contact notes, identifiers and network UI scripts. Blank lines and immediate closure
+wrappers used to scope classic scripts are excluded; nested functions remain checked. Extending
+this scope to the remaining UI and smoke scripts is planned after their measured backlog is
+refactored. The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).
 

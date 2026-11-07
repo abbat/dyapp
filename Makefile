@@ -121,7 +121,7 @@ ui-prototype-android:
 	bash tests/scripts/ui-test.sh prototype-android
 
 lint-linux:
-	$(DOCKER) -f tests/docker/compose.ui.yml --profile linux run --no-deps --pull never linux-test bash tests/scripts/linux-test.sh --lint
+	$(DOCKER) -f tests/docker/compose.ui.yml --profile linux run --no-deps --pull never linux-test bash tests/scripts/linux-test.sh --raw --lint
 
 ui-test-linux:
 	bash tests/scripts/ui-test.sh linux

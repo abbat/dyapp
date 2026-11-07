@@ -161,7 +161,7 @@ mod platform {
             return Err("Invalid DYApp identity length in Secret Service".into());
         }
         let mut bytes = Zeroizing::new([0_u8; 32]);
-        for (index, pair) in secret.chunks_exact(2).enumerate() {
+        for (index, pair) in secret.as_chunks::<2>().0.iter().enumerate() {
             let digits =
                 std::str::from_utf8(pair).map_err(|_| "Invalid DYApp identity encoding")?;
             bytes[index] =

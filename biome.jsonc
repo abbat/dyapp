@@ -12,6 +12,23 @@
     "lineWidth": 100
   },
   "javascript": { "formatter": { "quoteStyle": "single" } },
+  // Expand this enforced scope as the measured backlog is refactored.
+  "overrides": [{
+    "includes": [
+      "clients/desktop/ui/contact-notes.js",
+      "clients/desktop/ui/identifiers.js",
+      "clients/desktop/ui/network.js"
+    ],
+    "linter": { "rules": {
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": { "maxLines": 50, "skipBlankLines": true, "skipIifes": true }
+        }
+      }
+    } }
+  }],
   "assist": { "enabled": false },
   "html": { "linter": { "enabled": true } },
   "linter": {

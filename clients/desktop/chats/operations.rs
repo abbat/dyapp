@@ -67,6 +67,10 @@ fn validate_target(
     Ok(())
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "keep storage paths, author/device keys and authenticated message key explicit at the operation boundary"
+)]
 async fn operate(
     root: &Path,
     dir: &Path,

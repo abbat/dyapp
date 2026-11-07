@@ -84,7 +84,7 @@ mod tests {
         own::change_peer(&dir, &dir, &owner, &peer, PeerChange::Favorite(true))
             .await
             .unwrap();
-        assert_eq!(list(&dir, &owner).unwrap(), [peer.clone()]);
+        assert_eq!(list(&dir, &owner).unwrap(), std::slice::from_ref(&peer));
         let store = chats::open(&dir, &owner).unwrap();
         assert!(store.due_outbound(0).unwrap().is_empty());
         store.set_blocked(&peer, true).unwrap();

@@ -148,7 +148,7 @@ pub(crate) async fn metered() -> bool {
             )
             .await?;
         let value: zbus::OwnedVariant = reply.body().deserialize()?;
-        u32::try_from(value).map_err(zbus::Error::from)
+        u32::try_from(value)
     };
     // NMMetered: NO is 2 and GUESS_NO is 4.
     !matches!(state.await, Ok(2 | 4))

@@ -33,7 +33,7 @@ fn template(width: u16, height: u16) -> Vec<u8> {
     bytes[..4].copy_from_slice(b"DVF1");
     bytes[4..6].copy_from_slice(&width.to_le_bytes());
     bytes[6..8].copy_from_slice(&height.to_le_bytes());
-    for pixel in bytes[HEADER_LEN..].chunks_exact_mut(4) {
+    for pixel in bytes[HEADER_LEN..].as_chunks_mut::<4>().0 {
         pixel.copy_from_slice(&[32, 96, 160, 255]);
     }
     bytes

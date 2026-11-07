@@ -115,6 +115,28 @@ const showNetworkError = (code, lines = []) => {
   networkError.hidden = false;
 };
 
+const renderNetworkCheck = (rows, result) => {
+  seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
+  networkStatus(summary(result));
+  if (result.some((row) => row.status === 'connected')) return true;
+  showNetworkError(
+    summary(result).slice('network.'.length),
+    result.map((row, at) =>
+      [`${rows.seeds[at]}:`, row.status, row.reason].filter(Boolean).join(' '),
+    ),
+  );
+  return false;
+};
+
+const restoreNetworkCheck = (before) => {
+  if (connectionStatus.dataset.state === 'connecting') {
+    if (before === 'connecting') window.connectionShown = connectAtLaunch();
+    else showConnection(before);
+  }
+  checkButton.disabled = false;
+  cancelButton.hidden = true;
+};
+
 // A list a node of the network answered becomes active at once; anything else keeps the
 // previous network and its shell status.
 const check = async (call = invoke) => {
@@ -132,17 +154,7 @@ const check = async (call = invoke) => {
   try {
     const result = await call('check_connection', { draft: rows, waitMs: 15000 });
     if (!live()) return;
-    seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
-    networkStatus(summary(result));
-    if (!result.some((row) => row.status === 'connected')) {
-      showNetworkError(
-        summary(result).slice('network.'.length),
-        result.map((row, at) =>
-          [`${rows.seeds[at]}:`, row.status, row.reason].filter(Boolean).join(' '),
-        ),
-      );
-      return;
-    }
+    if (!renderNetworkCheck(rows, result)) return;
     await call('activate_connection');
     if (!live()) return;
     networkStatus('network.active');
@@ -163,14 +175,7 @@ const check = async (call = invoke) => {
     }
   } finally {
     // A check that interrupted the launch connect leaves nothing to restore, so that dial reruns.
-    if (live()) {
-      if (connectionStatus.dataset.state === 'connecting') {
-        if (before === 'connecting') window.connectionShown = connectAtLaunch();
-        else showConnection(before);
-      }
-      checkButton.disabled = false;
-      cancelButton.hidden = true;
-    }
+    if (live()) restoreNetworkCheck(before);
   }
 };
 

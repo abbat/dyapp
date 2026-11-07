@@ -189,12 +189,12 @@ mod tests {
             delivery: None,
         };
         assert_eq!(
-            source_text(&[message.clone()], &[1], "sender", [2; 16]),
+            source_text(std::slice::from_ref(&message), &[1], "sender", [2; 16]),
             Ok(b"words".to_vec())
         );
-        assert!(source_text(&[message.clone()], &[1], "other", [2; 16]).is_err());
-        assert!(source_text(&[message.clone()], &[3], "sender", [2; 16]).is_err());
-        assert!(source_text(&[message.clone()], &[1], "sender", [3; 16]).is_err());
+        assert!(source_text(std::slice::from_ref(&message), &[1], "other", [2; 16]).is_err());
+        assert!(source_text(std::slice::from_ref(&message), &[3], "sender", [2; 16]).is_err());
+        assert!(source_text(std::slice::from_ref(&message), &[1], "sender", [3; 16]).is_err());
         let mut deleted = message;
         deleted.current = CurrentMessage {
             text: None,
