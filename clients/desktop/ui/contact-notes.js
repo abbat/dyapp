@@ -58,7 +58,7 @@ window.showContactNote = async (call = invoke) => {
     }
   }
 };
-window.saveContactNote = async (clear = false) => {
+const prepareNoteSave = (clear) => {
   const target = noteView;
   if (!target || !noteCurrent(target) || !target.loaded || target.busy) return;
   const note = clear ? '' : noteText.value;
@@ -68,6 +68,12 @@ window.saveContactNote = async (clear = false) => {
   target.busy = true;
   target.status = 'saving';
   renderNote(target);
+  return { target, note };
+};
+window.saveContactNote = async (clear = false) => {
+  const prepared = prepareNoteSave(clear);
+  if (!prepared) return;
+  const { target, note } = prepared;
   try {
     await target.call('set_contact_note', { peerId: target.view.found.peerId, note });
     if (!noteCurrent(target)) return;
