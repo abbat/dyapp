@@ -250,6 +250,10 @@ impl Session {
         body: &Body,
         seal_key: &[u8; 32],
     ) -> Result<Vec<PreparedEnvelope>, Error> {
+        // Pack controls need selected-message/job context, never the generic send path.
+        if matches!(body, Body::PackRequest(_) | Body::PackAnswer(_)) {
+            return Err(crate::Error::Reply("use pack exchange operation").into());
+        }
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
         let interaction = match body {
             Body::Interaction(event) => Some((
@@ -864,6 +868,10 @@ impl Session {
     ) -> Result<Option<Event>, Error> {
         let today = (crate::now() / 86_400) as u32;
         match event {
+            Event::Message {
+                body: Body::PackRequest(_) | Body::PackAnswer(_),
+                ..
+            } => Ok(None),
             Event::Message {
                 group,
                 sender,

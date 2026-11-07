@@ -26,7 +26,7 @@ impl Store {
             return Err(Error::InboxConflict);
         }
         let bytes = answer.encode().map_err(|_| Error::InboxConflict)?;
-        let mut tagged = vec![16]; // Planned outer tag; admission is still disabled in Body/Session.
+        let mut tagged = vec![16]; // Bind the inbox digest to the outer control kind.
         tagged.extend_from_slice(&bytes);
         let digest = dyapp_identity::sha256(&tagged);
         let owner = self.owner_peer_id.clone();

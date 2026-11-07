@@ -264,6 +264,8 @@ impl Session {
                     body:
                         Body::Attachment(_)
                         | Body::Sticker(_)
+                        | Body::PackRequest(_)
+                        | Body::PackAnswer(_)
                         | Body::Forwarded(_)
                         | Body::Presence { .. }
                         | Body::Read { .. }
@@ -383,6 +385,8 @@ impl Session {
                                 body,
                                 Body::Text { .. }
                                     | Body::Sticker(_)
+                                    | Body::PackRequest(_)
+                                    | Body::PackAnswer(_)
                                     | Body::Edit { .. }
                                     | Body::Delete { .. }
                             )
@@ -393,6 +397,21 @@ impl Session {
                                 author: sender,
                                 device,
                             };
+                            if let Body::PackRequest(request) = body {
+                                self.store.stage_sticker_pack_request_inbound(
+                                    &sealed,
+                                    key,
+                                    verified,
+                                    request,
+                                    crate::now() * 1000,
+                                )?;
+                                return Ok(true); // Uniform receipts; control consumes this event.
+                            }
+                            if let Body::PackAnswer(answer) = body {
+                                self.store
+                                    .stage_sticker_pack_answer(&sealed, key, verified, answer)?;
+                                return Ok(true);
+                            }
                             // A text the request rules drop is acked but not shown.
                             return self
                                 .store
@@ -467,6 +486,9 @@ impl Session {
     }
 }
 
+#[cfg(test)]
+#[path = "receive/pack_tests.rs"]
+mod pack_tests;
 #[cfg(test)]
 #[path = "receive/sticker_tests.rs"]
 mod sticker_tests;

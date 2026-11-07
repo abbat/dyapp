@@ -95,3 +95,20 @@ fn malformed_lengths_context_and_missing_descriptor_fail_before_admission() {
     assert!(PackAnswer::decode(&wire.encode_to_vec()).is_err());
     assert!(PackAnswer::decode(&vec![0; 2048]).is_err());
 }
+
+#[test]
+fn outer_controls_roundtrip_but_cannot_be_forwarded_or_leak_owner_secret() {
+    use crate::chat::Body;
+    for body in [
+        Body::PackRequest(PackRequest { pack_id: [1; 32] }),
+        Body::PackAnswer(Box::new(answer())),
+    ] {
+        let bytes = body.encode();
+        assert!(matches!(bytes[0], 15 | 16));
+        assert!(Body::decode(&bytes).unwrap() == body);
+        assert!(Body::decode(&Body::Forwarded(Box::new(body)).encode()).is_err());
+    }
+    let mut invalid = answer();
+    invalid.attachment.release_secret[0] = 1;
+    assert!(Body::decode(&Body::PackAnswer(Box::new(invalid)).encode()).is_err());
+}

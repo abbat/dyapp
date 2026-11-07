@@ -1,4 +1,4 @@
-//! Bounded pack-control payloads; Session authorization is required before enabling outer tags.
+//! Bounded pack-control payloads; decoded metadata alone never grants authorization.
 use super::{attachment_wire::AttachmentWire, Attachment, AttachmentMessage};
 use crate::Error;
 use prost::Message;

@@ -28,8 +28,8 @@ are field 1; field 2 repeats files in manifest order. Peer field lengths/counts 
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Pack storage, the composer's collection manager and tag-14 receive are implemented;
-Session supports saved-pack upload reuse and metadata sends; pack controls
-and image UI remain planned. Decoder CPU,
+Session supports saved-pack upload reuse, metadata sends and guarded pack-control receive;
+automatic pack transfer and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
@@ -126,7 +126,7 @@ GNU tar and macOS bsdtar are test fixtures.
 
 Three MLS application variants use the next free outer tags; nodes see only sealed blobs.
 Tag 14 sticker decoding and authenticated session receive are implemented. Pack controls
-15/16 remain disabled in Body/Session pending per-chat authorization. Their standalone
+15/16 now route through durable per-chat authorization on receive. Their
 `chat::pack_control` payload codecs bound input to 2 KiB before protobuf allocation,
 require 32-byte manifest IDs and reuse the shared attachment codec. An answer has no preview
 or release capability, zero nested message ID/HLC and at most 6 MiB including GCM tags.
@@ -135,8 +135,8 @@ A valid descriptor alone never authorizes a download. Tag 13 stays private own-d
 | Tag | Body |
 |-----|------|
 | 14 sticker | 16-byte logical ID, HLC, pack ID, sticker SHA-256, emoji, pack name, optional attachment descriptor |
-| 15 pack request (planned) | pack ID |
-| 16 pack answer (planned) | pack ID, attachment descriptor |
+| 15 pack request | pack ID |
+| 16 pack answer | pack ID, attachment descriptor |
 
 The tag-14 payload leaves room for an optional thumbnail. No client release exists yet, so no older client
 needs a stub.
@@ -246,7 +246,10 @@ before queueing. Response completion now commits its exact outbox and the rollin
 cooldown together, requiring the current job token, an open/unblocked shared pair and a
 regular saved-pack file. Saved-file presence is rechecked under the same writer lock as
 pack removal. Old workers cannot finish a newer job; missing packs can retire work without
-advancing cooldown. Network workers and Session control routing remain planned.
+advancing cooldown. Session receive routes controls through these guards. Allowed-chat controls
+receive common receipts uniformly, including unsolicited/duplicate controls, then are consumed
+before history/UI. Blocked and pre-match controls create no work. Generic Session sends refuse
+control variants until selected-message/job staging is supplied. Network workers remain planned.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,
@@ -257,8 +260,8 @@ The Store now admits one canonical answer only into the matching pending peer/Pa
 with MLS snapshot, inbox digest and ACK in one commit. Unsolicited, cross-peer, blocked and
 closed-chat answers are ACKed without retaining a descriptor. Replays and competing answers
 cannot replace the first descriptor; reads require the active request token. Corrupt stored
-answers fail closed. This stores metadata only: download/save and Session/control-tag wiring
-remain planned.
+answers fail closed. This stores metadata only: dedicated Session sends and pack download/save
+workers remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

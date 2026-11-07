@@ -136,7 +136,9 @@ not revoke already queued mailbox writes. A nullable bounded `answer` holds the 
 peer descriptor admitted for that outstanding request. It commits with MLS/inbox/ACK; unsolicited,
 cross-peer and blocked/non-open answers keep only an inbox digest and ACK. Stored descriptor
 reads require the request token and an open/unblocked pair. Corruption rolls back admission.
-Download/save, Session control routing and request UI remain planned.
+Session receive now routes outer 15/16 through these atomic Store operations. Allowed-chat
+controls remain eligible for common delivery receipts and are consumed before UI/history.
+Dedicated Session sends, download/save workers and request UI remain planned.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
@@ -145,7 +147,7 @@ the outbox's 1 s doubling schedule capped at 1 h. Response completion requires a
 token, shared/open/unblocked pair, nonempty exact writes and a regular saved-pack file checked
 under the pack writer lock. The response outbox and last-success time commit atomically;
 failures or stale workers cannot advance the rolling 24 h cooldown. Retiring unavailable-pack
-work preserves the previous success time. The network worker and Session routing remain planned.
+work preserves the previous success time. Dedicated Session sends and network workers remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

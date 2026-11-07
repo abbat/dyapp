@@ -149,6 +149,10 @@ pub enum Body {
     Attachment(AttachmentMessage),
     /// A validated sticker payload, tag 14; never forwarded.
     Sticker(Box<sticker::Sticker>),
+    /// Request a previously shared pack, tag 15; never forwarded or shown as history.
+    PackRequest(pack_control::PackRequest),
+    /// Answer an outstanding chat request, tag 16; never forwarded or shown as history.
+    PackAnswer(Box<pack_control::PackAnswer>),
     /// A text or attachment the sender forwards, tag 7. It names no original author: the MLS
     /// sender is the only sender, so forwarded words never pass for another member's.
     Forwarded(Box<Body>),
@@ -207,7 +211,7 @@ pub struct AttachmentMessage {
 
 mod attachment_wire;
 use attachment_wire::AttachmentWire;
-/// Payload codecs; outer-tag admission waits for per-chat authorization.
+/// Bounded pack-control codecs; Session applies per-chat authorization before acting.
 pub mod pack_control;
 /// Bounded payload codec for tag-14 sticker metadata.
 pub mod sticker;
@@ -303,6 +307,8 @@ impl Body {
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }
             Self::Sticker(sticker) => [&[14], sticker.encode_unchecked().as_slice()].concat(),
+            Self::PackRequest(request) => [&[15], request.encode().as_slice()].concat(),
+            Self::PackAnswer(answer) => [&[16], answer.encode_unchecked().as_slice()].concat(),
             Self::Forwarded(body) => [&[7], body.encode().as_slice()].concat(),
             Self::Edit {
                 target,
@@ -364,6 +370,9 @@ impl Body {
                 })
             }
             Some((13, body)) => peer_change(body).ok_or(Error::Reply("bad peer change")),
+            Some((15, body)) => pack_control::PackRequest::decode(body).map(Self::PackRequest),
+            Some((16, body)) => pack_control::PackAnswer::decode(body)
+                .map(|answer| Self::PackAnswer(Box::new(answer))),
             Some((14, body)) => {
                 sticker::Sticker::decode(body).map(|sticker| Self::Sticker(Box::new(sticker)))
             }

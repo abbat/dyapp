@@ -68,9 +68,14 @@ The like, unlike and view payload and match state are specified in the
 three kinds. `chat::Body` prefixes every chat plaintext with a kind tag (`1` text, `2`
 interaction, `3` write-token request, `4` write-token answer, `5` delivery receipt, `6`
 attachment, `7` forwarded text or attachment, `8` edit, `9` delete, `10` presence, `11` read
-receipt, `12` timed text, `13` private own-device peer changes, `14` sticker), so text
-is never read as an interaction; an unknown tag is refused and acked. Tags `15`/`16`
-are reserved for planned [sticker-pack requests/answers](../design/stickers.md).
+receipt, `12` timed text, `13` private own-device peer changes, `14` sticker, `15` pack request
+and `16` pack answer), so text is never read as an interaction; an unknown tag is refused and
+acked. [Pack controls](../design/stickers.md) use bounded payload codecs and cannot be forwarded.
+Session receive applies open/block/own-group rules and commits authorized jobs or pending answers
+with MLS/inbox/ACK. New controls in allowed chats receive common delivery receipts uniformly,
+then are consumed before UI/history; receipt behavior does not reveal pack/pending existence.
+Generic Session sends refuse control variants: dedicated selected-message/job staging and
+network media workers remain planned.
 Tag 14 uses the bounded sticker validator, cannot be forwarded, and follows attachment
 conversation guards. Receive commits its common media projection, HLC, inbox/ACK and
 sealed MLS state atomically. Projection failure retains the old snapshot and no ACK.
