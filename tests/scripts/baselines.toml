@@ -90,7 +90,7 @@ max_lines = 1000
 # prototype's settings section, counted by tests/scripts/check-repository.py. A count may only
 # fall, and the budget falls with it. The target is no checkboxes and only the hub's category
 # rows; a hub that needs more rows raises the budget in its own reviewed change.
-desktop = { checkboxes = 5, rows = 8 }
+desktop = { checkboxes = 0, rows = 0 }
 android = { checkboxes = 5, rows = 4 }
 
 [layout]

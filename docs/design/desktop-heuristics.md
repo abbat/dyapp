@@ -8,6 +8,21 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Settings hub prototype structure (2026-11-07)
+
+Reviewed category root, Appearance, Privacy, Notifications, Photos, Node, Account,
+About and separate identity/device/blocked/passed screens in EN/RU at 440/1280 px.
+Prepared WebKit screenshots: `build/ux-research/linux-settings-hub/` (52 scoped shots).
+H1–H10: category labels and counts explain destinations; Back preserves recognizable
+navigation; immediate options are labelled switches and lists stay outside preferences.
+S1–S8: root has seven entries, preferences have defaults, Account separates destructive
+actions from Appearance, theme/language default to System. Photos has a numeric MiB
+budget, usage and Clear rather than an enumeration. Duplicate category headings and
+an undersized switch were corrected during review. The scoped L2/I1 comparison has
+no new findings; existing data-row identifier findings are unchanged. This is a layout
+checkpoint: picker entry, shipped integration and collection search/paging behavior
+remain planned and do not gain execution coverage from static screenshots.
+
 ## Sticker chat-list review (2026-11-07)
 
 Reviewed latest-sticker preview, unread badge, long name, muted row and adjacent

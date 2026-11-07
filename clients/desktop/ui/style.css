@@ -1,4 +1,6 @@
 /* Desktop stylesheet (ADR 0033), shared with the prototype: tokens on system fonts, no framework. */
+.settings-hub { display: grid; gap: var(--space-3); margin-bottom: var(--space-3); }
+.settings-hub .btn { display: flex; justify-content: space-between; text-decoration: none; color: var(--text); }
 :root {
   --space-1: 4px;
   --space-2: 8px;
@@ -117,6 +119,7 @@ textarea { font-family: var(--mono); min-height: 88px; resize: vertical; }
 .choice input { margin-top: 4px; }
 /* A native box is 13 px, so its pass depended on font metrics and on how near the next control was. */
 .choice input[type="checkbox"] { flex: none; width: 24px; height: 24px; margin: 0; }
+.choice input.switch { width: 40px; height: 24px; padding: 0; }
 /* Bottom alignment keeps a row's boxes level when one label wraps. */
 .grid { display: grid; gap: var(--space-3) var(--space-4); align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }

@@ -27,7 +27,8 @@ identity lease keeps the slot open. Lists return 32-entry pages with sizes and i
 
 ## Sticker collection
 
-Settings contains the card `sticker-collection` and native disclosure `sticker-packs`.
+The shipped Settings contains the card `sticker-collection` and native disclosure `sticker-packs`.
+The redesigned prototype moves that card to the separate sticker manager.
 `sticker-import` opens a TAR picker; cancelling it changes nothing. The browser must
 refuse files above 8 MiB before reading them. `sticker-refresh` restarts listing from
 the first page; `sticker-next` opens the next 32-entry page. Loading and import
@@ -461,7 +462,18 @@ The identity the wizard made is erased at this point, and it was never published
 
 ## Settings and removal
 
-`settings`. Privacy settings are local to the identity and never published. Defaults: no profile
+The desktop prototype's `settings` root is a seven-category hub: Appearance, Privacy,
+Notifications, Photos, Node, Account and About. States `settings-appearance`,
+`settings-privacy`, `settings-notifications`, `settings-photos`, `settings-node`,
+`settings-account` and `settings-about` show one category. Privacy links to separate
+searchable `settings-blocked` and `settings-passed` lists. Account links to
+`settings-identities-screen` and `settings-devices`. These layouts are planned for
+the shipped client; its existing inline controls below remain implemented until integration.
+Immediate binary settings use switches; theme and language default to System. Photos
+uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
+has its own `sticker-manager` screen in `stickers-*` states; picker integration follows.
+
+Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning
 sending off never stops receiving.
 

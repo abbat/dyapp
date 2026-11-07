@@ -149,7 +149,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-devices settings-blocked settings-passed stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -179,7 +179,7 @@
     <button type="button" class="nav" id="nav-network" data-current="network network-checking network-error">
       <svg aria-hidden="true" class="icon"><use href="#i-network"/></svg><span class="label" data-t="nav.network"></span></button>
     <div class="spacer"></div>
-    <button type="button" class="nav" id="nav-settings" data-current="settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <button type="button" class="nav" id="nav-settings" data-current="settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-devices settings-blocked settings-passed stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
       <svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg><span class="label" data-t="nav.settings"></span></button>
     <button type="button" class="nav" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -460,11 +460,31 @@ search providers asked: 0 of 3</pre>
       <p class="caption" data-on="chat-first" data-t="chat.first.wait"></p>
     </section>
 
-    <!-- Settings: identities, appearance, language, node. -->
-    <section id="settings" data-on="settings stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+    <!-- Settings hub: collection screens live outside preference categories. -->
+    <section id="settings" data-on="settings">
       <h1 data-t="nav.settings"></h1>
+      <div class="card settings-hub">
+        <a class="btn" href="#settings-appearance" data-t="settings.appearance">Appearance</a>
+        <a class="btn" href="#settings-privacy" data-t="settings.privacy">Privacy</a>
+        <a class="btn" href="#settings-notifications" data-t="settings.notifications">Notifications</a>
+        <a class="btn" href="#settings-photos" data-t="settings.photos">Photos</a>
+        <a class="btn" href="#settings-node" data-t="settings.node">Node</a>
+        <a class="btn" href="#settings-account" data-t="settings.account">Account</a>
+        <a class="btn" href="#settings-about" data-t="settings.about">About</a>
+      </div>
+    </section>
+    <section id="settings-account" data-on="settings-account">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.account"></h1>
+      <div class="card settings-hub">
+        <a class="btn" href="#settings-identities-screen"><span data-t="settings.identities"></span> <span>2 →</span></a>
+        <a class="btn" href="#settings-devices"><span data-t="devices.title"></span> <span>2 →</span></a>
+      </div>
+    </section>
+    <section id="settings-identities-screen" data-on="settings-identities-screen remove-dialog remove-offline">
+      <p><a href="#settings-account" data-t="settings.account">Account</a></p>
+      <h1 data-t="settings.identities"></h1>
       <div class="card" id="settings-identities">
-        <h2 data-t="settings.identities"></h2>
         <table class="rows">
           <tr><td class="who"><span class="avatar photo" aria-hidden="true"></span><span><code>@3f9c2a</code><br><span class="caption" data-t="settings.active"></span></span></td>
             <td><button type="button" class="btn" id="settings-remove" data-t="remove.open"></button></td></tr>
@@ -475,8 +495,11 @@ search providers asked: 0 of 3</pre>
         <div class="actions"><button type="button" class="btn" id="settings-create" data-t="identity.add"></button></div>
         <p><button type="button" class="btn quiet" id="device-join" data-t="devices.join"></button></p>
       </div>
+    </section>
+    <section id="settings-devices" data-on="settings-devices devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="devices.title"></h1>
       <div class="card" id="devices">
-        <h2 data-t="devices.title"></h2>
         <table class="rows">
           <tr><td><code>a41f09</code><br><span class="caption" data-t="devices.this"></span></td><td></td></tr>
           <tr><td><code>7c20be</code><br><span class="caption" data-t="devices.other"></span></td>
@@ -486,6 +509,9 @@ search providers asked: 0 of 3</pre>
         <p class="caption" data-t="devices.hint"></p>
         <div class="actions"><button type="button" class="btn" id="device-link" data-t="devices.link"></button></div>
       </div>
+    </section>
+    <section id="sticker-manager" data-on="stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error">
+      <p><a href="#chat" data-t="nav.chats">Chats</a></p>
       <div class="card" id="sticker-collection">
         <h2 data-t="stickers.title"></h2>
         <details id="sticker-packs" open>
@@ -516,63 +542,96 @@ search providers asked: 0 of 3</pre>
           <button type="button" class="btn" id="sticker-next" data-on="stickers-ready" data-t="stickers.next"></button>
         </details>
       </div>
+    </section>
+    <section id="settings-blocked" data-on="settings-blocked ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.blocked"></h1>
       <div class="card" id="blocked">
-        <h2 data-t="settings.blocked"></h2>
+        <div class="field"><label for="blocked-filter" data-t="settings.filter"></label><input id="blocked-filter" type="search"></div>
         <table class="rows">
           <tr><td class="who"><span class="avatar" aria-hidden="true">5d</span><code>@5d2a91</code></td>
             <td><button type="button" class="btn" id="unblock-1" data-t="settings.unblock"></button></td></tr>
         </table>
         <p class="caption" data-t="settings.blocked.hint"></p>
       </div>
+      <div class="actions"><button type="button" class="btn" disabled data-t="stickers.next"></button></div>
+    </section>
+    <section id="settings-passed" data-on="settings-passed ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.passed"></h1>
       <div class="card" id="passed">
-        <h2 data-t="settings.passed"></h2>
+        <div class="field"><label for="passed-filter" data-t="settings.filter"></label><input id="passed-filter" type="search"></div>
         <table class="rows">
           <tr><td class="who"><span class="avatar" aria-hidden="true">3c</span><code>@3c81d0</code></td>
             <td><button type="button" class="btn" id="unpass-1" data-t="settings.unpass"></button></td></tr>
         </table>
         <p class="caption" data-t="settings.passed.hint"></p>
       </div>
+      <div class="actions"><button type="button" class="btn" disabled data-t="stickers.next"></button></div>
+    </section>
+    <section id="settings-appearance" data-on="settings-appearance ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.appearance"></h1>
       <div class="card">
-        <h2 data-t="settings.appearance"></h2>
         <fieldset id="theme"><legend data-t="settings.theme"></legend>
           <label class="choice"><input type="radio" name="theme" id="theme-system" checked><span data-t="settings.theme.system"></span></label>
           <label class="choice"><input type="radio" name="theme" id="theme-light"><span data-t="settings.theme.light"></span></label>
           <label class="choice"><input type="radio" name="theme" id="theme-dark"><span data-t="settings.theme.dark"></span></label>
         </fieldset>
         <div class="field"><label for="language" data-t="settings.language"></label>
-          <select id="language"><option>English</option><option>Русский</option></select></div>
+          <select id="language"><option data-t="settings.theme.system"></option><option>English</option><option>Русский</option></select></div>
       </div>
+    </section>
+    <section id="settings-privacy" data-on="settings-privacy ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.privacy"></h1>
       <div class="card" id="privacy">
-        <h2 data-t="settings.privacy"></h2>
-        <label class="choice"><input type="checkbox" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
-        <label class="choice"><input type="checkbox" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
-        <label class="choice"><input type="checkbox" id="send-typing" checked><span data-t="privacy.typing"></span></label>
+        <div class="settings-hub"><a class="btn" href="#settings-blocked"><span data-t="settings.blocked"></span> <span>1 →</span></a><a class="btn" href="#settings-passed"><span data-t="settings.passed"></span> <span>1 →</span></a></div>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="send-typing" checked><span data-t="privacy.typing"></span></label>
         <fieldset id="presence-audience" style="margin:var(--space-3) 0 var(--space-2)"><legend data-t="privacy.presence"></legend>
           <label class="choice"><input type="radio" name="presence" id="presence-matches" checked><span data-t="privacy.presence.matches"></span></label>
           <label class="choice"><input type="radio" name="presence" id="presence-nobody"><span data-t="privacy.presence.nobody"></span></label>
         </fieldset>
-        <label class="choice"><input type="checkbox" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
+        <p class="caption" data-t="privacy.hint"></p>
+      </div>
+    </section>
+    <section id="settings-notifications" data-on="settings-notifications ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.notifications"></h1>
+      <div class="card">
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
         <div class="field"><label for="notice-content" data-t="privacy.noticeContent"></label>
           <select id="notice-content"><option data-t="privacy.noticeContent.fixed"></option><option data-t="privacy.noticeContent.name"></option><option data-t="privacy.noticeContent.text"></option></select></div>
         <p class="caption" data-t="privacy.noticeContent.hint"></p>
-        <p class="caption" data-t="privacy.hint"></p>
       </div>
+    </section>
+    <section id="settings-photos" data-on="settings-photos ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.photos"></h1>
       <div class="card" id="photo-mode">
-        <h2 data-t="settings.photos"></h2>
         <label class="choice"><input type="radio" name="photo-mode" checked><span data-t="photos.byNetwork"></span></label>
         <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.always"></span></label>
         <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.onTap"></span></label>
-        <p class="caption" data-t="photos.keep"></p>
-        <label class="choice"><input type="radio" name="photo-keep"><span data-t="photos.keepOff"></span></label>
-        <label class="choice"><input type="radio" name="photo-keep" checked><span data-t="photos.keep256"></span></label>
-        <label class="choice"><input type="radio" name="photo-keep"><span data-t="photos.keep1024"></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="keep-photos" checked><span data-t="photos.keep"></span></label>
+        <div class="field"><label for="photo-cache-size" data-t="photos.cacheSize"></label><input id="photo-cache-size" type="number" min="1" max="10240" value="256"><span>MiB</span></div>
+        <p class="caption" data-t="photos.cacheUsage"></p>
+        <div class="field"><button type="button" class="btn" id="photo-cache-clear" data-t="photos.cacheClear"></button></div>
         <p class="caption" data-t="photos.hint"></p>
       </div>
+    </section>
+    <section id="settings-node" data-on="settings-node ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.node"></h1>
       <div class="card" id="node">
-        <h2 data-t="settings.node"></h2>
-        <label class="choice"><input type="checkbox" id="node-enabled"><span data-t="settings.node.enable"></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="node-enabled"><span data-t="settings.node.enable"></span></label>
         <p class="caption" data-t="settings.node.hint"></p>
       </div>
+    </section>
+    <section id="settings-about" data-on="settings-about ">
+      <p><a href="#settings" data-t="nav.settings">Settings</a></p>
+      <h1 data-t="settings.about"></h1>
       <p class="caption" data-t="settings.version"></p>
     </section>
   </main>
@@ -793,6 +852,8 @@ for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.da
 for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
+for (const control of document.querySelectorAll('[role=switch]')) control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
+window.addEventListener('hashchange', () => location.reload());
 document.title = `${t['app.name']} — ${screen}`;
 if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
   document.getElementById('sticker-remove-cancel').focus();

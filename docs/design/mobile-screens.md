@@ -1,5 +1,10 @@
 # Mobile screens
 
+The approved settings direction is the category hub in
+[desktop screens](desktop-screens.md#settings-and-removal), with collection lists on separate
+screens, immediate switches and a numeric media-cache budget. Mobile hub implementation and
+prototype changes remain planned; the current mobile states below are unchanged.
+
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
 and Download photo explicitly requests the original. Open conversations apply core
