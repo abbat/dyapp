@@ -89,6 +89,8 @@ class TwoPeerChatTests {
                 peer.session.like(me, true)
                 matchFromLikedYou(peer)
                 compose.onNodeWithTag("view-message-match").performClick()
+                // Navigation renders before the IO history load enables the composer.
+                compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-input") and isEnabled()) }
                 compose.onNodeWithTag("chat-input").performTextInput("First draft")
                 compose.onNodeWithTag("chat-send").performClick()
                 compose.waitForThreadText("First draft")

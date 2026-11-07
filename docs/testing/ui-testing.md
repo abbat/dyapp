@@ -97,7 +97,10 @@ app cache, its own Keystore alias, the same node and a published profile. The pe
 the app opens it from its Chats request row and replies, and the peer receives the reply. In a
 second test the peer likes the app's identity; the app opens it from Liked you, likes back to
 match, messages, edits and deletes the text, and the peer receives each change; the app then
-blocks the peer and Chats shows the block note. The queued outcome of a send has no two-peer test:
+blocks the peer and Chats shows the block note. After opening the match's chat, the test waits
+for the composer's enabled semantics with a deadline: navigation can finish before the IO history
+load, and Compose idleness alone does not cover that load.
+The queued outcome of a send has no two-peer test:
 the FFI stages only after it reached the node, so only a node refusing the write could cause it.
 `ChatRulesTests` cover how a staged failure reads and `ChatScreenTests` cover its line.
 The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
