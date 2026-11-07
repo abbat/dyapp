@@ -54,7 +54,7 @@ pub(crate) fn check_image(bytes: &[u8]) -> Result<(), String> {
 }
 
 /// The page's code for a failed fetch. Anything else is a transport or node failure to retry.
-fn code(error: Error) -> String {
+pub(crate) fn code(error: Error) -> String {
     match error {
         Error::Status(Status::NotFound) => "notFound".into(),
         Error::Attachment(_) => "corrupted".into(),

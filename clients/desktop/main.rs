@@ -911,6 +911,7 @@ fn main() {
             chats::commands::receive_mail,
             chats::commands::chat_rows,
             chats::commands::chat_history,
+            stickers::chat::chat_sticker_frame,
             chat_photos::chat_photo_original,
             chat_photos::chat_photo_auto,
             chat_photos::auto_download_mode,

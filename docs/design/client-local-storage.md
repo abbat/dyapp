@@ -180,7 +180,11 @@ After local stage failure it restores committed MLS before continuing. Desktop p
 these bounded workers after mailbox pages.
 The shared originals path already retains hash-matching sticker descriptors. Actual-file tests
 cover restart, validated first-frame pixels, shared photo/sticker LRU, cache off and cleanup after
-the last chat reference; saved packs remain untouched. Native sticker fetch/render remains planned.
+the last chat reference; saved packs remain untouched. Desktop `chat_sticker_frame` now reads
+kept bytes or a validated saved pack before network, follows photo automatic/tap policy and
+returns only bounded RGBA. It binds the viewed identity and current selected message around I/O;
+the session gate serializes sealing-key creation without holding it through media fetch. WebView
+canvas rendering remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.
