@@ -257,7 +257,14 @@ before history/UI. Blocked and pre-match controls create no work. Generic Sessio
 control variants. Dedicated staging derives requests from a selected received MessageKey and
 responses from a current job; Store projection, sealed MLS and exact writes commit together.
 Failed local commits invalidate advanced in-memory MLS, so reopening restores the old snapshot.
-Send wrappers deliver only after commit. Network media workers remain planned.
+Send wrappers deliver only after commit. `respond_sticker_pack_requests` now processes at
+most four due jobs per call, honoring a stop callback between jobs and after upload. It checks
+owner, partner/open/block/sharing state, loads a validated saved pack, reuses the typed ledger
+and photo attach/put transport, and strips release capability before staging the answer.
+Missing/invalid packs retire work without deleting files; transient reads/uploads keep a
+scheduled retry. Reuse also verifies immutable plaintext and ciphertext binding. Failed local
+staging reopens committed MLS before further work. After successful staging, mailbox failures
+belong to the common outbox. Desktop polling integration and receiver download/save remain planned.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,

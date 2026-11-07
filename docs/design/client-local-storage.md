@@ -154,7 +154,12 @@ token, shared/open/unblocked pair, nonempty exact writes and a regular saved-pac
 under the pack writer lock. The response outbox and last-success time commit atomically;
 failures or stale workers cannot advance the rolling 24 h cooldown. Retiring unavailable-pack
 work preserves the previous success time. Dedicated Session send wrappers deliver only after
-this commit; network media workers remain planned.
+this commit. The core response worker now handles up to four due jobs with a stop callback.
+It loads validated saved files, reuses owner descriptors and the photo upload transport, and
+binds even confirmed descriptors to immutable plaintext/ciphertext hashes before reuse.
+Transient read/upload failures retain scheduled work; missing/invalid packs retire only the job.
+After local stage failure it restores committed MLS before continuing. Desktop polling and
+receiver download/save workers remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

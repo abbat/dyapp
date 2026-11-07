@@ -1,4 +1,5 @@
 use super::*;
+mod worker;
 use crate::chat::{pack_control::PackRequest, sticker::Sticker};
 use crate::session::tests::{bob_invited, Invite};
 use crate::sticker_pack::Pack;

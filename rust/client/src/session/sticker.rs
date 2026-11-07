@@ -2,6 +2,7 @@
 mod exchange;
 #[cfg(test)]
 mod tests;
+mod transfer;
 mod upload;
 use super::{Body, Error, Node, PreparedEnvelope, Session};
 use crate::chat::sticker::Sticker;

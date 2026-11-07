@@ -31,7 +31,7 @@ fn prepare(pack: &Pack, index: usize) -> Result<(Sticker, Attachment), crate::Er
     Ok((sticker, candidate))
 }
 
-fn ciphertext(descriptor: &Attachment, bytes: &[u8]) -> Result<Vec<u8>, crate::Error> {
+pub(super) fn ciphertext(descriptor: &Attachment, bytes: &[u8]) -> Result<Vec<u8>, crate::Error> {
     // Never reuse an AES-GCM key/nonce sequence with different plaintext.
     if descriptor.size != bytes.len() as u64 || descriptor.plaintext_sha256 != sha256(bytes) {
         return Err(crate::Error::Reply("sticker plaintext mismatch"));
@@ -68,7 +68,13 @@ impl Session {
         let (mut sticker, candidate) = prepare(pack, index)?;
         let descriptor = match self.store.plan_sticker_upload(&candidate, crate::now())? {
             UploadPlan::Fallback => None,
-            UploadPlan::Reuse(descriptor) => Some(descriptor),
+            UploadPlan::Reuse(descriptor) => {
+                let bytes = pack
+                    .sticker_bytes(index)
+                    .ok_or(crate::Error::Reply("unknown sticker"))?;
+                ciphertext(&descriptor, bytes)?;
+                Some(descriptor)
+            }
             UploadPlan::Upload(pending) => {
                 let bytes = pack
                     .sticker_bytes(index)
