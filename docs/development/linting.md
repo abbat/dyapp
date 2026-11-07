@@ -84,8 +84,10 @@ reasoned expectations at its include or derive boundary.
 
 The dev image and CI bootstrap provision [Hawk 0.1.17](https://github.com/astral-sh/hawk/tree/0.1.17)
 with a pinned release checksum. Its compiler wrappers require the existing Rust 1.99.0
-toolchain. Hawk is experimental; a blocking workspace-unused-public gate is planned after
-fixture qualification and an audit of FFI, platform consumers and Tauri exports.
+toolchain. The quality suite tests it on a two-crate fixture: live cross-crate calls, dead
+functions/constants, exact external exports and stale exceptions. Hawk is experimental;
+a blocking workspace-unused-public gate is planned after an audit of FFI, platform consumers
+and Tauri exports.
 
 `codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings` and
 the cargo-deny checks, all with `continue-on-error`: they are advisory and mark only their step
