@@ -43,6 +43,9 @@ Paginated identity actions retain stable element references: a button can be det
 its old row, so a later page must reattach that reference instead of querying the document.
 Refresh reads also need a per-read sequence guard in addition to identity generation.
 
+Desktop message-row rendering lives in `ui/chat-message.js`, loaded after `chats-ui.js`;
+its classic-script helper retains the controller helpers for media, delivery and message actions.
+
 Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
 The classic scripts share lexical helpers; keep that order when moving controller code to
 stay below the per-file line limit, and retain the existing native smoke entry points.
