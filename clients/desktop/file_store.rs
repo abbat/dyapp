@@ -8,6 +8,7 @@ use zeroize::Zeroizing;
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(path: &Path, identity: &Identity) -> Result<(), String> {
     let parent = path
         .parent()
@@ -24,6 +25,7 @@ pub fn save(path: &Path, identity: &Identity) -> Result<(), String> {
     Ok(())
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(path: &Path) -> Result<Identity, String> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     if !metadata.is_file() {

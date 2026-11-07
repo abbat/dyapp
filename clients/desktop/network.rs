@@ -13,6 +13,7 @@ use dyapp_p2p_net::seed::SeedError;
 use tokio::sync::oneshot;
 
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct NetworkState {
     // Stops the running check; a second concurrent check takes it over.
     cancel: Mutex<Option<oneshot::Sender<()>>>,
@@ -28,6 +29,7 @@ struct CheckContext {
 
 impl NetworkState {
     /// A successful check is valid only for the active identity generation.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear_checked(&self) -> Result<(), String> {
         let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
         checked.epoch = checked.epoch.wrapping_add(1);
@@ -80,6 +82,7 @@ impl From<Network> for Draft {
 }
 
 /// The page's view of one row: `status` names the variant, the UI words it.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn describe(row: Row) -> HashMap<&'static str, String> {
     let status = match row {
         Row::Connected(peer) => {
@@ -98,6 +101,7 @@ pub fn describe(row: Row) -> HashMap<&'static str, String> {
 }
 
 /// Reads the `draft` or `active` settings of the identity folder `dir`; `None` if never saved.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(dir: &Path, file: &str) -> Result<Option<Draft>, String> {
     let which = match file {
         "draft" => Settings::Draft,
@@ -108,12 +112,14 @@ pub fn load(dir: &Path, file: &str) -> Result<Option<Draft>, String> {
     Ok(loaded.map(Into::into))
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save_draft(dir: &Path, draft: Draft) -> Result<(), String> {
     network::save(dir, Settings::Draft, &draft.into()).map_err(|e| e.to_string())
 }
 
 /// Saves `draft`, then dials every row for up to `wait` and reports each in order. Errors are
 /// `empty`, `cancelled`, `invalidNetwork: <reason>` or a storage or network message.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn check(
     state: &NetworkState,
     dir: PathBuf,
@@ -147,6 +153,7 @@ pub async fn check(
 }
 
 /// Stops a running check, which then fails with `cancelled`; the saved files stay as they were.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn cancel(state: &NetworkState) {
     if let Some(stop) = state
         .cancel
@@ -160,6 +167,7 @@ pub fn cancel(state: &NetworkState) {
 
 /// Dials the active settings of `dir` as the app opens; `true` when a node of the network
 /// answered, `false` when none did or nothing is active. Never touches the saved files.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
     let Some(active) = network::load(dir, Settings::Active).map_err(|e| e.to_string())? else {
         return Ok(false);
@@ -170,6 +178,7 @@ pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
 
 /// Makes the last draft of `dir` that reached a node the active configuration; `notChecked`
 /// when no check of this folder did.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn activate(state: &NetworkState, dir: &Path) -> Result<Draft, String> {
     let mut checked = state.checked.lock().map_err(|e| e.to_string())?;
     let network = match &checked.last {

@@ -25,6 +25,7 @@ const RECEIVE_PAGES: usize = 8;
 /// mailbox without hiding the pages behind it. Returns the chat-event and completed-pack refresh count.
 /// Errors are `notConnected`, [`own::REVOKED`] or a node or storage message; earlier pages stay
 /// committed.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn receive(
     cache: &Mutex<ProfileCache>,
     root: &Path,

@@ -5,12 +5,15 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Store calls running at once; each store keeps one SQLite connection behind a mutex, so more
 /// would only wait on it.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const STORE_WORKERS: usize = 4;
 /// Requests a peer may have waiting; past it the request is dropped and the client retries.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const PEER_QUEUE: usize = 16;
 
 /// Jobs per peer, run one at a time per peer and round robin between peers, so one peer
 /// cannot hold every worker and its replies keep their order.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct FairQueue<T> {
     queues: HashMap<PeerId, VecDeque<T>>,
     /// Peers with waiting jobs and none running, in turn order.
@@ -30,6 +33,7 @@ impl<T> Default for FairQueue<T> {
 
 impl<T> FairQueue<T> {
     /// Queues a job; gives it back when the peer already has [`PEER_QUEUE`] waiting.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn push(&mut self, peer: PeerId, job: T) -> Result<(), T> {
         let queue = self.queues.entry(peer).or_default();
         if queue.len() >= PEER_QUEUE {
@@ -43,6 +47,7 @@ impl<T> FairQueue<T> {
     }
 
     /// The next job to run while fewer than [`STORE_WORKERS`] are running.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn next(&mut self) -> Option<(PeerId, T)> {
         if self.running.len() >= STORE_WORKERS {
             return None;
@@ -58,6 +63,7 @@ impl<T> FairQueue<T> {
     }
 
     /// Marks the peer's running job done; its next job waits for its turn.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn done(&mut self, peer: PeerId) {
         if self.running.remove(&peer) && self.queues.contains_key(&peer) {
             self.ready.push_back(peer);
@@ -66,12 +72,15 @@ impl<T> FairQueue<T> {
 }
 
 /// Index reads waiting per IP group: one /24 or /48 cannot fill the queue.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const PER_GROUP: usize = 4;
 /// Index reads waiting in all.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const QUEUED: usize = 256;
 
 /// Index reads waiting for a search worker: search peers first, then one item per IP group in
 /// turn, so a flooding group delays a quiet one by at most one item per worker.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct GroupQueue<T> {
     peers: VecDeque<T>,
     groups: HashMap<String, VecDeque<T>>,
@@ -94,6 +103,7 @@ impl<T> Default for GroupQueue<T> {
 impl<T> GroupQueue<T> {
     /// Queues an item; `group = None` is a search peer, limited by [`QUEUED`] only. Gives the
     /// item back when its group has [`PER_GROUP`] waiting or the queue holds [`QUEUED`].
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn push(&mut self, group: Option<&str>, item: T) -> Result<(), T> {
         if self.len >= QUEUED {
             return Err(item);
@@ -115,6 +125,7 @@ impl<T> GroupQueue<T> {
         Ok(())
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn pop(&mut self) -> Option<T> {
         let item = match self.peers.pop_front() {
             Some(item) => item,

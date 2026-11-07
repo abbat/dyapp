@@ -20,6 +20,7 @@ use crate::IdentityState;
 /// Makes `change` about `peer_id` here and, once the owner's devices share a group, stages it for
 /// them: the next catch-up sends it, so this needs no network. Hold [`Sessions`] around the call.
 /// Invalid notes or their target return `invalidNote`; other invalid changes return `invalidName`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn change_peer(
     root: &Path,
     dir: &Path,
@@ -71,6 +72,7 @@ pub async fn change_peer(
 /// dropped a device that stays silent. One request per catch-up: `now` picks the contact, so a lost
 /// device of a contact goes within as many minutes as there are chats.
 // ponytail: stateless round robin, a stored cursor if a skipped contact ever matters.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn refresh_contact(
     cache: &Mutex<ProfileCache>,
     epoch: u64,
@@ -113,6 +115,7 @@ pub(super) async fn retry_outbox(
 }
 
 /// The failure of a catch-up pass that found this device revoked.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const REVOKED: &str = "revoked";
 
 /// The pass's failure for `error` from reading the mailbox; see `Session::revoked_or`.

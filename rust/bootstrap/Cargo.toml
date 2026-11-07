@@ -59,6 +59,8 @@ dyapp-video = { path = "../video", features = ["proptest"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 
 [lints.rust]
+unreachable_pub = "deny"
+unfulfilled_lint_expectations = "deny"
 missing_docs = "deny"
 
 [lints.clippy]

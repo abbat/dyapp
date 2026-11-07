@@ -4,6 +4,7 @@ use crate::service::Service;
 use std::sync::Arc;
 
 /// Rebuilds the search index into a new generation off the loop; searches go on meanwhile.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn spawn_rebuild(service: &Arc<Service>) {
     let Some(index) = service.search.clone() else {
         return;
@@ -17,10 +18,12 @@ pub fn spawn_rebuild(service: &Arc<Service>) {
 
 /// A catch-up round run while the index refills: `Some(answered)` while it runs.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Round(Option<bool>);
 
 impl Round {
     /// Starts a round at a catch-up tick if the index refills and none runs.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn start(&mut self, service: &Service) {
         let refilling = service
             .search
@@ -32,6 +35,7 @@ impl Round {
     }
 
     /// A peer answered an inventory request.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn answered(&mut self) {
         if let Some(answered) = self.0.as_mut() {
             *answered = true;
@@ -39,6 +43,7 @@ impl Round {
     }
 
     /// Ends the round once nothing is pending; a round in which a peer answered ends refilling.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn drained(&mut self, service: &Service) {
         if self.0.take() != Some(true) {
             return;

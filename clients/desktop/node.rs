@@ -15,6 +15,7 @@ use tokio::task::JoinHandle;
 /// The node settings as the page sends and receives them.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Settings {
     pub enabled: bool,
     /// Disk the stores may fill, split between profiles, mailboxes and the search index.
@@ -34,9 +35,11 @@ impl Default for Settings {
 
 /// The running node: its slot folder, peer ID and serving task.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct NodeState(Mutex<Option<(PathBuf, String, JoinHandle<()>)>>);
 
 /// The settings of the slot folder `dir`, the defaults when never saved.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(dir: &Path) -> Result<Settings, String> {
     match fs::read(dir.join("node.json")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
@@ -45,6 +48,7 @@ pub fn load(dir: &Path) -> Result<Settings, String> {
     }
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
     // Below 4 MB a store would get no whole megabyte.
     if settings.disk_mb < 4 || settings.max_connections < 1 {
@@ -59,6 +63,7 @@ pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
 
 /// The node config for slot folder `dir` on `network`; everything not set here is the `dyappd`
 /// default.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn config(dir: &Path, settings: &Settings, network: &network::Network) -> NodeConfig {
     let mut config = NodeConfig::default();
     config.storage.dir = dir.join("node");
@@ -82,6 +87,7 @@ pub fn config(dir: &Path, settings: &Settings, network: &network::Network) -> No
 }
 
 /// Stops the running node and waits until its stores are closed.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn stop(state: &NodeState) {
     if let Some((_, _, task)) = state.0.lock().await.take() {
         task.abort();
@@ -91,6 +97,7 @@ pub async fn stop(state: &NodeState) {
 
 /// Restarts the node for slot folder `dir` as its settings say. `status` is `off`, `noNetwork`
 /// (no active network yet) or `running` with the node's `peerId`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn apply(state: &NodeState, dir: &Path) -> Result<HashMap<&'static str, String>, String> {
     stop(state).await;
     let settings = load(dir)?;
@@ -123,6 +130,7 @@ pub async fn apply(state: &NodeState, dir: &Path) -> Result<HashMap<&'static str
 }
 
 /// `running` with the `peerId` when the node of slot folder `dir` runs, else `off`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn status(state: &NodeState, dir: &Path) -> HashMap<&'static str, String> {
     match &*state.0.lock().await {
         Some((running, peer_id, task)) if running == dir && !task.is_finished() => {

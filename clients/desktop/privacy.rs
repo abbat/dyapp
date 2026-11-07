@@ -17,6 +17,7 @@ enum NoticeContentDef {
 /// Privacy settings as the page shows them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Privacy {
     pub send_views: bool,
     pub send_read_receipts: bool,
@@ -33,6 +34,7 @@ fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
 }
 
 /// The stored settings; unset ones read as their defaults.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(dir: &Path, identity: &Identity) -> Result<Privacy, String> {
     let store = open(dir, identity)?;
     let read = || -> Result<Privacy, dyapp_client::store::Error> {
@@ -49,6 +51,7 @@ pub fn load(dir: &Path, identity: &Identity) -> Result<Privacy, String> {
 }
 
 /// Stores every setting of `privacy`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(dir: &Path, identity: &Identity, privacy: Privacy) -> Result<(), String> {
     let store = open(dir, identity)?;
     let write = || -> Result<(), dyapp_client::store::Error> {
@@ -63,6 +66,7 @@ pub fn save(dir: &Path, identity: &Identity, privacy: Privacy) -> Result<(), Str
 }
 
 /// Peers blocked on this device, by Peer ID.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn blocked(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
     open(dir, identity)?
         .blocked_peers()
@@ -70,12 +74,14 @@ pub fn blocked(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
 }
 
 /// Peers passed on this device, by Peer ID.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
     open(dir, identity)?
         .passed_peers()
         .map_err(|e| e.to_string())
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub mod commands {
     use crate::chats::{self, own, Likes, Sessions};
     use dyapp_client::chat::PeerChange;

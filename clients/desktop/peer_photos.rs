@@ -32,6 +32,7 @@ fn touch(entries: &mut VecDeque<Entry>, hash: &[u8]) -> Option<Vec<u8>> {
 /// Blobs by hash, least recently used first. The owner clears it with the profile cache.
 // ponytail: linear scans, fine for 264 entries; a hash map index if the limits grow.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct PhotoCache {
     thumbnails: VecDeque<Entry>,
     full: VecDeque<Entry>,

@@ -1,3 +1,4 @@
+#![expect(unreachable_pub, reason = "Generated Tauri wrapper reexports")]
 //! The names the page shows for peers and the local name this profile gives a contact.
 
 use std::sync::Mutex;
@@ -13,6 +14,7 @@ use crate::IdentityState;
 /// no mark; an empty `name` means no name.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct PeerNameView {
     pub peer_id: String,
     pub name: String,
@@ -58,6 +60,7 @@ pub(crate) fn names(
 }
 
 /// Names for the peers on screen, for the active identity.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn contact_names(
     state: tauri::State<'_, IdentityState>,
@@ -71,6 +74,7 @@ pub fn contact_names(
 }
 
 /// Gives a peer with a visible chat a local name; an empty name removes it.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub async fn set_contact_name(
     app: tauri::AppHandle,

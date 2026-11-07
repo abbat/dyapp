@@ -22,11 +22,13 @@ const SEARCH_NODES: usize = 3;
 
 /// Verified profiles seen in the active identity and network context.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
 
 /// Profiles and their context epoch share one lock, so a late result cannot repopulate a cache
 /// cleared by network activation.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ProfileCache {
     epoch: u64,
     profiles: Profiles,
@@ -34,22 +36,27 @@ pub struct ProfileCache {
 }
 
 impl ProfileCache {
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn snapshot(&self) -> (u64, Profiles) {
         (self.epoch, self.profiles.clone())
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn epoch(&self) -> u64 {
         self.epoch
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn current(&self, epoch: u64) -> bool {
         self.epoch == epoch
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn accept_if_current(&mut self, epoch: u64, profile: VerifiedProfile) -> bool {
         self.current(epoch) && self.profiles.accept(profile).is_ok()
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
         self.profiles = Profiles::default();
@@ -59,12 +66,14 @@ impl ProfileCache {
 
 impl SearchState {
     /// Discard verified profiles held for the previous active context.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear(&self) -> Result<(), String> {
         self.0.lock().map_err(|e| e.to_string())?.clear();
         Ok(())
     }
 
     /// Save the checked network and clear profiles if it changed, at one cache boundary.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn activate_network(
         &self,
         checks: &crate::network::NetworkState,
@@ -144,6 +153,7 @@ impl From<EmployerFilter> for Employer {
 /// One search as the page sends it.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 #[serde(default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Query {
     /// Inclusive years; the lower bound is raised to 18.
     pub age: Option<(u32, u32)>,
@@ -188,6 +198,7 @@ fn node_conditions(
 /// Why a node gave no usable reply, tagged by `kind` for the page's messages.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum Failure {
     NoNodes,
     Unavailable,
@@ -218,6 +229,7 @@ impl From<SearchFailure> for Failure {
 /// A profile the client core verified.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Found {
     pub peer_id: String,
     pub draft: Draft,
@@ -245,6 +257,7 @@ impl From<&VerifiedProfile> for Found {
 /// One search over the active network's search nodes.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Results {
     /// Field numbers every reached node filters on and the client checks, ascending.
     pub offered: Vec<u32>,
@@ -262,6 +275,7 @@ pub struct Results {
 /// sample; `employer` then narrows the verified results on this device. Each call connects
 /// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
 /// node), `mutualUnavailable`, `invalid search op`, `invalid search age` or a storage message.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn search(
     cache: &Mutex<ProfileCache>,
     dir: &Path,
@@ -333,6 +347,7 @@ fn project_current(
 
 /// Blocks a well-formed peer on this device; later searches drop it. A known Peer ID need
 /// not come from this run's search cache (for example it may have sent a like).
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn block(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
     if peer_id.len() != 64
         || !peer_id

@@ -8,6 +8,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 /// A failed attempt to enter or complete an identity transition.
 #[derive(Debug, PartialEq, Eq)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum GateError {
     /// No identity is selected.
     NoActive,
@@ -27,6 +28,7 @@ struct State<T> {
 }
 
 /// The current identity and the count of commands allowed to use it.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct IdentityGate<T> {
     state: Mutex<State<T>>,
     drained: Condvar,
@@ -34,6 +36,7 @@ pub struct IdentityGate<T> {
 
 impl<T: Clone> IdentityGate<T> {
     /// Creates a gate with an optional selected identity.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn new(active: Option<T>) -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::new(State {
@@ -47,6 +50,7 @@ impl<T: Clone> IdentityGate<T> {
     }
 
     /// Admits work on the selected identity and returns its stable value and generation.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn lease(self: &Arc<Self>) -> Result<Lease<T>, GateError> {
         let mut state = self.state.lock().map_err(|_| GateError::Poisoned)?;
         if state.transitioning {
@@ -62,6 +66,7 @@ impl<T: Clone> IdentityGate<T> {
     }
 
     /// Closes admission immediately; the caller then cancels work and waits to drain.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn start_transition(self: &Arc<Self>) -> Result<Transition<T>, GateError> {
         let mut state = self.state.lock().map_err(|_| GateError::Poisoned)?;
         if state.transitioning {
@@ -76,6 +81,7 @@ impl<T: Clone> IdentityGate<T> {
 }
 
 /// One command's permission to use the selected identity until this value is dropped.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Lease<T> {
     gate: Arc<IdentityGate<T>>,
     active: T,
@@ -84,17 +90,20 @@ pub struct Lease<T> {
 
 impl<T> Lease<T> {
     /// The identity value selected when this command was admitted.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn active(&self) -> &T {
         &self.active
     }
 
     /// The selected identity's generation when this command was admitted.
     #[cfg(test)]
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn generation(&self) -> u64 {
         self.generation
     }
 
     /// Whether a transition began since this lease was admitted.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn transitioning(&self) -> Result<bool, GateError> {
         let state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
         Ok(state.transitioning || state.generation != self.generation)
@@ -117,6 +126,7 @@ impl<T> Drop for Lease<T> {
 }
 
 /// Exclusive switch or removal, with rollback to the previous value on drop.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Transition<T> {
     gate: Arc<IdentityGate<T>>,
     committed: bool,
@@ -124,6 +134,7 @@ pub struct Transition<T> {
 
 impl<T> Transition<T> {
     /// The previous selection, including during a transition, for failure reconciliation.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn previous(&self) -> Result<Option<T>, GateError>
     where
         T: Clone,
@@ -133,6 +144,7 @@ impl<T> Transition<T> {
     }
 
     /// Waits for admitted work to finish; call this on a blocking thread.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn wait(&self) -> Result<(), GateError> {
         let mut state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
         while state.leases != 0 {
@@ -146,6 +158,7 @@ impl<T> Transition<T> {
     }
 
     /// Replaces the selected identity after every lease has finished.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn commit(mut self, active: Option<T>) -> Result<(), GateError> {
         let mut state = self.gate.state.lock().map_err(|_| GateError::Poisoned)?;
         if state.leases != 0 {

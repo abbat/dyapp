@@ -8,6 +8,7 @@ use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Usage {
     pub identity_dir: Option<String>,
     pub messages_path: String,
@@ -21,6 +22,7 @@ pub struct Usage {
 
 /// The status bar; `traffic` is `[in, out]` and `None` until a client swarm starts.
 #[derive(Serialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Status {
     pub traffic: Option<[u64; 2]>,
     pub messages: Option<u64>,
@@ -51,12 +53,14 @@ fn within(path: &Path) -> Option<u64> {
 }
 
 /// Bytes of the client store in slot folder `dir` with its `-wal`/`-shm` siblings.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn messages(dir: &Path) -> Option<u64> {
     let siblings = ["client.db-wal", "client.db-shm"].map(|name| bytes(&dir.join(name)));
     bytes(&dir.join("client.db")).map(|used| used + siblings.into_iter().flatten().sum::<u64>())
 }
 
 /// The usage of slot folder `dir`; `config` is the app config directory that holds the slots.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
     #[cfg(unix)]
     let (node_path, node, node_limit) = {

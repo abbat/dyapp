@@ -63,6 +63,7 @@ use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const USAGE: &str = "client: dyappd info <addr> | turn <addr> | relays <addr> | \
     closest <addr> <key> | sign-profile [secret version] | heartbeat <addr> <secret> | \
     publish <addr> <hex> | get <addr> <peer_id> | device-key | put <addr> <mailbox> <hex> | \
@@ -71,6 +72,7 @@ pub const USAGE: &str = "client: dyappd info <addr> | turn <addr> | relays <addr
     put-replicas <addr> <mailbox> | media <addr> <hex> | media-owned <addr> <hex> | \
     media-sized <addr> <bytes> <seed> | media-keep <addr> <record> | \
     media-refresh <addr> <record> <secret> | media-get <addr> <hash>";
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const USAGE_RU: &str = "клиент: dyappd info <адрес> | turn <адрес> | relays <адрес> | \
     closest <адрес> <ключ> | sign-profile [секрет версия] | heartbeat <адрес> <секрет> | \
     publish <адрес> <hex> | get <адрес> <peer_id> | device-key | put <адрес> <ящик> <hex> | \
@@ -84,6 +86,7 @@ pub const USAGE_RU: &str = "клиент: dyappd info <адрес> | turn <ад�
 static NETWORK: OnceLock<Arc<Protocols>> = OnceLock::new();
 
 /// Runs a client command and returns its JSON output, or `None` when `args` is not one.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> {
     let protocols = Protocols::new(network).context("network.name")?;
     NETWORK.get_or_init(|| Arc::new(protocols));

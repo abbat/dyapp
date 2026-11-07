@@ -12,6 +12,7 @@ use dyapp_profile::{Profile, VerifiedProfile};
 
 /// How long each device earlier in [`Group::add_turn`] or [`Group::remove_turn`] gets to commit
 /// first. Two commits on one epoch fork a group for good, and no server orders them.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {

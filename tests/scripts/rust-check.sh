@@ -25,6 +25,12 @@ check() {
     python3 -B tools/scripts/run-check.py --log-dir "${DYAPP_CHECK_LOG_DIR:-build/check-output}" \
         "$name" -- "$@"
 }
+# Bound compiler analysis stacks; the pinned toolchain exceeds its defaults here.
+compiler_stack() (
+    ulimit -s 65536
+    export RUST_MIN_STACK=134217728
+    "$@"
+)
 step() {
     case "$1" in
         quality)
@@ -57,15 +63,13 @@ step() {
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
             check panics python3 -B tests/scripts/check-panics.py --raw
-            check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
+            step rustdoc
             ;;
         unused-public)
-            # Compiler graph collection and LLVM codegen need bounded larger stacks.
-            (
-                ulimit -s 65536
-                export RUST_MIN_STACK=134217728
-                check unused-public python3 -B tests/scripts/check-unused-public.py --raw
-            )
+            compiler_stack check unused-public python3 -B tests/scripts/check-unused-public.py --raw
+            ;;
+        rustdoc)
+            compiler_stack check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         swift-check)
             check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
@@ -216,7 +220,7 @@ step() {
 if [[ ${1:-} != --raw ]]; then
     stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
-        quality|fmt|fmt-write|web-check|web-format|swift-check|unused-public|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|swift-check|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

@@ -96,7 +96,7 @@ msrv:
 	$(CHECK) rust-build -- cargo check --workspace --all-features --all-targets --locked --offline
 
 doc:
-	$(CHECK) rustdoc -- cargo doc --workspace --locked --offline --no-deps
+	$(DEV) bash tests/scripts/rust-check.sh rustdoc
 
 lint-android:
 	bash tests/scripts/docker-test.sh lint-android

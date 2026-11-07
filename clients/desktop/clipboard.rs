@@ -1,3 +1,4 @@
+#![expect(unreachable_pub, reason = "Generated Tauri wrapper reexports")]
 //! Sensitive safety-number clipboard operations shared by Linux and Windows.
 
 use super::IdentityState;
@@ -10,6 +11,7 @@ fn grouped_number(mine: &str, theirs: &str) -> Result<String, String> {
 
 /// Copies the active identity's contact number with a clipboard-history exclusion hint.
 /// The returned value is the exact text to compare when the 60-second timer fires.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub async fn copy_safety_number(
     app: tauri::AppHandle,
@@ -34,6 +36,7 @@ pub async fn copy_safety_number(
 
 /// Clears the clipboard only if its text still equals the copied safety number.
 /// Reading happens off the GUI thread because the Linux clipboard may wait for its owner.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub async fn clear_safety_clipboard(
     app: tauri::AppHandle,

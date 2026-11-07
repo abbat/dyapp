@@ -12,6 +12,7 @@ use std::path::Path;
 /// Network revocation is only confirmed by the node reached in this attempt.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum Revocation {
     NotNeeded,
     Pending,
@@ -21,6 +22,7 @@ pub enum Revocation {
 /// Local block always remains effective when network revocation is pending.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct BlockResult {
     pub revocation: Revocation,
     pub detail: Option<String>,
@@ -38,6 +40,7 @@ impl BlockResult {
 /// Conversation states exposed to the desktop without the request's internal message ID.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum ChatState {
     None,
     RequestSent,
@@ -61,6 +64,7 @@ impl From<Conversation> for ChatState {
 /// Status of the current own content; node acceptance alone is not recipient delivery.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum DeliveryView {
     Pending,
     NodeAccepted,
@@ -81,6 +85,7 @@ impl From<DeliveryState> for DeliveryView {
 /// open the original never reach the page.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct PhotoView {
     pub mime: String,
     /// The sender's claimed shape with its aspect ratio clamped, only to reserve layout space.
@@ -101,6 +106,7 @@ pub struct PhotoView {
 /// Safe sticker fallback metadata; no fetch descriptor or compressed bytes reach the page.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct StickerView {
     pub pack_id: [u8; 32],
     pub sha256: [u8; 32],
@@ -111,6 +117,7 @@ pub struct StickerView {
 /// Current text, deletion marker, photo or sticker, in the Store's pair-wide order.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct MessageView {
     pub group_id: Vec<u8>,
     pub author: String,
@@ -267,6 +274,7 @@ pub(super) fn last_item(
 /// One Chats list row from this identity's local Store.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ChatRowView {
     pub peer_id: String,
     pub state: ChatState,
@@ -280,6 +288,7 @@ pub struct ChatRowView {
 /// One peer's current conversation, including an empty chat after Clear chat.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ChatHistoryView {
     pub state: ChatState,
     pub messages: Vec<MessageView>,

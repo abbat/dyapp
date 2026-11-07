@@ -10,6 +10,7 @@ use tauri::{PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
 
 /// A rectangle in physical pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Rect {
     pub x: i32,
     pub y: i32,
@@ -18,6 +19,7 @@ pub struct Rect {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Saved {
     pub normal: Rect,
     pub maximized: bool,
@@ -25,6 +27,7 @@ pub struct Saved {
 
 /// The last state seen by window events; written once, when the app exits.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct WindowState(Mutex<Option<Saved>>);
 
 const FILE: &str = "window.json";
@@ -42,6 +45,7 @@ fn overlap(a: Rect, b: Rect) -> u64 {
 
 /// `window` as saved when at least a quarter of it and part of its title bar are on a display;
 /// otherwise centred on `primary`, shrunk to fit it.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn place(window: Rect, displays: &[Rect], primary: Rect) -> Rect {
     let visible: u64 = displays.iter().map(|display| overlap(window, *display)).sum();
     let title = Rect { height: TITLE_BAR.min(window.height), ..window };
@@ -64,6 +68,7 @@ fn rect(position: PhysicalPosition<i32>, size: PhysicalSize<u32>) -> Rect {
 
 /// Puts the window where `config/window.json` says, then shows it. A missing or unreadable file
 /// keeps the configured default: 1024×720, centred.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn restore<R: Runtime>(window: &WebviewWindow<R>, config: Option<&Path>) {
     let saved = config
         .and_then(|dir| fs::read(dir.join(FILE)).ok())
@@ -87,6 +92,7 @@ pub fn restore<R: Runtime>(window: &WebviewWindow<R>, config: Option<&Path>) {
 }
 
 /// Records the window after a move or resize; keeps the last normal bounds while maximized.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
     if window.is_minimized().unwrap_or(true) || window.is_fullscreen().unwrap_or(true) {
         return;
@@ -104,6 +110,7 @@ pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
 }
 
 /// Writes the last recorded state to `config/window.json`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(state: &WindowState, config: &Path) {
     let saved = *state.0.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(json) = saved.and_then(|saved| serde_json::to_vec(&saved).ok()) {

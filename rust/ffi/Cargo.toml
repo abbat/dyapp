@@ -39,6 +39,8 @@ uniffi = { version = "0.32", features = ["build"] }
 crate-type = ["cdylib", "rlib"]
 
 [lints.rust]
+unreachable_pub = "deny"
+unfulfilled_lint_expectations = "deny"
 missing_docs = "deny"
 
 [lints.clippy]

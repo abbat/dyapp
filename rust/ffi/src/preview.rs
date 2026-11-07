@@ -10,8 +10,10 @@ use jpeg_decoder::{Decoder, PixelFormat};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Longest side of a preview, in pixels.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const MAX_SIDE: u32 = 320;
 /// Largest preview, in bytes.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const MAX_BYTES: u32 = 24 * 1024;
 const FALLBACK_SIDE: u32 = 160;
 const QUALITIES: [u8; 5] = [80, 70, 60, 50, 40];

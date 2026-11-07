@@ -70,6 +70,17 @@ cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
 cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings
 ```
 
+The root workspace, bootstrap/FFI crates and native desktop manifests deny `unreachable_pub`
+and `unfulfilled_lint_expectations`. Existing internal module APIs keep their public spelling
+and implementations, with declaration-level `expect(unreachable_pub, reason = ...)` markers.
+This lint describes export visibility, not whether a function executes: retained markers do not
+claim that used code is dead. New unclassified visibility findings and stale markers fail Rust
+compilation. Real compiler fixtures test unmarked, retained, newly added and newly exported APIs.
+Four desktop command modules also carry a module-level expectation for public wrapper reexports
+emitted by Tauri: its macro does not propagate declaration attributes to those generated items.
+These boundaries cover `chats/names.rs`, `clipboard.rs`, `link.rs` and `safety.rs`; handwritten
+API declarations retain their individual markers.
+
 Cargo denies Clippy `allow_attributes` and `allow_attributes_without_reason` in workspace and
 standalone crates. Handwritten Rust suppressions use `#[expect(..., reason = "...")]` so
 `unfulfilled_lint_expectations` reports them once the underlying lint stops firing;
@@ -97,8 +108,10 @@ classification rather than increasing an aggregate budget or excluding a crate.
 
 Hawk is experimental. The quality suite tests live cross-crate calls, dead functions/constants,
 external exports and stale expectations on a two-crate fixture. The runner uses a 64 MiB main
-stack and 128 MiB Rust worker stack, required by the measured workspace analysis. This check
-compiles code and is deliberately separate from the compilation-free `make quick-check`.
+stack and 128 MiB Rust worker stack, required by the measured workspace analysis. Strict
+Rustdoc uses the same stack limits after a reproduced compiler stack failure. `make doc` and
+quality both check workspace documentation with all features and warnings denied. These checks
+compile code and are deliberately separate from the compilation-free `make quick-check`.
 
 `codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings` and
 the cargo-deny checks, all with `continue-on-error`: they are advisory and mark only their step

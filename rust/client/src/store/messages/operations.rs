@@ -9,6 +9,7 @@ use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 /// Most unresolved operations this profile retains across all target IDs.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const MAX_PENDING_OPERATIONS: i64 = 64;
 type PendingEdit = (i64, Vec<u8>, Vec<u8>, Vec<u8>);
 

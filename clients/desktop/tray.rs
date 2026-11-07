@@ -24,6 +24,7 @@ use tauri::{AppHandle, Manager};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Prefs {
     pub show: bool,
     pub close_to_tray: bool,
@@ -40,6 +41,7 @@ impl Default for Prefs {
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct State {
     pub available: bool,
     pub show: bool,
@@ -58,6 +60,7 @@ struct Inner {
 /// `hides` mirrors the state for window events: the main thread must not wait on the lock while
 /// the watcher holds it and waits on the main thread to build the icon.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Tray {
     inner: Mutex<Inner>,
     hides: AtomicBool,
@@ -74,6 +77,7 @@ impl Tray {
     }
 
     /// Closing the window hides it only while the icon is there to bring it back.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn hides_on_close(&self) -> bool {
         self.hides.load(Ordering::SeqCst)
     }
@@ -81,6 +85,7 @@ impl Tray {
 
 /// Settings → Window: loads the saved choice on first call, stores `prefs` when given, takes the
 /// menu labels, then shows or removes the icon to match.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn set(
     app: &AppHandle,
     config: Option<&Path>,
@@ -155,6 +160,7 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
 }
 
 /// Open, fixed notice and Sticker labels, once the page has given them.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn notice_labels(app: &AppHandle) -> Option<(String, String, String)> {
     let tray = app.state::<Tray>();
     let inner = tray.lock();
@@ -162,6 +168,7 @@ pub fn notice_labels(app: &AppHandle) -> Option<(String, String, String)> {
     labels.map(|[open, _, notice, sticker]| (open.clone(), notice.clone(), sticker.clone()))
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn show(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -202,6 +209,7 @@ fn library() -> bool {
 
 /// Follows the StatusNotifierItem host on the session bus, checking every two seconds.
 #[cfg(unix)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     if !library() {
         return;
@@ -250,6 +258,7 @@ impl Instance {
 /// zbus 5, whose retired crates stay out of this lockfile. A plugin hook, as the window must not
 /// open first.
 #[cfg(unix)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::<tauri::Wry>::new("single-instance")
         .setup(|app, _| {

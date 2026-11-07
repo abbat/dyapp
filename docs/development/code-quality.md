@@ -14,7 +14,7 @@ All checks run in Docker; build the image once with `make prepare`.
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `tests/scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
 | `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
-| `make doc` | `cargo doc --workspace --no-deps` |
+| `make doc` | `cargo doc --workspace --all-features --locked --no-deps` in Docker, with warnings denied |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
 ### Check output

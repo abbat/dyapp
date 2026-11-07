@@ -33,6 +33,8 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [lints.rust]
+unreachable_pub = "deny"
+unfulfilled_lint_expectations = "deny"
 unsafe_code = "forbid"
 
 [lints.clippy]

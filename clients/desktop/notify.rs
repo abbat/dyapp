@@ -166,6 +166,7 @@ static LAST: AtomicU32 = AtomicU32::new(0);
 /// Opens the connection for notices and shows the window when the last one is clicked. A desktop
 /// without a session bus shows neither.
 #[cfg(unix)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         use zbus::export::futures_core::Stream;

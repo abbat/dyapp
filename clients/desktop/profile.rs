@@ -29,10 +29,12 @@ const KEY_PACKAGES: usize = 4;
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ProfileState(Mutex<Option<Arc<AtomicBool>>>);
 
 impl ProfileState {
     /// Register a fresh solve and cancel the previous one, if it is still running.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn begin(&self) -> Result<Arc<AtomicBool>, String> {
         let token = Arc::new(AtomicBool::new(false));
         let mut current = self.0.lock().map_err(|error| error.to_string())?;
@@ -43,6 +45,7 @@ impl ProfileState {
     }
 
     /// Signal the registered solve without changing a future solve's token.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn cancel(&self) {
         let mut current = self.0.lock().unwrap_or_else(|error| error.into_inner());
         if let Some(token) = current.take() {
@@ -54,6 +57,7 @@ impl ProfileState {
 /// The editable public fields as the page sends and receives them.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Draft {
     /// The optional public name.
     #[serde(default)]
@@ -114,6 +118,7 @@ pub struct Draft {
 
 /// A place offered by the place picker.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Place {
     pub id: u32,
     pub name: String,
@@ -133,6 +138,7 @@ impl From<places::Place> for Place {
 /// A profile picker option supplied by the shared Rust vocabulary.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct PickerOption {
     pub code: u32,
     pub key: &'static str,
@@ -141,6 +147,7 @@ pub struct PickerOption {
 /// A profile picker with stable keys for the page's localization catalogue.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct PickerScale {
     pub field: u32,
     pub key: &'static str,
@@ -149,6 +156,7 @@ pub struct PickerScale {
 }
 
 /// Profile scales in the order shown by the editor.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn scales() -> Vec<PickerScale> {
     dyapp_profile::SCALES
         .iter()
@@ -171,6 +179,7 @@ pub fn scales() -> Vec<PickerScale> {
 /// The saved draft with what the page shows beside it.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct View {
     pub draft: Draft,
     /// The last published version; 0 before the first publish.
@@ -187,6 +196,7 @@ pub struct View {
 }
 
 /// The page's name for a [`Block`].
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn code(block: Block) -> &'static str {
     match block {
         Block::NotAttested => "notAttested",
@@ -195,6 +205,7 @@ pub fn code(block: Block) -> &'static str {
     }
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn today() -> Result<CivilDate, String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -286,6 +297,7 @@ fn blocked(block: Block) -> String {
 }
 
 /// The saved draft of the identity folder `dir`; empty before the first save.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
     match std::fs::symlink_metadata(dir.join("client.db")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -315,6 +327,7 @@ pub(crate) fn canonical_interests(tags: &[String]) -> Result<Vec<String>, String
 }
 
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, String> {
     for (field, value) in [
         (dyapp_profile::Gender::FIELD, draft.gender),
@@ -418,6 +431,7 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
 /// Checks the draft, then advances its proof of work of `bits`, saving after each step so a
 /// later call resumes. Errors are `blocked: <code>`, `cancelled` or a storage message. The page
 /// keeps the fields read-only meanwhile, since each step saves the draft it read.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn solve(
     cancel: &AtomicBool,
     dir: &Path,
@@ -444,6 +458,7 @@ pub fn solve(
 }
 
 /// The first node of the active network that answers, over each row's TCP, then QUIC address.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn connect(network: &Network) -> Result<Node, String> {
     let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
     let mut error = "notConnected".to_string();
@@ -459,6 +474,7 @@ pub async fn connect(network: &Network) -> Result<Node, String> {
 }
 
 /// Every answering node of the active network, at most one per seed row.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
     let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
     let mut nodes = Vec::new();
@@ -488,6 +504,7 @@ fn publish_code(failure: publish::Failure) -> String {
 /// or storage message; each leaves the draft as it was.
 /// The profile lists this device, made on the first publish under `device_key`, and its
 /// KeyPackages follow, so peers can invite it to chats.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn publish(
     root: &Path,
     dir: &Path,
@@ -546,6 +563,7 @@ pub async fn publish(
 
 /// Hides the profile from search, keeping direct profile and KeyPackage lookup available.
 /// The signed search tombstone remains pending until a search node accepts it.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
     let store = open(dir, identity)?;
     let draft = stored(&store)?;
@@ -560,6 +578,7 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
 
 /// A row of the Devices list in Settings.
 #[derive(serde::Serialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Device {
     /// Mailbox key of the device.
     pub key: Vec<u8>,
@@ -570,6 +589,7 @@ pub struct Device {
 /// The devices of the saved draft or, when `live`, of the newest profile any node holds, with this
 /// computer's key `this`. The draft stands in when no node answers, and it is never replaced here,
 /// as it may hold edits not yet published.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn devices(
     dir: &Path,
     identity: &Identity,
@@ -598,6 +618,7 @@ pub async fn devices(
 
 /// Closes the mailbox of the device with the key `device_key` and relists the profile without it;
 /// see `publish::revoke_device`. Errors as in [`publish`]; a failed step may be retried.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn revoke_device(
     dir: &Path,
     identity: &Identity,
@@ -623,12 +644,14 @@ fn link_code(text: &str, now: u64) -> Result<Code, String> {
 }
 
 /// Checks a pasted link code before the owner is asked to give that device full control.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn check_link_code(text: &str) -> Result<(), String> {
     link_code(text, unix_now()?).map(|_| ())
 }
 
 /// Sends this identity's key and local state to the device that showed the code in `text`, after
 /// the owner confirmed it. Errors as in [`check_link_code`], or `notConnected` with no network.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn send_link(dir: &Path, identity: &Identity, text: &str) -> Result<(), String> {
     let now = unix_now()?;
     let code = link_code(text, now)?;
@@ -646,6 +669,7 @@ pub async fn send_link(dir: &Path, identity: &Identity, text: &str) -> Result<()
 
 /// Publishes a final tombstone to profile storage before identity removal and holds it for search.
 /// With no responding profile node, the caller offers Retry or Remove anyway.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {
     let store = open(dir, identity)?;
     let draft = stored(&store)?;
@@ -679,6 +703,7 @@ async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<
 
 /// Finishes the link of the identity in `dir` when one is pending; see `Session::finish_link`.
 /// Errors are `notConnected`, `revoked` or a node or storage message, and the next pass retries.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn finish_link(
     root: &Path,
     dir: &Path,
@@ -714,6 +739,7 @@ pub async fn finish_link(
 
 /// Sends a held profile whose search window has ended (see `send_held`) and returns the view.
 /// Errors are `notConnected` (no active network or no answering node) or a storage message.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn send_search(dir: &Path, identity: &Identity) -> Result<View, String> {
     let store = open(dir, identity)?;
     if store

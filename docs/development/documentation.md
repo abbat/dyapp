@@ -11,7 +11,7 @@
 | Output | Source | State |
 |--------|--------|-------|
 | Markdown docs | `docs/` (index: [docs/README.md](../README.md)) | Written by hand; read on GitHub or in a clone. |
-| Rust API | `make doc` → `cargo doc --workspace --locked --offline --no-deps` in the dev container | All 6 crates, public items. Output goes to `build/workspace/doc` on the host. `make quality` builds it too and fails on any rustdoc warning. |
+| Rust API | `make doc` → `cargo doc --workspace --all-features --locked --no-deps` in the offline dev container, with warnings denied | All 6 crates, public items. Output stays in the dev container's workspace cache volume. `make quality` runs the same strict check. |
 | Swift / Kotlin API | none | No DocC catalog, no Dokka plugin. |
 | Link check | none | Markdown links are not checked by any script or CI job. |
 
@@ -22,8 +22,9 @@ make prepare   # once, online: builds the dev image (and the other test images)
 make doc       # checks that rustdoc builds for all 6 crates; output stays in the container volume
 ```
 
-To browse the Rust API on the host, run `cargo doc --workspace --no-deps` with a local 1.99.0
-toolchain and open `build/doc/`.
+To browse the Rust API on the host, copy `/workspace/build/doc` from the retained dev container
+with `docker cp` into a new directory under `build/`, then open its `index.html`. A host Rust
+toolchain is not required.
 
 Check relative Markdown links by hand when moving files.
 

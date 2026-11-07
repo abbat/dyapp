@@ -8,8 +8,10 @@ use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use rusqlite::{params, OptionalExtension};
 
 /// A match is shown as active recently this long after its latest presence.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const PRESENCE_WINDOW_MS: u64 = 2 * 3_600_000;
 /// At most one presence per match in this interval.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const PRESENCE_THROTTLE_MS: u64 = 3_600_000;
 const SETTING: &str = "send_presence";
 

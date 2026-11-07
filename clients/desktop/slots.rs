@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use dyapp_identity::Identity;
 
 /// The virtual slot of the root `identity.key` / `identity-storage` installation.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const LEGACY: &str = "legacy-primary";
 
 /// Files belonging to the slot that a confirmed removal may erase.
@@ -35,6 +36,7 @@ const REMOVABLE: [&str; 18] = [
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum State {
     Pending,
     Ready,
@@ -44,6 +46,7 @@ pub enum State {
 }
 
 #[derive(Debug)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Slot {
     pub id: String,
     pub dir: PathBuf,
@@ -53,11 +56,13 @@ pub struct Slot {
 }
 
 impl Slot {
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn key_path(&self) -> PathBuf {
         self.dir.join("identity.key")
     }
 
     /// The Secret Service or Credential Manager slot name.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn system_name(&self) -> String {
         if self.id == LEGACY {
             "primary".into()
@@ -67,20 +72,24 @@ impl Slot {
     }
 
     /// Where the `file` mode keeps this computer's device mailbox key; see [`device_key`].
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn device_path(&self) -> PathBuf {
         self.dir.join("device.key")
     }
 
     /// The `system` mode's slot name for the device mailbox key.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn device_name(&self) -> String {
         format!("{}:device", self.system_name())
     }
 
     /// Independent secret that seals this slot's MLS Device snapshot.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn seal_path(&self) -> PathBuf {
         self.dir.join("seal.key")
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn seal_name(&self) -> String {
         format!("{}:seal", self.system_name())
     }
@@ -195,6 +204,7 @@ fn read_slot(id: String, dir: PathBuf) -> Slot {
 
 /// All local slots: the legacy one if its key or marker exists, then each UUID directory under
 /// `profiles/`. Other names there are not ours and are skipped.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     let mut slots = Vec::new();
     let legacy_mode = read_marker(&root.join("identity-storage"));
@@ -250,6 +260,7 @@ pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
 }
 
 /// Reserves a fresh slot for a key in `mode`, written as `pending` before any key exists.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
     let profiles = root.join("profiles");
     fs::create_dir_all(&profiles).map_err(|e| e.to_string())?;
@@ -273,6 +284,7 @@ pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
 }
 
 /// Moves a profile slot to `state`; the legacy slot has no state file.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn set_state(slot: &mut Slot, state: State) -> Result<(), String> {
     if slot.id == LEGACY || slot.state == State::Broken {
         return Err("Slot state cannot change".into());
@@ -283,17 +295,20 @@ pub fn set_state(slot: &mut Slot, state: State) -> Result<(), String> {
 }
 
 /// The slot named by `active-profile`, if the pointer is valid.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn active(root: &Path) -> Option<String> {
     let value = read_marker(&root.join("active-profile")).ok()??;
     let id = value.strip_suffix('\n')?;
     (id == LEGACY || is_uuid(id)).then(|| id.to_owned())
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn set_active(root: &Path, id: &str) -> Result<(), String> {
     write_atomic(&root.join("active-profile"), &format!("{id}\n"))
 }
 
 /// The slot to open without asking: the active one if listed, else the only ready slot.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn choose<'a>(root: &Path, slots: &'a [Slot]) -> Option<&'a Slot> {
     if let Some(id) = active(root) {
         if let Some(slot) = slots.iter().find(|slot| slot.id == id) {
@@ -307,8 +322,10 @@ pub fn choose<'a>(root: &Path, slots: &'a [Slot]) -> Option<&'a Slot> {
 }
 
 /// Reads a slot's key: `None` when its backend confirms there is no key.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub type Load<'a> = &'a dyn Fn(&Slot) -> Result<Option<Identity>, String>;
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub enum Opened {
     /// No slot yet: offer the storage choice.
     Setup,
@@ -321,6 +338,7 @@ pub enum Opened {
 
 /// Opens the slot `choose` picks. A missing key or incomplete slot is a recovery state, never a
 /// reason to create a new identity.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
     let mut slots = list(root)?;
     let index = match choose(root, &slots) {
@@ -336,6 +354,7 @@ pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
 }
 
 /// Opens one listed slot; a key that cannot be read is "unavailable", so the window can retry.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn open_slot(slot: Slot, load: Load<'_>) -> Result<Opened, String> {
     let reason = match slot.state {
         State::Ready => match load(&slot) {
@@ -371,6 +390,7 @@ fn lock(root: &Path) -> Result<fs::File, String> {
 }
 
 /// Creates an identity in a fresh slot and makes it active; see [`adopt`].
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn create(
     root: &Path,
     mode: &'static str,
@@ -385,6 +405,7 @@ pub fn create(
 /// Puts `identity` in a fresh slot and makes it active. The slot is marked ready only after its key
 /// reopens with the same Peer ID and `fill` has added what else it needs, so a failure or a crash
 /// leaves an incomplete slot and the active one in place. `fill` runs under the slot lock.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn adopt(
     root: &Path,
     mode: &'static str,
@@ -409,6 +430,7 @@ pub fn adopt(
 /// The device mailbox key of the ready slot in `dir`, made on first use. It is random and kept
 /// beside the identity key, so a copy of the identity on another computer becomes a new device.
 /// The slot lock keeps two callers from making two keys.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn device_key(
     root: &Path,
     dir: &Path,
@@ -435,6 +457,7 @@ pub fn device_key(
 /// confirmed. The slot is marked `deleting` before `erase` and its files go only once `load`
 /// confirms the key is absent, so any failure keeps a slot that a retry can finish. The legacy
 /// slot and damaged slots are refused: they need a migration or hold files we cannot interpret.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn remove(
     root: &Path,
     id: &str,

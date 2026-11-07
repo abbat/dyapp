@@ -16,6 +16,7 @@ mod platform {
     }
 
     #[derive(Debug, PartialEq, Eq)]
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub enum Unavailable {
         NoSessionBus,
         NoService,
@@ -25,6 +26,7 @@ mod platform {
     }
 
     impl Unavailable {
+        #[expect(unreachable_pub, reason = "Retained module API visibility")]
         pub fn key(&self) -> &'static str {
             match self {
                 Self::NoSessionBus => "storage.system.noSessionBus",
@@ -36,6 +38,7 @@ mod platform {
         }
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn probe() -> Result<(), Unavailable> {
         if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
             return Err(Unavailable::NoSessionBus);
@@ -80,6 +83,7 @@ mod platform {
         }
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn load_slot(slot: &str) -> Result<Option<Identity>, String> {
         let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
         let collection = service
@@ -101,6 +105,7 @@ mod platform {
         }
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn save_slot(slot: &str, identity: &Identity) -> Result<(), String> {
         let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
         let collection = service
@@ -130,6 +135,7 @@ mod platform {
     }
 
     /// Deletes the slot's item; an absent item is already deleted.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn delete_slot(slot: &str) -> Result<(), String> {
         let service = SecretService::connect(EncryptionType::Dh).map_err(|e| e.to_string())?;
         let collection = service
@@ -421,4 +427,5 @@ mod platform {
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub use platform::{delete_slot, load_slot, probe, save_slot};

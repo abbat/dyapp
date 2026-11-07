@@ -30,6 +30,7 @@ pub(crate) mod presence;
 mod reads;
 #[path = "chats/receive.rs"]
 mod receiving;
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub use receiving::receive;
 #[path = "chats/send_photo.rs"]
 pub(crate) mod send_photo;
@@ -37,16 +38,19 @@ pub(crate) mod send_photo;
 pub(crate) mod share;
 #[path = "chats/view.rs"]
 mod view;
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub use view::{BlockResult, ChatHistoryView, ChatRowView, MessageView, Revocation};
 
 /// Held while an MLS session is open: two sessions would advance the same saved state, and the
 /// later commit would drop what the other did.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Sessions(pub Arc<Mutex<()>>);
 
 /// The like state with one peer as the page shows it.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Likes {
     /// This profile likes the peer: the page shows Liked.
     pub ours: bool,
@@ -60,6 +64,7 @@ pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, String> {
     let store = open(dir, identity)?;
     let now = presence::now_ms()?;
@@ -83,6 +88,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
     Ok(rows)
 }
 
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn chat_history(
     dir: &Path,
     identity: &Identity,
@@ -131,6 +137,7 @@ pub(crate) fn open_visible_chat(dir: &Path, me: &Identity, peer_id: &str) -> Res
 }
 
 /// Clear this peer's entire device-local history while retaining its conversation state.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
     let mut store = open_visible_chat(dir, identity, peer_id)?;
     let removed = store.clear_chat_pair(peer_id).map_err(|e| e.to_string())?;
@@ -139,6 +146,7 @@ pub fn clear_chat(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usiz
 }
 
 /// Mark current incoming texts in every group of a visible pair read on this device only.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn mark_chat_read(dir: &Path, identity: &Identity, peer_id: &str) -> Result<usize, String> {
     open_visible_chat(dir, identity, peer_id)?
         .mark_chat_read(peer_id)
@@ -171,6 +179,7 @@ pub(crate) fn accept_peer(
 
 /// Send through the active network after refreshing the peer's signed profile. The Session
 /// stages the text and any first Welcome before network delivery; a failed send stays retryable.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn send_text(
     cache: &Mutex<ProfileCache>,
     root: &Path,
@@ -236,12 +245,14 @@ fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
 }
 
 /// The like state with `peer_id`.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, String> {
     likes_in(&open(dir, identity)?, peer_id)
 }
 
 /// Persist a local block before trying to revoke this profile's issued write tokens. A retry
 /// sends the same live keys again; a failed node call never undoes the local block.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn block(
     root: &Path,
     dir: &Path,
@@ -307,6 +318,7 @@ pub async fn block(
 /// this run returned can be liked. A send that fails stays staged with its bytes. Errors are
 /// `unknownPeer`, `unpublished` (no published own profile lists this device), `notConnected` or
 /// a node or storage message.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn like(
     cache: &Mutex<ProfileCache>,
     root: &Path,
@@ -350,6 +362,7 @@ pub async fn like(
 /// The Liked you peers (`Store::liked_by`) with their profiles verified from the active network,
 /// cached so they can be liked or blocked; a peer whose profile no node returns is left out. With
 /// no such peer it does not connect. Errors are `notConnected` or a storage message.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn liked_you(
     cache: &Mutex<ProfileCache>,
     dir: &Path,
@@ -384,6 +397,7 @@ pub async fn liked_you(
 
 /// The page's commands for likes and the mailbox; each one that opens an MLS session holds
 /// `Sessions` on its blocking thread.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub mod commands {
     use std::sync::Arc;
     use std::time::Duration;

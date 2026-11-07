@@ -1,3 +1,4 @@
+#![expect(unreachable_pub, reason = "Generated Tauri wrapper reexports")]
 //! The new computer's side of device linking: the code, the wait for the record and the slot the
 //! record becomes. The device key and the one-use key stay in memory until the record arrives, so
 //! nothing of a link survives a restart before that. [`crate::profile::finish_link`] does the rest.
@@ -33,6 +34,7 @@ struct Link {
 
 /// The link this computer waits for, at most one.
 #[derive(Default)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Links(Mutex<Link>);
 
 impl Links {
@@ -41,6 +43,7 @@ impl Links {
     }
 
     /// Notes slot `id` as made by this run.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn made(&self, id: &str) {
         self.lock().wizard = Some(id.to_owned());
     }
@@ -54,12 +57,14 @@ impl Links {
 
 /// A code to show, as text and as a QR matrix.
 #[derive(serde::Serialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Shown {
     code: String,
     qr: QrMatrix,
 }
 
 /// Starts a link from the open identity, in place of any earlier one.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn start_link(
     state: tauri::State<'_, IdentityState>,
@@ -83,6 +88,7 @@ pub fn start_link(
 }
 
 /// Forgets the link. A record that arrives later cannot be opened.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn cancel_link(links: tauri::State<'_, Links>) {
     let mut link = links.lock();
@@ -91,6 +97,7 @@ pub fn cancel_link(links: tauri::State<'_, Links>) {
 }
 
 /// Whether the open identity is linked but has not listed itself yet.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
     let lease = state.lease()?;
@@ -101,6 +108,7 @@ pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, Stri
 }
 
 /// UI test only: hands the code to the smoke, which types it into the other client.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn ui_test_link_code(app: tauri::AppHandle, code: String) -> Result<(), String> {
     if !std::env::args().any(|arg| arg == "--ui-test") {
@@ -110,6 +118,7 @@ pub fn ui_test_link_code(app: tauri::AppHandle, code: String) -> Result<(), Stri
 }
 
 /// Whether the open identity came to this computer by a link.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn linked_device(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
     let lease = state.lease()?;
@@ -134,6 +143,7 @@ async fn receive(pending: &mut Pending, now: u64) -> Result<Option<Linked>, Stri
 /// result of `identity_state`. Errors are `expired`, which ends the link, or `notConnected` or a
 /// node message, which do not: the next poll tries again. A link started elsewhere or left behind
 /// by a change of identity is forgotten here.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub async fn poll_link(
     app: tauri::AppHandle,

@@ -489,6 +489,7 @@ pub(super) enum Source {
 }
 
 /// A held envelope, its source group and its expiry.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub type Held = (SignedRecord, Vec<u8>, i64);
 
 /// Where the source group of an envelope comes from.

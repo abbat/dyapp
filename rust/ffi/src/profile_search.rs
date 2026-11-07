@@ -65,6 +65,7 @@ impl From<SearchCondition> for proto::Condition {
 /// The birth-date condition for an inclusive age range in years on today's date; the lower bound
 /// is raised to 18, and a range no birth date fits fails with `invalid search age`.
 #[uniffi::export]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreError> {
     let filter = Filter {
         age: Some((min, max)),
@@ -86,6 +87,7 @@ pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreE
 /// The height condition for optional inclusive bounds in centimetres; `None` without a bound. A
 /// range no height fits fails with `invalid search height`.
 #[uniffi::export]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn search_height_condition(
     from: Option<u32>,
     to: Option<u32>,
@@ -113,6 +115,7 @@ pub fn search_height_condition(
 /// the owner's gender and allow their age. Empty when the draft states no known gender or the
 /// age is not exact or adult; the option is then not offered.
 #[uniffi::export]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn search_mutual_conditions(
     draft: PublicProfileDraft,
 ) -> Result<Vec<SearchCondition>, CoreError> {

@@ -1,3 +1,4 @@
+#![expect(unreachable_pub, reason = "Generated Tauri wrapper reexports")]
 //! Contact safety-number command for a verified profile shown by the desktop client.
 
 use std::path::Path;
@@ -13,6 +14,7 @@ use dyapp_profile::VerifiedProfile;
 use qrcodegen::{QrCode, QrCodeEcc};
 
 #[cfg(unix)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn camera_permission(
     webview: tauri::Webview,
     kind: tauri::webview::PermissionKind,
@@ -26,6 +28,7 @@ pub fn camera_permission(
 }
 
 #[derive(serde::Serialize)]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct QrMatrix {
     size: i32,
     modules: Vec<bool>,
@@ -50,6 +53,7 @@ pub(crate) fn matrix(payload: &[u8]) -> Result<QrMatrix, String> {
 }
 
 /// Returns a QR matrix for the active identity and selected contact.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn contact_safety_qr(
     state: tauri::State<'_, IdentityState>,
@@ -105,6 +109,7 @@ fn scan_frame(
 
 /// Decodes one bounded grayscale frame against the active identity and selected contact.
 /// A match is only a comparison result; it never writes a verified-contact mark.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn scan_contact_qr(
     state: tauri::State<'_, IdentityState>,
@@ -125,6 +130,7 @@ pub fn scan_contact_qr(
 }
 
 /// Computes a comparison number from this identity and the found profile's Peer ID.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn contact_safety_number(
     state: tauri::State<'_, IdentityState>,
@@ -193,6 +199,7 @@ async fn confirm(
 }
 
 /// Records the caller's confirmed comparison with `peer_id`; see `confirm`.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub async fn confirm_contact(
     state: tauri::State<'_, IdentityState>,
@@ -222,6 +229,7 @@ fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<b
 }
 
 /// Reads the mark for the profile on screen; see `marked`.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn contact_verified(
     state: tauri::State<'_, IdentityState>,
@@ -236,6 +244,7 @@ pub fn contact_verified(
 
 /// Whether the contact's chat shows the new-device notice. Reading the mark first raises it for
 /// a cached profile that added a device.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn contact_new_device(
     state: tauri::State<'_, IdentityState>,
@@ -250,6 +259,7 @@ pub fn contact_new_device(
 }
 
 /// Ends the notice after the user acknowledged it in the chat.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn acknowledge_new_device(
     state: tauri::State<'_, IdentityState>,
@@ -264,6 +274,7 @@ pub fn acknowledge_new_device(
 }
 
 /// Takes the mark back, so a mistaken confirmation can be undone without the network.
+#[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 pub fn unverify_contact(
     state: tauri::State<'_, IdentityState>,
