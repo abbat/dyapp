@@ -8,7 +8,9 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
-release secrets and fetch descriptors out of screen records.
+release secrets and fetch descriptors out of screen records. Project authenticated timestamps
+through core helpers such as `ChatSticker::sent_at_ms()`: the separate native Desktop crates do
+not inherit the root workspace's dependencies, and root quality does not compile them.
 
 When extending private own-device peer state, carry the field value, HLC and MLS-authenticated
 sender device key through the atomic store merge and linked-device snapshot. Include its HLC

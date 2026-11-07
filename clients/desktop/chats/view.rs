@@ -195,6 +195,7 @@ impl From<ChatAttachment> for MessageView {
 
 impl From<ChatSticker> for MessageView {
     fn from(stored: ChatSticker) -> Self {
+        let sent_at_ms = Some(stored.sent_at_ms());
         Self {
             group_id: stored.key.group,
             author: stored.key.author,
@@ -206,7 +207,7 @@ impl From<ChatSticker> for MessageView {
             forwarded: false,
             delivery: stored.delivery.map(Into::into),
             read: false,
-            sent_at_ms: Some(dyapp_messaging::hlc::Timestamp::from(stored.sticker.hlc).wall_ms()),
+            sent_at_ms,
             photo: None,
             shared_peer: None,
             sticker: Some(StickerView {

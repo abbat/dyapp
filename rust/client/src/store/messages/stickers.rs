@@ -19,6 +19,11 @@ pub struct ChatSticker {
 mod list;
 
 impl ChatSticker {
+    /// Authenticated sender wall time, without the HLC logical counter.
+    pub fn sent_at_ms(&self) -> u64 {
+        dyapp_messaging::hlc::Timestamp::from(self.sticker.hlc).wall_ms()
+    }
+
     pub(crate) fn order(&self) -> super::attachments::ItemOrder<'_> {
         (
             self.sticker.hlc,

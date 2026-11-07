@@ -31,12 +31,13 @@ pub struct ChatSticker {
 
 impl From<dyapp_client::store::messages::ChatSticker> for ChatSticker {
     fn from(stored: dyapp_client::store::messages::ChatSticker) -> Self {
+        let sent_at_ms = stored.sent_at_ms();
         Self {
             group_id: stored.key.group,
             author: stored.key.author,
             id: stored.key.id.to_vec(),
             hlc: stored.sticker.hlc,
-            sent_at_ms: dyapp_messaging::hlc::Timestamp::from(stored.sticker.hlc).wall_ms(),
+            sent_at_ms,
             pack_id: stored.sticker.pack_id.to_vec(),
             sha256: stored.sticker.sha256.to_vec(),
             emoji: stored.sticker.emoji,

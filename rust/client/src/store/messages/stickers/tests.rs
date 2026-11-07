@@ -40,7 +40,8 @@ fn fallback_survives_restart_read_and_clear_without_resurrection() {
     let peer = Identity::generate().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
-    let message = sticker(1, false);
+    let mut message = sticker(1, false);
+    message.hlc = (1_234 << 16) | 17;
     assert!(store
         .record_chat_sticker(sender(&peer), &message, true)
         .unwrap());
@@ -57,6 +58,7 @@ fn fallback_survives_restart_read_and_clear_without_resurrection() {
     let items = store.current_chat_stickers(&peer).unwrap();
     assert_eq!(items.len(), 1);
     assert!(items[0].sticker == message);
+    assert_eq!(items[0].sent_at_ms(), 1_234);
     assert!(!items[0].unread);
     assert!(store.current_chat_attachments(&peer).unwrap().is_empty());
     assert!(store.attachment_blobs().unwrap().is_empty());
