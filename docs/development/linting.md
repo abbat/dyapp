@@ -20,6 +20,10 @@ cannot run yet is listed with a planned status and a tracking issue; it is not l
 checks later costs more: the backlog of violations has to be reformatted, budgeted or rewritten
 first.
 
+`make quick-check` runs Rust formatting, web lint/format and Swift lint/format in the existing
+dev Docker container without compiling code. `make quality` remains the full gate, including
+Clippy. Prepare the images after Dockerfile changes before using these commands.
+
 ## Where each linter runs
 
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
@@ -37,7 +41,7 @@ first.
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
-| Swift | SwiftLint 0.65.1 (`swiftlint lint --strict` on `clients/ios clients/macos`) | `.swiftlint.yml` | yes | — | enforced; three SourceKit rules are skipped on Linux |
+| Swift | SwiftLint 0.65.1 and strict swift-format from pinned Swift 6.4.0 | `.swiftlint.yml`, `.swift-format` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
 | JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
@@ -99,6 +103,18 @@ off. flake8 only reports; it does not fix anything. `autopep8` or similar is not
 project.
 
 ## Swift (`.swiftlint.yml`)
+
+`make lint-swift` runs SwiftLint and strict swift-format checks in the dev container.
+`make fmt-swift` applies the formatter to handwritten iOS and macOS application, unit-test
+and UI-test sources; generated bindings are excluded by explicit input directories.
+`.swift-format` selects four spaces and 100 columns. The formatter comes from the official
+Swift 6.4.0 Jammy image, pinned by digest in the dev Dockerfile and shared runner script.
+CI uses that same image through `tests/scripts/swift-format.sh`, without host Swift.
+Swift-format owns brace and closure layout and collection commas; the conflicting SwiftLint
+`opening_brace`, `closure_parameter_position` and `trailing_comma` rules are disabled.
+SwiftLint retains complexity, length and safety checks. Formatter source-rewrite rules are
+disabled so this check changes layout only.
+Formatting does not compile Apple applications; their native CI tests remain required.
 
 The quality step runs `swiftlint lint --strict --quiet --no-cache clients/ios clients/macos` (the source tree is
 read-only in the container, so no cache): every warning fails. The binary is the static Linux

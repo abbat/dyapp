@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android lint-linux lint-web fmt-web fmt fmt-write build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check quick-check lint-android lint-linux lint-web fmt-web lint-swift fmt-swift fmt fmt-write build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
 
 .SILENT:
 
@@ -46,8 +46,17 @@ mutants:
 fuzz:
 	$(DEV) env FUZZ_SECONDS=$${FUZZ_SECONDS:-60} bash tests/scripts/rust-check.sh fuzz
 
+# Static checks only: no Cargo build, Clippy compilation or native UI tests.
+quick-check: fmt lint-web lint-swift
+
 quality lint check:
 	bash tests/scripts/check-quality.sh
+
+lint-swift:
+	$(DEV) bash tests/scripts/rust-check.sh swift-check
+
+fmt-swift:
+	$(TEST_COMPOSE) -f tools/docker/compose.format.yml --profile test run --no-deps --pull never dev bash tests/scripts/swift-format.sh format
 
 lint-web:
 	$(DEV) bash tests/scripts/rust-check.sh web-check

@@ -208,7 +208,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Shell lint | `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
 | Python lint | `flake8 scripts tools tests` |
-| Swift lint | `swiftlint lint --strict --quiet --no-cache clients/ios clients/macos` |
+| Swift lint and format | SwiftLint strict plus `tests/scripts/swift-format.sh lint` (pinned official formatter container on CI) |
 | Kotlin lint | detekt CLI: `--config detekt.yml --input clients/android --build-upon-default-config` |
 | Format | `cargo fmt --all -- --check` |
 | Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |

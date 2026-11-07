@@ -71,6 +71,10 @@ opt_in_rules:
 
 # Disabled rules (too strict or conflicting)
 disabled_rules:
+  # swift-format owns brace/closure layout and collection commas; these rules conflict with it.
+  - opening_brace
+  - closure_parameter_position
+  - trailing_comma
   - line_length  # Use indentation-based limits instead
   - type_name
   - unused_closure_parameter
@@ -104,8 +108,7 @@ nesting:
   type_level: 2
   function_level: 2
 
-trailing_comma:
-  mandatory_comma: true
+# Collection comma layout is enforced by swift-format.
 
 vertical_whitespace:
   max_empty_lines: 2

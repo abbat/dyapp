@@ -67,5 +67,8 @@ RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \
     chmod -R a+rX /opt/advisory-dbs
 RUN mkdir -p /workspace/build && chown -R 1000:1000 /workspace/build
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
+# Swift 6.4.0 Jammy ships the formatter; keep its runtime beside the binary for its rpath.
+COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/bin/swift-format /usr/local/bin/swift-format
+COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/lib/swift/linux /usr/local/lib/swift/linux
 USER 1000:1000
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]
