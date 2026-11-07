@@ -3,6 +3,8 @@
 pub(crate) mod chat;
 #[path = "stickers/picker.rs"]
 pub(crate) mod picker;
+#[path = "stickers/requests.rs"]
+pub(crate) mod requests;
 #[path = "stickers/send.rs"]
 pub(crate) mod send;
 use crate::{chats, IdentityState};

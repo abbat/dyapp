@@ -41,6 +41,22 @@ fn selected_in(items: Vec<ChatSticker>, selected: &Selection) -> Result<ChatStic
         .ok_or_else(|| "unknownMessage".into())
 }
 pub(crate) fn selected(store: &Store, selection: &Selection) -> Result<ChatSticker, String> {
+    if selection.peer_id == store.owner_peer_id() {
+        return Err("ownPeer".into());
+    }
+    if store
+        .blocked(&selection.peer_id)
+        .map_err(|e| e.to_string())?
+    {
+        return Err("blocked".into());
+    }
+    if store
+        .conversation(&selection.peer_id)
+        .map_err(|e| e.to_string())?
+        == Conversation::None
+    {
+        return Err("unknownPeer".into());
+    }
     selected_in(
         store
             .current_chat_stickers(&selection.peer_id)
@@ -60,7 +76,7 @@ fn current(
     identity: &Identity,
     selection: &Selection,
 ) -> Result<(Store, ChatSticker), String> {
-    let store = chats::open_visible_chat(dir, identity, &selection.peer_id)?;
+    let store = chats::open(dir, identity)?;
     let item = selected(&store, selection)?;
     Ok((store, item))
 }

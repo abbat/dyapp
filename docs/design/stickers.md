@@ -162,7 +162,7 @@ Session sticker sends now commit fresh ID/HLC, common-media delivery state, exac
 writes and MLS snapshot atomically. Its template ID/HLC are ignored; malformed labels or
 descriptors fail before encryption. Sending requires an open, unblocked pair conversation.
 Own stickers support terminal Delete through the normal operation path, never Edit.
-Saved-pack upload/reuse is implemented; pack request/answer authorization remains planned. The common SQLite media table
+Saved-pack upload/reuse and guarded pack request/answer authorization are implemented. The common SQLite media table
 has a checked kind discriminator and shared insertion checks. The Store writes and reads
 sticker payloads with optional descriptors, checks verified context and cross-kind ID conflicts,
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
@@ -238,7 +238,8 @@ The core supports explicit removal of a selected saved PackID, including corrupt
 without pruning other packs or interrupted files. Removal frees the counted file bytes and is
 serialized with saving; it does not erase other copies. Desktop offers a per-row Remove action
 with native confirmation, Cancel/Escape and a full PackID. Old dialogs and completions cannot
-change another view or identity. The request/response flow below and sending remain planned.
+change another view or identity. Core exchange and native sending are described below;
+picker and request UI remain planned.
 
 "Add pack" will send tag 15 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat
@@ -304,7 +305,12 @@ Old callbacks cannot change the new attempt. Ordinary download retry retains its
 Already queued requests and the sender's daily answer limit remain in effect. Desktop mailbox
 passes now run both bounded workers on the configured node under the identity/session lease.
 Completed saves contribute only to the local refresh count; controls remain absent from history
-and unread notifications. The request UI remains planned.
+and unread notifications. The request UI remains planned. Desktop `chat_sticker_pack_status`
+exposes only saved/new/waiting/downloading/failed state, a local generation token, typed failure
+and retry deadline. Saved status requires the clicked hash in the authenticated pack. A locally
+imported pack can retire matching waiting intent through guarded saving even before an answer
+arrives; its original clicked hash must also belong to the pack. A claimed unrelated hash is
+reported as `stickerMissing`, never Added. Tokens identify attempts and carry no media capability.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
