@@ -151,6 +151,8 @@ class TwoPeerChatTests {
         compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasText(message)) }
         compose.onNodeWithText(message).performClick()
         compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-thread")) }
+        // The thread shell appears before its IO snapshot; wait for a rendered card.
+        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(card) }
         // Both messages contain the link; either card must open the same verified profile.
         compose.onAllNodes(card)[0].performClick()
         compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-share")) }

@@ -3,7 +3,9 @@
 Android profile-sharing coverage extends the existing two-peer request/reply test:
 the peer sends a profile link, the app opens it, shares through the destination
 picker, and checks delivery in the peer's history before testing card/back
-navigation. It also opens a link to an unpublished peer and checks the unavailable
+navigation. On returning to the chat it waits for a rendered card with a deadline; the thread
+shell alone does not mean the asynchronous history snapshot has loaded.
+It also opens a link to an unpublished peer and checks the unavailable
 state, retry and return to the thread. Separate dialog tests exercise empty,
 failed, queued and busy states.
 These checks require Android instrumentation; lint alone does not execute them.
