@@ -152,7 +152,11 @@ reopening restores the saved snapshot. Requested-pack saving now rechecks the cu
 clicked hash, PackID and open/unblocked pair under the saved-file writer lock. Publication and
 pending retirement share that transaction, including an already saved file. A failed SQLite
 commit after rename preserves intent; retry revalidates that file and finishes idempotently.
-Download workers and request UI remain planned.
+The core download worker processes at most four due admitted answers per call, checking stop,
+current intent and conversation permission. It first revalidates any existing local file; otherwise
+it uses the photo attachment fetch path, full pack validation and clicked-hash binding before
+publication. Failures keep typed retry status. Blocked/closed pairs retire current intent; missing
+joined groups defer fetch. Desktop polling and request UI remain planned.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
@@ -166,8 +170,8 @@ this commit. The core response worker now handles up to four due jobs with a sto
 It loads validated saved files, reuses owner descriptors and the photo upload transport, and
 binds even confirmed descriptors to immutable plaintext/ciphertext hashes before reuse.
 Transient read/upload failures retain scheduled work; missing/invalid packs retire only the job.
-After local stage failure it restores committed MLS before continuing. Desktop polling and
-receiver download/save workers remain planned.
+After local stage failure it restores committed MLS before continuing. Desktop polling integration
+remains planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

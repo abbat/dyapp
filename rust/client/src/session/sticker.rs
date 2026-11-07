@@ -1,4 +1,5 @@
 //! Sticker metadata sends reuse the chat outbox; uploading bytes is a separate step.
+mod download;
 mod exchange;
 #[cfg(test)]
 mod tests;

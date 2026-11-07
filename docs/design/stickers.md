@@ -266,7 +266,7 @@ scheduled retry. Reuse also verifies immutable plaintext and ciphertext binding.
 keys cannot stage a response or a new sticker history row. Tests cover wrong owner, stop/block,
 removed packs and five due jobs leaving one for the next batch. Failed local
 staging reopens committed MLS before further work. After successful staging, mailbox failures
-belong to the common outbox. Desktop polling integration and receiver download/save remain planned.
+belong to the common outbox. Desktop polling integration remains planned; receiver processing is described below.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,
@@ -285,7 +285,12 @@ Waiting requests, failures and retries survive restart. Requested-pack saving re
 clicked hash, PackID and open/unblocked pair under the same writer lock as quota/publication.
 The pending row retires in that commit, even when the validated file already exists. If rename
 succeeds but the SQLite commit fails, intent remains and retry finishes against the existing
-file; nothing is evicted. The download worker and explicit fresh-answer request remain planned.
+file; nothing is evicted. The core download worker now processes at most four due admitted
+answers, reusing a validated local file when available. Otherwise it fetches through the photo
+attachment path, validates the complete pack and clicked hash, and uses guarded publication.
+Stop checks surround work and successful fetches; an in-flight transport retains its own deadline.
+Blocked/closed pairs retire only current intent. Missing joined groups and fetch/validation/quota/
+storage failures keep typed scheduled retries. Desktop polling and fresh-answer requests remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
