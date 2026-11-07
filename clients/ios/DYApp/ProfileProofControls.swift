@@ -9,7 +9,9 @@ private func publicationErrorKey(_ error: Error) -> String {
     let message = String(describing: error)
     if message.contains("blocked: underage") { return "profile.publishError.underage" }
     if message.contains("blocked: notAttested") { return "profile.publishError.notAttested" }
-    if message.contains("blocked: invalidBirthDate") { return "profile.publishError.invalidBirthDate" }
+    if message.contains("blocked: invalidBirthDate") {
+        return "profile.publishError.invalidBirthDate"
+    }
     if message.contains("notConnected") { return "profile.publishError.notConnected" }
     if message.contains("unsolved") { return "profile.publishError.unsolved" }
     if message.contains("readback differs") { return "profile.publishError.readback" }
@@ -67,7 +69,8 @@ private struct ProfileHideControls: View {
         errorKey = nil
         let selected = candidate
         let selectedPeer = peerId
-        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<ProfileVisibility, Error> in
+        let outcome = await Task.detached(priority: .userInitiated) {
+            () -> Result<ProfileVisibility, Error> in
             Result { try RustBridge.hideProfile(for: selected, peerId: selectedPeer) }
         }.value
         isHiding = false
@@ -105,8 +108,12 @@ struct ProfileProofControls: View {
 
     var body: some View {
         Group {
-            Button(LocalizedStringKey(publishErrorKey != nil ? "profile.retryPublish" :
-                proofCancelled || proofFailed ? "profile.retryProof" : "profile.publish")) {
+            Button(
+                LocalizedStringKey(
+                    publishErrorKey != nil
+                        ? "profile.retryPublish"
+                        : proofCancelled || proofFailed ? "profile.retryProof" : "profile.publish")
+            ) {
                 Task { await prepareProof() }
             }
             .disabled(!canPrepare)
@@ -140,8 +147,9 @@ struct ProfileProofControls: View {
             if let published, let publishedPreview {
                 publishedReadback(published, preview: publishedPreview)
             }
-            ProfileHideControls(candidate: candidate, peerId: peerId, publishedVersion: published?.version,
-                                disabled: isSolving || isPublishing, onHidden: resetProofState)
+            ProfileHideControls(
+                candidate: candidate, peerId: peerId, publishedVersion: published?.version,
+                disabled: isSolving || isPublishing, onHidden: resetProofState)
         }
         .onChange(of: resetToken) { _ in resetProofState() }
         .onDisappear(perform: cancelProof)
@@ -235,8 +243,10 @@ struct ProfileProofControls: View {
         let selectedPeer = peerId
         let outcome = await Task.detached(priority: .userInitiated) { () -> ProfilePublishAttempt in
             do {
-                return .published(try RustBridge.publishProfile(for: selected, peerId: selectedPeer,
-                                                                attested: attested))
+                return .published(
+                    try RustBridge.publishProfile(
+                        for: selected, peerId: selectedPeer,
+                        attested: attested))
             } catch {
                 return .failed(publicationErrorKey(error))
             }
@@ -248,7 +258,8 @@ struct ProfileProofControls: View {
         case .published(let snapshot):
             do {
                 let draft = snapshot.draft
-                publishedPreview = try ProfilePublicPreview(draft: draft.values, country: draft.country)
+                publishedPreview = try ProfilePublicPreview(
+                    draft: draft.values, country: draft.country)
                 published = snapshot
             } catch {
                 publishErrorKey = "profile.publishError.readback"
@@ -259,22 +270,28 @@ struct ProfileProofControls: View {
         }
     }
 
-    private func publishedReadback(_ snapshot: PublishedProfileSnapshot,
-                                   preview: ProfilePublicPreview) -> some View {
+    private func publishedReadback(
+        _ snapshot: PublishedProfileSnapshot,
+        preview: ProfilePublicPreview
+    ) -> some View {
         VStack(alignment: .leading) {
             Text("profile.published")
             HStack {
                 Text("profile.publishedVersion")
                 Text(verbatim: String(snapshot.version))
             }
-            if preview.fields.isEmpty && preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) {
+            if preview.fields.isEmpty
+                && preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil)
+            {
                 Text("profile.noPublicFields")
             }
             ForEach(preview.fields, id: \.scaleKey) { field in
                 HStack {
                     // An interpolated key would look up "profile.field.%@"; concatenate instead.
                     Text(LocalizedStringKey("profile.field." + field.scaleKey))
-                    Text(LocalizedStringKey("profile.value." + field.scaleKey + "." + field.choiceKey))
+                    Text(
+                        LocalizedStringKey(
+                            "profile.value." + field.scaleKey + "." + field.choiceKey))
                 }
             }
             if let year = preview.birth.year { birthRow("profile.birthYear", value: year) }

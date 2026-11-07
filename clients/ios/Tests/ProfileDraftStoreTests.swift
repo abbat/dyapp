@@ -11,17 +11,23 @@ final class ProfileDraftStoreTests: XCTestCase {
         let first = try slots.create()
         let candidate = IdentityCandidate(location: .slot(first.slot.id), state: .ready)
         let old = root.appendingPathComponent("profile-draft-\(first.peerId).json")
-        try JSONEncoder().encode(["gender": UInt32(1), "birthMonth": 2, "birthDay": 29]).write(to: old)
-        let store = ProfileRustDraftStore(root: root, candidate: candidate, peerId: first.peerId,
-                                          key: try slots.open(candidate.location))
+        try JSONEncoder().encode(["gender": UInt32(1), "birthMonth": 2, "birthDay": 29]).write(
+            to: old)
+        let store = ProfileRustDraftStore(
+            root: root, candidate: candidate, peerId: first.peerId,
+            key: try slots.open(candidate.location))
         let imported = ProfileDraft(values: ["gender": 1, "birthMonth": 2, "birthDay": 29])
         XCTAssertEqual(try store.load(), imported)
         XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath:
-            RustBridge.networkDirectory(root: root, candidate: candidate)
-                .appendingPathComponent("client.db").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath:
+                    RustBridge.networkDirectory(root: root, candidate: candidate)
+                    .appendingPathComponent("client.db").path))
 
-        try ProfileDraftStore(root: root, candidate: candidate, peerId: first.peerId).save(["gender": 2])
+        try ProfileDraftStore(root: root, candidate: candidate, peerId: first.peerId).save([
+            "gender": 2
+        ])
         XCTAssertEqual(try store.load(), imported)
         try store.save(ProfileDraft(values: ["gender": 3]))
         XCTAssertEqual(try store.load(), ProfileDraft(values: ["gender": 3]))
@@ -33,8 +39,9 @@ final class ProfileDraftStoreTests: XCTestCase {
 
         let second = try slots.create()
         let otherCandidate = IdentityCandidate(location: .slot(second.slot.id), state: .ready)
-        let other = ProfileRustDraftStore(root: root, candidate: otherCandidate, peerId: second.peerId,
-                                          key: try slots.open(otherCandidate.location))
+        let other = ProfileRustDraftStore(
+            root: root, candidate: otherCandidate, peerId: second.peerId,
+            key: try slots.open(otherCandidate.location))
         XCTAssertNil(try other.load())
         try other.save(ProfileDraft())
         XCTAssertEqual(try other.load(), ProfileDraft())
@@ -58,11 +65,13 @@ final class ProfileDraftStoreTests: XCTestCase {
         let slots = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
         let slot = try slots.create()
         let candidate = IdentityCandidate(location: .slot(slot.slot.id), state: .ready)
-        let store = ProfileRustDraftStore(root: root, candidate: candidate, peerId: slot.peerId,
-                                          key: try slots.open(candidate.location))
+        let store = ProfileRustDraftStore(
+            root: root, candidate: candidate, peerId: slot.peerId,
+            key: try slots.open(candidate.location))
 
-        var saved = ProfileDraft(values: ["gender": 1], name: "Ann", height: 170, about: "Plain",
-                                 seeking: ProfileSeeking(genders: [1, 2], ageFrom: 25, ageTo: 40))
+        var saved = ProfileDraft(
+            values: ["gender": 1], name: "Ann", height: 170, about: "Plain",
+            seeking: ProfileSeeking(genders: [1, 2], ageFrom: 25, ageTo: 40))
         try store.save(saved)
         XCTAssertEqual(try store.load(), saved)
 
@@ -79,7 +88,9 @@ final class ProfileDraftStoreTests: XCTestCase {
         ] as [((inout ProfileDraft) -> Void, String)] {
             refused = saved
             change(&refused)
-            XCTAssertThrowsError(try store.save(refused)) { XCTAssertEqual(profileSaveStatus($0), status) }
+            XCTAssertThrowsError(try store.save(refused)) {
+                XCTAssertEqual(profileSaveStatus($0), status)
+            }
             XCTAssertEqual(try store.load(), saved)
         }
         XCTAssertEqual(profileSaveStatus(CocoaError(.fileReadCorruptFile)), "profile.saveFailed")
@@ -126,8 +137,9 @@ final class ProfileDraftStoreTests: XCTestCase {
         let json = ProfileDraftStore(root: root, candidate: candidate, peerId: slot.peerId)
         try json.save(["birthYear": 1_900, "birthMonth": 2, "birthDay": 29])
         let saved = try Data(contentsOf: json.file)
-        let rust = ProfileRustDraftStore(root: root, candidate: candidate, peerId: slot.peerId,
-                                         key: try slots.open(candidate.location))
+        let rust = ProfileRustDraftStore(
+            root: root, candidate: candidate, peerId: slot.peerId,
+            key: try slots.open(candidate.location))
         XCTAssertThrowsError(try rust.load())
         XCTAssertEqual(try Data(contentsOf: json.file), saved)
     }
@@ -164,7 +176,8 @@ final class ProfileDraftStoreTests: XCTestCase {
             "birthMonth": 2,
             "birthDay": 29,
         ])
-        XCTAssertEqual(preview.fields, [ProfilePublicField(scaleKey: scale.key, choiceKey: choice.key)])
+        XCTAssertEqual(
+            preview.fields, [ProfilePublicField(scaleKey: scale.key, choiceKey: choice.key)])
         XCTAssertEqual(preview.birth, ProfileBirthParts(year: nil, month: 2, day: 29))
         XCTAssertNil(preview.youngest)
         XCTAssertNil(preview.oldest)
@@ -205,8 +218,9 @@ final class ProfileDraftStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: draft.file.path))
         try draft.save(["zodiac": 4])
         XCTAssertEqual(try draft.load(), ["zodiac": 4])
-        XCTAssertEqual(try JSONDecoder().decode([String: UInt32].self, from: Data(contentsOf: old)),
-                       ["zodiac": 3])
+        XCTAssertEqual(
+            try JSONDecoder().decode([String: UInt32].self, from: Data(contentsOf: old)),
+            ["zodiac": 3])
         try slots.remove(slot.slot.id, confirming: slot.peerId)
         XCTAssertFalse(FileManager.default.fileExists(atPath: draft.file.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: old.path))

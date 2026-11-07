@@ -37,7 +37,8 @@ struct FoundProfileView: View {
         if let found = page.found {
             // A profile this client cannot project stays under its Peer ID alone, as in the results.
             let draft = ProfileRustDraftStore.values(from: found.draft)
-            if let preview = try? ProfilePublicPreview(draft: draft.values, country: draft.country) {
+            if let preview = try? ProfilePublicPreview(draft: draft.values, country: draft.country)
+            {
                 ProfilePublicRows(preview: preview, draft: draft)
             } else {
                 Text("profile.noPublicFields")
@@ -48,10 +49,12 @@ struct FoundProfileView: View {
             Text(LocalizedStringKey(failure.key)).accessibilityIdentifier("view-load")
             Text(verbatim: failure.details ?? "").font(.caption).textSelection(.enabled)
                 .accessibilityIdentifier("view-load-details")
-            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier("view-retry")
+            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier(
+                "view-retry")
         } else if page.searched {
             Text("view.notFound").accessibilityIdentifier("view-load")
-            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier("view-retry")
+            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier(
+                "view-retry")
         }
     }
 

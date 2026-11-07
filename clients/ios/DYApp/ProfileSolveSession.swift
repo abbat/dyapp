@@ -23,8 +23,10 @@ final class ProfileSolveSession: @unchecked Sendable {
         await Task.detached(priority: .userInitiated) { [self] () -> ProfileWorkAttempt in
             do {
                 let step = try RustBridge.withDraftLock { try solver.runStep(attested: attested) }
-                return .progress(ProfileWorkProgress(solved: step.solved, cancelled: step.cancelled,
-                                                     nextNonce: step.nextNonce))
+                return .progress(
+                    ProfileWorkProgress(
+                        solved: step.solved, cancelled: step.cancelled,
+                        nextNonce: step.nextNonce))
             } catch {
                 return .failed
             }

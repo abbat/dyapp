@@ -21,7 +21,8 @@ final class NetworkDraftTests: XCTestCase {
         let root = try root()
         let first = try folder(root: root, id: UUID())
         let second = try folder(root: root, id: UUID())
-        let firstDraft = NetworkSettings(seeds: ["one.example:33445", "two.example:7070"], name: "friends")
+        let firstDraft = NetworkSettings(
+            seeds: ["one.example:33445", "two.example:7070"], name: "friends")
         let secondDraft = NetworkSettings(seeds: ["other.example:33445"], name: "")
 
         XCTAssertNil(try loadNetwork(dir: first.path, file: .draft))
@@ -94,8 +95,9 @@ final class NetworkDraftTests: XCTestCase {
         let second = try folder(root: root, id: UUID())
         let session = try NetworkConnectionSession(directory: first)
 
-        XCTAssertEqual(try session.run(rows: ["not-an-address"], name: "", waitMs: 200),
-                       [.invalidAddress])
+        XCTAssertEqual(
+            try session.run(rows: ["not-an-address"], name: "", waitMs: 200),
+            [.invalidAddress])
         let draft = try XCTUnwrap(loadNetwork(dir: first.path, file: .draft))
         XCTAssertEqual(draft.seeds, ["not-an-address"])
         XCTAssertThrowsError(try session.activate())
@@ -113,8 +115,9 @@ final class NetworkDraftTests: XCTestCase {
             return
         }
         let pinned = "\(address)/\(peerID)"
-        XCTAssertEqual(try session.run(rows: [pinned], name: "", waitMs: 5_000),
-                       [.connected(peerID)])
+        XCTAssertEqual(
+            try session.run(rows: [pinned], name: "", waitMs: 5_000),
+            [.connected(peerID)])
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
 
         try session.activate()
@@ -131,8 +134,9 @@ final class NetworkDraftTests: XCTestCase {
             "127.0.0.1:33446", "127.0.0.1:33445/bad",
         ]
 
-        XCTAssertEqual(try session.run(rows: rows, name: "", waitMs: 1_000),
-                       [.invalidAddress, .unreachable, .duplicate, .invalidPeerID])
+        XCTAssertEqual(
+            try session.run(rows: rows, name: "", waitMs: 1_000),
+            [.invalidAddress, .unreachable, .duplicate, .invalidPeerID])
         XCTAssertThrowsError(try session.activate())
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, rows)
@@ -149,12 +153,14 @@ final class NetworkDraftTests: XCTestCase {
         }
         let wrongPeer = String(peerID.dropLast()) + (peerID.last == "1" ? "2" : "1")
         let wrongPinCheck = try NetworkConnectionSession(directory: path)
-        XCTAssertEqual(try wrongPinCheck.run(rows: ["\(address)/\(wrongPeer)"], name: "", waitMs: 5_000),
-                       [.wrongPeer])
+        XCTAssertEqual(
+            try wrongPinCheck.run(rows: ["\(address)/\(wrongPeer)"], name: "", waitMs: 5_000),
+            [.wrongPeer])
         XCTAssertThrowsError(try wrongPinCheck.activate())
         let wrongNetworkCheck = try NetworkConnectionSession(directory: path)
-        XCTAssertEqual(try wrongNetworkCheck.run(rows: [address], name: "city", waitMs: 5_000),
-                       [.wrongNetwork])
+        XCTAssertEqual(
+            try wrongNetworkCheck.run(rows: [address], name: "city", waitMs: 5_000),
+            [.wrongNetwork])
         XCTAssertThrowsError(try wrongNetworkCheck.activate())
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
     }

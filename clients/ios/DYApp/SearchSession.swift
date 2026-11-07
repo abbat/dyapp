@@ -52,9 +52,10 @@ final class SearchSession: ObservableObject {
         guard let candidate, let searcher else { return }
         let request: SearchRequest
         do {
-            request = SearchRequest(searcher: try searcher.get(), candidate: candidate, peerId: peerId,
-                                    conditions: try filters.conditions(), employer: filters.employer(),
-                                    mutual: filters.mutualWanted)
+            request = SearchRequest(
+                searcher: try searcher.get(), candidate: candidate, peerId: peerId,
+                conditions: try filters.conditions(), employer: filters.employer(),
+                mutual: filters.mutualWanted)
         } catch {
             finish(.failure(error))
             return
@@ -93,12 +94,14 @@ final class SearchSession: ObservableObject {
 
     private func announce(_ text: String) {
         #if os(iOS)
-        UIAccessibility.post(notification: .announcement, argument: text)
+            UIAccessibility.post(notification: .announcement, argument: text)
         #else
-        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
-            .announcement: text,
-            .priority: NSAccessibilityPriorityLevel.high.rawValue,
-        ])
+            NSAccessibility.post(
+                element: NSApp as Any, notification: .announcementRequested,
+                userInfo: [
+                    .announcement: text,
+                    .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                ])
         #endif
     }
 }

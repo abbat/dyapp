@@ -11,7 +11,7 @@ private struct ChatOutcome<T>: @unchecked Sendable {
 final class ChatFeed: ObservableObject {
     private static var receiveIntervalNs: UInt64 {
         #if DEBUG
-        if ChatTestPeer.enabled { return 5_000_000_000 }
+            if ChatTestPeer.enabled { return 5_000_000_000 }
         #endif
         return 60_000_000_000
     }
@@ -33,7 +33,7 @@ final class ChatFeed: ObservableObject {
     let photos = PeerPhotos()
     private var identity: ChatIdentity?
     #if DEBUG
-    private var testPeerStarted = false
+        private var testPeerStarted = false
     #endif
 
     var me: String? { identity?.peerId }
@@ -53,28 +53,31 @@ final class ChatFeed: ObservableObject {
         self.identity = identity
         photos.use(identity)
         #if DEBUG
-        if ChatTestPeer.enabled, !testPeerStarted {
-            testPeerStarted = true
-            ChatTestPeer.start(me: identity.peerId)
-        }
+            if ChatTestPeer.enabled, !testPeerStarted {
+                testPeerStarted = true
+                ChatTestPeer.start(me: identity.peerId)
+            }
         #endif
         await read()
         while !Task.isCancelled {
             #if os(macOS)
-            let (rowsBefore, likedBefore) = (rows, liked)
+                let (rowsBefore, likedBefore) = (rows, liked)
             #endif
             _ = await call { try $0.receive() }
             await read()
             #if os(macOS)
-            // After a switch `rows` are the next identity's and would count as new.
-            if !Task.isCancelled { await noticeNewMail(before: rowsBefore, likedBefore: likedBefore) }
+                // After a switch `rows` are the next identity's and would count as new.
+                if !Task.isCancelled {
+                    await noticeNewMail(before: rowsBefore, likedBefore: likedBefore)
+                }
             #endif
             try? await Task.sleep(nanoseconds: Self.receiveIntervalNs)
         }
     }
 
     /// Runs a blocking chat call off the main actor.
-    func call<T>(_ action: @escaping @Sendable (ChatSession) throws -> T) async -> Result<T, Error> {
+    func call<T>(_ action: @escaping @Sendable (ChatSession) throws -> T) async -> Result<T, Error>
+    {
         guard let identity else { return .failure(IdentitySlotError.peerIDMismatch) }
         return await Task.detached(priority: .userInitiated) {
             ChatOutcome(result: Result { try RustBridge.withChats(identity, action) })
@@ -103,12 +106,15 @@ final class ChatFeed: ObservableObject {
     /// Replaces the text of the own `message`; nil when a node took it, else the line to show.
     func edit(_ message: ChatMessage, text: String, peer: String) async -> ChatStatus? {
         let (group, id) = (message.groupId, message.id)
-        let changed = await call { try $0.editText(peerId: peer, groupId: group, messageId: id, text: text) }
+        let changed = await call {
+            try $0.editText(peerId: peer, groupId: group, messageId: id, text: text)
+        }
         await read()
         guard case let .failure(error) = changed else { return nil }
         let stored = await shown(message, peer: peer)
         let staged = stored.map { $0.edited && !$0.deleted && $0.text == text } ?? false
-        return chatSendStatus(error, staged: staged, queued: "chat.editQueued", failed: "chat.editFailed")
+        return chatSendStatus(
+            error, staged: staged, queued: "chat.editQueued", failed: "chat.editFailed")
     }
 
     /// Deletes the own `message` here and asks the peer's app to delete it too.
@@ -118,7 +124,8 @@ final class ChatFeed: ObservableObject {
         await read()
         guard case let .failure(error) = changed else { return nil }
         let staged = await shown(message, peer: peer)?.deleted ?? false
-        return chatSendStatus(error, staged: staged, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
+        return chatSendStatus(
+            error, staged: staged, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
     }
 
     /// Clears this device's copy of the chat; nil when it held, else the line to show.
@@ -169,7 +176,9 @@ final class ChatFeed: ObservableObject {
             return nil
         }
         let details = String(describing: error)
-        if details.contains("invalidName") { return ChatStatus(key: "rename.invalid", details: nil) }
+        if details.contains("invalidName") {
+            return ChatStatus(key: "rename.invalid", details: nil)
+        }
         return ChatStatus(key: "rename.failed", details: details)
     }
 
@@ -179,9 +188,14 @@ final class ChatFeed: ObservableObject {
         photos.use(identity)
         guard let searcher = photos.searcher else { return }
         let read = await Task.detached(priority: .userInitiated) {
-            ChatOutcome(result: Result { try RustBridge.contactNames(identity, searcher: searcher, peers: peers) })
+            ChatOutcome(
+                result: Result {
+                    try RustBridge.contactNames(identity, searcher: searcher, peers: peers)
+                })
         }.value.result
-        guard identity.peerId == self.identity?.peerId, case let .success(views) = read else { return }
+        guard identity.peerId == self.identity?.peerId, case let .success(views) = read else {
+            return
+        }
         for view in views { names[view.peerId] = view }
     }
 

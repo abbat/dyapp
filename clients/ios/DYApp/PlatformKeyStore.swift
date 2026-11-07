@@ -11,11 +11,13 @@ final class PlatformKeyStore: KeyStore {
 
     private let account: String
 
-    private var query: [String: Any] { [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "com.dyapp.identity-wrap",
-        kSecAttrAccount as String: account,
-    ] }
+    private var query: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.dyapp.identity-wrap",
+            kSecAttrAccount as String: account,
+        ]
+    }
 
     private init(account: String) { self.account = account }
 

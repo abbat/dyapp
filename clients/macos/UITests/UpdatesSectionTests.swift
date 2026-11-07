@@ -13,7 +13,8 @@ final class UpdatesSectionTests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 10), app.debugDescription)
         settings.click()
         let check = app.buttons["update-check"]
-        XCTAssertTrue(app.buttons["settings-network"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.buttons["settings-network"].waitForExistence(timeout: 10), app.debugDescription)
         reveal(check, in: app)
         XCTAssertTrue(check.exists, app.debugDescription)
         XCTAssertFalse(check.isEnabled)

@@ -103,7 +103,8 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin-repeat", "654321")
         app.buttons["lock-set"].tap()
         // The whole form is disabled while the KDF runs.
-        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
         XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 30), .completed)
         XCTAssertFalse(app.staticTexts["lock-notice"].exists)
         app.terminate()
@@ -146,7 +147,8 @@ final class AppLockUITests: XCTestCase {
         enter(app, "lock-pin", "654321")
         enter(app, "lock-pin-repeat", "654321")
         app.buttons["lock-set"].tap()
-        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
+        let done = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"), object: app.buttons["lock-back"])
         XCTAssertEqual(XCTWaiter().wait(for: [done], timeout: 30), .completed)
         // Once replaced, the next change asks for the new PIN again.
         XCTAssertTrue(app.secureTextFields["lock-pin-current"].exists)
@@ -209,7 +211,8 @@ final class AppLockUITests: XCTestCase {
     }
 
     private func label(_ element: XCUIElement, _ text: String) -> Bool {
-        let shown = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", text), object: element)
+        let shown = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", text), object: element)
         return XCTWaiter().wait(for: [shown], timeout: 30) == .completed
     }
 

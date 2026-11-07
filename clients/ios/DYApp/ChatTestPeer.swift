@@ -1,93 +1,107 @@
 #if DEBUG
-import Foundation
+    import Foundation
 
-/// A second identity on the local node for the two-peer UI tests. XCUITest runs out of process and
-/// cannot reach the FFI, so the app under test hosts the peer behind a launch argument.
-enum ChatTestPeer {
-    static let greeting = "Hello from the peer"
-    static let reply = "Hello back"
-    static let confirmation = "Got your reply"
+    /// A second identity on the local node for the two-peer UI tests. XCUITest runs out of process and
+    /// cannot reach the FFI, so the app under test hosts the peer behind a launch argument.
+    enum ChatTestPeer {
+        static let greeting = "Hello from the peer"
+        static let reply = "Hello back"
+        static let confirmation = "Got your reply"
 
-    static var enabled: Bool {
-        ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst || sharesProfile
-    }
-    private static var likesFirst: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes") }
-    private static var sharesProfile: Bool { ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-shares") }
+        static var enabled: Bool {
+            ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst
+                || sharesProfile
+        }
+        private static var likesFirst: Bool {
+            ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes")
+        }
+        private static var sharesProfile: Bool {
+            ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-shares")
+        }
 
-    /// Sends the first message once `me` has published, waits for the reply and confirms it. With
-    /// the likes argument it likes `me` and stops instead; with the shares argument its confirmation
-    /// is the link to its own profile.
-    static func start(me: String) {
-        Thread.detachNewThread {
-            do {
-                let (session, peer) = try published()
-                if likesFirst {
-                    retrying { _ = try session.like(peerId: me, liked: true) }
-                } else {
-                    let answer = sharesProfile ? profileLinkText(peerId: peer) ?? confirmation : confirmation
-                    converse(with: me, session: session, answer: answer)
+        /// Sends the first message once `me` has published, waits for the reply and confirms it. With
+        /// the likes argument it likes `me` and stops instead; with the shares argument its confirmation
+        /// is the link to its own profile.
+        static func start(me: String) {
+            Thread.detachNewThread {
+                do {
+                    let (session, peer) = try published()
+                    if likesFirst {
+                        retrying { _ = try session.like(peerId: me, liked: true) }
+                    } else {
+                        let answer =
+                            sharesProfile
+                            ? profileLinkText(peerId: peer) ?? confirmation : confirmation
+                        converse(with: me, session: session, answer: answer)
+                    }
+                } catch {
+                    NSLog("ChatTestPeer stopped: %@", String(describing: error))
                 }
-            } catch {
-                NSLog("ChatTestPeer stopped: %@", String(describing: error))
             }
         }
-    }
 
-    private static func published() throws -> (ChatSession, peer: String) {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("peer-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let key = IdentityKey.generate()
-        let draft = ProfileDraft(values: ["gender": 1, "birthYear": 1_990, "birthMonth": 1, "birthDay": 1])
-        try saveProfileDraft(dir: dir.path, key: key, draft: ProfileRustDraftStore.record(from: draft))
-        let checker = try ConnectionCheck(dir: dir.path)
-        // The local node runs the public network: an empty name.
-        retrying {
-            _ = try checker.run(draft: NetworkSettings(seeds: ["127.0.0.1:33445"], name: ""), waitMs: 15_000)
-            _ = try checker.activate()
+        private static func published() throws -> (ChatSession, peer: String) {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "peer-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let key = IdentityKey.generate()
+            let draft = ProfileDraft(values: [
+                "gender": 1, "birthYear": 1_990, "birthMonth": 1, "birthDay": 1,
+            ])
+            try saveProfileDraft(
+                dir: dir.path, key: key, draft: ProfileRustDraftStore.record(from: draft))
+            let checker = try ConnectionCheck(dir: dir.path)
+            // The local node runs the public network: an empty name.
+            retrying {
+                _ = try checker.run(
+                    draft: NetworkSettings(seeds: ["127.0.0.1:33445"], name: ""), waitMs: 15_000)
+                _ = try checker.activate()
+            }
+            let solver = try ProfileSolve(dir: dir.path, key: key)
+            while try !solver.runStep(attested: true).solved {}
+            if likesFirst {
+                let photo = try PhotoPrep.prepare(
+                    PhotoPrep.samplePNG(width: 640, height: 480, red: 0.5, alpha: 1))
+                _ = try addProfilePhoto(
+                    dir: dir.path, key: key, full: photo.full, thumbnail: photo.thumbnail)
+            }
+            // shortcut: the peer's Keychain wrapping key stays behind after a run, harmless on a test machine.
+            let store = PlatformKeyStore.forSlot(UUID())
+            let session = try ChatSession.open(
+                dir: dir.path, key: key, deviceKey: IdentityKey.generate(), store: store,
+                wrappedStateKey: newChatStateKey(store: store)
+            )
+            retrying { _ = try session.publishProfile(attested: true) }
+            return (session, key.peerId())
         }
-        let solver = try ProfileSolve(dir: dir.path, key: key)
-        while try !solver.runStep(attested: true).solved {}
-        if likesFirst {
-            let photo = try PhotoPrep.prepare(PhotoPrep.samplePNG(width: 640, height: 480, red: 0.5, alpha: 1))
-            _ = try addProfilePhoto(dir: dir.path, key: key, full: photo.full, thumbnail: photo.thumbnail)
-        }
-        // shortcut: the peer's Keychain wrapping key stays behind after a run, harmless on a test machine.
-        let store = PlatformKeyStore.forSlot(UUID())
-        let session = try ChatSession.open(
-            dir: dir.path, key: key, deviceKey: IdentityKey.generate(), store: store,
-            wrappedStateKey: newChatStateKey(store: store)
-        )
-        retrying { _ = try session.publishProfile(attested: true) }
-        return (session, key.peerId())
-    }
 
-    private static func converse(with me: String, session: ChatSession, answer: String) {
-        // A failed send may have stored the text, and a second first message would be refused.
-        retrying {
-            if try session.chatHistory(peerId: me).messages.isEmpty {
-                _ = try session.sendText(peerId: me, text: greeting)
+        private static func converse(with me: String, session: ChatSession, answer: String) {
+            // A failed send may have stored the text, and a second first message would be refused.
+            retrying {
+                if try session.chatHistory(peerId: me).messages.isEmpty {
+                    _ = try session.sendText(peerId: me, text: greeting)
+                }
             }
-        }
-        retrying {
-            _ = try session.receive()
-            let messages = try session.chatHistory(peerId: me).messages
-            guard messages.contains(where: { $0.author == me && $0.text == reply }) else {
-                throw CocoaError(.fileReadNoSuchFile)
+            retrying {
+                _ = try session.receive()
+                let messages = try session.chatHistory(peerId: me).messages
+                guard messages.contains(where: { $0.author == me && $0.text == reply }) else {
+                    throw CocoaError(.fileReadNoSuchFile)
+                }
             }
+            retrying { _ = try session.sendText(peerId: me, text: answer) }
         }
-        retrying { _ = try session.sendText(peerId: me, text: answer) }
-    }
 
-    /// Runs until it works: the test's own wait ends a peer that never gets there.
-    private static func retrying(_ action: () throws -> Void) {
-        while true {
-            do {
-                return try action()
-            } catch {
-                NSLog("ChatTestPeer retries: %@", String(describing: error))
-                Thread.sleep(forTimeInterval: 2)
+        /// Runs until it works: the test's own wait ends a peer that never gets there.
+        private static func retrying(_ action: () throws -> Void) {
+            while true {
+                do {
+                    return try action()
+                } catch {
+                    NSLog("ChatTestPeer retries: %@", String(describing: error))
+                    Thread.sleep(forTimeInterval: 2)
+                }
             }
         }
     }
-}
 #endif

@@ -113,11 +113,13 @@ struct ProfilePublicPreview {
     init(draft: [String: UInt32], country: String = "") throws {
         var selected: [ProfilePublicField] = []
         let scales = profileScales()
-        let known = Set(scales.map(\.key)).union(ProfileBirthParts.keys).union([ProfileDraft.placeKey])
+        let known = Set(scales.map(\.key)).union(ProfileBirthParts.keys).union([
+            ProfileDraft.placeKey
+        ])
         guard draft.keys.allSatisfy(known.contains) else { throw CocoaError(.fileReadCorruptFile) }
         let place = draft[ProfileDraft.placeKey]
         guard country.isEmpty || placeCountries().contains(country),
-              place.map({ placeName(country: country, id: $0, lang: "en") != nil }) ?? true
+            place.map({ placeName(country: country, id: $0, lang: "en") != nil }) ?? true
         else { throw CocoaError(.fileReadCorruptFile) }
         for scale in scales {
             let code = draft[scale.key] ?? 0
@@ -172,32 +174,38 @@ struct ProfileDraftView: View {
     @State private var profileRevision = 0
     @State private var isSolving = false
     #if os(macOS)
-    @State private var previewing = false
+        @State private var previewing = false
     #endif
 
     private var hasUnsavedEdits: Bool {
-        values != savedValues || country != savedCountry || birthYear != savedBirthYear ||
-            birthMonth != savedBirthMonth || birthDay != savedBirthDay || extras.tracked != savedExtras.tracked
+        values != savedValues || country != savedCountry || birthYear != savedBirthYear
+            || birthMonth != savedBirthMonth || birthDay != savedBirthDay
+            || extras.tracked != savedExtras.tracked
     }
 
     private var canPrepareProof: Bool {
-        hasSavedDraft && !hasUnsavedEdits && confirmedAdult && confirmedPublic && eligibilityChecked &&
-            publishBlock == nil && !eligibilityFailed && !isCheckingEligibility &&
-            !isLoading && !isSaving && !isSolving && !readFailed
+        hasSavedDraft && !hasUnsavedEdits && confirmedAdult && confirmedPublic && eligibilityChecked
+            && publishBlock == nil && !eligibilityFailed && !isCheckingEligibility && !isLoading
+            && !isSaving && !isSolving && !readFailed
     }
 
     private var form: some View {
         ScrollingForm {
-            ProfilePhotosSection(candidate: candidate, peerId: peerId,
-                                 disabled: isLoading || readFailed || isSaving || isSolving) {
+            ProfilePhotosSection(
+                candidate: candidate, peerId: peerId,
+                disabled: isLoading || readFailed || isSaving || isSolving
+            ) {
                 invalidateConsent()
             }
             ForEach(profileScales(), id: \.field) { scale in
                 // An interpolated key would look up "profile.field.%@"; concatenate instead.
-                Picker(LocalizedStringKey("profile.field." + scale.key), selection: Binding(
-                    get: { values[scale.key] ?? 0 },
-                    set: { values[scale.key] = $0 }
-                )) {
+                Picker(
+                    LocalizedStringKey("profile.field." + scale.key),
+                    selection: Binding(
+                        get: { values[scale.key] ?? 0 },
+                        set: { values[scale.key] = $0 }
+                    )
+                ) {
                     Text("profile.unset").tag(UInt32(0))
                     ForEach(scale.choices, id: \.code) { choice in
                         Text(LocalizedStringKey("profile.value." + scale.key + "." + choice.key))
@@ -207,11 +215,14 @@ struct ProfileDraftView: View {
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-field-" + scale.key)
             }
-            ProfileExtraFields(inputs: $extras, disabled: isLoading || readFailed || isSaving || isSolving)
-            PlacePicker(country: $country, place: Binding(
-                get: { values[ProfileDraft.placeKey] },
-                set: { values[ProfileDraft.placeKey] = $0 }
-            ), text: $placeText, disabled: isLoading || readFailed || isSaving || isSolving)
+            ProfileExtraFields(
+                inputs: $extras, disabled: isLoading || readFailed || isSaving || isSolving)
+            PlacePicker(
+                country: $country,
+                place: Binding(
+                    get: { values[ProfileDraft.placeKey] },
+                    set: { values[ProfileDraft.placeKey] = $0 }
+                ), text: $placeText, disabled: isLoading || readFailed || isSaving || isSolving)
             TextField("profile.birthYear", text: $birthYear)
                 .disabled(isLoading || readFailed || isSaving || isSolving)
                 .accessibilityIdentifier("profile-birth-year")
@@ -242,9 +253,10 @@ struct ProfileDraftView: View {
                     .accessibilityIdentifier("profile-confirm-public")
                 Text(eligibilityStatus)
                     .accessibilityIdentifier("profile-publish-eligibility")
-                ProfileProofControls(candidate: candidate, peerId: peerId, canPrepare: canPrepareProof,
-                                     attested: confirmedAdult, resetToken: profileRevision,
-                                     isSolving: $isSolving, clearConfirmations: clearConfirmations)
+                ProfileProofControls(
+                    candidate: candidate, peerId: peerId, canPrepare: canPrepareProof,
+                    attested: confirmedAdult, resetToken: profileRevision,
+                    isSolving: $isSolving, clearConfirmations: clearConfirmations)
             }
         }
         .navigationTitle("profile.title")
@@ -277,7 +289,7 @@ struct ProfileDraftView: View {
         return "profile.eligible"
     }
 
-    }
+}
 
 extension ProfileDraftView {
     @MainActor
@@ -321,8 +333,10 @@ extension ProfileDraftView {
                 values = decoded.values.filter { !ProfileBirthParts.keys.contains($0.key) }
                 country = decoded.country
                 savedCountry = country
-                placeText = values[ProfileDraft.placeKey]
-                    .flatMap { placeName(country: country, id: $0, lang: placeLang()) }.map(placeLabel) ?? ""
+                placeText =
+                    values[ProfileDraft.placeKey]
+                    .flatMap { placeName(country: country, id: $0, lang: placeLang()) }.map(
+                        placeLabel) ?? ""
                 let birth = ProfileBirthParts(draft: decoded.values)
                 birthYear = birth.year.map(String.init) ?? ""
                 birthMonth = birth.month.map(String.init) ?? ""
@@ -350,16 +364,19 @@ extension ProfileDraftView {
             return
         }
         do {
-            let birth = try ProfileBirthParts(yearText: birthYear, monthText: birthMonth, dayText: birthDay)
+            let birth = try ProfileBirthParts(
+                yearText: birthYear, monthText: birthMonth, dayText: birthDay)
             try birth.validate()
-            let draft = try extras.inserted(into: ProfileDraft(values: birth.inserted(into: values), country: country))
+            let draft = try extras.inserted(
+                into: ProfileDraft(values: birth.inserted(into: values), country: country))
             let selected = candidate
             let selectedPeer = peerId
             status = ""
             isSaving = true
             let refusal = await Task.detached(priority: .userInitiated) { () -> String? in
                 do {
-                    try RustBridge.storeProfileDraft(for: selected, peerId: selectedPeer, draft: draft)
+                    try RustBridge.storeProfileDraft(
+                        for: selected, peerId: selectedPeer, draft: draft)
                     return nil
                 } catch {
                     return profileSaveStatus(error)
@@ -421,8 +438,10 @@ extension ProfileDraftView {
         let attested = confirmedAdult
         let result = await Task.detached(priority: .userInitiated) { () -> ProfileEligibility in
             do {
-                if let block = try RustBridge.publicationBlock(for: selected, peerId: selectedPeer,
-                                                               attested: attested) {
+                if let block = try RustBridge.publicationBlock(
+                    for: selected, peerId: selectedPeer,
+                    attested: attested)
+                {
                     return .blocked(block)
                 }
                 return .ready
@@ -453,27 +472,28 @@ extension ProfileDraftView {
     // Swift infers the builder from View only in the declaration that states the conformance.
     @ViewBuilder var body: some View {
         #if os(macOS)
-        // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
-        if previewing {
-            VStack(alignment: .leading) {
-                Button("view.back") { previewing = false }.accessibilityIdentifier("view-back").padding()
-                ProfilePreviewView(candidate: candidate, peerId: peerId)
+            // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.
+            if previewing {
+                VStack(alignment: .leading) {
+                    Button("view.back") { previewing = false }.accessibilityIdentifier("view-back")
+                        .padding()
+                    ProfilePreviewView(candidate: candidate, peerId: peerId)
+                }
+            } else {
+                form
             }
-        } else {
-            form
-        }
         #else
-        form
+            form
         #endif
     }
 
     @ViewBuilder private var previewEntry: some View {
         #if os(macOS)
-        Button("profile.preview") { previewing = true }
+            Button("profile.preview") { previewing = true }
         #else
-        NavigationLink("profile.preview") {
-            ProfilePreviewView(candidate: candidate, peerId: peerId)
-        }
+            NavigationLink("profile.preview") {
+                ProfilePreviewView(candidate: candidate, peerId: peerId)
+            }
         #endif
     }
 }

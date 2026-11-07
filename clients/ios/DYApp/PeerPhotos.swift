@@ -10,13 +10,13 @@ enum NetworkType {
 
     static func startReporting() {
         #if DEBUG
-        // A runner's network must not decide whether a test sees the offer to load a photo.
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--ui-test-metered-network") { return }
-        if arguments.contains("--ui-test-unmetered-network") {
-            setNetworkMetered(metered: false)
-            return
-        }
+            // A runner's network must not decide whether a test sees the offer to load a photo.
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--ui-test-metered-network") { return }
+            if arguments.contains("--ui-test-unmetered-network") {
+                setNetworkMetered(metered: false)
+                return
+            }
         #endif
         monitor.pathUpdateHandler = { path in
             setNetworkMetered(metered: path.isExpensive || path.isConstrained)
@@ -33,15 +33,16 @@ private struct DecodedPhoto: @unchecked Sendable {
 /// Decodes at most 2048 px on the long side. Clients publish JPEG only, so other formats never
 /// reach ImageIO's many decoders; the core already held the frame to 64 megapixels.
 func fullPhotoImage(_ bytes: Data) -> Image? {
-    let options = [
-        kCGImageSourceCreateThumbnailFromImageAlways: true,
-        kCGImageSourceCreateThumbnailWithTransform: true,
-        kCGImageSourceShouldCacheImmediately: true,
-        kCGImageSourceThumbnailMaxPixelSize: 2_048,
-    ] as CFDictionary
+    let options =
+        [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: 2_048,
+        ] as CFDictionary
     guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
-          CGImageSourceGetType(source) as String? == UTType.jpeg.identifier,
-          let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+        CGImageSourceGetType(source) as String? == UTType.jpeg.identifier,
+        let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options)
     else { return nil }
     return Image(decorative: image, scale: 1)
 }
@@ -69,7 +70,9 @@ final class PeerPhotos: ObservableObject {
     func fetch(_ hashes: [Data], full: Bool) async {
         let wanted = hashes.filter { !$0.isEmpty }
         guard let searcher, !wanted.isEmpty else { return }
-        await Task.detached(priority: .utility) { _ = try? searcher.fetchPeerPhotos(hashes: wanted, full: full) }.value
+        await Task.detached(priority: .utility) {
+            _ = try? searcher.fetchPeerPhotos(hashes: wanted, full: full)
+        }.value
         fetched += 1
     }
 
@@ -78,7 +81,9 @@ final class PeerPhotos: ObservableObject {
     func decoded(_ hash: Data?, full: Bool) async -> Image? {
         guard let searcher, let hash, !hash.isEmpty else { return nil }
         return await Task.detached(priority: .userInitiated) {
-            guard let bytes = try? searcher.peerPhoto(hash: hash) else { return DecodedPhoto(image: nil) }
+            guard let bytes = try? searcher.peerPhoto(hash: hash) else {
+                return DecodedPhoto(image: nil)
+            }
             if full { return DecodedPhoto(image: fullPhotoImage(bytes)) }
             return DecodedPhoto(image: (try? checkPreview(bytes: bytes)).flatMap(previewImage))
         }.value.image
@@ -138,7 +143,9 @@ struct PeerGallery: View {
     @State private var large: Image?
 
     private var full: Data? {
-        guard found.fullPhotos.indices.contains(chosen), !found.fullPhotos[chosen].isEmpty else { return nil }
+        guard found.fullPhotos.indices.contains(chosen), !found.fullPhotos[chosen].isEmpty else {
+            return nil
+        }
         return found.fullPhotos[chosen]
     }
 
@@ -205,7 +212,9 @@ struct PeerGallery: View {
     }
 
     private func label(_ index: Int) -> String {
-        String(format: NSLocalizedString("profile.photoLabel", comment: ""), index + 1, found.photos.count)
+        String(
+            format: NSLocalizedString("profile.photoLabel", comment: ""), index + 1,
+            found.photos.count)
     }
 
     @ViewBuilder

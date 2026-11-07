@@ -17,7 +17,8 @@ final class IdentityRecoveryTests: XCTestCase {
     private func fixtureApp(_ fixture: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
-            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-identity-fixture=\(fixture)",
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
+            "--ui-test-identity-fixture=\(fixture)",
         ]
         return app
     }

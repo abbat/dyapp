@@ -40,7 +40,9 @@ struct ChatsView: View {
             }
         }
         .task(id: feed.likedOpen ? feed.liked : nil) { await feed.fetchLiked() }
-        .task(id: feed.rows.map(\.peerId).sorted()) { await feed.loadNames(feed.rows.map(\.peerId)) }
+        .task(id: feed.rows.map(\.peerId).sorted()) {
+            await feed.loadNames(feed.rows.map(\.peerId))
+        }
     }
 
     private var list: some View {
@@ -61,7 +63,8 @@ struct ChatsView: View {
             )
             if feed.requestsOpen {
                 if requests.isEmpty {
-                    Text("chats.noRequests").font(.caption).accessibilityIdentifier("chats-no-requests")
+                    Text("chats.noRequests").font(.caption).accessibilityIdentifier(
+                        "chats-no-requests")
                 }
                 rows(requests, prefix: "request")
             }
@@ -79,8 +82,9 @@ struct ChatsView: View {
             Button {
                 chat = row.peerId
             } label: {
-                ChatListRow(row: row, label: contactLabel(row.peerId, feed.names[row.peerId]),
-                            photos: feed.photos, photo: feed.names[row.peerId]?.photo)
+                ChatListRow(
+                    row: row, label: contactLabel(row.peerId, feed.names[row.peerId]),
+                    photos: feed.photos, photo: feed.names[row.peerId]?.photo)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("\(prefix)-\(index + 1)")
@@ -115,7 +119,8 @@ private struct BlockedNote: View {
     let block: ChatBlock
 
     var body: some View {
-        Text(LocalizedStringKey(block.revocationKey)).font(.caption).accessibilityIdentifier("chats-blocked-note")
+        Text(LocalizedStringKey(block.revocationKey)).font(.caption).accessibilityIdentifier(
+            "chats-blocked-note")
         if block.revocation == .pending, let detail = block.detail {
             Text(verbatim: detail).font(.caption).textSelection(.enabled)
                 .accessibilityIdentifier("chats-blocked-details")
@@ -168,7 +173,8 @@ private struct LikedList: View {
                 profiles(found)
 
             case let .failure(error):
-                Text(LocalizedStringKey(profileLoadKey(error))).accessibilityIdentifier("chats-liked-status")
+                Text(LocalizedStringKey(profileLoadKey(error))).accessibilityIdentifier(
+                    "chats-liked-status")
                 Text(verbatim: String(describing: error)).font(.caption).textSelection(.enabled)
                     .accessibilityIdentifier("chats-liked-details")
             }
@@ -211,11 +217,16 @@ private struct ChatListRow: View {
             VStack(alignment: .trailing) {
                 if let time = chatTime(row.lastMessage) { Text(verbatim: time).font(.caption) }
                 if row.unreadCount > 0 {
-                    Text(verbatim: String(row.unreadCount)).accessibilityLabel(Text(verbatim: String(
-                        format: NSLocalizedString("chats.unread", comment: ""), String(row.unreadCount)
-                    )))
+                    Text(verbatim: String(row.unreadCount)).accessibilityLabel(
+                        Text(
+                            verbatim: String(
+                                format: NSLocalizedString("chats.unread", comment: ""),
+                                String(row.unreadCount)
+                            )))
                 }
-                if row.muted { Text("chats.muted").font(.caption).accessibilityIdentifier("chat-muted") }
+                if row.muted {
+                    Text("chats.muted").font(.caption).accessibilityIdentifier("chat-muted")
+                }
             }
         }
         // A click on the spacer between the name and the time did nothing without it.
@@ -250,13 +261,17 @@ func chatPreview(_ message: ChatMessage?) -> String {
     if message.deleted { return NSLocalizedString("chats.deleted", comment: "") }
     var text = message.text ?? ""
     if let shared = sharedProfile(message) {
-        text = String(format: NSLocalizedString("chats.profileLink", comment: ""), "@\(shared.suffix(6))")
+        text = String(
+            format: NSLocalizedString("chats.profileLink", comment: ""), "@\(shared.suffix(6))")
     }
-    if message.forwarded { return String(format: NSLocalizedString("chats.forwarded", comment: ""), text) }
+    if message.forwarded {
+        return String(format: NSLocalizedString("chats.forwarded", comment: ""), text)
+    }
     return text
 }
 
 func chatTime(_ message: ChatMessage?) -> String? {
     guard let sent = message?.sentAtMs else { return nil }
-    return Date(timeIntervalSince1970: Double(sent) / 1_000).formatted(date: .numeric, time: .shortened)
+    return Date(timeIntervalSince1970: Double(sent) / 1_000).formatted(
+        date: .numeric, time: .shortened)
 }

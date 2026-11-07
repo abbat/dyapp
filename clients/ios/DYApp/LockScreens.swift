@@ -24,7 +24,8 @@ struct Notice: View {
 
     var body: some View {
         if let key {
-            Text(LocalizedStringKey(key)).foregroundColor(.red).accessibilityIdentifier("lock-notice")
+            Text(LocalizedStringKey(key)).foregroundColor(.red).accessibilityIdentifier(
+                "lock-notice")
         }
     }
 }
@@ -100,7 +101,9 @@ struct SettingsView: View {
         let pinSet = lock.mode == .pin
         let askCurrent = pinSet && !lock.authorized
         let verified = !askCurrent || current.count >= LockModel.minPin
-        let modeKey = pinSet ? "lock.mode.pin" : lock.mode == .biometric ? "lock.mode.biometric" : "lock.mode.off"
+        let modeKey =
+            pinSet
+            ? "lock.mode.pin" : lock.mode == .biometric ? "lock.mode.biometric" : "lock.mode.off"
         VStack(spacing: 16) {
             Text(LocalizedStringKey(modeKey)).accessibilityIdentifier("lock-mode")
             if lock.recovered {
@@ -117,9 +120,11 @@ struct SettingsView: View {
                 .accessibilityIdentifier("lock-set")
                 .disabled(!verified || !lock.deviceSecure)
             if lock.guarded {
-                Button(LocalizedStringKey(pinSet ? "lock.turn.off" : "lock.turn.off.biometric")) { submit(nil) }
-                    .accessibilityIdentifier("lock-off")
-                    .disabled(!verified)
+                Button(LocalizedStringKey(pinSet ? "lock.turn.off" : "lock.turn.off.biometric")) {
+                    submit(nil)
+                }
+                .accessibilityIdentifier("lock-off")
+                .disabled(!verified)
             }
             if lock.mode == .off || lock.recovered {
                 BiometricOption(lock: lock)
@@ -167,11 +172,14 @@ struct UnlockView: View {
                 .accessibilityIdentifier("lock-unlock")
                 .disabled(pin.count < LockModel.minPin)
             }
-            Button(LocalizedStringKey(pinSet ? "lock.use.passcode" : "lock.use.biometric")) { lock.deviceUnlock() }
-                .accessibilityIdentifier("lock-device-unlock")
-                .disabled(!lock.deviceSecure)
+            Button(LocalizedStringKey(pinSet ? "lock.use.passcode" : "lock.use.biometric")) {
+                lock.deviceUnlock()
+            }
+            .accessibilityIdentifier("lock-device-unlock")
+            .disabled(!lock.deviceSecure)
             if !lock.deviceSecure {
-                Text("lock.recovery.unavailable").accessibilityIdentifier("lock-recovery-unavailable")
+                Text("lock.recovery.unavailable").accessibilityIdentifier(
+                    "lock-recovery-unavailable")
             }
         }
         .disabled(lock.busy)

@@ -14,7 +14,9 @@ struct ProfilePreviewView: View {
             if let preview {
                 ProfilePublicRows(preview: preview, draft: draft)
                 Text("profile.publicDisclosure")
-                if preview.birth.year != nil && preview.birth.month != nil && preview.birth.day != nil {
+                if preview.birth.year != nil && preview.birth.month != nil
+                    && preview.birth.day != nil
+                {
                     Text("profile.fullDateDisclosure")
                 }
             } else if readFailed {
@@ -68,9 +70,10 @@ struct ProfilePublicRows: View {
     let draft: ProfileDraft
 
     var body: some View {
-        if preview.fields.isEmpty && preview.country.isEmpty &&
-            preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil) &&
-            ProfileExtraInputs(draft: draft) == ProfileExtraInputs() {
+        if preview.fields.isEmpty && preview.country.isEmpty
+            && preview.birth == ProfileBirthParts(year: nil, month: nil, day: nil)
+            && ProfileExtraInputs(draft: draft) == ProfileExtraInputs()
+        {
             Text("profile.noPublicFields")
         }
         ForEach(preview.fields, id: \.scaleKey) { field in

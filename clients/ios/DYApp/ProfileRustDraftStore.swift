@@ -77,15 +77,17 @@ struct ProfileRustDraftStore {
             values[key] = code
         }
         if let place = UInt32(draft.place) { values[ProfileDraft.placeKey] = place }
-        let birth = ProfileBirthParts(year: draft.birthYear, month: draft.birthMonth, day: draft.birthDay)
+        let birth = ProfileBirthParts(
+            year: draft.birthYear, month: draft.birthMonth, day: draft.birthDay)
         return ProfileDraft(
             values: birth.inserted(into: values),
             country: draft.country,
             name: draft.name,
             height: draft.height,
             about: draft.about,
-            seeking: ProfileSeeking(genders: draft.seekingGenders, ageFrom: draft.seekingAgeFrom,
-                                    ageTo: draft.seekingAgeTo, notLooking: draft.notLooking)
+            seeking: ProfileSeeking(
+                genders: draft.seekingGenders, ageFrom: draft.seekingAgeFrom,
+                ageTo: draft.seekingAgeTo, notLooking: draft.notLooking)
         )
     }
 

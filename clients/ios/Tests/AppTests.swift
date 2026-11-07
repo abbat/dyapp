@@ -4,9 +4,12 @@ import XCTest
 
 final class AppTests: XCTestCase {
     func testBackgroundReceiveIsPermitted() {
-        let info = Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String]
+        let info =
+            Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers")
+            as? [String]
         XCTAssertEqual(info, [MailJob.identifier])
-        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String], ["fetch"])
+        XCTAssertEqual(
+            Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String], ["fetch"])
     }
 
     func testNoticeAddsLinesOnlyWhileTheLockScreenHidesThem() {
@@ -23,11 +26,15 @@ final class AppTests: XCTestCase {
         let named = MailNotice.request(MailNotice.Lines(sender: "name", text: nil)).content
         XCTAssertEqual(named.title, "name")
         XCTAssertEqual(named.body, fixed)
-        XCTAssertEqual(MailNotice.request(nil).identifier, MailNotice.request(MailNotice.Lines(sender: "name", text: "hi")).identifier)
+        XCTAssertEqual(
+            MailNotice.request(nil).identifier,
+            MailNotice.request(MailNotice.Lines(sender: "name", text: "hi")).identifier)
     }
 
     func testBuiltApplicationIdentity() {
         XCTAssertEqual(Bundle.main.bundleIdentifier, "com.dyapp.ios")
-        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, "0.0.1")
+        XCTAssertEqual(
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+            "0.0.1")
     }
 }

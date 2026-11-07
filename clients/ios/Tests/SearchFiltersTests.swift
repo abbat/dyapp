@@ -65,20 +65,27 @@ final class SearchFiltersTests: XCTestCase {
     func testEmployerSplitsCompaniesAndIgnoresABlankOne() {
         var inputs = SearchFilterInputs()
         inputs.company = " Acme ; ;Globex"
-        XCTAssertEqual(String(describing: inputs.employer()), String(describing: SearchEmployer.any))
+        XCTAssertEqual(
+            String(describing: inputs.employer()), String(describing: SearchEmployer.any))
         inputs.employerKind = .same
-        XCTAssertEqual(String(describing: inputs.employer()),
-                       String(describing: SearchEmployer.same(company: "Acme ; ;Globex")))
+        XCTAssertEqual(
+            String(describing: inputs.employer()),
+            String(describing: SearchEmployer.same(company: "Acme ; ;Globex")))
         inputs.employerKind = .exclude
-        XCTAssertEqual(String(describing: inputs.employer()),
-                       String(describing: SearchEmployer.exclude(companies: ["Acme", "Globex"])))
+        XCTAssertEqual(
+            String(describing: inputs.employer()),
+            String(describing: SearchEmployer.exclude(companies: ["Acme", "Globex"])))
         inputs.company = "  "
-        XCTAssertEqual(String(describing: inputs.employer()), String(describing: SearchEmployer.any))
+        XCTAssertEqual(
+            String(describing: inputs.employer()), String(describing: SearchEmployer.any))
     }
 
     func testCoreErrorsMapToStatusTexts() {
-        XCTAssertEqual(searchErrorKey(CoreError.Failed(message: "notConnected")), "search.notConnected")
-        XCTAssertEqual(searchErrorKey(CoreError.Failed(message: "mutual unavailable")), "search.mutualUnavailable")
+        XCTAssertEqual(
+            searchErrorKey(CoreError.Failed(message: "notConnected")), "search.notConnected")
+        XCTAssertEqual(
+            searchErrorKey(CoreError.Failed(message: "mutual unavailable")),
+            "search.mutualUnavailable")
         XCTAssertEqual(searchErrorKey(CoreError.Failed(message: "other")), "search.failed")
     }
 

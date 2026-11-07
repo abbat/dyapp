@@ -17,9 +17,11 @@ enum RustBridge {
     private static let draftWrites = NSLock()
 
     private static var uiTestSlotID: UUID? {
-        guard let argument = ProcessInfo.processInfo.arguments.first(where: {
-            $0.hasPrefix("--ui-test-slot-root=")
-        }) else { return nil }
+        guard
+            let argument = ProcessInfo.processInfo.arguments.first(where: {
+                $0.hasPrefix("--ui-test-slot-root=")
+            })
+        else { return nil }
         return UUID(uuidString: String(argument.dropFirst("--ui-test-slot-root=".count)))
     }
 
@@ -28,13 +30,13 @@ enum RustBridge {
     /// Resolve the saved selection without creating a replacement identity.
     static func identityState() throws -> IdentityResolution {
         #if DEBUG
-        // The local test node carries a cheap ID, and search skips nodes without the full proof of work.
-        // The profile proof is lowered with the node's minimum: the full one can outlast a test's wait.
-        if uiTestSlotID != nil {
-            setTestNodeIdPowBits(bits: 8)
-            setTestProfilePowBits(bits: 4)
-        }
-        try seedUITestIdentity()
+            // The local test node carries a cheap ID, and search skips nodes without the full proof of work.
+            // The profile proof is lowered with the node's minimum: the full one can outlast a test's wait.
+            if uiTestSlotID != nil {
+                setTestNodeIdPowBits(bits: 8)
+                setTestProfilePowBits(bits: 4)
+            }
+            try seedUITestIdentity()
         #endif
         return try identityStore().resolve()
     }
@@ -101,36 +103,48 @@ enum RustBridge {
         guard key.peerId() == request.peerId else { throw IdentitySlotError.peerIDMismatch }
         var conditions = request.conditions
         if request.mutual {
-            let store = ProfileRustDraftStore(root: try directory(), candidate: request.candidate,
-                                              peerId: request.peerId, key: key)
+            let store = ProfileRustDraftStore(
+                root: try directory(), candidate: request.candidate,
+                peerId: request.peerId, key: key)
             guard let draft = try withDraftLock({ try store.load() }),
-                  case let mutual = try searchMutualConditions(draft: try ProfileRustDraftStore.record(from: draft)),
-                  !mutual.isEmpty
+                case let mutual = try searchMutualConditions(
+                    draft: try ProfileRustDraftStore.record(from: draft)),
+                !mutual.isEmpty
             else { throw CoreError.Failed(message: "mutual unavailable") }
             conditions += mutual
         }
-        let result = try request.searcher.search(key: key, conditions: conditions, employer: request.employer, limit: 0)
+        let result = try request.searcher.search(
+            key: key, conditions: conditions, employer: request.employer, limit: 0)
         #if DEBUG
-        return try withUITestRow(result)
+            return try withUITestRow(result)
         #else
-        return result
+            return result
         #endif
     }
 
     #if DEBUG
-    /// Native UI tests get one row ahead of the real answer: the local node's sample can be empty.
-    private static func withUITestRow(_ result: ProfileSearchResult) throws -> ProfileSearchResult {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-test-found-profile") else { return result }
-        let draft = ProfileDraft(country: "DE", name: "Test Peer", height: 180)
-        let found = FoundProfile(peerId: "12D3KooWUITestFoundProfile", draft: try ProfileRustDraftStore.record(from: draft),
-                                 photos: [], fullPhotos: [], version: 1)
-        return ProfileSearchResult(offered: result.offered, profiles: [found] + result.profiles,
-                                   partial: result.partial, failures: result.failures)
-    }
+        /// Native UI tests get one row ahead of the real answer: the local node's sample can be empty.
+        private static func withUITestRow(_ result: ProfileSearchResult) throws
+            -> ProfileSearchResult
+        {
+            guard ProcessInfo.processInfo.arguments.contains("--ui-test-found-profile") else {
+                return result
+            }
+            let draft = ProfileDraft(country: "DE", name: "Test Peer", height: 180)
+            let found = FoundProfile(
+                peerId: "12D3KooWUITestFoundProfile",
+                draft: try ProfileRustDraftStore.record(from: draft),
+                photos: [], fullPhotos: [], version: 1)
+            return ProfileSearchResult(
+                offered: result.offered, profiles: [found] + result.profiles,
+                partial: result.partial, failures: result.failures)
+        }
     #endif
 
     /// Read this identity's draft or active network settings off the UI thread.
-    static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws -> NetworkSettings? {
+    static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws
+        -> NetworkSettings?
+    {
         let dir = networkDirectory(root: try directory(), candidate: candidate)
         return try loadNetwork(dir: dir.path, file: file)
     }
@@ -150,41 +164,52 @@ enum RustBridge {
     }
 
     /// Reopen the selected key and load its Rust profile draft, importing old JSON once if needed.
-    static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws -> ProfileDraft? {
+    static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws
+        -> ProfileDraft?
+    {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let store = ProfileRustDraftStore(root: try directory(), candidate: candidate, peerId: peerId, key: key)
+        let store = ProfileRustDraftStore(
+            root: try directory(), candidate: candidate, peerId: peerId, key: key)
         return try withDraftLock { try store.load() }
     }
 
     /// Persist exact optional profile fields to this identity's Rust client database.
-    static func storeProfileDraft(for candidate: IdentityCandidate, peerId: String,
-                                  draft: ProfileDraft) throws {
+    static func storeProfileDraft(
+        for candidate: IdentityCandidate, peerId: String,
+        draft: ProfileDraft
+    ) throws {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let store = ProfileRustDraftStore(root: try directory(), candidate: candidate, peerId: peerId, key: key)
+        let store = ProfileRustDraftStore(
+            root: try directory(), candidate: candidate, peerId: peerId, key: key)
         try withDraftLock { try store.save(draft) }
     }
 
     /// Publish only the selected identity's solved draft through its active network, off the UI thread.
-    static func publishProfile(for candidate: IdentityCandidate, peerId: String,
-                               attested: Bool) throws -> PublishedProfileSnapshot {
+    static func publishProfile(
+        for candidate: IdentityCandidate, peerId: String,
+        attested: Bool
+    ) throws -> PublishedProfileSnapshot {
         #if DEBUG
-        // Native UI tests see a failed publish while their local node keeps running.
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-publish") {
-            throw CoreError.Failed(message: "notConnected")
-        }
+            // Native UI tests see a failed publish while their local node keeps running.
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-publish") {
+                throw CoreError.Failed(message: "notConnected")
+            }
         #endif
         // Only a chat session lists this device and its key packages; without them nobody can write here.
         let result = try withChats(ChatIdentity(candidate: candidate, peerId: peerId)) { session in
             try withDraftLock { try session.publishProfile(attested: attested) }
         }
-        return PublishedProfileSnapshot(version: result.version,
-                                        draft: ProfileRustDraftStore.values(from: result.draft))
+        return PublishedProfileSnapshot(
+            version: result.version,
+            draft: ProfileRustDraftStore.values(from: result.draft))
     }
 
     /// Whether this identity has published and is hidden from search now.
-    static func visibility(for candidate: IdentityCandidate, peerId: String) throws -> ProfileVisibility {
+    static func visibility(for candidate: IdentityCandidate, peerId: String) throws
+        -> ProfileVisibility
+    {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
@@ -192,7 +217,9 @@ enum RustBridge {
     }
 
     /// Take the profile out of search; without a node this throws and changes nothing.
-    static func hideProfile(for candidate: IdentityCandidate, peerId: String) throws -> ProfileVisibility {
+    static func hideProfile(for candidate: IdentityCandidate, peerId: String) throws
+        -> ProfileVisibility
+    {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
@@ -205,17 +232,19 @@ enum RustBridge {
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
         #if DEBUG
-        // Native UI tests see no node accepting it while their local node keeps running.
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-withdraw") {
-            throw CoreError.Failed(message: "notConnected")
-        }
+            // Native UI tests see no node accepting it while their local node keeps running.
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-withdraw") {
+                throw CoreError.Failed(message: "notConnected")
+            }
         #endif
         _ = try withDraftLock { try ProfilePublisher(dir: dir.path).withdraw(key: key) }
     }
 
     /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
-    static func publicationBlock(for candidate: IdentityCandidate, peerId: String,
-                                 attested: Bool) throws -> String? {
+    static func publicationBlock(
+        for candidate: IdentityCandidate, peerId: String,
+        attested: Bool
+    ) throws -> String? {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
@@ -223,7 +252,9 @@ enum RustBridge {
     }
 
     /// A new cancellable proof handle for this selected identity; a retry creates a new handle.
-    static func profileSolveSession(for candidate: IdentityCandidate, peerId: String) throws -> ProfileSolveSession {
+    static func profileSolveSession(for candidate: IdentityCandidate, peerId: String) throws
+        -> ProfileSolveSession
+    {
         let key = try identityStore().open(candidate.location)
         guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
         let dir = networkDirectory(root: try directory(), candidate: candidate)
@@ -253,7 +284,8 @@ enum RustBridge {
     static func directory() throws -> URL {
         // The macOS app is not sandboxed: its own folder, not the user's Application Support.
         let directory = try FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil,
+            create: true
         ).appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.dyapp")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try excludeFromBackup(directory)
@@ -278,39 +310,43 @@ enum RustBridge {
 }
 
 #if DEBUG
-extension RustBridge {
-    /// Seed one identity state into the isolated UI test root only; a relaunch finds it and adds nothing.
-    private static func seedUITestIdentity() throws {
-        let prefix = "--ui-test-identity-fixture="
-        guard uiTestSlotID != nil,
-              let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
-        let store = try identityStore()
-        guard try store.candidates().isEmpty else { return }
-        let root = try directory()
-        let fixture = String(argument.dropFirst(prefix.count))
-        switch fixture {
-        case "legacy":
-            try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
-                .write(to: root.appendingPathComponent("identity.key"), options: .atomic)
+    extension RustBridge {
+        /// Seed one identity state into the isolated UI test root only; a relaunch finds it and adds nothing.
+        private static func seedUITestIdentity() throws {
+            let prefix = "--ui-test-identity-fixture="
+            guard uiTestSlotID != nil,
+                let argument = ProcessInfo.processInfo.arguments.first(where: {
+                    $0.hasPrefix(prefix)
+                })
+            else { return }
+            let store = try identityStore()
+            guard try store.candidates().isEmpty else { return }
+            let root = try directory()
+            let fixture = String(argument.dropFirst(prefix.count))
+            switch fixture {
+            case "legacy":
+                try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
+                    .write(to: root.appendingPathComponent("identity.key"), options: .atomic)
 
-        case "missing-legacy-key":
-            // Wrapping leaves the legacy Keychain item behind, with no root file to open.
-            _ = try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
+            case "missing-legacy-key":
+                // Wrapping leaves the legacy Keychain item behind, with no root file to open.
+                _ = try IdentityKey.generate().wrap(store: keyStore(for: .legacy))
 
-        case "missing-slot-key", "pending-slot":
-            let slot = root.appendingPathComponent("profiles", isDirectory: true)
-                .appendingPathComponent(UUID().uuidString.lowercased(), isDirectory: true)
-            try FileManager.default.createDirectory(at: slot, withIntermediateDirectories: true)
-            try Data((fixture == "pending-slot" ? "pending\n" : "ready\n").utf8)
-                .write(to: slot.appendingPathComponent("state"), options: .atomic)
+            case "missing-slot-key", "pending-slot":
+                let slot = root.appendingPathComponent("profiles", isDirectory: true)
+                    .appendingPathComponent(UUID().uuidString.lowercased(), isDirectory: true)
+                try FileManager.default.createDirectory(at: slot, withIntermediateDirectories: true)
+                try Data((fixture == "pending-slot" ? "pending\n" : "ready\n").utf8)
+                    .write(to: slot.appendingPathComponent("state"), options: .atomic)
 
-        case "malformed-pointer":
-            _ = try store.create()
-            try Data("not a pointer\n".utf8).write(to: root.appendingPathComponent("active-profile"), options: .atomic)
+            case "malformed-pointer":
+                _ = try store.create()
+                try Data("not a pointer\n".utf8).write(
+                    to: root.appendingPathComponent("active-profile"), options: .atomic)
 
-        default:
-            break
+            default:
+                break
+            }
         }
     }
-}
 #endif

@@ -35,8 +35,10 @@ final class PhotoPrepTests: XCTestCase {
     }
 
     func testCoreCodesPickTheirText() {
-        XCTAssertEqual(photoErrorKey(CoreError.Failed(message: "photoRefused")), "profile.photoRefused")
-        XCTAssertEqual(photoErrorKey(CoreError.Failed(message: "corrupted")), "profile.photoUnsupported")
+        XCTAssertEqual(
+            photoErrorKey(CoreError.Failed(message: "photoRefused")), "profile.photoRefused")
+        XCTAssertEqual(
+            photoErrorKey(CoreError.Failed(message: "corrupted")), "profile.photoUnsupported")
         XCTAssertEqual(photoErrorKey(CoreError.Failed(message: "disk full")), "profile.photoFailed")
         XCTAssertEqual(photoErrorKey(PhotoProblem.tooLarge), "profile.photoTooLarge")
     }

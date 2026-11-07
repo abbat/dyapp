@@ -18,7 +18,9 @@ enum MailNotice {
     static func count(rows: [ChatRow], liked: [String]) -> UInt64 {
         let unmuted = rows.filter { !$0.muted }
         let muted = Set(rows.filter(\.muted).map(\.peerId))
-        let unread = unmuted.reduce(UInt64(0)) { $0 + ($1.state == .requestReceived ? max($1.unreadCount, 1) : $1.unreadCount) }
+        let unread = unmuted.reduce(UInt64(0)) {
+            $0 + ($1.state == .requestReceived ? max($1.unreadCount, 1) : $1.unreadCount)
+        }
         return unread + UInt64(liked.filter { !muted.contains($0) }.count)
     }
 
@@ -29,7 +31,8 @@ enum MailNotice {
     ) -> Lines? {
         guard notice == .name || notice == .text else { return nil }
         let grown = after.first { row in
-            !row.muted && row.unreadCount > (before.first { $0.peerId == row.peerId }?.unreadCount ?? 0)
+            !row.muted
+                && row.unreadCount > (before.first { $0.peerId == row.peerId }?.unreadCount ?? 0)
         }
         guard let row = grown, row.state == .open else { return nil }
         // shortcut: the FFI row has no attachment, so a newer unread attachment shows the last unread text.
@@ -58,14 +61,18 @@ enum MailNotice {
 
     static func status() async -> UNAuthorizationStatus {
         await withCheckedContinuation { done in
-            UNUserNotificationCenter.current().getNotificationSettings { done.resume(returning: $0.authorizationStatus) }
+            UNUserNotificationCenter.current().getNotificationSettings {
+                done.resume(returning: $0.authorizationStatus)
+            }
         }
     }
 
     /// A refusal is only quiet here: the settings section reads the status and says so.
     static func request() async {
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in done.resume() }
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in
+                done.resume()
+            }
         }
     }
 }
@@ -74,9 +81,9 @@ enum MailNotice {
 struct MailNoticeSection: View {
     private static var becameActive: Notification.Name {
         #if os(macOS)
-        NSApplication.didBecomeActiveNotification
+            NSApplication.didBecomeActiveNotification
         #else
-        UIApplication.didBecomeActiveNotification
+            UIApplication.didBecomeActiveNotification
         #endif
     }
 
@@ -96,31 +103,34 @@ struct MailNoticeSection: View {
                 .disabled(on == nil)
                 .accessibilityIdentifier("message-notifications")
                 .task(id: feed.me) { await load() }
-            Picker("notice.content", selection: Binding(get: { content }, set: { save(true, $0) })) {
+            Picker("notice.content", selection: Binding(get: { content }, set: { save(true, $0) }))
+            {
                 Text("notice.contentFixed").tag(ChatNotice.fixed)
                 Text("notice.contentName").tag(ChatNotice.name)
                 Text("notice.contentText").tag(ChatNotice.text)
             }
             #if os(macOS)
-            .pickerStyle(.radioGroup)
+                .pickerStyle(.radioGroup)
             #endif
             .disabled(on != true)
             .accessibilityIdentifier("notice-content")
             #if os(macOS)
-            Text("notice.hint").font(.caption)
+                Text("notice.hint").font(.caption)
             #else
-            Text("notice.hintIos").font(.caption)
+                Text("notice.hintIos").font(.caption)
             #endif
             if failed {
                 Text("notice.failed").font(.caption).accessibilityIdentifier("notice-error")
             }
             if on == true, !allowed {
                 #if os(macOS)
-                Text("notice.blocked").font(.caption).accessibilityIdentifier("notice-blocked")
+                    Text("notice.blocked").font(.caption).accessibilityIdentifier("notice-blocked")
                 #else
-                Text("notice.blockedIos").font(.caption).accessibilityIdentifier("notice-blocked")
+                    Text("notice.blockedIos").font(.caption).accessibilityIdentifier(
+                        "notice-blocked")
                 #endif
-                Button("notice.allow") { Task { await allow() } }.accessibilityIdentifier("notice-allow")
+                Button("notice.allow") { Task { await allow() } }.accessibilityIdentifier(
+                    "notice-allow")
             }
         } header: {
             Text("notice.title")
@@ -176,13 +186,15 @@ struct MailNoticeSection: View {
 
     private func openSystemSettings() {
         #if os(macOS)
-        if let settings = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
-            NSWorkspace.shared.open(settings)
-        }
+            if let settings = URL(
+                string: "x-apple.systempreferences:com.apple.preference.notifications")
+            {
+                NSWorkspace.shared.open(settings)
+            }
         #else
-        if let settings = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(settings, options: [:], completionHandler: nil)
-        }
+            if let settings = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(settings, options: [:], completionHandler: nil)
+            }
         #endif
     }
 }

@@ -70,7 +70,9 @@ struct SearchView: View {
                     Button("search.openNetwork", action: openNetwork)
                         .accessibilityIdentifier("search-open-network")
                 } else {
-                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                    NavigationLink(
+                        destination: NetworkDraftView(candidate: candidate, peerId: peerId)
+                    ) {
                         Text("search.openNetwork")
                     }
                     .accessibilityIdentifier("search-open-network")
@@ -82,7 +84,8 @@ struct SearchView: View {
         case let .done(result):
             SearchResults(
                 result: result, photos: feed.photos,
-                open: { opened = OpenedProfile(peer: $0.peerId, known: $0) }, again: { session.run() }
+                open: { opened = OpenedProfile(peer: $0.peerId, known: $0) },
+                again: { session.run() }
             )
         }
     }
@@ -108,9 +111,13 @@ private struct SearchResults: View {
                 .accessibilityIdentifier("search-failures")
         }
         ForEach(Array(result.profiles.enumerated()), id: \.offset) { index, found in
-            Button { open(found) } label: { SearchResultRow(found: found, photos: photos) }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("result-\(index + 1)")
+            Button {
+                open(found)
+            } label: {
+                SearchResultRow(found: found, photos: photos)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("result-\(index + 1)")
         }
         if !result.profiles.isEmpty {
             Button("search.again", action: again)
@@ -129,11 +136,14 @@ struct SearchResultRow: View {
         var parts: [String] = []
         // A profile this client cannot project still lists, under its Peer ID alone.
         if let preview = try? ProfilePublicPreview(draft: draft.values, country: draft.country),
-           let youngest = preview.youngest, let oldest = preview.oldest {
+            let youngest = preview.youngest, let oldest = preview.oldest
+        {
             parts.append(youngest == oldest ? String(youngest) : "\(youngest)-\(oldest)")
         }
         if !draft.country.isEmpty { parts.append(countryName(draft.country)) }
-        return parts.isEmpty ? NSLocalizedString("profile.noPublicFields", comment: "") : parts.joined(separator: ", ")
+        return parts.isEmpty
+            ? NSLocalizedString("profile.noPublicFields", comment: "")
+            : parts.joined(separator: ", ")
     }
 
     var body: some View {
@@ -163,8 +173,9 @@ func searchFailureText(_ failure: ProfileSearchFailure) -> String {
         return NSLocalizedString("search.failureTimeout", comment: "")
 
     case let .rateLimited(retryAfterMs):
-        return String(format: NSLocalizedString("search.failureRateLimited", comment: ""),
-                      String((retryAfterMs + 999) / 1_000))
+        return String(
+            format: NSLocalizedString("search.failureRateLimited", comment: ""),
+            String((retryAfterMs + 999) / 1_000))
 
     case .puzzle:
         return NSLocalizedString("search.failurePuzzle", comment: "")
@@ -180,16 +191,22 @@ private struct SearchFilterFields: View {
 
     var body: some View {
         if inputs.ageOffered {
-            TextField("search.ageMin", text: $inputs.ageMin).accessibilityIdentifier("search-age-min")
-            TextField("search.ageMax", text: $inputs.ageMax).accessibilityIdentifier("search-age-max")
+            TextField("search.ageMin", text: $inputs.ageMin).accessibilityIdentifier(
+                "search-age-min")
+            TextField("search.ageMax", text: $inputs.ageMax).accessibilityIdentifier(
+                "search-age-max")
         }
         if inputs.heightOffered {
-            TextField("search.heightMin", text: $inputs.heightMin).accessibilityIdentifier("search-height-min")
-            TextField("search.heightMax", text: $inputs.heightMax).accessibilityIdentifier("search-height-max")
+            TextField("search.heightMin", text: $inputs.heightMin).accessibilityIdentifier(
+                "search-height-min")
+            TextField("search.heightMax", text: $inputs.heightMax).accessibilityIdentifier(
+                "search-height-max")
         }
         if inputs.countryOffered {
-            PlacePicker(country: $inputs.country, place: $inputs.place, text: $inputs.placeText, disabled: false,
-                        idPrefix: "search", anyLabel: "search.any", placeShown: inputs.placeOffered)
+            PlacePicker(
+                country: $inputs.country, place: $inputs.place, text: $inputs.placeText,
+                disabled: false,
+                idPrefix: "search", anyLabel: "search.any", placeShown: inputs.placeOffered)
         }
         if inputs.mutualOffered {
             Toggle("search.mutual", isOn: $inputs.mutual).accessibilityIdentifier("search-mutual")
@@ -207,15 +224,19 @@ private struct SearchFilterFields: View {
         }
         .accessibilityIdentifier("search-employer")
         TextField("search.company", text: $inputs.company).accessibilityIdentifier("search-company")
-        Text("search.employerNotice").font(.caption).accessibilityIdentifier("search-employer-notice")
+        Text("search.employerNotice").font(.caption).accessibilityIdentifier(
+            "search-employer-notice")
     }
 
     private var scales: some View {
         ForEach(inputs.shownScales, id: \.field) { scale in
-            Picker(LocalizedStringKey("profile.field." + scale.key), selection: Binding(
-                get: { inputs.picked[scale.key] ?? 0 },
-                set: { inputs.picked[scale.key] = $0 }
-            )) {
+            Picker(
+                LocalizedStringKey("profile.field." + scale.key),
+                selection: Binding(
+                    get: { inputs.picked[scale.key] ?? 0 },
+                    set: { inputs.picked[scale.key] = $0 }
+                )
+            ) {
                 Text("search.any").tag(UInt32(0))
                 ForEach(scale.choices, id: \.code) { choice in
                     Text(LocalizedStringKey("profile.value." + scale.key + "." + choice.key))

@@ -6,9 +6,13 @@ enum WindowPlacement {
     private static let titleBarHeight: CGFloat = 28
 
     static func restored(_ frame: CGRect, on screens: [CGRect]) -> CGRect {
-        let titleBar = CGRect(x: frame.minX, y: frame.maxY - titleBarHeight, width: frame.width, height: titleBarHeight)
+        let titleBar = CGRect(
+            x: frame.minX, y: frame.maxY - titleBarHeight, width: frame.width,
+            height: titleBarHeight)
         let visible = screens.map { area($0.intersection(frame)) }.reduce(0, +)
-        if visible * 4 >= area(frame), screens.contains(where: { $0.intersects(titleBar) }) { return frame }
+        if visible * 4 >= area(frame), screens.contains(where: { $0.intersects(titleBar) }) {
+            return frame
+        }
         return centred(frame.size, on: screens)
     }
 
@@ -16,7 +20,8 @@ enum WindowPlacement {
         guard let primary = screens.first else { return CGRect(origin: .zero, size: size) }
         let width = min(size.width, primary.width)
         let height = min(size.height, primary.height)
-        return CGRect(x: primary.midX - width / 2, y: primary.midY - height / 2, width: width, height: height)
+        return CGRect(
+            x: primary.midX - width / 2, y: primary.midY - height / 2, width: width, height: height)
     }
 
     private static func area(_ rect: CGRect) -> CGFloat {
@@ -66,9 +71,11 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     /// UI tests start from the default frame: each slot root saves under its own name.
     private var frameName: String {
         #if DEBUG
-        if let root = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-slot-root=") }) {
-            return "main-" + root.dropFirst("--ui-test-slot-root=".count)
-        }
+            if let root = ProcessInfo.processInfo.arguments.first(where: {
+                $0.hasPrefix("--ui-test-slot-root=")
+            }) {
+                return "main-" + root.dropFirst("--ui-test-slot-root=".count)
+            }
         #endif
         return "main"
     }
@@ -84,7 +91,9 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
+        -> Bool
+    {
         showWindow()
         return false
     }
@@ -101,22 +110,28 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         // Written by hand: on SwiftUI's window saveFrame(usingName:) and the autosave name left the old string.
-        if let window { UserDefaults.standard.set(window.frameDescriptor, forKey: "NSWindow Frame \(frameName)") }
+        if let window {
+            UserDefaults.standard.set(window.frameDescriptor, forKey: "NSWindow Frame \(frameName)")
+        }
         // A quit may end before the defaults reach the disk on their own.
         UserDefaults.standard.synchronize()
     }
 
     private func place(_ window: NSWindow) {
         #if DEBUG
-        // Saved as the app saves it: a value in the argument domain would hide whatever the app writes later.
-        if let start = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-window-frame=") }) {
-            UserDefaults.standard.set(
-                String(start.dropFirst("--ui-test-window-frame=".count)), forKey: "NSWindow Frame \(frameName)"
-            )
-        }
+            // Saved as the app saves it: a value in the argument domain would hide whatever the app writes later.
+            if let start = ProcessInfo.processInfo.arguments.first(where: {
+                $0.hasPrefix("--ui-test-window-frame=")
+            }) {
+                UserDefaults.standard.set(
+                    String(start.dropFirst("--ui-test-window-frame=".count)),
+                    forKey: "NSWindow Frame \(frameName)"
+                )
+            }
         #endif
         let screens = NSScreen.screens.map(\.visibleFrame)
-        let frame = window.setFrameUsingName(frameName)
+        let frame =
+            window.setFrameUsingName(frameName)
             ? WindowPlacement.restored(window.frame, on: screens)
             : WindowPlacement.centred(Self.defaultSize, on: screens)
         window.setFrame(frame, display: false)
@@ -159,7 +174,8 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
 
     private func makeStatusItem() -> NSStatusItem {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "heart.fill", accessibilityDescription: "DYApp")
+        item.button?.image = NSImage(
+            systemSymbolName: "heart.fill", accessibilityDescription: "DYApp")
         item.button?.setAccessibilityIdentifier("menubar-icon")
         let menu = NSMenu()
         menu.addItem(menuItem("tray.open", id: "menubar-open", action: #selector(showWindow)))
@@ -169,7 +185,8 @@ final class MainWindowController: NSObject, NSApplicationDelegate {
     }
 
     private func menuItem(_ key: String, id: String, action: Selector) -> NSMenuItem {
-        let item = NSMenuItem(title: NSLocalizedString(key, comment: ""), action: action, keyEquivalent: "")
+        let item = NSMenuItem(
+            title: NSLocalizedString(key, comment: ""), action: action, keyEquivalent: "")
         item.target = self
         item.setAccessibilityIdentifier(id)
         return item
@@ -207,13 +224,16 @@ struct MenuBarSection: View {
 
     var body: some View {
         Section {
-            Toggle("tray.show", isOn: Binding(
-                get: { show },
-                set: {
-                    show = $0
-                    if !$0 { close = false }
-                }
-            ))
+            Toggle(
+                "tray.show",
+                isOn: Binding(
+                    get: { show },
+                    set: {
+                        show = $0
+                        if !$0 { close = false }
+                    }
+                )
+            )
             .accessibilityIdentifier("tray-show")
             Toggle("tray.close", isOn: $close)
                 .disabled(!show)

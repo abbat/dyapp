@@ -5,8 +5,10 @@ import XCTest
 /// with at least three drags.
 @MainActor
 @discardableResult
-func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 30,
-            above: Bool = false) -> XCUIElement {
+func reveal(
+    _ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 30,
+    above: Bool = false
+) -> XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
     // A row's identifier can reach each text in it, and a frame read from an element with two
     // matches fails the test.
@@ -15,7 +17,9 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     // right margin, so a text editor under the finger does not scroll its own text instead.
     let drag = { (from: CGFloat, to: CGFloat) in
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: from))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: to)))
+            .press(
+                forDuration: 0.05,
+                thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: to)))
     }
     // One drag can take the whole timeout on a slow simulator, so a few always run.
     var drags = 0
@@ -30,7 +34,9 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
     // `up` drags the form down, toward rows above the screen.
     let search = { (up: Bool, most: Int) in
         var made = 0
-        while !(onScreen() != nil && row.isHittable) && made < most && (Date() < deadline || drags < 3) {
+        while !(onScreen() != nil && row.isHittable) && made < most
+            && (Date() < deadline || drags < 3)
+        {
             if up { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
             drags += 1
             made += 1
@@ -46,14 +52,18 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterv
         guard let found = onScreen() else { break }
         let area = visibleArea(of: app)
         let centre = found.midY
-        guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else { break }
+        guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else {
+            break
+        }
         print("reveal: \(row.identifier) at \(found), visible y \(area), dragging")
         let span = area.upperBound - area.lowerBound - 2 * halfRow
         let distance = min(max(centre - (area.lowerBound + area.upperBound) / 2, -span), span)
         let start = distance > 0 ? area.upperBound - halfRow : area.lowerBound + halfRow
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0))
         edge.withOffset(CGVector(dx: 0, dy: start))
-            .press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 0, dy: start - distance)))
+            .press(
+                forDuration: 0.05,
+                thenDragTo: edge.withOffset(CGVector(dx: 0, dy: start - distance)))
         if onScreen() == nil { search(distance > 0, 3) }
         search(above, .max)
     }
@@ -70,10 +80,13 @@ private func visibleArea(of app: XCUIApplication) -> ClosedRange<CGFloat> {
     let bar = app.navigationBars.firstMatch
     let keyboard = app.keyboards.firstMatch
     // Older iOS builds a form from a table.
-    let form = app.collectionViews.firstMatch.exists ? app.collectionViews.firstMatch : app.tables.firstMatch
+    let form =
+        app.collectionViews.firstMatch.exists
+        ? app.collectionViews.firstMatch : app.tables.firstMatch
     let top = bar.exists ? bar.frame.maxY : app.frame.minY
-    let bottom = min(form.exists ? form.frame.maxY : app.frame.maxY,
-                     keyboard.exists ? keyboard.frame.minY : app.frame.maxY)
+    let bottom = min(
+        form.exists ? form.frame.maxY : app.frame.maxY,
+        keyboard.exists ? keyboard.frame.minY : app.frame.maxY)
     // A small area, as under a sheet: fall back to the whole screen rather than a broken range.
     return top < bottom ? top...bottom : app.frame.minY...app.frame.maxY
 }
@@ -82,10 +95,13 @@ private func visibleArea(of app: XCUIApplication) -> ClosedRange<CGFloat> {
 @MainActor
 func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
     reveal(field, in: app)
-    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "enabled == true"), object: field
-    ),
-    ], timeout: 30), .completed, app.debugDescription)
+    XCTAssertEqual(
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "enabled == true"), object: field
+                )
+            ], timeout: 30), .completed, app.debugDescription)
     reveal(field, in: app)
 }
 
@@ -108,10 +124,13 @@ func publish(_ app: XCUIApplication) {
     for id in ["profile-confirm-adult", "profile-confirm-public"] {
         let toggle = app.switches[id]
         reveal(toggle, in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: toggle
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: toggle
+                    )
+                ], timeout: 10), .completed)
         // The row's centre is its label; newer iOS nests the tappable switch inside the row,
         // older iOS has none and the switch sits at the trailing edge.
         let knob = toggle.switches.firstMatch
@@ -120,17 +139,23 @@ func publish(_ app: XCUIApplication) {
         } else {
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == '1'"), object: toggle
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == '1'"), object: toggle
+                    )
+                ], timeout: 10), .completed)
     }
     let button = app.buttons["profile-prepare-publish"]
     reveal(button, in: app)
-    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "enabled == true"), object: button
-    ),
-    ], timeout: 10), .completed)
+    XCTAssertEqual(
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "enabled == true"), object: button
+                )
+            ], timeout: 10), .completed)
     button.tap()
 }
 

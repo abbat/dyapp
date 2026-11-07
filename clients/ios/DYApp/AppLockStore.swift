@@ -121,25 +121,29 @@ final class AppLockStore: @unchecked Sendable {
         guard let data = try vault.load() else { return nil }
         let bytes = [UInt8](data)
         guard bytes.count >= 3, bytes[0] == Self.version, let mode = StoredLock(rawValue: bytes[1]),
-              mode != .new, bytes[2] <= Self.maxFailures,
-              bytes.count == (mode == .pin ? 3 + Self.recordSize : 3)
+            mode != .new, bytes[2] <= Self.maxFailures,
+            bytes.count == (mode == .pin ? 3 + Self.recordSize : 3)
         else { throw AppLockError.invalidRecord }
         return (mode, bytes[2], Data(bytes[3...]))
     }
 
     private func write(_ mode: StoredLock, failures: UInt8 = 0, record: Data = Data()) throws {
-        guard record.count == (mode == .pin ? Self.recordSize : 0) else { throw AppLockError.invalidRecord }
+        guard record.count == (mode == .pin ? Self.recordSize : 0) else {
+            throw AppLockError.invalidRecord
+        }
         try vault.save(Data([Self.version, mode.rawValue, failures]) + record)
     }
 }
 
 /// The app-lock item: readable only on this device after its first unlock, never backed up.
 struct KeychainAppLockVault: AppLockVault {
-    private var query: [String: Any] { [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "com.dyapp.app-lock",
-        kSecAttrAccount as String: "app-lock",
-    ] }
+    private var query: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.dyapp.app-lock",
+            kSecAttrAccount as String: "app-lock",
+        ]
+    }
 
     private static func failed(_ status: OSStatus) -> Error {
         NSError(domain: NSOSStatusErrorDomain, code: Int(status))
@@ -157,7 +161,8 @@ struct KeychainAppLockVault: AppLockVault {
 
     // One item updated in place, so a crash leaves either the old or the new record.
     func save(_ data: Data) throws {
-        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let status = SecItemUpdate(
+            query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecSuccess { return }
         guard status == errSecItemNotFound else { throw Self.failed(status) }
         var item = query
@@ -169,6 +174,8 @@ struct KeychainAppLockVault: AppLockVault {
 
     func delete() throws {
         let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw Self.failed(status) }
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw Self.failed(status)
+        }
     }
 }

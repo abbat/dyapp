@@ -69,11 +69,14 @@ struct ProfileExtraInputs: Equatable {
         draft.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         draft.height = try number(height, .height)
         draft.about = about.trimmingCharacters(in: .whitespacesAndNewlines)
-        draft.seeking = notLooking ? ProfileSeeking(notLooking: true) : ProfileSeeking(
-            genders: genders.sorted(),
-            ageFrom: try number(ageFrom, .seeking),
-            ageTo: try number(ageTo, .seeking)
-        )
+        draft.seeking =
+            notLooking
+            ? ProfileSeeking(notLooking: true)
+            : ProfileSeeking(
+                genders: genders.sorted(),
+                ageFrom: try number(ageFrom, .seeking),
+                ageTo: try number(ageTo, .seeking)
+            )
         return draft
     }
 }
@@ -108,10 +111,19 @@ struct ProfileExtraFields: View {
                 Text("profile.notLookingHint").font(.caption)
                 Text("profile.seekingGenders")
                 ForEach(genderChoices(), id: \.code) { choice in
-                    Toggle(LocalizedStringKey("profile.value.gender." + choice.key), isOn: Binding(
-                        get: { inputs.genders.contains(choice.code) },
-                        set: { if $0 { inputs.genders.insert(choice.code) } else { inputs.genders.remove(choice.code) } }
-                    ))
+                    Toggle(
+                        LocalizedStringKey("profile.value.gender." + choice.key),
+                        isOn: Binding(
+                            get: { inputs.genders.contains(choice.code) },
+                            set: {
+                                if $0 {
+                                    inputs.genders.insert(choice.code)
+                                } else {
+                                    inputs.genders.remove(choice.code)
+                                }
+                            }
+                        )
+                    )
                     .disabled(inputs.notLooking)
                     .accessibilityIdentifier("profile-seeking-gender-\(choice.code)")
                 }
@@ -139,11 +151,21 @@ struct ProfileExtraRows: View {
     }
 
     var body: some View {
-        if !draft.name.isEmpty { row("profile.nameRow", Text(verbatim: draft.name), "preview-name") }
-        if let height = draft.height { row("profile.height", Text(verbatim: String(height)), "preview-height") }
-        if !draft.about.isEmpty { row("profile.about", Text(verbatim: draft.about), "preview-about") }
-        if draft.seeking.notLooking { row("profile.notLooking", Text("profile.notLookingOn"), "preview-not-looking") }
-        if !genders.isEmpty { row("profile.seekingGenders", Text(verbatim: genders), "preview-seeking-genders") }
+        if !draft.name.isEmpty {
+            row("profile.nameRow", Text(verbatim: draft.name), "preview-name")
+        }
+        if let height = draft.height {
+            row("profile.height", Text(verbatim: String(height)), "preview-height")
+        }
+        if !draft.about.isEmpty {
+            row("profile.about", Text(verbatim: draft.about), "preview-about")
+        }
+        if draft.seeking.notLooking {
+            row("profile.notLooking", Text("profile.notLookingOn"), "preview-not-looking")
+        }
+        if !genders.isEmpty {
+            row("profile.seekingGenders", Text(verbatim: genders), "preview-seeking-genders")
+        }
         if let from = draft.seeking.ageFrom {
             row("profile.seekingAgeFrom", Text(verbatim: String(from)), "preview-seeking-age-from")
         }

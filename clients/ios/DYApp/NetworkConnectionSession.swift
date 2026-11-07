@@ -50,11 +50,14 @@ final class NetworkConnectionSession: @unchecked Sendable {
     }
 
     convenience init(candidate: IdentityCandidate) throws {
-        let directory = RustBridge.networkDirectory(root: try RustBridge.directory(), candidate: candidate)
+        let directory = RustBridge.networkDirectory(
+            root: try RustBridge.directory(), candidate: candidate)
         try self.init(directory: directory)
     }
 
-    static func start(candidate: IdentityCandidate, rows: [String], name: String) async -> NetworkCheckAttempt {
+    static func start(candidate: IdentityCandidate, rows: [String], name: String) async
+        -> NetworkCheckAttempt
+    {
         guard let session = await create(candidate: candidate) else { return .failed }
         return await session.runAsync(rows: rows, name: name)
     }
@@ -111,7 +114,8 @@ final class NetworkConnectionSession: @unchecked Sendable {
 
     /// Blocking UniFFI call; invoke from a detached task, never the UI actor.
     func run(rows: [String], name: String, waitMs: UInt32 = 5_000) throws -> [NetworkRowOutcome] {
-        let results = try checker.run(draft: NetworkSettings(seeds: rows, name: name), waitMs: waitMs)
+        let results = try checker.run(
+            draft: NetworkSettings(seeds: rows, name: name), waitMs: waitMs)
         return results.map(NetworkRowOutcome.init)
     }
 }

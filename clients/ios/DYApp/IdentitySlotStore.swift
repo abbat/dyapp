@@ -71,9 +71,13 @@ final class IdentitySlotStore {
     private var profiles: URL { root.appendingPathComponent("profiles", isDirectory: true) }
 
     // newID comes first so that a trailing closure in tests binds to it.
-    init(root: URL, legacyStore: PlatformKeyStore = .shared,
-         newID: @escaping () -> UUID = { UUID() },
-         eraseWrappingKey: @escaping (UUID) throws -> Void = { try PlatformKeyStore.eraseWrappingKey(forSlot: $0) }) {
+    init(
+        root: URL, legacyStore: PlatformKeyStore = .shared,
+        newID: @escaping () -> UUID = { UUID() },
+        eraseWrappingKey: @escaping (UUID) throws -> Void = {
+            try PlatformKeyStore.eraseWrappingKey(forSlot: $0)
+        }
+    ) {
         self.root = root
         self.legacyStore = legacyStore
         self.eraseWrappingKey = eraseWrappingKey
@@ -85,15 +89,17 @@ final class IdentitySlotStore {
     }
 
     private func marker(for id: UUID) -> URL { directory(for: id).appendingPathComponent("state") }
-    private func keyFile(for id: UUID) -> URL { directory(for: id).appendingPathComponent("identity.key") }
+    private func keyFile(for id: UUID) -> URL {
+        directory(for: id).appendingPathComponent("identity.key")
+    }
     private func deletingMarker(for id: UUID) -> URL {
         profiles.appendingPathComponent("\(id.uuidString.lowercased()).deleting")
     }
 
     private func hasDeletingMarker(_ id: UUID) -> Bool {
         let file = deletingMarker(for: id)
-        return (try? isRegularFile(file)) == true &&
-            (try? Data(contentsOf: file)) == Data("deleting\n".utf8)
+        return (try? isRegularFile(file)) == true
+            && (try? Data(contentsOf: file)) == Data("deleting\n".utf8)
     }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {
@@ -115,10 +121,11 @@ final class IdentitySlotStore {
     private func state(for id: UUID) -> IdentitySlot.State {
         let marker = marker(for: id)
         guard (try? isRegularFile(marker)) == true,
-              let data = try? Data(contentsOf: marker),
-              let text = String(data: data, encoding: .utf8),
-              let state = IdentitySlot.State(rawValue: text.trimmingCharacters(in: .newlines)),
-              data == Data("\(state.rawValue)\n".utf8) else {
+            let data = try? Data(contentsOf: marker),
+            let text = String(data: data, encoding: .utf8),
+            let state = IdentitySlot.State(rawValue: text.trimmingCharacters(in: .newlines)),
+            data == Data("\(state.rawValue)\n".utf8)
+        else {
             return .damaged
         }
         return state
@@ -126,22 +133,27 @@ final class IdentitySlotStore {
 
     private func slotsWithoutLock() throws -> [IdentitySlot] {
         guard files.fileExists(atPath: profiles.path) else { return [] }
-        let entries = try files.contentsOfDirectory(at: profiles,
-                                                    includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-        var slots = entries
+        let entries = try files.contentsOfDirectory(
+            at: profiles,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        var slots =
+            entries
             .compactMap { url -> IdentitySlot? in
                 guard let id = UUID(uuidString: url.lastPathComponent),
-                      id.uuidString.lowercased() == url.lastPathComponent else { return nil }
+                    id.uuidString.lowercased() == url.lastPathComponent
+                else { return nil }
                 let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                let state: IdentitySlot.State = values?.isDirectory == true && values?.isSymbolicLink != true
+                let state: IdentitySlot.State =
+                    values?.isDirectory == true && values?.isSymbolicLink != true
                     ? self.state(for: id) : .damaged
                 return IdentitySlot(id: id, state: state)
             }
         for entry in entries where entry.lastPathComponent.hasSuffix(".deleting") {
             let markerName = String(entry.lastPathComponent.dropLast(".deleting".count))
             guard let id = UUID(uuidString: markerName),
-                  markerName == id.uuidString.lowercased(),
-                  hasDeletingMarker(id) else { continue }
+                markerName == id.uuidString.lowercased(),
+                hasDeletingMarker(id)
+            else { continue }
             if let index = slots.firstIndex(where: { $0.id == id }) {
                 slots[index] = IdentitySlot(id: id, state: .deleting)
             } else {
@@ -180,8 +192,9 @@ final class IdentitySlotStore {
         let file = root.appendingPathComponent("active-profile")
         guard try existsWithoutFollowing(file) else { return .absent }
         guard (try? isRegularFile(file)) == true,
-              let data = try? Data(contentsOf: file), data.count <= 64,
-              let text = String(data: data, encoding: .utf8), text.hasSuffix("\n") else {
+            let data = try? Data(contentsOf: file), data.count <= 64,
+            let text = String(data: data, encoding: .utf8), text.hasSuffix("\n")
+        else {
             return .invalid
         }
         let value = String(text.dropLast())
@@ -211,7 +224,10 @@ final class IdentitySlotStore {
 
     func open(_ location: IdentityLocation) throws -> IdentityKey {
         try withLock {
-            guard let candidate = try candidatesWithoutLock().first(where: { $0.location == location }) else {
+            guard
+                let candidate = try candidatesWithoutLock().first(where: { $0.location == location }
+                )
+            else {
                 throw IdentitySlotError.missingKey
             }
             return try openKeyWithoutLock(candidate)
@@ -240,8 +256,10 @@ final class IdentitySlotStore {
         }
     }
 
-    private func fallback(_ candidates: [IdentityCandidate],
-                          missing: IdentityLocation? = nil) -> IdentityResolution {
+    private func fallback(
+        _ candidates: [IdentityCandidate],
+        missing: IdentityLocation? = nil
+    ) -> IdentityResolution {
         if candidates.count == 1 { return opened(candidates[0]) }
         if candidates.isEmpty { return .recovery(missing, .missing) }
         return .picker(candidates)
@@ -283,8 +301,11 @@ final class IdentitySlotStore {
     @discardableResult
     func select(_ location: IdentityLocation) throws -> String {
         try withLock {
-            guard let candidate = try candidatesWithoutLock().first(where: { $0.location == location }),
-                  case .ready(_, let peerId) = opened(candidate) else {
+            guard
+                let candidate = try candidatesWithoutLock().first(where: { $0.location == location }
+                ),
+                case .ready(_, let peerId) = opened(candidate)
+            else {
                 throw IdentitySlotError.notReady
             }
             let file = root.appendingPathComponent("active-profile")
@@ -319,7 +340,9 @@ final class IdentitySlotStore {
             for _ in 0..<8 {
                 let id = newID()
                 let store = PlatformKeyStore.forSlot(id)
-                if try store.containsWrappingKey() || (try existsWithoutFollowing(deletingMarker(for: id))) {
+                if try store.containsWrappingKey()
+                    || (try existsWithoutFollowing(deletingMarker(for: id)))
+                {
                     continue
                 }
                 let path = directory(for: id)
@@ -359,10 +382,12 @@ extension IdentitySlotStore {
         }
         let allowed: Set<String> = [
             "identity.key", "state", "network", "network-draft", "profile-draft.json",
-            "client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key", "chat-state.key",
+            "client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key",
+            "chat-state.key",
         ]
-        let entries = try files.contentsOfDirectory(at: folder,
-                                                    includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        let entries = try files.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])
         for entry in entries {
             guard allowed.contains(entry.lastPathComponent), try isRegularFile(entry) else {
                 throw IdentitySlotError.unsafeRemoval
@@ -373,7 +398,8 @@ extension IdentitySlotStore {
 
     private func prepareRemoval(_ id: UUID, confirming peerID: String) throws -> [URL] {
         guard let slot = try slotsWithoutLock().first(where: { $0.id == id }),
-              slot.state == .ready || (slot.state == .deleting && hasDeletingMarker(id)) else {
+            slot.state == .ready || (slot.state == .deleting && hasDeletingMarker(id))
+        else {
             throw IdentitySlotError.notReady
         }
         let keyStore = PlatformKeyStore.forSlot(id)
@@ -387,7 +413,9 @@ extension IdentitySlotStore {
         let entries = try removableFiles(for: id)
         if slot.state == .ready {
             let tombstone = deletingMarker(for: id)
-            guard try !existsWithoutFollowing(tombstone) else { throw IdentitySlotError.unsafeRemoval }
+            guard try !existsWithoutFollowing(tombstone) else {
+                throw IdentitySlotError.unsafeRemoval
+            }
             try Data("deleting\n".utf8).write(to: tombstone, options: .atomic)
         }
         return entries
@@ -406,7 +434,8 @@ extension IdentitySlotStore {
             needsPicker = false
         }
         if needsPicker {
-            try Data("none\n".utf8).write(to: root.appendingPathComponent("active-profile"), options: .atomic)
+            try Data("none\n".utf8).write(
+                to: root.appendingPathComponent("active-profile"), options: .atomic)
         }
     }
 

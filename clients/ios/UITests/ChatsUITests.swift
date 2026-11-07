@@ -25,17 +25,24 @@ final class ChatsUITests: XCTestCase {
         XCTAssertEqual(requests.value as? String, "0")
 
         liked.tap()
-        XCTAssertTrue(app.staticTexts["chats-none"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["chats-none"].waitForExistence(timeout: 10), app.debugDescription)
         requests.tap()
-        XCTAssertTrue(app.staticTexts["chats-no-requests"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["chats-no-requests"].waitForExistence(timeout: 10), app.debugDescription
+        )
         liked.tap()
-        XCTAssertFalse(app.staticTexts["chats-none"].waitForExistence(timeout: 2), "a second tap closes the list")
+        XCTAssertFalse(
+            app.staticTexts["chats-none"].waitForExistence(timeout: 2),
+            "a second tap closes the list")
     }
 
     /// The DEBUG peer writes first once this identity is listed; the reply reaches it, as its answer shows.
     func testPeerRequestRepliesEditsClearsAndBlocks() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer"]
+        app.launchArguments = [
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer",
+        ]
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
@@ -44,7 +51,9 @@ final class ChatsUITests: XCTestCase {
         reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
 
         replyToTheRequest(app)
-        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Got your reply", in: app).waitForExistence(timeout: 150),
+            app.debugDescription)
         editAndDeleteTheReply(app, input: app.textFields["chat-input"])
         nameThePeer(app)
         muteClearAndBlock(app)
@@ -54,7 +63,10 @@ final class ChatsUITests: XCTestCase {
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
     func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-likes", "--ui-test-metered-network"]
+        app.launchArguments = [
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
+            "--ui-test-chat-peer-likes", "--ui-test-metered-network",
+        ]
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
@@ -72,7 +84,8 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
         // Only a drawn photo has this label; the full image then ends the offer to load it.
         let photo = reveal(app.descendants(matching: .any)["view-photo"], in: app)
-        let drawn = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'Photo 1 of 1'"), object: photo)
+        let drawn = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == 'Photo 1 of 1'"), object: photo)
         XCTAssertEqual(XCTWaiter.wait(for: [drawn], timeout: 60), .completed, app.debugDescription)
         let loadFull = reveal(app.buttons["view-photo-load"], in: app)
         loadFull.tap()
@@ -81,16 +94,22 @@ final class ChatsUITests: XCTestCase {
         reveal(app.buttons["view-pass"], in: app).tap()
         reveal(app.buttons["view-unpass"], in: app).tap()
         reveal(app.buttons["view-like"], in: app, above: true).tap()
-        XCTAssertTrue(reveal(app.descendants(matching: .any)["view-match"], in: app, timeout: 60, above: true).exists,
-                      app.debugDescription)
+        XCTAssertTrue(
+            reveal(app.descendants(matching: .any)["view-match"], in: app, timeout: 60, above: true)
+                .exists,
+            app.debugDescription)
         reveal(app.buttons["view-message-match"], in: app).tap()
-        XCTAssertTrue(app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
     /// The DEBUG peer answers with its profile link; its card opens the page, whose Share sends the link back.
     func testSharedProfileOpensFromItsCardAndSharesToAChat() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-peer-shares"]
+        app.launchArguments = [
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
+            "--ui-test-chat-peer-shares",
+        ]
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
@@ -105,13 +124,14 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
         reveal(app.buttons["view-share"], in: app).tap()
         reveal(app.buttons["share-1"], in: app).tap()
-        XCTAssertTrue(reveal(shownText("Profile sent", in: app), in: app, timeout: 60, above: true).exists,
-                      app.debugDescription)
+        XCTAssertTrue(
+            reveal(shownText("Profile sent", in: app), in: app, timeout: 60, above: true).exists,
+            app.debugDescription)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
     }
 
-    }
+}
 
 extension ChatsUITests {
     /// From Chats: opens the peer's first message and answers it.
@@ -122,19 +142,25 @@ extension ChatsUITests {
         let request = app.buttons["request-1"]
         XCTAssertTrue(request.waitForExistence(timeout: 150), app.debugDescription)
         request.tap()
-        XCTAssertTrue(app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["chat-request-notice"].waitForExistence(timeout: 30),
+            app.debugDescription)
+        XCTAssertTrue(
+            shownText("Hello from the peer", in: app).waitForExistence(timeout: 30),
+            app.debugDescription)
 
         let input = app.textFields["chat-input"]
         input.tap()
         typeSlowly("Hello back", into: input)
         app.buttons["chat-send"].tap()
-        XCTAssertTrue(shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Hello back", in: app).waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func editAndDeleteTheReply(_ app: XCUIApplication, input: XCUIElement) {
         menuItem("msg-edit", label: "Edit", in: app).tap()
-        XCTAssertTrue(app.staticTexts["chat-editing"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["chat-editing"].waitForExistence(timeout: 10), app.debugDescription)
         input.tap()
         typeSlowly(" again", into: input)
         app.buttons["chat-send"].tap()
@@ -159,15 +185,19 @@ extension ChatsUITests {
         typeSlowly("Riley", into: name)
         app.buttons["chat-rename-save"].tap()
         waitGone(name, in: app)
-        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
 
         app.buttons["chat-back"].tap()
         let row = app.buttons["chat-1"]
         XCTAssertTrue(row.waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Riley", in: app).waitForExistence(timeout: 30), app.debugDescription)
         row.tap()
         // The menu's items wait for the history.
-        XCTAssertTrue(shownText("Hello from the peer", in: app).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Hello from the peer", in: app).waitForExistence(timeout: 30),
+            app.debugDescription)
     }
 
     private func muteClearAndBlock(_ app: XCUIApplication) {
@@ -191,7 +221,9 @@ extension ChatsUITests {
         let block = app.buttons["Block"].firstMatch
         XCTAssertTrue(block.waitForExistence(timeout: 10), app.debugDescription)
         block.tap()
-        XCTAssertTrue(app.staticTexts["chats-blocked-note"].waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["chats-blocked-note"].waitForExistence(timeout: 60),
+            app.debugDescription)
     }
 
     /// Settings holds the receipts switch and the list the block above just filled.
@@ -201,23 +233,31 @@ extension ChatsUITests {
 
         let receipts = app.switches["send-read-receipts"]
         reveal(receipts, in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: receipts
-        ),
-        ], timeout: 30), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: receipts
+                    )
+                ], timeout: 30), .completed, app.debugDescription)
         let wanted = receipts.value as? String == "1" ? "0" : "1"
         flip(receipts, in: app, above: false)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@", wanted), object: receipts
-        ),
-        ], timeout: 30), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == %@", wanted), object: receipts
+                    )
+                ], timeout: 30), .completed, app.debugDescription)
 
         reveal(app.buttons["unblock-1"], in: app).tap()
-        XCTAssertTrue(app.staticTexts["blocked-none"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["blocked-none"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
     private func waitGone(_ element: XCUIElement, in app: XCUIApplication) {
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        let gone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: element)
         XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 60), .completed, app.debugDescription)
     }
 
@@ -226,12 +266,18 @@ extension ChatsUITests {
     ) -> XCUIElement {
         let menu = app.buttons[opener].firstMatch
         // The chat's menu is off while its last action runs.
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == true AND enabled == true"), object: menu
-        ),
-        ], timeout: 30), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "exists == true AND enabled == true"),
+                        object: menu
+                    )
+                ], timeout: 30), .completed, app.debugDescription)
         menu.tap()
-        let item = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, label)).firstMatch
+        let item = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == %@", id, label)
+        ).firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 10), app.debugDescription)
         return item
     }
@@ -255,17 +301,23 @@ extension ChatsUITests {
         // The save took 15 s on a slow simulator before the switch turned on. Below the keyboard
         // the switch's row is not created, so a wait in place never sees it.
         let adult = reveal(app.switches["profile-confirm-adult"], in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: adult
-        ),
-        ], timeout: 30), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: adult
+                    )
+                ], timeout: 30), .completed, app.debugDescription)
         publish(app)
-        let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback").firstMatch
+        let readback = app.descendants(matching: .any).matching(
+            identifier: "profile-published-readback"
+        ).firstMatch
         // The proof is lowered in UI tests but still has no time limit: a slow one would end in this wait.
         // The readback rows are created only once scrolled into view, so a wait in place can miss them.
         if !reveal(readback, in: app, timeout: 180).exists {
             // Below the fold: the nonce gives the proof's rate, the status row a publish still running.
-            _ = reveal(app.descendants(matching: .any)["profile-proof-progress"], in: app, timeout: 5)
+            _ = reveal(
+                app.descendants(matching: .any)["profile-proof-progress"], in: app, timeout: 5)
             XCTFail(app.debugDescription)
         }
     }
@@ -277,22 +329,31 @@ extension ChatsUITests {
     }
 
     private func connectLocalNode(_ app: XCUIApplication) {
-        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertTrue(
+            app.buttons["network-save"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.buttons["network-save"]
+                    )
+                ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         typeSlowly("127.0.0.1:33445", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         // Reveal Continue only after the check answers: its rows move Continue while they appear.
         let status = reveal(app.staticTexts["network-check-status"], in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
-            object: status
-        ),
-        ], timeout: 30), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "label CONTAINS %@", "compatible node answered"),
+                        object: status
+                    )
+                ], timeout: 30), .completed)
         let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertTrue(next.isEnabled)
         next.tap()

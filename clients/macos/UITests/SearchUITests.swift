@@ -98,11 +98,16 @@ final class SearchUITests: XCTestCase {
         button.click()
         let status = app.staticTexts["search-status"]
         reveal(status, in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "NOT (value CONTAINS %@) AND NOT (value CONTAINS %@)", idle, loading),
-            object: status
-        ),
-        ], timeout: 60), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "NOT (value CONTAINS %@) AND NOT (value CONTAINS %@)", idle,
+                            loading),
+                        object: status
+                    )
+                ], timeout: 60), .completed, app.debugDescription)
     }
 
     private func statusText(_ app: XCUIApplication) -> String {
@@ -122,19 +127,26 @@ final class SearchUITests: XCTestCase {
 
     private func connectLocalNode(_ app: XCUIApplication) {
         openNetwork(app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.buttons["network-save"]
+                    )
+                ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.click()
         rows.typeText("127.0.0.1:33445")
         app.buttons["network-check"].click()
         let next = app.buttons["network-continue"]
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: next
-        ),
-        ], timeout: 15), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: next
+                    )
+                ], timeout: 15), .completed)
         next.click()
     }
 

@@ -57,7 +57,9 @@ final class SearchUITests: XCTestCase {
     /// The launch argument puts one row ahead of the local node's answer, whose sample can be empty.
     func testFoundRowOpensItsProfileAndBackKeepsTheSample() {
         let app = XCUIApplication()
-        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-found-profile"]
+        app.launchArguments = [
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-found-profile",
+        ]
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
@@ -69,7 +71,9 @@ final class SearchUITests: XCTestCase {
         let back = app.buttons["view-back"]
         XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(app.descendants(matching: .any)["view-peer"].exists, app.debugDescription)
-        XCTAssertTrue(reveal(app.descendants(matching: .any)["preview-name"], in: app).exists, app.debugDescription)
+        XCTAssertTrue(
+            reveal(app.descendants(matching: .any)["preview-name"], in: app).exists,
+            app.debugDescription)
         XCTAssertFalse(app.buttons["run-search"].exists)
 
         reveal(back, in: app, above: true).tap()
@@ -93,11 +97,16 @@ final class SearchUITests: XCTestCase {
     private func run(_ app: XCUIApplication) {
         reveal(app.buttons["run-search"], in: app).tap()
         let status = reveal(app.staticTexts["search-status"], in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "NOT (label CONTAINS %@) AND NOT (label CONTAINS %@)", idle, loading),
-            object: status
-        ),
-        ], timeout: 60), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "NOT (label CONTAINS %@) AND NOT (label CONTAINS %@)", idle,
+                            loading),
+                        object: status
+                    )
+                ], timeout: 60), .completed, app.debugDescription)
     }
 
     private func statusText(_ app: XCUIApplication) -> String {
@@ -117,21 +126,29 @@ final class SearchUITests: XCTestCase {
     /// iOS has none and the switch sits at the trailing edge.
     private func connectLocalNode(_ app: XCUIApplication) {
         openNetwork(app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.buttons["network-save"]
+                    )
+                ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.tap()
         typeSlowly("127.0.0.1:33445", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
         // Reveal Continue only after the check answers: its rows move Continue while they appear.
         let status = reveal(app.staticTexts["network-check-status"], in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS %@", "compatible node answered"),
-            object: status
-        ),
-        ], timeout: 30), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "label CONTAINS %@", "compatible node answered"),
+                        object: status
+                    )
+                ], timeout: 30), .completed)
         let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertTrue(next.isEnabled)
         next.tap()

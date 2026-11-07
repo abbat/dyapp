@@ -39,7 +39,9 @@ struct ChatView: View {
             header
             notice
             // Each dialog sits on its own view, so one never shadows another.
-            thread.confirmationDialog("block.title", isPresented: $confirmBlock, titleVisibility: .visible) {
+            thread.confirmationDialog(
+                "block.title", isPresented: $confirmBlock, titleVisibility: .visible
+            ) {
                 Button("chat.block", role: .destructive, action: block)
             } message: {
                 Text("block.text")
@@ -55,7 +57,9 @@ struct ChatView: View {
         .task(id: peer) { await feed.loadNames([peer]) }
         .sheet(isPresented: $renaming) {
             // The field starts from the local name: a public name is the peer's own claim.
-            ChatRenameSheet(name: feed.names[peer].flatMap { $0.verified == nil ? $0.name : nil } ?? "") {
+            ChatRenameSheet(
+                name: feed.names[peer].flatMap { $0.verified == nil ? $0.name : nil } ?? ""
+            ) {
                 await feed.rename(peer, name: $0)
             }
         }
@@ -99,7 +103,8 @@ struct ChatView: View {
             Button("chat.clear") { confirmClear = true }.accessibilityIdentifier("chat-clear")
             // A request offers its block on the notice instead.
             if history?.state != .requestReceived {
-                Button("chat.block", role: .destructive) { confirmBlock = true }.accessibilityIdentifier("chat-block")
+                Button("chat.block", role: .destructive) { confirmBlock = true }
+                    .accessibilityIdentifier("chat-block")
             }
             // A peer with no chat yet has nothing to mute.
             if let history, history.state != ChatState.none {
@@ -162,7 +167,8 @@ struct ChatView: View {
         if sending {
             Text("chat.sending").font(.caption).accessibilityIdentifier("chat-status")
         } else if let status {
-            Text(LocalizedStringKey(status.key)).font(.caption).accessibilityIdentifier("chat-status")
+            Text(LocalizedStringKey(status.key)).font(.caption).accessibilityIdentifier(
+                "chat-status")
             if let details = status.details {
                 Text(verbatim: details).font(.caption).textSelection(.enabled)
                     .accessibilityIdentifier("chat-details")
@@ -172,7 +178,8 @@ struct ChatView: View {
         if editing != nil {
             HStack {
                 Text("chat.editing").font(.caption).accessibilityIdentifier("chat-editing")
-                Button("search.cancel", action: endEditing).accessibilityIdentifier("chat-edit-cancel")
+                Button("search.cancel", action: endEditing).accessibilityIdentifier(
+                    "chat-edit-cancel")
             }
         }
     }
@@ -201,7 +208,9 @@ struct ChatView: View {
             await feed.markRead(peer)
 
         case let .failure(error):
-            if history == nil { status = ChatStatus(key: "chat.loadFailed", details: String(describing: error)) }
+            if history == nil {
+                status = ChatStatus(key: "chat.loadFailed", details: String(describing: error))
+            }
         }
     }
 
@@ -296,7 +305,9 @@ private struct ChatBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let shared = sharedProfile(message) {
                     // It names only the short Peer ID: no message fetches anything before the press.
-                    Button { openProfile(shared) } label: {
+                    Button {
+                        openProfile(shared)
+                    } label: {
                         Label(chatPreview(message), systemImage: "person.crop.circle")
                     }
                     .accessibilityIdentifier("msg-profile")
@@ -308,9 +319,10 @@ private struct ChatBubble: View {
                 if !meta.isEmpty { Text(verbatim: meta).font(.caption) }
             }
             .padding(8)
-            .background(RoundedRectangle(cornerRadius: 12).fill(
-                own ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15)
-            ))
+            .background(
+                RoundedRectangle(cornerRadius: 12).fill(
+                    own ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15)
+                ))
             if !own { Spacer(minLength: 48) }
         }
     }
@@ -319,15 +331,17 @@ private struct ChatBubble: View {
     private var menu: some View {
         Menu {
             if writable {
-                Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier("msg-edit")
+                Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier(
+                    "msg-edit")
             }
-            Button("chat.delete", role: .destructive, action: delete).accessibilityIdentifier("msg-delete")
+            Button("chat.delete", role: .destructive, action: delete).accessibilityIdentifier(
+                "msg-delete")
         } label: {
             Image(systemName: "ellipsis")
                 #if os(iOS)
-                // The bare glyph is 18 by 5 points, far below a touch target.
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                    // The bare glyph is 18 by 5 points, far below a touch target.
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 #endif
         }
         .fixedSize()
@@ -351,7 +365,8 @@ func chatWritable(_ state: ChatState?) -> Bool {
 func chatTooLong(_ text: String) -> Bool { text.utf8.count > 65_536 }
 
 func chatSendable(_ state: ChatState?, _ text: String) -> Bool {
-    chatWritable(state) && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !chatTooLong(text)
+    chatWritable(state) && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !chatTooLong(text)
 }
 
 /// Whether a failed send still stored its text: another copy from the same draft must not go out.
@@ -366,8 +381,12 @@ func chatSendStatus(
 ) -> ChatStatus {
     let details = String(describing: error)
     if staged { return ChatStatus(key: queued, details: nil) }
-    if details.contains("notConnected") { return ChatStatus(key: "search.notConnected", details: details) }
-    if details.contains("unpublished") { return ChatStatus(key: "chat.unpublished", details: details) }
+    if details.contains("notConnected") {
+        return ChatStatus(key: "search.notConnected", details: details)
+    }
+    if details.contains("unpublished") {
+        return ChatStatus(key: "chat.unpublished", details: details)
+    }
     return ChatStatus(key: failed, details: details)
 }
 

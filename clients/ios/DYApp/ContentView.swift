@@ -26,9 +26,9 @@ struct ScrollingForm<Content: View>: View {
 
     var body: some View {
         #if os(macOS)
-        ScrollView { Form { content() }.padding() }
+            ScrollView { Form { content() }.padding() }
         #else
-        Form { content() }
+            Form { content() }
         #endif
     }
 }
@@ -50,7 +50,9 @@ struct ContentView: View {
 
     /// The identity whose mailbox is polled; it takes an active network.
     private var chatIdentity: ChatIdentity? {
-        guard case let .ready(candidate, peerId) = identity, activeNetwork == .ready else { return nil }
+        guard case let .ready(candidate, peerId) = identity, activeNetwork == .ready else {
+            return nil
+        }
         return ChatIdentity(candidate: candidate, peerId: peerId)
     }
 
@@ -61,12 +63,12 @@ struct ContentView: View {
 
     var body: some View {
         #if os(macOS)
-        VStack(spacing: 0) {
-            navigation
-            StatusBar(candidate: selectedCandidate)
-        }
+            VStack(spacing: 0) {
+                navigation
+                StatusBar(candidate: selectedCandidate)
+            }
         #else
-        navigation
+            navigation
         #endif
     }
 
@@ -80,12 +82,16 @@ struct ContentView: View {
             Group {
                 // Setup takes the whole column: a lazy form inside the stack hid its lower rows.
                 if case let .ready(candidate, peerId) = identity, activeNetwork == .needsSetup {
-                    NetworkDraftView(candidate: candidate, peerId: peerId, header: AnyView(Group {
-                        Text("app.name").font(.largeTitle)
-                        Text(peerId).accessibilityIdentifier("peer-id")
-                        startEntry(.settings, "settings.title", candidate, peerId)
-                            .accessibilityIdentifier("settings-open")
-                    })) {
+                    NetworkDraftView(
+                        candidate: candidate, peerId: peerId,
+                        header: AnyView(
+                            Group {
+                                Text("app.name").font(.largeTitle)
+                                Text(peerId).accessibilityIdentifier("peer-id")
+                                startEntry(.settings, "settings.title", candidate, peerId)
+                                    .accessibilityIdentifier("settings-open")
+                            })
+                    ) {
                         // Open the profile from the ready start screen: iOS never pushed from a hidden
                         // link on the setup root, and a macOS sidebar left on the setup form had no way
                         // to search or chats until a restart.
@@ -97,11 +103,11 @@ struct ContentView: View {
                 }
             }
             #if os(macOS)
-            // The default 140pt sidebar wrapped the setup form word by word and put settings under the splitter.
-            .frame(minWidth: 360)
+                // The default 140pt sidebar wrapped the setup form word by word and put settings under the splitter.
+                .frame(minWidth: 360)
             #endif
             #if os(macOS)
-            detail
+                detail
             #endif
         }
         .task(id: selectedMarker) { await loadActiveNetwork() }
@@ -175,9 +181,11 @@ struct ContentView: View {
                 ForEach(pickerRows) { row in
                     if let peerID = row.peerID {
                         Text(peerID)
-                        Button("settings.select") { Task { await selectPicker(row.candidate.location) } }
-                            .disabled(pickerWorking)
-                            .accessibilityIdentifier("identity-picker-select-\(row.id)")
+                        Button("settings.select") {
+                            Task { await selectPicker(row.candidate.location) }
+                        }
+                        .disabled(pickerWorking)
+                        .accessibilityIdentifier("identity-picker-select-\(row.id)")
                     } else {
                         Text(pickerStatus(for: row.candidate.state))
                     }
@@ -186,7 +194,8 @@ struct ContentView: View {
                     .disabled(pickerWorking || pickerLoading || pickerReadFailed)
                     .accessibilityIdentifier("identity-picker-create")
                 if pickerActionFailed {
-                    Text("settings.actionFailed").accessibilityIdentifier("identity-picker-action-error")
+                    Text("settings.actionFailed").accessibilityIdentifier(
+                        "identity-picker-action-error")
                 }
                 Button("identity.retry") { Task { await loadPicker() } }
                     .accessibilityIdentifier("identity-retry")
@@ -196,61 +205,69 @@ struct ContentView: View {
     }
 
     #if os(macOS)
-    @ViewBuilder private var detail: some View {
-        if case let .ready(candidate, peerId) = identity, let startLink,
-           startLink == .settings ? activeNetwork != .loading : activeNetwork == .ready {
-            destination(startLink, candidate, peerId)
-        } else {
-            Color.clear
+        @ViewBuilder private var detail: some View {
+            if case let .ready(candidate, peerId) = identity, let startLink,
+                startLink == .settings ? activeNetwork != .loading : activeNetwork == .ready
+            {
+                destination(startLink, candidate, peerId)
+            } else {
+                Color.clear
+            }
         }
-    }
     #endif
 
     /// The macOS detail column selects the sidebar's network entry, as a push there has no way back on
     /// macOS 12. During setup the sidebar is that form, so only the detail closes. iOS pushes instead.
     private var openNetwork: (() -> Void)? {
         #if os(macOS)
-        return { startLink = activeNetwork == .needsSetup ? nil : .network }
+            return { startLink = activeNetwork == .needsSetup ? nil : .network }
         #else
-        return nil
+            return nil
         #endif
     }
 
-    }
+}
 
 extension ContentView {
     @ViewBuilder
     private func startEntry(
-        _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate, _ peerId: String
+        _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate,
+        _ peerId: String
     ) -> some View {
         #if os(macOS)
-        Button(title) { startLink = link }
+            Button(title) { startLink = link }
         #else
-        NavigationLink(destination: destination(link, candidate, peerId), tag: link, selection: $startLink) {
-            Text(title)
-        }
+            NavigationLink(
+                destination: destination(link, candidate, peerId), tag: link, selection: $startLink
+            ) {
+                Text(title)
+            }
         #endif
     }
 
     @ViewBuilder
-    private func destination(_ link: StartLink, _ candidate: IdentityCandidate, _ peerId: String) -> some View {
+    private func destination(_ link: StartLink, _ candidate: IdentityCandidate, _ peerId: String)
+        -> some View
+    {
         switch link {
         case .settings:
             settingsView(candidate, peerId)
 
         case .network:
             #if os(macOS)
-            // A push from the macOS 12 detail column has no way back: select the profile instead.
-            NetworkDraftView(candidate: candidate, peerId: peerId) { startLink = .profile }
+                // A push from the macOS 12 detail column has no way back: select the profile instead.
+                NetworkDraftView(candidate: candidate, peerId: peerId) { startLink = .profile }
             #else
-            NetworkDraftView(candidate: candidate, peerId: peerId)
+                NetworkDraftView(candidate: candidate, peerId: peerId)
             #endif
 
         case .profile:
             ProfileDraftView(candidate: candidate, peerId: peerId)
 
         case .search:
-            SearchView(session: search, candidate: candidate, peerId: peerId, feed: chats, openNetwork: openNetwork)
+            SearchView(
+                session: search, candidate: candidate, peerId: peerId, feed: chats,
+                openNetwork: openNetwork)
 
         case .chats:
             ChatsView(feed: chats)
@@ -280,8 +297,7 @@ extension ContentView {
         pickerLoading = true
         pickerReadFailed = false
         let result = await Task.detached(priority: .userInitiated) { () -> PickerLoad in
-            do { return .loaded(try RustBridge.identityInventory()) }
-            catch { return .failed }
+            do { return .loaded(try RustBridge.identityInventory()) } catch { return .failed }
         }.value
         guard !Task.isCancelled else { return }
         switch result {
@@ -300,8 +316,7 @@ extension ContentView {
         pickerWorking = true
         pickerActionFailed = false
         let result = await Task.detached(priority: .userInitiated) { () -> PickerSelection in
-            do { return .ready(try RustBridge.selectIdentity(location)) }
-            catch { return .failed }
+            do { return .ready(try RustBridge.selectIdentity(location)) } catch { return .failed }
         }.value
         pickerWorking = false
         switch result {
@@ -334,10 +349,14 @@ extension ContentView {
         identity = (try? RustBridge.identityState()) ?? .recovery(nil, .unavailable)
     }
 
-    private func settingsView(_ candidate: IdentityCandidate, _ peerId: String) -> IdentitySettingsView {
-        var view = IdentitySettingsView(candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil) { selected in
+    private func settingsView(_ candidate: IdentityCandidate, _ peerId: String)
+        -> IdentitySettingsView
+    {
+        var view = IdentitySettingsView(
+            candidate: candidate, peerId: peerId, feed: activeNetwork == .ready ? chats : nil
+        ) { selected in
             #if os(macOS)
-            startLink = nil
+                startLink = nil
             #endif
             activeNetwork = .loading
             identity = selected
@@ -349,21 +368,23 @@ extension ContentView {
     private func createIdentity() {
         identity = (try? RustBridge.createIdentity()) ?? .recovery(nil, .unavailable)
         #if DEBUG
-        // Native UI tests exercise the read-error screen in their isolated slot root.
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft"),
-           case let .ready(candidate, _) = identity,
-           let root = try? RustBridge.directory() {
-            let draft = RustBridge.networkDirectory(root: root, candidate: candidate)
-                .appendingPathComponent("network-draft")
-            try? Data("invalid network file\n".utf8).write(to: draft, options: .atomic)
-        }
-        if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-identity-key"),
-           case let .ready(candidate, _) = identity,
-           let root = try? RustBridge.directory() {
-            let file = RustBridge.networkDirectory(root: root, candidate: candidate)
-                .appendingPathComponent("identity.key")
-            try? Data("invalid wrapped key".utf8).write(to: file, options: .atomic)
-        }
+            // Native UI tests exercise the read-error screen in their isolated slot root.
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft"),
+                case let .ready(candidate, _) = identity,
+                let root = try? RustBridge.directory()
+            {
+                let draft = RustBridge.networkDirectory(root: root, candidate: candidate)
+                    .appendingPathComponent("network-draft")
+                try? Data("invalid network file\n".utf8).write(to: draft, options: .atomic)
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-identity-key"),
+                case let .ready(candidate, _) = identity,
+                let root = try? RustBridge.directory()
+            {
+                let file = RustBridge.networkDirectory(root: root, candidate: candidate)
+                    .appendingPathComponent("identity.key")
+                try? Data("invalid wrapped key".utf8).write(to: file, options: .atomic)
+            }
         #endif
     }
 }

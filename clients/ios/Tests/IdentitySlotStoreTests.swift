@@ -2,14 +2,14 @@
 import Foundation
 import XCTest
 
- func identitySlotTestRoot() throws -> URL {
-        let path = FileManager.default.temporaryDirectory
-            .appendingPathComponent("dyapp-slot-test-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: path, withIntermediateDirectories: false)
-        return path
-    }
+func identitySlotTestRoot() throws -> URL {
+    let path = FileManager.default.temporaryDirectory
+        .appendingPathComponent("dyapp-slot-test-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: path, withIntermediateDirectories: false)
+    return path
+}
 
-    final class IdentitySlotStoreTests: XCTestCase {
+final class IdentitySlotStoreTests: XCTestCase {
     func testNetworkDirectoryFollowsSelectedIdentityWithoutCreatingIt() throws {
         let root = try identitySlotTestRoot()
         let id = UUID()
@@ -34,8 +34,9 @@ import XCTest
         let reopened = try store.slots()
         XCTAssertEqual(reopened.count, 2)
         XCTAssertTrue(reopened.allSatisfy { $0.state == .ready })
-        XCTAssertEqual(try store.open(reopened[0]).peerId(),
-                       reopened[0].id == first.slot.id ? first.peerId : second.peerId)
+        XCTAssertEqual(
+            try store.open(reopened[0]).peerId(),
+            reopened[0].id == first.slot.id ? first.peerId : second.peerId)
     }
 
     func testPendingAndMalformedSlotsCannotGenerateReplacementKeys() throws {
@@ -141,14 +142,17 @@ import XCTest
         let pointer = path.appendingPathComponent("active-profile")
         try Data("none\n".utf8).write(to: pointer, options: .atomic)
         let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
-        XCTAssertEqual(try reopened.resolve(), .picker([
-            IdentityCandidate(location: .slot(only.slot.id), state: .ready),
-        ]))
+        XCTAssertEqual(
+            try reopened.resolve(),
+            .picker([
+                IdentityCandidate(location: .slot(only.slot.id), state: .ready)
+            ]))
         XCTAssertEqual(try reopened.open(.slot(only.slot.id)).peerId(), only.peerId)
         XCTAssertEqual(try Data(contentsOf: pointer), Data("none\n".utf8))
         XCTAssertEqual(try reopened.select(.slot(only.slot.id)), only.peerId)
-        XCTAssertEqual(try reopened.resolve(),
-                       .ready(IdentityCandidate(location: .slot(only.slot.id), state: .ready), only.peerId))
+        XCTAssertEqual(
+            try reopened.resolve(),
+            .ready(IdentityCandidate(location: .slot(only.slot.id), state: .ready), only.peerId))
     }
 
     func testExplicitNoSelectionKeepsMissingLegacyKeyVisible() throws {
@@ -178,7 +182,8 @@ import XCTest
         try Data("pending\n".utf8).write(to: folder.appendingPathComponent("state"))
         XCTAssertEqual(try store.candidates(), [candidate])
         try Data("wrong\n".utf8).write(to: marker, options: .atomic)
-        XCTAssertEqual(try store.candidates(), [IdentityCandidate(location: .slot(id), state: .pending)])
+        XCTAssertEqual(
+            try store.candidates(), [IdentityCandidate(location: .slot(id), state: .pending)])
 
         let otherID = UUID()
         let link = profiles.appendingPathComponent("\(otherID.uuidString.lowercased()).deleting")
@@ -198,24 +203,34 @@ import XCTest
         let keyBytes = try Data(contentsOf: survivorKey)
         let draft = survivorFolder.appendingPathComponent("network-draft")
         try Data("survivor draft".utf8).write(to: draft)
-        let firstFolder = path.appendingPathComponent("profiles").appendingPathComponent(first.slot.id.uuidString.lowercased())
-        for name in ["client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key", "chat-state.key"] {
+        let firstFolder = path.appendingPathComponent("profiles").appendingPathComponent(
+            first.slot.id.uuidString.lowercased())
+        for name in [
+            "client.db", "client.db-wal", "client.db-shm", "client.db-journal", "device.key",
+            "chat-state.key",
+        ] {
             try Data("used".utf8).write(to: firstFolder.appendingPathComponent(name))
         }
         try store.select(.slot(first.slot.id))
         XCTAssertThrowsError(try store.remove(first.slot.id, confirming: survivor.peerId))
         XCTAssertEqual(try store.open(first.slot).peerId(), first.peerId)
-        XCTAssertEqual(try store.resolve(), .ready(
-            IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId
-        ))
+        XCTAssertEqual(
+            try store.resolve(),
+            .ready(
+                IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId
+            ))
 
         try store.remove(first.slot.id, confirming: first.peerId)
         XCTAssertFalse(try PlatformKeyStore.forSlot(first.slot.id).containsWrappingKey())
-        XCTAssertFalse(FileManager.default.fileExists(atPath: path.appendingPathComponent("profiles")
-            .appendingPathComponent(first.slot.id.uuidString.lowercased()).path))
-        XCTAssertEqual(try store.resolve(), .picker([
-            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
-        ]))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: path.appendingPathComponent("profiles")
+                    .appendingPathComponent(first.slot.id.uuidString.lowercased()).path))
+        XCTAssertEqual(
+            try store.resolve(),
+            .picker([
+                IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
+            ]))
         XCTAssertEqual(try store.open(survivor.slot).peerId(), survivor.peerId)
         XCTAssertEqual(try Data(contentsOf: survivorKey), keyBytes)
         XCTAssertEqual(try Data(contentsOf: draft), Data("survivor draft".utf8))
@@ -249,8 +264,11 @@ import XCTest
         try Data("keep".utf8).write(to: folder.appendingPathComponent("unknown"))
         XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId))
         XCTAssertEqual(try store.open(slot.slot).peerId(), slot.peerId)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: path.appendingPathComponent("profiles")
-            .appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: path.appendingPathComponent("profiles")
+                    .appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting").path
+            ))
     }
 
     func testRemovalResumesAfterKeychainEraseAndMissingDirectory() throws {
@@ -258,7 +276,8 @@ import XCTest
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let slot = try store.create()
         let profiles = path.appendingPathComponent("profiles")
-        let tombstone = profiles.appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting")
+        let tombstone = profiles.appendingPathComponent(
+            "\(slot.slot.id.uuidString.lowercased()).deleting")
         try Data("deleting\n".utf8).write(to: tombstone)
         try PlatformKeyStore.eraseWrappingKey(forSlot: slot.slot.id)
         let folder = profiles.appendingPathComponent(slot.slot.id.uuidString.lowercased())
@@ -269,13 +288,16 @@ import XCTest
     }
 
     func testRemovalFromPickerDoesNotAutoSelectSoleSurvivor() throws {
-        let store = IdentitySlotStore(root: try identitySlotTestRoot(), legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let store = IdentitySlotStore(
+            root: try identitySlotTestRoot(), legacyStore: PlatformKeyStore.forSlot(UUID()))
         let removed = try store.create()
         let survivor = try store.create()
         try store.remove(removed.slot.id, confirming: removed.peerId)
-        XCTAssertEqual(try store.resolve(), .picker([
-            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
-        ]))
+        XCTAssertEqual(
+            try store.resolve(),
+            .picker([
+                IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
+            ]))
     }
 }
 
@@ -289,8 +311,9 @@ extension IdentitySlotStoreTests {
             if failErase { throw SimulatedFailure.erase }
             try PlatformKeyStore.eraseWrappingKey(forSlot: id)
         }
-        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()),
-                                      eraseWrappingKey: erase)
+        let store = IdentitySlotStore(
+            root: path, legacyStore: PlatformKeyStore.forSlot(UUID()),
+            eraseWrappingKey: erase)
         let removed = try store.create()
         let survivor = try store.create()
         try store.select(.slot(removed.slot.id))
@@ -298,18 +321,23 @@ extension IdentitySlotStoreTests {
         XCTAssertThrowsError(try store.remove(removed.slot.id, confirming: removed.peerId))
         let deleting = IdentityCandidate(location: .slot(removed.slot.id), state: .deleting)
         XCTAssertTrue(try store.candidates().contains(deleting))
-        XCTAssertEqual(try store.resolve(), .picker([
-            deleting, IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
-        ].sorted { $0.location.marker < $1.location.marker }))
+        XCTAssertEqual(
+            try store.resolve(),
+            .picker(
+                [
+                    deleting, IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
+                ].sorted { $0.location.marker < $1.location.marker }))
         XCTAssertTrue(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
         XCTAssertThrowsError(try store.remove(removed.slot.id, confirming: survivor.peerId))
         XCTAssertTrue(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
 
         failErase = false
         try store.remove(removed.slot.id, confirming: removed.peerId)
-        XCTAssertEqual(try store.candidates(), [
-            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
-        ])
+        XCTAssertEqual(
+            try store.candidates(),
+            [
+                IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
+            ])
         XCTAssertEqual(try store.open(survivor.slot).peerId(), survivor.peerId)
     }
 
@@ -320,13 +348,16 @@ extension IdentitySlotStoreTests {
         let slot = try store.create()
         let profiles = path.appendingPathComponent("profiles")
         let folder = profiles.appendingPathComponent(slot.slot.id.uuidString.lowercased())
-        let tombstone = profiles.appendingPathComponent("\(slot.slot.id.uuidString.lowercased()).deleting")
+        let tombstone = profiles.appendingPathComponent(
+            "\(slot.slot.id.uuidString.lowercased()).deleting")
         try Data("deleting\n".utf8).write(to: tombstone)
         try PlatformKeyStore.eraseWrappingKey(forSlot: slot.slot.id)
         try FileManager.default.removeItem(at: folder.appendingPathComponent("identity.key"))
-        XCTAssertEqual(try store.candidates(), [
-            IdentityCandidate(location: .slot(slot.slot.id), state: .deleting),
-        ])
+        XCTAssertEqual(
+            try store.candidates(),
+            [
+                IdentityCandidate(location: .slot(slot.slot.id), state: .deleting)
+            ])
         try store.remove(slot.slot.id, confirming: slot.peerId)
         XCTAssertEqual(try store.candidates(), [])
         XCTAssertFalse(FileManager.default.fileExists(atPath: tombstone.path))
@@ -340,14 +371,17 @@ extension IdentitySlotStoreTests {
         let slot = try store.create()
         XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId)) { error in
             guard let slotError = error as? IdentitySlotError,
-                  case .keyStillPresent = slotError else {
+                case .keyStillPresent = slotError
+            else {
                 return XCTFail("expected a still-present Keychain item")
             }
         }
         XCTAssertTrue(try PlatformKeyStore.forSlot(slot.slot.id).containsWrappingKey())
-        XCTAssertEqual(try store.candidates(), [
-            IdentityCandidate(location: .slot(slot.slot.id), state: .deleting),
-        ])
+        XCTAssertEqual(
+            try store.candidates(),
+            [
+                IdentityCandidate(location: .slot(slot.slot.id), state: .deleting)
+            ])
     }
 }
 
@@ -375,9 +409,11 @@ extension IdentitySlotStoreTests {
         try store.remove(removed.slot.id, confirming: removed.peerId)
 
         let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
-        XCTAssertEqual(try reopened.resolve(), .picker([
-            IdentityCandidate(location: .slot(survivor.slot.id), state: .ready),
-        ]))
+        XCTAssertEqual(
+            try reopened.resolve(),
+            .picker([
+                IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
+            ]))
         XCTAssertEqual(try reopened.select(.slot(survivor.slot.id)), survivor.peerId)
         XCTAssertEqual(try reopened.open(survivor.slot).peerId(), survivor.peerId)
         for file in [NetworkFile.draft, .active] {

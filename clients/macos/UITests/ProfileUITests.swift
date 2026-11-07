@@ -19,12 +19,15 @@ final class ProfileUITests: XCTestCase {
         let save = app.buttons["profile-save"]
         reveal(save, in: app)
         save.click()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.checkBoxes["profile-confirm-adult"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.checkBoxes["profile-confirm-adult"]
+                    )
+                ], timeout: 10), .completed)
         app.terminate()
-
         assertRestoredProfile(app, base: base, month: month)
     }
 
@@ -32,12 +35,20 @@ final class ProfileUITests: XCTestCase {
         _ app: XCUIApplication, base: [String], month: XCUIElement
     ) {
         let failures: [([String], (String) -> Bool)] = [
-            (["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"], {
-                $0.hasPrefix("\u{410}\u{43a}\u{442}\u{438}\u{432}\u{43d}\u{430}\u{44f} \u{441}\u{435}\u{442}\u{44c}")
-            }),
-            (["-NSDoubleLocalizedStrings", "YES"], {
-                $0.hasPrefix("The active network is unavailable") && $0.count >= 2 * 66
-            }),
+            (
+                ["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"],
+                {
+                    $0.hasPrefix(
+                        "\u{410}\u{43a}\u{442}\u{438}\u{432}\u{43d}\u{430}\u{44f} \u{441}\u{435}\u{442}\u{44c}"
+                    )
+                }
+            ),
+            (
+                ["-NSDoubleLocalizedStrings", "YES"],
+                {
+                    $0.hasPrefix("The active network is unavailable") && $0.count >= 2 * 66
+                }
+            ),
         ]
         for (language, expected) in failures {
             app.launchArguments = language + base + ["--ui-test-fail-publish"]
@@ -48,7 +59,8 @@ final class ProfileUITests: XCTestCase {
         app.launch()
         openProfile(app)
         publish(app)
-        let readback = app.descendants(matching: .any).matching(identifier: "profile-published-readback")
+        let readback = app.descendants(matching: .any).matching(
+            identifier: "profile-published-readback")
         XCTAssertTrue(readback.firstMatch.waitForExistence(timeout: 180), app.debugDescription)
         // One element per text, or one combined element whose label joins them with ", ".
         let texts = readback.allElementsBoundByIndex.map { $0.value as? String ?? $0.label }
@@ -77,18 +89,25 @@ final class ProfileUITests: XCTestCase {
         let save = app.buttons["profile-save"]
         reveal(save, in: app)
         save.click()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.checkBoxes["profile-confirm-adult"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.checkBoxes["profile-confirm-adult"]
+                    )
+                ], timeout: 10), .completed)
         publish(app)
         let readback = app.descendants(matching: .any)["profile-published-readback"]
         XCTAssertTrue(readback.waitForExistence(timeout: 180), app.debugDescription)
         reveal(hide, in: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: hide
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: hide
+                    )
+                ], timeout: 10), .completed)
         hide.click()
         let notice = app.staticTexts["profile-hidden-notice"]
         XCTAssertTrue(notice.waitForExistence(timeout: 60), app.debugDescription)
@@ -122,7 +141,8 @@ final class ProfileUITests: XCTestCase {
         save.click()
         let status = app.staticTexts["profile-status"]
         XCTAssertTrue(status.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue((status.value as? String ?? status.label).contains("272"), app.debugDescription)
+        XCTAssertTrue(
+            (status.value as? String ?? status.label).contains("272"), app.debugDescription)
 
         reveal(height, in: app, deltaY: 300)
         height.click()
@@ -131,12 +151,16 @@ final class ProfileUITests: XCTestCase {
         fillAboutAndSeeking(app)
         reveal(save, in: app)
         save.click()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == 'Draft saved' OR label == 'Draft saved'"), object: status
-        ),
-        ], timeout: 10), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "value == 'Draft saved' OR label == 'Draft saved'"),
+                        object: status
+                    )
+                ], timeout: 10), .completed, app.debugDescription)
         app.terminate()
-
         assertTypedFieldsAfterRestart(app, height: height)
     }
 
@@ -159,8 +183,13 @@ final class ProfileUITests: XCTestCase {
         let preview = app.buttons["profile-preview"]
         reveal(preview, in: app)
         preview.click()
-        for row in ["preview-height", "preview-about", "preview-seeking-genders", "preview-seeking-age-from"] {
-            XCTAssertTrue(app.descendants(matching: .any)[row].waitForExistence(timeout: 10), "\(row)\n\(app.debugDescription)")
+        for row in [
+            "preview-height", "preview-about", "preview-seeking-genders",
+            "preview-seeking-age-from",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)[row].waitForExistence(timeout: 10),
+                "\(row)\n\(app.debugDescription)")
         }
         app.buttons["view-back"].click()
         XCTAssertTrue(about.waitForExistence(timeout: 10), app.debugDescription)
@@ -169,8 +198,10 @@ final class ProfileUITests: XCTestCase {
     }
 
     private func waitGone(_ element: XCUIElement) {
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, element.debugDescription)
+        let gone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [gone], timeout: 10), .completed, element.debugDescription)
     }
 
     private func fillAboutAndSeeking(_ app: XCUIApplication) {
@@ -188,8 +219,10 @@ final class ProfileUITests: XCTestCase {
     }
 
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.
-    private func assertFailedPublish(_ app: XCUIApplication, month: XCUIElement,
-                                     expected: (String) -> Bool) {
+    private func assertFailedPublish(
+        _ app: XCUIApplication, month: XCUIElement,
+        expected: (String) -> Bool
+    ) {
         app.launch()
         openProfile(app)
         reveal(month, in: app)
@@ -217,8 +250,10 @@ final class ProfileUITests: XCTestCase {
         for index in 0..<2 {
             waitEnabled(add)
             add.click()
-            XCTAssertTrue(app.descendants(matching: .any)["profile-photo-\(index)"].waitForExistence(timeout: 30),
-                          app.debugDescription)
+            XCTAssertTrue(
+                app.descendants(matching: .any)["profile-photo-\(index)"].waitForExistence(
+                    timeout: 30),
+                app.debugDescription)
         }
         let right = app.buttons["profile-photo-right-0"]
         waitEnabled(right)
@@ -232,49 +267,63 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
         confirm.click()
         let second = app.descendants(matching: .any)["profile-photo-1"]
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: second)
+        let gone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: second)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 30), .completed, app.debugDescription)
         app.terminate()
         app.launch()
         openProfile(app)
-        XCTAssertTrue(app.descendants(matching: .any)["profile-photo-0"].waitForExistence(timeout: 30))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile-photo-0"].waitForExistence(timeout: 30))
         XCTAssertFalse(second.exists)
         app.terminate()
     }
 
-    }
+}
 
 extension ProfileUITests {
     private func waitEnabled(_ element: XCUIElement) {
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: element)
-        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 30), .completed, element.debugDescription)
+        let enabled = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"), object: element)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [enabled], timeout: 30), .completed, element.debugDescription)
     }
 
     private func connectLocalNode(_ app: XCUIApplication) {
         openNetwork(app)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: app.buttons["network-save"]
-        ),
-        ], timeout: 10), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"),
+                        object: app.buttons["network-save"]
+                    )
+                ], timeout: 10), .completed)
         let rows = app.textViews["network-bootstrap"]
         rows.click()
         rows.typeText("127.0.0.1:33445")
         app.buttons["network-check"].click()
         let next = app.buttons["network-continue"]
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "enabled == true"), object: next
-        ),
-        ], timeout: 15), .completed)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "enabled == true"), object: next
+                    )
+                ], timeout: 15), .completed)
         next.click()
     }
 
     private func openProfile(_ app: XCUIApplication) {
         // The form creates rows lazily: the save button is off screen, the first field is not.
-        if app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 5) { return }
+        if app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 5) {
+            return
+        }
         let link = app.buttons["profile-edit"]
         XCTAssertTrue(link.waitForExistence(timeout: 10), app.debugDescription)
         link.click()
-        XCTAssertTrue(app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10))
     }
 
     private func isolatedApp() -> XCUIApplication {
@@ -326,18 +375,22 @@ extension ProfileUITests {
         app.launch()
         let sheet = openRemoval(app, says: "withdrawn from search first")
         sheet.buttons["Remove permanently"].click()
-        XCTAssertTrue(sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
         sheetSays(sheet, "within 30 days")
         sheet.buttons["Retry"].click()
-        XCTAssertTrue(sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            sheet.buttons["Remove anyway"].waitForExistence(timeout: 30), app.debugDescription)
         sheet.buttons["Keep identity"].click()
-        XCTAssertTrue(app.descendants(matching: .any)["settings-active"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings-active"].waitForExistence(timeout: 10))
         app.terminate()
 
         app.launchArguments = base
         app.launch()
         openRemoval(app, says: "withdrawn from search first").buttons["Remove permanently"].click()
-        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 60), app.debugDescription)
+        XCTAssertTrue(
+            app.buttons["identity-create"].waitForExistence(timeout: 60), app.debugDescription)
         app.terminate()
     }
 
@@ -377,18 +430,23 @@ extension ProfileUITests {
         let save = app.buttons["profile-save"]
         reveal(save, in: app)
         save.click()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == 'Draft saved' OR label == 'Draft saved'"),
-            object: app.staticTexts["profile-status"]
-        ),
-        ], timeout: 10), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "value == 'Draft saved' OR label == 'Draft saved'"),
+                        object: app.staticTexts["profile-status"]
+                    )
+                ], timeout: 10), .completed, app.debugDescription)
         let preview = app.buttons["profile-preview"]
         reveal(preview, in: app)
         preview.click()
         let row = app.descendants(matching: .any)["preview-place"]
         XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue((row.value as? String ?? row.label).contains("Berlin") || row.label.contains("Berlin"),
-                      app.debugDescription)
+        XCTAssertTrue(
+            (row.value as? String ?? row.label).contains("Berlin") || row.label.contains("Berlin"),
+            app.debugDescription)
         app.terminate()
     }
 
@@ -407,8 +465,11 @@ extension ProfileUITests {
     }
 
     private func sheetSays(_ sheet: XCUIElement, _ text: String) {
-        XCTAssertTrue(sheet.staticTexts.matching(NSPredicate(
-            format: "label CONTAINS %@ OR value CONTAINS %@", text, text
-        )).firstMatch.exists, sheet.debugDescription)
+        XCTAssertTrue(
+            sheet.staticTexts.matching(
+                NSPredicate(
+                    format: "label CONTAINS %@ OR value CONTAINS %@", text, text
+                )
+            ).firstMatch.exists, sheet.debugDescription)
     }
 }

@@ -27,18 +27,23 @@ func reveal(_ element: XCUIElement, in app: XCUIApplication, deltaY: CGFloat = -
 @MainActor
 func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
     reveal(field, in: app)
-    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "enabled == true"), object: field
-    ),
-    ], timeout: 30), .completed, app.debugDescription)
+    XCTAssertEqual(
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "enabled == true"), object: field
+                )
+            ], timeout: 30), .completed, app.debugDescription)
     reveal(field, in: app)
 }
 
 private func turnsOn(_ toggle: XCUIElement, within timeout: TimeInterval) -> Bool {
-    XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "value == 1"), object: toggle
-    ),
-    ], timeout: timeout) == .completed
+    XCTWaiter.wait(
+        for: [
+            XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == 1"), object: toggle
+            )
+        ], timeout: timeout) == .completed
 }
 
 /// Give both fresh confirmations, then start the proof and publish.
@@ -52,10 +57,13 @@ func publish(_ app: XCUIApplication) {
     }
     let button = app.buttons["profile-prepare-publish"]
     reveal(button, in: app)
-    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "enabled == true"), object: button
-    ),
-    ], timeout: 10), .completed)
+    XCTAssertEqual(
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "enabled == true"), object: button
+                )
+            ], timeout: 10), .completed)
     // The eligibility text above it changes length as the button enables and moves it.
     reveal(button, in: app)
     button.click()

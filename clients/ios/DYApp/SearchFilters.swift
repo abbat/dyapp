@@ -50,16 +50,24 @@ struct SearchFilterInputs {
             return SearchCondition(field: scale.field, op: .eq, ints: [Int64(code)], strings: [])
         }
         if ageOffered, !blank(ageMin) || !blank(ageMax) {
-            found.append(try searchAgeCondition(min: try age(ageMin) ?? Self.youngest,
-                                                max: try age(ageMax) ?? Self.oldest))
+            found.append(
+                try searchAgeCondition(
+                    min: try age(ageMin) ?? Self.youngest,
+                    max: try age(ageMax) ?? Self.oldest))
         }
-        if heightOffered, let heights = try searchHeightCondition(from: try height(heightMin), to: try height(heightMax)) {
+        if heightOffered,
+            let heights = try searchHeightCondition(
+                from: try height(heightMin), to: try height(heightMax))
+        {
             found.append(heights)
         }
         if countryOffered, !country.isEmpty {
-            found.append(SearchCondition(field: SearchField.country, op: .eq, ints: [], strings: [country]))
+            found.append(
+                SearchCondition(field: SearchField.country, op: .eq, ints: [], strings: [country]))
             if placeOffered, let place {
-                found.append(SearchCondition(field: SearchField.place, op: .eq, ints: [], strings: [String(place)]))
+                found.append(
+                    SearchCondition(
+                        field: SearchField.place, op: .eq, ints: [], strings: [String(place)]))
             }
         }
         return found
@@ -75,9 +83,10 @@ struct SearchFilterInputs {
             return .same(company: typed)
 
         case (.exclude, false):
-            return .exclude(companies: typed.split(separator: ";")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty })
+            return .exclude(
+                companies: typed.split(separator: ";")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty })
         }
     }
 
@@ -103,7 +112,9 @@ struct SearchFilterInputs {
 }
 
 /// Status texts that need the fields fixed, not a connection or the same query again.
-let searchFixTheFields: Set<String> = ["search.ageInvalid", "search.heightInvalid", "search.mutualUnavailable"]
+let searchFixTheFields: Set<String> = [
+    "search.ageInvalid", "search.heightInvalid", "search.mutualUnavailable",
+]
 
 /// The status text for a failed sample; both the form and the shared core use these error messages.
 func searchErrorKey(_ error: Error) -> String {

@@ -13,10 +13,11 @@ struct UpdatesSection: View {
             }
             .disabled(true)
             .accessibilityIdentifier("update-interval")
-            Text(String(
-                format: NSLocalizedString("update.lastCheck", comment: ""),
-                NSLocalizedString("update.never", comment: "")
-            ))
+            Text(
+                String(
+                    format: NSLocalizedString("update.lastCheck", comment: ""),
+                    NSLocalizedString("update.never", comment: "")
+                ))
             Text("update.notPublished").accessibilityIdentifier("update-state")
             Button("update.check") {}
                 .disabled(true)

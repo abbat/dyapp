@@ -44,7 +44,8 @@ struct ProfileLikesBlock: View {
         if page.sending {
             Text("view.sending").font(.caption).accessibilityIdentifier("view-status")
         } else if let status = page.status ?? page.likesFailure {
-            Text(LocalizedStringKey(status.key)).font(.caption).accessibilityIdentifier("view-status")
+            Text(LocalizedStringKey(status.key)).font(.caption).accessibilityIdentifier(
+                "view-status")
             if let details = status.details {
                 Text(verbatim: details).font(.caption).textSelection(.enabled)
                     .accessibilityIdentifier("view-details")
@@ -67,7 +68,9 @@ struct ProfileShareBlock: View {
             // A page opened from search comes before Chats has read any name.
             .task(id: open) { if open { await feed.loadNames(targets.map(\.peerId)) } }
         if open {
-            if targets.isEmpty { Text("view.shareNone").font(.caption).accessibilityIdentifier("view-share-none") }
+            if targets.isEmpty {
+                Text("view.shareNone").font(.caption).accessibilityIdentifier("view-share-none")
+            }
             ForEach(Array(targets.enumerated()), id: \.element.peerId) { index, row in
                 Button {
                     Task {

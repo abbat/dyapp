@@ -49,7 +49,8 @@ final class ProfilePage: ObservableObject {
             searched = true
 
         case let .failure(error):
-            loadFailure = ProfilePageStatus(key: profileLoadKey(error), details: String(describing: error))
+            loadFailure = ProfilePageStatus(
+                key: profileLoadKey(error), details: String(describing: error))
         }
     }
 
@@ -64,7 +65,8 @@ final class ProfilePage: ObservableObject {
 
         case let .failure(error):
             if likes == nil {
-                likesFailure = ProfilePageStatus(key: profileLoadKey(error), details: String(describing: error))
+                likesFailure = ProfilePageStatus(
+                    key: profileLoadKey(error), details: String(describing: error))
             }
         }
     }
@@ -83,7 +85,8 @@ final class ProfilePage: ObservableObject {
         case let .failure(error):
             await readLikes()
             // The core keeps a like it could not send and sends it with the next receive.
-            status = likes?.ours == liked
+            status =
+                likes?.ours == liked
                 ? ProfilePageStatus(key: "view.likePending", details: nil)
                 : ProfilePageStatus(key: likeFailureKey(error), details: String(describing: error))
         }
@@ -113,7 +116,8 @@ final class ProfilePage: ObservableObject {
         guard !sending, let link = profileLinkText(peerId: peer) else { return }
         sending = true
         status = nil
-        let before = (try? await feed.call { try $0.chatHistory(peerId: target) }.get())?.messages ?? []
+        let before =
+            (try? await feed.call { try $0.chatHistory(peerId: target) }.get())?.messages ?? []
         let failed = await feed.send(link, to: target, after: before)
         status = ProfilePageStatus(key: failed?.key ?? "view.shared", details: failed?.details)
         sending = false

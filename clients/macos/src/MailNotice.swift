@@ -35,8 +35,12 @@ extension ChatFeed {
     /// Notices what the pass that started from `before` and `likedBefore` brought. A failed read of the
     /// setting stays quiet, as it may be off.
     func noticeNewMail(before: [ChatRow], likedBefore: [String]) async {
-        guard MailNotice.count(rows: rows, liked: liked) > MailNotice.count(rows: before, liked: likedBefore),
-              case let .success(notice) = await call({ try $0.notice() }), notice != .off else { return }
-        await MailNotice.post(MailNotice.lines(notice, before: before, after: rows) { contactLabel($0, names[$0]) })
+        guard
+            MailNotice.count(rows: rows, liked: liked)
+                > MailNotice.count(rows: before, liked: likedBefore),
+            case let .success(notice) = await call({ try $0.notice() }), notice != .off
+        else { return }
+        await MailNotice.post(
+            MailNotice.lines(notice, before: before, after: rows) { contactLabel($0, names[$0]) })
     }
 }

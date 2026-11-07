@@ -7,7 +7,9 @@ func safetyQRImage(_ payload: Data) -> CGImage? {
         name: "CIQRCodeGenerator",
         parameters: ["inputMessage": payload, "inputCorrectionLevel": "M"]
     )
-    guard let code = filter?.outputImage?.transformed(by: CGAffineTransform(scaleX: 6, y: 6)) else { return nil }
+    guard let code = filter?.outputImage?.transformed(by: CGAffineTransform(scaleX: 6, y: 6)) else {
+        return nil
+    }
     return CIContext().createCGImage(code, from: code.extent)
 }
 
@@ -26,7 +28,9 @@ struct SafetyNumberSheet: View {
                     .font(.system(.body, design: .monospaced))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("safety-number")
-                if let payload = safetyQrPayload(mine: me, theirs: peer), let code = safetyQRImage(payload) {
+                if let payload = safetyQrPayload(mine: me, theirs: peer),
+                    let code = safetyQRImage(payload)
+                {
                     // White whatever the theme: a scanner needs the light margin around the code.
                     Image(code, scale: 1, label: Text("safety.qr"))
                         .interpolation(.none)

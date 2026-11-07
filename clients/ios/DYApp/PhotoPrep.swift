@@ -28,7 +28,9 @@ enum PhotoPrep {
     static func read(_ url: URL) throws -> Data {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > maxPickedBytes {
+        if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+            size > maxPickedBytes
+        {
             throw PhotoProblem.tooLarge
         }
         return try Data(contentsOf: url)
@@ -55,20 +57,21 @@ enum PhotoPrep {
         guard bytes.count <= maxPickedBytes else { throw PhotoProblem.tooLarge }
         let lazily = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(bytes as CFData, lazily),
-              let type = CGImageSourceGetType(source) as String?,
-              type == UTType.jpeg.identifier || type == UTType.png.identifier,
-              let header = CGImageSourceCopyPropertiesAtIndex(source, 0, lazily) as? [String: Any],
-              let width = header[kCGImagePropertyPixelWidth as String] as? Int,
-              let height = header[kCGImagePropertyPixelHeight as String] as? Int,
-              width > 0, height > 0
+            let type = CGImageSourceGetType(source) as String?,
+            type == UTType.jpeg.identifier || type == UTType.png.identifier,
+            let header = CGImageSourceCopyPropertiesAtIndex(source, 0, lazily) as? [String: Any],
+            let width = header[kCGImagePropertyPixelWidth as String] as? Int,
+            let height = header[kCGImagePropertyPixelHeight as String] as? Int,
+            width > 0, height > 0
         else { throw PhotoProblem.unsupported }
         guard width * height <= maxPixels else { throw PhotoProblem.tooLarge }
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: fullSides[0],
-        ] as CFDictionary
+        let options =
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: fullSides[0],
+            ] as CFDictionary
         guard let upright = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
             throw PhotoProblem.unsupported
         }
@@ -81,9 +84,10 @@ enum PhotoPrep {
         let width = longest <= side ? image.width : max(1, image.width * side / longest)
         let height = longest <= side ? image.height : max(1, image.height * side / longest)
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
-              let canvas = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
-                                     bytesPerRow: width * 4, space: space,
-                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            let canvas = CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { throw PhotoProblem.unsupported }
         let rect = CGRect(x: 0, y: 0, width: width, height: height)
         canvas.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
@@ -95,10 +99,13 @@ enum PhotoPrep {
 
     private static func jpeg(_ image: CGImage, quality: Int) throws -> Data {
         let out = NSMutableData()
-        guard let target = CGImageDestinationCreateWithData(out as CFMutableData,
-                                                            UTType.jpeg.identifier as CFString, 1, nil)
+        guard
+            let target = CGImageDestinationCreateWithData(
+                out as CFMutableData,
+                UTType.jpeg.identifier as CFString, 1, nil)
         else { throw PhotoProblem.unsupported }
-        let options = [kCGImageDestinationLossyCompressionQuality: Double(quality) / 100] as CFDictionary
+        let options =
+            [kCGImageDestinationLossyCompressionQuality: Double(quality) / 100] as CFDictionary
         CGImageDestinationAddImage(target, image, options)
         guard CGImageDestinationFinalize(target) else { throw PhotoProblem.unsupported }
         return try stripMetadata(bytes: out as Data)
@@ -108,28 +115,32 @@ enum PhotoPrep {
         let canvas = try flattened(image, side: thumbnailSide)
         guard let pixels = canvas.data else { throw PhotoProblem.unsupported }
         let rgba = Data(bytes: pixels, count: canvas.width * canvas.height * 4)
-        return try makePreview(rgba: rgba, width: UInt32(canvas.width), height: UInt32(canvas.height),
-                               maxBytes: maxThumbnailBytes)
+        return try makePreview(
+            rgba: rgba, width: UInt32(canvas.width), height: UInt32(canvas.height),
+            maxBytes: maxThumbnailBytes)
     }
 
     #if DEBUG
-    /// A flat PNG for tests, which cannot drive the system picker.
-    static func samplePNG(width: Int, height: Int, red: CGFloat, alpha: CGFloat) throws -> Data {
-        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
-              let canvas = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
-                                     bytesPerRow: width * 4, space: space,
-                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { throw PhotoProblem.unsupported }
-        canvas.setFillColor(red: red, green: 0, blue: 0, alpha: alpha)
-        canvas.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        let out = NSMutableData()
-        guard let image = canvas.makeImage(),
-              let target = CGImageDestinationCreateWithData(out as CFMutableData,
-                                                            UTType.png.identifier as CFString, 1, nil)
-        else { throw PhotoProblem.unsupported }
-        CGImageDestinationAddImage(target, image, nil)
-        guard CGImageDestinationFinalize(target) else { throw PhotoProblem.unsupported }
-        return out as Data
-    }
+        /// A flat PNG for tests, which cannot drive the system picker.
+        static func samplePNG(width: Int, height: Int, red: CGFloat, alpha: CGFloat) throws -> Data
+        {
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                let canvas = CGContext(
+                    data: nil, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: space,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { throw PhotoProblem.unsupported }
+            canvas.setFillColor(red: red, green: 0, blue: 0, alpha: alpha)
+            canvas.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            let out = NSMutableData()
+            guard let image = canvas.makeImage(),
+                let target = CGImageDestinationCreateWithData(
+                    out as CFMutableData,
+                    UTType.png.identifier as CFString, 1, nil)
+            else { throw PhotoProblem.unsupported }
+            CGImageDestinationAddImage(target, image, nil)
+            guard CGImageDestinationFinalize(target) else { throw PhotoProblem.unsupported }
+            return out as Data
+        }
     #endif
 }

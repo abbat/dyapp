@@ -20,7 +20,9 @@ extension RustBridge {
     static let chatsLock = NSLock()
 
     /// Runs a blocking `action` on this identity's chats; call it off the main thread.
-    static func withChats<T>(_ identity: ChatIdentity, _ action: (ChatSession) throws -> T) throws -> T {
+    static func withChats<T>(_ identity: ChatIdentity, _ action: (ChatSession) throws -> T) throws
+        -> T
+    {
         chatsLock.lock()
         defer { chatsLock.unlock() }
         let location = identity.candidate.location
@@ -58,6 +60,8 @@ extension RustBridge {
         defer { chatsLock.unlock() }
         let key = try identityStore().open(identity.candidate.location)
         guard key.peerId() == identity.peerId else { throw IdentitySlotError.peerIDMismatch }
-        return try peerPhotoAuto(dir: networkDirectory(root: try directory(), candidate: identity.candidate).path, key: key)
+        return try peerPhotoAuto(
+            dir: networkDirectory(root: try directory(), candidate: identity.candidate).path,
+            key: key)
     }
 }

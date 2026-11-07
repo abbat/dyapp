@@ -95,17 +95,20 @@ final class LockModel: ObservableObject {
     static let minPin = 6
 
     #if DEBUG
-    /// Simulators have no passcode: UI tests pass `--device-passcode` to stand in for one that
-    /// always checks out.
-    private static let fakePasscode = ProcessInfo.processInfo.arguments.contains("--device-passcode")
-    /// Force the missing-passcode path even when a CI simulator has a passcode.
-    private static let fakeNoPasscode = ProcessInfo.processInfo.arguments.contains("--no-device-passcode")
-    /// `--device-biometrics` adds enrolled biometrics to the fake passcode.
-    private static let fakeBiometrics = ProcessInfo.processInfo.arguments.contains("--device-biometrics")
+        /// Simulators have no passcode: UI tests pass `--device-passcode` to stand in for one that
+        /// always checks out.
+        private static let fakePasscode = ProcessInfo.processInfo.arguments.contains(
+            "--device-passcode")
+        /// Force the missing-passcode path even when a CI simulator has a passcode.
+        private static let fakeNoPasscode = ProcessInfo.processInfo.arguments.contains(
+            "--no-device-passcode")
+        /// `--device-biometrics` adds enrolled biometrics to the fake passcode.
+        private static let fakeBiometrics = ProcessInfo.processInfo.arguments.contains(
+            "--device-biometrics")
     #else
-    private static let fakePasscode = false
-    private static let fakeNoPasscode = false
-    private static let fakeBiometrics = false
+        private static let fakePasscode = false
+        private static let fakeNoPasscode = false
+        private static let fakeBiometrics = false
     #endif
 
     @Published private(set) var screen = Screen.failed
@@ -134,19 +137,21 @@ final class LockModel: ObservableObject {
     init() {
         store = try? AppLockStore.onDevice(directory: RustBridge.directory())
         #if DEBUG
-        // UI tests start from a known lock state; release builds have no such argument.
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--app-lock-new") || arguments.contains("--app-lock-off") {
-            try? KeychainAppLockVault().delete()
-        }
-        if arguments.contains("--app-lock-off") { try? store?.skip() }
+            // UI tests start from a known lock state; release builds have no such argument.
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--app-lock-new") || arguments.contains("--app-lock-off") {
+                try? KeychainAppLockVault().delete()
+            }
+            if arguments.contains("--app-lock-off") { try? store?.skip() }
         #endif
         refresh()
     }
 
     /// The gate's reading of a counted PIN attempt; five failures leave only the
     /// device-credential notice.
-    nonisolated private static func outcome(_ attempt: PinAttempt) -> (unlocked: Bool, notice: String?) {
+    nonisolated private static func outcome(_ attempt: PinAttempt) -> (
+        unlocked: Bool, notice: String?
+    ) {
         switch attempt {
         case .unlocked:
             (true, nil)
@@ -168,13 +173,17 @@ final class LockModel: ObservableObject {
     private static func deviceOwnerCheck() async -> Bool {
         if Self.fakePasscode { return true }
         let reason = String(localized: "lock.passcode.reason")
-        return (try? await LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+        return
+            (try? await LAContext().evaluatePolicy(
+                .deviceOwnerAuthentication, localizedReason: reason)) ?? false
     }
 
     private static func biometricState() -> Biometrics {
         if Self.fakeBiometrics { return .ready }
         var error: NSError?
-        if LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) { return .ready }
+        if LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            return .ready
+        }
         return error?.code == LAError.biometryNotEnrolled.rawValue ? .notEnrolled : .absent
     }
 
@@ -203,13 +212,17 @@ final class LockModel: ObservableObject {
     /// Settings: replace the PIN, or turn it off when `newPin` is nil, only if `current` verifies;
     /// the check counts as an unlock attempt.
     func change(current: String, newPin: String?, repeated: String) {
-        if let newPin, let rejection = Self.rejection(newPin, repeated) { notice = rejection; return }
+        if let newPin, let rejection = Self.rejection(newPin, repeated) {
+            notice = rejection; return
+        }
         run { store in Self.outcome(try store.change(current: current, newPin: newPin)) }
     }
 
     /// Settings after a device-passcode check: replace the PIN, or turn it off when `newPin` is nil.
     func reset(_ newPin: String?, repeated: String) {
-        if let newPin, let rejection = Self.rejection(newPin, repeated) { notice = rejection; return }
+        if let newPin, let rejection = Self.rejection(newPin, repeated) {
+            notice = rejection; return
+        }
         recovered = false
         run { store in
             try store.resetAfterDeviceCredential(newPin)
@@ -255,8 +268,10 @@ final class LockModel: ObservableObject {
     func phase(_ phase: ScenePhase) {
         if phase == .active {
             // The user may have just set a passcode in Settings.
-            deviceSecure = !Self.fakeNoPasscode &&
-                (Self.fakePasscode || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil))
+            deviceSecure =
+                !Self.fakeNoPasscode
+                && (Self.fakePasscode
+                    || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil))
             biometrics = Self.biometricState()
             watchTouches()
             session?.foreground(at: AppLockTimer.uptime())
@@ -269,12 +284,15 @@ final class LockModel: ObservableObject {
     // ponytail: touches on the app's windows only; keyboard typing lives in a separate system
     // window, so count text edits too once a screen takes long text input.
     private func watchTouches() {
-        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
-        for window in windows where !(window.gestureRecognizers ?? []).contains(where: { $0 is TouchWatcher }) {
-            window.addGestureRecognizer(TouchWatcher { [weak self] in
-                self?.session?.interaction(at: AppLockTimer.uptime())
-                self?.expireIfDue()
-            })
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        for window in windows
+        where !(window.gestureRecognizers ?? []).contains(where: { $0 is TouchWatcher }) {
+            window.addGestureRecognizer(
+                TouchWatcher { [weak self] in
+                    self?.session?.interaction(at: AppLockTimer.uptime())
+                    self?.expireIfDue()
+                })
         }
     }
 
@@ -284,7 +302,9 @@ final class LockModel: ObservableObject {
         expiry = Task { [weak self] in
             while let deadline = self?.session?.deadline, !Task.isCancelled {
                 let now = AppLockTimer.uptime()
-                if now < deadline { try? await Task.sleep(nanoseconds: (deadline - now) * 1_000_000) }
+                if now < deadline {
+                    try? await Task.sleep(nanoseconds: (deadline - now) * 1_000_000)
+                }
                 self?.expireIfDue()
             }
         }
@@ -331,7 +351,9 @@ final class LockModel: ObservableObject {
         }
     }
 
-    private func run(_ action: @escaping @Sendable (AppLockStore) throws -> (unlocked: Bool, notice: String?)) {
+    private func run(
+        _ action: @escaping @Sendable (AppLockStore) throws -> (unlocked: Bool, notice: String?)
+    ) {
         guard let store, !busy else { return }
         busy = true
         notice = nil

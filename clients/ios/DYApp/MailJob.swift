@@ -55,15 +55,19 @@ enum MailJob {
     /// network or a failure stays quiet.
     private static func receiveMail() async {
         guard case let .ready(candidate, peerId) = try? RustBridge.identityState(),
-              (try? RustBridge.loadNetworkSettings(for: candidate, file: .active)) != nil else { return }
+            (try? RustBridge.loadNetworkSettings(for: candidate, file: .active)) != nil
+        else { return }
         let identity = ChatIdentity(candidate: candidate, peerId: peerId)
         let pass = try? RustBridge.withChats(identity) { session in
             let (rows, liked) = (try session.chatRows(), try session.likedYou())
             _ = try session.receive()
-            return (rows, liked, try session.chatRows(), try session.likedYou(), try session.notice())
+            return (
+                rows, liked, try session.chatRows(), try session.likedYou(), try session.notice()
+            )
         }
         guard let (rows, liked, newRows, newLiked, notice) = pass, notice != .off,
-              MailNotice.count(rows: newRows, liked: newLiked) > MailNotice.count(rows: rows, liked: liked)
+            MailNotice.count(rows: newRows, liked: newLiked)
+                > MailNotice.count(rows: rows, liked: liked)
         else { return }
         let lines = MailNotice.lines(notice, before: rows, after: newRows) { peer in
             let view = (try? RustBridge.profileSearcher(for: candidate)).flatMap {
@@ -72,8 +76,11 @@ enum MailJob {
             return contactLabel(peer, view)
         }
         let center = UNUserNotificationCenter.current()
-        let settings = await withCheckedContinuation { (done: CheckedContinuation<(UNAuthorizationStatus, UNShowPreviewsSetting), Never>) in
-            center.getNotificationSettings { done.resume(returning: ($0.authorizationStatus, $0.showPreviewsSetting)) }
+        let settings = await withCheckedContinuation {
+            (done: CheckedContinuation<(UNAuthorizationStatus, UNShowPreviewsSetting), Never>) in
+            center.getNotificationSettings {
+                done.resume(returning: ($0.authorizationStatus, $0.showPreviewsSetting))
+            }
         }
         guard settings.0 == .authorized else { return }
         try? await center.add(MailNotice.request(shown(lines, previews: settings.1)))
@@ -81,7 +88,9 @@ enum MailJob {
 
     /// iOS alone decides what its lock screen shows, and an app cannot hide a notice there, so what the
     /// setting adds goes out only while iOS keeps previews off the lock screen.
-    static func shown(_ lines: MailNotice.Lines?, previews: UNShowPreviewsSetting) -> MailNotice.Lines? {
+    static func shown(_ lines: MailNotice.Lines?, previews: UNShowPreviewsSetting) -> MailNotice
+        .Lines?
+    {
         previews == .always ? nil : lines
     }
 }

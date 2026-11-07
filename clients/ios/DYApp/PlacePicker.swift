@@ -8,7 +8,9 @@ func placeLabel(_ place: Place) -> String {
 /// The UI language for Rust place names: `ru` gives Russian, any other English.
 func placeLang() -> String { Bundle.main.preferredLocalizations.first ?? "en" }
 
-func countryName(_ code: String) -> String { Locale.current.localizedString(forRegionCode: code) ?? code }
+func countryName(_ code: String) -> String {
+    Locale.current.localizedString(forRegionCode: code) ?? code
+}
 
 /// Country and place rows of the profile editor. `place` is set only by picking a suggestion;
 /// typed text clears it, and a new country clears both.
@@ -22,7 +24,7 @@ struct PlacePicker: View {
     var anyLabel: LocalizedStringKey = "profile.unset"
     var placeShown = true
     #if os(macOS)
-    @State private var choosing = false
+        @State private var choosing = false
     #endif
 
     var body: some View {
@@ -34,11 +36,19 @@ struct PlacePicker: View {
 
     @ViewBuilder private var countryRow: some View {
         #if os(macOS)
-        // A push from the macOS 12 detail column has no way back: the list opens as a sheet.
-        Button { choosing = true } label: { countryLabel }
+            // A push from the macOS 12 detail column has no way back: the list opens as a sheet.
+            Button {
+                choosing = true
+            } label: {
+                countryLabel
+            }
             .sheet(isPresented: $choosing) { CountryList(anyLabel: anyLabel, pick: pickCountry) }
         #else
-        NavigationLink { CountryList(anyLabel: anyLabel, pick: pickCountry) } label: { countryLabel }
+            NavigationLink {
+                CountryList(anyLabel: anyLabel, pick: pickCountry)
+            } label: {
+                countryLabel
+            }
         #endif
     }
 
@@ -51,15 +61,22 @@ struct PlacePicker: View {
     }
 
     @ViewBuilder private var placeRows: some View {
-        TextField("profile.place", text: Binding(get: { text }, set: { typed in
-            guard typed != text else { return }
-            text = typed
-            place = nil
-        }))
+        TextField(
+            "profile.place",
+            text: Binding(
+                get: { text },
+                set: { typed in
+                    guard typed != text else { return }
+                    text = typed
+                    place = nil
+                })
+        )
         .disabled(disabled || country.isEmpty)
         .accessibilityIdentifier(idPrefix + "-place")
         if place == nil && !text.isEmpty {
-            ForEach(searchPlaces(country: country, prefix: text, lang: placeLang(), limit: 5), id: \.id) { found in
+            ForEach(
+                searchPlaces(country: country, prefix: text, lang: placeLang(), limit: 5), id: \.id
+            ) { found in
                 Button(placeLabel(found)) {
                     place = found.id
                     text = placeLabel(found)
@@ -89,26 +106,28 @@ private struct CountryList: View {
 
     var body: some View {
         #if os(macOS)
-        // A sheet has no toolbar for `.searchable`: a plain field and Cancel, reusing the search wording.
-        VStack {
-            TextField("search.title", text: $query).accessibilityIdentifier("country-search")
-            list
-            Button("search.cancel") { dismiss() }.accessibilityIdentifier("country-cancel")
-        }
-        .padding()
-        .frame(minWidth: 320, minHeight: 420)
+            // A sheet has no toolbar for `.searchable`: a plain field and Cancel, reusing the search wording.
+            VStack {
+                TextField("search.title", text: $query).accessibilityIdentifier("country-search")
+                list
+                Button("search.cancel") { dismiss() }.accessibilityIdentifier("country-cancel")
+            }
+            .padding()
+            .frame(minWidth: 320, minHeight: 420)
         #else
-        list
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
-            .navigationTitle("profile.country")
+            list
+                .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
+                .navigationTitle("profile.country")
         #endif
     }
 
     private var list: some View {
         List {
-            CountryRows(anyLabel: anyLabel, countries: countries.filter {
-                query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
-            }, choose: choose)
+            CountryRows(
+                anyLabel: anyLabel,
+                countries: countries.filter {
+                    query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
+                }, choose: choose)
         }
     }
 

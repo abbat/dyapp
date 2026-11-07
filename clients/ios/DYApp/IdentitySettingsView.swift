@@ -39,13 +39,15 @@ struct IdentitySettingsView: View {
     private var removalMessage: Text {
         let warning = Text(peerId) + Text(verbatim: "\n") + Text(removalWarning)
         guard hasPublished else { return warning }
-        let next: LocalizedStringKey = withdrawFailed ? "settings.removeOffline" : "settings.removeWithdraws"
+        let next: LocalizedStringKey =
+            withdrawFailed ? "settings.removeOffline" : "settings.removeWithdraws"
         return warning + Text(verbatim: "\n") + Text(next)
     }
 
     private var removableSlot: UUID? {
         guard case .slot(let id) = candidate.location,
-              rows.first(where: { $0.candidate.location == candidate.location })?.peerID == peerId else {
+            rows.first(where: { $0.candidate.location == candidate.location })?.peerID == peerId
+        else {
             return nil
         }
         return id
@@ -74,12 +76,15 @@ struct IdentitySettingsView: View {
                                 }
                             }
                             .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier(row.candidate.location == candidate.location
-                                                     ? "settings-active" : "settings-identity-\(row.id)")
+                            .accessibilityIdentifier(
+                                row.candidate.location == candidate.location
+                                    ? "settings-active" : "settings-identity-\(row.id)")
                             if row.peerID != nil && row.candidate.location != candidate.location {
-                                Button("settings.select") { Task { await select(row.candidate.location) } }
-                                    .disabled(isWorking)
-                                    .accessibilityIdentifier("settings-select-\(row.id)")
+                                Button("settings.select") {
+                                    Task { await select(row.candidate.location) }
+                                }
+                                .disabled(isWorking)
+                                .accessibilityIdentifier("settings-select-\(row.id)")
                             }
                         }
                     }
@@ -93,7 +98,9 @@ struct IdentitySettingsView: View {
                     Button("network.title", action: openNetwork)
                         .accessibilityIdentifier("settings-network")
                 } else {
-                    NavigationLink(destination: NetworkDraftView(candidate: candidate, peerId: peerId)) {
+                    NavigationLink(
+                        destination: NetworkDraftView(candidate: candidate, peerId: peerId)
+                    ) {
                         Text("network.title")
                     }
                     .accessibilityIdentifier("settings-network")
@@ -101,8 +108,8 @@ struct IdentitySettingsView: View {
             }
 
             #if os(macOS)
-            MenuBarSection()
-            StorageSection(candidate: candidate)
+                MenuBarSection()
+                StorageSection(candidate: candidate)
             #endif
 
             if let feed {
@@ -137,7 +144,9 @@ struct IdentitySettingsView: View {
         }
         .navigationTitle("settings.title")
         // Keep the presenter outside the conditional, scrolling Form section on macOS.
-        .alert("settings.removeTitle", isPresented: $showRemoveConfirmation, presenting: removableSlot) { id in
+        .alert(
+            "settings.removeTitle", isPresented: $showRemoveConfirmation, presenting: removableSlot
+        ) { id in
             Button("settings.removeCancel", role: .cancel) {}
             if withdrawFailed {
                 Button("identity.retry") { Task { await withdrawThenRemove(id) } }
@@ -177,7 +186,8 @@ struct IdentitySettingsView: View {
         let result = await Task.detached(priority: .userInitiated) { () -> InventoryLoad in
             do {
                 // Only an open key can sign the withdrawal; an unreadable version counts as never published.
-                let version = (try? RustBridge.visibility(for: current, peerId: currentPeerID))?.version ?? 0
+                let version =
+                    (try? RustBridge.visibility(for: current, peerId: currentPeerID))?.version ?? 0
                 return .loaded(try RustBridge.identityInventory(), published: version > 0)
             } catch { return .failed }
         }.value
@@ -257,8 +267,9 @@ struct IdentitySettingsView: View {
         actionFailed = false
         let confirmedPeerID = peerId
         let result = await Task.detached(priority: .userInitiated) { () -> RemovalAction in
-            do { return .resolved(try RustBridge.removeIdentity(id, confirming: confirmedPeerID)) }
-            catch {
+            do {
+                return .resolved(try RustBridge.removeIdentity(id, confirming: confirmedPeerID))
+            } catch {
                 return .failed((try? RustBridge.identityState()) ?? .recovery(nil, .unavailable))
             }
         }.value
@@ -296,7 +307,7 @@ struct IdentitySettingsView: View {
     /// the identity change clears the selection that shows this detail instead.
     private func close() {
         #if os(iOS)
-        dismiss()
+            dismiss()
         #endif
     }
 }

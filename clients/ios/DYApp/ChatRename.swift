@@ -18,10 +18,13 @@ struct ChatRenameSheet: View {
                 .accessibilityIdentifier("chat-rename-input")
             Text("rename.hint").font(.caption)
             if let failure {
-                Text(verbatim: String(format: NSLocalizedString(failure.key, comment: ""), failure.details ?? ""))
-                    .font(.caption)
-                    .textSelection(.enabled)
-                    .accessibilityIdentifier("chat-rename-error")
+                Text(
+                    verbatim: String(
+                        format: NSLocalizedString(failure.key, comment: ""), failure.details ?? "")
+                )
+                .font(.caption)
+                .textSelection(.enabled)
+                .accessibilityIdentifier("chat-rename-error")
             }
             HStack {
                 Spacer()

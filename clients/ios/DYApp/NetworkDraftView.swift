@@ -45,7 +45,9 @@ struct NetworkDraftView: View {
     }
 
     private var canActivate: Bool {
-        guard showingCheck && checker != nil && !isChecking && !isSaving && !isActivating else { return false }
+        guard showingCheck && checker != nil && !isChecking && !isSaving && !isActivating else {
+            return false
+        }
         return rowOutcomes.contains { outcome in
             if case .connected = outcome { return true }
             return false
@@ -142,12 +144,15 @@ struct NetworkDraftView: View {
             }
 
             Section {
-                Button(LocalizedStringKey(showingCheck || checkFailed || wasCancelled ?
-                    "network.retry" : "network.check")) {
+                Button(
+                    LocalizedStringKey(
+                        showingCheck || checkFailed || wasCancelled
+                            ? "network.retry" : "network.check")
+                ) {
                     Task { await check() }
                 }
-                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
-                    .accessibilityIdentifier("network-check")
+                .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
+                .accessibilityIdentifier("network-check")
                 if isChecking {
                     Button("network.cancel") { cancelCheck() }
                         .disabled(cancelRequested)
@@ -173,14 +178,17 @@ struct NetworkDraftView: View {
                 if isActivating {
                     Text("network.activating").accessibilityIdentifier("network-activation-status")
                 } else if activationFailed {
-                    Text("network.activateFailed").accessibilityIdentifier("network-activation-status")
+                    Text("network.activateFailed").accessibilityIdentifier(
+                        "network-activation-status")
                 }
             }
         }
         // A hidden link inside the lazy form never pushed after activation on iOS.
         .background {
-            NavigationLink(destination: ProfileDraftView(candidate: candidate, peerId: peerId),
-                           isActive: $activated) {
+            NavigationLink(
+                destination: ProfileDraftView(candidate: candidate, peerId: peerId),
+                isActive: $activated
+            ) {
                 EmptyView()
             }
         }
@@ -211,10 +219,12 @@ extension NetworkDraftView {
         let selected = candidate
         let result = await Task.detached(priority: .userInitiated) { () -> NetworkDraftLoad in
             do {
-                let settings = try RustBridge.loadNetworkSettings(for: selected, file: .draft)
+                let settings =
+                    try RustBridge.loadNetworkSettings(for: selected, file: .draft)
                     ?? RustBridge.loadNetworkSettings(for: selected, file: .active)
-                return .loaded(rows: settings?.seeds.joined(separator: "\n") ?? "",
-                               name: settings?.name ?? "")
+                return .loaded(
+                    rows: settings?.seeds.joined(separator: "\n") ?? "",
+                    name: settings?.name ?? "")
             } catch {
                 return .failed
             }
@@ -242,7 +252,8 @@ extension NetworkDraftView {
         let rowsText = bootstrapRows
         let name = networkName
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
-        let success = await NetworkConnectionSession.persist(candidate: candidate, rows: rows, name: name)
+        let success = await NetworkConnectionSession.persist(
+            candidate: candidate, rows: rows, name: name)
         guard !Task.isCancelled else { return }
         isSaving = false
         saveFailed = !success
@@ -267,7 +278,8 @@ extension NetworkDraftView {
         let rowsText = bootstrapRows
         let name = networkName
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
-        let persisted = await NetworkConnectionSession.persist(candidate: candidate, rows: rows, name: name)
+        let persisted = await NetworkConnectionSession.persist(
+            candidate: candidate, rows: rows, name: name)
         guard persisted else {
             isChecking = false
             checkFailed = true
@@ -306,8 +318,10 @@ extension NetworkDraftView {
     }
 
     @MainActor
-    private func finishCheck(_ result: NetworkCheckAttempt, session: NetworkConnectionSession,
-                             rowsText: String, name: String) {
+    private func finishCheck(
+        _ result: NetworkCheckAttempt, session: NetworkConnectionSession,
+        rowsText: String, name: String
+    ) {
         checkedRowsText = rowsText
         checkedName = name
         switch result {

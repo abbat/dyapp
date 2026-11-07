@@ -6,10 +6,12 @@ final class MainWindowUITests: XCTestCase {
     func testAMovedWindowComesBackAfterRelaunch() {
         let root = UUID().uuidString
         // Small enough to stay on a small screen once moved: macOS pulls back a window that overflows.
-        let app = launched(root: root, defaults: ["--ui-test-window-frame=100 120 520 600 0 0 1024 768"])
+        let app = launched(
+            root: root, defaults: ["--ui-test-window-frame=100 120 520 600 0 0 1024 768"])
         let window = shownWindow(app)
         let start = window.frame
-        let bar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 12))
+        let bar = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(
+            CGVector(dx: 0, dy: 12))
         bar.press(forDuration: 0.3, thenDragTo: bar.withOffset(CGVector(dx: 60, dy: 40)))
         let moved = window.frame
         XCTAssertNotEqual(moved.origin, start.origin, app.debugDescription)
@@ -27,11 +29,14 @@ final class MainWindowUITests: XCTestCase {
     func testAnOffScreenWindowReturnsToADisplayAtItsSize() {
         let root = UUID().uuidString
         // A value starting with a dash would read as the next argument's key, so off screen is far positive.
-        let app = launched(root: root, defaults: ["-NSWindow Frame main-\(root)", "9000 9000 520 640 0 0 1024 768"])
+        let app = launched(
+            root: root,
+            defaults: ["-NSWindow Frame main-\(root)", "9000 9000 520 640 0 0 1024 768"])
         let frame = shownWindow(app).frame
         XCTAssertEqual(frame.size, CGSize(width: 520, height: 640), app.debugDescription)
         let display = XCUIScreen.main.screenshot().image.size
-        XCTAssertTrue(CGRect(origin: .zero, size: display).intersects(frame), "\(frame) on \(display)")
+        XCTAssertTrue(
+            CGRect(origin: .zero, size: display).intersects(frame), "\(frame) on \(display)")
         app.terminate()
     }
 
@@ -107,10 +112,14 @@ final class MainWindowUITests: XCTestCase {
 
     private func closeAndReopen(_ app: XCUIApplication) {
         shownWindow(app).buttons[XCUIIdentifierCloseWindow].click()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: app.windows.firstMatch
-        ),
-        ], timeout: 10), .completed, app.debugDescription)
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "exists == false"),
+                        object: app.windows.firstMatch
+                    )
+                ], timeout: 10), .completed, app.debugDescription)
         openMenuBarMenu(app)
         app.menuItems["menubar-open"].click()
         _ = shownWindow(app)

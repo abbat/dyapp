@@ -56,14 +56,18 @@ struct PeopleSections: View {
 
     var body: some View {
         PeopleSection(
-            feed: feed, tag: "blocked", undoTag: "unblock", title: "settings.blocked", hint: "settings.blockedHint",
-            none: "settings.blockedNone", failure: "settings.blockedFailed", undo: "settings.unblock",
+            feed: feed, tag: "blocked", undoTag: "unblock", title: "settings.blocked",
+            hint: "settings.blockedHint",
+            none: "settings.blockedNone", failure: "settings.blockedFailed",
+            undo: "settings.unblock",
             canRetry: true, list: { try $0.blockedPeers() }, change: { try $0.unblock(peerId: $1) }
         )
         PeopleSection(
-            feed: feed, tag: "passed", undoTag: "unpass", title: "settings.passed", hint: "settings.passedHint",
+            feed: feed, tag: "passed", undoTag: "unpass", title: "settings.passed",
+            hint: "settings.passedHint",
             none: "settings.passedNone", failure: "settings.passedFailed", undo: "settings.unpass",
-            canRetry: false, list: { try $0.passedPeers() }, change: { _ = try $0.setPassed(peerId: $1, passed: false) }
+            canRetry: false, list: { try $0.passedPeers() },
+            change: { _ = try $0.setPassed(peerId: $1, passed: false) }
         )
     }
 }
@@ -101,7 +105,9 @@ private struct PeopleSection: View {
             if let status {
                 Group {
                     Text(LocalizedStringKey(status.key))
-                    if let details = status.details { Text(verbatim: details).textSelection(.enabled) }
+                    if let details = status.details {
+                        Text(verbatim: details).textSelection(.enabled)
+                    }
                 }
                 .font(.caption)
                 .accessibilityIdentifier("\(tag)-revoke-status")
@@ -155,10 +161,13 @@ private struct PeopleSection: View {
         busy = false
         switch result {
         case let .success(block):
-            status = ChatStatus(key: block.revocationKey, details: block.revocation == .pending ? block.detail : nil)
+            status = ChatStatus(
+                key: block.revocationKey, details: block.revocation == .pending ? block.detail : nil
+            )
 
         case let .failure(error):
-            status = ChatStatus(key: "settings.blockedRetryFailed", details: String(describing: error))
+            status = ChatStatus(
+                key: "settings.blockedRetryFailed", details: String(describing: error))
         }
     }
 }

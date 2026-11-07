@@ -6,24 +6,30 @@ enum StorageUsage {
         let store = directory.appendingPathComponent("client.db")
         guard let used = fileSize(store) else { return nil }
         // SQLite keeps recent writes beside the database.
-        return ["-wal", "-shm"].reduce(used) { $0 + (fileSize(URL(fileURLWithPath: store.path + $1)) ?? 0) }
+        return ["-wal", "-shm"].reduce(used) {
+            $0 + (fileSize(URL(fileURLWithPath: store.path + $1)) ?? 0)
+        }
     }
 
     static func freeBytes(on directory: URL) -> Int64? {
         let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey]
-        return (try? directory.resourceValues(forKeys: keys))?.volumeAvailableCapacityForImportantUsage
+        return (try? directory.resourceValues(forKeys: keys))?
+            .volumeAvailableCapacityForImportantUsage
     }
 
     /// Binary units as on the desktop client: whole bytes, one decimal above them.
     static func sizeText(_ bytes: Int64, locale: Locale = .current) -> String {
-        let units = ["usage.unit.B", "usage.unit.KiB", "usage.unit.MiB", "usage.unit.GiB", "usage.unit.TiB"]
+        let units = [
+            "usage.unit.B", "usage.unit.KiB", "usage.unit.MiB", "usage.unit.GiB", "usage.unit.TiB",
+        ]
         var value = Double(bytes)
         var unit = 0
         while value >= 1_024, unit < units.count - 1 {
             value /= 1_024
             unit += 1
         }
-        let style = FloatingPointFormatStyle<Double>(locale: locale).precision(.fractionLength(unit == 0 ? 0 : 1))
+        let style = FloatingPointFormatStyle<Double>(locale: locale).precision(
+            .fractionLength(unit == 0 ? 0 : 1))
         return value.formatted(style) + " " + NSLocalizedString(units[unit], comment: "")
     }
 
@@ -56,7 +62,9 @@ struct StatusBar: View {
         .accessibilityLabel(Text("statusbar.label"))
         .task(id: candidate?.location) {
             let directory = candidate.flatMap { candidate in
-                (try? RustBridge.directory()).map { RustBridge.networkDirectory(root: $0, candidate: candidate) }
+                (try? RustBridge.directory()).map {
+                    RustBridge.networkDirectory(root: $0, candidate: candidate)
+                }
             }
             while !Task.isCancelled {
                 traffic = clientTraffic()
@@ -77,7 +85,9 @@ struct StatusBar: View {
 
     nonisolated static func messagesText(_ bytes: Int64?) -> String {
         guard let bytes else { return NSLocalizedString("statusbar.noMessages", comment: "") }
-        return String(format: NSLocalizedString("statusbar.messages", comment: ""), StorageUsage.sizeText(bytes))
+        return String(
+            format: NSLocalizedString("statusbar.messages", comment: ""),
+            StorageUsage.sizeText(bytes))
     }
 }
 
@@ -98,7 +108,9 @@ struct StorageSection: View {
                         try? await Task.sleep(nanoseconds: 10_000_000_000)
                     }
                 }
-            row("usage.messages", messages.map { StorageUsage.sizeText($0) }, id: "storage-messages")
+            row(
+                "usage.messages", messages.map { StorageUsage.sizeText($0) }, id: "storage-messages"
+            )
             if messages != nil, let store {
                 Text(verbatim: store.path)
                     .font(.caption)
