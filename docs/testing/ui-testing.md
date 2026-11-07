@@ -36,7 +36,10 @@ tests cancel removal, then confirm it, select the surviving Peer ID in the picke
 after restart. A shared native unit test also reopens the surviving slot after another slot is
 removed and checks its active and draft network files plus stable Peer ID. Both Apple UI suites
 also verify Russian removal labels and that the double-length pseudo-language confirmation
-remains hittable. Shared native unit tests additionally check that an unreadable slot cannot
+remains hittable. The removal alert is presented from the stable Settings screen, outside its
+conditional scrolling section. The macOS withdrawal test opens it with one click and waits for
+the sheet; a second click must not mask a lost presentation.
+Shared native unit tests additionally check that an unreadable slot cannot
 replace the active selection and that a lost selected Keychain item produces recovery without
 creating another key. An isolated debug UI fixture corrupts only the wrapped key file after
 creation: both Apple UI suites check the Russian unavailable label, hidden Remove action, and

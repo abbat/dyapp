@@ -124,7 +124,7 @@ struct IdentitySettingsView: View {
                 }
             }
 
-            if let id = removableSlot {
+            if removableSlot != nil {
                 Section {
                     Button("settings.remove", role: .destructive) {
                         withdrawFailed = false
@@ -133,22 +133,23 @@ struct IdentitySettingsView: View {
                     .disabled(isLoading || readFailed || isWorking)
                     .accessibilityIdentifier("settings-remove")
                 }
-                .alert("settings.removeTitle", isPresented: $showRemoveConfirmation) {
-                    Button("settings.removeCancel", role: .cancel) {}
-                    if withdrawFailed {
-                        Button("identity.retry") { Task { await withdrawThenRemove(id) } }
-                        Button("settings.removeAnyway", role: .destructive) { Task { await remove(id) } }
-                    } else {
-                        Button("settings.removeConfirm", role: .destructive) {
-                            Task { await withdrawThenRemove(id) }
-                        }
-                    }
-                } message: {
-                    removalMessage
-                }
             }
         }
         .navigationTitle("settings.title")
+        // Keep the presenter outside the conditional, scrolling Form section on macOS.
+        .alert("settings.removeTitle", isPresented: $showRemoveConfirmation, presenting: removableSlot) { id in
+            Button("settings.removeCancel", role: .cancel) {}
+            if withdrawFailed {
+                Button("identity.retry") { Task { await withdrawThenRemove(id) } }
+                Button("settings.removeAnyway", role: .destructive) { Task { await remove(id) } }
+            } else {
+                Button("settings.removeConfirm", role: .destructive) {
+                    Task { await withdrawThenRemove(id) }
+                }
+            }
+        } message: { _ in
+            removalMessage
+        }
         .task { await load() }
     }
 
