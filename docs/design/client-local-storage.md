@@ -138,7 +138,9 @@ cross-peer and blocked/non-open answers keep only an inbox digest and ACK. Store
 reads require the request token and an open/unblocked pair. Corruption rolls back admission.
 Session receive now routes outer 15/16 through these atomic Store operations. Allowed-chat
 controls remain eligible for common delivery receipts and are consumed before UI/history.
-Dedicated Session sends, download/save workers and request UI remain planned.
+Dedicated Session staging now binds a selected received MessageKey or current response job
+to the same encrypted outbox/MLS commit. Failed local commits invalidate advanced in-memory MLS;
+reopening restores the saved snapshot. Download/save workers and request UI remain planned.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
@@ -147,7 +149,8 @@ the outbox's 1 s doubling schedule capped at 1 h. Response completion requires a
 token, shared/open/unblocked pair, nonempty exact writes and a regular saved-pack file checked
 under the pack writer lock. The response outbox and last-success time commit atomically;
 failures or stale workers cannot advance the rolling 24 h cooldown. Retiring unavailable-pack
-work preserves the previous success time. Dedicated Session sends and network workers remain planned.
+work preserves the previous success time. Dedicated Session send wrappers deliver only after
+this commit; network media workers remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

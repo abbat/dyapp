@@ -249,7 +249,10 @@ pack removal. Old workers cannot finish a newer job; missing packs can retire wo
 advancing cooldown. Session receive routes controls through these guards. Allowed-chat controls
 receive common receipts uniformly, including unsolicited/duplicate controls, then are consumed
 before history/UI. Blocked and pre-match controls create no work. Generic Session sends refuse
-control variants until selected-message/job staging is supplied. Network workers remain planned.
+control variants. Dedicated staging derives requests from a selected received MessageKey and
+responses from a current job; Store projection, sealed MLS and exact writes commit together.
+Failed local commits invalidate advanced in-memory MLS, so reopening restores the old snapshot.
+Send wrappers deliver only after commit. Network media workers remain planned.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,
@@ -260,8 +263,8 @@ The Store now admits one canonical answer only into the matching pending peer/Pa
 with MLS snapshot, inbox digest and ACK in one commit. Unsolicited, cross-peer, blocked and
 closed-chat answers are ACKed without retaining a descriptor. Replays and competing answers
 cannot replace the first descriptor; reads require the active request token. Corrupt stored
-answers fail closed. This stores metadata only: dedicated Session sends and pack download/save
-workers remain planned.
+answers fail closed. Dedicated Session staging/send APIs are implemented; whole-pack upload
+and download/save workers remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

@@ -74,8 +74,11 @@ acked. [Pack controls](../design/stickers.md) use bounded payload codecs and can
 Session receive applies open/block/own-group rules and commits authorized jobs or pending answers
 with MLS/inbox/ACK. New controls in allowed chats receive common delivery receipts uniformly,
 then are consumed before UI/history; receipt behavior does not reveal pack/pending existence.
-Generic Session sends refuse control variants: dedicated selected-message/job staging and
-network media workers remain planned.
+Generic Session sends refuse control variants. Dedicated request staging derives the pack from
+the selected received MessageKey; response staging requires the current job token. Both commit
+exact encrypted writes with the guarded Store projection and sealed MLS snapshot. A failed
+local commit invalidates advanced in-memory MLS; reopening restores the committed snapshot.
+Send wrappers use normal outbox delivery only after this commit. Network media workers remain planned.
 Tag 14 uses the bounded sticker validator, cannot be forwarded, and follows attachment
 conversation guards. Receive commits its common media projection, HLC, inbox/ACK and
 sealed MLS state atomically. Projection failure retains the old snapshot and no ACK.

@@ -21,7 +21,7 @@ fn store(owner: &str, path: Option<&Path>) -> Store {
         owner_peer_id: owner.into(),
     }
 }
-pub(super) fn pack(name: &str) -> Pack {
+pub(crate) fn pack(name: &str) -> Pack {
     let mut image = Vec::new();
     WebPEncoder::new(&mut image)
         .encode(&[1, 2, 3, 255], 1, 1, ColorType::Rgba8)
