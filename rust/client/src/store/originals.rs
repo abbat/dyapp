@@ -20,6 +20,9 @@ const SETTING: &str = "kept_originals";
 const MIB: u64 = 1024 * 1024;
 const KEY_LABEL: &[u8] = b"dyapp-kept-original-v1";
 
+mod settings;
+pub use settings::MediaCacheConfig;
+
 fn file_name(blob_sha256: &[u8; 32]) -> String {
     blob_sha256.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -103,27 +106,6 @@ fn prune(dir: &Path, known: &HashSet<String>, limit: u64) -> io::Result<()> {
 }
 
 impl Store {
-    /// The limit for kept originals on this device in MiB, 0 for none; absent means 256.
-    pub fn kept_originals_mib(&self) -> Result<u32, Error> {
-        match self.setting_byte(SETTING)? {
-            Some(0) => Ok(0),
-            None | Some(1) => Ok(256),
-            Some(2) => Ok(1024),
-            _ => Err(Error::InvalidSetting),
-        }
-    }
-
-    /// Persist the limit: 0, 256 or 1024 MiB. Sweep afterwards to apply it.
-    pub fn set_kept_originals_mib(&self, mib: u32) -> Result<(), Error> {
-        let value = match mib {
-            0 => 0,
-            256 => 1,
-            1024 => 2,
-            _ => return Err(Error::InvalidSetting),
-        };
-        self.set_setting_byte(SETTING, value)
-    }
-
     pub(crate) fn attachment_blobs(&self) -> Result<HashSet<String>, Error> {
         let mut query = self
             .db
@@ -157,9 +139,17 @@ impl Store {
     /// admits. Call after keeping an original, clearing a chat or changing the limit.
     // ponytail: reads every descriptor, an index of blob hashes if histories outgrow this.
     pub fn sweep_originals(&self, dir: &Path) -> io::Result<()> {
-        let mib = self.kept_originals_mib().map_err(io::Error::other)?;
+        let config = self.media_cache_config().map_err(io::Error::other)?;
         let known = self.attachment_blobs().map_err(io::Error::other)?;
-        prune(dir, &known, u64::from(mib) * MIB)
+        prune(
+            dir,
+            &known,
+            if config.enabled {
+                config.limit_bytes
+            } else {
+                0
+            },
+        )
     }
 }
 

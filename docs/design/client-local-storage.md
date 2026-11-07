@@ -87,7 +87,13 @@ clear, so a file is sealed anew under a key derived from the identity's sealing 
 hash, and a read checks it against the descriptor's plaintext hash; a torn or foreign file is
 removed. `Store::sweep_originals` runs after each keep, Clear chat and limit change: it removes files
 no `chat_attachments` row names, then the least recently read past the `kept_originals` setting
-(off, 256 MiB by default, or 1 GiB). Removing an identity removes the folder.
+(256 MiB enabled by default, with a numeric 1 MiB–10 GiB byte budget). Enabled state
+and quota are one atomic, identity-local settings value; turning retention off remembers
+the quota. Core APIs expose actual encrypted-file usage and explicit cache clearing, which
+preserves history, saved packs and the preference. Clearing refuses unexpected directories
+or symlinks before removing cache entries. The old MiB APIs remain numeric wrappers for
+clients awaiting the new controls. No released database exists: old development setting
+encodings fail closed instead of being migrated. Removing an identity removes the folder.
 
 Saved sticker packs use identity-local `sticker-packs/<PackID>` files and the same sealing
 secret as photo originals. The pack content is shareable; local sealing protects the saved
