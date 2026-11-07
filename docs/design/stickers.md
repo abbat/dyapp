@@ -266,7 +266,7 @@ scheduled retry. Reuse also verifies immutable plaintext and ciphertext binding.
 keys cannot stage a response or a new sticker history row. Tests cover wrong owner, stop/block,
 removed packs and five due jobs leaving one for the next batch. Failed local
 staging reopens committed MLS before further work. After successful staging, mailbox failures
-belong to the common outbox. Desktop polling integration remains planned; receiver processing is described below.
+belong to the common outbox. Desktop polling runs the bounded workers; receiver processing is described below.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,
@@ -297,8 +297,10 @@ local recoveries leave one for the next pass. Explicit fresh-answer staging now 
 clears the previous descriptor/failure and commits new tag-15 writes with MLS atomically. It keeps
 the originally clicked hash even after local history was cleared; failure retains the old answer.
 Old callbacks cannot change the new attempt. Ordinary download retry retains its useful descriptor.
-Already queued requests and the sender's daily answer limit remain in effect. Desktop polling and
-request UI remain planned.
+Already queued requests and the sender's daily answer limit remain in effect. Desktop mailbox
+passes now run both bounded workers on the configured node under the identity/session lease.
+Completed saves contribute only to the local refresh count; controls remain absent from history
+and unread notifications. The request UI remains planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

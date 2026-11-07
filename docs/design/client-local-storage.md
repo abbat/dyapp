@@ -160,7 +160,9 @@ The core download worker processes at most four due admitted answers per call, c
 current intent and conversation permission. It first revalidates any existing local file; otherwise
 it uses the photo attachment fetch path, full pack validation and clicked-hash binding before
 publication. Failures keep typed retry status. Blocked/closed pairs retire current intent; missing
-joined groups defer fetch. Desktop polling and request UI remain planned.
+joined groups defer fetch. Desktop mailbox passes run both bounded workers on their configured
+node under the identity/session lease and stop callback. Completed saves contribute to the local
+refresh count, while notifications still follow unread history rows. Request UI remains planned.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
@@ -174,8 +176,8 @@ this commit. The core response worker now handles up to four due jobs with a sto
 It loads validated saved files, reuses owner descriptors and the photo upload transport, and
 binds even confirmed descriptors to immutable plaintext/ciphertext hashes before reuse.
 Transient read/upload failures retain scheduled work; missing/invalid packs retire only the job.
-After local stage failure it restores committed MLS before continuing. Desktop polling integration
-remains planned.
+After local stage failure it restores committed MLS before continuing. Desktop polling now runs
+these bounded workers after mailbox pages.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
