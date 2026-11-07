@@ -4,17 +4,23 @@ fn archive() -> Vec<u8> {
     archive_count(1)
 }
 pub(super) fn archive_count(count: usize) -> Vec<u8> {
+    archive_labels(&vec!["😺"; count])
+}
+pub(super) fn archive_labels(labels: &[&str]) -> Vec<u8> {
     let image = include_bytes!("../../../tests/fuzz/corpus/sticker_webp/lossy.webp");
     let hash: String = dyapp_identity::sha256(image)
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    let names: Vec<_> = (0..count).map(|index| format!("cat{index}.webp")).collect();
+    let names: Vec<_> = (0..labels.len())
+        .map(|index| format!("cat{index}.webp"))
+        .collect();
     let stickers: Vec<_> = names
         .iter()
-        .map(|name| {
+        .zip(labels)
+        .map(|(name, emoji)| {
             serde_json::json!({
-                "file":name,"emoji":"😺","sha256":hash,
+                "file":name,"emoji":emoji,"sha256":hash,
             })
         })
         .collect();

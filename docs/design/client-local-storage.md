@@ -120,7 +120,10 @@ validated own-send HLC with deterministic ID/hash/emoji ties. Only a new local o
 it, in the same history/MLS/outbox transaction; receive, own-device copies, replay and failed
 staging do not reorder it. The clean emoji preserves choices sharing identical pixels; pack names
 and media capabilities are not stored. Reads revalidate the label. History clearing leaves this
-local keyboard preference intact. Native recent-picker projection remains planned.
+local keyboard preference intact. Desktop resolves these choices against validated saved packs,
+matching both hash and emoji, in pages of at most eight safe 96 px thumbnails. Missing or invalid
+packs are skipped without deletion; other storage errors remain visible. Only one full pack is
+retained during the bounded scan, and identity transitions abort it.
 The initial schema also has `sticker_uploads`, keyed by kind and plaintext hash: kind 1 is
 an individual WebP, kind 2 a whole validated pack record. It keeps owner-only attachment
 descriptors (including release capabilities), charged sizes, expiry and a reservation token;

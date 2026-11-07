@@ -97,5 +97,6 @@ pub(crate) async fn saved_sticker_page(
     .map_err(|e| e.to_string())?
 }
 
+pub(crate) mod recents;
 #[cfg(test)]
 mod tests;

@@ -341,7 +341,12 @@ the common session gate/outbox. Core `recent_stickers` now returns at most 20 de
 PackID/hash/emoji choices. A new local send updates their HLC order in the same history/MLS/outbox
 transaction; receive, replay and failed staging do not change recents. The clean emoji distinguishes
 valid entries sharing identical pixels; native lookup must match hash and emoji. Pack names and
-capabilities are not stored there. Native recent-picker projection and canvas picker UI remain planned.
+capabilities are not stored there. Desktop `recent_sticker_page` resolves exact hash/emoji choices
+against authenticated saved packs, returning at most eight 96 px thumbnails per page. Missing or
+invalid packs and unavailable entries are skipped without deleting files; storage errors remain
+retryable errors. It scans at most 20 recent records and retains one full pack at a time. The cursor
+indexes the original recent metadata, and identity transitions abort the response. Canvas picker UI
+remains planned.
 
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.
