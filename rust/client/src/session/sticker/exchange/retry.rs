@@ -1,4 +1,4 @@
-//! Fresh requests retain the selected hash even when the selected history row was cleared.
+//! Single-group cleanup may remove the selected row; full Clear chat cancels pair intent.
 use super::*;
 use crate::chat::pack_control::PackRequest;
 use crate::store::{sticker_packs::exchange::download::PackDownloadJob, Error as StoreError};

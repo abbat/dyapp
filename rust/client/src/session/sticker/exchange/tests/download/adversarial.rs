@@ -222,3 +222,82 @@ async fn five_due_downloads_leave_one_for_the_next_pass() {
         .unwrap()
         .is_empty());
 }
+
+#[test]
+fn full_clear_cancels_old_fetch_but_preserves_saved_packs_recents_and_sharing() {
+    let (mut pair, _, pack, job) = admitted();
+    let kept = sticker_packs::tests::pack("Keep this pack");
+    pair.session.store.save_sticker_pack(&SEAL, &kept).unwrap();
+    pair.session
+        .stage_sticker(pair.group.id(), &sticker(&kept), &SEAL)
+        .unwrap();
+    let recent = pair.session.store.recent_stickers().unwrap();
+    pair.session.store.clear_chat_pair(&job.peer).unwrap();
+    assert!(pair
+        .session
+        .store
+        .pending_sticker_pack(&job.peer, &job.pack_id)
+        .unwrap()
+        .is_none());
+    assert!(!pair
+        .session
+        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
+        .unwrap());
+    assert!(pair
+        .session
+        .store
+        .saved_sticker_pack(&SEAL, pack.id())
+        .unwrap()
+        .is_none());
+    assert!(pair
+        .session
+        .store
+        .saved_sticker_pack(&SEAL, kept.id())
+        .unwrap()
+        .is_some());
+    assert!(pair
+        .session
+        .store
+        .shared_sticker_pack(&job.peer, kept.id())
+        .unwrap());
+    assert!(pair.session.store.recent_stickers().unwrap() == recent);
+    assert!(pair
+        .session
+        .stage_fresh_sticker_pack_request(&job, &SEAL)
+        .is_err());
+    assert!(pair.session.device.is_some());
+
+    let mut incoming = sticker(&pack);
+    incoming.id = [7; 16];
+    incoming.hlc = 2000;
+    deliver(&mut pair, &Body::Sticker(Box::new(incoming)), 7);
+    let selected = MessageKey {
+        group: pair.group.id().to_vec(),
+        author: job.peer.clone(),
+        id: [7; 16],
+    };
+    let (next, _) = pair
+        .session
+        .stage_sticker_pack_request(&job.peer, &selected, &SEAL)
+        .unwrap();
+    assert!(next.token != job.token);
+    assert!(!pair
+        .session
+        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
+        .unwrap());
+    assert!(
+        pair.session
+            .store
+            .pending_sticker_pack(&job.peer, &job.pack_id)
+            .unwrap()
+            .unwrap()
+            .token
+            == next.token
+    );
+    assert!(pair
+        .session
+        .store
+        .saved_sticker_pack(&SEAL, pack.id())
+        .unwrap()
+        .is_none());
+}

@@ -300,7 +300,11 @@ clicked hashes, unsolicited/stale completions and a block during fetch. A stop a
 leaves intent unchanged; unreadable local files retain retryable storage status. Five admitted
 local recoveries leave one for the next pass. Explicit fresh-answer staging now rotates the token,
 clears the previous descriptor/failure and commits new tag-15 writes with MLS atomically. It keeps
-the originally clicked hash even after local history was cleared; failure retains the old answer.
+the originally clicked hash for active intent, including low-level single-group cleanup;
+failure retains the old answer. Full Clear chat cancels that peer's pending requests in the same
+transaction as history and unsent writes. Saved packs, recents and historical sharing proof stay;
+accepted mailbox packets cannot be recalled. Late answers cannot restart cancelled intent, and
+old fetch callbacks cannot publish or retire a newer request.
 Old callbacks cannot change the new attempt. Ordinary download retry retains its useful descriptor.
 Already queued requests and the sender's daily answer limit remain in effect. Desktop mailbox
 passes now run both bounded workers on the configured node under the identity/session lease.

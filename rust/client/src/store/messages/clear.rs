@@ -20,6 +20,7 @@ impl Store {
     }
 
     /// Clear every cataloged MLS group for one peer in a single device-local transaction.
+    /// Pending pack requests are cancelled; saved packs, recents and sharing proof remain.
     /// Conversation state and other peers are unchanged; no receipt is sent.
     pub fn clear_chat_pair(&mut self, peer_id: &str) -> Result<usize, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
@@ -44,6 +45,10 @@ pub(in crate::store) fn clear_pair_tx(tx: &Transaction<'_>, peer_id: &str) -> Re
     for group in groups {
         removed += clear_group_tx(tx, &group)?;
     }
+    tx.execute(
+        "DELETE FROM `sticker_pack_requests` WHERE `peer_id` = ?1",
+        [peer_id],
+    )?;
     Ok(removed)
 }
 

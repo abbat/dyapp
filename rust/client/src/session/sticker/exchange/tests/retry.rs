@@ -2,9 +2,10 @@ use super::download::admitted;
 use super::*;
 
 #[test]
-fn fresh_request_survives_cleared_selection_and_rejects_old_generation_before_mls() {
+fn fresh_request_survives_single_group_cleanup_and_rejects_old_generation_before_mls() {
     let (mut pair, path, pack, job) = admitted();
-    pair.session.store.clear_chat_pair(&job.peer).unwrap();
+    // Low-level group cleanup retains pair intent; full user Clear chat cancels it.
+    pair.session.store.clear_chat(pair.group.id()).unwrap();
     let (next, writes) = pair
         .session
         .stage_fresh_sticker_pack_request(&job, &SEAL)

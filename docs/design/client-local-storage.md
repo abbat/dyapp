@@ -150,8 +150,11 @@ and 1 s..1 h retry deadline across restart. Due lists contain at most 32 metadat
 Duplicate answers cannot reset backoff. Explicit download retry rotates the generation while
 retaining the first answer and clicked hash; stale workers cannot defer or retire that retry.
 An explicit fresh-answer request instead rotates generation and clears the old answer/failure
-with new exact tag-15 outbox writes and MLS in one transaction. It retains the clicked hash even
-after history was cleared. Failed staging preserves the old descriptor and sealed snapshot;
+with new exact tag-15 outbox writes and MLS in one transaction. It retains the clicked hash
+through low-level single-group cleanup. Full pair-wide Clear chat instead cancels that peer's
+pending pack requests atomically with history/unsent writes, including the own-unmatch clear path.
+Saved packs, local recents, historical sharing and already accepted mailbox writes remain.
+Late answers cannot restart cancelled intent; stale fetch/save callbacks cannot finish newer work. Failed staging preserves the old descriptor and sealed snapshot;
 advanced in-memory MLS is invalidated and restored from the committed snapshot.
 Desktop pack actions now stage Request/Fresh locally without requiring a live node. The common
 mailbox pass owns delivery. Initial Request is idempotent; Retry/Fresh/StopWaiting compare the
