@@ -913,6 +913,7 @@ fn main() {
             chats::commands::chat_history,
             stickers::chat::chat_sticker_frame,
             stickers::picker::saved_sticker_page,
+            stickers::send::send_saved_sticker,
             chat_photos::chat_photo_original,
             chat_photos::chat_photo_auto,
             chat_photos::auto_download_mode,

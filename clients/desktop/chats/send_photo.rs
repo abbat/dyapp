@@ -33,7 +33,7 @@ fn sealed(
 }
 
 /// The page's code for a node refusal; anything else is shown as it is.
-pub(super) fn code(error: session::Error) -> String {
+pub(crate) fn code(error: session::Error) -> String {
     match error {
         session::Error::Client(Error::Status(Status::NotFound)) => "peerUnavailable".into(),
         session::Error::Client(Error::Status(Status::Full)) => "full".into(),

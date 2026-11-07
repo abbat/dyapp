@@ -35,7 +35,7 @@ fn source_text(
 
 /// The Session, node and sealing key for a send into `target_peer`, once the chat is open and
 /// unblocked and both profiles are published.
-pub(super) async fn open_session(
+pub(crate) async fn open_session(
     cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,

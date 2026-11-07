@@ -210,7 +210,9 @@ ciphertext and strips the release secret before staging. A failed upload retains
 without adding a chat message. Confirmed reuse and quota fallback still use fresh message IDs.
 After metadata staging, a transient mailbox failure returns that ID because the exact outbox is
 already durable; delivery state shows the queued retry. Callers must not create a duplicate send.
-Desktop picker/command wiring and live node integration coverage remain planned.
+Desktop `send_saved_sticker` now checks the viewed identity and selected saved pack/index,
+then uses the same session gate, open-profile/network path and error codes as photos. It returns
+the queued message ID after durable staging. Picker UI and live-node acceptance remain planned.
 
 ### Receive
 
@@ -318,7 +320,9 @@ and tags 14 and 15 from a non-match are refused.
 Desktop `saved_sticker_page` now exposes a validated saved pack in pages of at most eight
 entries. Each entry carries only its index, emoji and an RGBA thumbnail resized to at most
 96 px with the existing image library. The response also carries clean pack name/ID, total and
-next offset; it contains no WebP, attachment key or capability. Canvas picker UI remains planned.
+next offset; it contains no WebP, attachment key or capability. `send_saved_sticker` accepts
+only peer/pack/index plus the viewed identity, loads the validated saved pack and sends through
+the common session gate/outbox. Canvas picker UI remains planned.
 
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.
