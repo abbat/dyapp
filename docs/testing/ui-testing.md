@@ -7,6 +7,10 @@ shipped buttons and section IDs; missing runtime destinations report their names
 The helper rejects a hidden destination; it does not expose panes directly
 or add waits for navigation. Settings navigation has its own Back/focus/reset smoke.
 
+Removal smoke waits for the Cancel close event before reopening, with a fresh deadline for that
+transition. Dialog readiness requires both visible and open state, not only the hidden attribute.
+The removal close handler ignores an old queued event after a newer opening becomes active.
+
 Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,
 not DOM fragment rectangles: chunk spans and WBRs can produce many rectangles on one line.
 The check waits for fonts, retains narrow/wide wrapping assertions and rejects horizontal clipping.

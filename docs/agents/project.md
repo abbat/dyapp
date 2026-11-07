@@ -49,6 +49,11 @@ Desktop code values use `ui/identifiers.js` in both prototype and shipped UI. It
 WBR nodes, never whitespace, so textContent/copy contracts stay raw. Its observer watches
 only text/child changes and disconnects while formatting to avoid observing its own edits.
 
+Dialog `close()` clears `open` before its queued close event updates other visibility state.
+Tests must await close completion before reopening and require open plus visible readiness.
+Close handlers must check the current open state before hiding a modal: an older queued event can
+otherwise hide a newer opening. Use callbacks with transition deadlines rather than sleeps.
+
 A file chooser owns its input element and the opening that created it. Replace the hidden input
 for each chooser and capture its view in that element's change listener; a mutable global owner
 can otherwise admit an old selection into a reopened manager. Tests can intercept only the chooser

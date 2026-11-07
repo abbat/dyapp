@@ -143,10 +143,11 @@ const checkStaleRemovePreparation = async () => {
     throw new Error('old removal inventory opened new dialog');
   }
 
-  let finishProfile;
+  let finishProfile, startedProfile;
+  const profileStarted = new Promise((resolve) => { startedProfile = resolve; });
   const oldProfile = showRemove((command) => command === 'list_identities'
-    ? Promise.resolve(items) : new Promise((resolve) => { finishProfile = resolve; }));
-  await new Promise((resolve) => { setTimeout(resolve, 0); });
+    ? Promise.resolve(items) : new Promise((resolve) => { finishProfile = resolve; startedProfile(); }));
+  await profileStarted;
   if (!finishProfile) throw new Error('old removal profile load did not start');
   await act(Promise.resolve({ status: 'picker' }));
   await act(Promise.resolve(readyState));
@@ -157,12 +158,23 @@ const checkStaleRemovePreparation = async () => {
   }
   await showRemove((command) => Promise.resolve(command === 'list_identities' ? items : null));
   if (!removeDialog.open) throw new Error('current removal dialog did not open');
+  const oldClose = closed(removeDialog);
   removeDialog.close();
+  await showRemove((command) => Promise.resolve(command === 'list_identities' ? items : null));
+  await oldClose;
+  if (!removeDialog.open || removeDialog.hidden) throw Error('Old close hid a reopened removal dialog');
+  const finalClose = closed(removeDialog);
+  removeDialog.close();
+  await finalClose;
 };
 // The close event, which the app handles first, comes on a later task in no fixed order with
 // timers, so a check waits for the event itself.
-const closed = (dialog) => new Promise((resolve) => {
-  dialog.addEventListener('close', resolve, { once: true });
+const closed = (dialog) => new Promise((resolve, reject) => {
+  const finish = () => { clearTimeout(deadline); resolve(); };
+  const deadline = setTimeout(() => {
+    dialog.removeEventListener('close', finish); reject(Error(`${dialog.id} close deadline`));
+  }, 10000);
+  dialog.addEventListener('close', finish, { once: true });
 });
 // A revocation of another slot wipes nothing; the active slot's closes dialogs and says why.
 const checkDeviceRevoked = async () => {
@@ -480,8 +492,11 @@ const removeOpened = async (state, mode) => {
     if (!document.getElementById('remove-action').disabled) {
       throw new Error('remove enabled before confirmation');
     }
+    const cancelled = closed(removeDialog);
     document.getElementById('remove-cancel').click();
-    if (document.getElementById('remove').open || document.getElementById('settings').hidden) {
+    await cancelled;
+    if (document.getElementById('remove').open || !document.getElementById('remove').hidden
+      || document.getElementById('settings').hidden) {
       throw new Error('Cancel did not return to Settings');
     }
     document.getElementById('settings-remove').click();

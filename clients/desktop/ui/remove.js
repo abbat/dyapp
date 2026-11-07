@@ -39,7 +39,8 @@ const showRemove = async (call = invoke) => {
   removeDialog.showModal();
   document.getElementById('remove-cancel').focus();
 };
-removeDialog.addEventListener('close', () => { removeDialog.hidden = true; });
+// A queued close from the previous opening must not hide a newly reopened modal.
+removeDialog.addEventListener('close', () => { if (!removeDialog.open) removeDialog.hidden = true; });
 for (const button of [removeIdentity, settingsRemove]) {
   button.addEventListener('click', () => {
     const generation = identityGeneration;

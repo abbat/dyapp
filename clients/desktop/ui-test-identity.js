@@ -1,11 +1,12 @@
 // Desktop UI smoke: identity, search, safety and early generation checks.
 const waitFor = (id) => new Promise((resolve, reject) => {
   const section = document.getElementById(id);
-  if (!section.hidden) { resolve(); return; }
+  const shown = () => !section.hidden && (section.tagName !== 'DIALOG' || section.open);
+  if (shown()) { resolve(); return; }
   const observer = new MutationObserver(() => {
-    if (!section.hidden) { observer.disconnect(); clearTimeout(timeout); resolve(); }
+    if (shown()) { observer.disconnect(); clearTimeout(timeout); resolve(); }
   });
-  observer.observe(section, { attributes: true, attributeFilter: ['hidden'] });
+  observer.observe(section, { attributes: true, attributeFilter: ['hidden', 'open'] });
   const timeout = setTimeout(() => { observer.disconnect(); reject(new Error(`${id} not shown`)); }, 10000);
 });
 // Opens a sidebar area of the shell and waits until it shows.
