@@ -235,6 +235,10 @@ change another view or identity. The request/response flow below and sending rem
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat
 will answer with tag 16, at most once per peer and pack per day, reusing one pack blob. Requests for a
 pack never sent into this chat are ignored, so a peer cannot probe what someone holds.
+The Store now records per-peer/PackID sharing proof atomically with an own sticker. An incoming
+sticker grants no permission. The proof survives local Clear/Delete and canonical group changes:
+the peer already saw that pack ID. It is historical evidence only; response handling must also
+check an open, unblocked chat and that the pack is still saved. That handling remains planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

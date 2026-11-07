@@ -84,7 +84,30 @@ impl Store {
             unread,
         )?;
         super::operations::resolve_pending(tx, &key, true)?;
+        if inserted && sender.author == owner {
+            // The peer already knows this pack, even after local history is cleared.
+            tx.execute(
+                "INSERT INTO `sticker_shared_packs` (`peer_id`, `pack_id`)
+                 SELECT `peer_id`, ?2 FROM `conversation_groups`
+                 WHERE `group_id` = ?1 AND `peer_id` != ?3
+                 ON CONFLICT (`peer_id`, `pack_id`) DO NOTHING",
+                rusqlite::params![sender.group, sticker.pack_id.as_slice(), owner],
+            )?;
+        }
         Ok(inserted)
+    }
+
+    /// Whether this owner explicitly shared the pack with this peer in a verified pair chat.
+    /// Historical proof only: responses must also check open/unblocked chat and saved-pack existence.
+    pub fn shared_sticker_pack(&self, peer: &str, pack_id: &[u8; 32]) -> Result<bool, Error> {
+        if peer.is_empty() || peer == self.owner_peer_id {
+            return Err(Error::InboxConflict);
+        }
+        Ok(self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM `sticker_shared_packs` WHERE `peer_id` = ?1 AND `pack_id` = ?2)",
+            rusqlite::params![peer, pack_id.as_slice()],
+            |row| row.get(0),
+        )?)
     }
 
     /// Whether this exact message is a stored sticker eligible for a terminal delete.

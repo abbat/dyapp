@@ -79,6 +79,11 @@ CREATE TABLE `chat_operations` (
     CHECK (`pending` = 1 OR `pending_text` IS NULL),
     PRIMARY KEY (`group_id`, `author`, `operation_id`)
 ) STRICT;
+CREATE TABLE `sticker_shared_packs` (
+    `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),
+    `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
+    PRIMARY KEY (`peer_id`, `pack_id`)
+) STRICT;
 CREATE TABLE `sticker_uploads` (
     `reservation` BLOB NOT NULL CHECK (length(`reservation`) = 16),
     `hash` BLOB NOT NULL PRIMARY KEY CHECK (length(`hash`) = 32),

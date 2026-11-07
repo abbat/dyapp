@@ -123,7 +123,10 @@ work resumes the same descriptor for eight days; confirmation retains it seven d
 refresh during its final day. A reservation token rejects stale confirmations even when the
 ciphertext is unchanged. Clock rollback and corrupt descriptors fail closed. Only expired
 ledger metadata is pruned. Session sends from saved packs now use the shared node upload path;
-only the owner ledger retains the release capability. Received-sticker cache integration remains planned.
+only the owner ledger retains the release capability. `sticker_shared_packs` records the exact
+peer/PackID pairs this owner shared, atomically with own sticker projection. Incoming stickers do
+not grant permission. Historical proof survives Clear/Delete but alone cannot authorize a response;
+open/block checks and saved-pack existence are still required. Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

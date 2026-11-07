@@ -1,4 +1,5 @@
 use super::*;
+mod sharing;
 use crate::chat::{AttachmentMessage, Body};
 use crate::store::tests::{catalog_group, temp_db_path};
 use dyapp_identity::Identity;
