@@ -30,6 +30,20 @@ Docker UI stages capture Gradle/emulator output in memory and print one `OK` lin
 captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live output. See
 [local check output](../agents/project.md#local-check-output) for capture limits.
 
+## Linux sticker exchange
+
+The loopback two-client desktop scenario now includes real File/TAR import, selection in the
+saved-pack picker, typed received history and emoji/name fallback after individual-media expiry.
+The runner advances attachment deadlines and quarantines only the isolated sender's generated
+blob files to model completed expiry, without waiting for node maintenance or changing signed
+messages. The other client clicks Add pack while the sender process is stopped, verifies durable
+waiting, then saves the answer after the sender relaunches and sends from that pack. Another
+restart verifies the reply and hidden control-packet projection. Request/image controllers are
+awaited through DOM changes and deadlines; native node passes complete before the next check.
+No fixed sleep or pixel coordinates are added. These native steps execute in Linux CI; prepared
+WebKit runs with mocked IPC establish controller behavior only. Release size comes from CI
+artifacts, not a local native build.
+
 ## What is tested
 
 The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).

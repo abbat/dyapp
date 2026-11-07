@@ -991,7 +991,8 @@ const peerSteps = {
   },
 };
 const checkPeerStep = (kind, peer) => (peerSteps[kind]
-  || globalThis.uiSmokePresence.presenceSteps[kind] || globalThis.uiSmokePhotos.photoSteps[kind])(peer);
+  || globalThis.uiSmokePresence.presenceSteps[kind] || globalThis.uiSmokePhotos.photoSteps[kind]
+  || window.stickerPeerChecks.steps[kind])(peer);
 globalThis.uiSmokeChats = Object.freeze({
   checkChatProjection, checkFirstMessage, checkClearChat, checkChatBlock, checkChatEdit,
   checkChatDelete, checkChatDelivery, checkChatForwarded, checkChatForwardAction, checkChatLinkHosts,

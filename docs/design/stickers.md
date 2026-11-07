@@ -408,6 +408,16 @@ Nodes see the same blob fetched by many readers and can correlate them. Reusing 
 quota and traffic at that cost. Content stays sealed. A recipient can reshare a sticker's descriptor,
 as they could any file they received.
 
+## Desktop integration evidence
+
+Linux CI's existing two-client loopback scenario now imports a real TAR through File/change,
+sends from the saved picker, preserves fallback when an isolated expired blob is unavailable,
+requests the pack while its owner process is stopped, then receives the answer and replies from
+the saved pack across relaunches. The fixture advances node attachment deadlines and quarantines
+generated blob files rather than waiting for maintenance; it does not change MLS packets or app
+clocks. Native execution and final release-size measurements remain CI acceptance, and local
+mocked WebKit checks do not replace them. Other platforms retain their own end-to-end acceptance.
+
 ## To measure
 
 - Real sizes and decode CPU of 512 px, 3 s WebP against the 256 KiB limit.

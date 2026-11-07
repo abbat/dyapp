@@ -184,6 +184,41 @@ def forge_search_signature(node_storage):
                    (forged, key))
 
 
+def expire_sticker_media(node_storage, owner):
+    """Advance only this isolated sender's attachment deadlines, not clocks.
+
+    Quarantine generated blob files to model completed expiry without waiting
+    for node maintenance. Signed packets and MLS history stay intact; the
+    receiver has no saved pack or retained image yet. Nothing is deleted.
+    """
+    database = node_storage / "media.db"
+    if not database.is_file():
+        raise RuntimeError("sticker media database is missing")
+    with contextlib.closing(sqlite3.connect(database, timeout=30)) as db, db:
+        blobs = db.execute(
+            "SELECT DISTINCT `blobs`.`hash` FROM `blobs` "
+            "JOIN `attachments` ON `blobs`.`owner` = `attachments`.`slot` "
+            "WHERE `attachments`.`owner` = ?", (owner,)).fetchall()
+        changed = db.execute(
+            "UPDATE `attachments` SET `expires` = ? WHERE `owner` = ?",
+            (0, owner)).rowcount
+    if changed < 1 or not blobs:
+        raise RuntimeError("no sticker attachment deadline was advanced")
+    quarantine = node_storage / "expired-sticker-media"
+    quarantine.mkdir()
+    moved = 0
+    for (digest,) in blobs:
+        if len(digest) != 32:
+            raise RuntimeError("invalid isolated media hash")
+        name = digest.hex()
+        source = node_storage / "data" / name[:2] / name[2:4] / name
+        if source.is_file():
+            source.replace(quarantine / name)
+            moved += 1
+    if not moved:
+        raise RuntimeError("no individual sticker blob was quarantined")
+
+
 def video_smoke(case, reports):
     """Linux-only raw Tauri channel and Canvas smoke.
 
@@ -604,6 +639,9 @@ def smoke(executable, flows=True):
                     (bob, "liked-gone"), (alice, "chat-first"),
                     (bob, "chat-reply"), (alice, "chat-open"),
                     (bob, "catch-up"), (bob, "chat-clear"),
+                    (alice, "sticker-send"), (bob, "sticker-request"),
+                    (alice, "sticker-answer"), (bob, "sticker-save-reply"),
+                    (alice, "sticker-reply-seen"),
                     (alice, "presence-like"), (bob, "presence-pass"),
                     (bob, "presence-match"),
                     (alice, "presence-send"), (bob, "presence-shown"),
@@ -619,6 +657,8 @@ def smoke(executable, flows=True):
                     case(f"peers-{step}",
                          [*file, f"--ui-test-step=peer:{step}:{peer}"], root,
                          timeout=180)
+                if step == "sticker-send":
+                    expire_sticker_media(storage / "node", peer_id)
             kept = Path(peer_root) / "notices.json"
             notice = json.loads(kept.read_text())[-1]
             body = "&lt;b&gt;notice&lt;/b&gt; text"
