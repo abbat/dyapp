@@ -84,6 +84,12 @@ final class ProfileDraftStoreTests: XCTestCase {
         }
         XCTAssertEqual(profileSaveStatus(CocoaError(.fileReadCorruptFile)), "profile.saveFailed")
 
+        try assertClearingTypedFields(store: store, saved: saved)
+    }
+
+    private func assertClearingTypedFields(
+        store: ProfileRustDraftStore, saved: ProfileDraft
+    ) throws {
         // The switch clears the choices it disables, and clearing a field really clears it.
         var inputs = ProfileExtraInputs(draft: saved)
         XCTAssertEqual(inputs, ProfileExtraInputs(draft: try inputs.inserted(into: saved)))

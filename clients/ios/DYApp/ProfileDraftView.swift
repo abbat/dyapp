@@ -277,6 +277,9 @@ struct ProfileDraftView: View {
         return "profile.eligible"
     }
 
+    }
+
+extension ProfileDraftView {
     @MainActor
     private func resetFields() {
         isLoading = true

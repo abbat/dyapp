@@ -25,6 +25,12 @@ final class ProfileUITests: XCTestCase {
         ], timeout: 10), .completed)
         app.terminate()
 
+        assertRestoredProfile(app, base: base, month: month)
+    }
+
+    private func assertRestoredProfile(
+        _ app: XCUIApplication, base: [String], month: XCUIElement
+    ) {
         let failures: [([String], (String) -> Bool)] = [
             (["-AppleLanguages", "(ru)", "-AppleLocale", "ru_RU"], {
                 $0.hasPrefix("\u{410}\u{43a}\u{442}\u{438}\u{432}\u{43d}\u{430}\u{44f} \u{441}\u{435}\u{442}\u{44c}")
@@ -131,6 +137,12 @@ final class ProfileUITests: XCTestCase {
         ], timeout: 10), .completed, app.debugDescription)
         app.terminate()
 
+        assertTypedFieldsAfterRestart(app, height: height)
+    }
+
+    private func assertTypedFieldsAfterRestart(
+        _ app: XCUIApplication, height: XCUIElement
+    ) {
         app.launch()
         openProfile(app)
         reveal(height, in: app)
@@ -230,6 +242,9 @@ final class ProfileUITests: XCTestCase {
         app.terminate()
     }
 
+    }
+
+extension ProfileUITests {
     private func waitEnabled(_ element: XCUIElement) {
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: element)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 30), .completed, element.debugDescription)

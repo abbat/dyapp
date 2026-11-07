@@ -111,6 +111,9 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
     }
 
+    }
+
+extension ChatsUITests {
     /// From Chats: opens the peer's first message and answers it.
     private func replyToTheRequest(_ app: XCUIApplication) {
         let requests = app.buttons["chats-requests"]

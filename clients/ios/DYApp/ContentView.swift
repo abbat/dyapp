@@ -216,6 +216,9 @@ struct ContentView: View {
         #endif
     }
 
+    }
+
+extension ContentView {
     @ViewBuilder
     private func startEntry(
         _ link: StartLink, _ title: LocalizedStringKey, _ candidate: IdentityCandidate, _ peerId: String

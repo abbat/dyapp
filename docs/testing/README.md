@@ -8,6 +8,11 @@ Local Make checks retain complete Docker output and print `OK` on success or
 
 Multi-layer testing. Rust line coverage is a ratchet: the workspace total never drops below a stored baseline and changed lines are ≥80% covered — see [Coverage policy](#coverage-policy).
 
+Apple UI launch flows are grouped in `LaunchFlows.swift` alongside `LaunchTests.swift`.
+Identity-slot recovery tests live in `clients/ios/Tests/IdentitySlotRecoveryTests.swift`,
+shared with the macOS test target. Shared test fixtures remain test-module helpers;
+production APIs are unchanged. Native Apple CI compiles and runs these tests.
+
 ## Test Layers
 
 ### 1. Unit Tests (In Each Crate)

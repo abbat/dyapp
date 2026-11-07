@@ -165,6 +165,9 @@ final class ChatsUITests: XCTestCase {
         return app
     }
 
+    }
+
+extension ChatsUITests {
     private func editAndDeleteTheReply(_ app: XCUIApplication, input: XCUIElement) {
         menuItem("msg-edit", title: "Edit", in: app).click()
         XCTAssertTrue(app.staticTexts["chat-editing"].waitForExistence(timeout: 10), app.debugDescription)

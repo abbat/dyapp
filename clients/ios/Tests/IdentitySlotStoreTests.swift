@@ -2,16 +2,16 @@
 import Foundation
 import XCTest
 
-final class IdentitySlotStoreTests: XCTestCase {
-    private func root() throws -> URL {
+ func identitySlotTestRoot() throws -> URL {
         let path = FileManager.default.temporaryDirectory
             .appendingPathComponent("dyapp-slot-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: path, withIntermediateDirectories: false)
         return path
     }
 
+    final class IdentitySlotStoreTests: XCTestCase {
     func testNetworkDirectoryFollowsSelectedIdentityWithoutCreatingIt() throws {
-        let root = try root()
+        let root = try identitySlotTestRoot()
         let id = UUID()
         let legacy = IdentityCandidate(location: .legacy, state: .ready)
         let slot = IdentityCandidate(location: .slot(id), state: .ready)
@@ -23,7 +23,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testTwoSlotsReopenWithDistinctStablePeerIDs() throws {
-        let store = IdentitySlotStore(root: try root())
+        let store = IdentitySlotStore(root: try identitySlotTestRoot())
         let first = try store.create()
         let second = try store.create()
         XCTAssertNotEqual(first.slot.id, second.slot.id)
@@ -39,7 +39,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testPendingAndMalformedSlotsCannotGenerateReplacementKeys() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let id = UUID()
         let slot = path.appendingPathComponent("profiles", isDirectory: true)
             .appendingPathComponent(id.uuidString.lowercased(), isDirectory: true)
@@ -59,7 +59,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testExistingKeychainAccountIsNeverReused() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let orphan = UUID()
         let next = UUID()
         let keyStore = PlatformKeyStore.forSlot(orphan)
@@ -75,7 +75,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testLegacyRootIdentityReopensWithItsOriginalPeerID() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let original = IdentityKey.generate()
         try original.wrap(store: legacyStore).write(
@@ -91,7 +91,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testTwoSlotsCanBeSelectedAndReopened() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
         let first = try slots.create()
@@ -114,7 +114,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testInvalidPointerFallsBackWithoutChangingAKey() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let slots = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let first = try slots.create()
         let pointer = path.appendingPathComponent("active-profile")
@@ -133,7 +133,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testExplicitNoSelectionDoesNotAutoOpenSoleSurvivor() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
         let only = try store.create()
@@ -152,7 +152,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testExplicitNoSelectionKeepsMissingLegacyKeyVisible() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
         try Data("none\n".utf8).write(to: path.appendingPathComponent("active-profile"))
@@ -162,7 +162,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testDeletingTombstoneRemainsVisibleWithoutDirectory() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let profiles = path.appendingPathComponent("profiles")
         try FileManager.default.createDirectory(at: profiles, withIntermediateDirectories: true)
         let id = UUID()
@@ -188,7 +188,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testConfirmedRemovalKeepsOtherSlotAndLeavesNoSelection() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let first = try store.create()
         let survivor = try store.create()
@@ -222,7 +222,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testRemovalRefusesDamagedSlotAndPreservesLegacyAccount() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let legacy = IdentityKey.generate()
         let legacyFile = path.appendingPathComponent("identity.key")
@@ -241,7 +241,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testRemovalRefusesUnknownContentBeforeErasingKey() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(root: path)
         let slot = try store.create()
         let folder = path.appendingPathComponent("profiles")
@@ -254,7 +254,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testRemovalResumesAfterKeychainEraseAndMissingDirectory() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let slot = try store.create()
         let profiles = path.appendingPathComponent("profiles")
@@ -269,7 +269,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testRemovalFromPickerDoesNotAutoSelectSoleSurvivor() throws {
-        let store = IdentitySlotStore(root: try root(), legacyStore: PlatformKeyStore.forSlot(UUID()))
+        let store = IdentitySlotStore(root: try identitySlotTestRoot(), legacyStore: PlatformKeyStore.forSlot(UUID()))
         let removed = try store.create()
         let survivor = try store.create()
         try store.remove(removed.slot.id, confirming: removed.peerId)
@@ -283,7 +283,7 @@ extension IdentitySlotStoreTests {
     @objc
     func testFailedKeychainEraseLeavesVisibleTombstoneAndRequiresSamePeerIDOnRetry() throws {
         enum SimulatedFailure: Error { case erase }
-        let path = try root()
+        let path = try identitySlotTestRoot()
         var failErase = true
         let erase: (UUID) throws -> Void = { id in
             if failErase { throw SimulatedFailure.erase }
@@ -315,7 +315,7 @@ extension IdentitySlotStoreTests {
 
     @objc
     func testRemovalResumesAfterPartialFileCleanup() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let slot = try store.create()
         let profiles = path.appendingPathComponent("profiles")
@@ -334,7 +334,7 @@ extension IdentitySlotStoreTests {
 
     @objc
     func testRemovalVerifiesKeychainItemIsGoneBeforeFileCleanup() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let skipErase: (UUID) throws -> Void = { _ in }
         let store = IdentitySlotStore(root: path, eraseWrappingKey: skipErase)
         let slot = try store.create()
@@ -354,7 +354,7 @@ extension IdentitySlotStoreTests {
 extension IdentitySlotStoreTests {
     @objc
     func testSurvivorNetworkAndPeerIDReopenAfterOtherSlotRemoval() throws {
-        let path = try root()
+        let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
         let store = IdentitySlotStore(root: path, legacyStore: legacyStore)
         let survivor = try store.create()
@@ -387,113 +387,5 @@ extension IdentitySlotStoreTests {
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: removedDir.path))
         XCTAssertFalse(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
-    }
-}
-
-extension IdentitySlotStoreTests {
-    @objc
-    func testUnreadableSlotCannotReplaceSelectedIdentity() throws {
-        let path = try root()
-        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
-        let selected = try store.create()
-        let unreadable = try store.create()
-        try store.select(.slot(selected.slot.id))
-        let pointer = path.appendingPathComponent("active-profile")
-        let savedPointer = try Data(contentsOf: pointer)
-        let file = path.appendingPathComponent("profiles")
-            .appendingPathComponent(unreadable.slot.id.uuidString.lowercased())
-            .appendingPathComponent("identity.key")
-        try Data("invalid wrapped key".utf8).write(to: file, options: .atomic)
-
-        XCTAssertThrowsError(try store.select(.slot(unreadable.slot.id)))
-        XCTAssertEqual(try Data(contentsOf: pointer), savedPointer)
-        XCTAssertEqual(try store.resolve(), .ready(
-            IdentityCandidate(location: .slot(selected.slot.id), state: .ready), selected.peerId
-        ))
-        XCTAssertTrue(try PlatformKeyStore.forSlot(unreadable.slot.id).containsWrappingKey())
-        XCTAssertEqual(try store.candidates().count, 2)
-    }
-
-    @objc
-    func testLostSelectedKeyIsUnavailableWithoutReplacement() throws {
-        let path = try root()
-        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
-        let lost = try store.create()
-        try store.select(.slot(lost.slot.id))
-        let pointer = path.appendingPathComponent("active-profile")
-        let savedPointer = try Data(contentsOf: pointer)
-        try PlatformKeyStore.eraseWrappingKey(forSlot: lost.slot.id)
-
-        XCTAssertEqual(try store.resolve(), .recovery(.slot(lost.slot.id), .unavailable))
-        XCTAssertThrowsError(try store.select(.slot(lost.slot.id)))
-        XCTAssertEqual(try Data(contentsOf: pointer), savedPointer)
-        XCTAssertFalse(try PlatformKeyStore.forSlot(lost.slot.id).containsWrappingKey())
-        XCTAssertEqual(try store.candidates(), [
-            IdentityCandidate(location: .slot(lost.slot.id), state: .ready),
-        ])
-    }
-}
-
-extension IdentitySlotStoreTests {
-    @objc
-    func testProfileDraftsStayInTheirSlots() throws {
-        let path = try root()
-        let slots = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
-        let first = try slots.create()
-        let second = try slots.create()
-        let firstCandidate = IdentityCandidate(location: .slot(first.slot.id), state: .ready)
-        let secondCandidate = IdentityCandidate(location: .slot(second.slot.id), state: .ready)
-        let firstDraft = ProfileDraftStore(root: path, candidate: firstCandidate, peerId: first.peerId)
-        let secondDraft = ProfileDraftStore(root: path, candidate: secondCandidate, peerId: second.peerId)
-        try firstDraft.save(["gender": 1])
-        try secondDraft.save(["orientation": 2])
-        XCTAssertNotEqual(firstDraft.file, secondDraft.file)
-        XCTAssertEqual(try firstDraft.load(), ["gender": 1])
-        XCTAssertEqual(try secondDraft.load(), ["orientation": 2])
-
-    }
-}
-
-extension IdentitySlotStoreTests {
-    @objc
-    func testMissingLegacyAndIncompleteSlotNeverCreateAReplacement() throws {
-        let path = try root()
-        let legacyStore = PlatformKeyStore.forSlot(UUID())
-        let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
-        XCTAssertEqual(try slots.resolve(), .setup)
-
-        let key = IdentityKey.generate()
-        _ = try key.wrap(store: legacyStore)
-        XCTAssertEqual(try slots.resolve(), .recovery(.legacy, .missing))
-        let pointer = path.appendingPathComponent("active-profile")
-        try Data("legacy-primary\n".utf8).write(to: pointer)
-        XCTAssertEqual(try slots.resolve(), .recovery(.legacy, .missing))
-
-        let id = UUID()
-        let folder = path.appendingPathComponent("profiles")
-            .appendingPathComponent(id.uuidString.lowercased())
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data("pending\n".utf8).write(to: folder.appendingPathComponent("state"))
-        try Data("\(id.uuidString.lowercased())\n".utf8).write(to: pointer)
-        XCTAssertEqual(try slots.resolve(), .recovery(.slot(id), .incomplete))
-        XCTAssertFalse(try PlatformKeyStore.forSlot(id).containsWrappingKey())
-    }
-
-    @objc
-    func testDirectoryCollisionIsNeverOverwritten() throws {
-        let path = try root()
-        let collision = UUID()
-        let next = UUID()
-        let first = IdentitySlotStore(root: path) { collision }
-        let original = try first.create()
-        var calls = 0
-        let second = IdentitySlotStore(root: path) {
-            calls += 1
-            return calls == 1 ? collision : next
-        }
-        let another = try second.create()
-        XCTAssertEqual(another.slot.id, next)
-        XCTAssertEqual(try first.open(original.slot).peerId(), original.peerId)
-        XCTAssertNotEqual(another.peerId, original.peerId)
     }
 }
