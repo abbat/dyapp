@@ -25,9 +25,11 @@ const updateComposer = () => {
   const bytes = new TextEncoder().encode(chatInput.value).length;
   chatInput.disabled = !writable;
   chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
+  chatSend.hidden = !chatInput.value.trim();
   const attach = document.getElementById('chat-attach');
-  attach.hidden = activeChat?.state !== 'open';
-  attach.disabled = !writable;
+  attach.hidden = false;
+  attach.disabled = !writable || activeChat?.state !== 'open';
+  document.getElementById('chat-stickers').disabled = attach.disabled;
   document.getElementById('chat-first-notice').hidden = !waiting;
   document.getElementById('chat-closed-notice').hidden = !closed;
   document.getElementById('chat-request-notice').hidden = activeChat?.state !== 'requestReceived';

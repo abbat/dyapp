@@ -27,8 +27,9 @@ identity lease keeps the slot open. Lists return 32-entry pages with sizes and i
 
 ## Sticker collection
 
-The shipped Settings contains the card `sticker-collection` and native disclosure `sticker-packs`.
-The redesigned prototype moves that card to the separate sticker manager.
+The shipped composer opens the `sticker-manager` dialog, containing the card
+`sticker-collection` and native disclosure `sticker-packs`. Its Cancel/Escape closes
+the manager and restores composer focus. The collection no longer sits in Settings.
 `sticker-import` opens a TAR picker; cancelling it changes nothing. The browser must
 refuse files above 8 MiB before reading them. `sticker-refresh` restarts listing from
 the first page; `sticker-next` opens the next 32-entry page. Loading and import
@@ -292,13 +293,14 @@ and timed cleanup are best effort
 
 ## Chats
 
-The prototype composer orders `chat-attach`, `chat-input`, `chat-stickers`, then
+The prototype and shipped composer order `chat-attach`, `chat-input`, `chat-stickers`, then
 `chat-send`. Paperclip, sticker and send icons have localized accessible names and
 tooltips. Empty text hides Send inside a reserved slot, preserving textarea width
 and focus; `chat-draft` previews a nonempty draft. Pending-request and closed states
-disable the controls. The sticker button opens the collection manager. The shipped
-composer integration follows in a separate checkpoint; Enter/Shift+Enter behavior
-continues to belong to its existing send handler.
+disable media controls. A received request still permits a text reply. The sticker
+button opens the collection manager. Enter submits through the normal validated send
+handler; Shift+Enter inserts a line and composing Enter leaves the IME in control.
+Sticker image selection and sending remain a separate transport/picker task.
 
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
@@ -480,7 +482,8 @@ the shipped client; its existing inline controls below remain implemented until 
 Immediate binary settings use switches; theme and language default to System. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
 has its own `sticker-manager` screen in `stickers-*` states, entered from the prototype
-composer's `chat-stickers` button. Shipped picker integration remains planned.
+composer's `chat-stickers` button. The shipped manager follows that entry; image
+selection and sending remain planned.
 
 Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning

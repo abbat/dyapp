@@ -12,6 +12,9 @@
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
     <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-attach" viewBox="0 0 24 24"><path d="m9 16 8-8a3 3 0 0 0-4-4L4 13a5 5 0 0 0 7 7l9-9"/><path d="m7 14 8-8"/></symbol>
+    <symbol id="i-sticker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14q4 5 8 0M8 9h1M15 9h1"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 18 9-18 9 3-9zM6 12h15"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
     <symbol id="i-network" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11 16.7 6M7.3 13l9.4 5"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
@@ -462,14 +465,15 @@
             <button id="request-block" class="btn quiet" type="button" data-i18n="view.block"></button>
           </div>
           <form id="chat-composer">
-            <label for="chat-input" data-i18n="chats.message"></label>
-            <textarea id="chat-input" rows="3" maxlength="65536"></textarea>
+            <label for="chat-input" class="sr-only" data-i18n="chats.message"></label>
+            <div class="composer">
+              <button id="chat-attach" class="btn quiet icon-button" type="button" aria-label="Attach photo" data-i18n-label="chats.attach" disabled><svg class="icon" aria-hidden="true"><use href="#i-attach"/></svg></button>
+              <textarea id="chat-input" rows="1" maxlength="65536" data-i18n-placeholder="chats.message"></textarea>
+              <button id="chat-stickers" class="btn quiet icon-button" type="button" aria-label="Stickers" data-i18n-label="stickers.title" disabled><svg class="icon" aria-hidden="true"><use href="#i-sticker"/></svg></button>
+              <span class="send-slot"><button id="chat-send" class="btn primary icon-button" type="submit" aria-label="Send" data-i18n-label="chats.send" disabled hidden><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button></span>
+            </div>
             <p id="chat-compose-status" class="caption" role="status"></p>
             <input id="chat-photo-input" type="file" accept="image/png,image/jpeg" hidden>
-            <div class="actions"><button id="chat-attach" class="btn quiet" type="button"
-              data-i18n="chats.attach" hidden></button>
-              <button id="chat-send" class="btn primary" type="submit"
-              data-i18n="chats.send" disabled></button></div>
           </form>
         </div>
       </section>
@@ -521,24 +525,6 @@
           <p id="devices-status" class="notice" role="status" aria-live="polite"></p>
           <p class="caption" data-i18n="devices.hint"></p>
           <div class="actions"><button id="device-link" class="btn" type="button" data-i18n="devices.link"></button></div>
-        </div>
-        <div id="sticker-collection" class="card">
-          <h2 data-i18n="stickers.title"></h2>
-          <details id="sticker-packs">
-            <summary data-i18n="stickers.collection"></summary>
-            <p class="caption" data-i18n="stickers.hint"></p>
-            <div class="actions">
-              <button id="sticker-import" class="btn" type="button" data-i18n="stickers.import"></button>
-              <button id="sticker-refresh" class="btn" type="button" data-i18n="stickers.refresh"></button>
-            </div>
-            <input id="sticker-file" type="file" accept=".tar,application/x-tar" hidden>
-            <p id="sticker-status" class="notice" role="status" aria-live="polite" hidden></p>
-            <details id="sticker-details" hidden><summary data-i18n="stickers.details"></summary>
-              <p id="sticker-reason" class="caption"></p></details>
-            <ul id="sticker-list"></ul>
-            <p id="sticker-unknown" class="notice" data-i18n="stickers.unknown" hidden></p>
-            <button id="sticker-next" class="btn" type="button" data-i18n="stickers.next" hidden></button>
-          </details>
         </div>
         <div id="blocked" class="card">
           <h2 data-i18n="settings.blocked"></h2>
@@ -663,6 +649,27 @@
       <span id="status-traffic-note" class="sr-only" data-i18n="statusbar.trafficNote"></span>
     </footer>
   </div>
+  <dialog id="sticker-manager" class="modal" aria-labelledby="sticker-manager-title" hidden>
+        <div id="sticker-collection" class="card">
+          <h2 id="sticker-manager-title" data-i18n="stickers.title"></h2>
+          <details id="sticker-packs">
+            <summary data-i18n="stickers.collection"></summary>
+            <p class="caption" data-i18n="stickers.hint"></p>
+            <div class="actions">
+              <button id="sticker-import" class="btn" type="button" data-i18n="stickers.import"></button>
+              <button id="sticker-refresh" class="btn" type="button" data-i18n="stickers.refresh"></button>
+            </div>
+            <input id="sticker-file" type="file" accept=".tar,application/x-tar" hidden>
+            <p id="sticker-status" class="notice" role="status" aria-live="polite" hidden></p>
+            <details id="sticker-details" hidden><summary data-i18n="stickers.details"></summary>
+              <p id="sticker-reason" class="caption"></p></details>
+            <ul id="sticker-list"></ul>
+            <p id="sticker-unknown" class="notice" data-i18n="stickers.unknown" hidden></p>
+            <button id="sticker-next" class="btn" type="button" data-i18n="stickers.next" hidden></button>
+          </details>
+        </div>
+    <div class="actions"><button id="sticker-manager-cancel" class="btn" type="button" data-i18n="page.cancel"></button></div>
+  </dialog>
   <dialog id="remove" class="modal" aria-labelledby="remove-title" hidden>
     <h2 id="remove-title" data-i18n="remove.title"></h2>
     <p id="remove-who" class="who"></p>
@@ -865,6 +872,7 @@
   <script src="saved-profiles.js"></script>
   <script src="photo-settings.js"></script>
   <script src="stickers.js"></script>
+  <script src="chat-composer.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>
   <script src="peer-photos.js"></script>

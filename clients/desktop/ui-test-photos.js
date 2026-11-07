@@ -70,7 +70,7 @@ const checkChatPhoto = async () => {
   }
   if (!box.classList.contains('blurred')) throw new Error('a stranger preview was not blurred');
   await shot('chat-photo-blurred');
-  if (!document.getElementById('chat-attach').hidden) throw new Error('a request offered Attach');
+  if (!document.getElementById('chat-attach').disabled) throw new Error('a request enabled Attach');
   box.querySelector('.photo-show').click();
   if (box.classList.contains('blurred') || box.querySelector('.photo-show')
     || document.activeElement !== canvas) {

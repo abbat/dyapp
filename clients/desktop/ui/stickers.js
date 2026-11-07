@@ -2,6 +2,8 @@
 (() => {
   const el = (id) => document.getElementById(`sticker-${id}`);
   const panel = document.getElementById('sticker-packs');
+  const manager = document.getElementById('sticker-manager');
+  let openedFrom = null;
   const text = (key) => window.strings[`stickers.${key}`];
   let view = null;
   let pickedFor = null;
@@ -9,7 +11,7 @@
   const dialog = el('remove-dialog');
   const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
   const active = (target) => target && view === target && panel.open
-    && identityCurrent(target.generation) && !document.getElementById('settings').hidden;
+    && identityCurrent(target.generation) && manager.open;
   const message = (key, error = false) => {
     el('status').textContent = key ? text(key) : '';
     el('status').hidden = !key;
@@ -120,6 +122,9 @@
   const close = () => {
     view = null;
     closeDialog();
+    if (manager.open) manager.close();
+    manager.hidden = true;
+    openedFrom = null;
     pickedFor = null;
     panel.open = false;
     el('file').value = '';
@@ -133,6 +138,12 @@
   };
   const open = (call = invoke) => {
     closeDialog();
+    if (!manager.open) {
+      openedFrom = document.activeElement;
+      manager.hidden = false;
+      manager.showModal();
+    }
+    panel.open = true;
     const target = { generation: identityGeneration, identityId: current?.peerId, call, busy: false, next: null };
     view = target;
     el('list').replaceChildren();
@@ -184,8 +195,17 @@
     el('file').value = '';
     window.stickerImported = importFile(file, target);
   });
+  const dismiss = () => {
+    const button = openedFrom;
+    close();
+    if (button?.isConnected && !button.disabled) button.focus();
+  };
+  document.getElementById('sticker-manager-cancel').addEventListener('click', dismiss);
+  manager.addEventListener('cancel', (event) => { event.preventDefault(); dismiss(); });
+  // A queued close event from an earlier opening must not close a newly reopened manager.
+  manager.addEventListener('close', () => { if (!manager.open) close(); });
   document.addEventListener('dyapp:identity-change', close);
-  document.addEventListener('dyapp:area-change', (event) => { if (event.detail !== 'settings') close(); });
+  document.addEventListener('dyapp:area-change', close);
   window.stickerMessageText = (sticker) => text('message')
     .replace('{emoji}', () => sticker.emoji).replace('{name}', () => sticker.packName);
   window.stickerCollection = { open, close, importFile };

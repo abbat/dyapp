@@ -8,6 +8,20 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Shipped composer and collection dialog (2026-11-07)
+
+Reviewed empty/draft, pending/closed/request chats and the adjacent collection,
+import and removal dialogs against H1–H10 and ADR 0046. The row retains its Send
+slot and accessible translated icon names. Enter uses the existing validated form
+submission; Shift+Enter and IME composition retain editing. Ineligible chats disable
+media actions. Cancel/Escape closes the collection and returns focus to its opener;
+identity/navigation changes discard its callbacks. Moving collection management out
+of Settings keeps preferences separate from stored content (S7). Existing import
+and removal confirmations remain unchanged. Dynamic geometry/focus and event smoke
+cover the actual shipped controllers with mocked IPC; native execution remains for
+final-push CI. No open source finding; sticker image selection and transport remain
+separate planned work.
+
 ## Composer prototype row (2026-11-07)
 
 The requested messenger pattern uses paperclip, sticker and send symbols, in that

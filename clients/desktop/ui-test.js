@@ -668,6 +668,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await checkSettingsInventory(state.peerId, state.mode);
       await window.checkStickerCollection();
       await window.checkStickerRemoval();
+      await window.checkChatComposer();
       await openArea('settings');
       document.getElementById('settings-create').click();
       await waitFor('setup');
