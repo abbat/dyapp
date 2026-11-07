@@ -143,3 +143,64 @@ fn failed_recent_insert_or_trim_rolls_back_history_mls_hlc_and_outbox() {
         assert!(!store.shared_sticker_pack(&peer, &[99; 32]).unwrap());
     }
 }
+
+#[test]
+fn shared_image_hash_retains_each_selected_label_and_reorders_the_exact_choice() {
+    let (mut store, owner, path, _) = fixture();
+    let (mut sticker, _) = send(&mut store, 1, 10, b"first").unwrap();
+    sticker.id = [2; 16];
+    sticker.hlc = store.draft_chat_text(1000).unwrap();
+    sticker.emoji = "🐱".into();
+    let write = crate::prepare_put(&[2; 32], vec![2]).unwrap();
+    store
+        .stage_chat_outbound(
+            b"second",
+            &[write],
+            VerifiedChatSender {
+                group: &[9],
+                author: &owner.peer_id(),
+                device: &[8; 32],
+            },
+            &Body::Sticker(Box::new(sticker)),
+            1000,
+        )
+        .unwrap();
+    let entries = store.recent_stickers().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert!(entries
+        .iter()
+        .all(|entry| entry.pack_id == [10; 32] && entry.sha256 == [10; 32]));
+    assert_eq!(
+        entries
+            .iter()
+            .map(|entry| entry.emoji.as_str())
+            .collect::<Vec<_>>(),
+        ["🐱", "😺"]
+    );
+    send(&mut store, 3, 10, b"third").unwrap();
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    let entries = store.recent_stickers().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(
+        entries
+            .iter()
+            .map(|entry| entry.emoji.as_str())
+            .collect::<Vec<_>>(),
+        ["😺", "🐱"]
+    );
+}
+
+#[test]
+fn corrupt_recent_label_is_not_projected_to_picker() {
+    let (mut store, _, _, _) = fixture();
+    send(&mut store, 1, 10, b"sent").unwrap();
+    store
+        .db
+        .execute(
+            "UPDATE `sticker_recents` SET `emoji` = ?",
+            ["two graphemes"],
+        )
+        .unwrap();
+    assert!(matches!(store.recent_stickers(), Err(Error::InboxConflict)));
+}

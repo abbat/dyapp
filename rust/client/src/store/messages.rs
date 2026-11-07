@@ -104,8 +104,9 @@ CREATE TABLE `sticker_pack_requests` (
 CREATE TABLE `sticker_recents` (
     `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
     `sticker_hash` BLOB NOT NULL CHECK (length(`sticker_hash`) = 32),
+    `emoji` TEXT NOT NULL CHECK (length(`emoji`) BETWEEN 1 AND 64),
     `used_hlc` INTEGER NOT NULL CHECK (`used_hlc` >= 0),
-    PRIMARY KEY (`pack_id`, `sticker_hash`)
+    PRIMARY KEY (`pack_id`, `sticker_hash`, `emoji`)
 ) STRICT;
 CREATE TABLE `sticker_shared_packs` (
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),

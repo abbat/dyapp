@@ -22,6 +22,9 @@ which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property te
 an explicit feature and dependency-policy decision; no `PROPTEST_FORK`/`PROPTEST_TIMEOUT`
 overrides are supported by the current configuration.
 
+Sticker manifests may repeat an image hash with different emoji labels. Recent-sticker lookup
+must match both hash and emoji within the PackID to preserve the selected fallback/accessibility label.
+
 Importer boundary tests use literal protocol byte limits and assert the specific rejection
 stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,
 can hide a broken size guard; validate inclusive limits and each independent invalid operand.
