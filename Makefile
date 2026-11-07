@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt fmt-write build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android lint-linux fmt fmt-write build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
 
 .SILENT:
 
@@ -104,6 +104,9 @@ ui-prototype:
 
 ui-prototype-android:
 	bash tests/scripts/ui-test.sh prototype-android
+
+lint-linux:
+	$(DOCKER) -f tests/docker/compose.ui.yml --profile linux run --no-deps --pull never linux-test bash tests/scripts/linux-test.sh --lint
 
 ui-test-linux:
 	bash tests/scripts/ui-test.sh linux

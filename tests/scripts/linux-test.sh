@@ -26,6 +26,10 @@ fi
 shift
 manifest="$root/clients/linux/Cargo.toml"
 units="$root/build/unit-build.json"
+cargo clippy --manifest-path "$manifest" --all-targets --locked -- -D warnings
+if [[ ${1:-} == --lint ]]; then
+    exit 0
+fi
 cargo build --manifest-path "$manifest" --locked
 if ! cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"; then
     python3 -B "$root/tests/scripts/cargo-errors.py" "$units" >&2

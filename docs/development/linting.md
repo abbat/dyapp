@@ -50,6 +50,11 @@ the fast staged checks, see [code-quality.md](code-quality.md#git-hooks).
 
 ## Rust
 
+Native Linux CI runs Clippy on every target before building and testing the desktop crate.
+`make lint-linux` runs that Clippy check alone in the Linux test container; it requires the
+Linux images prepared with Clippy and rustfmt 1.99.0. The command may compile dependencies
+on a cold cache. `make fmt` checks formatting without compilation.
+
 Quality container (the gate):
 
 ```bash

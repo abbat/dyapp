@@ -23,4 +23,6 @@ COPY clients clients
 RUN cargo fetch --locked && \
     cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
     chmod -R a+rX /usr/local/cargo/registry
+# Keep tooling after dependency fetches so adding checks preserves those cached layers.
+RUN rustup component add clippy rustfmt --toolchain 1.99.0
 ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
