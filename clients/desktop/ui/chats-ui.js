@@ -169,6 +169,8 @@ const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
   clearDialog.hidden = true;
   clearTarget = null;
+  document.getElementById('chat-clear-name').textContent = '';
+  document.getElementById('chat-clear-peer').textContent = '';
   clearBusy = false;
   clearCancel.disabled = false;
   clearConfirm.disabled = false;
@@ -181,6 +183,8 @@ clearCancel.addEventListener('click', closeClear);
 document.getElementById('chat-clear').addEventListener('click', () => {
   if (!activeChat) return;
   clearTarget = { peerId: activeChat.peerId, generation: identityGeneration, request: chatOpenRequest };
+  document.getElementById('chat-clear-name').textContent = window.peerName(activeChat.peerId);
+  document.getElementById('chat-clear-peer').textContent = activeChat.peerId;
   clearError.hidden = true;
   clearError.textContent = '';
   clearDialog.hidden = false;

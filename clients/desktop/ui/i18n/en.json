@@ -537,7 +537,7 @@
   "peer.unverified": "Not verified",
   "chats.clear": "Clear chat",
   "chats.clearTitle": "Clear this chat?",
-  "chats.clearWarning": "Messages and their kept originals will be removed from this computer only. The other person keeps their copy. Unsent messages are cancelled.",
+  "chats.clearWarning": "Messages and their kept originals will be removed from this computer only. The other person keeps their copy. Unsent messages and pending sticker-pack requests are cancelled. Saved packs stay.",
   "chats.cleared": "Chat cleared on this computer. The other person keeps their copy.",
   "chats.clearFailed": "Could not clear chat:",
   "chats.blockFailed": "Could not block this person:",

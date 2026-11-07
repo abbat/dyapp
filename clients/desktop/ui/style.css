@@ -333,6 +333,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .modal .actions { justify-content: space-between; }
 dialog.modal { border: 0; color: var(--text); }
 dialog.modal::backdrop { background: #0007; }
+.confirm-id, .confirm-id dd { margin: 0; }
 @media (max-width: 640px) { .modal .actions { flex-direction: column-reverse; } }
 
 /* Heuristic review fixes (docs/design/desktop-heuristics.md). */

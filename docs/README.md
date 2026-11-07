@@ -40,13 +40,14 @@ it are entry points that tools discover by path (see
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks
 - [Read receipts and typing indicators](design/read-receipts.md): planned opt-in "read up to" signal; typing waits for a direct path
 - [Message edits and deletion](design/message-edits-and-deletion.md): private operations, ordering, placeholders and best-effort node removal
-- [Sticker packs](design/stickers.md): planned TAR import, WebP validation, chat tags 13 to 15, delivery through sealed attachments and limits
+- [Sticker packs](design/stickers.md): validated TAR/WebP, chat tags 14 to 16, durable pack exchange, shared media storage and planned picker UI
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Profile photos](design/profile-photos.md): planned publication, limits, cache and failure states
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
 - [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client, checked against the static Android prototype
 - [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
 - [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of the prototype and the shipped desktop UI, its fixes and the rule to re-check screen changes
+- [Desktop sticker interaction review](design/desktop-sticker-review.md): Clear chat, pending requests and planned picker checkpoints
 - [UI review criteria](design/review-criteria.md): sourced settings, layout, identifier and dialog criteria, and the checks that enforce them; [decision](decisions/0046-ui-review-criteria.md)
 - [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors

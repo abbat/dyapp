@@ -416,15 +416,18 @@ over a direct path.
 | Attach photo | `chat-attach` | Open conversations only; picks a JPEG or PNG and sends it at once. It goes without its metadata, at most 2560 px, and a refusal stays in the composer status |
 | Send | `chat-send` | Disabled while the box is empty |
 
-`chat-clear-dialog` confirms Clear chat: the messages are deleted from this computer only, the
-peer keeps theirs, cleared messages do not come back and unsent ones are cancelled
+`chat-clear-dialog` confirms Clear chat: contact name and full Peer ID precede the consequence.
+Messages/originals are removed from this computer only, the peer keeps theirs, cleared messages
+do not return, and unsent messages and pending pack requests are cancelled. Saved packs stay
 ([contract](message-edits-and-deletion.md#clearing-a-conversation)). `chat-cleared`: the
 same chat, empty, with a note; the match and the chat row stay.
 
 | Control | ID | Notes |
 | --- | --- | --- |
-| Cancel | `chat-clear-cancel` | Left, focused |
-| Clear chat | `chat-clear-confirm` | Right |
+| Contact name | `chat-clear-name` | Plain text before identifier and consequence |
+| Full Peer ID | `chat-clear-peer` | Shared identifier, labelled by `chat-clear-peer-label`; raw copy unchanged |
+| Cancel | `chat-clear-cancel` | Initial focus, returns to opener |
+| Clear chat | `chat-clear-confirm` | Explicit destructive action |
 | Cleared note | `chat-cleared-note` | `chat-cleared` only |
 
 `chat-rename-dialog` sets a name only this identity sees; it is stored locally and never published

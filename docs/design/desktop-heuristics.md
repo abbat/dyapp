@@ -2,8 +2,8 @@
 
 Reviews cover the [desktop prototype and shipped UI](desktop-screens.md) against
 [Nielsen's heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/)
-and [ADR 0046 criteria](review-criteria.md). Initial reviews date from 2026-10-29;
-checkpoint evidence and its limits follow. See [When to review](#when-to-review).
+and [ADR 0046 criteria](review-criteria.md). Initial reviews date from 2026-10-29.
+See [sticker checkpoints](desktop-sticker-review.md) and [When to review](#when-to-review).
 
 Shared identifier review (2026-11-07): one separated monospace container with eight-grapheme breaks.
 Actual WebKit tests preserve raw copy, same-value updates, emoji/combining sequences and literal markup.

@@ -48,6 +48,10 @@ unreadable packs. After an uncertain error, refresh before retrying. Sending rem
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.
 
+**Clear chat** names the contact and full Peer ID before confirmation. It removes this
+computer's messages/originals and cancels pending pack requests. Saved packs and local recent
+stickers stay. Already accepted mailbox packets cannot be recalled.
+
 ## Interests
 
 Enter **Interests** with one tag per line (up to 32 tags, 64 characters each).
