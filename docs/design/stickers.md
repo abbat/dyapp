@@ -333,7 +333,10 @@ entries. Each entry carries only its index, emoji and an RGBA thumbnail resized 
 96 px with the existing image library. The response also carries clean pack name/ID, total and
 next offset; it contains no WebP, attachment key or capability. `send_saved_sticker` accepts
 only peer/pack/index plus the viewed identity, loads the validated saved pack and sends through
-the common session gate/outbox. Canvas picker UI remains planned.
+the common session gate/outbox. Core `recent_stickers` now returns at most 20 device-local
+PackID/hash pairs. A new local send updates their HLC order in the same history/MLS/outbox
+transaction; receive, replay and failed staging do not change recents. No labels or capabilities
+are stored there. Native recent-picker projection and canvas picker UI remain planned.
 
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.

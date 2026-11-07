@@ -101,6 +101,12 @@ CREATE TABLE `sticker_pack_requests` (
     `request_token` BLOB NOT NULL CHECK (length(`request_token`) = 16),
     PRIMARY KEY (`peer_id`, `pack_id`)
 ) STRICT;
+CREATE TABLE `sticker_recents` (
+    `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
+    `sticker_hash` BLOB NOT NULL CHECK (length(`sticker_hash`) = 32),
+    `used_hlc` INTEGER NOT NULL CHECK (`used_hlc` >= 0),
+    PRIMARY KEY (`pack_id`, `sticker_hash`)
+) STRICT;
 CREATE TABLE `sticker_shared_packs` (
     `peer_id` TEXT NOT NULL CHECK (length(`peer_id`) > 0),
     `pack_id` BLOB NOT NULL CHECK (length(`pack_id`) = 32),
@@ -424,6 +430,9 @@ impl Store {
         // An outbound action must change local state; replay uses the exact existing outbox write.
         if !changed {
             return Err(Error::InboxConflict);
+        }
+        if let Body::Sticker(sticker) = body {
+            super::sticker_packs::recents::record(tx, sticker)?;
         }
         let updated = if body.is_media_message() {
             tx.execute(

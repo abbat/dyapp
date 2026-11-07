@@ -18,6 +18,8 @@ use zeroize::Zeroizing;
 pub mod exchange;
 /// Bounded collection metadata and per-entry read errors.
 pub mod list;
+/// Twenty device-local recent stickers from durable local sends.
+pub mod recents;
 /// Reusable sender descriptors and charged upload reservations.
 pub mod uploads;
 

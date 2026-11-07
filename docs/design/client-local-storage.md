@@ -115,6 +115,11 @@ unrelated/pending files, and returns false for an absent pack. Unix directory sy
 A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
 best-effort removal of this local copy. Desktop now offers a per-pack confirmation, including
 unreadable entries, and refreshes the collection after success or ambiguous failure.
+`sticker_recents` keeps at most 20 device-local PackID/sticker-hash pairs, ordered by the
+validated own-send HLC with deterministic ID/hash ties. Only a new local outbound sticker updates
+it, in the same history/MLS/outbox transaction; receive, own-device copies, replay and failed
+staging do not reorder it. It stores no labels or media capabilities. History clearing leaves this
+local keyboard preference intact. Native recent-picker projection remains planned.
 The initial schema also has `sticker_uploads`, keyed by kind and plaintext hash: kind 1 is
 an individual WebP, kind 2 a whole validated pack record. It keeps owner-only attachment
 descriptors (including release capabilities), charged sizes, expiry and a reservation token;
