@@ -115,10 +115,14 @@ unrelated/pending files, and returns false for an absent pack. Unix directory sy
 A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
 best-effort removal of this local copy. Desktop now offers a per-pack confirmation, including
 unreadable entries, and refreshes the collection after success or ambiguous failure.
-The initial schema also has `sticker_uploads`, keyed by plaintext hash. It keeps owner-only
-attachment descriptors (including release capabilities), charged sizes, expiry and a reservation
-token; no image BLOB is stored. An immediate writer transaction reserves at most 16 MiB in
-node accounting units, including GCM overhead, across pending and confirmed uploads. Pending
+The initial schema also has `sticker_uploads`, keyed by kind and plaintext hash: kind 1 is
+an individual WebP, kind 2 a whole validated pack record. It keeps owner-only attachment
+descriptors (including release capabilities), charged sizes, expiry and a reservation token;
+no media BLOB is stored. An immediate writer transaction reserves at most 16 MiB in node
+accounting units, including GCM overhead, across pending and confirmed kind-1 uploads.
+Kind-2 descriptors require zero shape/preview, application/octet-stream and at most 6 MiB
+including GCM tags; node owner quota bounds their actual uploads. They never consume the
+single-sticker application cap or accept a kind-1 completion. Pending
 work resumes the same descriptor for eight days; confirmation retains it seven days, with
 refresh during its final day. A reservation token rejects stale confirmations even when the
 ciphertext is unchanged. Clock rollback and corrupt descriptors fail closed. Only expired

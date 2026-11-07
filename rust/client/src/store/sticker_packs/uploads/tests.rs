@@ -1,5 +1,6 @@
 use super::*;
 mod adversarial;
+mod packs;
 use dyapp_identity::Identity;
 
 fn database() -> (Store, Identity, std::path::PathBuf) {
@@ -29,7 +30,7 @@ fn used(store: &Store) -> i64 {
     store
         .db
         .query_row(
-            "SELECT COALESCE(SUM(`charge`), 0) FROM `sticker_uploads`",
+            "SELECT COALESCE(SUM(`charge`), 0) FROM `sticker_uploads` WHERE `kind` = 1",
             [],
             |row| row.get(0),
         )
@@ -38,8 +39,11 @@ fn used(store: &Store) -> i64 {
 
 #[test]
 fn charged_quota_includes_gcm_overhead_and_exact_integer_boundary() {
-    assert_eq!(encode(&candidate(1, 1024)).unwrap().1, 5200);
-    assert_eq!(encode(&candidate(1, 262144)).unwrap().1, 1311040);
+    assert_eq!(encode(&candidate(1, 1024), Kind::Sticker).unwrap().1, 5200);
+    assert_eq!(
+        encode(&candidate(1, 262144), Kind::Sticker).unwrap().1,
+        1311040
+    );
     let (mut store, _, _) = database();
     for index in 0..12 {
         upload(
@@ -99,5 +103,5 @@ fn restart_refresh_resume_expiry_and_stale_completion_keep_one_descriptor() {
     assert!(store
         .finish_sticker_upload(&replacement, time + 9 * 86400)
         .is_err());
-    assert_eq!(used(&store), encode(&newer).unwrap().1);
+    assert_eq!(used(&store), encode(&newer, Kind::Sticker).unwrap().1);
 }

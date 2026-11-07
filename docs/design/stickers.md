@@ -195,6 +195,11 @@ units. The node scales its owner quota by the same factor. The separate applicat
 the fallback. The Store ledger implements atomic reservation, restart-safe reuse and final-day
 refresh: confirmed descriptors last seven days, uncertain uploads reserve eight days. Each
 refresh has a random reservation token so a late completion cannot confirm its successor.
+The same ledger now supports whole-pack records under a separate kind, with a 6 MiB sealed
+bound and node owner quota. The 16 MiB application cap applies only to individual stickers.
+Kinds have distinct keys and completion checks even for equal plaintext hashes; pack descriptors
+have zero shape/preview and application/octet-stream. Descriptor APIs validate metadata only;
+callers must first load a validated immutable Pack and bind reconstructed ciphertext to its bytes.
 Every pending retry renews the uncertainty window before network I/O; repeated completion
 cannot extend confirmed retention. Tests cover late retry, corrupt rows and simultaneous
 reservations for the last quota slot. Expired ledger metadata can be pruned; saved packs
