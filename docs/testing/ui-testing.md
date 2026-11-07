@@ -30,6 +30,12 @@ Docker UI stages capture Gradle/emulator output in memory and print one `OK` lin
 captured output and an `ERROR` line. `DYAPP_VERBOSE=1 make ui-test` streams live output. See
 [local check output](../agents/project.md#local-check-output) for capture limits.
 
+The Linux loopback pair also sends a public profile link through the Share dialog, reopens the
+recipient, opens its real profile card through verified native fetch and follows Message back to
+the writable chat. The fixture shares the sender's own public profile to avoid a third published
+identity; production Share filtering and private-state/stale-fetch guards retain their separate
+native and controller tests. Execution of this added node scenario is CI-only.
+
 ## Linux sticker exchange
 
 The loopback two-client desktop scenario now includes real File/TAR import, selection in the

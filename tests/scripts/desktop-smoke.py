@@ -642,6 +642,7 @@ def smoke(executable, flows=True):
                     (alice, "sticker-send"), (bob, "sticker-request"),
                     (alice, "sticker-answer"), (bob, "sticker-save-reply"),
                     (alice, "sticker-reply-seen"),
+                    (alice, "share-profile-send"), (bob, "share-profile-open"),
                     (alice, "presence-like"), (bob, "presence-pass"),
                     (bob, "presence-match"),
                     (alice, "presence-send"), (bob, "presence-shown"),
