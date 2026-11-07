@@ -59,6 +59,8 @@ step() {
             step swift-check
             step fmt
             check cargo-shear cargo shear
+            check rust-test cargo test --manifest-path tools/rust-functions/Cargo.toml --locked
+            check clippy cargo clippy --manifest-path tools/rust-functions/Cargo.toml --all-targets --locked -- -D warnings
             step unused-public
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
@@ -85,11 +87,13 @@ step() {
             cargo fmt --all
             cargo fmt --manifest-path clients/linux/Cargo.toml
             cargo fmt --manifest-path clients/windows/Cargo.toml
+            cargo fmt --manifest-path tools/rust-functions/Cargo.toml
             ;;
         fmt)
             check rustfmt cargo fmt --all -- --check
             check rustfmt cargo fmt --manifest-path clients/linux/Cargo.toml -- --check
             check rustfmt cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
+            check rustfmt cargo fmt --manifest-path tools/rust-functions/Cargo.toml -- --check
             ;;
         android-lint)
             # Both checks run even if the first fails: one pass reports every Android finding.

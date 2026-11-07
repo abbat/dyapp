@@ -121,7 +121,16 @@ converts its JSON output to SARIF for code scanning. That job runs outside Docke
 CodeQL also compiles Android Kotlin with `:app:compileDebugKotlin` and the iOS Swift app with
 `xcodebuild`, then runs `security-and-quality` analysis and uploads SARIF for both languages.
 
-Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `make fmt-write`; it uses the dev container with a writable source mount and covers the same three manifests.
+Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `make fmt-write`; it uses the dev container with a writable source mount and covers the root, Linux, Windows and standalone function mapper manifests.
+
+### Rust function limit tooling
+
+`tools/rust-functions` is a pinned, standalone syn parser. Quality runs its tests and Clippy;
+format checks include it. It maps current source spans to module/impl/function identities and
+measures block nesting, including inline module and impl scopes. Anonymous closures are marked
+separately so they cannot inherit a named function's cognitive-complexity budget. Parse failures
+are errors. The application complexity gate and existing-function budgets are still planned;
+this parser alone does not enable the proposed 15/50/5 limits.
 
 ## Python
 

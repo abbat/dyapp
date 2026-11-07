@@ -1,0 +1,20 @@
+[package]
+name = "dyapp-function-map"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
+quote = "=1.0.47"
+serde_json = "=1.0.154"
+syn = { version = "=2.0.119", features = ["full", "visit"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
