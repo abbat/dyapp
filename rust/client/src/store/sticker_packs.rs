@@ -42,6 +42,9 @@ pub enum Error {
     /// A concurrent store writer or SQLite failure prevented the operation.
     #[error("saved sticker pack: {0}")]
     Sql(#[from] rusqlite::Error),
+    /// The selected request is stale or its conversation no longer permits saving.
+    #[error("saved sticker pack request: {0}")]
+    Request(#[from] super::Error),
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -171,11 +174,21 @@ impl Store {
         pack: &Pack,
         limit: u64,
     ) -> Result<bool, Error> {
+        self.save_pack_with_guard(secret, pack, limit, |_| Ok(()))
+    }
+    fn save_pack_with_guard(
+        &mut self,
+        secret: &[u8; 32],
+        pack: &Pack,
+        limit: u64,
+        guard: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<(), Error>,
+    ) -> Result<bool, Error> {
         let dir = directory(self)?;
         let owner = self.owner_peer_id.clone();
         let tx = self
             .db
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        guard(&tx)?;
         match fs::create_dir(&dir) {
             Ok(()) => {}
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
@@ -186,6 +199,7 @@ impl Store {
         }
         let path = dir.join(hex(pack.id()));
         if read(&path, secret, &owner, pack.id())?.is_some() {
+            tx.commit()?;
             return Ok(false);
         }
         let plain = pack.encode();

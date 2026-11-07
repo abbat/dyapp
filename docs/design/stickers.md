@@ -281,8 +281,11 @@ answers fail closed. Admitted answers now have durable download failure codes (f
 quota or storage) and the same 1 s..1 h backoff. Due reads expose at most 32 metadata-only jobs;
 duplicate answers cannot reset the deadline. Explicit download retry keeps the descriptor and
 clicked hash but rotates the token, so old callbacks cannot complete or defer the new attempt.
-Waiting requests, failures and retries survive restart. Guarded saving, the download worker and
-an explicit fresh-answer request remain planned.
+Waiting requests, failures and retries survive restart. Requested-pack saving rechecks token,
+clicked hash, PackID and open/unblocked pair under the same writer lock as quota/publication.
+The pending row retires in that commit, even when the validated file already exists. If rename
+succeeds but the SQLite commit fails, intent remains and retry finishes against the existing
+file; nothing is evicted. The download worker and explicit fresh-answer request remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder

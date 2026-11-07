@@ -141,5 +141,6 @@ impl Store {
     }
 }
 
+mod save;
 #[cfg(test)]
 mod tests;

@@ -148,7 +148,11 @@ Session receive now routes outer 15/16 through these atomic Store operations. Al
 controls remain eligible for common delivery receipts and are consumed before UI/history.
 Dedicated Session staging now binds a selected received MessageKey or current response job
 to the same encrypted outbox/MLS commit. Failed local commits invalidate advanced in-memory MLS;
-reopening restores the saved snapshot. Download/save workers and request UI remain planned.
+reopening restores the saved snapshot. Requested-pack saving now rechecks the current token,
+clicked hash, PackID and open/unblocked pair under the saved-file writer lock. Publication and
+pending retirement share that transaction, including an already saved file. A failed SQLite
+commit after rename preserves intent; retry revalidates that file and finishes idempotently.
+Download workers and request UI remain planned.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
