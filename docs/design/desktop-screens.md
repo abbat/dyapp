@@ -513,8 +513,10 @@ its pack, preserve a readable fallback, and expose Retry, Request fresh copy, St
 or Manage packs where useful. The image has no bubble; the pack stays until removed.
 The prototype uses local canvas drawings solely for geometry. The shipped client now draws
 native safe pixels with viewport-driven loading, explicit Load sticker, readable fallback and
-own Delete; message images have no bubble and stay within 192 pt. Request commands exist,
-but their shipped controller remains planned. The additional prototype states `chat-sticker-checking`, `chat-sticker-fetch`,
+own Delete; message images have no bubble and stay within 192 pt. In an open chat, Add pack
+stages a durable request and starts the existing mail pass. Status/recovery actions bind the
+selected message and observed request attempt; quota/storage recovery opens the collection.
+The additional prototype states `chat-sticker-checking`, `chat-sticker-fetch`,
 `chat-sticker-storage`, `chat-sticker-storage-idle`, `chat-sticker-missing`,
 `chat-sticker-read-error` and `chat-sticker-request-error` cover the typed failures and uncertain
 actions. Quota/storage recovery reuses the collection manager. Review evidence belongs in

@@ -15,6 +15,7 @@ window.checkChatRedraw = async () => {
       messages: [sticker, own, ...(version ? [{ ...own, id: Array(16).fill(3), text: String(version) }] : [])],
     }));
     if (command === 'chat_sticker_frame') { reads += 1; started.resolve(); return reply.promise; }
+    if (command === 'chat_sticker_pack_status') return { state: 'new', generation: null, failure: null };
     if (command === 'chat_rows' || command === 'contact_names') return [];
     return false;
   };

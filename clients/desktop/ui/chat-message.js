@@ -24,6 +24,8 @@ window.chatMessage = (message, peerId, history, call) => {
     message.author !== current.peerId && history.state !== 'open', call)
     : sticker ? window.stickerMessages.bubble(message, peerId, call)
       : message.sharedPeer && !message.deleted ? window.profileCard(message.sharedPeer, call) : body);
+  if (sticker && message.author === peerId && history.state === 'open')
+    item.append(window.stickerRequests.controls(message, peerId, call));
   const hosts = chatLinkHosts(message.deleted ? '' : message.text);
   if (hosts.length) {
     const host = document.createElement('span');

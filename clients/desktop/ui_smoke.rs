@@ -15,6 +15,7 @@ pub(crate) fn scripts() -> String {
         include_str!("ui-test-sticker-picker.js"),
         include_str!("ui-test-sticker-messages.js"),
         include_str!("ui-test-chat-redraw.js"),
+        include_str!("ui-test-sticker-requests.js"),
         include_str!("ui-test-clear.js"),
         include_str!("ui-test-identifiers.js"),
         include_str!("ui-test-settings-nav.js"),

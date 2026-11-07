@@ -487,6 +487,7 @@ const closeChat = () => {
   chatRenderKey = null; chatRenderCall = null;
   window.stickerPicker?.close();
   window.stickerMessages?.clear();
+  window.stickerRequests?.clear();
   chatOpenRequest += 1;
   forgetPhotos();
   photoOriginalsPeer = null;
@@ -531,7 +532,7 @@ const sendRead = async (peerId, call) => {
 const openChat = async (peerId, call = invoke) => {
   const previous = activeChat;
   window.stickerPicker?.leave(peerId);
-  if (previous?.peerId !== peerId) window.stickerMessages?.clear();
+  if (previous?.peerId !== peerId) { window.stickerMessages?.clear(); window.stickerRequests?.clear(); }
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
@@ -554,7 +555,7 @@ const openChat = async (peerId, call = invoke) => {
     document.getElementById('chat-linked-notice').hidden = !linked;
     const renderKey = JSON.stringify([generation, peerId, window.peerName(peerId), history]);
     if (!previous || renderKey !== chatRenderKey || chatRenderCall !== call) {
-      window.stickerMessages?.clear();
+      window.stickerMessages?.clear(); window.stickerRequests?.clear();
       chatMessages.replaceChildren(...history.messages.map((message) => window.chatMessage(message, peerId, history, call)));
     } else {
       // Mounted action callbacks retain these objects; their reference guards must still match.
@@ -909,6 +910,7 @@ window.showChats = async (call = invoke) => {
 window.mailUpdated = async (changed, call = invoke) => {
   const generation = identityGeneration;
   if (document.getElementById('chats-area').hidden) return;
+  window.stickerRequests?.refresh(changed);
   // Retry and signed receipts can change delivery status without a new visible chat event.
   if (activeChat && !editDialog.open && !deleteDialog.open && !clearDialog.open
     && !chatSending && !chatBlocking) {

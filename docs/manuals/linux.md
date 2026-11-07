@@ -52,7 +52,12 @@ the thread with its delivery status; closing the picker does not recall a commit
 Visible stickers load under the same automatic-download policy as chat photos. **Load sticker**
 explicitly retries an image. When unavailable, the emoji and pack name stay readable; saved
 packs can supply the image locally. Stickers have no bubble or caption. You can delete your own
-sticker in an open chat; Edit and Forward are unavailable. Adding its pack remains planned.
+sticker in an open chat; Edit and Forward are unavailable. **Add pack** under a received sticker
+requests its pack from the sender. Offline requests stay queued. **Stop waiting** cancels local
+acceptance, while an already sent request cannot be recalled. **Retry** keeps the current answer;
+**Request fresh copy** asks again after a verification failure (the sender can answer once a day).
+Quota or storage errors link to Manage packs. Uncertain actions refresh status before allowing
+another choice; saved packs stay on this computer until you remove them.
 
 **Clear chat** names the contact and full Peer ID before confirmation. It removes this
 computer's messages/originals and cancels pending pack requests. Saved packs and local recent

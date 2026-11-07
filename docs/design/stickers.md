@@ -309,7 +309,7 @@ Old callbacks cannot change the new attempt. Ordinary download retry retains its
 Already queued requests and the sender's daily answer limit remain in effect. Desktop mailbox
 passes now run both bounded workers on the configured node under the identity/session lease.
 Completed saves contribute only to the local refresh count; controls remain absent from history
-and unread notifications. The request UI remains planned. Desktop `chat_sticker_pack_status`
+and unread notifications. Desktop `chat_sticker_pack_status`
 exposes only saved/new/waiting/downloading/failed state, a local generation token, typed failure
 and retry deadline. Saved status requires the clicked hash in the authenticated pack. A locally
 imported pack can retire matching waiting intent through guarded saving even before an answer
@@ -319,7 +319,13 @@ reported as `stickerMissing`, never Added. Tokens identify attempts and carry no
 common mailbox pass delivers them, so offline actions remain queued. Repeated initial Request
 is idempotent. Retry/Fresh/StopWaiting require the observed token; Retry keeps the descriptor,
 Fresh stages a new answer request, and StopWaiting retires only local acceptance. It cannot
-recall already queued packets. Retry/stop do not advance MLS. The live UI still needs wiring.
+recall already queued packets. Retry/stop do not advance MLS. The desktop now reads status for
+visible received stickers in open chats. Add pack stages locally, then starts the existing mailbox
+pass without waiting for its network result. Waiting/downloading/failure states expose Stop waiting;
+Retry keeps an answer, and invalid answers can explicitly request a fresh copy. Quota/storage
+recovery opens the collection manager. Unrelated claimed hashes cannot be requested again from
+that message. Action errors read back status before enabling recovery; a generation conflict never
+retries itself. Closing the chat leaves intent queued, while full Clear chat cancels it.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
@@ -350,11 +356,11 @@ composer now opens a canvas picker with recents, saved-pack choices, eight thumb
 and Previous/Next. Pack choices also page at 32 records. Cancel/Escape returns to the composer;
 Manage packs opens the existing import/removal dialog and returns to the picker. Sending queues
 a standalone sticker through the common outbox and preserves the text draft. Per-opening/read
-and identity guards prevent stale replies from repainting another view. The Add-pack controller
-remains planned.
+and identity guards prevent stale replies from repainting another view. Received-message pack
+controls distinguish new, saved, pending and typed failures; they never expose a media capability.
 
-- The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
-  state with "Add pack" that picks a TAR file.
+- The desktop composer has a sticker button, pack choices and 20 local recents. The empty state
+  links to Manage packs, whose Import TAR action uses the existing file picker.
 - A sticker is sent alone, with no caption and no bubble, at most 192 pt.
 - Delete works through tag 9. The desktop delete command now accepts live own stickers only
   with the exact peer/group/message selection; edit remains restricted to text. Own stickers

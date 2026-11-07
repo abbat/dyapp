@@ -112,4 +112,13 @@ status-read failure and an uncertain action. Sixty-four expanded-state/neighbour
 safe-image geometry. Missing-sticker recovery never offers Retry/Fresh; storage without a token
 uses Refresh/Manage. Copy distinguishes waiting for download from an active transfer and names
 quota recovery without suggesting automatic removal. No additional finding remains open.
+
+The shipped received-pack controller now matches those states. Forty-four actual-controller
+captures in `build/ux-research/linux-sticker-requests-live/` cover EN/RU440/1280, visible-only
+status reads, offline staging before delivery, duplicate-click protection, observed generation,
+uncertain-action readback without automatic retry, manager return, malformed status and late
+reads after Clear. Unbroken pack names remain literal and fit the view. Status/action blocks
+meet the token gaps and viewport bounds; image16 and redraw4 integration cases still pass.
+Pending status follows the existing mailbox callback, with no page timer. These checks mock IPC;
+native commands, file input and real-peer round trips remain separate CI acceptance.
 Prototype and mocked-controller validation do not establish native transport acceptance.
