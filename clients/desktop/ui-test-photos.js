@@ -202,24 +202,32 @@ const checkChatPhoto = async () => {
   mode('byNetwork').click();
   await window.photoModeSaved;
 
-  const keep = (value) => document.querySelector(`input[name="photo-keep"][value="${value}"]`);
+  await window.mediaCacheShown;
+  const limit = document.getElementById('media-cache-limit');
   const dialog = document.getElementById('photo-keep-dialog');
-  if (!keep(256).checked) throw new Error('kept originals did not default to 256 MiB');
-  keep(1024).click();
-  await window.photoModeSaved;
-  if (dialog.open || await invoke('kept_originals_mib') !== 1024) {
-    throw new Error('a higher limit was not saved at once');
+  const savedCache = () => invoke('media_cache', { identityId: current.peerId });
+  const editLimit = (value) => {
+    limit.value = value;
+    limit.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  if (limit.value !== '256') throw new Error('cache did not default to 256 MiB');
+  editLimit('512');
+  await window.mediaCacheSaved;
+  if (dialog.open || (await savedCache()).limitBytes !== 512 * 1048576) {
+    throw new Error('custom cache budget was not saved at once');
   }
-  keep(256).click();
-  if (!dialog.open) throw new Error('a lower limit did not ask first');
+  editLimit('256');
+  if (!dialog.open) throw new Error('lower cache budget did not ask');
   document.getElementById('photo-keep-cancel').click();
-  await seen(() => keep(1024).checked);
-  if (await invoke('kept_originals_mib') !== 1024) throw new Error('Cancel changed the limit');
-  keep(256).click();
+  if (limit.value !== '512' || (await savedCache()).limitBytes !== 512 * 1048576) {
+    throw new Error('Cancel changed cache budget');
+  }
+  editLimit('256');
   document.getElementById('photo-keep-confirm').click();
-  await window.photoModeSaved;
-  await seen(() => keep(256).checked);
-  if (await invoke('kept_originals_mib') !== 256) throw new Error('the lower limit was not saved');
+  await window.mediaCacheSaved;
+  if (limit.value !== '256' || (await savedCache()).limitBytes !== 256 * 1048576) {
+    throw new Error('lower cache budget was not saved');
+  }
 };
 // The profile editor: the status line for a bad file, adding, the limit at six, moving with focus
 // kept, removal behind its dialog, the form busy state, and the photo line of the publish dialog.

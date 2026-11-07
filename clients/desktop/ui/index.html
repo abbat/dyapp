@@ -592,17 +592,22 @@
             <label class="choice"><input type="radio" name="photo-mode" value="onTap">
               <span data-i18n="photos.onTap"></span></label>
           </fieldset>
-          <fieldset><legend data-i18n="photos.keep"></legend>
-            <label class="choice"><input type="radio" name="photo-keep" value="0">
-              <span data-i18n="photos.keepOff"></span></label>
-            <label class="choice"><input type="radio" name="photo-keep" value="256">
-              <span data-i18n="photos.keep256"></span></label>
-            <label class="choice"><input type="radio" name="photo-keep" value="1024">
-              <span data-i18n="photos.keep1024"></span></label>
-          </fieldset>
           <p id="photo-mode-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="photos.hint"></p>
         </form>
+        <div class="card">
+          <h2 data-i18n="photos.cache.title"></h2>
+          <label class="choice"><input id="media-cache-enabled" type="checkbox" role="switch" aria-checked="false" class="switch" disabled>
+            <span data-i18n="photos.keep"></span></label>
+          <div class="field"><label for="media-cache-limit" data-i18n="photos.cache.limit"></label>
+            <input id="media-cache-limit" type="number" min="1" max="10240" step="any" disabled></div>
+          <p><span data-i18n="photos.cache.used"></span> <span id="media-cache-used"></span></p>
+          <p id="media-cache-status" class="notice" role="status" aria-live="polite"></p>
+          <div class="actions">
+            <button id="media-cache-refresh" class="btn" type="button" data-i18n="photos.cache.refresh"></button>
+            <button id="media-cache-clear" class="btn" type="button" data-i18n="photos.cache.clear" disabled></button>
+          </div>
+        </div>
         </div>
         <div data-settings-pane="node" hidden>
         <form id="node" class="card" novalidate hidden>
@@ -912,6 +917,7 @@
   <script src="contact-notes.js"></script>
   <script src="saved-profiles.js"></script>
   <script src="photo-settings.js"></script>
+  <script src="media-cache.js"></script>
   <script src="stickers.js"></script>
   <script src="chat-composer.js"></script>
   <script src="chats-photo-send.js"></script>

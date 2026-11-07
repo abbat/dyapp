@@ -18,9 +18,9 @@ binary preferences use native checkbox-backed switches; node configuration retai
 its explicit Save action. Nested Back returns to the correct parent and restores
 focus. Existing availability flags remain owned by their backend controllers.
 Actual-source WebKit navigation smoke checks category isolation, nested Back, focus,
-identity reset and switch semantics. Search/paging and numeric cache integration
-are separate checkpoints; this review does not claim those features. No open source
-finding; native full-application execution remains for final-push CI.
+identity reset and switch semantics. Numeric cache event tests cover exact byte roundtrips,
+confirmed lower/off/clear, unknown/busy/error state and stale callbacks; EN/RU440/1280
+shots: linux-cache-live. Search/paging and native execution remain separate checks.
 
 ## Shipped composer and collection dialog (2026-11-07)
 

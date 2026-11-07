@@ -92,7 +92,8 @@ and quota are one atomic, identity-local settings value; turning retention off r
 the quota. Core APIs expose actual encrypted-file usage and explicit cache clearing, which
 preserves history, saved packs and the preference. Clearing refuses unexpected directories
 or symlinks before removing cache entries. The old MiB APIs remain numeric wrappers for
-clients awaiting the new controls. No released database exists: old development setting
+clients awaiting the new controls. Desktop Photos now exposes numeric MiB, measured usage,
+Refresh and confirmed Clear; uncertain writes require readback. No released database exists: old development setting
 encodings fail closed instead of being migrated. Removing an identity removes the folder.
 
 Saved sticker packs use identity-local `sticker-packs/<PackID>` files and the same sealing
@@ -113,8 +114,8 @@ content without its sealing key. It uses the same writer lock as save, refuses s
 unrelated/pending files, and returns false for an absent pack. Unix directory sync follows unlink.
 A later sync/commit error cannot restore the file; callers must refresh before retrying. This is
 best-effort removal of this local copy. Desktop now offers a per-pack confirmation, including
-unreadable entries, and refreshes the collection after success or ambiguous failure. Chat
-integration and cache management remain planned.
+unreadable entries, and refreshes the collection after success or ambiguous failure.
+Sticker image delivery and received-sticker cache integration remain planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

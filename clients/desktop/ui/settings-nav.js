@@ -11,6 +11,7 @@
     root.hidden = Boolean(name);
     back.hidden = !name;
     for (const pane of panes) pane.hidden = pane.dataset.settingsPane !== name;
+    document.dispatchEvent(new CustomEvent('dyapp:settings-pane', { detail: name }));
     if (focus) {
       window.scrollTo(0, 0);
       (name ? back : root.querySelector('button')).focus();

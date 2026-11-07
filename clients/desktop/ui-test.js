@@ -670,6 +670,7 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       await window.checkStickerRemoval();
       await window.checkChatComposer();
       await window.checkSettingsNavigation();
+      await window.checkMediaCache();
       await openArea('settings', 'identities');
       document.getElementById('settings-create').click();
       await waitFor('setup');

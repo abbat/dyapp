@@ -98,6 +98,10 @@ Privacy links to separate Blocked and Passed lists. Notifications and Photos hav
 own preferences. Account contains identities and devices; Storage and node controls
 remain together. Back returns to the parent menu and restores keyboard focus. Changes
 to switch controls apply immediately; node limits still use the explicit Save button.
+Photos shows a numeric cache budget (1–10240 MiB), measured usage and **Clear cache…**.
+A lower budget, disabling retention or clearing asks first. Disabling keeps your chosen
+budget. This affects retained photo originals, not chat history or saved sticker packs.
+After an uncertain error, **Refresh cache usage** is required before another change.
 
 **Settings → Account → Identities** lists local identities with their key storage kind and marks
 the active one. The list and the picker show a short Peer ID like a git hash: "@" and the last 6

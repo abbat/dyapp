@@ -479,7 +479,9 @@ Notifications, Photos, Node, Account and About. States `settings-appearance`,
 searchable `settings-blocked` and `settings-passed` lists. Account links to
 `settings-identities-screen` and `settings-devices`. The shipped client implements
 this category navigation with separate collection panes and immediate switches.
-Collection search/paging and numeric cache controls remain planned integration steps.
+Collection search/paging remains a planned integration step. The shipped Photos pane
+uses a Keep switch, numeric MiB budget, measured usage, Refresh and confirmed Clear;
+uncertain failures require readback before another write.
 Immediate binary settings use switches; theme and language default to System. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
 has its own `sticker-manager` screen in `stickers-*` states, entered from the prototype
