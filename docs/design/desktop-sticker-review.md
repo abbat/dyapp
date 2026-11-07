@@ -105,5 +105,11 @@ a pending frame completes with one native read and Edit/Delete membership guards
 Four EN/RU440/1280 callback checks invoke the real mailbox-refresh/open-chat/renderer code with
 mocked IPC and cover changed-history and closed-view rejection. Evidence is under
 `build/ux-research/linux-chat-redraw/`. No additional decoded-pixel cache is introduced.
-Request controls remain a separate checkpoint.
+Request controls remain a separate checkpoint. The expanded request prototype covers checking,
+fetch/storage failures with and without pending intent, a claimed sticker absent from the pack,
+status-read failure and an uncertain action. Sixty-four expanded-state/neighbour captures in
+`build/ux-research/linux-sticker-requests-prototype/` cover EN/RU440/1280 and pass L2/I1 plus
+safe-image geometry. Missing-sticker recovery never offers Retry/Fresh; storage without a token
+uses Refresh/Manage. Copy distinguishes waiting for download from an active transfer and names
+quota recovery without suggesting automatic removal. No additional finding remains open.
 Prototype and mocked-controller validation do not establish native transport acceptance.

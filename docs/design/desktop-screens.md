@@ -514,7 +514,10 @@ or Manage packs where useful. The image has no bubble; the pack stays until remo
 The prototype uses local canvas drawings solely for geometry. The shipped client now draws
 native safe pixels with viewport-driven loading, explicit Load sticker, readable fallback and
 own Delete; message images have no bubble and stay within 192 pt. Request commands exist,
-but their shipped controller remains planned. Review evidence belongs in
+but their shipped controller remains planned. The additional prototype states `chat-sticker-checking`, `chat-sticker-fetch`,
+`chat-sticker-storage`, `chat-sticker-storage-idle`, `chat-sticker-missing`,
+`chat-sticker-read-error` and `chat-sticker-request-error` cover the typed failures and uncertain
+actions. Quota/storage recovery reuses the collection manager. Review evidence belongs in
 [the sticker interaction record](desktop-sticker-review.md).
 
 Privacy settings are local to the identity and never published. Defaults: no profile

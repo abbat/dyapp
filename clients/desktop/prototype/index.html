@@ -443,21 +443,29 @@ search providers asked: 0 of 3</pre>
         <div class="actions"><button type="button" class="btn" id="request-block" data-t="view.block"></button></div></div>
       <div class="thread" id="chat-thread">
         <span class="day" data-off="chat-cleared" data-t="chat.today"></span>
-        <div class="sticker-message" id="sticker-message" data-on="chat-sticker-image chat-sticker-fallback chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota chat-sticker-saved">
+        <div class="sticker-message" id="sticker-message" data-on="chat-sticker-image chat-sticker-fallback chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota chat-sticker-saved chat-sticker-checking chat-sticker-fetch chat-sticker-storage chat-sticker-storage-idle chat-sticker-missing chat-sticker-read-error chat-sticker-request-error">
           <canvas width="192" height="192" data-demo-sticker role="img" data-ta="stickerPicker.label" data-off="chat-sticker-fallback"></canvas>
           <p class="caption" data-on="chat-sticker-fallback" data-t="stickerPicker.fallback"></p>
           <button type="button" class="btn" data-on="chat-sticker-fallback" data-t="stickerPicker.loadImage"></button>
-          <p class="caption" data-on="chat-sticker-pending" role="status" data-t="stickerRequest.waiting"></p>
+          <p class="caption" data-on="chat-sticker-image chat-sticker-fallback" data-t="stickerRequest.new"></p>
+          <p class="caption" data-on="chat-sticker-checking" role="status" data-t="stickerRequest.checking"></p>
+          <p class="notice error" data-on="chat-sticker-fetch" role="status" data-t="stickerRequest.fetch"></p>
+          <p class="notice error" data-on="chat-sticker-storage chat-sticker-storage-idle" role="status" data-t="stickerRequest.storage"></p>
+          <p class="notice error" data-on="chat-sticker-missing" role="status" data-t="stickerRequest.stickerMissing"></p>
+          <p class="notice error" data-on="chat-sticker-read-error" role="status" data-t="stickerRequest.readFailed"></p>
+          <p class="caption" data-on="chat-sticker-pending chat-sticker-request-error" role="status" data-t="stickerRequest.waiting"></p>
+          <p class="notice error" data-on="chat-sticker-request-error" role="alert" data-t="stickerRequest.actionFailed"></p>
           <p class="caption" data-on="chat-sticker-downloading" role="status" data-t="stickerRequest.downloading"></p>
           <p class="notice error" data-on="chat-sticker-failed" role="alert" data-t="stickerRequest.invalid"></p>
-          <p class="notice error" data-on="chat-sticker-quota" role="alert" data-t="stickers.quota"></p>
+          <p class="notice error" data-on="chat-sticker-quota" role="alert" data-t="stickerRequest.quota"></p>
           <p class="caption" data-on="chat-sticker-saved" role="status" data-t="stickerRequest.saved"></p>
           <div class="actions">
+            <button type="button" class="btn" data-on="chat-sticker-storage-idle chat-sticker-read-error" data-t="stickerRequest.refresh"></button>
             <button type="button" class="btn" data-on="chat-sticker-image chat-sticker-fallback" data-t="stickerRequest.add"></button>
-            <button type="button" class="btn" data-on="chat-sticker-failed chat-sticker-quota" data-t="action.retry"></button>
+            <button type="button" class="btn" data-on="chat-sticker-failed chat-sticker-quota chat-sticker-fetch chat-sticker-storage" data-t="action.retry"></button>
             <button type="button" class="btn" data-on="chat-sticker-failed" data-t="stickerRequest.fresh"></button>
-            <button type="button" class="btn" data-on="chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota" data-t="stickerRequest.stop"></button>
-            <button type="button" class="btn" data-on="chat-sticker-quota chat-sticker-saved" data-t="stickerPicker.manage"></button>
+            <button type="button" class="btn" data-on="chat-sticker-pending chat-sticker-downloading chat-sticker-failed chat-sticker-quota chat-sticker-fetch chat-sticker-storage chat-sticker-missing chat-sticker-request-error" data-t="stickerRequest.stop"></button>
+            <button type="button" class="btn" data-on="chat-sticker-quota chat-sticker-saved chat-sticker-storage chat-sticker-storage-idle chat-sticker-missing chat-sticker-read-error" data-t="stickerPicker.manage"></button>
           </div>
           <time class="caption">14:35</time>
         </div>
