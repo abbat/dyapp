@@ -33,7 +33,8 @@ rust-version = "1.99"
 prost = "0.14"
 prost-build = "0.14"
 protox = "0.10"
-proptest = "1.10"
+# Tests run in-process; no fork/timeout overrides are used (see docs/agents/project.md).
+proptest = { version = "1.10", default-features = false, features = ["std", "bit-set"] }
 proptest-derive = "0.9"
 
 [profile.release]

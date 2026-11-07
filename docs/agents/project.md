@@ -16,6 +16,12 @@ Android network-policy tests use public API 31 `NetworkCapabilities.capabilities
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
 
+Workspace proptest enables `std` and `bit-set`, with in-process execution, shrinking and failure
+persistence. Its unused default `fork`/`timeout` features pull `rusty-fork` and `quick-error` 1,
+which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property tests would need
+an explicit feature and dependency-policy decision; no `PROPTEST_FORK`/`PROPTEST_TIMEOUT`
+overrides are supported by the current configuration.
+
 Importer boundary tests use literal protocol byte limits and assert the specific rejection
 stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,
 can hide a broken size guard; validate inclusive limits and each independent invalid operand.
