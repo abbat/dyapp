@@ -195,7 +195,7 @@ scripts. `make fmt-web` formats all these files in the dev Docker container with
 writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
 JavaScript quotes and 100 columns. Assist actions remain disabled.
 The complexity rollout currently enforces cognitive complexity 15 and function length 50 code
-lines on contact notes, identifiers and network UI scripts. Blank lines and immediate closure
+lines on chat UI/photo rendering, contact notes, identifiers and network UI scripts. Blank lines and immediate closure
 wrappers used to scope classic scripts are excluded; nested functions remain checked. Extending
 this scope to the remaining UI and smoke scripts is planned after their measured backlog is
 refactored. The recommended rules apply except three, each justified in the config:

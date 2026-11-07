@@ -237,7 +237,8 @@ source group/author/ID and deleted-state checks before the desktop forward comma
 Forward action smoke checks target filtering, Cancel, an unstaged error, queued delivery and a
 late result after switching identity. The link-host smoke checks IDN punycode, a `user@host`
 spoof and absence of clickable links or previews in a message request.
-The shipped page loads `chats-ui.js` immediately after `search.js`; the smoke runs after both
+The shipped page loads `chat-photos.js` before `chats-ui.js`, after Search's helpers;
+`chat-message.js` then uses the controller's helper references. The smoke runs after these
 classic scripts have established their shared page scope.
 The chat photo smoke sends a JPEG with an added EXIF segment and checks that neither the photo nor
 the preview given to `send_chat_photo` holds it, then checks the full, offline and unsupported

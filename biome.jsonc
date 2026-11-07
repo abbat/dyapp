@@ -15,6 +15,8 @@
   // Expand this enforced scope as the measured backlog is refactored.
   "overrides": [{
     "includes": [
+      "clients/desktop/ui/chats-ui.js",
+      "clients/desktop/ui/chat-photos.js",
       "clients/desktop/ui/contact-notes.js",
       "clients/desktop/ui/identifiers.js",
       "clients/desktop/ui/network.js"

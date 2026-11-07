@@ -254,196 +254,17 @@ const chatLinkHosts = (text) => {
   }
   return [...hosts];
 };
-const chatPreview = (message) =>
-  !message
-    ? window.strings['chats.noMessages']
-    : message.deleted
-      ? window.strings['chats.deleted']
-      : `${message.forwarded ? `${window.strings['chats.forwarded']} · ` : ''}${
-          message.sticker
-            ? window.stickerMessageText(message.sticker)
-            : message.photo
-              ? window.strings['chats.photo']
-              : message.sharedPeer
-                ? profileCardText(message.sharedPeer)
-                : message.text || ''
-        }`;
-// The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
-const PREVIEW_SIDE = 240;
-const ORIGINAL_SIDE = 480;
-const MAX_KEPT_ORIGINALS = 16;
-// Decrypted originals of the open chat, so a redraw keeps them. Memory only, dropped on leaving it.
-const photoOriginals = new Map();
-let photoOriginalsPeer = null;
-// The bubble drawn last for each photo of the open chat, the fetches running and the automatic
-// tries already made.
-const photoBoxes = new Map();
-const photoFetches = new Set();
-const photoAutoTried = new Set();
-let photoAutoRunning = false;
-const forgetPhotos = () => {
-  photoOriginals.clear();
-  photoBoxes.clear();
-  photoAutoTried.clear();
+const chatContentPreview = (message) => {
+  if (message.sticker) return window.stickerMessageText(message.sticker);
+  if (message.photo) return window.strings['chats.photo'];
+  if (message.sharedPeer) return profileCardText(message.sharedPeer);
+  return message.text || '';
 };
-const fitCanvas = (canvas, width, height, side) => {
-  const scale = Math.min(1, side / Math.max(width, height));
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-};
-const drawPhoto = async (canvas, bytes, mime, side) => {
-  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
-  if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-};
-const photoCaption = (photo) => {
-  const parts = [window.strings['chats.photo'], photo.mime, sizeText(photo.size)];
-  if (photo.kept) return parts.join(' · ');
-  if (photo.hoursLeft === 0) parts.push(window.strings['chats.photoExpired']);
-  else if (photo.hoursLeft) {
-    parts.push(window.strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
-  }
-  return parts.join(' · ');
-};
-const photoKey = (message) => `${message.author}:${message.id}`;
-const photoError = (code) =>
-  window.strings[
-    {
-      notFound: 'chats.photoGone',
-      corrupted: 'chats.photoBroken',
-    }[code] || 'chats.photoFailed'
-  ];
-const photoButton = (key, name, click) => {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `btn quiet ${name}`;
-  button.textContent = window.strings[key];
-  button.addEventListener('click', click);
-  return button;
-};
-// A mail pass redraws the chat under a running fetch, so results go to the bubble of that moment.
-const downloadOriginal = async (message, peerId, call) => {
-  const generation = identityGeneration;
-  const key = photoKey(message);
-  if (photoFetches.has(key) || photoOriginals.has(key)) return;
-  const { mime } = message.photo;
-  const latest = () =>
-    identityCurrent(generation) && photoOriginalsPeer === peerId ? photoBoxes.get(key) : null;
-  photoFetches.add(key);
-  latest()?.showFetching();
-  try {
-    const bytes = await call('chat_photo_original', {
-      peerId,
-      author: message.author,
-      id: message.id,
-    });
-    const box = latest();
-    if (!box) return;
-    await drawPhoto(box.canvas, bytes, mime, ORIGINAL_SIDE);
-    if (photoOriginals.size >= MAX_KEPT_ORIGINALS) {
-      photoOriginals.delete(photoOriginals.keys().next().value);
-    }
-    photoOriginals.set(key, bytes);
-    box.canvas.hidden = false;
-    box.showResult('', false);
-  } catch (error) {
-    // A rejected decode is not a string: the bytes passed the checks but the page cannot show them.
-    const code = typeof error === 'string' ? error : 'corrupted';
-    latest()?.showResult(photoError(code), code !== 'notFound' && code !== 'corrupted');
-  } finally {
-    photoFetches.delete(key);
-  }
-};
-// The placeholder always names the photo; a preview that cannot be decoded just leaves it alone.
-const photoBubble = (message, peerId, blurred, call) => {
-  const { photo } = message;
-  const key = photoKey(message);
-  const box = document.createElement('span');
-  box.className = 'chat-photo';
-  const caption = document.createElement('span');
-  caption.className = 'caption';
-  caption.textContent = photoCaption(photo);
-  const status = document.createElement('span');
-  status.className = 'caption photo-status';
-  status.setAttribute('role', 'status');
-  const canvas = document.createElement('canvas');
-  fitCanvas(canvas, photo.width, photo.height, PREVIEW_SIDE);
-  canvas.tabIndex = -1;
-  canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', window.strings['chats.photo']);
-  box.append(canvas, caption, status);
-  box.canvas = canvas;
-  box.kept = photo.kept;
-  photoBoxes.set(key, box);
-  const kept = photoOriginals.get(key);
-  if (kept) {
-    box.ready = drawPhoto(canvas, kept, photo.mime, ORIGINAL_SIDE);
-    return box;
-  }
-  const fetchPhoto = () => downloadOriginal(message, peerId, call);
-  const download = photoButton('chats.photoDownload', 'photo-download', fetchPhoto);
-  box.showFetching = () => {
-    download.disabled = true;
-    status.textContent = window.strings['chats.photoDownloading'];
-  };
-  box.showResult = (text, retry) => {
-    status.textContent = text;
-    download.disabled = false;
-    if (!retry) download.remove();
-  };
-  const offerDownload = () => {
-    if ((photo.hoursLeft === 0 && !photo.kept) || photoOriginals.has(key)) return;
-    box.append(download);
-    if (photoFetches.has(key)) box.showFetching();
-    else box.fetchPhoto = fetchPhoto;
-  };
-  const show = photoButton('chats.photoShow', 'photo-show', () => {
-    box.classList.remove('blurred');
-    show.remove();
-    offerDownload();
-    canvas.focus();
-  });
-  if (blurred && photo.preview.length) {
-    box.classList.add('blurred');
-    box.append(show);
-  } else offerDownload();
-  canvas.hidden = !photo.preview.length;
-  box.ready = photo.preview.length
-    ? drawPhoto(canvas, new Uint8Array(photo.preview), 'image/jpeg').catch(() => {
-        canvas.hidden = true;
-        if (box.classList.contains('blurred')) {
-          show.remove();
-          box.classList.remove('blurred');
-          offerDownload();
-        }
-      })
-    : Promise.resolve();
-  return box;
-};
-// What the policy allows on this network, latest first, one at a time, among as many photos as
-// stay in memory. Asked only while something waits. A refusal forgets the tries, so a switch to an
-// unmetered network retries a failed fetch. A kept original opens either way: it costs no network.
-const fetchAllowedPhotos = async (peerId, call) => {
-  const waiting = () =>
-    [...photoBoxes]
-      .filter(([, box]) => box.isConnected)
-      .slice(-MAX_KEPT_ORIGINALS)
-      .reverse()
-      .filter(([key, box]) => box.fetchPhoto && !photoAutoTried.has(key));
-  if (photoAutoRunning || !waiting().length) return;
-  photoAutoRunning = true;
-  try {
-    const allowed = await call('chat_photo_auto', { peerId }).catch(() => false);
-    if (!allowed) photoAutoTried.clear();
-    for (const [key, box] of waiting().filter(([, item]) => allowed || item.kept)) {
-      if (photoOriginalsPeer !== peerId) return;
-      photoAutoTried.add(key);
-      await box.fetchPhoto();
-    }
-  } finally {
-    photoAutoRunning = false;
-  }
+const chatPreview = (message) => {
+  if (!message) return window.strings['chats.noMessages'];
+  if (message.deleted) return window.strings['chats.deleted'];
+  const prefix = message.forwarded ? `${window.strings['chats.forwarded']} · ` : '';
+  return `${prefix}${chatContentPreview(message)}`;
 };
 const chatRow = (row) => {
   const button = document.createElement('button');
@@ -563,8 +384,7 @@ const closeChat = () => {
   window.stickerMessages?.clear();
   window.stickerRequests?.clear();
   chatOpenRequest += 1;
-  forgetPhotos();
-  photoOriginalsPeer = null;
+  window.chatPhotos.resetPeer(null, true);
   showNewDevice(null);
   closeClear();
   closeEdit();
@@ -605,6 +425,51 @@ const sendRead = async (peerId, call) => {
     /* the page shows nothing for a background receipt */
   }
 };
+const resetChatSnapshot = (peerId, previous) => {
+  if (newDevicePeer !== peerId) showNewDevice(null);
+  window.chatPhotos.resetPeer(peerId);
+  // A transparent refresh keeps the draft writable until the new snapshot changes its policy.
+  if (previous?.peerId !== peerId) {
+    if (previous) chatInput.value = '';
+    activeChat = null;
+    updateComposer();
+    chatsMessage('chats.loading');
+  }
+};
+const renderOpenedChat = (peerId, history, previous, generation, call) => {
+  const renderKey = JSON.stringify([generation, peerId, window.peerName(peerId), history]);
+  if (!previous || renderKey !== chatRenderKey || chatRenderCall !== call) {
+    window.stickerMessages?.clear();
+    window.stickerRequests?.clear();
+    chatMessages.replaceChildren(
+      ...history.messages.map((message) => window.chatMessage(message, peerId, history, call)),
+    );
+  } else {
+    // Mounted action callbacks retain these objects; their reference guards must still match.
+    history.messages = previous.messages;
+  }
+  chatRenderKey = renderKey;
+  chatRenderCall = call;
+  window.chatPhotos.fetchAllowed(peerId, call);
+  const cleared = clearedPeer === peerId && !history.messages.length;
+  document.getElementById('chat-cleared').hidden = !cleared;
+  if (!history.messages.length && !cleared)
+    chatMessages.textContent = window.strings['chats.noMessages'];
+  const peer = document.getElementById('chat-peer');
+  peer.textContent = peerLabel(peer, peerId);
+  document.getElementById('chat-state').textContent =
+    window.strings[`chats.state.${history.state}`] || '';
+  document.getElementById('chat-presence').hidden = !history.activeRecently;
+  activeChat = { peerId, ...history };
+  if (history.state !== 'open') window.stickerPicker?.leave(null);
+  document.getElementById('chat-clear').hidden = history.state === 'none';
+  document.getElementById('chat-rename').hidden = history.state === 'none';
+  document.getElementById('chat-mute').hidden = history.state === 'none';
+  updateComposer();
+  chatOverview.hidden = true;
+  chatDetail.hidden = false;
+  chatsMessage('chats.ready');
+};
 const openChat = async (peerId, call = invoke) => {
   const previous = activeChat;
   window.stickerPicker?.leave(peerId);
@@ -615,16 +480,7 @@ const openChat = async (peerId, call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
-  if (newDevicePeer !== peerId) showNewDevice(null);
-  if (photoOriginalsPeer !== peerId) forgetPhotos();
-  photoOriginalsPeer = peerId;
-  // A transparent refresh keeps the draft writable until the new snapshot changes its policy.
-  if (previous?.peerId !== peerId) {
-    if (previous) chatInput.value = '';
-    activeChat = null;
-    updateComposer();
-    chatsMessage('chats.loading');
-  }
+  resetChatSnapshot(peerId, previous);
   try {
     const history = await call('chat_history', { peerId });
     if (!currentChat()) return;
@@ -636,38 +492,7 @@ const openChat = async (peerId, call = invoke) => {
     const linked = await linkedDevice(call);
     if (!currentChat()) return;
     document.getElementById('chat-linked-notice').hidden = !linked;
-    const renderKey = JSON.stringify([generation, peerId, window.peerName(peerId), history]);
-    if (!previous || renderKey !== chatRenderKey || chatRenderCall !== call) {
-      window.stickerMessages?.clear();
-      window.stickerRequests?.clear();
-      chatMessages.replaceChildren(
-        ...history.messages.map((message) => window.chatMessage(message, peerId, history, call)),
-      );
-    } else {
-      // Mounted action callbacks retain these objects; their reference guards must still match.
-      history.messages = previous.messages;
-    }
-    chatRenderKey = renderKey;
-    chatRenderCall = call;
-    fetchAllowedPhotos(peerId, call);
-    const cleared = clearedPeer === peerId && !history.messages.length;
-    document.getElementById('chat-cleared').hidden = !cleared;
-    if (!history.messages.length && !cleared)
-      chatMessages.textContent = window.strings['chats.noMessages'];
-    const peer = document.getElementById('chat-peer');
-    peer.textContent = peerLabel(peer, peerId);
-    document.getElementById('chat-state').textContent =
-      window.strings[`chats.state.${history.state}`] || '';
-    document.getElementById('chat-presence').hidden = !history.activeRecently;
-    activeChat = { peerId, ...history };
-    if (history.state !== 'open') window.stickerPicker?.leave(null);
-    document.getElementById('chat-clear').hidden = history.state === 'none';
-    document.getElementById('chat-rename').hidden = history.state === 'none';
-    document.getElementById('chat-mute').hidden = history.state === 'none';
-    updateComposer();
-    chatOverview.hidden = true;
-    chatDetail.hidden = false;
-    chatsMessage('chats.ready');
+    renderOpenedChat(peerId, history, previous, generation, call);
     // A mail pass behind a hidden window is not reading; visibilitychange re-runs this.
     if (history.state === 'none' || document.hidden) return;
     await call('mark_chat_read', { peerId });
@@ -960,6 +785,13 @@ const deleteChatText = async (call = invoke) => {
 deleteConfirm.addEventListener('click', () => {
   window.chatDeleted = deleteChatText();
 });
+const showForwardFailure = (errorText) => {
+  forwardCancel.disabled = false;
+  forwardConfirm.disabled = false;
+  forwardSelect.disabled = false;
+  forwardError.textContent = `${window.strings['chats.forwardFailed']} ${errorText}`;
+  forwardError.hidden = false;
+};
 const forwardChatText = async (call = invoke) => {
   const source = forwardTarget;
   const targetPeerId = forwardSelect.value;
@@ -1008,11 +840,7 @@ const forwardChatText = async (call = invoke) => {
   if (!currentForward()) return;
   forwardBusy = false;
   if (result === 'failed') {
-    forwardCancel.disabled = false;
-    forwardConfirm.disabled = false;
-    forwardSelect.disabled = false;
-    forwardError.textContent = `${window.strings['chats.forwardFailed']} ${errorText}`;
-    forwardError.hidden = false;
+    showForwardFailure(errorText);
     return;
   }
   closeForward();
@@ -1026,6 +854,13 @@ document.getElementById('chat-forward-form').addEventListener('submit', (event) 
   if (forwardTarget?.share) window.profileShared = window.shareProfile();
   else window.chatForwarded = forwardChatText();
 });
+const showChatsStatus = (receiveError, foundCount, rowCount) => {
+  if (receiveError === 'notConnected') return chatsMessage('chats.notConnected');
+  if (receiveError) return chatsMessage('chats.receiveFailed', receiveError);
+  if (foundCount) return chatsMessage('chats.count', String(foundCount));
+  if (rowCount) return chatsMessage('chats.ready');
+  chatsMessage('chats.none');
+};
 window.showChats = async (call = invoke) => {
   const generation = identityGeneration;
   const request = ++chatsRequest;
@@ -1060,11 +895,7 @@ window.showChats = async (call = invoke) => {
     );
     window.showCardPhotos(found, [...likedList.children], call);
     document.getElementById('chats-liked-count').textContent = String(found.length);
-    if (receiveError === 'notConnected') chatsMessage('chats.notConnected');
-    else if (receiveError) chatsMessage('chats.receiveFailed', receiveError);
-    else if (found.length) chatsMessage('chats.count', String(found.length));
-    else if (rows.length) chatsMessage('chats.ready');
-    else chatsMessage('chats.none');
+    showChatsStatus(receiveError, found.length, rows.length);
   } catch (error) {
     if (!currentChats()) return;
     const code = String(error);
@@ -1107,7 +938,13 @@ window.mailUpdated = async (changed, call = invoke) => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) window.mailUpdated(0);
 });
-window.chatMessageHelpers = { openEdit, openDelete, openForward, chatLinkHosts, photoBubble };
+window.chatMessageHelpers = {
+  openEdit,
+  openDelete,
+  openForward,
+  chatLinkHosts,
+  photoBubble: window.chatPhotos.photoBubble,
+};
 // Sent on launch and on focus, never on a timer, so it follows real use; the Store keeps the hour.
 window.announcePresence = async (call = invoke) => {
   if (document.hidden) return;

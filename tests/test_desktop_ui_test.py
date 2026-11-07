@@ -46,6 +46,17 @@ class NavigationTest(unittest.TestCase):
             ["chats", "chats-area"])
 
 
+class ChatScriptOrderTest(unittest.TestCase):
+    def test_photo_helpers_load_before_controller_and_message_rows(self):
+        scripts = re.findall(r'<script src="([^"]+)"',
+                             (UI / "ui/index.html").read_text())
+        names = ("search.js", "chat-photos.js",
+                 "chats-ui.js", "chat-message.js")
+        order = [scripts.index(name) for name in names]
+        self.assertEqual(order, sorted(order))
+        self.assertEqual(len(set(order)), len(order))
+
+
 class SmokeInventoryTest(unittest.TestCase):
     def test_all_smoke_scripts_are_registered_and_includes_exist(self):
         directory = UI / "ui-tests"
