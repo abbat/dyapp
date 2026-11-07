@@ -10,7 +10,9 @@ const waitFor = (id) => new Promise((resolve, reject) => {
 });
 // Opens a sidebar area of the shell and waits until it shows.
 const openArea = async (area, pane = null) => {
-  document.querySelector(`#sidebar [data-area="${area}"]`).click();
+  const button = document.querySelector(`#sidebar [data-area="${area}"]`);
+  if (!button) throw Error(`Sidebar destination ${area} is missing`);
+  button.click();
   await waitFor(area);
   if (area === 'settings') {
     await window.settingsShown;

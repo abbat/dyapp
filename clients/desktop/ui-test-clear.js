@@ -11,7 +11,7 @@ window.checkClearDialog = async () => {
     return false;
   };
   try {
-    await openArea('chats');
+    await openArea('chats-area');
     await openChat(peer, call);
     const opener = document.getElementById('chat-clear');
     opener.focus();

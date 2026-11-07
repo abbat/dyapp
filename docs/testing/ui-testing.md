@@ -2,7 +2,9 @@
 
 Desktop native smokes use `openArea('settings', category)` and `openSettings(category)`
 to follow the actual category buttons, including parent collections, before operating
-controls. The helper rejects a hidden destination; it does not expose panes directly
+controls. The Python desktop smoke contract checks every literal sidebar destination against
+shipped buttons and section IDs; missing runtime destinations report their names explicitly.
+The helper rejects a hidden destination; it does not expose panes directly
 or add waits for navigation. Settings navigation has its own Back/focus/reset smoke.
 
 Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,
