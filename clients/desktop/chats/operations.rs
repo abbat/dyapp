@@ -1,11 +1,11 @@
-//! Desktop edit/delete of a current own chat text, bound to its selected peer and MLS group.
+//! Desktop own-message operations bound to their selected peer and MLS group.
 
 use std::path::Path;
 use std::sync::Arc;
 
 use dyapp_client::chat::MAX_TEXT_BYTES;
 use dyapp_client::session::Session;
-use dyapp_client::store::messages::ChatMessage;
+use dyapp_client::store::messages::{ChatItem, ChatMessage};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -19,12 +19,26 @@ fn target_matches(message: &ChatMessage, own: &str, group_id: &[u8], id: [u8; 16
         && !message.current.deleted
 }
 
+fn item_matches(item: ChatItem, own: &str, group: &[u8], id: [u8; 16], delete: bool) -> bool {
+    match item {
+        ChatItem::Text(message) => target_matches(&message, own, group, id),
+        ChatItem::Sticker(message) => {
+            delete
+                && message.key.author == own
+                && message.key.group == group
+                && message.key.id == id
+        }
+        _ => false,
+    }
+}
+
 fn validate_target(
     store: &Store,
     identity: &Identity,
     peer_id: &str,
     group_id: &[u8],
     message_id: [u8; 16],
+    delete: bool,
 ) -> Result<(), String> {
     if peer_id == identity.peer_id() {
         return Err("ownPeer".into());
@@ -33,11 +47,20 @@ fn validate_target(
         return Err("blocked".into());
     }
     let own = identity.peer_id();
-    let found = store
+    let mut found = store
         .current_chat_messages(peer_id)
         .map_err(|e| e.to_string())?
         .into_iter()
-        .any(|message| target_matches(&message, &own, group_id, message_id));
+        .any(|message| item_matches(ChatItem::Text(message), &own, group_id, message_id, delete));
+    if !found && delete {
+        found = store
+            .current_chat_stickers(peer_id)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .any(|message| {
+                item_matches(ChatItem::Sticker(message), &own, group_id, message_id, true)
+            });
+    }
     if !found {
         return Err("unknownMessage".into());
     }
@@ -60,7 +83,14 @@ async fn operate(
         }
     }
     let store = super::open(dir, identity)?;
-    validate_target(&store, identity, peer_id, group_id, message_id)?;
+    validate_target(
+        &store,
+        identity,
+        peer_id,
+        group_id,
+        message_id,
+        text.is_none(),
+    )?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
@@ -131,6 +161,64 @@ mod tests {
     use dyapp_client::store::messages::{CurrentMessage, MessageKey};
 
     #[test]
+    fn stickers_are_delete_only_and_require_the_exact_own_key() {
+        let own = Identity::generate().peer_id();
+        let message = dyapp_client::store::messages::ChatSticker {
+            key: MessageKey {
+                group: vec![4],
+                author: own.clone(),
+                id: [2; 16],
+            },
+            sticker: dyapp_client::chat::sticker::Sticker {
+                id: [2; 16],
+                hlc: 1,
+                pack_id: [3; 32],
+                sha256: [4; 32],
+                emoji: "😺".into(),
+                pack_name: "Cats".into(),
+                attachment: None,
+            },
+            unread: false,
+            delivery: None,
+        };
+        assert!(item_matches(
+            ChatItem::Sticker(message.clone()),
+            &own,
+            &[4],
+            [2; 16],
+            true
+        ));
+        assert!(!item_matches(
+            ChatItem::Sticker(message.clone()),
+            &own,
+            &[4],
+            [2; 16],
+            false
+        ));
+        assert!(!item_matches(
+            ChatItem::Sticker(message.clone()),
+            &own,
+            &[5],
+            [2; 16],
+            true
+        ));
+        assert!(!item_matches(
+            ChatItem::Sticker(message.clone()),
+            &own,
+            &[4],
+            [9; 16],
+            true
+        ));
+        assert!(!item_matches(
+            ChatItem::Sticker(message),
+            "another author",
+            &[4],
+            [2; 16],
+            true
+        ));
+    }
+
+    #[test]
     fn edit_target_is_a_live_own_text_in_the_selected_group() {
         let own = Identity::generate().peer_id();
         let peer = Identity::generate().peer_id();
@@ -161,7 +249,7 @@ mod tests {
     }
 }
 
-/// Delete only a live text authored by this identity in the selected peer's group.
+/// Delete only a live text or sticker authored by this identity in the selected peer's group.
 #[tauri::command]
 pub(crate) async fn delete_chat_text(
     app: tauri::AppHandle,

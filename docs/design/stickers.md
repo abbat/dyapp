@@ -356,7 +356,10 @@ Add-pack controllers remain planned.
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.
 - A sticker is sent alone, with no caption and no bubble, at most 192 pt.
-- Delete works through tag 9. Edit and forward are hidden and refused by the codec.
+- Delete works through tag 9. The desktop delete command now accepts live own stickers only
+  with the exact peer/group/message selection; edit remains restricted to text. The sticker
+  Delete button is still pending message-controller integration. Edit and forward are hidden
+  and refused by the codec.
 - The chat list and notifications show emoji and "Sticker", including the closed-app paths
   (`MailNotice`, `MailJob`).
 - The accessibility label is "Sticker: 😺, pack Cats".
