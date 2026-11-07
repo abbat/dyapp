@@ -18,6 +18,13 @@ tracking task; closing it requires scheduling its successor.
 | Baselines and flaky quarantine | `baselines.toml` records measured coverage, panic, Scorecard, mutation, batch and source-size limits; `[flaky]` and `[size.files]` are empty. `artifact-sizes.json` records nine measured targets with revision and environment (seven also link CI evidence). Historical check cutoffs remain recorded in their scripts and docs. | Retain measured limits; tighten only after a comparable passing run. Never lower a gate for a red CI run. Review cutoffs if a script changes. |
 | Local lint suppressions | Rust generated-code `allow` scopes, targeted Clippy reasons, Python `noqa: E402/F401`, Detekt test exclusions and the single cargo-shear generated-import ignore were inspected. | Retain generated/test-only cases. Add adjacent reasons to the Python import suppressions and recheck broad Detekt exclusions on the next tool update. |
 
+## Dependency-age follow-up — 2026-11-07
+
+The 37 exceptions dated 2026-10-23 expired and were removed from the age checker.
+Their locked versions now undergo the ordinary cached publish-date check. Lockfiles,
+versions and the 14-day rule are unchanged; the newer clipboard/zbus exceptions
+retain their original expiry dates and reasons.
+
 ## Follow-up
 
 The first audit found no expired flaky quarantine or size-file exception.

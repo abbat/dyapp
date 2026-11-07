@@ -15,46 +15,8 @@ MIN_AGE = timedelta(days=14)
 CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # (crate, version): (date added, reason). Remove the entry once it is 14 days
 # old; an entry older than MIN_AGE is reported as stale.
-LOCKED = "locked before this check existed"
 ZBUS = "clears RUSTSEC-2026-0370, 0371 and 0372 on Linux"
 EXCEPTIONS = {
-    ("ml-kem", "0.3.3"): ("2026-10-23", LOCKED),
-    ("proptest", "1.12.0"): ("2026-10-23", LOCKED),
-    ("proptest-derive", "0.9.0"): ("2026-10-23", LOCKED),
-    ("rtc", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-crypto", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-datachannel", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-dtls", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-ice", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-interceptor", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-mdns", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-media", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-rtcp", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-rtp", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-sctp", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-sdp", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-shared", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-srtp", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-stun", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rtc-turn", "0.21.1"): ("2026-10-23", LOCKED),
-    ("rustls", "0.23.46"): ("2026-10-23", LOCKED),
-    ("rustls-webpki", "0.103.16"): ("2026-10-23", LOCKED),
-    ("serde_json", "1.0.154"): ("2026-10-23", LOCKED),
-    ("sha2", "0.11.1"): ("2026-10-23", LOCKED),
-    ("tokio", "1.53.3"): ("2026-10-23", LOCKED),
-    ("toml", "1.1.8+spec-1.1.0"): ("2026-10-23", LOCKED),
-    ("toml_edit", "0.25.17+spec-1.1.0"): ("2026-10-23", LOCKED),
-    ("toml_parser", "1.1.5+spec-1.1.0"): ("2026-10-23", LOCKED),
-    ("uuid", "1.28.0"): ("2026-10-23", LOCKED),
-    ("webrtc", "0.21.1"): ("2026-10-23", LOCKED),
-    ("swift-rs", "1.0.9"): ("2026-10-23", LOCKED),
-    ("tauri", "2.12.3"): ("2026-10-23", LOCKED),
-    ("tauri-build", "2.7.2"): ("2026-10-23", LOCKED),
-    ("tauri-codegen", "2.7.2"): ("2026-10-23", LOCKED),
-    ("tauri-macros", "2.7.2"): ("2026-10-23", LOCKED),
-    ("tokio", "1.54.1"): ("2026-10-23", "fixes RUSTSEC-2026-0384"),
-    ("ctutils", "0.4.4"): ("2026-10-23", "fixes RUSTSEC-2026-0385"),
-    ("tokio-util", "0.7.20"): ("2026-10-23", LOCKED),
     # arboard requires ^5.3.1; every older matching release is yanked.
     ("clipboard-win", "5.4.3"): (
         "2026-11-01", "only non-yanked arboard-compatible release"),
