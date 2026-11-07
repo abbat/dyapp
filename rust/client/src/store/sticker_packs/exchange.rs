@@ -89,6 +89,27 @@ fn pending(db: &Connection, peer: &str, pack: &[u8; 32]) -> Result<Option<Pendin
     .transpose()
 }
 
+fn stage_outbox(
+    tx: &rusqlite::Transaction<'_>,
+    sealed: &[u8],
+    writes: &[PreparedEnvelope],
+    group: &[u8],
+) -> Result<(), Error> {
+    Store::stage_outbound_tx(tx, None, sealed, writes, true)?;
+    for write in writes {
+        let changed = tx.execute(
+            "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2
+                 AND (`chat_group` IS NULL OR `chat_group` = ?3)",
+            params![write.mailbox().as_slice(), write.id().as_slice(), group],
+        )?;
+        if changed != 1 {
+            return Err(Error::OutboxConflict);
+        }
+    }
+
+    Ok(())
+}
+
 impl Store {
     /// Prepare metadata for the exact received sticker selected in an open pair chat.
     pub fn sticker_pack_request(
@@ -141,17 +162,7 @@ impl Store {
                 token,
             }
         };
-        Self::stage_outbound_tx(&tx, None, sealed, writes, true)?;
-        for write in writes {
-            let changed = tx.execute(
-                "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2
-                 AND (`chat_group` IS NULL OR `chat_group` = ?3)",
-                params![write.mailbox().as_slice(), write.id().as_slice(), group],
-            )?;
-            if changed != 1 {
-                return Err(Error::OutboxConflict);
-            }
-        }
+        stage_outbox(&tx, sealed, writes, group)?;
         tx.commit()?;
         Ok(pending)
     }

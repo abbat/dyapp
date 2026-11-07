@@ -128,5 +128,6 @@ impl Store {
     }
 }
 
+mod complete;
 #[cfg(test)]
 mod tests;

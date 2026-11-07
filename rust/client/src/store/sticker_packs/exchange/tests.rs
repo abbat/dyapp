@@ -10,7 +10,10 @@ pub(super) fn database() -> (Store, Identity, std::path::PathBuf, String) {
     std::fs::create_dir_all(&root).unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));
+    // Store media belongs to the database's parent, so each identity needs its own folder.
+    let directory = root.join(format!("{:032x}", u128::from_be_bytes(random)));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("client.db");
     let owner = Identity::generate();
     let peer = Identity::generate().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();

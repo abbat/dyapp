@@ -52,6 +52,9 @@ pub enum Error {
     /// A second own text to a peer who has not answered the first; one request stays pending.
     #[error("client store message request is still pending")]
     RequestPending,
+    /// A shared pack was removed or cannot safely be found when staging its response.
+    #[error("saved sticker pack is unavailable")]
+    StickerPackUnavailable,
     /// Outstanding pack requests have reached the identity-local bound.
     #[error("too many pending sticker pack requests")]
     PackRequestsFull,

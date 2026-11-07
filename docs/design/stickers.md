@@ -242,7 +242,11 @@ check an open, unblocked chat and that the pack is still saved. The Store now qu
 response jobs with MLS/inbox/ACK, at most one generation per peer/PackID and 64 pending jobs
 per identity. Due reads return at most 32 jobs. Failures use the outbox's 1 s exponential
 backoff capped at 1 h; duplicate requests cannot reset it. Stored daily cooldown is checked
-before queueing. Successful response/outbox completion and network workers remain planned.
+before queueing. Response completion now commits its exact outbox and the rolling 24 h
+cooldown together, requiring the current job token, an open/unblocked shared pair and a
+regular saved-pack file. Saved-file presence is rechecked under the same writer lock as
+pack removal. Old workers cannot finish a newer job; missing packs can retire work without
+advancing cooldown. Network workers and Session control routing remain planned.
 
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,

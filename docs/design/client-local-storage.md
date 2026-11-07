@@ -141,8 +141,11 @@ Download/save, Session control routing and request UI remain planned.
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
 and due reads return 32. Duplicate requests retain token and retry deadline. Retry timing reuses
-the outbox's 1 s doubling schedule capped at 1 h. Advancing the rolling daily cooldown with a
-successful response outbox, and the network worker, remain planned.
+the outbox's 1 s doubling schedule capped at 1 h. Response completion requires a current job
+token, shared/open/unblocked pair, nonempty exact writes and a regular saved-pack file checked
+under the pack writer lock. The response outbox and last-success time commit atomically;
+failures or stale workers cannot advance the rolling 24 h cooldown. Retiring unavailable-pack
+work preserves the previous success time. The network worker and Session routing remain planned.
 Received-sticker cache integration remains planned.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No

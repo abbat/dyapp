@@ -116,6 +116,8 @@ not available inside the Docker checkout; the small-batches check then fails bef
 Rust tests run with the crate directory as their working directory. Repository-local test
 artifacts must derive the root `build/` path from `CARGO_MANIFEST_DIR`; `current_dir()/build`
 creates unignored fixture files under the crate and can break repository source checks.
+Store media lives in the database's parent directory: random database filenames alone do not
+isolate identity-local packs or originals. Give each test identity its own directory.
 
 ## Local check output
 
