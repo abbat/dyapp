@@ -902,6 +902,25 @@
       <button id="sticker-remove-confirm" class="btn danger" type="button" data-i18n="stickers.removeConfirm"></button>
     </div>
   </dialog>
+  <dialog id="sticker-picker" class="modal sticker-picker" aria-labelledby="sticker-picker-title" hidden>
+    <h2 id="sticker-picker-title" data-i18n="stickers.title"></h2>
+    <nav id="sticker-picker-choices" class="sticker-choices" data-i18n-label="stickerPicker.packs"></nav>
+    <div class="actions sticker-pagination">
+      <button id="sticker-picker-packs-previous" class="btn" type="button" data-i18n="stickerPicker.previousPacks" disabled></button>
+      <button id="sticker-picker-packs-next" class="btn" type="button" data-i18n="stickerPicker.nextPacks" disabled></button>
+    </div>
+    <p id="sticker-picker-status" class="notice" role="status" aria-live="polite" hidden></p>
+    <div id="sticker-picker-grid" class="sticker-grid"></div>
+    <div class="actions sticker-pagination">
+      <button id="sticker-picker-previous" class="btn" type="button" data-i18n="stickerPicker.previous" disabled></button>
+      <button id="sticker-picker-next" class="btn" type="button" data-i18n="stickerPicker.next" disabled></button>
+    </div>
+    <div class="actions">
+      <button id="sticker-picker-cancel" class="btn" type="button" data-i18n="page.cancel"></button>
+      <button id="sticker-picker-retry" class="btn" type="button" data-i18n="stickerPicker.retry" hidden></button>
+      <button id="sticker-picker-manage" class="btn" type="button" data-i18n="stickerPicker.manage"></button>
+    </div>
+  </dialog>
   <script src="peer-names.js"></script>
   <script src="privacy-ui.js"></script>
   <script src="profile-seeking.js"></script>
@@ -924,6 +943,8 @@
   <script src="photo-settings.js"></script>
   <script src="media-cache.js"></script>
   <script src="stickers.js"></script>
+  <script src="sticker-pixels.js"></script>
+  <script src="sticker-picker.js"></script>
   <script src="chat-composer.js"></script>
   <script src="chats-photo-send.js"></script>
   <script src="profile-photos.js"></script>

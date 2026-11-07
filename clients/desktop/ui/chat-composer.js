@@ -6,5 +6,12 @@ chatInput.addEventListener('keydown', (event) => {
 });
 document.getElementById('chat-stickers').addEventListener('click', () => {
   if (chatInput.disabled || activeChat?.state !== 'open') return;
-  window.stickersShown = window.stickerCollection.open();
+  const peerId = activeChat.peerId;
+  const generation = identityGeneration;
+  window.stickersShown = window.stickerPicker.open({ peerId, onSent: async () => {
+    if (!identityCurrent(generation) || activeChat?.peerId !== peerId) return;
+    await openChat(peerId);
+    if (identityCurrent(generation) && activeChat?.peerId === peerId)
+      chatComposeStatus.textContent = window.strings['stickerPicker.queued'];
+  } });
 });

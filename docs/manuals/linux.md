@@ -37,16 +37,20 @@ on Back or identity change.
 
 ## Sticker packs
 
-In an open chat, press the sticker icon beside the message field, then choose
-**Import TAR…** under Saved packs to save a local pack
+In an open chat, press the sticker icon beside the message field. Choose Recent or a saved
+pack, then an image to send that sticker alone. The text draft stays in the composer. The
+picker shows eight images per page; Previous/Next changes images and Previous packs/More packs
+changes the pack choices. Cancel or Escape closes it. **Manage packs** opens the collection;
+its Cancel returns to a refreshed picker. Choose **Import TAR…** under Saved packs to save a local pack
 (up to 8 MiB). Importing sends nothing. Refresh restarts the list; Next page shows
 more packs. The 300 MiB limit never removes a saved pack automatically. Import/read errors keep
 existing packs; open Details and retry. **Remove…** next to a pack asks for confirmation;
 Cancel or Escape changes nothing. Removal affects only this saved copy and also works for
-unreadable packs. After an uncertain error, refresh before retrying. Sending remains planned.
+unreadable packs. After an uncertain error, refresh before retrying. A queued sticker appears in
+the thread with its delivery status; closing the picker does not recall a committed send.
 
 Sticker history is prepared to show emoji and pack name without downloading media.
-Image display, chat delivery and Add pack remain planned.
+Received-image display and Add pack remain planned.
 
 **Clear chat** names the contact and full Peer ID before confirmation. It removes this
 computer's messages/originals and cancels pending pack requests. Saved packs and local recent

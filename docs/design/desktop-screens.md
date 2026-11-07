@@ -500,7 +500,11 @@ has its own `sticker-manager` screen in `stickers-*` states. The prototype compo
 `sticker-picker-recent`, `sticker-picker-loading`, `sticker-picker-error` and
 `sticker-picker-sending` variants. The picker has pack-choice buttons, eight labelled image
 buttons, paging, Cancel and Manage packs. Its `sticker-picker-manage` opens the collection.
-The shipped button still opens management; picker integration remains planned.
+The shipped button opens the picker too. Pack choices page at 32 records and image/recents
+pages contain at most eight safe thumbnails. Pack navigation has Previous packs/More packs;
+the image navigation has Previous/Next. Closing invalidates callbacks, returns composer focus
+and preserves the text draft. Manage packs returns to a fresh picker after Cancel/Escape.
+Sending leaves a queued message in the common outbox; its delivery status remains in the thread.
 
 Received sticker prototype states are `chat-sticker-image`, `chat-sticker-fallback`,
 `chat-sticker-pending`, `chat-sticker-downloading`, `chat-sticker-failed`,

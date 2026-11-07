@@ -245,7 +245,7 @@ details > summary { cursor: pointer; color: var(--accent); margin-bottom: var(--
 .sticker-grid canvas { width: 100%; max-width: 96px; height: auto; display: block; margin: auto; }
 .sticker-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); max-height: 12rem; overflow: auto; margin-bottom: var(--space-4); }
 .sticker-choices .btn { flex: 1 1 120px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-.sticker-picker .actions.sticker-pagination { flex-direction: row; }
+.sticker-picker .actions.sticker-pagination { flex-direction: row; margin-bottom: var(--space-4); }
 .sticker-choices [aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); }
 .sticker-message { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); max-width: 100%; padding: var(--space-3) 0; }
 .sticker-message > canvas { max-width: 192pt; max-height: 192pt; width: auto; height: auto; }

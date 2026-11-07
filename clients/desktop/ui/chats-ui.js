@@ -482,6 +482,7 @@ const acknowledgeDevice = async (call = invoke) => {
 };
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
+  window.stickerPicker?.close();
   chatOpenRequest += 1;
   forgetPhotos();
   photoOriginalsPeer = null;
@@ -524,6 +525,7 @@ const sendRead = async (peerId, call) => {
   } catch { /* the page shows nothing for a background receipt */ }
 };
 const openChat = async (peerId, call = invoke) => {
+  window.stickerPicker?.leave(peerId);
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
@@ -626,6 +628,7 @@ const openChat = async (peerId, call = invoke) => {
       window.strings[`chats.state.${history.state}`] || '';
     document.getElementById('chat-presence').hidden = !history.activeRecently;
     activeChat = { peerId, ...history };
+    if (history.state !== 'open') window.stickerPicker?.leave(null);
     document.getElementById('chat-clear').hidden = history.state === 'none';
     document.getElementById('chat-rename').hidden = history.state === 'none';
     document.getElementById('chat-mute').hidden = history.state === 'none';

@@ -345,8 +345,13 @@ capabilities are not stored there. Desktop `recent_sticker_page` resolves exact 
 against authenticated saved packs, returning at most eight 96 px thumbnails per page. Missing or
 invalid packs and unavailable entries are skipped without deleting files; storage errors remain
 retryable errors. It scans at most 20 recent records and retains one full pack at a time. The cursor
-indexes the original recent metadata, and identity transitions abort the response. Canvas picker UI
-remains planned.
+indexes the original recent metadata, and identity transitions abort the response. The desktop
+composer now opens a canvas picker with recents, saved-pack choices, eight thumbnails per page
+and Previous/Next. Pack choices also page at 32 records. Cancel/Escape returns to the composer;
+Manage packs opens the existing import/removal dialog and returns to the picker. Sending queues
+a standalone sticker through the common outbox and preserves the text draft. Per-opening/read
+and identity guards prevent stale replies from repainting another view. Received-image and
+Add-pack controllers remain planned.
 
 - The composer gets a sticker button. Its panel has pack tabs and 20 local recents, and an empty
   state with "Add pack" that picks a TAR file.

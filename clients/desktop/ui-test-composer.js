@@ -41,10 +41,10 @@ window.checkChatComposer = async () => {
     stickers.focus();
     stickers.click();
     await window.stickersShown;
-    check(document.getElementById('sticker-manager').open, 'Sticker manager did not open');
-    document.getElementById('sticker-manager-cancel').click();
-    check(!document.getElementById('sticker-manager').open && document.activeElement === stickers,
-      'Manager Cancel did not restore composer focus');
+    check(document.getElementById('sticker-picker').open, 'Sticker picker did not open');
+    document.getElementById('sticker-picker-cancel').click();
+    check(!document.getElementById('sticker-picker').open && document.activeElement === stickers,
+      'Picker Cancel did not restore composer focus');
     for (const state of ['requestSent', 'closed', 'requestReceived']) {
       activeChat.state = state;
       updateComposer();

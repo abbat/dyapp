@@ -82,5 +82,12 @@ English picker/error and received-failure states; shared contrast/focus tokens a
 | P1 | 3 | Long Russian pack names initially clipped horizontally. Choices now wrap within a bounded scrolling region; all captures pass the dynamic text-width check. | Closed |
 | P2 | 2 | The generic narrow-dialog rule reversed Previous/Next. A specific paging rule retains their reading order; the geometry assertion passes at both widths. | Closed |
 
-No finding is accepted as an exception. Shipped picker/message controllers remain planned.
-Prototype validation does not establish native transport or actual IPC acceptance.
+No finding is accepted as an exception. The shipped picker now uses the reviewed canvas grid,
+with separate bounded pack/image paging. Controller checks run against the actual markup and
+scripts: chosen pack/index, draft preservation, duplicate-click guard, retry, manager return,
+old reads after reopening and peer changes, malformed pixels, focus and pack/grid spacing.
+Sixteen ready/empty/error/sending captures cover EN/RU at 440/1280 under
+`build/ux-research/linux-sticker-picker-live/`. An added pack pager initially touched the grid;
+shared token spacing fixes it and the dynamic controller geometry check passes. Native IPC
+execution remains a CI check. Received-image and request controllers remain planned.
+Prototype and mocked-controller validation do not establish native transport acceptance.

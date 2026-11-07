@@ -199,6 +199,7 @@
     const button = openedFrom;
     close();
     if (button?.isConnected && !button.disabled) button.focus();
+    document.dispatchEvent(new Event('dyapp:sticker-manager-close'));
   };
   document.getElementById('sticker-manager-cancel').addEventListener('click', dismiss);
   manager.addEventListener('cancel', (event) => { event.preventDefault(); dismiss(); });
