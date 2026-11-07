@@ -126,7 +126,11 @@ GNU tar and macOS bsdtar are test fixtures.
 
 Three MLS application variants use the next free outer tags; nodes see only sealed blobs.
 Tag 14 sticker decoding and authenticated session receive are implemented. Pack controls
-15/16 remain planned. Tag 13 stays private own-device `PeerChange`.
+15/16 remain disabled in Body/Session pending per-chat authorization. Their standalone
+`chat::pack_control` payload codecs bound input to 2 KiB before protobuf allocation,
+require 32-byte manifest IDs and reuse the shared attachment codec. An answer has no preview
+or release capability, zero nested message ID/HLC and at most 6 MiB including GCM tags.
+A valid descriptor alone never authorizes a download. Tag 13 stays private own-device `PeerChange`.
 
 | Tag | Body |
 |-----|------|

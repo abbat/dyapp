@@ -207,7 +207,9 @@ pub struct AttachmentMessage {
 
 mod attachment_wire;
 use attachment_wire::AttachmentWire;
-/// Bounded sticker payload codec; outer message integration is not enabled yet.
+/// Payload codecs; outer-tag admission waits for per-chat authorization.
+pub mod pack_control;
+/// Bounded payload codec for tag-14 sticker metadata.
 pub mod sticker;
 
 /// The most write IDs one receipt names, above a node's fetch page.

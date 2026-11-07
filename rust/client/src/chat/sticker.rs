@@ -1,4 +1,4 @@
-//! Sticker payloads, not yet registered as an outer chat body.
+//! Validated tag-14 sticker metadata; compressed WebP travels as a separate attachment.
 
 use super::{attachment_wire::AttachmentWire, Attachment, AttachmentMessage};
 use crate::sticker_manifest::json::{clean_label, valid_emoji};
