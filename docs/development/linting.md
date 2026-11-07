@@ -54,6 +54,8 @@ Quality container (the gate):
 
 ```bash
 cargo fmt --all -- --check
+cargo fmt --manifest-path clients/linux/Cargo.toml -- --check
+cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
 cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings
 ```
 
@@ -77,7 +79,7 @@ converts its JSON output to SARIF for code scanning. That job runs outside Docke
 CodeQL also compiles Android Kotlin with `:app:compileDebugKotlin` and the iOS Swift app with
 `xcodebuild`, then runs `security-and-quality` analysis and uploads SARIF for both languages.
 
-Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `cargo fmt --all` in the dev container.
+Run locally: `make quality` (all checks) or `make fmt` (format check only; it does not rewrite files). To reformat, run `make fmt-write`; it uses the dev container with a writable source mount and covers the same three manifests.
 
 ## Python
 

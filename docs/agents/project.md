@@ -127,7 +127,7 @@ pulls anything).
 | Everything (pre-push) | `make test-all` | `tests/scripts/docker-test.sh all` |
 | Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim with procps and systemd (`tests/docker/Dockerfile.deb-test`; `deb-test.sh` runs `systemd-analyze verify` on the unit) |
 | Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
-| fmt check | `make fmt` | `cargo fmt --all -- --check`; the Docker checkout is read-only, so apply its diffs with host `rustfmt --edition 2021 <files>` |
+| fmt check | `make fmt` | root workspace and native desktop crates; `make fmt-write` applies formatting in Docker |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
 | Android lint only (seconds) | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, both run; nothing compiles, so after a UniFFI record gains a field grep its constructors in `src/test` and `src/androidTest` too |
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
@@ -220,7 +220,7 @@ tag for recovery and do not remove caches or images without confirmation.
 - On Linux Tauri IPC uses `postMessage`, so a raw body gains nothing: byte arrays go as JSON
   (`Array.from`), as `scan_contact_qr` does. Sync commands run on the main thread, and a window call
   such as `is_focused` waits on it: never make one while holding the `Sessions` lock.
-- `make fmt` skips `clients/`; check those files with `rustfmt --check --edition 2021`. `make test`
+- `make fmt` checks the root workspace and both native desktop crates. `make test`
   and CI differ in detail: `gh run download <id> -n core-check-output` holds the nextest output.
 
 ## Rules for agents
@@ -306,8 +306,8 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   and `blob:` images, so draw through `createImageBitmap` and a canvas. Classic scripts share
   top-level names, but biome checks each file alone: expose a name used elsewhere as `window.x`.
   Add a new `clients/desktop/ui-test-*.js` to the ordered list in `ui_smoke.rs`. Modules
-  under `clients/desktop/chats/` need an explicit `#[path]`. `make fmt` skips `clients/`: run
-  host `rustfmt --check --edition 2021 FILE`, feeding a file with `mod` lines through stdin.
+  under `clients/desktop/chats/` need an explicit `#[path]`. `make fmt` checks native desktop
+  modules too; `make fmt-write` applies formatting in the Docker container.
   Label readonly code with `dl`/`dt`/`dd`: the implicit code role cannot use `aria-labelledby`,
   and Biome requires semantic elements instead of a generic `div role="group"`.
 - Never claim a check passed unless you ran it and saw it pass.

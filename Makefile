@@ -1,4 +1,4 @@
-.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
+.PHONY: help install prepare test test-integration test-all coverage coverage-check mutants fuzz quality lint check lint-android fmt fmt-write build release deb image security audit deny msrv doc rehearsal pre-commit pre-push ui-test ui-test-android ui-test-android-emulator ui-test-linux ui-prototype ui-prototype-android ui-test-shell
 
 .SILENT:
 
@@ -50,7 +50,11 @@ quality lint check:
 	bash tests/scripts/check-quality.sh
 
 fmt:
-	$(CHECK) rustfmt -- cargo fmt --all -- --check
+	$(DEV) bash tests/scripts/rust-check.sh fmt
+
+# Formatting is the only operation that needs a writable source mount.
+fmt-write:
+	$(TEST_COMPOSE) --profile test run --no-deps --pull never -v "$(CURDIR):/workspace:rw" dev bash tests/scripts/rust-check.sh fmt-write
 
 build release:
 	python3 tools/scripts/run-check.py --log-dir build/check-output rust-build -- $(DOCKER) -f tools/docker/compose.dev.yml --profile build run --no-deps --pull never build
