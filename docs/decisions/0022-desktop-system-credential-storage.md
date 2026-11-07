@@ -35,6 +35,12 @@ credential through the same native store API, and checks that its persistence is
 A successful probe is a current capability signal, not a guarantee that a later write
 cannot fail.
 
+On macOS (planned with the Tauri macOS client, [ADR 0002](0002-rust-core-native-apps-tauri-desktop.md))
+use the login Keychain through the same `keyring-core` API and its Apple native store, with an item
+that stays on this device and is not synced through iCloud Keychain. The probe writes, reads and
+removes its own test item like the Windows probe. The exact crate and version are pinned and
+recorded here when it is implemented. In file mode macOS uses mode `0600`, as Linux does.
+
 The file mode is an explicit user choice with a protection warning, never an automatic
 fallback. It stores the raw 32-byte secret in the app configuration directory. Linux creates
 it with mode `0600` and rejects looser permissions. Windows inherits that directory's ACL;

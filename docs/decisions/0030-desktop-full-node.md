@@ -32,4 +32,5 @@ TURN roles stay on dedicated nodes. Mobile apps stay light clients.
   opens until NAT traversal lands.
 - A desktop node is up only while the app runs, so replication must keep tolerating churn.
 - `dyapp-bootstrap` builds only on Unix, so the Windows desktop runs no node until it builds
-  there; macOS follows when it gains the desktop client.
+  there. The macOS Tauri client ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) runs the
+  node as Linux does (planned).

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Android and the Apple apps use **UniFFI-generated FFI bindings** from the Rust core; the Tauri desktop apps are Rust and need no bindings. Each platform has a **minimal wrapper** with zero business logic — all real work happens in Rust.
+Android and iOS use **UniFFI-generated FFI bindings** from the Rust core; the Tauri desktop apps (Linux, Windows and, planned for v0.0.1, macOS) are Rust and need no bindings ([ADR 0002](../decisions/0002-rust-core-native-apps-tauri-desktop.md)). The SwiftUI macOS app still uses the Swift bindings until it is replaced. Each platform has a **minimal wrapper** with zero business logic — all real work happens in Rust.
 
 **Key principle:** Platform code = UI + event handling only. Business logic stays in Rust.
 
@@ -120,23 +120,15 @@ platform/android-kotlin/
 
 **No Android Framework calls in the wrapper** — activities delegate to client.
 
-## macOS (Swift)
+## macOS
 
-### Setup
-
-Same pipeline as iOS, with the macOS slice of the XCFramework; the app shares
-`ContentView.swift` and `RustBridge.swift` with iOS.
-
-### Integration
-
-Same as iOS, but with AppKit instead of UIKit.
-
-```swift
-let client = DYappClient()
-
-// SwiftUI or AppKit coordinates events
-// All state lives in Rust client
-```
+Today `clients/macos/` is a SwiftUI app built like iOS, with the macOS slice of the XCFramework
+and the shared `RustBridge.swift`. Before v0.0.1 it is replaced by a third Tauri crate over
+`clients/desktop`, like Linux and Windows below (planned,
+[ADR 0002](../decisions/0002-rust-core-native-apps-tauri-desktop.md)). macOS-only code in the
+shared source sits behind `target_os = "macos"`: the Keychain store
+([ADR 0022](../decisions/0022-desktop-system-credential-storage.md)), the app menu, Dock reopen
+and the menu-bar tray ([ADR 0034](../decisions/0034-desktop-tray-and-single-instance.md)).
 
 ## Windows and Linux (Tauri)
 

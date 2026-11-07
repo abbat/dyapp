@@ -75,7 +75,7 @@ The desktop client gets one app shell:
   ([desktop heuristic review](../design/desktop-heuristics.md)).
 - The theme choice adds a setting and a test; WebKitGTK must honour the forced scheme.
 - Restore, key export, a key-file passphrase and local identity labels are later work; the wizard
-  and the switcher must leave room for a Restore entry. macOS keeps its own native client and is
-  not bound by this shell.
+  and the switcher must leave room for a Restore entry. macOS uses this shell through the
+  same Tauri client ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)).
 - Sending a tombstone and the hide switch need a client-core call and tests on every platform; a
   hidden profile must not send heartbeats.

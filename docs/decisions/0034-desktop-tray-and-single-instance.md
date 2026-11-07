@@ -24,6 +24,10 @@ single-instance support.
   owns the session bus name `com.dyapp.SingleInstance` itself and serves one `Show` method there
   (`clients/desktop/tray.rs`): the plugin requires zbus 5, whose retired crates the Linux lockfile
   must not carry ([migration](../design/linux-secret-service-migration.md)).
+- The macOS Tauri client (planned, [ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) puts
+  the tray icon in the menu bar, which is always available, so it needs no host check. It uses
+  `tauri-plugin-single-instance` as Windows does, and a Dock click shows the hidden window. The
+  D-Bus code is compiled for Linux only.
 - Both are pinned to exact versions like the other desktop dependencies.
 
 ## Consequences
