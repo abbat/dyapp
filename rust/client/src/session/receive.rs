@@ -263,6 +263,7 @@ impl Session {
                     sender,
                     body:
                         Body::Attachment(_)
+                        | Body::Sticker(_)
                         | Body::Forwarded(_)
                         | Body::Presence { .. }
                         | Body::Read { .. }
@@ -380,7 +381,10 @@ impl Session {
                         if body.attachment_message().is_some()
                             || matches!(
                                 body,
-                                Body::Text { .. } | Body::Edit { .. } | Body::Delete { .. }
+                                Body::Text { .. }
+                                    | Body::Sticker(_)
+                                    | Body::Edit { .. }
+                                    | Body::Delete { .. }
                             )
                             || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
                         {
@@ -462,6 +466,10 @@ impl Session {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "receive/sticker_tests.rs"]
+mod sticker_tests;
 
 /// The group whose sender waits for a receipt of this committed event: any but a receipt, a
 /// presence or a read receipt, which leave the outbox once a node accepts them.

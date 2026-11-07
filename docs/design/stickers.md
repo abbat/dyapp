@@ -27,7 +27,8 @@ through the shared JSON/file/hash/first-frame validator. Original manifest bytes
 are field 1; field 2 repeats files in manifest order. Peer field lengths/counts are
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
-Pack storage and the composer's collection manager are implemented; chat protocol and image UI remain planned. Decoder CPU,
+Pack storage, the composer's collection manager and tag-14 receive are implemented;
+sending, pack controls and image UI remain planned. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
@@ -122,22 +123,22 @@ GNU tar and macOS bsdtar are test fixtures.
 
 ## Wire
 
-Three planned chat variants. All are MLS application messages, so nodes see only the sealed blobs.
-The tag numbers below require reassignment before implementation: outer tag 13 already
-belongs to private own-device `PeerChange`. Never decode sticker content under that tag.
+Three MLS application variants use the next free outer tags; nodes see only sealed blobs.
+Tag 14 sticker decoding and authenticated session receive are implemented. Pack controls
+15/16 remain planned. Tag 13 stays private own-device `PeerChange`.
 
 | Tag | Body |
 |-----|------|
-| 13 sticker | 16-byte logical ID, HLC, pack ID, sticker SHA-256, emoji, pack name, optional attachment descriptor |
-| 14 pack request | pack ID |
-| 15 pack answer | pack ID, attachment descriptor |
+| 14 sticker | 16-byte logical ID, HLC, pack ID, sticker SHA-256, emoji, pack name, optional attachment descriptor |
+| 15 pack request (planned) | pack ID |
+| 16 pack answer (planned) | pack ID, attachment descriptor |
 
-Tag 13 leaves room for an optional thumbnail. No client release exists yet, so no older client
+The tag-14 payload leaves room for an optional thumbnail. No client release exists yet, so no older client
 needs a stub.
 
 The existing tag-6 descriptor conversion and validation live in
 `rust/client/src/chat/attachment_wire.rs`, shared within the chat codec. Sticker-body
-integration remains planned; it must reuse this validation boundary.
+integration uses this same validation boundary.
 `chat::sticker::Sticker` now encodes/decodes a payload bounded at 2 KiB before protobuf
 allocation. It uses the manifest's clean NFC name and single-grapheme label rules,
 fixed-size IDs, a signed-range HLC and an optional existing attachment descriptor.
@@ -147,22 +148,24 @@ hash preserves fallback metadata but `download()` returns no descriptor. Compres
 bytes go through `Sticker::first_frame`: it bounds the input, binds its SHA-256 to
 the message and returns only validated RGBA8 through the shared WebP decoder. It also
 accepts matching bytes already available from a saved pack when the descriptor is absent
-or has a different hash; that descriptor still cannot authorize fetching. This payload is not yet
-registered under an outer tag or enabled in session receive/send: history projection
-and common-media integration must land with that registration. The common SQLite media table
+or has a different hash; that descriptor still cannot authorize fetching. Outer tag 14
+uses this validator before admission. Session receive applies attachment conversation guards
+and commits sticker metadata, HLC, inbox/ACK and the MLS snapshot in one transaction.
+Pre-match media is acknowledged without projection; forwarded stickers are refused.
+Body serialization is permissive like other bodies; encryption validates by decoding first.
+Sticker sending and pack request/answer authorization remain planned. The common SQLite media table
 has a checked kind discriminator and shared insertion checks. The Store writes and reads
 sticker payloads with optional descriptors, checks verified context and cross-kind ID conflicts,
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
-no sticker-only cache is needed. Photo queries exclude sticker rows. Sticker session integration,
-merged history now includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
+no sticker-only cache is needed. Photo queries exclude sticker rows; merged history includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
 Desktop and Android render a localized emoji/name fallback without fetching or edit/forward actions.
 Desktop chat-list previews now include the newest sticker and count its unread state;
 image rendering, mobile list previews and Add pack actions remain planned. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded
-when the original is identified as a sticker. Session/UI wiring remains planned.
+when the original is identified as a sticker. Send/image UI wiring remains planned.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The
@@ -206,9 +209,9 @@ serialized with saving; it does not erase other copies. Desktop offers a per-row
 with native confirmation, Cancel/Escape and a full PackID. Old dialogs and completions cannot
 change another view or identity. The request/response flow below and sending remain planned.
 
-"Add pack" sends tag 14 into the same chat. The request waits in the mailbox if the sender is
+"Add pack" will send tag 15 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat
-answers with tag 15, at most once per peer and pack per day, reusing one pack blob. Requests for a
+will answer with tag 16, at most once per peer and pack per day, reusing one pack blob. Requests for a
 pack never sent into this chat are ignored, so a peer cannot probe what someone holds.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash

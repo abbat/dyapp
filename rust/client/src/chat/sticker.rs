@@ -71,9 +71,18 @@ impl Sticker {
         Ok(())
     }
 
-    /// Encodes a payload only; no outer chat tag is assigned here.
+    /// Encodes a validated payload without the outer tag.
     pub fn encode(&self) -> Result<Vec<u8>, Error> {
         self.check()?;
+        let bytes = self.encode_unchecked();
+        if bytes.len() > MAX_PAYLOAD_BYTES {
+            return Err(bad());
+        }
+        Ok(bytes)
+    }
+
+    // Body serialization is infallible; chat::message decodes before MLS encryption.
+    pub(super) fn encode_unchecked(&self) -> Vec<u8> {
         let wire = Wire {
             id: self.id.to_vec(),
             hlc: Some(self.hlc),
@@ -89,11 +98,7 @@ impl Sticker {
                 })
             }),
         };
-        let bytes = wire.encode_to_vec();
-        if bytes.len() > MAX_PAYLOAD_BYTES {
-            return Err(bad());
-        }
-        Ok(bytes)
+        wire.encode_to_vec()
     }
 
     /// Bounds allocations and validates metadata/descriptor; never decodes image bytes.

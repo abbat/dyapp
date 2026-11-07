@@ -147,6 +147,8 @@ pub enum Body {
     Receipt(Receipt),
     /// An encrypted blob with a message-scoped logical ID and original HLC, tag 6.
     Attachment(AttachmentMessage),
+    /// A validated sticker payload, tag 14; never forwarded.
+    Sticker(Box<sticker::Sticker>),
     /// A text or attachment the sender forwards, tag 7. It names no original author: the MLS
     /// sender is the only sender, so forwarded words never pass for another member's.
     Forwarded(Box<Body>),
@@ -293,6 +295,7 @@ impl Body {
                 let wire = AttachmentWire::from(message);
                 [&[6], wire.encode_to_vec().as_slice()].concat()
             }
+            Self::Sticker(sticker) => [&[14], sticker.encode_unchecked().as_slice()].concat(),
             Self::Forwarded(body) => [&[7], body.encode().as_slice()].concat(),
             Self::Edit {
                 target,
@@ -354,6 +357,9 @@ impl Body {
                 })
             }
             Some((13, body)) => peer_change(body).ok_or(Error::Reply("bad peer change")),
+            Some((14, body)) => {
+                sticker::Sticker::decode(body).map(|sticker| Self::Sticker(Box::new(sticker)))
+            }
             Some((2, event)) => Interaction::decode(event)
                 .map(Self::Interaction)
                 .map_err(|_| Error::Reply("bad interaction")),

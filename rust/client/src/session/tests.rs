@@ -41,17 +41,17 @@ fn key(id: u8) -> InboxKey {
 }
 
 /// Bob's session over a fresh store, invited by Alice to `group` with `welcome`.
-struct Invite {
-    session: Session,
-    bob_id: Identity,
-    alice_id: Identity,
-    alice: Device,
-    group: dyapp_messaging::mls::Group,
-    welcome: Vec<u8>,
-    profiles: [dyapp_profile::VerifiedProfile; 2],
+pub(super) struct Invite {
+    pub(super) session: Session,
+    pub(super) bob_id: Identity,
+    pub(super) alice_id: Identity,
+    pub(super) alice: Device,
+    pub(super) group: dyapp_messaging::mls::Group,
+    pub(super) welcome: Vec<u8>,
+    pub(super) profiles: [dyapp_profile::VerifiedProfile; 2],
 }
 
-fn bob_invited(path: &std::path::Path, seal_key: &[u8; 32]) -> Invite {
+pub(super) fn bob_invited(path: &std::path::Path, seal_key: &[u8; 32]) -> Invite {
     let (alice_id, alice, alice_profile) = person();
     let (bob_id, bob, bob_profile) = person();
     let profiles = [alice_profile, bob_profile];

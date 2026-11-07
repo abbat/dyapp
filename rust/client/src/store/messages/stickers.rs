@@ -36,7 +36,7 @@ impl ChatSticker {
 
 impl Store {
     /// Persist verified metadata once; a replay does not restore local unread state.
-    /// Session/inbox atomic integration is not enabled yet.
+    /// Direct storage API; session receive uses the shared inbox/MLS transaction.
     pub fn record_chat_sticker(
         &mut self,
         sender: VerifiedChatSender<'_>,

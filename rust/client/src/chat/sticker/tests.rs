@@ -169,9 +169,18 @@ fn matching_hash_does_not_authorize_invalid_images_or_metadata() {
 }
 
 #[test]
-fn normal_body_decoder_does_not_admit_payloads_before_projection() {
-    let payload = sample().encode().unwrap();
-    for tag in [14, 15, 16] {
-        assert!(super::super::Body::decode(&[vec![tag], payload.clone()].concat()).is_err());
+fn outer_sticker_uses_tag14_and_refuses_forwarding_or_other_tags() {
+    use super::super::Body;
+    let body = Body::Sticker(Box::new(sample()));
+    let encoded = body.encode();
+    assert_eq!(encoded[0], 14);
+    assert!(Body::decode(&encoded).unwrap() == body);
+    for tag in [13, 15, 16] {
+        assert!(Body::decode(&[vec![tag], encoded[1..].to_vec()].concat()).is_err());
     }
+    assert!(Body::decode(&Body::Forwarded(Box::new(body)).encode()).is_err());
+    assert!(Body::decode(&[vec![14], vec![0; 2049]].concat()).is_err());
+    let mut invalid = sample();
+    invalid.emoji = "two labels".into();
+    assert!(Body::decode(&Body::Sticker(Box::new(invalid)).encode()).is_err());
 }

@@ -418,6 +418,7 @@ impl Store {
         let id = match body {
             Body::Text { id, .. } => id,
             Body::Attachment(message) => &message.id,
+            Body::Sticker(sticker) => &sticker.id,
             Body::Forwarded(inner) => match inner.as_ref() {
                 Body::Text { id, .. } => id,
                 Body::Attachment(message) => &message.id,
@@ -450,7 +451,7 @@ impl Store {
                     shown = false;
                     return Ok(());
                 }
-                shown = if body.attachment_message().is_some() {
+                shown = if body.attachment_message().is_some() || matches!(body, Body::Sticker(_)) {
                     conversations::on_attachment(tx, &owner, &key.group, &key.author, key.id)?
                 } else {
                     match body {
@@ -483,6 +484,13 @@ impl Store {
                     return Ok(());
                 }
                 match body {
+                    Body::Sticker(sticker) => {
+                        i64::try_from(sticker.hlc).map_err(|_| Error::ClockRange)?;
+                        let observed = HybridClock::resume(load_hlc(tx)?)
+                            .observe_at(Timestamp::from(sticker.hlc), wall_ms)?;
+                        save_hlc(tx, observed)?;
+                        shown = Self::record_chat_sticker_tx(tx, &owner, sender, sticker, unread)?;
+                    }
                     Body::Text { hlc, text, .. } => {
                         if let Some(hlc) = hlc {
                             i64::try_from(*hlc).map_err(|_| Error::ClockRange)?;
