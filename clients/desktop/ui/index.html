@@ -507,38 +507,17 @@
       </section>
       <section id="settings" hidden>
         <h1 data-i18n="settings.title"></h1>
-        <div class="card">
-          <h2 data-i18n="settings.identities"></h2>
-          <table class="rows"><tbody id="settings-identities"></tbody></table>
-          <p id="settings-error" class="notice error" role="alert" hidden></p>
-          <button id="settings-remove" class="btn" type="button" data-i18n="identity.remove"></button>
-          <div class="actions">
-            <button id="settings-switch" class="btn" type="button" data-i18n="identity.switch"></button>
-            <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
-          </div>
-          <p class="caption" data-i18n="backup.none"></p>
-          <p><button id="device-join" class="btn quiet" type="button" data-i18n="devices.join"></button></p>
+        <div id="settings-root" class="settings-hub">
+          <button class="btn" type="button" data-settings-open="appearance" data-i18n="settings.appearance"></button>
+          <button class="btn" type="button" data-settings-open="privacy" data-i18n="settings.privacy"></button>
+          <button class="btn" type="button" data-settings-open="notifications" data-i18n="settings.hub.notifications"></button>
+          <button class="btn" type="button" data-settings-open="photos" data-i18n="settings.photos"></button>
+          <button class="btn" type="button" data-settings-open="node" data-i18n="node.title"></button>
+          <button class="btn" type="button" data-settings-open="account" data-i18n="settings.hub.account"></button>
+          <button class="btn" type="button" data-settings-open="about" data-i18n="settings.hub.about"></button>
         </div>
-        <div id="devices" class="card" hidden>
-          <h2 data-i18n="devices.title"></h2>
-          <table class="rows"><tbody id="devices-list"></tbody></table>
-          <p id="devices-status" class="notice" role="status" aria-live="polite"></p>
-          <p class="caption" data-i18n="devices.hint"></p>
-          <div class="actions"><button id="device-link" class="btn" type="button" data-i18n="devices.link"></button></div>
-        </div>
-        <div id="blocked" class="card">
-          <h2 data-i18n="settings.blocked"></h2>
-          <table class="rows"><tbody id="blocked-list"></tbody></table>
-          <p id="blocked-none" class="muted" data-i18n="settings.blocked.none"></p>
-          <p id="blocked-revoke-status" class="notice" role="status" aria-live="polite"></p>
-          <p class="caption" data-i18n="settings.blocked.hint"></p>
-        </div>
-        <div id="passed" class="card">
-          <h2 data-i18n="settings.passed"></h2>
-          <table class="rows"><tbody id="passed-list"></tbody></table>
-          <p id="passed-none" class="muted" data-i18n="settings.passed.none"></p>
-          <p class="caption" data-i18n="settings.passed.hint"></p>
-        </div>
+        <button id="settings-back" class="btn" type="button" data-i18n="settings.hub.back" hidden></button>
+        <div data-settings-pane="appearance" hidden>
         <div class="card">
           <h2 data-i18n="settings.appearance"></h2>
           <fieldset id="theme"><legend data-i18n="settings.theme"></legend>
@@ -556,6 +535,16 @@
               <option value="ru" data-i18n="settings.language.ru"></option>
             </select></div>
         </div>
+        <div id="tray" class="card">
+          <h2 data-i18n="tray.title"></h2>
+          <label class="choice"><input id="tray-show" type="checkbox">
+            <span data-i18n="tray.show"></span></label>
+          <label class="choice"><input id="tray-close" type="checkbox">
+            <span data-i18n="tray.close"></span></label>
+          <p id="tray-note" class="muted" data-i18n="tray.unavailable" hidden></p>
+        </div>
+        </div>
+        <div data-settings-pane="privacy" hidden>
         <form id="privacy" class="card" novalidate>
           <h2 data-i18n="settings.privacy"></h2>
           <label class="choice"><input id="send-views" type="checkbox">
@@ -572,6 +561,14 @@
             <label class="choice"><input id="presence-nobody" type="radio" name="presence">
               <span data-i18n="privacy.presence.nobody"></span></label>
           </fieldset>
+          <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
+          <p class="caption" data-i18n="privacy.hint"></p>
+        </form>
+          <div class="settings-hub"><button class="btn" type="button" data-settings-open="blocked" data-i18n="settings.blocked"></button><button class="btn" type="button" data-settings-open="passed" data-i18n="settings.passed"></button></div>
+        </div>
+        <div data-settings-pane="notifications" hidden>
+          <form id="notifications" class="card" novalidate>
+            <h2 data-i18n="settings.hub.notifications"></h2>
           <label class="choice"><input id="message-notifications" type="checkbox">
             <span data-i18n="privacy.notifications"></span></label>
           <div class="field"><label for="notice-content" data-i18n="privacy.noticeContent"></label>
@@ -581,9 +578,10 @@
               <option value="text" data-i18n="privacy.noticeContent.text"></option>
             </select></div>
           <p class="caption" data-i18n="privacy.noticeContent.hint"></p>
-          <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
-          <p class="caption" data-i18n="privacy.hint"></p>
-        </form>
+            <p id="notifications-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
+          </form>
+        </div>
+        <div data-settings-pane="photos" hidden>
         <form id="photo-mode" class="card" novalidate>
           <h2 data-i18n="settings.photos"></h2>
           <fieldset><legend data-i18n="photos.mode"></legend>
@@ -605,27 +603,8 @@
           <p id="photo-mode-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="photos.hint"></p>
         </form>
-        <div id="usage" class="card" hidden>
-          <h2 data-i18n="usage.title"></h2>
-          <table class="rows"><tbody>
-            <tr><td data-i18n="usage.identityDir"></td><td><code id="usage-identity-dir" class="caption"></code></td></tr>
-            <tr><td data-i18n="usage.messages"></td>
-              <td><span id="usage-messages"></span><br><code id="usage-messages-path" class="caption"></code></td></tr>
-            <tr id="usage-node-row"><td id="usage-node-label" data-i18n="usage.node"></td>
-              <td><span id="usage-node"></span>
-                <meter id="usage-node-bar" aria-labelledby="usage-node-label" hidden></meter><br>
-                <code id="usage-node-path" class="caption"></code></td></tr>
-            <tr id="usage-free-row"><td data-i18n="usage.free"></td><td id="usage-free"></td></tr>
-          </tbody></table>
         </div>
-        <div id="tray" class="card">
-          <h2 data-i18n="tray.title"></h2>
-          <label class="choice"><input id="tray-show" type="checkbox">
-            <span data-i18n="tray.show"></span></label>
-          <label class="choice"><input id="tray-close" type="checkbox">
-            <span data-i18n="tray.close"></span></label>
-          <p id="tray-note" class="muted" data-i18n="tray.unavailable" hidden></p>
-        </div>
+        <div data-settings-pane="node" hidden>
         <form id="node" class="card" novalidate hidden>
           <h2 data-i18n="node.title"></h2>
           <label class="choice"><input id="node-enabled" type="checkbox">
@@ -641,6 +620,67 @@
             <button id="node-save" class="btn primary" type="submit" data-i18n="node.save"></button>
           </div>
         </form>
+        <div id="usage" class="card" hidden>
+          <h2 data-i18n="usage.title"></h2>
+          <table class="rows"><tbody>
+            <tr><td data-i18n="usage.identityDir"></td><td><code id="usage-identity-dir" class="caption"></code></td></tr>
+            <tr><td data-i18n="usage.messages"></td>
+              <td><span id="usage-messages"></span><br><code id="usage-messages-path" class="caption"></code></td></tr>
+            <tr id="usage-node-row"><td id="usage-node-label" data-i18n="usage.node"></td>
+              <td><span id="usage-node"></span>
+                <meter id="usage-node-bar" aria-labelledby="usage-node-label" hidden></meter><br>
+                <code id="usage-node-path" class="caption"></code></td></tr>
+            <tr id="usage-free-row"><td data-i18n="usage.free"></td><td id="usage-free"></td></tr>
+          </tbody></table>
+        </div>
+        </div>
+        <div data-settings-pane="account" hidden>
+          <h2 data-i18n="settings.hub.account"></h2>
+          <div class="settings-hub"><button class="btn" type="button" data-settings-open="identities" data-i18n="settings.identities"></button><button class="btn" type="button" data-settings-open="devices" data-i18n="devices.title"></button></div>
+        </div>
+        <div data-settings-pane="about" hidden>
+          <div class="card"><h2 data-i18n="settings.hub.about"></h2><p data-i18n="settings.hub.product"></p></div>
+        </div>
+        <div data-settings-pane="identities" hidden>
+        <div class="card">
+          <h2 data-i18n="settings.identities"></h2>
+          <table class="rows"><tbody id="settings-identities"></tbody></table>
+          <p id="settings-error" class="notice error" role="alert" hidden></p>
+          <button id="settings-remove" class="btn" type="button" data-i18n="identity.remove"></button>
+          <div class="actions">
+            <button id="settings-switch" class="btn" type="button" data-i18n="identity.switch"></button>
+            <button id="settings-create" class="btn" type="button" data-i18n="identity.add"></button>
+          </div>
+          <p class="caption" data-i18n="backup.none"></p>
+          <p><button id="device-join" class="btn quiet" type="button" data-i18n="devices.join"></button></p>
+        </div>
+        </div>
+        <div data-settings-pane="devices" hidden>
+        <div id="devices" class="card" hidden>
+          <h2 data-i18n="devices.title"></h2>
+          <table class="rows"><tbody id="devices-list"></tbody></table>
+          <p id="devices-status" class="notice" role="status" aria-live="polite"></p>
+          <p class="caption" data-i18n="devices.hint"></p>
+          <div class="actions"><button id="device-link" class="btn" type="button" data-i18n="devices.link"></button></div>
+        </div>
+        </div>
+        <div data-settings-pane="blocked" hidden>
+        <div id="blocked" class="card">
+          <h2 data-i18n="settings.blocked"></h2>
+          <table class="rows"><tbody id="blocked-list"></tbody></table>
+          <p id="blocked-none" class="muted" data-i18n="settings.blocked.none"></p>
+          <p id="blocked-revoke-status" class="notice" role="status" aria-live="polite"></p>
+          <p class="caption" data-i18n="settings.blocked.hint"></p>
+        </div>
+        </div>
+        <div data-settings-pane="passed" hidden>
+        <div id="passed" class="card">
+          <h2 data-i18n="settings.passed"></h2>
+          <table class="rows"><tbody id="passed-list"></tbody></table>
+          <p id="passed-none" class="muted" data-i18n="settings.passed.none"></p>
+          <p class="caption" data-i18n="settings.passed.hint"></p>
+        </div>
+        </div>
       </section>
     </main>
     <footer id="statusbar" class="statusbar caption" data-i18n-label="statusbar.label">
@@ -860,6 +900,7 @@
   <script src="profile-interests.js"></script>
   <script src="app.js"></script>
   <script src="settings.js"></script>
+  <script src="settings-nav.js"></script>
   <script src="passes.js"></script>
   <script src="remove.js"></script>
   <script src="devices.js"></script>

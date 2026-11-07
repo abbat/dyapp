@@ -8,6 +8,10 @@ const privacyInputs = {
 };
 const privacyError = document.getElementById('privacy-error');
 const noticeContent = document.getElementById('notice-content');
+const privacyFailure = (failed) => {
+  privacyError.hidden = !failed;
+  document.getElementById('notifications-error').hidden = !failed;
+};
 const showNoticeChoice = () => {
   noticeContent.disabled = !document.getElementById('message-notifications').checked;
 };
@@ -22,9 +26,9 @@ window.showPrivacy = async (call = invoke) => {
     document.getElementById('presence-nobody').checked = !privacy.presenceMatches;
     noticeContent.value = privacy.noticeContent;
     showNoticeChoice();
-    privacyError.hidden = true;
+    privacyFailure(false);
   } catch (_) {
-    if (identityCurrent(generation)) privacyError.hidden = false;
+    if (identityCurrent(generation)) privacyFailure(true);
   }
 };
 const savePrivacy = (call = invoke) => {
@@ -33,11 +37,13 @@ const savePrivacy = (call = invoke) => {
     .map(([key, id]) => [key, document.getElementById(id).checked]));
   privacy.noticeContent = noticeContent.value;
   return call('set_privacy', { privacy }).then(
-    () => { if (identityCurrent(generation)) privacyError.hidden = true; },
-    () => { if (identityCurrent(generation)) privacyError.hidden = false; },
+    () => { if (identityCurrent(generation)) privacyFailure(false); },
+    () => { if (identityCurrent(generation)) privacyFailure(true); },
   );
 };
-document.getElementById('privacy').addEventListener('change', () => {
-  showNoticeChoice();
-  window.privacySaved = savePrivacy();
-});
+for (const id of ['privacy', 'notifications']) {
+  document.getElementById(id).addEventListener('change', () => {
+    showNoticeChoice();
+    window.privacySaved = savePrivacy();
+  });
+}

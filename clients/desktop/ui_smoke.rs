@@ -12,6 +12,7 @@ pub(crate) fn scripts() -> String {
         include_str!("ui-test-guards.js"),
         include_str!("ui-test-stickers.js"),
         include_str!("ui-test-composer.js"),
+        include_str!("ui-test-settings-nav.js"),
         include_str!("ui-test-sticker-removal.js"),
         include_str!("ui-test.js"),
     ]

@@ -83,7 +83,7 @@ the next launch. A window saved on a display that is gone opens centred on the p
 The window is at least 400×560 px. **Ctrl+Q** quits the app. Launching the app again while it runs
 brings up the running window.
 
-**Settings → Window** controls the tray icon. **Show icon in tray** is on by default; the icon's
+**Settings → Appearance → Window** controls the tray icon. **Show icon in tray** is on by default; the icon's
 menu has **Open** and **Quit**. With **Close window to tray** on, closing the window hides it and
 the app keeps running until **Quit**. The tray needs a StatusNotifierItem host in the desktop
 session (KDE Plasma, Xfce, or GNOME with the AppIndicator extension) and the
@@ -93,7 +93,13 @@ window comes back.
 
 ## Settings
 
-The **Settings** area lists local identities with their key storage kind and marks
+Settings opens a category menu. Appearance contains theme, language and tray options;
+Privacy links to separate Blocked and Passed lists. Notifications and Photos have their
+own preferences. Account contains identities and devices; Storage and node controls
+remain together. Back returns to the parent menu and restores keyboard focus. Changes
+to switch controls apply immediately; node limits still use the explicit Save button.
+
+**Settings → Account → Identities** lists local identities with their key storage kind and marks
 the active one. The list and the picker show a short Peer ID like a git hash: "@" and the last 6
 characters, longer when another local identity ends the same way; hover a row for the full ID. **Add a new identity** opens the explicit key-storage choice with its backup
 warning; **Switch or add an identity** opens the existing picker. On both, **Cancel** returns to
@@ -102,7 +108,7 @@ key that cannot be opened. **Remove this identity…**, in the active identity's
 the selected Peer ID, storage mode and backup warning, then requires a separate checkbox before
 Remove is enabled. Cancel closes the dialog and leaves Settings open without deleting anything.
 
-**Storage**, below the identities, shows the identities folder, the open identity's message store
+**Storage**, in the Node category, shows the identities folder, the open identity's message store
 (`client.db`) and its size, the network-help node store against its disk limit with a bar, and
 the free space on that disk. It refreshes every 10 seconds while Settings is open. A size it cannot
 read says "Unavailable" rather than 0; the node store does so until the node first runs.

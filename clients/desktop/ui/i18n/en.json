@@ -1,4 +1,9 @@
 {
+  "settings.hub.product": "dyapp",
+  "settings.hub.notifications": "Notifications",
+  "settings.hub.account": "Account",
+  "settings.hub.about": "About",
+  "settings.hub.back": "Back",
   "stickers.remove": "Remove…",
   "stickers.removeTitle": "Remove this saved pack?",
   "stickers.removeConfirm": "Remove pack",

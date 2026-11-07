@@ -1,4 +1,5 @@
 /* Desktop stylesheet (ADR 0033), shared with the prototype: tokens on system fonts, no framework. */
+#settings-back { margin-bottom: var(--space-4); }
 .settings-hub { display: grid; gap: var(--space-3); margin-bottom: var(--space-3); }
 .settings-hub .btn { display: flex; justify-content: space-between; text-decoration: none; color: var(--text); }
 :root {

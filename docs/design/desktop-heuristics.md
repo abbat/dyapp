@@ -8,6 +8,20 @@ shipped UI (`clients/desktop/ui/`) was reviewed the same day when it got the she
 are under [Shipped UI](#shipped-ui) and are fixed too. The rule that keeps it current is under
 [When to review](#when-to-review).
 
+## Shipped Settings category navigation (2026-11-07)
+
+Reviewed seven-entry root, each preference category, collection destinations and
+Back/identity reset against H1–H10 and S1–S8. Appearance keeps global theme/language
+and tray preferences; Account isolates identity removal. Notifications has its own
+form and visible error state while retaining the shared privacy record. Immediate
+binary preferences use native checkbox-backed switches; node configuration retains
+its explicit Save action. Nested Back returns to the correct parent and restores
+focus. Existing availability flags remain owned by their backend controllers.
+Actual-source WebKit navigation smoke checks category isolation, nested Back, focus,
+identity reset and switch semantics. Search/paging and numeric cache integration
+are separate checkpoints; this review does not claim those features. No open source
+finding; native full-application execution remains for final-push CI.
+
 ## Shipped composer and collection dialog (2026-11-07)
 
 Reviewed empty/draft, pending/closed/request chats and the adjacent collection,

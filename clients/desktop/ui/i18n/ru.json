@@ -1,4 +1,9 @@
 {
+  "settings.hub.product": "dyapp",
+  "settings.hub.notifications": "Уведомления",
+  "settings.hub.account": "Учётная запись",
+  "settings.hub.about": "О приложении",
+  "settings.hub.back": "Назад",
   "stickers.remove": "Удалить…",
   "stickers.removeTitle": "Удалить сохранённый набор?",
   "stickers.removeConfirm": "Удалить набор",

@@ -477,8 +477,9 @@ Notifications, Photos, Node, Account and About. States `settings-appearance`,
 `settings-privacy`, `settings-notifications`, `settings-photos`, `settings-node`,
 `settings-account` and `settings-about` show one category. Privacy links to separate
 searchable `settings-blocked` and `settings-passed` lists. Account links to
-`settings-identities-screen` and `settings-devices`. These layouts are planned for
-the shipped client; its existing inline controls below remain implemented until integration.
+`settings-identities-screen` and `settings-devices`. The shipped client implements
+this category navigation with separate collection panes and immediate switches.
+Collection search/paging and numeric cache controls remain planned integration steps.
 Immediate binary settings use switches; theme and language default to System. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
 has its own `sticker-manager` screen in `stickers-*` states, entered from the prototype
