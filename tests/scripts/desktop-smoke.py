@@ -319,6 +319,14 @@ def smoke(executable, flows=True):
                     raise RuntimeError(f"second launch failed: {second}")
             first.result()
 
+    def sticker_packs(profile, mode, flags, peer_id):
+        for step in ("import", "restart"):
+            reopened = case(
+                f"{mode}-sticker-{step}",
+                [*flags, f"--ui-test-step=sticker-{step}"], profile)
+            if reopened != peer_id:
+                raise RuntimeError("sticker smoke changed the active identity")
+
     def mixed(profile, first):
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
@@ -661,6 +669,7 @@ def smoke(executable, flows=True):
                 raise RuntimeError(
                     f"{mode} storage changed Peer ID after restart")
             if flows:
+                sticker_packs(profile, mode, flags, peer_id)
                 if mode == "system" and sys.platform.startswith("linux"):
                     system_files_only(profile)
                 (legacy if mode == "file" else mixed)(profile, peer_id)

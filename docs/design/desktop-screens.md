@@ -505,6 +505,8 @@ pages contain at most eight safe thumbnails. Pack navigation has Previous packs/
 the image navigation has Previous/Next. Closing invalidates callbacks, returns composer focus
 and preserves the text draft. Manage packs returns to a fresh picker after Cancel/Escape.
 Sending leaves a queued message in the common outbox; its delivery status remains in the thread.
+Each import chooser uses its own hidden file input and opening-bound callback; a late selection
+from an old window cannot acquire the reopened window's owner.
 
 Received sticker prototype states are `chat-sticker-image`, `chat-sticker-fallback`,
 `chat-sticker-pending`, `chat-sticker-downloading`, `chat-sticker-failed`,

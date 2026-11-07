@@ -301,8 +301,8 @@ draft and offers the network, and search asks to connect.
 | Platform | Where it runs | Unit | UI | Result check |
 |----------|---------------|------|----|--------------|
 | Android | Docker (local + CI) | 6 JUnit files (`app/src/test/.../`, including birth-part and network-result checks) | 40 instrumented (`AppUITests.kt` ×5, `IdentitySettingsTests.kt` ×3, `AppearanceTests.kt` ×2, `SearchTests.kt` ×4, `ProfileDraftTests.kt` ×4, `ProfilePublishTests.kt` ×5, `NetworkDraftTests.kt` ×2, `AppLockUITests.kt` ×2, `LockSetupTests.kt` ×7, `WizardIdentityTests.kt` ×2, `PseudoLocaleTests.kt` ×3, `ActivityLifecycleTests.kt` ×1) | `check-junit-results.py`, `check-instrumentation-results.py` (≥3) |
-| Linux | Docker (local + CI) | 16 cargo tests (shell, slots, key stores, network settings, bundled frontend) | 48 `desktop-smoke.py` cases under Xvfb and GNOME Keyring; 40 for the installed release client, which has no dyappd and runs three no-node cases in its place | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
-| Windows | CI only (windows-2022) | 4 cargo tests (shell, credential backend, bundled frontend) | the same smoke cases as the installed Linux client except the two tray cases without or losing a host (38) | same |
+| Linux | Docker (local + CI) | Cargo tests for shell, slots, key stores, network settings, media/stickers and bundled frontend | Shared `desktop-smoke.py` under Xvfb and GNOME Keyring; node/tray availability selects additional cases, including real sticker import/restart in full-flow mode | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
+| Windows | CI only (windows-2022) | Shared desktop Cargo tests plus the credential backend and bundled frontend | Shared native smoke with platform-specific tray checks and real sticker import/restart; exact counts come from each run report | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
 | macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
 
@@ -332,7 +332,15 @@ section navigation, picks Berlin from the suggestions, checks it after the resta
 with the country;
 then Russian, pseudo-locale and an
 injected rejection that hides the Profile heading. The restart in
-each mode must report the same 64-character Peer ID. Successful runs print
+each mode must report the same 64-character Peer ID. Full-flow desktop smoke additionally runs
+`sticker-import` and a separate-process `sticker-restart` for both storage modes. A real
+File/DataTransfer/change event carries a small valid TAR to the actual import command; empty
+and oversized selections must not invoke it. The test intercepts only the OS chooser's default
+click, so it does not automate the chooser window. Native list/page readback checks owner,
+manifest and bounded RGBA before and after restart, with EN/RU import/restart captures. A
+late old-input change after reopening must not import into the new manager. Locally prepared
+WebKit tests exercise these browser events with mocked IPC; only native CI proves the backend
+and process-restart path. Successful runs print
 `UI_SMOKE_PASS:<peer-id>` (empty for the recovery case) and exit 0; failures print
 `UI_SMOKE_FAIL:` with the failed UI check or error before exiting 1.
 The desktop profile unit test also saves an entirely unspecified draft, reloads it, and advances

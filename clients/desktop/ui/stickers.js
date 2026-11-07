@@ -6,7 +6,6 @@
   let openedFrom = null;
   const text = (key) => window.strings[`stickers.${key}`];
   let view = null;
-  let pickedFor = null;
   let removing = null;
   const dialog = el('remove-dialog');
   const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -125,7 +124,6 @@
     if (manager.open) manager.close();
     manager.hidden = true;
     openedFrom = null;
-    pickedFor = null;
     panel.open = false;
     el('file').value = '';
     el('list').replaceChildren();
@@ -184,16 +182,17 @@
   });
   el('import').addEventListener('click', () => {
     if (!active(view) || view.busy) return;
-    pickedFor = view;
-    el('file').value = '';
-    el('file').click();
-  });
-  el('file').addEventListener('change', () => {
-    const file = el('file').files[0];
-    const target = pickedFor;
-    pickedFor = null;
-    el('file').value = '';
-    window.stickerImported = importFile(file, target);
+    const target = view;
+    // The chooser owns this element; its late change must never inherit another opening's owner.
+    const input = el('file').cloneNode();
+    input.value = '';
+    el('file').replaceWith(input);
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      input.value = '';
+      window.stickerImported = importFile(file, target);
+    });
+    input.click();
   });
   const dismiss = () => {
     const button = openedFrom;

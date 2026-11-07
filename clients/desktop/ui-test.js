@@ -557,6 +557,8 @@ Promise.all([window.identityShown, invokeTest('ui_test_mode'), invokeTest('ui_te
       'remove-tombstone': () => removeWithTombstone(mode),
       'profile-save': saveProfileForRestart,
       'profile-restart': checkSavedProfile,
+      'sticker-import': window.stickerFileChecks.importPack,
+      'sticker-restart': window.stickerFileChecks.restart,
       'profile-publish-fail': () => publishProfileOnLoopback(false, true),
       'profile-publish-retry': () => publishProfileOnLoopback(true),
       'search-forged': searchForged,

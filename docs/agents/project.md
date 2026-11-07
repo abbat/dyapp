@@ -39,6 +39,11 @@ Desktop code values use `ui/identifiers.js` in both prototype and shipped UI. It
 WBR nodes, never whitespace, so textContent/copy contracts stay raw. Its observer watches
 only text/child changes and disconnects while formatting to avoid observing its own edits.
 
+A file chooser owns its input element and the opening that created it. Replace the hidden input
+for each chooser and capture its view in that element's change listener; a mutable global owner
+can otherwise admit an old selection into a reopened manager. Tests can intercept only the chooser
+click default, then assign real File/DataTransfer files and dispatch change through the real listener.
+
 Paginated identity actions retain stable element references: a button can be detached with
 its old row, so a later page must reattach that reference instead of querying the document.
 Refresh reads also need a per-read sequence guard in addition to identity generation.

@@ -124,5 +124,14 @@ checks also verify that a transparent same-chat refresh preserves writable input
 and keyboard focus. A closed snapshot disables composing; switching peers disables it immediately
 and does not carry the old draft. These use the actual input listener and composer policy.
 These checks mock IPC;
-native commands, file input and real-peer round trips remain separate CI acceptance.
+native commands and real-peer round trips remain separate CI acceptance.
+
+Real File/DataTransfer/change tests exposed a late chooser selection inheriting a reopened
+manager's mutable owner. Each chooser now replaces the hidden input and captures its opening
+in that element's listener. The old controller failed all four EN/RU440/1280 event cases;
+the corrected controller passes all four, including current selection, empty selection and
+oversize refusal. Exported TAR bytes match the public WebP fixture, manifest and SHA-256.
+Artifacts are under `build/ux-research/linux-sticker-file/`. The actual import/readback and
+separate-process restart are now wired into native CI for both storage modes, with captures.
+Local IPC is mocked and the OS chooser window is not automated; these limits remain explicit.
 Prototype and mocked-controller validation do not establish native transport acceptance.
