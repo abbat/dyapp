@@ -1,4 +1,5 @@
 use super::*;
+mod adversarial;
 use crate::chat::sticker::Sticker;
 use crate::store::{messages::VerifiedChatSender, tests::catalog_group};
 use dyapp_identity::Identity;

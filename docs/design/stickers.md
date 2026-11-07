@@ -243,8 +243,9 @@ check an open, unblocked chat and that the pack is still saved. That handling re
 The Store now stages up to 64 outstanding peer/PackID requests with MLS and exact outbox
 writes atomically. Each request is derived from an existing received sticker in an open,
 unblocked pair; it retains the selected hash and generation across restart and retry. A stale
-save completion cannot retire a new request. Session/control-tag wiring and answer admission
-remain planned.
+save completion cannot retire a new request. Tests cover changed block/open state, wrong or
+cleared selections, quota exhaustion, retry at capacity and simultaneous last-slot requests.
+Session/control-tag wiring and answer admission remain planned.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash
 to the requested ID and contain the sticker that was tapped. It is sealed into the identity's folder
