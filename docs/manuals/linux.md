@@ -90,8 +90,8 @@ holds the state code and the identity's folder and storage for a bug report, wit
 
 ## Window layout
 
-An open identity shows a sidebar with the identity on top and four areas: **Profile**, **Search**,
-**Network** and **Settings**. Below 1008 px wide the sidebar shrinks to icons (hover one for its
+An open identity shows a sidebar with the identity on top and five areas: **Profile**, **Search**,
+**Chats**, **Network** and **Settings**. Below 1008 px wide the sidebar shrinks to icons (hover one for its
 name); below 641 px it hides behind the **Menu** button in the top bar and closes on Escape or a
 click outside it.
 
@@ -117,7 +117,7 @@ remain together. Back returns to the parent menu and restores keyboard focus. Ch
 to switch controls apply immediately; node limits still use the explicit Save button.
 Photos shows a numeric cache budget (1–10240 MiB), measured usage and **Clear cache…**.
 A lower budget, disabling retention or clearing asks first. Disabling keeps your chosen
-budget. This affects retained photo originals, not chat history or saved sticker packs.
+budget. This affects retained photo and individual-sticker originals, not chat history or saved packs.
 After an uncertain error, **Refresh cache usage** is required before another change.
 Collection links show totals. Their separate screens search local names and IDs
 (device keys for Devices), display up to 32 rows, and offer Previous/Next and Refresh.

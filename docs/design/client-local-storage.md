@@ -4,9 +4,9 @@ The Rust client keeps active MLS handles in memory and seals them to SQLite. Thi
 local identity durable chats, preferences and pending delivery while preserving the existing
 [per-identity desktop slot](../development/desktop-identity-storage.md#multiple-identity-layout).
 The [storage ADR](../decisions/0025-client-local-sqlite-storage.md) is accepted. The Linux desktop
-uses the Store for profile drafts, privacy settings, likes and inbound mailbox work; chat text
-screens remain planned. The Rust store foundation creates the identity-bound version-1 schema. Before the first release,
-schema changes edit version 1 in place, without migration. It persists
+uses the Store for profile drafts, privacy settings, likes, durable text/photo/sticker histories,
+pending delivery and mailbox work. The identity-bound version-1 schema is shared with the core.
+Before the first release, schema changes edit version 1 in place, without migration. It persists
 the per-profile view-sending choice, local pass history, group ID catalog and like/unlike ledger.
 The store can atomically stage a sealed MLS snapshot and exact signed outbox records,
 reopen due records and schedule retries. It also commits an own interaction event, its HLC,
@@ -14,7 +14,8 @@ like/view state, sealed MLS snapshot and exact outbox writes in one transaction 
 delivery.
 Inbox dedupe and pending ACKs are now atomic with a sealed MLS snapshot, and
 `Session::receive` uses them for one-to-one chat and sends delivery receipts. The Linux desktop
-calls it while polling the active identity's mailbox; the chat text UI remains planned.
+calls it while polling the active identity's mailbox and exposes the resulting local projection
+through its Chats list and thread controls.
 
 ## Ownership and location
 
@@ -25,11 +26,11 @@ directory or creates an identity key. On desktop, a new identity's database belo
 path in their own app data directory. The random local slot is a filesystem name, never a network
 identifier. A database records the Peer ID derived from its selected identity key on first open
 and refuses a different key thereafter. A separate database per profile avoids accidental
-cross-profile joins and keeps local deletion scoped to the selected slot. The intended lifecycle
-serializes writers per slot and drains old network work before switching. The current Tauri shell
-serializes MLS commands but does not yet quiesce all in-flight commands on a switch or removal;
-see the [desktop runtime audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
-and [planned lifecycle](desktop-runtime-lifecycle.md).
+cross-profile joins and keeps local deletion scoped to the selected slot. The Tauri admission gate
+keeps identity leases through command work, closes admission and drains them before switching or
+removing a slot. A separate session gate serializes MLS operations; see the
+[desktop runtime audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
+and [lifecycle contract](desktop-runtime-lifecycle.md).
 Read-only multi-instance access is a later decision.
 
 The identity key and the 32-byte MLS sealing key stay in the platform key backend, not SQLite.
@@ -51,8 +52,8 @@ The desktop no longer rewraps MLS snapshots or held tokens from the old device-d
 key. A database with a missing sealing secret fails closed instead of silently creating a new one.
 
 `current_chat_items` merges a pair's texts, photos and typed sticker fallbacks: legacy texts first in arrival order,
-then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across both
-kinds. `last_attachment` or `last_sticker` identifies the newest media preview, using the same
+then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across all
+three kinds. `last_attachment` or `last_sticker` identifies the newest media preview, using the same
 HLC/author/message/group ordering as history; unread counts include every kind once.
 Closed conversations remain listed while any text or media history exists. The desktop chat JSON
 carries a photo as an entry with `photo` set: MIME type, clamped claimed shape, plaintext size, hours left and
@@ -71,12 +72,13 @@ include only hash-matching sticker descriptors; clearing one group preserves a b
 by another. Sticker deletion shares the text operation ledger and terminal placeholder: its
 media row goes, a late original binds its digest/time without resurrection, and pending early
 edits are discarded. The caller must sweep originals after committing media deletion, as after
-Clear chat. Known stickers cannot be edited into text. Sticker session/inbox integration,
-The merged history now includes stickers in HLC order. Desktop JSON and UniFFI expose only
-identity/time, labels, pack/sticker hashes and local status; no descriptor reaches a screen.
-Desktop and Android show a localized text fallback without fetching, editing or forwarding it.
-Desktop list previews show the same localized sticker fallback. Mobile list previews still use
-the legacy text field. Sticker session/inbox, image rendering and pack-request UI remain planned.
+Clear chat. Known stickers cannot be edited into text. The merged history includes stickers in HLC
+order. Desktop JSON and UniFFI expose only identity/time, labels, pack/sticker hashes and local
+status; no descriptor reaches a screen.
+Android shows a localized text fallback without fetching, editing or forwarding it. Desktop
+renders bounded native RGBA under the photo download policy, with the same fallback when pixels
+are unavailable, and offers pack request/retry/cancellation controls. Desktop list previews show
+safe sticker labels. Mobile list previews still use the legacy text field.
 Session receive commits allowed attachments with the sealed MLS snapshot, inbox body digest
 and ACK intent; the inbox no longer retains a second descriptor copy. A stranger's attachment
 cannot create an initial message request. Sending also commits the descriptor, HLC, sealed MLS
@@ -177,7 +179,8 @@ it uses the photo attachment fetch path, full pack validation and clicked-hash b
 publication. Failures keep typed retry status. Blocked/closed pairs retire current intent; missing
 joined groups defer fetch. Desktop mailbox passes run both bounded workers on their configured
 node under the identity/session lease and stop callback. Completed saves contribute to the local
-refresh count, while notifications still follow unread history rows. Request UI remains planned.
+refresh count, while notifications still follow unread history rows. The desktop exposes local
+request status and explicit Add/Retry/Fresh/Stop actions; stale actions require status readback.
 `sticker_pack_responses` keeps authorized response generations, their group, retry deadline,
 attempt count and last successful response time. Request admission checks historical sharing
 proof and open/block state inside the MLS/inbox/ACK commit. At most 64 jobs may be pending,
@@ -199,7 +202,7 @@ the last chat reference; saved packs remain untouched. Desktop `chat_sticker_fra
 kept bytes or a validated saved pack before network, follows photo automatic/tap policy and
 returns only bounded RGBA. It binds the viewed identity and current selected message around I/O;
 the session gate serializes sealing-key creation without holding it through media fetch. WebView
-canvas rendering remains planned.
+canvases draw validated pixels for visible stickers; view/identity guards discard stale completions.
 
 A blob hash cannot key a chat message because the same photo may be sent twice. No
 migration is needed before the first app release.

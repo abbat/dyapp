@@ -28,15 +28,15 @@ are field 1; field 2 repeats files in manifest order. Peer field lengths/counts 
 scanned before allocation. The full encoded record plus chunked AES-GCM tags must
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Pack storage, the composer's collection manager and tag-14 receive are implemented;
-Session supports saved-pack upload reuse, metadata sends and guarded pack-control receive;
-automatic pack transfer and image UI remain planned. Decoder CPU,
+Session supports saved-pack upload reuse, metadata sends, guarded pack-control receive and
+bounded request/answer workers. Desktop has picker/send, image and Add-pack controls. Decoder CPU,
 representative-file measurements, successful decoder fuzz CI runs and release-size
 verification remain required. The WebP fuzz target and static/animated/corrupt seeds
 are configured; its 256 KiB input cap covers the allowed compressed-byte range.
 The numbers marked *assumed* need measurement and may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
-6 MiB sealed-pack limit will be enforced by pack validation. GNU tar fixture bytes
+6 MiB sealed-pack limit is enforced by pack validation. GNU tar fixture bytes
 exercise archive parsing only; the fixture sticker payload is deliberately not WebP.
 The scheduled sticker_tar fuzz target mutates this archive seed and checks accepted
 file-count, path and byte bounds; its CI execution is still required before release.
@@ -168,13 +168,14 @@ sticker payloads with optional descriptors, checks verified context and cross-ki
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
 no sticker-only cache is needed. Photo queries exclude sticker rows; merged history includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
-Desktop and Android render a localized emoji/name fallback without fetching or edit/forward actions.
-Desktop chat-list previews now include the newest sticker and count its unread state;
-image rendering, mobile list previews and Add pack actions remain planned. At the Store boundary, tag-9 deletion of a
+Desktop and Android expose a localized emoji/name fallback without edit/forward actions. Desktop
+also renders bounded pixels and Add-pack controls; Android retains the fallback-only path.
+Desktop chat-list previews include the newest sticker and count its unread state; mobile list
+previews remain separate platform work. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded
-when the original is identified as a sticker. Send/image UI wiring remains planned.
+when the original is identified as a sticker.
 
 Each descriptor sent to peers carries a zeroed `release_secret`. One blob serves many chats, so a
 recipient must not be able to release it for the others; the sender keeps the real secret. The
@@ -212,7 +213,8 @@ After metadata staging, a transient mailbox failure returns that ID because the 
 already durable; delivery state shows the queued retry. Callers must not create a duplicate send.
 Desktop `send_saved_sticker` now checks the viewed identity and selected saved pack/index,
 then uses the same session gate, open-profile/network path and error codes as photos. It returns
-the queued message ID after durable staging. Picker UI and live-node acceptance remain planned.
+the queued message ID after durable staging. The desktop picker invokes this command; exact-head
+native/live-node acceptance remains a CI obligation.
 
 ### Receive
 
@@ -238,10 +240,9 @@ The core supports explicit removal of a selected saved PackID, including corrupt
 without pruning other packs or interrupted files. Removal frees the counted file bytes and is
 serialized with saving; it does not erase other copies. Desktop offers a per-row Remove action
 with native confirmation, Cancel/Escape and a full PackID. Old dialogs and completions cannot
-change another view or identity. Core exchange and native sending are described below;
-picker and request UI remain planned.
+change another view or identity. Picker and request controls use these identity-scoped commands.
 
-"Add pack" will send tag 15 into the same chat. The request waits in the mailbox if the sender is
+"Add pack" sends tag 15 into the same chat. The request waits in the mailbox if the sender is
 offline, so no peer has to be online. The device that sent a sticker from the pack into this chat
 will answer with tag 16, at most once per peer and pack per day, reusing one pack blob. Requests for a
 pack never sent into this chat are ignored, so a peer cannot probe what someone holds.
@@ -371,7 +372,8 @@ controls distinguish new, saved, pending and typed failures; they never expose a
   and non-open-chat rules stay unchanged. No media or pack lookup is needed. Windows toasts and
   the mobile closed-app paths (`MailNotice`, `MailJob`) remain separate platform work.
 - The accessibility label is "Sticker: 😺, pack Cats".
-- Settings lists packs with their size, and offers import and delete.
+- Manage packs in the composer picker lists packs with their size, import and confirmed removal.
+  Photos settings control the shared individual-media cache; saved packs have a separate fixed quota.
 - Errors name the file and the reason. Imported filenames are quoted with escaped
   formatting/control characters so hostile text cannot reorder an error message.
 
