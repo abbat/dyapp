@@ -15,6 +15,8 @@ const chatSend = document.getElementById('chat-send');
 const chatComposeStatus = document.getElementById('chat-compose-status');
 const newDeviceNotice = document.getElementById('chat-new-device-notice');
 let activeChat = null;
+let chatRenderKey = null;
+let chatRenderCall = null;
 let newDevicePeer = null;
 let chatSending = false;
 let chatBlocking = false;
@@ -482,6 +484,7 @@ const acknowledgeDevice = async (call = invoke) => {
 };
 document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
 const closeChat = () => {
+  chatRenderKey = null; chatRenderCall = null;
   window.stickerPicker?.close();
   window.stickerMessages?.clear();
   chatOpenRequest += 1;
@@ -526,8 +529,9 @@ const sendRead = async (peerId, call) => {
   } catch { /* the page shows nothing for a background receipt */ }
 };
 const openChat = async (peerId, call = invoke) => {
+  const previous = activeChat;
   window.stickerPicker?.leave(peerId);
-  window.stickerMessages?.clear();
+  if (previous?.peerId !== peerId) window.stickerMessages?.clear();
   const generation = identityGeneration;
   const request = ++chatOpenRequest;
   const currentChat = () => identityCurrent(generation) && request === chatOpenRequest;
@@ -548,7 +552,15 @@ const openChat = async (peerId, call = invoke) => {
     const linked = await linkedDevice(call);
     if (!currentChat()) return;
     document.getElementById('chat-linked-notice').hidden = !linked;
-    chatMessages.replaceChildren(...history.messages.map((message) => window.chatMessage(message, peerId, history, call)));
+    const renderKey = JSON.stringify([generation, peerId, window.peerName(peerId), history]);
+    if (!previous || renderKey !== chatRenderKey || chatRenderCall !== call) {
+      window.stickerMessages?.clear();
+      chatMessages.replaceChildren(...history.messages.map((message) => window.chatMessage(message, peerId, history, call)));
+    } else {
+      // Mounted action callbacks retain these objects; their reference guards must still match.
+      history.messages = previous.messages;
+    }
+    chatRenderKey = renderKey; chatRenderCall = call;
     fetchAllowedPhotos(peerId, call);
     const cleared = clearedPeer === peerId && !history.messages.length;
     document.getElementById('chat-cleared').hidden = !cleared;

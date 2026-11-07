@@ -100,5 +100,10 @@ Edit/Forward. Measured image dimensions stay within 192 pt and sibling gaps meet
 Keyboard focus follows a manually loaded image, including WebKit retaining the hidden button
 as active until layout; the recovery also handles focus released to the body without stealing
 focus moved elsewhere. The same correction applies to picker paging. Contrast tokens are unchanged.
-Request controls and acceptance across repeated mailbox redraws remain separate checkpoints.
+Unchanged mailbox refreshes now preserve mounted rows and their original message objects;
+a pending frame completes with one native read and Edit/Delete membership guards remain valid.
+Four EN/RU440/1280 callback checks invoke the real mailbox-refresh/open-chat/renderer code with
+mocked IPC and cover changed-history and closed-view rejection. Evidence is under
+`build/ux-research/linux-chat-redraw/`. No additional decoded-pixel cache is introduced.
+Request controls remain a separate checkpoint.
 Prototype and mocked-controller validation do not establish native transport acceptance.

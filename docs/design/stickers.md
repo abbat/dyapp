@@ -386,6 +386,9 @@ remains planned.
   shared native media policy. Load sticker explicitly retries with manual permission; emoji/name
   fallback remains on policy denial, missing media, malformed frames or transport failure.
   Per-view/identity guards reject old replies after switching or clearing the conversation.
+  Unchanged same-chat mailbox refreshes preserve mounted rows and their message objects, so
+  an in-flight image can finish without a second native read. Changed render inputs invalidate
+  old replies; there is no additional retained-pixel or persistent sticker cache.
 - Deleting a pack leaves independently retained chat-media copies available under that policy;
   otherwise history shows the fallback. A deleted pack is no longer answered for.
 - Local cleanup has the same [best-effort deletion](../decisions/0011-best-effort-deletion.md)

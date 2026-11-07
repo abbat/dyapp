@@ -45,6 +45,9 @@ Refresh reads also need a per-read sequence guard in addition to identity genera
 
 Desktop message-row rendering lives in `ui/chat-message.js`, loaded after `chats-ui.js`;
 its classic-script helper retains the controller helpers for media, delivery and message actions.
+Unchanged chat render inputs preserve mounted rows and their original message objects:
+Edit/Delete use reference membership guards. Include identity, peer, displayed name, full history
+and call-function identity in reuse checks, and reset them on leaving or closing the chat.
 
 Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
 The classic scripts share lexical helpers; keep that order when moving controller code to
