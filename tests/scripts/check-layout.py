@@ -52,8 +52,8 @@ def main(platform, path):
     for key in stale:
         print(f"fixed, remove from [layout] {platform}: {key}")
     if new:
-        print("Layout (L2/I1, docs/design/review-criteria.md):\n"
-              + "\n".join(new), file=sys.stderr)
+        print("Layout (L2/I1, docs/design/review-criteria.md):",
+              "\n".join(new), sep="\n", file=sys.stderr)
         return 1
     print(f"layout: {len(found)} known findings, no new ones")
     return 0
