@@ -5,17 +5,23 @@ set -euo pipefail
 # One 504 from a release download failed a whole quality job.
 curl() { command curl --retry 7 "$@"; } # backs off for about two minutes: a 504 outage outlasted 30 s
 toolchain=1.99.0
-case "${1:?usage: ci-setup.sh rust|linux}" in
-    rust)
-        packages=(build-essential pkg-config protobuf-compiler libssl-dev
-                  python3-flake8 python3-yaml python3-pyflakes shellcheck)
-        components=(--component "rustfmt,clippy,llvm-tools-preview")
+case "${1:?usage: ci-setup.sh rust|linux|rust-build|linux-build}" in
+    rust|rust-build)
+        packages=(build-essential pkg-config protobuf-compiler libssl-dev)
+        components=()
+        if [[ $1 == rust ]]; then
+            packages+=(python3-flake8 python3-yaml python3-pyflakes shellcheck)
+            components=(--component "rustfmt,clippy,llvm-tools-preview")
+        fi
         ;;
-    linux)
+    linux|linux-build)
         packages=(build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libxdo-dev
-                  libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev xvfb xauth dbus-x11 gnome-keyring
-                  libsecret-tools)
-        components=(--component "rustfmt,clippy")
+                  libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev)
+        components=()
+        if [[ $1 == linux ]]; then
+            packages+=(xvfb xauth dbus-x11 gnome-keyring libsecret-tools)
+            components=(--component "rustfmt,clippy")
+        fi
         ;;
     *) echo "Unknown target: $1" >&2; exit 2 ;;
 esac

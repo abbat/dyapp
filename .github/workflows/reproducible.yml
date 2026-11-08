@@ -18,11 +18,11 @@ jobs:
       matrix:
         include:
           - target: dyappd
-            setup: rust
+            setup: rust-build
             binary: dyappd
             budget: dyappd-ubuntu24-x86_64-release
           - target: linux
-            setup: linux
+            setup: linux-build
             binary: dyapp-linux
             budget: linux-ubuntu24-x86_64-release
     env:

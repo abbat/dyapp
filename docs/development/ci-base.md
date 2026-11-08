@@ -42,7 +42,11 @@ This checks repeatability in the same toolchain, system libraries and environmen
 it does not promise identical bytes across platforms or compiler versions.
 `reproducible.yml` runs daily at 03:17 UTC and on manual dispatch, separately
 from push/PR checks. It uses Rust 1.99.0 and ubuntu-24.04, skips Cargo build
-caches, and uploads the reports and logs even on comparison failure. On
+caches, and uploads the reports and logs even on comparison failure. Its setup uses the
+`rust-build` and `linux-build` profiles of `ci-setup.sh`: compiler, linker and build libraries,
+without quality-tool release downloads, UI-test packages or extra Rust components.
+The existing `rust` and `linux` check/test profiles keep their tools. This avoids failing a
+release comparison on an unrelated quality-tool download; hash and size checks are unchanged. On
 2026-10-15 two real release builds of each executable produced equal hashes
 locally in the existing prepared images; this establishes C10 for the stated
 same-environment scope. Nightly runner results remain independently observable.
