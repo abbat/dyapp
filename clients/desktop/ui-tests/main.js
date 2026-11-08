@@ -617,6 +617,114 @@ const searchForged = async () => {
   document.querySelector('#search-error details').open = true;
   await shot('search-error');
 };
+// Steps that run one check on the reopened identity.
+const readySmokeSteps = (mode) => ({
+  network: checkNetwork,
+  node: checkNode,
+  'network-settings-failure': checkNetworkInSettings,
+  'settings-privacy-restart': () => checkPrivacy(true),
+  'remove-offline': window.identityRemovalChecks.offline,
+  'remove-tombstone': () => window.identityRemovalChecks.tombstone(mode),
+  'profile-save': saveProfileForRestart,
+  'profile-restart': checkSavedProfile,
+  'sticker-import': window.stickerFileChecks.importPack,
+  'sticker-restart': window.stickerFileChecks.restart,
+  'profile-publish-fail': () => publishProfileOnLoopback(false, true),
+  'profile-publish-retry': () => publishProfileOnLoopback(true),
+  'search-forged': searchForged,
+  'profile-publish': () => publishProfileOnLoopback(),
+  'profile-publish-photo': async () => {
+    await photoChecks.addRealPhoto();
+    await publishProfileOnLoopback(false, false, 1);
+  },
+  'profile-hide': hideProfileOnLoopback,
+  'profile-unhide': unhideProfileOnLoopback,
+  'search-no-network': () => searchOnLoopback(false),
+  search: () => searchOnLoopback(true),
+});
+const requireSmokeReady = (state) => {
+  if (state.status !== 'ready') throw new Error('identity not reopened');
+};
+const checkSmokeLaunch = async (state, step) => {
+  requireSmokeReady(state);
+  await window.connectionShown;
+  if (connection() !== step.slice('launch:'.length)) {
+    throw new Error(`launch shows ${connection()}`);
+  }
+};
+const checkSmokeNetworkRestart = async (state) => {
+  requireSmokeReady(state);
+  if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
+  if (document.getElementById('network-status').textContent !== window.strings['network.idle'])
+    throw new Error('unchecked draft shown as active');
+  await window.connectionShown;
+  if (connection() !== 'offline') throw new Error(`no active network shows ${connection()}`);
+};
+const runSmokeIdentityStep = async (state, mode, step) => {
+  if (step.startsWith('wizard-connect:')) {
+    if (state.status !== 'setup') throw new Error('storage picker not shown');
+    await chooseStorage(mode, step.slice('wizard-connect:'.length));
+  } else if (step === 'add') {
+    await window.uiSmokeAddStep(state, mode, {
+      identityChecks,
+      chatChecks,
+      presenceChecks,
+      nameChecks,
+      photoChecks,
+      guardChecks,
+    });
+  } else if (step === 'pick') {
+    if (state.status !== 'picker') throw new Error('identity picker not shown');
+    await pickReady(mode);
+    await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
+  } else if (step === 'remove') {
+    await removeOpened(state, mode);
+  } else return false;
+  return true;
+};
+const runSmokeNetworkStep = async (state, step) => {
+  if (step.startsWith('connect:')) {
+    requireSmokeReady(state);
+    await connectNetwork(step.slice('connect:'.length));
+  } else if (step.startsWith('peer:')) {
+    requireSmokeReady(state);
+    await chatChecks.checkPeerStep(...step.slice('peer:'.length).split(':'));
+  } else if (step.startsWith('launch:')) {
+    await checkSmokeLaunch(state, step);
+  } else if (step.startsWith('cancel:')) {
+    requireSmokeReady(state);
+    await cancelNetwork(step.slice('cancel:'.length));
+  } else if (step.startsWith('wrong:')) {
+    requireSmokeReady(state);
+    await checkWrongNetwork(step.slice('wrong:'.length));
+  } else if (step === 'network-restart') {
+    await checkSmokeNetworkRestart(state);
+  } else if (step === 'settings-restart') {
+    requireSmokeReady(state);
+    await checkSettingsInventory(state.peerId, state.mode);
+    await checkStorageCard();
+    await checkStatus(false);
+  } else return false;
+  return true;
+};
+const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => {
+  if (step === 'settings-language') {
+    if (state.status !== 'setup') throw new Error('storage picker not shown');
+    await chooseStorage(mode);
+    await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
+    await checkSettingsLanguage();
+    await checkPrivacy(false);
+  } else if (Object.hasOwn(readySteps, step)) {
+    if (state.status !== 'ready') throw new Error('identity not reopened');
+    await readySteps[step]();
+  } else if (existing && state.status !== 'ready') {
+    throw new Error('identity not reopened');
+  } else if (!existing) {
+    if (state.status !== 'setup') throw new Error('storage picker not shown');
+    await chooseStorage(mode);
+    await checkEmptyProfilePreview();
+  }
+};
 Promise.all([
   window.identityShown,
   invokeTest('ui_test_mode'),
@@ -626,31 +734,7 @@ Promise.all([
   .then(async ([state, mode, existing, step]) => {
     if (step.startsWith('video-bench:') || step.startsWith('video:'))
       return window.uiSmokeSystemSteps.video(step);
-    // Steps that run one check on the reopened identity.
-    const readySteps = {
-      network: checkNetwork,
-      node: checkNode,
-      'network-settings-failure': checkNetworkInSettings,
-      'settings-privacy-restart': () => checkPrivacy(true),
-      'remove-offline': window.identityRemovalChecks.offline,
-      'remove-tombstone': () => window.identityRemovalChecks.tombstone(mode),
-      'profile-save': saveProfileForRestart,
-      'profile-restart': checkSavedProfile,
-      'sticker-import': window.stickerFileChecks.importPack,
-      'sticker-restart': window.stickerFileChecks.restart,
-      'profile-publish-fail': () => publishProfileOnLoopback(false, true),
-      'profile-publish-retry': () => publishProfileOnLoopback(true),
-      'search-forged': searchForged,
-      'profile-publish': () => publishProfileOnLoopback(),
-      'profile-publish-photo': async () => {
-        await photoChecks.addRealPhoto();
-        await publishProfileOnLoopback(false, false, 1);
-      },
-      'profile-hide': hideProfileOnLoopback,
-      'profile-unhide': unhideProfileOnLoopback,
-      'search-no-network': () => searchOnLoopback(false),
-      search: () => searchOnLoopback(true),
-    };
+    const readySteps = readySmokeSteps(mode);
     if (step.startsWith('recovery:')) return window.uiSmokeSystemSteps.recovery(state, step);
     if (step.startsWith('window:')) return window.uiSmokeSystemSteps.windowBounds(step);
     if (step.startsWith('tray:')) return window.uiSmokeSystemSteps.tray(state, mode, step);
@@ -664,69 +748,9 @@ Promise.all([
       const peerId = await globalThis.uiSmokeGuards.linkStep(step, mode, state);
       return invokeTest('ui_test_result', { passed: true, peerId, reason: '' });
     }
-    if (step.startsWith('wizard-connect:')) {
-      if (state.status !== 'setup') throw new Error('storage picker not shown');
-      await chooseStorage(mode, step.slice('wizard-connect:'.length));
-    } else if (step === 'add') {
-      await window.uiSmokeAddStep(state, mode, {
-        identityChecks,
-        chatChecks,
-        presenceChecks,
-        nameChecks,
-        photoChecks,
-        guardChecks,
-      });
-    } else if (step === 'pick') {
-      if (state.status !== 'picker') throw new Error('identity picker not shown');
-      await pickReady(mode);
-      await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
-    } else if (step === 'remove') {
-      await removeOpened(state, mode);
-    } else if (step.startsWith('connect:')) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await connectNetwork(step.slice('connect:'.length));
-    } else if (step.startsWith('peer:')) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await chatChecks.checkPeerStep(...step.slice('peer:'.length).split(':'));
-    } else if (step.startsWith('launch:')) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await window.connectionShown;
-      if (connection() !== step.slice('launch:'.length)) {
-        throw new Error(`launch shows ${connection()}`);
-      }
-    } else if (step.startsWith('cancel:')) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await cancelNetwork(step.slice('cancel:'.length));
-    } else if (step.startsWith('wrong:')) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkWrongNetwork(step.slice('wrong:'.length));
-    } else if (step === 'network-restart') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
-      if (document.getElementById('network-status').textContent !== window.strings['network.idle'])
-        throw new Error('unchecked draft shown as active');
-      await window.connectionShown;
-      if (connection() !== 'offline') throw new Error(`no active network shows ${connection()}`);
-    } else if (step === 'settings-restart') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkSettingsInventory(state.peerId, state.mode);
-      await checkStorageCard();
-      await checkStatus(false);
-    } else if (step === 'settings-language') {
-      if (state.status !== 'setup') throw new Error('storage picker not shown');
-      await chooseStorage(mode);
-      await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
-      await checkSettingsLanguage();
-      await checkPrivacy(false);
-    } else if (Object.hasOwn(readySteps, step)) {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await readySteps[step]();
-    } else if (existing && state.status !== 'ready') {
-      throw new Error('identity not reopened');
-    } else if (!existing) {
-      if (state.status !== 'setup') throw new Error('storage picker not shown');
-      await chooseStorage(mode);
-      await checkEmptyProfilePreview();
+    if (!(await runSmokeIdentityStep(state, mode, step))) {
+      if (!(await runSmokeNetworkStep(state, step)))
+        await runSmokeFallbackStep(state, mode, existing, step, readySteps);
     }
     return window.uiSmokeReadyStep(mode, existing, step);
   })
