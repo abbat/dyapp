@@ -21,6 +21,12 @@ const ANSWER_BYTES: usize = 64 * 1024 - 1 - 4;
 /// owner device mailbox holding fewer than [`REFILL_BELOW`] days from `today`, an ask with a fresh
 /// or earlier token key for every missing day of the next [`AHEAD_DAYS`]. `None` when nothing is
 /// missing. Asks past [`MAX_TOKENS`] wait for the next call.
+///
+/// # Errors
+///
+/// Returns an error if reading held-token epochs, generating a key or nonce,
+/// sealing or opening a token key, or storing a key fails. Earlier generated
+/// keys remain stored when a later mailbox or day fails.
 pub fn request(
     store: &mut Store,
     mailboxes: &[[u8; 32]],
@@ -48,6 +54,12 @@ pub fn request(
 
 /// Stores each token in `answer` signed by the owner device of its mailbox for a key this device
 /// asked with; returns how many it stored. A token that fails a check is skipped.
+///
+/// # Errors
+///
+/// Returns an error if reading or opening a held key fails, a matching key is
+/// absent when storing its token, or a database operation fails. Tokens stored
+/// before a later failure remain stored; invalid signed answers are skipped.
 pub fn accept(store: &Store, answer: &TokenAnswer, seal_key: &[u8; 32]) -> Result<usize, Error> {
     let mut stored = 0;
     for signed in &answer.signed_tokens {
@@ -92,6 +104,11 @@ fn check(
 /// token the node took. On DENIED (a forged or revoked token) the write goes tokenless into the
 /// mailbox pool and returns `None`. On STALE (the node is on another day) it retries with the
 /// token for `today + 1`, then tokenless. Without a token it is tokenless from the start.
+///
+/// # Errors
+///
+/// Returns an error if loading or opening token state, preparing an envelope,
+/// or a node request fails after the supported token fallback attempts.
 pub async fn send(
     node: &mut Node,
     store: &Store,
@@ -182,6 +199,12 @@ pub(crate) fn fallback(
 /// user blocks it: marks them revoked so they are never signed again, then tells the node to
 /// refuse those still valid from `today`. Returns how many keys the node revoked; a failed call
 /// can be repeated.
+///
+/// # Errors
+///
+/// Returns an error if marking or reading issued tokens fails, or the node
+/// revocation request fails. Local revocations may already be applied when
+/// reading the keys or contacting the node fails.
 pub async fn revoke(
     node: &mut Node,
     store: &Store,
@@ -198,6 +221,12 @@ pub async fn revoke(
 /// this device's mailbox and a day from `today - 1` to `today + AHEAD_DAYS`, records each issued
 /// key, and returns the answers to send, each fitting one envelope. Skips a key this profile
 /// revoked or issued to another contact, and answers nothing to a blocked contact.
+///
+/// # Errors
+///
+/// Returns an error if reading block or revocation state, or recording an
+/// issued token fails. Ownership conflicts are skipped. Tokens recorded before
+/// a later failure remain recorded, even though no answers are returned.
 pub fn answer(
     store: &Store,
     device_key: &Identity,
