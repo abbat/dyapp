@@ -53,6 +53,11 @@ pub struct PackDownloadState {
 
 impl Store {
     /// Read safe local status; this alone never authorizes a network fetch.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding fails, retry state is inconsistent,
+    /// a failure code or counter is invalid, or the retry timestamp is negative.
     pub fn sticker_pack_download_state(
         &self,
         peer: &str,
@@ -78,6 +83,11 @@ impl Store {
     }
 
     /// Read at most 32 admitted due requests; no descriptor or transport work leaves the Store.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `now_ms` exceeds the supported clock range, querying or
+    /// decoding fails, or a stored peer, digest, or request token is invalid.
     pub fn due_sticker_pack_downloads(&self, now_ms: u64) -> Result<Vec<PackDownloadJob>, Error> {
         let now = time(now_ms)?;
         let mut query = self.db.prepare(
@@ -108,6 +118,11 @@ impl Store {
     }
 
     /// Defer only the observed admitted generation, using the common 1 s..1 h retry schedule.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `now_ms` exceeds the supported clock range or updating
+    /// the matching download generation fails.
     pub fn defer_sticker_pack_download(
         &self,
         job: &PackDownloadJob,
@@ -123,6 +138,11 @@ impl Store {
     }
 
     /// Explicit download retry keeps the useful answer, rotating generation against old callbacks.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if generating a new request token or updating the matching
+    /// download generation fails.
     pub fn retry_sticker_pack_download(
         &self,
         job: &PackDownloadJob,

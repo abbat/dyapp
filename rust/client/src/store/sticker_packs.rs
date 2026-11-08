@@ -123,6 +123,11 @@ fn read(path: &Path, secret: &[u8; 32], owner: &str, id: &[u8; 32]) -> Result<Op
 
 impl Store {
     /// Whether files already require the existing identity sealing secret, even if damaged.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store path or pack directory is invalid, or
+    /// filesystem metadata or directory enumeration fails.
     pub fn has_sticker_packs(&self) -> Result<bool, Error> {
         let dir = directory(self)?;
         if !valid_directory(&dir)? {
@@ -131,6 +136,11 @@ impl Store {
         Ok(fs::read_dir(dir)?.next().transpose()?.is_some())
     }
     /// Authenticates and revalidates one saved pack; corrupt/foreign files are never removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store path, directory, file type, format, identity
+    /// binding, decryption, or pack validation is invalid, or filesystem access fails.
     pub fn saved_sticker_pack(
         &self,
         secret: &[u8; 32],
@@ -145,6 +155,12 @@ impl Store {
     /// Removes only the explicitly selected pack, including corrupt content; missing is false.
     /// Callers must obtain user confirmation. An error after unlink may still mean removal
     /// happened, so refresh before retrying. This does not erase copies held elsewhere.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store path, directory, or file type is invalid,
+    /// filesystem removal or directory synchronization fails, or the writer
+    /// transaction cannot start or commit. Removal may precede a later error.
     pub fn remove_saved_sticker_pack(&mut self, id: &[u8; 32]) -> Result<bool, Error> {
         let dir = directory(self)?;
         let tx = self
@@ -167,6 +183,13 @@ impl Store {
         Ok(true)
     }
     /// Saves a validated pack atomically. Returns false for an already saved, readable pack.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if existing storage is invalid or cannot be opened, sealing
+    /// fails, the saved-file quota is exceeded, random-name generation or file
+    /// publication fails, or the writer transaction cannot start or commit. The
+    /// pack file may already be published when synchronization or commit fails.
     pub fn save_sticker_pack(&mut self, secret: &[u8; 32], pack: &Pack) -> Result<bool, Error> {
         self.save_pack_with_limit(secret, pack, SAVED_BYTES)
     }

@@ -112,6 +112,12 @@ fn stage_outbox(
 
 impl Store {
     /// Prepare metadata for the exact received sticker selected in an open pair chat.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer or selected sticker is invalid, the group does
+    /// not match, the peer is blocked, the conversation is closed, or reading or
+    /// validating stored state fails.
     pub fn sticker_pack_request(
         &self,
         group: &[u8],
@@ -124,6 +130,12 @@ impl Store {
     }
 
     /// Commit pending intent, MLS snapshot and request outbox together; bounded to 64 per identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if request eligibility or the selected sticker is invalid,
+    /// the requested pack differs, the pending-request limit is reached, token
+    /// randomness fails, outbox state conflicts, or database access or commit fails.
     pub fn stage_sticker_pack_request(
         &mut self,
         sealed: &[u8],
@@ -168,6 +180,11 @@ impl Store {
     }
 
     /// Read identity-local intent; absence never authorizes accepting a peer answer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding pending intent fails, or a stored
+    /// sticker hash or request token has an invalid length.
     pub fn pending_sticker_pack(
         &self,
         peer: &str,
@@ -178,6 +195,10 @@ impl Store {
 
     /// Retire local acceptance intent only for the observed saved, cancelled or refused generation.
     /// This does not revoke mailbox writes already queued for delivery.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deleting the matching request generation fails.
     pub fn finish_sticker_pack(
         &self,
         peer: &str,
