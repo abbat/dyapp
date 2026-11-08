@@ -43,7 +43,9 @@
       "clients/desktop/ui-tests/peer-photos.js",
       "clients/desktop/ui-tests/chat-photo-fixture.js",
       "clients/desktop/ui-tests/photo-settings.js",
-      "clients/desktop/ui-tests/chat-photo-send.js"
+      "clients/desktop/ui-tests/chat-photo-send.js",
+      "clients/desktop/ui-tests/chat-photo-render.js",
+      "clients/desktop/ui-tests/photos.js"
     ],
     "linter": { "rules": {
       "complexity": {

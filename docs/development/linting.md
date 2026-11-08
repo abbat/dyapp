@@ -286,8 +286,7 @@ Cognitive complexity 15 and function length 50 code lines are blocking for every
 and prototype JavaScript file, including future files in those directories. The test-only video
 frame renderer, video smoke, settings list/navigation smoke, Clear dialog/composer/identifier smoke
 and removal/chat-redraw/media-cache smoke helpers also enforce these limits. All sticker, common,
-dispatcher, guard, profile/peer photo, photo settings and chat photo send smoke helpers, plus
-chat photo fixtures, use the same limits.
+dispatcher, guard and all photo smoke helpers use the same limits.
 Future `*-guard*.js` helpers are included.
 Blank lines and immediate closure wrappers used to scope classic scripts are excluded; nested
 functions remain checked.
