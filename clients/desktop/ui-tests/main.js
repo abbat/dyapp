@@ -624,18 +624,8 @@ Promise.all([
   invokeTest('ui_test_step'),
 ])
   .then(async ([state, mode, existing, step]) => {
-    if (step.startsWith('video-bench:'))
-      return globalThis.videoBenchmark(step.slice('video-bench:'.length));
-    if (step.startsWith('video:')) {
-      const size = step.slice('video:'.length);
-      if (!['360p', '720p'].includes(size)) throw new Error('invalid video smoke size');
-      const metrics = await videoFrames(size);
-      return invokeTest('ui_test_result', {
-        passed: true,
-        peerId: '',
-        reason: `video:${size}:${JSON.stringify(metrics)}`,
-      });
-    }
+    if (step.startsWith('video-bench:') || step.startsWith('video:'))
+      return window.uiSmokeSystemSteps.video(step);
     // Steps that run one check on the reopened identity.
     const readySteps = {
       network: checkNetwork,
@@ -661,55 +651,8 @@ Promise.all([
       'search-no-network': () => searchOnLoopback(false),
       search: () => searchOnLoopback(true),
     };
-    if (step.startsWith('recovery:')) {
-      // A localized reason first; the code and slot row only in collapsed Details, with Copy.
-      const reason = step.slice('recovery:'.length);
-      const more = document.getElementById('recovery-more');
-      const details = document.getElementById('recovery-details');
-      if (
-        state.status !== 'recovery' ||
-        state.reason !== reason ||
-        document.getElementById('recovery').hidden ||
-        document.getElementById('recovery-reason').textContent !==
-          window.strings[`recovery.${reason}`]
-      )
-        throw new Error(`recovery ${reason} not shown`);
-      if (more.open || !details.textContent.startsWith(`${reason}\n${state.slot}`)) {
-        throw new Error(`recovery details: ${more.open} ${details.textContent}`);
-      }
-      await shot('recovery');
-      more.open = true;
-      await checkCopy('copy-recovery-details', details);
-      await shot('recovery-details');
-      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
-    }
-    if (step.startsWith('window:')) {
-      // save: move the window and quit with Ctrl+Q; restore: the saved bounds are back;
-      // centre: an off-screen saved window lands in the middle of the primary display.
-      const saved = { x: 120, y: 80, width: 900, height: 640 };
-      const kind = step.slice('window:'.length);
-      if (kind === 'save') {
-        const [at] = await invokeTest('ui_test_window', { set: saved });
-        if (JSON.stringify(at) !== JSON.stringify(saved))
-          throw new Error(`window not moved: ${JSON.stringify(at)}`);
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', ctrlKey: true }));
-        return undefined;
-      }
-      const [at, primary] = await invokeTest('ui_test_window');
-      const centred = {
-        x: primary.x + Math.floor((primary.width - at.width) / 2),
-        y: primary.y + Math.floor((primary.height - at.height) / 2),
-        width: at.width,
-        height: at.height,
-      };
-      const expected = kind === 'restore' ? saved : centred;
-      if (JSON.stringify(at) !== JSON.stringify(expected)) {
-        throw new Error(
-          `window ${kind}: ${JSON.stringify(at)}, expected ${JSON.stringify(expected)}`,
-        );
-      }
-      return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
-    }
+    if (step.startsWith('recovery:')) return window.uiSmokeSystemSteps.recovery(state, step);
+    if (step.startsWith('window:')) return window.uiSmokeSystemSteps.windowBounds(step);
     if (step.startsWith('tray:')) {
       // quit: the tray host clicks Quit; none: no host, the settings are off with a note;
       // close: turn on close-to-tray, close, and the host's Open brings the window back;
