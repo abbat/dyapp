@@ -46,7 +46,7 @@ impl Service {
         }
         let expires_at = revoke
             .created_at
-            .saturating_add(REVOKE_DAYS * 86_400 + self.retention() as i64 + 3600);
+            .saturating_add(REVOKE_DAYS * 86_400 + self.retention() + 3600);
         if expires_at <= now {
             return Ok((status(Status::Stale), false));
         }

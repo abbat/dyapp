@@ -107,7 +107,7 @@ fn queue_is_capped() {
     let peers = peers();
     let store = Store::Profile;
     let mut scanner = Scanner::default();
-    let keys: Vec<_> = (0..QUEUE as u32 + 10)
+    let keys: Vec<_> = (0..u32::try_from(QUEUE).unwrap() + 10)
         .map(|n| {
             let key = n.to_be_bytes().to_vec();
             let replicas = replica_keys(store, std::slice::from_ref(&key));
@@ -117,7 +117,10 @@ fn queue_is_capped() {
     scanner.scan(store, keys.clone(), closest(&peers, 0), true);
     assert_eq!(scanner.lanes[store as usize].queue.len(), QUEUE);
     // Stopped before the first key left out, so no wrap.
-    assert_eq!(scanner.cursor(store), (QUEUE as u32 - 1).to_be_bytes());
+    assert_eq!(
+        scanner.cursor(store),
+        (u32::try_from(QUEUE).unwrap() - 1).to_be_bytes()
+    );
 
     // A repeated scan does not queue a key twice.
     scanner.scan(store, keys[..QUEUE].to_vec(), closest(&peers, 0), false);

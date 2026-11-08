@@ -539,7 +539,7 @@ fn short_signal_padding_fits_the_signed_payload_limit() {
     let payload_size = |group: &mut dyapp_messaging::mls::Group, plaintext_len: usize, floor| {
         let size = (4 + plaintext_len).max(floor).next_power_of_two();
         let mut padded = vec![0; size];
-        padded[..4].copy_from_slice(&(plaintext_len as u32).to_be_bytes());
+        padded[..4].copy_from_slice(&u32::try_from(plaintext_len).unwrap().to_be_bytes());
         let ciphertext = group.encrypt(&alice, &padded).unwrap();
         proto::Envelope {
             id: vec![0; 16],

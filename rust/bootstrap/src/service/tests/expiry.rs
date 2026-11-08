@@ -42,7 +42,7 @@ fn a_replica_put_carries_the_remaining_time_capped_at_the_retention() {
     let (service, expiries) = replicate(&[1, 2], vec![600, u32::MAX]);
     let now = chrono::Utc::now().timestamp();
     near(expiries[0], now + 600);
-    near(expiries[1], now + service.retention() as i64);
+    near(expiries[1], now + service.retention());
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn a_zero_remaining_time_drops_the_envelope() {
 fn a_mismatched_or_missing_list_gives_a_fresh_retention() {
     for remaining in [vec![], vec![600]] {
         let (service, expiries) = replicate(&[1, 2], remaining);
-        let fresh = chrono::Utc::now().timestamp() + service.retention() as i64;
+        let fresh = chrono::Utc::now().timestamp() + service.retention();
         near(expiries[0], fresh);
         near(expiries[1], fresh);
     }
@@ -81,7 +81,7 @@ fn a_carried_expiry_leaves_a_stored_envelope_alone() {
     };
     let request = mailbox_request::Request::ReplicaPut(batch);
     assert_eq!(put(&service, &replica_peer("r"), request), Status::Ok);
-    let fresh = chrono::Utc::now().timestamp() + service.retention() as i64;
+    let fresh = chrono::Utc::now().timestamp() + service.retention();
     near(Some(service.held(&mailbox).unwrap()[&vec![1; 16]].2), fresh);
 }
 

@@ -167,8 +167,9 @@ fn masked(ip: IpAddr, ipv4: u8, ipv6: u8) -> String {
     let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
     match ip.to_canonical() {
         IpAddr::V4(ip) => {
-            let ip = u128::from(u32::from(ip)) & mask(ipv4, 32);
-            format!("{}/{ipv4}", std::net::Ipv4Addr::from(ip as u32))
+            let mask = u32::MAX.checked_shl(u32::from(32 - ipv4)).unwrap_or(0);
+            let ip = u32::from(ip) & mask;
+            format!("{}/{ipv4}", std::net::Ipv4Addr::from(ip))
         }
         IpAddr::V6(ip) => {
             let ip = u128::from(ip) & mask(ipv6, 128);

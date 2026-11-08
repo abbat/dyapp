@@ -148,10 +148,13 @@ impl VideoSession {
             remote_sdp: Arc::new(RwLock::new(None)),
             ice_candidates: Arc::new(RwLock::new(Vec::new())),
             local_candidates,
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
+            created_at: i64::try_from(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            )
+            .unwrap_or(i64::MAX),
         })
     }
 
@@ -382,10 +385,13 @@ impl VideoSession {
     /// # Panics
     /// Panics if the system clock precedes the Unix epoch.
     pub async fn duration_ms(&self) -> i64 {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let now = i64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        )
+        .unwrap_or(i64::MAX);
         now - self.created_at
     }
 }

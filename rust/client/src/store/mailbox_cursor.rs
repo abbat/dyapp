@@ -66,7 +66,7 @@ impl Store {
             return Err(Error::InvalidSetting);
         }
         let mut value = Vec::with_capacity(1 + peer.len() + cursor.len());
-        value.push(peer.len() as u8);
+        value.push(u8::try_from(peer.len()).map_err(|_| Error::InvalidSetting)?);
         value.extend_from_slice(&peer);
         value.extend_from_slice(cursor);
         self.write_mailbox_cursor(&value)

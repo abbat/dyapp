@@ -102,7 +102,7 @@ fn drive(
                 proto::media_request::Request::Have(have) => have.items.len() * 512 + 1024,
                 proto::media_request::Request::Get(_) => MEDIA_OBJECT_BYTES + 1024,
                 proto::media_request::Request::ShardGet(_) => response.data.len() + 1024,
-                _ => reply as usize,
+                _ => usize::try_from(reply).unwrap(),
             };
             assert_eq!(reply, expected as u64);
             let fail = fail_get
@@ -238,7 +238,7 @@ fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
                 service
                     .store_shard(&proto::MediaShardPut {
                         replica: Some(replica.clone()),
-                        index: index as u32,
+                        index: u32::try_from(index).unwrap(),
                         data: shard.clone(),
                     })
                     .unwrap()
@@ -416,7 +416,7 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
     repair.inventory(remote, &present(changed, 0));
     assert!(repair.blobs[0].shard_sources.is_empty());
     // Requested, since keys cover ten shards before the layout is known.
-    let past = manifest.shard_hashes.len() as u32;
+    let past = u32::try_from(manifest.shard_hashes.len()).unwrap();
     repair.inventory(remote, &present(manifest.clone(), past));
     assert!(repair.blobs[0].shard_sources.is_empty());
     repair.inventory(remote, &present(manifest, 0));
@@ -460,7 +460,7 @@ fn local_copies_count_only_when_they_verify() {
     for (index, data) in shards.into_iter().enumerate() {
         let put = proto::MediaShardPut {
             replica: Some(replica.clone()),
-            index: index as u32,
+            index: u32::try_from(index).unwrap(),
             data,
         };
         assert_eq!(

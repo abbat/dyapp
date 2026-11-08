@@ -106,5 +106,5 @@ fn late_retry_renews_uncertainty_and_confirmation_is_not_a_renewal() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(expires, confirmed_at as i64 + 7 * 86400);
+    assert_eq!(expires, i64::try_from(confirmed_at).unwrap() + 7 * 86400);
 }

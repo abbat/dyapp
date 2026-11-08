@@ -312,7 +312,7 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
         store
             .put_plain(
                 &[mailbox; 32],
-                &[id as u8],
+                &[u8::try_from(id).unwrap()],
                 &record,
                 false,
                 expires_at,

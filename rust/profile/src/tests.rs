@@ -51,7 +51,7 @@ fn edited_profile_keeps_untouched_photo_bytes() {
     let mut nested = photo.encode_to_vec();
     nested.extend_from_slice(&[0xa0, 0x06, 0x07]); // unknown tag 100
     let mut original = sample(1).encode_to_vec();
-    original.extend_from_slice(&[0xaa, 0x01, nested.len() as u8]); // tag 21
+    original.extend_from_slice(&[0xaa, 0x01, u8::try_from(nested.len()).unwrap()]); // tag 21
     original.extend_from_slice(&nested);
 
     let mut edited = Profile::decode(original.as_slice()).unwrap();

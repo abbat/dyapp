@@ -107,20 +107,20 @@ pub fn on_digest(
             .collect();
     };
     let mut asks = Vec::new();
-    let mut i = 0;
+    let mut i = 0u16;
     while i < 256 {
-        if !differs(i) {
+        if !differs(usize::from(i)) {
             i += 1;
             continue;
         }
         let start = i;
-        while i < 256 && differs(i) {
+        while i < 256 && differs(usize::from(i)) {
             i += 1;
         }
         asks.push(Ask::Range(range(
             topic,
-            first + start as u32,
-            first + i as u32,
+            first + u32::from(start),
+            first + u32::from(i),
         )));
     }
     // Too many separate ranges: one request for the whole bucket is cheaper.

@@ -11,7 +11,7 @@ fn encoded(pixels: &[u8], width: u32, height: u32, color: ColorType) -> Vec<u8> 
 
 fn chunk(kind: [u8; 4], data: &[u8]) -> Vec<u8> {
     let mut out = kind.to_vec();
-    out.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(data.len()).unwrap().to_le_bytes());
     out.extend_from_slice(data);
     if !data.len().is_multiple_of(2) {
         out.push(0);
@@ -31,7 +31,7 @@ fn animation(first: &[u8], second: &[u8]) -> Vec<u8> {
         body.extend(chunk(*b"ANMF", &frame));
     }
     let mut bytes = b"RIFF".to_vec();
-    bytes.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(&u32::try_from(body.len()).unwrap().to_le_bytes());
     bytes.extend(body);
     bytes
 }
@@ -106,7 +106,7 @@ fn valid_header_does_not_authorize_corrupt_pixels() {
     let payload = &bytes[20..25]; // VP8L signature and dimension header, no pixels.
     let mut corrupt = b"RIFF".to_vec();
     let image = chunk(*b"VP8L", payload);
-    corrupt.extend_from_slice(&((image.len() + 4) as u32).to_le_bytes());
+    corrupt.extend_from_slice(&u32::try_from(image.len() + 4).unwrap().to_le_bytes());
     corrupt.extend_from_slice(b"WEBP");
     corrupt.extend(image);
     check_header(&corrupt).unwrap();

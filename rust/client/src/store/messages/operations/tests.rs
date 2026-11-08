@@ -239,7 +239,7 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
 
     // Distinct target IDs cannot bypass the profile-wide cap.
     for i in 0..(MAX_PENDING_OPERATIONS - pending) {
-        let target = [i as u8 + 100; 16];
+        let target = [u8::try_from(i).unwrap() + 100; 16];
         let unknown = MessageKey {
             id: target,
             ..key.clone()
@@ -248,7 +248,7 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
             .apply_chat_operation(
                 &unknown,
                 &[1; 32],
-                &edit(target, i as u8 + 10, 500, b"pending"),
+                &edit(target, u8::try_from(i).unwrap() + 10, 500, b"pending"),
                 1_000
             )
             .unwrap());

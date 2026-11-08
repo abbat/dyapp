@@ -477,10 +477,8 @@ async fn failed_codec_io_does_not_count_and_releases_media_permits() {
     }
     let wire = Arc::new(WireBytes::default());
     let mut codec = ProtoCodec::<Frame, Frame>::media().with_wire(wire.clone());
-    for bytes in [
-        vec![0xff],
-        frame_bytes(message_limit(&MEDIA_PROTOCOL, &Protocols::public()) as usize + 1),
-    ] {
+    let limit = usize::try_from(message_limit(&MEDIA_PROTOCOL, &Protocols::public())).unwrap();
+    for bytes in [vec![0xff], frame_bytes(limit + 1)] {
         assert!(codec
             .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
             .await

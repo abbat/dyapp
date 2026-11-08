@@ -6,6 +6,21 @@ use crate::Result;
 use rusqlite::params;
 use std::fs;
 
+pub(super) fn sql_size(value: impl TryInto<i64>) -> Result<i64> {
+    value
+        .try_into()
+        .map_err(|_| storage_error("size exceeds signed storage range"))
+}
+
+#[cfg(test)]
+#[test]
+fn sql_sizes_reject_values_above_the_signed_storage_limit() {
+    assert_eq!(sql_size(0u64).unwrap(), 0);
+    assert_eq!(sql_size(i64::MAX.unsigned_abs()).unwrap(), i64::MAX);
+    assert!(sql_size(i64::MAX.unsigned_abs() + 1).is_err());
+    assert!(sql_size(u64::MAX).is_err());
+}
+
 impl MediaStore {
     /// Keeps an assembled blob for the next pieces; `now` in Unix seconds.
     ///
@@ -17,7 +32,7 @@ impl MediaStore {
         write_aside(&self.cache.join(hex(hash)), data)?;
         db.execute(
             "INSERT OR REPLACE INTO `cache` (`hash`, `size`, `read`) VALUES (?, ?, ?)",
-            params![hash, data.len() as i64, now],
+            params![hash, sql_size(data.len())?, now],
         )
         .map_err(storage_error)?;
         Ok(())

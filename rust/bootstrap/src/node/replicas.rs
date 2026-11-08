@@ -373,6 +373,10 @@ impl Replicas {
         self.puts.len() >= MAX_PENDING_PUTS
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Indices come from the validated media layout, at most six data shards plus four parity shards"
+    )]
     pub(super) fn start_put(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -626,6 +630,10 @@ impl Replicas {
         self.drain_media(swarm, service);
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Indices come from the validated media layout, at most six data shards plus four parity shards"
+    )]
     pub(super) fn shard_holder(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -663,6 +671,10 @@ impl Replicas {
     }
 
     /// The remote media codec admits two streams per connection: queue excess work locally.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Queued indices originate from validated media layouts with at most ten shards"
+    )]
     pub(super) fn drain_media(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service) {
         let count = self.media_queue.len();
         for _ in 0..count {
@@ -812,6 +824,10 @@ impl Replicas {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Indices come from the validated media layout, at most six data shards plus four parity shards"
+    )]
     pub(super) fn start_read(
         &mut self,
         swarm: &mut Swarm<Behaviour>,

@@ -37,6 +37,11 @@ wildcard_imports = "deny"
 large_futures = "deny"
 needless_pass_by_value = "deny"
 trivially_copy_pass_by_ref = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_precision_loss = "deny"
+cast_lossless = "deny"
 
 [workspace.package]
 version = "0.0.1"

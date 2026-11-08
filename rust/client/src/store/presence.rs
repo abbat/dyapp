@@ -127,7 +127,8 @@ impl Store {
         )?;
         Self::stage_outbound_tx(&tx, None, sealed_device, writes, false)?;
         // A late presence is wrong, not merely slow: give it up with the receiver's window.
-        let expires = sent.saturating_add(PRESENCE_WINDOW_MS as i64);
+        let expires =
+            sent.saturating_add(i64::try_from(PRESENCE_WINDOW_MS).map_err(|_| Error::ClockRange)?);
         for write in writes {
             tx.execute(
                 "UPDATE `outbox` SET `expires_at_ms` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",

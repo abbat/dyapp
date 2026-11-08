@@ -498,7 +498,7 @@ impl SearchIndex {
         let bytes = if p.deleted {
             0
         } else {
-            record.encoded_len() as i64
+            i64::try_from(record.encoded_len()).map_err(storage_error)?
         };
         // Replicas while the file is young are the existing network's keys, not newcomers.
         let grace = !limit && now < self.created() + self.newcomer_seconds;

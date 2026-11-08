@@ -741,6 +741,16 @@ fn media_keep_put_get() {
     assert_eq!(info.max_media_bytes, MAX_MEDIA_BYTES as u64);
 }
 
+// `count` hashes, the first naming `data`.
+fn media_hashes(data: &[u8], count: usize) -> Vec<Vec<u8>> {
+    let mut hashes = vec![dyapp_identity::sha256(data).to_vec()];
+    hashes.extend(
+        (1..u32::try_from(count).unwrap())
+            .map(|i| dyapp_identity::sha256(&i.to_be_bytes()).to_vec()),
+    );
+    hashes
+}
+
 #[test]
 fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     use proto::media_replica_put::Authorization;
@@ -758,12 +768,7 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     assert_eq!(status(&s, &replica), Status::Invalid);
     let zero = media_replica(&owner, b"version zero".to_vec(), 0);
     assert_eq!(status(&s, &zero), Status::Invalid);
-    // `count` hashes, the first naming `data`.
-    let hashes = |data: &[u8], count: usize| {
-        let mut hashes = vec![dyapp_identity::sha256(data).to_vec()];
-        hashes.extend((1..count as u32).map(|i| dyapp_identity::sha256(&i.to_be_bytes()).to_vec()));
-        hashes
-    };
+    let hashes = media_hashes;
     let keep = |data: &[u8], hashes: Vec<Vec<u8>>, time| {
         let keep = proto::MediaKeep {
             version: 1,
@@ -868,7 +873,7 @@ fn media_have_accepts_a_full_repair_window_and_no_more() {
         Status::try_from(s.media(&peer("p"), request).unwrap().status).unwrap()
     };
     // Every hash of a window, whole and in all ten shards.
-    let mut items = (0..MAX_KEEP as u32)
+    let mut items = (0..u32::try_from(MAX_KEEP).unwrap())
         .flat_map(|i| {
             let hash = dyapp_identity::sha256(&i.to_be_bytes()).to_vec();
             std::iter::once(None)

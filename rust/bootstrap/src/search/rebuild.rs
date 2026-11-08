@@ -96,7 +96,12 @@ async fn overflow_aborts_and_deletes_the_candidate() {
     let index = index();
     fill(&index, 300, index.created());
     let budget = RebuildBudget::new(64);
-    let flood = async { mark(&index, (0..=writer::DIRTY_KEYS as u32).map(fake)) };
+    let flood = async {
+        mark(
+            &index,
+            (0..=u32::try_from(writer::DIRTY_KEYS).unwrap()).map(fake),
+        )
+    };
     let (built, ()) = tokio::join!(index.build(NEXT, &budget, 0), flood);
     assert!(matches!(built, Err(Abort::Overflow)));
     assert!(!index.generation_path(NEXT).exists());

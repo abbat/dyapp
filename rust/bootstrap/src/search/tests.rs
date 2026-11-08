@@ -209,7 +209,7 @@ fn first_seen_and_bytes_are_kept() {
     let first_seen: i64 = index.column("SELECT `first_seen` FROM `key` WHERE `key` = ?", &key);
     let bytes: i64 = index.column("SELECT `bytes` FROM `key` WHERE `key` = ?", &key);
     assert_eq!(first_seen, 1_000);
-    assert_eq!(bytes, r.encoded_len() as i64);
+    assert_eq!(bytes, i64::try_from(r.encoded_len()).unwrap());
 }
 
 #[test]

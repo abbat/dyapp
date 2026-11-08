@@ -457,7 +457,7 @@ impl Service {
             signal_quota_bytes: if store { self.signal_quota() } else { 0 },
             mailbox_pool_bytes: if store { self.mailbox_pool() } else { 0 },
             require_write_tokens: store && self.config.limits.require_write_tokens,
-            retention_seconds: if store { self.retention() } else { 0 },
+            retention_seconds: self.retention().unsigned_abs() * u64::from(store),
             search_fields: if self.search.is_some() {
                 SEARCH_FIELDS.to_vec()
             } else {
@@ -495,8 +495,8 @@ impl Service {
         }
     }
 
-    fn retention(&self) -> u64 {
-        u64::from(self.config.limits.message_ttl_hours) * 3600
+    fn retention(&self) -> i64 {
+        i64::from(self.config.limits.message_ttl_hours) * 3600
     }
 
     /// Signal bytes kept per mailbox.

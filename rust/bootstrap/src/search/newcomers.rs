@@ -8,7 +8,7 @@ const DAY: i64 = 86_400;
 /// The share of a 1 TiB file that holds `n` records.
 fn records(n: u64) -> f64 {
     let one = signed(&Identity::generate(), profile(1)).2.encoded_len() as u64;
-    (n * one) as f64 / (1u64 << 40) as f64
+    f64::from(u32::try_from(n * one).unwrap()) / 2f64.powi(40)
 }
 
 fn held(index: &SearchIndex, keys: &[[u8; 32]]) -> usize {
@@ -97,7 +97,7 @@ fn the_larger_country_bucket_goes_first() {
     assert!(removed > 0);
     let counts = index.place_counts();
     assert_eq!(n(&counts, "2950159"), 200);
-    assert_eq!(n(&counts, ""), 400 - removed as i64);
+    assert_eq!(n(&counts, ""), 400 - i64::try_from(removed).unwrap());
 }
 
 #[test]

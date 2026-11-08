@@ -188,9 +188,10 @@ impl Session {
         device_key: &Identity,
         contact: &str,
     ) -> Result<(), Error> {
-        let keys = self
-            .store
-            .revoke_issued(contact, (crate::now() / 86_400) as u32)?;
+        let keys = self.store.revoke_issued(
+            contact,
+            u32::try_from(crate::now() / 86_400).map_err(crate::clock_range)?,
+        )?;
         if keys.is_empty() {
             return Ok(());
         }

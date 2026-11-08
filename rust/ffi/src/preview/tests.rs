@@ -17,11 +17,15 @@ fn photo(width: u32, height: u32) -> Vec<u8> {
     let mut rgba = Vec::with_capacity((width * height * 4) as usize);
     for y in 0..height {
         for x in 0..width {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "Intentional integer quantization of a finite sine wave bounded by -40 and 40"
+            )]
             let band = ((f64::from(x + y) / 300.0).sin() * 40.0) as i32;
             rgba.extend([
-                (x * 200 / width) as u8,
-                (y * 200 / height) as u8,
-                (128 + band) as u8,
+                u8::try_from(x * 200 / width).unwrap(),
+                u8::try_from(y * 200 / height).unwrap(),
+                u8::try_from(128 + band).unwrap(),
                 255,
             ]);
         }
@@ -31,7 +35,9 @@ fn photo(width: u32, height: u32) -> Vec<u8> {
 
 fn noise(width: u32, height: u32) -> Vec<u8> {
     let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
-    (0..width * height * 4).map(|_| rng.next() as u8).collect()
+    (0..width * height * 4)
+        .map(|_| rng.next().to_le_bytes()[0])
+        .collect()
 }
 
 fn preview(width: u32, height: u32) -> Vec<u8> {
@@ -201,8 +207,8 @@ fn mutated_previews_never_panic() {
     for round in 0..10_000 {
         let mut bytes = valid.clone();
         for _ in 0..1 + rng.next() % 4 {
-            let at = (rng.next() % bytes.len() as u64) as usize;
-            bytes[at] ^= (rng.next() % 255 + 1) as u8;
+            let at = usize::try_from(rng.next() % bytes.len() as u64).unwrap();
+            bytes[at] ^= u8::try_from(rng.next() % 255 + 1).unwrap();
         }
         if let Ok(decoded) = check_preview(bytes) {
             assert!(

@@ -669,8 +669,9 @@ pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
     let hash = dyapp_identity::sha256(&peer.to_bytes());
     let zeros = hash
         .iter()
-        .position(|b| *b != 0)
-        .map_or(256, |i| i as u32 * 8 + hash[i].leading_zeros());
+        .zip(0u32..)
+        .find(|(byte, _)| **byte != 0)
+        .map_or(256, |(byte, index)| index * 8 + byte.leading_zeros());
     zeros >= bits
 }
 

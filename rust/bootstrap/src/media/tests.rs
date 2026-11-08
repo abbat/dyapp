@@ -119,7 +119,7 @@ fn eviction_drops_attachments_then_oldest_keeps_and_stops_at_target() {
         media.put(owner, &blobs[index], 1000).unwrap();
     }
     for (index, created) in [(2, 30), (3, 10), (0, 5)] {
-        let release = vec![index as u8; 32];
+        let release = vec![u8::try_from(index).unwrap(); 32];
         media
             .attach(
                 "sender",

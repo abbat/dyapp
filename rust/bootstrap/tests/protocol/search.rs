@@ -50,12 +50,12 @@ async fn search_profile_spreads_between_nodes() {
             tokio::time::Instant::now() < deadline,
             "no profile reached B"
         );
-        let year = 2000 + published.len() as i64;
+        let year = 2000 + i64::try_from(published.len()).unwrap();
         let identity = Identity::generate();
         let pow_nonce = dyapp_profile::solve(&identity.public_key(), 2, 0, 100_000).unwrap();
         let record = Profile {
             version: 1,
-            birth_year: Some(year as u32),
+            birth_year: Some(u32::try_from(year).unwrap()),
             pow_nonce,
             pow_bits: 2,
             ..Profile::default()

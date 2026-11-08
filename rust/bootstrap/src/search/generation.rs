@@ -144,6 +144,16 @@ fn hold(base: &Path) -> Result<std::fs::File> {
     Ok(file)
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    reason = "A configured fractional quota intentionally rounds to whole bytes; float-to-u64 saturates at its bounds"
+)]
+fn newcomer_quota(search: &crate::config::Search) -> u64 {
+    (search.max_bytes as f64 * search.newcomer_share).round() as u64
+}
+
 impl SearchIndex {
     /// Opens or creates the index whose first generation is `path`, keeping it below
     /// `search.max_bytes`. Holds `search.lock` beside it until dropped.
@@ -222,7 +232,7 @@ impl SearchIndex {
             over: AtomicBool::new(false),
             created: AtomicI64::new(created),
             newcomer_seconds: i64::from(search.newcomer_days) * 86_400,
-            newcomer_quota: (search.max_bytes as f64 * search.newcomer_share).round() as u64,
+            newcomer_quota: newcomer_quota(search),
             newcomer_bytes: AtomicU64::new(0),
             newcomer_checked: AtomicI64::new(i64::MIN),
             newcomer_evictions: AtomicU64::new(0),

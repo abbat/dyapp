@@ -120,10 +120,7 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         .unwrap()
         .iter()
         .any(|write| write.as_bytes() == edit_writes[0].as_bytes()));
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now_ms = super::now_ms();
     alice_session
         .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
         .await

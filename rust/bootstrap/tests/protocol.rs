@@ -34,6 +34,16 @@ fn protocol_build_path(name: &str) -> std::path::PathBuf {
     root.join(format!("{name}-{}", uuid::Uuid::new_v4()))
 }
 
+fn now_ms() -> i64 {
+    i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap()
+}
+
 /// Starts a node with its own store and returns its address.
 async fn start(requests_per_second: u32) -> Multiaddr {
     start_with(|l| l.requests_per_second = requests_per_second).await

@@ -143,6 +143,12 @@ Internal helpers borrow read-only descriptors and results; small connection IDs,
 pixel formats and fixture tags pass by value. Declaration-level checked expectations
 preserve UniFFI's owned argument lifting, the public inventory handler's owned request
 contract and `map_err` adapters that receive ownership of their source error.
+The same manifests deny narrowing, wrapping, sign-loss, precision-loss and lossless `as` casts.
+Variable numeric values use checked conversions; unsupported client clocks return `ClockRange`.
+Millisecond wall clocks saturate at their integer maximum instead of wrapping. Retention seconds
+use signed timestamp arithmetic directly from the configured unsigned 32-bit hour count.
+Checked expectations document bounded image/header arithmetic and intentional fractional quota
+rounding; test byte streams explicitly select their low byte when modulo-256 data is intended.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable

@@ -37,10 +37,13 @@ impl ICECandidate {
             candidate,
             sdp_mid,
             sdp_mline_index,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
+            timestamp: i64::try_from(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis(),
+            )
+            .unwrap_or(i64::MAX),
         }
     }
 

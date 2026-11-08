@@ -300,8 +300,14 @@ impl SearchIndex {
             let bytes = apply(&mut db, &rows)?;
             let percent = u32::from(last[0]) * 100 / 256;
             after = last.to_vec();
-            self.pace(budget, bytes, &file, percent as u8, min_free)
-                .await?;
+            self.pace(
+                budget,
+                bytes,
+                &file,
+                u8::try_from(percent).map_err(storage_error)?,
+                min_free,
+            )
+            .await?;
         }
     }
 

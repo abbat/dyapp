@@ -69,10 +69,13 @@ impl Message {
         text: String,
         timestamp: Timestamp,
     ) -> Self {
-        let created_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let created_at = i64::try_from(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        )
+        .unwrap_or(i64::MAX);
 
         Self {
             id,

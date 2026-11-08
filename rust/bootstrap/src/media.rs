@@ -11,6 +11,7 @@
 
 use crate::replication::MediaManifestExt;
 mod files;
+use files::sql_size;
 
 use crate::storage::{lock, open, storage_error};
 use crate::Result;
@@ -777,7 +778,7 @@ impl MediaStore {
         let tx = db.transaction().map_err(storage_error)?;
         tx.execute(
             "UPDATE `blobs` SET `size` = ?1, `cost` = ?1 * 5 WHERE `hash` = ?2",
-            params![data.len() as i64, hash.as_slice()],
+            params![sql_size(data.len())?, hash.as_slice()],
         )
         .map_err(storage_error)?;
         tx.execute("DELETE FROM `shards` WHERE `hash` = ?", [hash.as_slice()])
@@ -873,7 +874,7 @@ impl MediaStore {
         .map_err(storage_error)?;
         tx.execute(
             "UPDATE `blobs` SET `size` = ?1, `cost` = ?2 WHERE `hash` = ?3",
-            params![manifest.length as i64, cost as i64, manifest.hash],
+            params![sql_size(manifest.length)?, sql_size(cost)?, manifest.hash],
         )
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
@@ -917,7 +918,11 @@ impl MediaStore {
         db.execute(
             "INSERT INTO `shards` (`hash`, `idx`, `data`) VALUES (?, ?, ?)
              ON CONFLICT(`hash`, `idx`) DO UPDATE SET `data` = `excluded`.`data`",
-            params![manifest.hash, index as i64, data],
+            params![
+                manifest.hash,
+                i64::try_from(index).map_err(storage_error)?,
+                data
+            ],
         )
         .map_err(storage_error)?;
         Ok(Put::Stored)
@@ -933,7 +938,7 @@ impl MediaStore {
         let data: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
                 "SELECT `data` FROM `shards` WHERE `hash` = ? AND `idx` = ?",
-                params![hash, index as i64],
+                params![hash, i64::try_from(index).map_err(storage_error)?],
                 |r| r.get(0),
             )
             .optional()

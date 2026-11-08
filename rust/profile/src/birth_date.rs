@@ -33,7 +33,11 @@ impl CivilDate {
         let day = doy - (153 * mp + 2) / 5 + 1;
         let month = if mp < 10 { mp + 3 } else { mp - 9 };
         let year = era * 400 + yoe + u64::from(month <= 2);
-        Self::new(u32::try_from(year).ok()?, month as u8, day as u8)
+        Self::new(
+            u32::try_from(year).ok()?,
+            u8::try_from(month).ok()?,
+            u8::try_from(day).ok()?,
+        )
     }
 
     /// Numeric `YYYYMMDD` form for a search index or bound.
@@ -87,9 +91,13 @@ impl Profile {
         {
             return false;
         }
-        (1..=12).any(|month| {
-            self.birth_month.is_none_or(|selected| selected == month)
-                && CivilDate::new(year, month as u8, self.birth_day.unwrap_or(1) as u8).is_some()
+        let Ok(day) = u8::try_from(self.birth_day.unwrap_or(1)) else {
+            return false;
+        };
+        (1u8..=12).any(|month| {
+            self.birth_month
+                .is_none_or(|selected| selected == u32::from(month))
+                && CivilDate::new(year, month, day).is_some()
         })
     }
 
@@ -102,17 +110,22 @@ impl Profile {
         let year = self.birth_year?;
         let mut earliest = None;
         let mut latest = None;
-        for month in 1..=12 {
-            if self.birth_month.is_some_and(|selected| selected != month) {
+        for month in 1u8..=12 {
+            if self
+                .birth_month
+                .is_some_and(|selected| selected != u32::from(month))
+            {
                 continue;
             }
-            let first_day = self.birth_day.unwrap_or(1) as u8;
-            let last_day =
+            let first_day = u8::try_from(self.birth_day.unwrap_or(1)).ok()?;
+            let last_day = u8::try_from(
                 self.birth_day
-                    .unwrap_or(u32::from(days_in_month(year, month as u8))) as u8;
+                    .unwrap_or(u32::from(days_in_month(year, month))),
+            )
+            .ok()?;
             if let (Some(first), Some(last)) = (
-                CivilDate::new(year, month as u8, first_day),
-                CivilDate::new(year, month as u8, last_day),
+                CivilDate::new(year, month, first_day),
+                CivilDate::new(year, month, last_day),
             ) {
                 earliest.get_or_insert(first);
                 latest = Some(last);

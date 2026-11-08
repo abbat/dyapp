@@ -179,7 +179,11 @@ impl MediaManifestExt for dyapp_p2p_net::proto::MediaManifest {
     }
 
     fn shard_size(&self) -> Option<usize> {
-        Some((self.length as usize).div_ceil(self.data_shards()?))
+        Some(
+            usize::try_from(self.length)
+                .ok()?
+                .div_ceil(self.data_shards()?),
+        )
     }
 
     fn accepts(&self, index: usize, data: &[u8]) -> bool {
@@ -254,7 +258,9 @@ pub fn media_decode(
             data: data.clone(),
         });
     }
-    let data = Replication::new(k, MEDIA_PARITY)?.decode(&fragments, manifest.length as usize)?;
+    let length = usize::try_from(manifest.length)
+        .map_err(|_| BootstrapError::ReplicationError("invalid media length".into()))?;
+    let data = Replication::new(k, MEDIA_PARITY)?.decode(&fragments, length)?;
     if dyapp_identity::sha256(&data).as_slice() != manifest.hash {
         return Err(BootstrapError::ReplicationError(
             "decoded media hash mismatch".into(),
@@ -274,7 +280,7 @@ mod tests {
             (MEDIA_OBJECT_BYTES + 1, 2),
             (MEDIA_MAX_BYTES, 6),
         ] {
-            let data: Vec<_> = (0..size).map(|i| (i % 251) as u8).collect();
+            let data: Vec<_> = (0..size).map(|i| u8::try_from(i % 251).unwrap()).collect();
             let (manifest, shards) = media_encode(&data).unwrap();
             assert_eq!(manifest.data_shards(), Some(k));
             assert_eq!(

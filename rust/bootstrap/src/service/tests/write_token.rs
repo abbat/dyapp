@@ -5,7 +5,7 @@ use mailbox_role::{check_token, TokenError};
 const DAY: i64 = 86_400;
 
 pub(super) fn today() -> u32 {
-    (chrono::Utc::now().timestamp() / DAY) as u32
+    u32::try_from(chrono::Utc::now().timestamp() / DAY).unwrap()
 }
 
 /// A token for `owner`'s mailbox handed to `token_key` on `epoch`.

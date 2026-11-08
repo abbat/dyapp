@@ -422,9 +422,9 @@ fn a_text_opened_after_many_later_ones_is_refused() {
         Ok(Some(Event::UnknownOwner(_)))
     ));
     // Later texts of an unanswered request may go unshown; they still advance the ratchet.
-    for (i, text) in texts.iter().enumerate().skip(20) {
+    for (i, text) in (0u8..).zip(&texts).skip(20) {
         session
-            .stage_envelope(&key(i as u8 + 2), &text.mls, &profiles, &seal_key)
+            .stage_envelope(&key(i + 2), &text.mls, &profiles, &seal_key)
             .unwrap();
     }
     assert!(matches!(
@@ -534,17 +534,17 @@ fn received_edit_and_delete_keep_only_current_projection() {
             hlc: dyapp_messaging::hlc::Timestamp::new(200, 0).into(),
         },
     ];
-    for (i, body) in bodies.iter().enumerate() {
+    for (i, body) in (0u8..).zip(&bodies) {
         let sent = chat::message(&mut group, &alice, body).unwrap();
         assert!(matches!(
-            session.stage_envelope(&key(i as u8 + 2), &sent[0].mls, &profiles, &seal_key),
+            session.stage_envelope(&key(i + 2), &sent[0].mls, &profiles, &seal_key),
             Ok(Some(Event::Message { .. }))
         ));
         let payload: Vec<u8> = rusqlite::Connection::open(&path)
             .unwrap()
             .query_row(
                 "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
-                [key(i as u8 + 2).id.as_slice()],
+                [key(i + 2).id.as_slice()],
                 |row| row.get(0),
             )
             .unwrap();
@@ -951,7 +951,7 @@ fn a_first_like_invites_and_stages_the_like_with_the_welcome() {
 fn a_write_carries_the_token_of_today() {
     let seal_key = [5; 32];
     let mailbox = [7; 32];
-    let today = (crate::now() / 86_400) as u32;
+    let today = u32::try_from(crate::now() / 86_400).unwrap();
     let mut store = Store::open(&temp_path(), &Identity::generate()).unwrap();
     let token = proto::WriteToken {
         mailbox: mailbox.to_vec(),

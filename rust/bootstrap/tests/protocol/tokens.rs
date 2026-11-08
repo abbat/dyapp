@@ -38,7 +38,7 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let today = (now / 86_400) as u32;
+    let today = u32::try_from(now / 86_400).unwrap();
     // A put's sender key: the token key, or a one-off key for a tokenless write.
     let mut sent = async |store: &Store, day: u32| {
         let epoch = tokens::send(&mut contact.node, store, &mailbox, &[1], day, &SEAL)
@@ -96,11 +96,7 @@ async fn a_revoked_contact_token_is_denied_and_the_write_goes_tokenless() {
     let owner_store = Store::open(&store_path("revoking-owner"), &owner.identity).unwrap();
     let mut store = Store::open(&store_path("revoked-contact"), &contact.identity).unwrap();
     let mailbox = owner.mailbox();
-    let today = (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        / 86_400) as u32;
+    let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let key = hold(&mut store, &owner.device_key, &mailbox, today);
     owner_store
         .record_issued("contact", &mailbox, &key, today)
@@ -170,11 +166,7 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     chat::send(&mut alice.node, &welcome).await.unwrap();
     assert_eq!(senders(&mut bob).await.len(), 1);
     let group_id = group.id().to_vec();
-    let today = (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        / 86_400) as u32;
+    let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let mut store = Store::open(&store_path("token-session"), &alice.identity).unwrap();
     store
         .stage_group(
@@ -239,10 +231,7 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     assert_eq!(sent.len(), 1);
     assert_ne!(sent[0], key.to_vec());
     // Both accepted writes wait for Bob's receipt and are not due yet.
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now_ms = super::now_ms();
     assert!(session.due_outbound(now_ms).unwrap().is_empty());
     assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
 }
@@ -356,11 +345,7 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
         chat::Event::Message { body: chat::Body::Text { text, .. }, .. } if text == b"hi")));
     drop((alice_session, bob_session));
 
-    let today = (std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        / 86_400) as u32;
+    let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let month = (today..today + 30).collect::<Vec<_>>();
     let alice_store = Store::open(&alice_path, &alice.identity).unwrap();
     let bob_store = Store::open(&bob_path, &bob.identity).unwrap();

@@ -456,7 +456,7 @@ mod tests {
         let asks = (0..MAX_TOKENS)
             .map(|i| TokenAsk {
                 token_key: (i as u64).to_be_bytes().repeat(4),
-                ..ask(own, today + (i % 31) as u32, 0)
+                ..ask(own, today + u32::try_from(i % 31).unwrap(), 0)
             })
             .collect();
         let bodies = answer(&store, &device_key, "bob", &TokenRequest { asks }, today).unwrap();

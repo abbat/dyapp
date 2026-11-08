@@ -38,6 +38,10 @@ impl RebuildBudget {
         let rate = self.bytes_per_second;
         // Round up to avoid granting extra bandwidth to small batches.
         let nanos = (u128::from(bytes % rate) * 1_000_000_000).div_ceil(u128::from(rate));
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "The remainder is below rate, so rounded fractional nanoseconds are at most one billion"
+        )]
         let duration = Duration::from_secs(bytes / rate) + Duration::from_nanos(nanos as u64);
         let mut state = self.state.lock().unwrap();
         state.next = state.next.max(now) + duration;

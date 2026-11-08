@@ -211,10 +211,13 @@ impl Service {
             return Ok(response(Status::Stale));
         }
         let now = chrono::Utc::now().timestamp();
+        let Ok(slot) = u8::try_from(get.slot) else {
+            return Ok(response(Status::Invalid));
+        };
         Ok(
             match self
                 .store
-                .allocate_keypackage(&owner, &mailbox, get.slot as u8, now)?
+                .allocate_keypackage(&owner, &mailbox, slot, now)?
             {
                 Some(record) => KeyPackageResponse {
                     record: Some(record),

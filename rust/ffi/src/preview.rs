@@ -18,7 +18,7 @@ pub const MAX_BYTES: u32 = 24 * 1024;
 const FALLBACK_SIDE: u32 = 160;
 const QUALITIES: [u8; 5] = [80, 70, 60, 50, 40];
 // A 320 x 320 RGB decode needs 300 KiB; a lying header gets no more than this.
-const MAX_ALLOC: u64 = 1024 * 1024;
+const MAX_ALLOC: usize = 1024 * 1024;
 
 static METERED: AtomicBool = AtomicBool::new(true);
 
@@ -63,6 +63,10 @@ pub fn make_preview(
     let flat = RgbImage::from_fn(width, height, |x, y| {
         let at = (y as usize * width as usize + x as usize) * 4;
         let alpha = u32::from(rgba[at + 3]);
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "Rounded alpha blending of two u8 colors stays within 0..=255"
+        )]
         Rgb(std::array::from_fn(|i| {
             ((u32::from(rgba[at + i]) * alpha + 255 * (255 - alpha) + 127) / 255) as u8
         }))
@@ -91,6 +95,10 @@ fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
     if long <= side {
         return (width, height);
     }
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "v <= long and side < long, so rounded dimensions stay in 1..=side <= u32::MAX"
+    )]
     let scale = |v: u32| {
         ((u64::from(v) * u64::from(side) + u64::from(long) / 2) / u64::from(long)).max(1) as u32
     };
@@ -159,7 +167,7 @@ pub(crate) fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
 
 fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
     let mut decoder = Decoder::new(bytes);
-    decoder.set_max_decoding_buffer_size(MAX_ALLOC as usize);
+    decoder.set_max_decoding_buffer_size(MAX_ALLOC);
     let decoded = decoder
         .decode()
         .map_err(|e| CoreError::Failed(e.to_string()))?;

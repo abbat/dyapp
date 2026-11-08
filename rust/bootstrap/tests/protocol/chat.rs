@@ -689,10 +689,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     let due = alice_session.due_outbound(i64::MAX).unwrap();
     assert_eq!(due.len(), 1);
     assert_eq!(due[0].as_bytes(), writes[0].as_bytes());
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now_ms = super::now_ms();
     alice_session
         .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
         .await

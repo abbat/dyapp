@@ -54,8 +54,10 @@ fn every_mutation_marks_its_key() {
 
 #[test]
 fn newcomer_eviction_marks_the_evicted_key() {
-    let one = signed(&Identity::generate(), profile(1)).2.encoded_len() as f64;
-    let index = quota(1 << 40, 2.0 * one / (1u64 << 40) as f64);
+    let one = f64::from(
+        u32::try_from(signed(&Identity::generate(), profile(1)).2.encoded_len()).unwrap(),
+    );
+    let index = quota(1 << 40, 2.0 * one / 2f64.powi(40));
     let late = index.created() + 31 * 86_400;
     let first = put_at(&index, "2950159", 2, late, true);
     index.track_start().unwrap();

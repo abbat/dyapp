@@ -134,7 +134,13 @@ fn failed_recent_insert_or_trim_rolls_back_history_mls_hlc_and_outbox() {
             .db
             .execute("UPDATE `test_recent_failure` SET `phase` = ?", [phase])
             .unwrap();
-        assert!(send(&mut store, 30 + phase as u8, 99, b"failed snapshot").is_err());
+        assert!(send(
+            &mut store,
+            30 + u8::try_from(phase).unwrap(),
+            99,
+            b"failed snapshot"
+        )
+        .is_err());
         assert!(store.recent_stickers().unwrap() == before);
         assert_eq!(store.sealed_device().unwrap().unwrap(), b"before");
         assert_eq!(store.current_chat_stickers(&peer).unwrap().len(), 20);

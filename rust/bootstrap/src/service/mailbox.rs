@@ -21,7 +21,7 @@ fn decode_fetch_cursor(bytes: &[u8]) -> Option<Option<(i64, i64)>> {
 }
 
 fn encode_fetch_cursor((class, seq): (i64, i64)) -> Vec<u8> {
-    let mut bytes = vec![1, class as u8];
+    let mut bytes = vec![1, class.to_le_bytes()[0]];
     bytes.extend_from_slice(&seq.to_be_bytes());
     bytes
 }
@@ -254,7 +254,7 @@ impl Service {
         for (i, record) in batch.envelopes.iter().enumerate() {
             let expires_at = match carried.then(|| batch.remaining_seconds[i]) {
                 Some(0) => continue,
-                Some(left) => Some(now + i64::from(left).min(self.retention() as i64)),
+                Some(left) => Some(now + i64::from(left).min(self.retention())),
                 None => None,
             };
             let group = Group::Label(batch.source_groups.get(i).map_or(&[], Vec::as_slice));
@@ -281,7 +281,10 @@ impl Service {
     ///
     /// Returns an error if the mailbox database lock or ordered envelope-ID lookup fails.
     pub fn held_ids(&self, mailbox: &[u8]) -> crate::Result<Vec<Vec<u8>>> {
-        self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)
+        self.store.envelope_ids(
+            mailbox,
+            u32::try_from(MAX_INVENTORY).map_err(crate::storage::storage_error)?,
+        )
     }
 
     /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, with their source groups and
@@ -292,7 +295,10 @@ impl Service {
     /// Returns an error if mailbox locking, stored-envelope lookup or signed-record decoding fails.
     /// Undecodable envelope payloads are omitted.
     pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, Held>> {
-        let held = self.store.held_envelopes(mailbox, MAX_INVENTORY as u32)?;
+        let held = self.store.held_envelopes(
+            mailbox,
+            u32::try_from(MAX_INVENTORY).map_err(crate::storage::storage_error)?,
+        )?;
         Ok(held
             .into_iter()
             .filter_map(|(r, group, expires_at)| {
@@ -442,7 +448,7 @@ impl Service {
             return Ok(status(Status::Full));
         }
         let expires_at =
-            expires_at.unwrap_or_else(|| chrono::Utc::now().timestamp() + self.retention() as i64);
+            expires_at.unwrap_or_else(|| chrono::Utc::now().timestamp() + self.retention());
         let group = match group {
             Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
             Group::Label(label) if label.len() <= 8 => label.to_vec(),
@@ -494,7 +500,7 @@ impl Service {
     ) -> crate::Result<Result<Option<Vec<u8>>, (Status, bool)>> {
         let late = match source {
             Source::Client => 3600,
-            Source::Replica | Source::Local => self.retention() as i64 + 3600,
+            Source::Replica | Source::Local => self.retention() + 3600,
         };
         let now = chrono::Utc::now().timestamp();
         let checked = match check_token(record, envelope, now, late) {

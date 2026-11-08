@@ -183,7 +183,10 @@ impl Repair {
                 .map_or(10, |m| m.shard_hashes.len())
                 .max(usize::from(REPLICAS))
         };
-        (0..count as u8).collect()
+        let Ok(count) = u8::try_from(count) else {
+            return Vec::new();
+        };
+        (0..count).collect()
     }
 
     pub(crate) fn holder(&mut self, blob: usize, index: u8, peer: Option<PeerId>) {

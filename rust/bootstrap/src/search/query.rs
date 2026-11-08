@@ -35,7 +35,7 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             birth_month: Some(1),
             birth_day: Some(1),
             country: "DE".into(),
-            place: SIX[(i % 6) as usize].into(),
+            place: SIX[usize::try_from(i % 6).unwrap()].into(),
             gender: if i % 2 == 0 {
                 dyapp_profile::Gender::Woman.code()
             } else {

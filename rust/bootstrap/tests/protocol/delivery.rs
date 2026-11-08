@@ -105,10 +105,7 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
             .await,
         Err(Error::Client(_))
     ));
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now_ms = super::now_ms();
     let mut alice_second = connect(&second).await;
     alice_session
         .retry_due(from_mut(&mut alice_second), now_ms + 120_000, &SEAL)
@@ -133,7 +130,7 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
 
     // Bob's receipt for "two" blames the first node, and "one" is due at once.
     // Token requests sent when the match opened may also be outstanding on that node.
-    let now = (now_ms / 1000) as u64;
+    let now = u64::try_from(now_ms / 1000).unwrap();
     let before = alice_session.scores().penalty(dropper, now);
     let checked_items = receive(
         &mut alice_session,

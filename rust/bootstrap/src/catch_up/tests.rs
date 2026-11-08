@@ -156,7 +156,7 @@ fn inventory_pages_and_drops_past_before() {
     let page: Vec<_> = (0..PAGE)
         .map(|i| {
             let mut k = [0u8; 32];
-            k[1..3].copy_from_slice(&(i as u16).to_be_bytes());
+            k[1..3].copy_from_slice(&u16::try_from(i).unwrap().to_be_bytes());
             (k, 1)
         })
         .collect();

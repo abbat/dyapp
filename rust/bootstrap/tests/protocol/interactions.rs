@@ -229,10 +229,7 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     let store = Store::open(&bob_path, &bob.identity).unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
     assert!(!bob_session.likes(&alice_owner).unwrap().matched());
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+    let now_ms = super::now_ms();
     bob_session
         .retry_due(from_mut(&mut bob.node), now_ms + 120_000, &SEAL)
         .await

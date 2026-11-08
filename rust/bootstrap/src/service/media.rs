@@ -640,7 +640,10 @@ fn media_piece(get: &proto::GetMedia, mut data: Vec<u8>) -> MediaResponse {
             return media_status(Status::Invalid);
         }
         let end = get.offset.saturating_add(get.len).min(total_size);
-        data = data[get.offset as usize..end as usize].to_vec();
+        let (Ok(start), Ok(end)) = (usize::try_from(get.offset), usize::try_from(end)) else {
+            return media_status(Status::Invalid);
+        };
+        data = data[start..end].to_vec();
     }
     MediaResponse {
         data,

@@ -418,7 +418,7 @@ mod tests {
             linked.favorite_peers().unwrap(),
             [] as [std::string::String; 0]
         );
-        assert!(u64::from(linked.tick(0).unwrap()) > high as u64);
+        assert!(u64::from(linked.tick(0).unwrap()) > u64::try_from(high).unwrap());
         linked.set_blocked("bob", false).unwrap();
         assert_eq!(linked.favorite_peers().unwrap(), ["bob"]);
     }
@@ -465,7 +465,7 @@ mod tests {
                 .unwrap(),
             load_hlc(&new.db).unwrap().into(),
         );
-        assert!(clock >= rows as u64);
+        assert!(clock >= u64::try_from(rows).unwrap());
         // Peers, likes and passes arrive whole: export again and only the clock may differ.
         let (old_state, new_state) = (
             LinkState::decode(state.as_slice()).unwrap(),

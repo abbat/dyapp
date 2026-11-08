@@ -216,6 +216,10 @@ impl Receiver {
 // The SFrame header: a config byte, then KID and CTR in their fewest big-endian bytes if over 7.
 fn header(kid: u64, ctr: u64) -> Vec<u8> {
     let mut out = vec![0];
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "The inline value is below 8; leading-zero byte count makes 7 - skip range from 0 to 7"
+    )]
     let field = |value: u64, out: &mut Vec<u8>| -> u8 {
         if value < 8 {
             return value as u8;

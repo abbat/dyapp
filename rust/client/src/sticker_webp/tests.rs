@@ -2,7 +2,7 @@ use super::*;
 
 fn chunk(kind: [u8; 4], payload: &[u8]) -> Vec<u8> {
     let mut out = kind.to_vec();
-    out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(payload.len()).unwrap().to_le_bytes());
     out.extend_from_slice(payload);
     if !payload.len().is_multiple_of(2) {
         out.push(0);
@@ -12,7 +12,7 @@ fn chunk(kind: [u8; 4], payload: &[u8]) -> Vec<u8> {
 
 fn webp(chunks: &[u8]) -> Vec<u8> {
     let mut out = b"RIFF".to_vec();
-    out.extend_from_slice(&((chunks.len() + 4) as u32).to_le_bytes());
+    out.extend_from_slice(&u32::try_from(chunks.len() + 4).unwrap().to_le_bytes());
     out.extend_from_slice(b"WEBP");
     out.extend_from_slice(chunks);
     out

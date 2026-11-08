@@ -233,7 +233,7 @@ mod tests {
             fs::write(&path, text).unwrap();
             assert!(load(&dir, Settings::Active).is_err(), "{text:?}");
         }
-        fs::write(&path, vec![b'x'; MAX_BYTES as usize + 1]).unwrap();
+        fs::write(&path, vec![b'x'; usize::try_from(MAX_BYTES).unwrap() + 1]).unwrap();
         assert!(load(&dir, Settings::Active).is_err());
         fs::remove_dir_all(dir).unwrap();
     }

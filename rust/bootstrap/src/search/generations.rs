@@ -83,7 +83,10 @@ async fn activation_replays_settled_keys_or_postpones() {
     let (base, _) = filled(10);
     let index = reopen(&base, NEXT).unwrap();
     let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
-    mark(&index, 0..(candidate::SETTLED_KEYS as u32 + 1));
+    mark(
+        &index,
+        0..(u32::try_from(candidate::SETTLED_KEYS).unwrap() + 1),
+    );
     let Err(Abort::Postpone(candidate)) = index.activate(candidate, Replay::Settled) else {
         panic!("expected a postponed activation");
     };

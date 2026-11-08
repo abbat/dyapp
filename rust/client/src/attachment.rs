@@ -87,6 +87,10 @@ pub fn preview_budget(count: usize) -> usize {
 /// The layout size for claimed dimensions: the aspect ratio clamped to 1:20..20:1, a zero side
 /// counted as 1. The decoded image's real dimensions replace it after download.
 #[must_use]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Each dimension only decreases from its original u32 value"
+)]
 pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
     let (width, height) = (u64::from(width.max(1)), u64::from(height.max(1)));
     let width = width.min(height * MAX_ASPECT);
@@ -216,7 +220,9 @@ pub fn hours_left(sent_ms: i64, now_ms: i64) -> Option<u32> {
     let left = sent_ms
         .saturating_add(i64::from(RETENTION_HOURS) * HOUR_MS)
         .saturating_sub(now_ms);
-    (left < i64::from(WARN_HOURS) * HOUR_MS).then(|| (left.max(0) / HOUR_MS) as u32)
+    (left < i64::from(WARN_HOURS) * HOUR_MS)
+        .then(|| u32::try_from(left.max(0) / HOUR_MS).ok())
+        .flatten()
 }
 
 /// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. A
@@ -257,7 +263,9 @@ mod tests {
     use super::*;
 
     fn sample() -> Vec<u8> {
-        (0..CHUNK_BYTES * 2 + 100).map(|i| i as u8).collect()
+        (0..CHUNK_BYTES * 2 + 100)
+            .map(|i| i.to_le_bytes()[0])
+            .collect()
     }
 
     // A blob altered after sealing, with its hash updated so the chunk check is what fails.

@@ -738,7 +738,8 @@ impl Session {
         writes: Vec<PreparedEnvelope>,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let now_ms = crate::now() as i64 * 1000;
+        let now_ms =
+            i64::try_from(crate::now().saturating_mul(1000)).map_err(crate::clock_range)?;
         for write in writes {
             self.deliver(nodes, write, now_ms, seal_key).await?;
         }
@@ -782,8 +783,8 @@ impl Session {
         now_ms: i64,
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let today = (now_ms / 86_400_000) as u32;
-        let now = (now_ms / 1000) as u64;
+        let today = u32::try_from(now_ms / 86_400_000).map_err(crate::clock_range)?;
+        let now = u64::try_from(now_ms).map_err(crate::clock_range)? / 1000;
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
         let mut order = self.scores.ranked(&peers, now);
         if let Some(by) = self.store.accepted_by(&write)? {
@@ -860,7 +861,7 @@ impl Session {
                     .map(crate::mailbox)
             })
             .collect::<Vec<_>>();
-        let today = (crate::now() / 86_400) as u32;
+        let today = u32::try_from(crate::now() / 86_400).map_err(crate::clock_range)?;
         match tokens::request(&mut self.store, &mailboxes, today, seal_key)? {
             Some(body) => self.send_body(nodes, group_id, &body, seal_key).await,
             None => Ok(()),
@@ -878,7 +879,7 @@ impl Session {
         event: Event,
         seal_key: &[u8; 32],
     ) -> Result<Option<Event>, Error> {
-        let today = (crate::now() / 86_400) as u32;
+        let today = u32::try_from(crate::now() / 86_400).map_err(crate::clock_range)?;
         match event {
             Event::Message {
                 body: Body::PackRequest(_) | Body::PackAnswer(_),
@@ -957,7 +958,7 @@ fn prepare(
     class: EnvelopeClass,
     seal_key: &[u8; 32],
 ) -> Result<Vec<PreparedEnvelope>, Error> {
-    let today = (crate::now() / 86_400) as u32;
+    let today = u32::try_from(crate::now() / 86_400).map_err(crate::clock_range)?;
     let writes = deliveries
         .into_iter()
         .map(|delivery| {

@@ -64,13 +64,13 @@ async fn upload_failure_keeps_job_and_common_outbox_with_dynamic_retry_deadline(
     assert!(pair
         .session
         .store
-        .due_sticker_pack_responses((deadline - 1) as u64)
+        .due_sticker_pack_responses(u64::try_from(deadline - 1).unwrap())
         .unwrap()
         .is_empty());
     assert!(
         pair.session
             .store
-            .due_sticker_pack_responses(deadline as u64)
+            .due_sticker_pack_responses(u64::try_from(deadline).unwrap())
             .unwrap()
             == vec![job]
     );

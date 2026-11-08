@@ -38,11 +38,11 @@ fn cursor_wraps_with_a_256_hash_window_and_rolling_hour() {
 fn owner_cursors_stop_at_the_cap_but_tracked_owners_keep_their_window() {
     let mut schedule = Schedule::default();
     let now = Instant::now();
-    for owner in 0..MAX_TRACKED as u32 {
+    for owner in 0..u32::try_from(MAX_TRACKED).unwrap() {
         schedule.select(owner.to_le_bytes().to_vec(), &[vec![0]], now);
     }
     assert_eq!(schedule.cursors.len(), MAX_TRACKED);
-    let late = (MAX_TRACKED as u32).to_le_bytes().to_vec();
+    let late = u32::try_from(MAX_TRACKED).unwrap().to_le_bytes().to_vec();
     assert_eq!(
         schedule.select(late.clone(), &[vec![1]], now),
         [] as [std::vec::Vec<u8>; 0]
@@ -56,7 +56,7 @@ fn owner_cursors_stop_at_the_cap_but_tracked_owners_keep_their_window() {
 
 #[test]
 fn recent_hashes_stop_at_the_cap() {
-    let hashes = (0..=MAX_TRACKED as u32)
+    let hashes = (0..=u32::try_from(MAX_TRACKED).unwrap())
         .map(|i| i.to_le_bytes().to_vec())
         .collect::<Vec<_>>();
     let mut schedule = Schedule::default();
