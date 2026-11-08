@@ -27,7 +27,8 @@
       "clients/desktop/ui-tests/identifiers.js",
       "clients/desktop/ui-tests/chat-redraw.js",
       "clients/desktop/ui-tests/media-cache.js",
-      "clients/desktop/ui-tests/sticker-removal.js"
+      "clients/desktop/ui-tests/sticker-removal.js",
+      "clients/desktop/ui-tests/sticker-requests.js"
     ],
     "linter": { "rules": {
       "complexity": {
