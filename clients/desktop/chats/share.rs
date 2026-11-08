@@ -83,7 +83,16 @@ async fn send(
     {
         return Err("invalidTarget".into());
     }
-    super::send_text(cache, root, dir, identity, device_key, target_peer, &text).await
+    Box::pin(super::send_text(
+        cache,
+        root,
+        dir,
+        identity,
+        device_key,
+        target_peer,
+        &text,
+    ))
+    .await
 }
 
 /// The profile a shared link names; see `fetch`.

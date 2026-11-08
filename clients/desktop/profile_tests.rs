@@ -293,7 +293,7 @@ async fn the_view_says_when_a_held_profile_reaches_search() {
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
     // Nothing is due, so nothing needs a network.
-    assert!(send_search(&dir, &alice).await.is_ok());
+    assert!(Box::pin(send_search(&dir, &alice)).await.is_ok());
     let store = open(&dir, &alice).unwrap();
     let signed = |version| {
         Profile {
@@ -304,7 +304,10 @@ async fn the_view_says_when_a_held_profile_reaches_search() {
     };
     store.hold_search_profile(&signed(1)).unwrap();
     assert_eq!(load(&dir, &alice).unwrap().search_minutes, Some(0));
-    assert_eq!(send_search(&dir, &alice).await, Err("notConnected".into()));
+    assert_eq!(
+        Box::pin(send_search(&dir, &alice)).await,
+        Err("notConnected".into())
+    );
     store
         .search_profile_sent(&signed(1), unix_now().unwrap())
         .unwrap();
@@ -319,16 +322,16 @@ async fn publishing_needs_a_solved_puzzle_and_an_active_network() {
     let device = Identity::generate();
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(
-        publish(&dir, &dir, &alice, &device, true, 4).await,
+        Box::pin(publish(&dir, &dir, &alice, &device, true, 4)).await,
         Err("unsolved".into())
     );
     solve(&AtomicBool::new(false), &dir, &alice, true, 4).unwrap();
     assert_eq!(
-        publish(&dir, &dir, &alice, &device, false, 4).await,
+        Box::pin(publish(&dir, &dir, &alice, &device, false, 4)).await,
         Err("blocked: notAttested".into())
     );
     assert_eq!(
-        publish(&dir, &dir, &alice, &device, true, 4).await,
+        Box::pin(publish(&dir, &dir, &alice, &device, true, 4)).await,
         Err("notConnected".into())
     );
 }

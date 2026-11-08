@@ -389,14 +389,17 @@ mod tests {
             };
             search(&cache, &dir, &alice, query)
         };
-        assert_eq!(run(Vec::new()).await, Err("notConnected".into()));
+        assert_eq!(Box::pin(run(Vec::new())).await, Err("notConnected".into()));
         let bad = Condition {
             field: 1,
             op: "like".into(),
             ints: Vec::new(),
             strings: Vec::new(),
         };
-        assert_eq!(run(vec![bad]).await, Err("invalid search op".into()));
+        assert_eq!(
+            Box::pin(run(vec![bad])).await,
+            Err("invalid search op".into())
+        );
         let closed = TcpListener::bind("127.0.0.1:0")
             .unwrap()
             .local_addr()
@@ -406,8 +409,8 @@ mod tests {
             name: String::new(),
         };
         network::save(&dir, Settings::Active, &unreachable).unwrap();
-        assert!(run(Vec::new()).await.is_err());
-        assert!(run(Vec::new()).await.is_err());
+        assert!(Box::pin(run(Vec::new())).await.is_err());
+        assert!(Box::pin(run(Vec::new())).await.is_err());
     }
 
     #[tokio::test]

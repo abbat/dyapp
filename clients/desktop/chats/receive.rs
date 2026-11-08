@@ -1,6 +1,7 @@
 //! Apply bounded mailbox pages and authorized pack work under the caller's identity/session lease.
 use super::{open, own};
-use crate::{profile, search::ProfileCache};
+use crate::profile::{self, finish_link};
+use crate::search::ProfileCache;
 use dyapp_client::{chat::Event, session::Session};
 use dyapp_identity::{
     network::{self, Settings},
@@ -34,7 +35,7 @@ pub async fn receive(
     device_key: &Identity,
     stop: impl Fn() -> bool,
 ) -> Result<usize, String> {
-    crate::profile::finish_link(root, dir, identity, device_key).await?;
+    Box::pin(finish_link(root, dir, identity, device_key)).await?;
     let store = open(dir, identity)?;
     let own = profile::stored(&store)?;
     let own = match own.version {

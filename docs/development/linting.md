@@ -85,7 +85,11 @@ serialized message/privacy DTOs retain checked expectations for independent flag
 fields stay unchanged. Private thumbnail frame naming is distinct from the `pixels` field.
 A shared encoder produces identical lowercase hex without per-byte formatting allocations;
 its test covers all byte values and leading zeros.
-All expectations are checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
+Linux denies the complete `pedantic` group; the three function-complexity rules retain the exact
+legacy budgets described below. Large awaited futures use `Box::pin` at measured call boundaries,
+including tests, preserving awaited results and cancellation while moving their storage to the heap.
+Windows also denies `large_futures`; its full pedantic qualification remains planned pending native
+Windows verification. All expectations are checked by `unfulfilled_lint_expectations`.
 Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
 checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no
 sources are found. Both `make fmt` (also quality and quick-check) and `make fmt-write` run it
@@ -119,8 +123,9 @@ standalone crates. Handwritten Rust suppressions use `#[expect(..., reason = "..
 reasoned expectations at its include or derive boundary.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
-`complexity`, `perf`) into errors. `pedantic`, `nursery` and `restriction` lints (for example
-`arithmetic_side_effects`) are not generally enabled. A separate
+`complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable
+selected rules. `nursery` and `restriction` lints (for example `arithmetic_side_effects`) are not
+generally enabled. A separate
 [B8 check](code-quality.md#explicit-panic-budgets) force-enables `unwrap_used`,
 `expect_used` and `panic` on non-test workspace targets and enforces their budgets.
 

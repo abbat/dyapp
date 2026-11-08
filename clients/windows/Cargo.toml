@@ -41,6 +41,7 @@ unfulfilled_lint_expectations = "deny"
 unsafe_code = "forbid"
 
 [lints.clippy]
+large_futures = "deny"
 assert_is_empty = "deny"
 assigning_clones = "deny"
 bool_to_int_with_if = "deny"

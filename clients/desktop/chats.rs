@@ -716,12 +716,12 @@ mod tests {
         let stranger = Identity::generate().peer_id();
         let device = Identity::generate();
         assert_eq!(
-            like(&cache, &dir, &dir, &alice, &device, &stranger, true).await,
+            Box::pin(like(&cache, &dir, &dir, &alice, &device, &stranger, true)).await,
             Err("unknownPeer".into())
         );
         assert_eq!(liked_you(&cache, &dir, &alice).await, Ok(Vec::new()));
         assert_eq!(
-            receive(&cache, &dir, &dir, &alice, &device, || false).await,
+            Box::pin(receive(&cache, &dir, &dir, &alice, &device, || false)).await,
             Err("notConnected".into())
         );
         assert_eq!(
@@ -802,24 +802,27 @@ mod tests {
         let peer = Identity::generate().peer_id();
         let cache = Mutex::default();
         assert_eq!(
-            send_text(
+            Box::pin(send_text(
                 &cache,
                 &dir,
                 &dir,
                 &owner,
                 &device,
                 &owner.peer_id(),
-                "hello"
-            )
+                "hello",
+            ))
             .await,
             Err("ownPeer".into())
         );
         assert_eq!(
-            send_text(&cache, &dir, &dir, &owner, &device, &peer, "").await,
+            Box::pin(send_text(&cache, &dir, &dir, &owner, &device, &peer, "")).await,
             Err("invalidText".into())
         );
         assert_eq!(
-            send_text(&cache, &dir, &dir, &owner, &device, &peer, "hello").await,
+            Box::pin(send_text(
+                &cache, &dir, &dir, &owner, &device, &peer, "hello"
+            ))
+            .await,
             Err("unpublished".into())
         );
         open(&dir, &owner)
@@ -827,7 +830,10 @@ mod tests {
             .set_blocked(&peer, true)
             .unwrap();
         assert_eq!(
-            send_text(&cache, &dir, &dir, &owner, &device, &peer, "hello").await,
+            Box::pin(send_text(
+                &cache, &dir, &dir, &owner, &device, &peer, "hello"
+            ))
+            .await,
             Err("blocked".into())
         );
     }
