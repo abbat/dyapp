@@ -755,10 +755,9 @@ mod tests {
         assert_eq!(row.state, view::ChatState::Open);
         assert_eq!(row.last_message, None);
         assert_eq!(row.unread_count, 0);
-        assert!(chat_history(&dir, &alice, &bob_id)
+        assert_eq!(chat_history(&dir, &alice, &bob_id)
             .unwrap()
-            .messages
-            .is_empty());
+            .messages, Vec::<view::MessageView>::new());
         assert!(chat_rows(&dir, &bob).is_err());
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Ok(0));
         assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Ok(0));
@@ -779,7 +778,7 @@ mod tests {
         );
         let store = open(&dir, &alice).unwrap();
         store.set_blocked(&bob_id, true).unwrap();
-        assert!(chat_rows(&dir, &alice).unwrap().is_empty());
+        assert_eq!(chat_rows(&dir, &alice).unwrap(), Vec::<view::ChatRowView>::new());
         assert_eq!(chat_history(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Err("blocked".into()));

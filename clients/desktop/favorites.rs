@@ -79,7 +79,7 @@ mod tests {
             Identity::generate(),
             Identity::generate().peer_id(),
         );
-        assert!(list(&dir, &owner).unwrap().is_empty());
+        assert_eq!(list(&dir, &owner).unwrap(), Vec::<String>::new());
         assert!(!saved(&dir, &owner, &peer).unwrap());
         own::change_peer(&dir, &dir, &owner, &peer, PeerChange::Favorite(true))
             .await
@@ -88,7 +88,7 @@ mod tests {
         let store = chats::open(&dir, &owner).unwrap();
         assert!(store.due_outbound(0).unwrap().is_empty());
         store.set_blocked(&peer, true).unwrap();
-        assert!(list(&dir, &owner).unwrap().is_empty());
+        assert_eq!(list(&dir, &owner).unwrap(), Vec::<String>::new());
         assert!(saved(&dir, &owner, &peer).unwrap());
         assert_eq!(
             own::change_peer(&dir, &dir, &owner, &peer, PeerChange::Favorite(true)).await,
@@ -99,9 +99,8 @@ mod tests {
             .await
             .unwrap();
         assert!(!saved(&dir, &owner, &peer).unwrap());
-        assert!(list(&directory(), &Identity::generate())
-            .unwrap()
-            .is_empty());
+        assert_eq!(list(&directory(), &Identity::generate())
+            .unwrap(), Vec::<String>::new());
         assert!(saved(&dir, &owner, "bad").is_err());
         assert!(saved(&dir, &owner, &owner.peer_id()).is_err());
         assert_eq!(

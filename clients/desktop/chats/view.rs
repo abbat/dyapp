@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn a_list_row_names_the_photo_without_its_preview() {
         let row = last_item(None, Some(photo()), None).unwrap().photo.unwrap();
-        assert!(row.preview.is_empty());
+        assert_eq!(row.preview, Vec::<u8>::new());
         assert_eq!(row.mime, "image/jpeg");
         assert!(last_item(None, None, None).is_none());
     }

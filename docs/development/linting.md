@@ -59,7 +59,8 @@ Native Linux CI runs Clippy on every target before building and testing the desk
 Linux images prepared with Clippy and rustfmt 1.99.0. The command may compile dependencies
 on a cold cache. Tauri's generated capability schemas use a separate bind mount from
 `build/linux-tauri-gen`; the source checkout stays read-only. `make fmt` checks formatting
-without compilation.
+without compilation. Native desktop manifests also deny `clippy::assert_is_empty`: test assertions
+compare collections to explicit empty values, so failures show their contents.
 
 Quality container (the gate):
 

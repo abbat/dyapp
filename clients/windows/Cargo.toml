@@ -41,6 +41,7 @@ unfulfilled_lint_expectations = "deny"
 unsafe_code = "forbid"
 
 [lints.clippy]
+assert_is_empty = "deny"
 allow_attributes = "deny"
 allow_attributes_without_reason = "deny"
 

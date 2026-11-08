@@ -41,7 +41,7 @@ async fn identity_transition_clears_profiles_only_after_old_work_drains() {
     assert_eq!(searching.0.lock().unwrap().snapshot().1.all().len(), 1);
     drop(lease);
     worker.await.unwrap().unwrap().commit(None).unwrap();
-    assert!(searching.0.lock().unwrap().snapshot().1.all().is_empty());
+    assert_eq!(searching.0.lock().unwrap().snapshot().1.all(), []);
 }
 
 #[test]
@@ -70,5 +70,5 @@ fn configured_window_is_visible_and_local() {
     assert_eq!(app.windows[0].title, "DYApp");
     assert!(matches!(app.windows[0].url, tauri::WebviewUrl::App(_)));
     // No capabilities: the page can call only the app's own command, no plugin APIs.
-    assert!(app.security.capabilities.is_empty());
+    assert_eq!(app.security.capabilities, Vec::<tauri::utils::config::CapabilityEntry>::new());
 }

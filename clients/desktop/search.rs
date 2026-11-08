@@ -458,7 +458,7 @@ mod tests {
             network::load(&dir, Settings::Active).unwrap(),
             Some(second.clone())
         );
-        assert!(state.0.lock().unwrap().snapshot().1.all().is_empty());
+        assert_eq!(state.0.lock().unwrap().snapshot().1.all(), []);
         resume_tx.send(()).unwrap();
         assert_eq!(worker.await.unwrap(), Err("notConnected".into()));
         let new_epoch = state.0.lock().unwrap().snapshot().0;
@@ -510,7 +510,7 @@ mod tests {
             project_current(&cache, epoch, Vec::new()),
             Err("notConnected".into())
         );
-        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
     }
 
     #[test]
@@ -574,7 +574,7 @@ mod tests {
             Err("mutualUnavailable".into())
         );
         let wanted = mutual_conditions(&own, today).unwrap();
-        assert!(!wanted.is_empty());
+        assert_ne!(wanted, Vec::<dyapp_p2p_net::proto::Condition>::new());
         assert_eq!(node_conditions(query(true), &own, today), Ok(wanted));
     }
 

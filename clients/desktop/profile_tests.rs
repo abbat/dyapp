@@ -108,7 +108,7 @@ fn interests_are_canonical_persisted_and_explicitly_cleared() {
         saved.draft.interests
     );
     save(&dir, &owner, Draft::default()).unwrap();
-    assert!(load(&dir, &owner).unwrap().draft.interests.is_empty());
+    assert_eq!(load(&dir, &owner).unwrap().draft.interests, Vec::<String>::new());
 }
 
 #[test]

@@ -166,7 +166,7 @@ mod tests {
             finish_fetch(&cache, epoch, fetched).err(),
             Some("notConnected".into())
         );
-        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
     }
 
     #[tokio::test]
@@ -192,7 +192,7 @@ mod tests {
             fetch(&cache, &dir, &identity, &peer).await.err(),
             Some("blocked".into())
         );
-        assert!(cache.lock().unwrap().snapshot().1.all().is_empty());
+        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
         store.set_blocked(&peer, false).unwrap();
         assert_eq!(
             fetch(&cache, &dir, &identity, &peer).await.err(),

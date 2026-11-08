@@ -1,6 +1,6 @@
 [
   {"path":"clients/desktop/chats.rs","function":"fn block ","metrics":{"lines":54}},
-  {"path":"clients/desktop/chats.rs","function":"mod tests # [cfg (test)]::fn chat_reads_are_identity_bound_and_hide_blocked_peers ","metrics":{"cognitive":20,"lines":57}},
+  {"path":"clients/desktop/chats.rs","function":"mod tests # [cfg (test)]::fn chat_reads_are_identity_bound_and_hide_blocked_peers ","metrics":{"cognitive":20,"lines":56}},
   {"path":"clients/desktop/chats/operations.rs","function":"mod tests # [cfg (test)]::fn stickers_are_delete_only_and_require_the_exact_own_key ","metrics":{"lines":54}},
   {"path":"clients/desktop/chats/receive.rs","function":"fn receive ","metrics":{"cognitive":29,"lines":104}},
   {"path":"clients/desktop/contact_notes.rs","function":"mod tests # [cfg (test)]::fn offline_notes_are_private_bounded_and_identity_scoped ","metrics":{"lines":51}},
