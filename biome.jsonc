@@ -21,6 +21,7 @@
       "clients/desktop/ui/settings-collections.js",
       "clients/desktop/ui/app.js",
       "clients/desktop/ui/profile-form.js",
+      "clients/desktop/video-frame-renderer.js",
       "clients/desktop/ui/contact-notes.js",
       "clients/desktop/ui/identifiers.js",
       "clients/desktop/ui/network.js",
