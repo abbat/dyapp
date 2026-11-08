@@ -20,6 +20,13 @@ impl Session {
     /// newest profile, lists this device, relists and publishes its KeyPackages. Returns whether a
     /// link was pending. Every step may repeat, so after any failure the caller retries, and a
     /// publish that lost a race or met the profile limit is a normal reason to. The row goes last.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if importing state, opening the session, updating or
+    /// publishing the device list, publishing key packages, refreshing the fallback
+    /// package, or database access fails. Earlier steps may already be applied;
+    /// the pending-link row is cleared only after all steps succeed.
     pub async fn finish_link(
         mut store: Store,
         node: &mut Node,
@@ -59,6 +66,11 @@ impl Session {
     /// list it leaves it out. A new device was never listed and an older copy proves nothing. A
     /// withdrawn profile lists no device at all, so it says nothing about this one. A profile that
     /// lists this device is remembered.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the device certificate is unavailable or reading or
+    /// recording the last profile version that listed this device fails.
     pub fn own_device_revoked(&self, newest: &Profile) -> Result<bool, Error> {
         if newest.devices.contains(&self.certificate()?) {
             self.store.note_device_listed(newest.version)?;
@@ -70,6 +82,11 @@ impl Session {
 
     /// [`publish::list_device`] for this device, refused with [`Error::Revoked`] once `draft`
     /// revokes it: a draft taken from the newest profile must not list the device again.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Revoked`] if the draft revokes this device, or an error if
+    /// its certificate or stored listing state cannot be read or updated.
     pub fn list_self(&self, draft: &mut Profile, binding: SignedRecord) -> Result<(), Error> {
         if self.own_device_revoked(draft)? {
             return Err(Error::Revoked);
@@ -96,6 +113,7 @@ impl Session {
 
     /// The lowest ID of the groups changes reach the other own devices through. Two devices can
     /// start one each, so every device sends in all of them and accepts from any.
+    #[must_use]
     pub fn own_group(&self) -> Option<Vec<u8>> {
         self.own_groups().map(Group::id).min().map(<[u8]>::to_vec)
     }
@@ -116,6 +134,13 @@ impl Session {
     /// Make `change` about `peer` here and tell the other own devices, in the one commit that
     /// stages the send. With no own group it stays here. A write no node takes now waits in the
     /// outbox for [`Self::retry_due`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the change is invalid, the session is invalidated,
+    /// reading the device key or updating stored state fails, or a non-network
+    /// send/staging failure occurs. Earlier clock or group changes may be applied;
+    /// network send errors leave durable writes queued for retry.
     pub async fn change_peer(
         &mut self,
         nodes: &mut [Node],
@@ -216,6 +241,13 @@ impl Session {
     /// after `ADD_TURN_SECONDS`, so a device gone for good does not stop the others. Returns
     /// whether it started. Run it after the mailbox, so a Welcome from an earlier turn is seen
     /// first; [`Self::add_own_devices`] brings in later devices.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session is invalidated, device certificates or keys
+    /// are invalid, stored profile age cannot be updated, key packages cannot be
+    /// fetched, or creating, staging, or sending the group fails. A staged group
+    /// and its writes may already be durable when sending fails.
     pub async fn join_own_devices(
         &mut self,
         nodes: &mut [Node],
@@ -258,6 +290,13 @@ impl Session {
     /// and whose turn has come; returns how many groups were committed to. A device with no
     /// KeyPackage yet joins on a later call. Run it after the mailbox, so a commit from an earlier
     /// turn is seen first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session is invalidated, device or group data is
+    /// invalid, stored profile age cannot be updated, or staging or sending a
+    /// group change fails. Key-package fetch failures are skipped. Earlier group
+    /// changes may already be committed when a later group fails.
     pub async fn add_own_devices(
         &mut self,
         nodes: &mut [Node],
@@ -306,6 +345,13 @@ impl Session {
     /// Remove the devices `profiles` no longer lists from every group here whose turn has come;
     /// returns how many groups were committed to. Run it after the mailbox, so a commit from an
     /// earlier turn is seen first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session is invalidated, group membership or turn
+    /// calculation fails, stored removal timing cannot be read or updated, or
+    /// staging or sending a removal fails. Earlier group changes may already be
+    /// committed when a later group fails.
     pub async fn remove_dropped_devices(
         &mut self,
         nodes: &mut [Node],
