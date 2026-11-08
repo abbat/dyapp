@@ -71,72 +71,94 @@ const checkTargetSizeFixture = async () => {
 // With axe-core loaded (DYAPP_AXE), checks the current screen: WCAG 2.x A/AA (labels and
 // contrast included) in the light and dark themes, tab order following the DOM, a visible focus
 // ring on every focusable control and no horizontal overflow at 440 px.
-const audit = async (name) => {
-  if (!window.axe) return;
-  const problems = [];
-  const root = document.documentElement;
-  const theme = root.dataset.theme;
-  const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-  try {
-    for (const mode of ['light', 'dark']) {
-      root.dataset.theme = mode;
-      await frames();
-      const result = await window.axe.run(document, { runOnly: { type: 'tag', values: tags } });
-      for (const v of result.violations) problems.push(`${mode} ${v.id} ${v.nodes[0].target}`);
-    }
-  } finally {
-    if (theme) root.dataset.theme = theme;
-    else delete root.dataset.theme;
-  }
-  if (name === 'search-results') await checkTargetSizeFixture();
-  const sized = await window.axe.run(document, targetSize);
-  for (const violation of sized.violations) {
-    problems.push(`target-size ${violation.nodes[0].target}`);
-  }
-  for (const review of sized.incomplete) {
-    problems.push(`target-size needs review ${review.nodes[0].target}`);
-  }
+const audit = (() => {
   const visible = (element) =>
     element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible';
-  for (const element of document.querySelectorAll('[tabindex]')) {
-    if (element.tabIndex > 0 && visible(element)) {
-      problems.push(`tabindex>0 ${element.id || element.tagName}`);
+  const auditThemes = async (problems) => {
+    const root = document.documentElement;
+    const theme = root.dataset.theme;
+    const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+    try {
+      for (const mode of ['light', 'dark']) {
+        root.dataset.theme = mode;
+        await frames();
+        const result = await window.axe.run(document, { runOnly: { type: 'tag', values: tags } });
+        for (const v of result.violations) problems.push(`${mode} ${v.id} ${v.nodes[0].target}`);
+      }
+    } finally {
+      if (theme) root.dataset.theme = theme;
+      else delete root.dataset.theme;
     }
-  }
-  const before = document.activeElement;
-  const [scrollLeft, scrollTop] = [window.scrollX, window.scrollY];
-  const focusable = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
-  for (const element of document.querySelectorAll(focusable)) {
-    if (element.disabled || !visible(element)) continue;
-    element.focus();
-    const style = getComputedStyle(element);
-    if (
-      document.activeElement === element &&
-      style.boxShadow === 'none' &&
-      style.outlineStyle === 'none'
-    ) {
-      problems.push(`no focus ring ${element.id || element.tagName}`);
+  };
+  const auditTargetSize = async (name, problems) => {
+    if (name === 'search-results') await checkTargetSizeFixture();
+    const sized = await window.axe.run(document, targetSize);
+    for (const violation of sized.violations) {
+      problems.push(`target-size ${violation.nodes[0].target}`);
     }
-  }
-  if (before?.focus) before.focus();
-  else document.activeElement.blur();
-  const [window0] = await invokeTest('ui_test_window', { set: null });
-  await invokeTest('ui_test_window', {
-    set: { ...window0, width: Math.round(440 * devicePixelRatio) },
-  });
-  await frames();
-  const overflow = root.scrollWidth - root.clientWidth;
-  const wide = [...document.querySelectorAll('body *')]
-    .filter((element) => element.scrollWidth > element.clientWidth + 1 && visible(element))
-    .slice(-3)
-    .map((element) => element.id || element.className || element.tagName);
-  await invokeTest('ui_test_window', { set: window0 });
-  await frames();
-  // Focusing and the narrow window scroll the page; the checks after the audit expect it as it was.
-  window.scrollTo(scrollLeft, scrollTop);
-  if (overflow > 0) problems.push(`overflow ${overflow}px at 440: ${wide}`);
-  if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
-};
+    for (const review of sized.incomplete) {
+      problems.push(`target-size needs review ${review.nodes[0].target}`);
+    }
+  };
+  const auditTabOrder = (problems) => {
+    for (const element of document.querySelectorAll('[tabindex]')) {
+      if (element.tabIndex > 0 && visible(element)) {
+        problems.push(`tabindex>0 ${element.id || element.tagName}`);
+      }
+    }
+  };
+  const auditFocusRing = (problems) => {
+    const focusable = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    for (const element of document.querySelectorAll(focusable)) {
+      if (element.disabled || !visible(element)) continue;
+      element.focus();
+      const style = getComputedStyle(element);
+      if (
+        document.activeElement === element &&
+        style.boxShadow === 'none' &&
+        style.outlineStyle === 'none'
+      ) {
+        problems.push(`no focus ring ${element.id || element.tagName}`);
+      }
+    }
+  };
+  const auditKeyboard = (problems) => {
+    auditTabOrder(problems);
+    const before = document.activeElement;
+    const [scrollLeft, scrollTop] = [window.scrollX, window.scrollY];
+    auditFocusRing(problems);
+    if (before?.focus) before.focus();
+    else document.activeElement.blur();
+    return [scrollLeft, scrollTop];
+  };
+  const auditViewport = async (problems, scrollLeft, scrollTop) => {
+    const root = document.documentElement;
+    const [window0] = await invokeTest('ui_test_window', { set: null });
+    await invokeTest('ui_test_window', {
+      set: { ...window0, width: Math.round(440 * devicePixelRatio) },
+    });
+    await frames();
+    const overflow = root.scrollWidth - root.clientWidth;
+    const wide = [...document.querySelectorAll('body *')]
+      .filter((element) => element.scrollWidth > element.clientWidth + 1 && visible(element))
+      .slice(-3)
+      .map((element) => element.id || element.className || element.tagName);
+    await invokeTest('ui_test_window', { set: window0 });
+    await frames();
+    // Focusing and the narrow window scroll the page; the checks after the audit expect it as it was.
+    window.scrollTo(scrollLeft, scrollTop);
+    if (overflow > 0) problems.push(`overflow ${overflow}px at 440: ${wide}`);
+  };
+  return async (name) => {
+    if (!window.axe) return;
+    const problems = [];
+    await auditThemes(problems);
+    await auditTargetSize(name, problems);
+    const [scrollLeft, scrollTop] = auditKeyboard(problems);
+    await auditViewport(problems, scrollLeft, scrollTop);
+    if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
+  };
+})();
 // Audits the current screen, then saves its screenshots when the run asks for them.
 window.shot = async (name) => {
   await audit(name);
