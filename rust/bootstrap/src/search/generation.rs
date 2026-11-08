@@ -2,7 +2,11 @@
 //! rebuilt generation.
 
 use super::candidate::{apply_rows, read, remove_files, SETTLED_KEYS};
-use super::*;
+use super::{
+    lock, params, storage, storage_error, worker, Abort, AtomicBool, AtomicI64, AtomicU64,
+    Candidate, Connection, Mutex, OpenFlags, OptionalExtension, Ordering, Overflow, Path, PathBuf,
+    Result, SearchIndex, Writer, INDEX_VERSION, SCHEMA,
+};
 
 /// The active generation and its idle read-only connections.
 pub(super) struct Pool {

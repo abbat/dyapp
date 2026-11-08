@@ -89,7 +89,7 @@ async fn authenticated_pack_controls_are_guarded_durable_receipted_and_hidden() 
         .await
         .is_err());
     assert!(pair.session.device.is_some());
-    assert!(pair.session.store.sealed_device().unwrap() == before);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), before);
     // A new envelope receives a receipt uniformly, even without pack/pending permission.
     consumed(&mut pair, &request, 5).await;
     assert!(pair

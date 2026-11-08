@@ -218,7 +218,7 @@ fn invalid_config_fails() {
 fn network_names_validate_without_normalization_and_load_as_literal_strings() {
     let mut config = NodeConfig::default();
     config.storage.dir = temp_dir();
-    assert!(config.network.name.is_empty());
+    assert_eq!(config.network.name, "");
     for name in ["", "City", "city", "a b", "00123", &"a".repeat(64)] {
         config.network.name = name.into();
         config.validate().unwrap();
@@ -235,7 +235,7 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
     fs::write(&path, "[network]\nname = \"file\"\n").unwrap();
     let load = |env: Vec<(String, String)>, options: Vec<(String, String)>| {
         let (config, ignored) = NodeConfig::load(Some(&path), env, &options).unwrap();
-        assert!(ignored.is_empty());
+        assert_eq!(ignored, [] as [std::string::String; 0]);
         config.network.name
     };
     assert_eq!(load(vec![], vec![]), "file");
@@ -257,8 +257,8 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
 fn metrics_are_off_or_on_both_loopbacks() {
     // A config from before the section loads with the listener off.
     let (config, ignored) = NodeConfig::load(None, [], &[]).unwrap();
-    assert!(ignored.is_empty());
-    assert!(config.metrics.addresses().is_empty());
+    assert_eq!(ignored, [] as [std::string::String; 0]);
+    assert_eq!(config.metrics.addresses(), [] as [std::net::SocketAddr; 0]);
     let options = [("metrics.port".to_owned(), "9464".to_owned())];
     let (config, _) = NodeConfig::load(None, [], &options).unwrap();
     let expected: Vec<SocketAddr> = vec![

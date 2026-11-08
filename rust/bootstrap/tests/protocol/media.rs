@@ -69,7 +69,10 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
     assert!(reader.get_media(&hash).await.is_err());
 
     // An unpublished removal changes nothing for readers of the live profile.
-    assert!(store.remove_profile_photo(0).unwrap().photos.is_empty());
+    assert_eq!(
+        store.remove_profile_photo(0).unwrap().photos,
+        [] as [dyapp_profile::Photo; 0]
+    );
     publish::refresh_photos(&store, &mut node, &owner, now + 86_400)
         .await
         .unwrap();

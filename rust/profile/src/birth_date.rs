@@ -188,11 +188,15 @@ mod tests {
             assert_eq!(bounds.earliest.yyyymmdd(), first);
             assert_eq!(bounds.latest.yyyymmdd(), last);
         };
-        check(profile(Some(2000), None, None), 20000101, 20001231);
-        check(profile(Some(2000), Some(2), None), 20000201, 20000229);
-        check(profile(Some(2001), Some(2), None), 20010201, 20010228);
-        check(profile(Some(2000), Some(2), Some(29)), 20000229, 20000229);
-        check(profile(Some(2000), None, Some(31)), 20000131, 20001231);
+        check(profile(Some(2000), None, None), 20_000_101, 20_001_231);
+        check(profile(Some(2000), Some(2), None), 20_000_201, 20_000_229);
+        check(profile(Some(2001), Some(2), None), 20_010_201, 20_010_228);
+        check(
+            profile(Some(2000), Some(2), Some(29)),
+            20_000_229,
+            20_000_229,
+        );
+        check(profile(Some(2000), None, Some(31)), 20_000_131, 20_001_231);
         assert_eq!(profile(None, Some(2), Some(29)).birth_bounds(), None);
     }
 
@@ -240,9 +244,12 @@ mod tests {
     #[test]
     fn age_cutoff_clamps_february_29_and_underflow() {
         let leap_day = CivilDate::new(2024, 2, 29).unwrap();
-        assert_eq!(leap_day.age_cutoff(18), 20060228);
+        assert_eq!(leap_day.age_cutoff(18), 20_060_228);
         assert_eq!(leap_day.age_cutoff(2024), 0);
-        assert_eq!(CivilDate::new(2025, 3, 1).unwrap().age_cutoff(21), 20040301);
+        assert_eq!(
+            CivilDate::new(2025, 3, 1).unwrap().age_cutoff(21),
+            20_040_301
+        );
     }
 
     #[test]

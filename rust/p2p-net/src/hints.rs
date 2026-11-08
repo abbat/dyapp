@@ -121,7 +121,7 @@ mod tests {
         assert_eq!((old.roles.clone(), old.puzzle_bits), (new.roles.clone(), 3));
         let back = NodeInfo::decode(old.encode_to_vec().as_slice()).unwrap();
         assert_eq!((&back.roles, back.puzzle_bits), (&new.roles, 3));
-        assert!(back.capabilities.is_empty());
+        assert_eq!(back.capabilities, [] as [i32; 0]);
         // An unknown capability from a newer node stays a number the client ignores.
         let newer = NodeInfo::decode(new.encode_to_vec().as_slice()).unwrap();
         assert_eq!(newer.capabilities[1], 99);

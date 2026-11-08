@@ -1,6 +1,9 @@
 //! The node key: made once with its proof of work, then loaded with the data directory binding.
 
-use super::*;
+use super::{
+    fs, message, File, Keypair, MetadataExt, NodeConfig, OpenOptions, OpenOptionsExt, Path, PeerId,
+    Read, Write, Zeroizing,
+};
 
 impl NodeConfig {
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on

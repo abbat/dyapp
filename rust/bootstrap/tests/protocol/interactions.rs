@@ -85,7 +85,7 @@ async fn a_first_like_and_a_first_text_invite_a_found_peer() {
         .await
         .unwrap()
         .is_none());
-    assert!(receive(&mut bob_session, &mut bob, &pair).await.is_empty());
+    assert_eq!(receive(&mut bob_session, &mut bob, &pair).await.len(), 0);
 
     // The like carries its Welcome, and Bob's reply goes to the group it made.
     alice_session
@@ -179,7 +179,7 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     });
     assert!(classes.collect::<Vec<_>>().contains(&EnvelopeClass::Signal));
     let (envelopes, _) = bob.node.fetch(&bob.device_key).await.unwrap();
-    assert!(!envelopes.is_empty());
+    assert_ne!(envelopes.len(), 0);
     assert!(envelopes.iter().all(|envelope| !envelope
         .ciphertext
         .windows(16)
@@ -204,9 +204,8 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     for write in writes {
         alice.node.put_prepared(&write).await.unwrap();
     }
-    assert!(receive(&mut bob_session, &mut bob, &profiles)
-        .await
-        .is_empty());
+    let checked_items = receive(&mut bob_session, &mut bob, &profiles).await;
+    assert_eq!(checked_items.len(), 0);
 
     // Bob likes back: both see a match.
     bob_session

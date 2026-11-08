@@ -18,7 +18,7 @@ fn metadata_preserves_message_identity_and_clamps_untrusted_layout() {
         },
         message: AttachmentMessage {
             id: [5; 16],
-            hlc: 123456,
+            hlc: 123_456,
             attachment,
         },
         unread: true,
@@ -30,7 +30,7 @@ fn metadata_preserves_message_identity_and_clamps_untrusted_layout() {
     assert_eq!(projected.group_id, vec![4]);
     assert_eq!(projected.author, "sender");
     assert_eq!(projected.id, vec![5; 16]);
-    assert_eq!(projected.hlc, 123456);
+    assert_eq!(projected.hlc, 123_456);
     assert_eq!(projected.sent_at_ms, wall);
     assert_eq!(projected.size, 5);
     assert_eq!(projected.mime, "image/jpeg");

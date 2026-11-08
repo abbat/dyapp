@@ -1,6 +1,6 @@
 //! Profile queries: conditions turned into bound SQL filters and a random-start sampled scan.
 
-use super::*;
+use super::{rand_bytes, storage_error, Result, SearchIndex};
 use dyapp_p2p_net::proto::{Condition, Op};
 use dyapp_p2p_net::search_results::MAX_IN_VALUES;
 use dyapp_profile::{

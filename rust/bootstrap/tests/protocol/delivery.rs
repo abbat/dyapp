@@ -135,14 +135,14 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
     // Token requests sent when the match opened may also be outstanding on that node.
     let now = (now_ms / 1000) as u64;
     let before = alice_session.scores().penalty(dropper, now);
-    assert!(receive(
+    let checked_items = receive(
         &mut alice_session,
         &mut alice_second,
         &alice.device_key,
-        &profiles
+        &profiles,
     )
-    .await
-    .is_empty());
+    .await;
+    assert_eq!(checked_items.len(), 0);
     assert!(alice_session.scores().penalty(dropper, now) > before);
     assert!(!alice_session
         .due_outbound(now_ms + 120_000)

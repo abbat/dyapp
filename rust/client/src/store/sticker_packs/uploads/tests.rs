@@ -41,28 +41,28 @@ fn used(store: &Store) -> i64 {
 fn charged_quota_includes_gcm_overhead_and_exact_integer_boundary() {
     assert_eq!(encode(&candidate(1, 1024), Kind::Sticker).unwrap().1, 5200);
     assert_eq!(
-        encode(&candidate(1, 262144), Kind::Sticker).unwrap().1,
-        1311040
+        encode(&candidate(1, 262_144), Kind::Sticker).unwrap().1,
+        1_311_040
     );
     let (mut store, _, _) = database();
     for index in 0..12 {
         upload(
             store
-                .plan_sticker_upload(&candidate(index, 262144), 100)
+                .plan_sticker_upload(&candidate(index, 262_144), 100)
                 .unwrap(),
         );
     }
     upload(
         store
-            .plan_sticker_upload(&candidate(20, 208883), 100)
+            .plan_sticker_upload(&candidate(20, 208_883), 100)
             .unwrap(),
     );
-    assert_eq!(used(&store), 16777215);
+    assert_eq!(used(&store), 16_777_215);
     assert!(matches!(
         store.plan_sticker_upload(&candidate(21, 1), 100).unwrap(),
         UploadPlan::Fallback
     ));
-    assert_eq!(used(&store), 16777215);
+    assert_eq!(used(&store), 16_777_215);
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn restart_refresh_resume_expiry_and_stale_completion_keep_one_descriptor() {
     assert!(store.plan_sticker_upload(&candidate(2, 100), 100).is_err());
     let time = 105 + 14 * 86400;
     let replacement = upload(store.plan_sticker_upload(&newer, time).unwrap());
-    assert!(replacement.attachment == newer);
+    assert_eq!(replacement.attachment, newer);
     assert!(store.finish_sticker_upload(&reserved, time).is_err());
     let next = upload(store.plan_sticker_upload(&newer, time + 9 * 86400).unwrap());
     assert!(

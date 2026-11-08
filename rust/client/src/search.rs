@@ -505,7 +505,7 @@ mod tests {
         let conditions = [Condition {
             field: search_results::BIRTH_AGE,
             op: Op::Range.into(),
-            ints: vec![19991231, 20001231],
+            ints: vec![19_991_231, 20_001_231],
             strings: Vec::new(),
         }];
         let result = tokio::time::timeout(
@@ -538,7 +538,7 @@ mod tests {
         );
         assert_eq!(super::offered_fields(&[full, narrow]), [4, 19, age]);
         assert_eq!(super::offered_fields(&[info(&[4]), info(&[])]), [0u32; 0]);
-        assert!(super::offered_fields(&[]).is_empty());
+        assert_eq!(super::offered_fields(&[]), [] as [u32; 0]);
     }
 
     #[tokio::test]
@@ -617,7 +617,7 @@ mod tests {
         let conditions = [Condition {
             field: search_results::BIRTH_AGE,
             op: Op::Range.into(),
-            ints: vec![19901025, 20011025],
+            ints: vec![19_901_025, 20_011_025],
             strings: Vec::new(),
         }];
         let mut nodes = [one, two, down];
@@ -821,7 +821,10 @@ mod tests {
         };
         assert_eq!(kept(Employer::Any), ["Acme  Corp", "", "Other"]);
         assert_eq!(kept(Employer::Same(" acme corp ".into())), ["Acme  Corp"]);
-        assert!(kept(Employer::Same("  ".into())).is_empty());
+        assert_eq!(
+            kept(Employer::Same("  ".into())),
+            [] as [std::string::String; 0]
+        );
         assert_eq!(
             kept(Employer::Exclude(vec!["ACME CORP".into(), "".into()])),
             ["", "Other"]

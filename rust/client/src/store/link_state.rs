@@ -414,7 +414,10 @@ mod tests {
             .import_link_state(&old.link_state().unwrap())
             .unwrap();
         assert!(linked.favorite("bob").unwrap());
-        assert!(linked.favorite_peers().unwrap().is_empty());
+        assert_eq!(
+            linked.favorite_peers().unwrap(),
+            [] as [std::string::String; 0]
+        );
         assert!(u64::from(linked.tick(0).unwrap()) > high as u64);
         linked.set_blocked("bob", false).unwrap();
         assert_eq!(linked.favorite_peers().unwrap(), ["bob"]);
@@ -488,6 +491,9 @@ mod tests {
             store.import_link_state(&[0xFF]),
             Err(Error::InvalidSetting)
         ));
-        assert!(store.blocked_peers().unwrap().is_empty());
+        assert_eq!(
+            store.blocked_peers().unwrap(),
+            [] as [std::string::String; 0]
+        );
     }
 }

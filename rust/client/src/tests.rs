@@ -317,18 +317,12 @@ async fn providers_are_dialed_for_their_addresses() {
         node.providers(dyapp_p2p_net::SEARCH_KEY, 1).await,
         [address]
     );
-    assert!(node
-        .providers(dyapp_p2p_net::SEARCH_KEY, 0)
-        .await
-        .is_empty());
-    assert!(node.providers(dyapp_p2p_net::TURN_KEY, 3).await.is_empty());
+    assert_eq!(node.providers(dyapp_p2p_net::SEARCH_KEY, 0).await.len(), 0);
+    assert_eq!(node.providers(dyapp_p2p_net::TURN_KEY, 3).await.len(), 0);
     assert!(started.elapsed() < super::TIMEOUT);
     // A node without the node-ID proof of work is not dialed.
     dyapp_p2p_net::set_id_pow_bits(200);
-    assert!(node
-        .providers(dyapp_p2p_net::SEARCH_KEY, 3)
-        .await
-        .is_empty());
+    assert_eq!(node.providers(dyapp_p2p_net::SEARCH_KEY, 3).await.len(), 0);
     task.abort();
 }
 

@@ -2,6 +2,7 @@ use super::tests::{index, signed};
 use super::*;
 use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::{Condition, Op};
+use std::collections::HashSet;
 
 fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
     Condition {
@@ -93,17 +94,20 @@ fn virtual_age_condition_contains_the_whole_birth_interval() {
             .hits
             .into_iter()
             .map(|hit| hit.0)
-            .collect::<std::collections::HashSet<_>>()
+            .collect::<HashSet<_>>()
     };
     assert_eq!(
-        matches(19991231, 20001231),
-        keys[..3].iter().copied().collect()
+        matches(19_991_231, 20_001_231),
+        keys[..3].iter().copied().collect::<HashSet<_>>()
     );
     assert_eq!(
-        matches(20000101, 20000301),
-        keys[1..3].iter().copied().collect()
+        matches(20_000_101, 20_000_301),
+        keys[1..3].iter().copied().collect::<HashSet<_>>()
     );
-    assert_eq!(matches(20000201, 20000229), [keys[2]].into_iter().collect());
+    assert_eq!(
+        matches(20_000_201, 20_000_229),
+        [keys[2]].into_iter().collect::<HashSet<_>>()
+    );
 }
 
 #[test]
@@ -203,9 +207,15 @@ fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range(
         found.hits.iter().map(|hit| hit.0).collect::<Vec<_>>()
     };
     // Stored, yet in no filter; asking for it is no error, so a newer client's query still runs.
-    assert!(hits(Gender::FIELD, Op::Eq, &[i64::from(Gender::MAX + 1)]).is_empty());
-    assert!(hits(CareerAmbition::FIELD, Op::Range, &[20, 40]).is_empty());
-    assert!(hits(27, Op::Eq, &[70]).is_empty());
+    assert_eq!(
+        hits(Gender::FIELD, Op::Eq, &[i64::from(Gender::MAX + 1)]),
+        [] as [[u8; 32]; 0]
+    );
+    assert_eq!(
+        hits(CareerAmbition::FIELD, Op::Range, &[20, 40]),
+        [] as [[u8; 32]; 0]
+    );
+    assert_eq!(hits(27, Op::Eq, &[70]), [] as [[u8; 32]; 0]);
     assert_eq!(hits(CareerAmbition::FIELD, Op::Range, &[10, 20]), [between]);
     assert_eq!(hits(27, Op::Range, &[40, 50]), [between]);
 }
@@ -301,7 +311,7 @@ fn query_filters_place_in_and_budget() {
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
         cond(20, Op::In, vec![], vec![SIX[1], SIX[2]]),
-        cond(BIRTH_AGE, Op::Range, vec![19861025, 19961025], vec![]),
+        cond(BIRTH_AGE, Op::Range, vec![19_861_025, 19_961_025], vec![]),
         cond(19, Op::In, vec![], vec!["chess", "go"]),
         cond(99, Op::Eq, vec![1], vec![]),
     ];
@@ -309,7 +319,7 @@ fn query_filters_place_in_and_budget() {
     assert_eq!(found.applied, vec![4, 20, BIRTH_AGE, 19]);
     assert!(!found.partial);
     // Places p1/p2 are i % 6 in {1, 2}, so i % 3 != 0: nobody there plays chess.
-    assert!(found.hits.is_empty());
+    assert_eq!(found.hits, [] as [([u8; 32], u64); 0]);
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
         cond(20, Op::In, vec![], vec![SIX[0], SIX[3]]),
@@ -409,7 +419,7 @@ fn a_republish_replaces_who_a_profile_seeks() {
     assert_eq!(hits(), 0);
     let gender_only = [cond(53, Op::Eq, vec![1], vec![])];
     let found = index.query(&gender_only, 50, 10_000).unwrap().unwrap();
-    assert!(found.hits.is_empty());
+    assert_eq!(found.hits, [] as [([u8; 32], u64); 0]);
 }
 
 #[test]
@@ -445,17 +455,19 @@ fn invalid_conditions() {
         .query(&[cond(4, Op::Range, vec![], vec!["a", "b"])], 50, 10_000)
         .unwrap()
         .unwrap();
-    assert!(skipped.applied.is_empty());
+    assert_eq!(skipped.applied, [] as [u32; 0]);
     let unknown_op = Condition {
         field: BIRTH_AGE,
         op: 42,
         ints: vec![1],
         strings: vec![],
     };
-    assert!(index
-        .query(&[unknown_op], 50, 10_000)
-        .unwrap()
-        .unwrap()
-        .applied
-        .is_empty());
+    assert_eq!(
+        index
+            .query(&[unknown_op], 50, 10_000)
+            .unwrap()
+            .unwrap()
+            .applied,
+        [] as [u32; 0]
+    );
 }

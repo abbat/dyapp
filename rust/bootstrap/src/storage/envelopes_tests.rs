@@ -194,7 +194,7 @@ fn an_incoming_victim_is_dropped_and_nothing_deleted() {
     // A message larger than the pool never gets in either.
     let empty = put_record(&store, 2, 0, &big, false, from, u64::MAX, Some(small()));
     assert_eq!(empty, Put::Dropped);
-    assert!(ids(&store, 2, 0).is_empty());
+    assert_eq!(ids(&store, 2, 0), [] as [u16; 0]);
     assert_counters(&store);
 }
 

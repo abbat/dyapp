@@ -95,7 +95,7 @@ fn sticker_receive_is_atomic_matched_replay_safe_and_deletable() {
         .stage_envelope(&key(6), &bad[0].mls, &profiles, &seal_key)
         .is_err());
     assert!(!session.store.has_inbox(&key(6)).unwrap());
-    assert!(session.store.sealed_device().unwrap() == sealed);
+    assert_eq!(session.store.sealed_device().unwrap(), sealed);
     session.recover(&seal_key).unwrap();
     assert!(session.store.current_chat_stickers(&peer).unwrap()[0].sticker == sticker());
 

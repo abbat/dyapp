@@ -1,6 +1,11 @@
 //! The mailbox requests: put, fetch, ack and node-to-node repair.
 
-use super::*;
+use super::{
+    hex, mailbox_request, owner_request, proto, status, BootstrapError, BootstrapStore, Domain,
+    HashMap, HashSet, MailboxRequest, MailboxResponse, Message, Peer, Role, Service, SignedRecord,
+    Status, ENVELOPE_ACCEPT_BYTES, FETCH_BYTES, MAX_ENVELOPE_BYTES, MAX_FETCH, MAX_INVENTORY,
+    MAX_MAILBOX_BYTES, MAX_SIGNAL_BYTES, SHED_MEDIA,
+};
 use crate::storage::Put;
 
 // The position is local to one holder. Version 1: class byte, then signed big-endian seq.

@@ -6,7 +6,7 @@ fn catch_up_asks_two_distinct_peers_per_topic() {
     let peers: Vec<PeerId> = (0..3).map(|_| PeerId::random()).collect();
     assert_eq!(catch_up_peers(&peers, u32::MAX), [peers[0], peers[1]]);
     assert_eq!(catch_up_peers(&peers[..1], 7), [peers[0]]);
-    assert!(catch_up_peers(&[], 7).is_empty());
+    assert_eq!(catch_up_peers(&[], 7), [] as [libp2p::PeerId; 0]);
 }
 
 #[tokio::test]
@@ -530,13 +530,13 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
             && reply.whole.is_empty()
     );
     replicas.trust.score.insert(near, -1);
-    assert!(replicas
+    let checked_items = replicas
         .media_inventory(&mut swarm, &service, near, &items)
         .unwrap()
         .inventory
         .unwrap()
-        .missing
-        .is_empty());
+        .missing;
+    assert_eq!(checked_items.len(), 0);
     replicas.trust.score.insert(near, 0);
     assert_eq!(
         replicas
@@ -892,7 +892,7 @@ fn holder_selection_includes_local_and_handles_unsorted_lookup_results() {
 #[test]
 fn damaged_peer_cache_lines_are_skipped() {
     let dir = std::env::temp_dir().join(format!("dyapp-peers-{}", std::process::id()));
-    assert!(cached_peers(&dir).is_empty());
+    assert_eq!(cached_peers(&dir), [] as [libp2p::Multiaddr; 0]);
     fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
     assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
     fs::remove_file(&dir).unwrap();

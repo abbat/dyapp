@@ -68,11 +68,11 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     assert_eq!(failed.failure, Some(PackDownloadFailure::Fetch));
     assert_eq!((failed.attempts, failed.retry_at_ms), (1, 1100));
     assert!(!admit(&mut store, &peer, 2, &answer));
-    assert!(
+    assert_eq!(
         store
             .sticker_pack_download_state(&peer, &answer.pack_id)
-            .unwrap()
-            == Some(failed)
+            .unwrap(),
+        Some(failed)
     );
     assert!(store.due_sticker_pack_downloads(1099).unwrap().is_empty());
     assert!(store.due_sticker_pack_downloads(1100).unwrap() == vec![job.clone()]);
@@ -96,7 +96,7 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
         .finish_sticker_pack(&peer, &answer.pack_id, &job.token)
         .unwrap());
     assert!(store.retry_sticker_pack_download(&job).unwrap().is_none());
-    assert!(store.sealed_device().unwrap() == sealed);
+    assert_eq!(store.sealed_device().unwrap(), sealed);
     drop(store);
     let store = Store::open(&path, &owner).unwrap();
     assert!(store.due_sticker_pack_downloads(0).unwrap() == vec![next]);
@@ -115,8 +115,8 @@ fn download_failure_codes_and_retry_cap_are_bounded_without_sleep() {
     let job = store.due_sticker_pack_downloads(0).unwrap().remove(0);
     let mut now = 100;
     for (index, delay) in [
-        1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000,
-        3600000, 3600000,
+        1000, 2000, 4000, 8000, 16000, 32000, 64000, 128_000, 256_000, 512_000, 1_024_000,
+        2_048_000, 3_600_000, 3_600_000,
     ]
     .into_iter()
     .enumerate()

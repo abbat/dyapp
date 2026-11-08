@@ -1,6 +1,10 @@
 //! The media role's requests and replica puts.
 
-use super::*;
+use super::{
+    hex, media_request, owner_request, proto, Attached, Domain, HashSet, MediaManifestExt,
+    MediaRequest, MediaResponse, Message, Peer, PoisonError, Put, Service, Status, CLOCK_SKEW,
+    MAX_ATTACH, MAX_ATTACHMENTS, MAX_KEEP, MAX_MEDIA_BYTES, SHED_MEDIA,
+};
 
 impl Service {
     /// Errors as in [`Service::profile`].

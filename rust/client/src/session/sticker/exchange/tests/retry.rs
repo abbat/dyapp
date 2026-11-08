@@ -17,7 +17,7 @@ fn fresh_request_survives_single_group_cleanup_and_rejects_old_generation_before
         .stage_fresh_sticker_pack_request(&job, &SEAL)
         .is_err());
     assert!(pair.session.device.is_some());
-    assert!(pair.session.store.sealed_device().unwrap() == snapshot);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), snapshot);
     drop(pair.session);
     let restored = Session::open(Store::open(&path, &pair.bob_id).unwrap(), &SEAL).unwrap();
     assert!(
@@ -55,7 +55,7 @@ fn failed_fresh_request_commit_invalidates_only_advanced_memory_and_keeps_old_an
         .stage_fresh_sticker_pack_request(&job, &SEAL)
         .is_err());
     assert!(pair.session.device.is_none() && pair.session.groups.is_empty());
-    assert!(pair.session.store.sealed_device().unwrap() == snapshot);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), snapshot);
     assert!(
         pair.session
             .store

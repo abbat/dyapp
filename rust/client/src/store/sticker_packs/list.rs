@@ -1,5 +1,5 @@
 //! Bounded collection pages; filenames are never rendered as trusted display text.
-use super::*;
+use super::{directory, fs, hex, read, valid_directory, Error, Store};
 use std::collections::BTreeMap;
 
 const PAGE_SIZE: usize = 32;

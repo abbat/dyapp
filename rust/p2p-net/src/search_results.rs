@@ -587,7 +587,7 @@ mod tests {
             record(&a, 2, 31, &["chess"]),
         ];
         let conditions = [
-            condition(BIRTH_AGE, Op::Range, &[19901025, 20011025], &[]),
+            condition(BIRTH_AGE, Op::Range, &[19_901_025, 20_011_025], &[]),
             condition(19, Op::In, &[], &["chess", "ski"]),
             condition(4, Op::Eq, &[], &["DE"]),
             condition(99, Op::Eq, &[1], &[]),
@@ -599,7 +599,10 @@ mod tests {
         // A newer version that misses the conditions hides an older one that matches.
         let newer = vec![record(&a, 4, 60, &["chess"])];
         let older = vec![record(&a, 1, 30, &["chess"])];
-        assert!(check(&conditions, 0, &[older, newer]).is_empty());
+        assert_eq!(
+            check(&conditions, 0, &[older, newer]),
+            [] as [VerifiedProfile; 0]
+        );
     }
 
     #[test]
@@ -607,11 +610,11 @@ mod tests {
         let a = Identity::generate();
         let replies = [vec![record(&a, 1, 30, &[])]];
         let bad = condition(BIRTH_AGE, Op::Range, &[], &["30"]);
-        assert!(check(&[bad], 0, &replies).is_empty());
+        assert_eq!(check(&[bad], 0, &replies), [] as [VerifiedProfile; 0]);
         let reversed = condition(BIRTH_AGE, Op::Range, &[40, 20], &[]);
-        assert!(check(&[reversed], 0, &replies).is_empty());
+        assert_eq!(check(&[reversed], 0, &replies), [] as [VerifiedProfile; 0]);
         assert_eq!(check(&[], 0, &replies).len(), 1);
-        assert!(check(&[], 1, &replies).is_empty());
+        assert_eq!(check(&[], 1, &replies), [] as [VerifiedProfile; 0]);
         // Claimed bits the Argon2 hash does not reach.
         let lying = Profile {
             version: 1,
@@ -619,7 +622,7 @@ mod tests {
             ..Profile::default()
         }
         .sign(&a);
-        assert!(check(&[], 0, &[vec![lying]]).is_empty());
+        assert_eq!(check(&[], 0, &[vec![lying]]), [] as [VerifiedProfile; 0]);
         let key: [u8; 32] = replies[0][0].public_key.as_slice().try_into().unwrap();
         let nonce = dyapp_profile::solve(&key, 2, 0, 1000).unwrap();
         let mined = Profile {
@@ -784,7 +787,7 @@ mod tests {
         assert_eq!(conditions.len(), 13);
         assert_eq!(conditions[6].ints, [2, i64::MAX]);
         assert_eq!(conditions[0].field, BIRTH_AGE);
-        assert_eq!(conditions[0].ints, [19901025, 20081025]);
+        assert_eq!(conditions[0].ints, [19_901_025, 20_081_025]);
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&a)]]).len() == 1;
         assert!(kept(&fit));
         let misses: [fn(&mut Profile); 12] = [
@@ -830,12 +833,12 @@ mod tests {
         let before = filter
             .conditions(CivilDate::new(2025, 2, 28).unwrap())
             .unwrap();
-        assert_eq!(before[0].ints, [20030228, 20040228]);
-        assert!(check(&before, 0, &[vec![leap.sign(&owner)]]).is_empty());
+        assert_eq!(before[0].ints, [20_030_228, 20_040_228]);
+        assert_eq!(check(&before, 0, &[vec![leap.sign(&owner)]]).len(), 0);
         let after = filter
             .conditions(CivilDate::new(2025, 3, 1).unwrap())
             .unwrap();
-        assert_eq!(after[0].ints, [20030301, 20040301]);
+        assert_eq!(after[0].ints, [20_030_301, 20_040_301]);
         assert_eq!(check(&after, 0, &[vec![leap.sign(&owner)]]).len(), 1);
 
         for profile in [
@@ -860,7 +863,7 @@ mod tests {
             },
         ] {
             // A broad partial date or no year cannot prove age 21.
-            assert!(check(&after, 0, &[vec![profile.sign(&owner)]]).is_empty());
+            assert_eq!(check(&after, 0, &[vec![profile.sign(&owner)]]).len(), 0);
         }
         assert!(!passes(
             &[condition(BIRTH_AGE, Op::Eq, &[21], &[])],

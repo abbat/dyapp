@@ -507,7 +507,10 @@ mod tests {
             draft(2, None, None, None),
             draft(2, Some(2025), Some(1), Some(1)),
         ] {
-            assert!(search_mutual_conditions(unavailable).unwrap().is_empty());
+            assert_eq!(
+                search_mutual_conditions(unavailable).unwrap(),
+                [] as [SearchCondition; 0]
+            );
         }
     }
 

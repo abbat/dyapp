@@ -733,7 +733,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
     let mut client = Client::connect(&addresses[0]).await;
     let reply = client.media(Request::Keep(record)).await;
     assert_eq!(status(reply.status), Status::Ok);
-    assert!(reply.missing.is_empty());
+    assert_eq!(reply.missing, [] as [std::vec::Vec<u8>; 0]);
     assert_eq!(
         status(
             client
@@ -823,11 +823,10 @@ async fn every_request_type() {
     let reply = client.mailbox(mailbox_request::Request::Ack(ack)).await;
     assert_eq!(status(reply.status), Status::Ok);
     let nonce = client.challenge().await;
-    assert!(client
-        .mailbox(fetch(&device, nonce))
-        .await
-        .envelopes
-        .is_empty());
+    assert_eq!(
+        client.mailbox(fetch(&device, nonce)).await.envelopes,
+        [] as [dyapp_identity::SignedRecord; 0]
+    );
 }
 
 #[tokio::test]

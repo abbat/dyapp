@@ -143,8 +143,8 @@ async fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event
         .await
         .unwrap();
     assert!(!more);
-    assert!(events.is_empty());
-    assert!(session.store().pending_acks().unwrap().is_empty());
+    assert_eq!(events.len(), 0);
+    assert_eq!(session.store().pending_acks().unwrap().len(), 0);
     assert_eq!(
         session.store().mailbox_cursor_for(bob.node.peer()).unwrap(),
         None

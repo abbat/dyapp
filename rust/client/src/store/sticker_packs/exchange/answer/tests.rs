@@ -178,7 +178,10 @@ fn descriptor_write_failure_rolls_back_mls_inbox_and_ack() {
         .stage_sticker_pack_answer(b"after", &inbox(1), sender(&peer), &answer())
         .is_err());
     assert!(!store.has_inbox(&inbox(1)).unwrap());
-    assert!(store.pending_acks().unwrap().is_empty());
+    assert_eq!(
+        store.pending_acks().unwrap(),
+        [] as [crate::store::InboxKey; 0]
+    );
     assert_eq!(store.sealed_device().unwrap().unwrap(), b"before");
     assert!(store
         .sticker_pack_answer(&[9], &peer, &request.pack_id, &pending.token)

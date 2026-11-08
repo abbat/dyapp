@@ -94,7 +94,7 @@ proptest! {
         let mut config = NodeConfig::default();
         config.storage.dir = temp_dir();
         config.media.shard_threshold = threshold;
-        prop_assert_eq!(config.validate().is_ok(), (1..=1048576).contains(&threshold));
+        prop_assert_eq!(config.validate().is_ok(), (1..=1_048_576).contains(&threshold));
     }
 }
 
@@ -229,7 +229,7 @@ fn turn_secret_file() {
         .contains(&path));
     let mut config = NodeConfig::default();
     config.resolve_secrets().unwrap();
-    assert!(config.turn.secret.expose().is_empty());
+    assert_eq!(config.turn.secret.expose(), "");
 }
 
 #[test]

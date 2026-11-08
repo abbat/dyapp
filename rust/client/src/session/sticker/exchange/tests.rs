@@ -116,7 +116,7 @@ fn failed_local_request_commit_invalidates_advanced_mls_and_reopens_old_snapshot
         .stage_sticker_pack_request(&peer, &selected, &SEAL)
         .is_err());
     assert!(pair.session.device.is_none() && pair.session.groups.is_empty());
-    assert!(pair.session.store.sealed_device().unwrap() == sealed);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), sealed);
     assert_eq!(pair.session.due_outbound(i64::MAX).unwrap().len(), count);
     assert!(pair
         .session
@@ -180,6 +180,6 @@ fn response_staging_commits_current_job_and_stale_completion_cannot_advance_mls(
         .stage_sticker_pack_response(&job, &answer, &SEAL)
         .is_err());
     assert!(pair.session.device.is_none());
-    assert!(pair.session.store.sealed_device().unwrap() == sealed);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), sealed);
     assert_eq!(pair.session.due_outbound(i64::MAX).unwrap().len(), count);
 }

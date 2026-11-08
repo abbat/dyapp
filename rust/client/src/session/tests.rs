@@ -167,11 +167,11 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         welcome,
         profiles,
     } = bob_invited(&path, &seal_key);
-    assert!(
+    assert_eq!(
         session
             .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
-            .unwrap()
-            == Some(Event::Joined(group.id().to_vec()))
+            .unwrap(),
+        Some(Event::Joined(group.id().to_vec()))
     );
     assert_eq!(
         session.store.known_groups().unwrap(),
@@ -318,7 +318,7 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
         session.stage_envelope(&key(1), &invite.welcome, &invite.profiles, &seal_key),
         Ok(Some(Event::Refused(_)))
     ));
-    assert!(session.store.known_groups().unwrap().is_empty());
+    assert_eq!(session.store.known_groups().unwrap().len(), 0);
 
     let Invite {
         mut session,

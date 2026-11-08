@@ -1,6 +1,11 @@
 //! The search role's requests, gossip and catch-up.
 
-use super::*;
+use super::{
+    owner_request, proto, search_request, Caught, DigestRequest, DigestResponse, Domain,
+    InventoryRequest, InventoryResponse, Message, Peer, PowCheck, SearchIndex, SearchRequest,
+    SearchResponse, Service, SignedRecord, Status, Verdict, CLOCK_SKEW, SEARCH_ACCEPT_BYTES,
+    SHED_MEDIA,
+};
 
 /// Search get replies are cut here, like the profile record limit.
 const MAX_SEARCH_REPLY: usize = 1 << 20;

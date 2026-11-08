@@ -4,7 +4,7 @@
 use dyapp_video::VideoSession as RustVideoSession;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use uniffi::*;
+use uniffi::Result;
 use zeroize::Zeroizing;
 
 #[cfg(target_os = "android")]
@@ -99,7 +99,7 @@ impl MessageService {
     /// This placeholder currently always returns `Ok`; it does not send or queue data.
     pub fn send_message(&self, peer_id: String, text: String) -> Result<String, CoreError> {
         let _ = text;
-        Ok(format!("Message queued to {}", peer_id))
+        Ok(format!("Message queued to {peer_id}"))
     }
 
     /// Returns zero; there is no backing queue.
@@ -126,7 +126,7 @@ impl VideoSession {
     #[uniffi::constructor]
     pub fn new() -> Result<Arc<Self>, CoreError> {
         let runtime = tokio::runtime::Runtime::new()
-            .map_err(|e| CoreError::Failed(format!("Failed to create runtime: {}", e)))?;
+            .map_err(|e| CoreError::Failed(format!("Failed to create runtime: {e}")))?;
 
         Ok(Arc::new(Self {
             inner: Arc::new(RwLock::new(None)),
@@ -147,7 +147,7 @@ impl VideoSession {
                 .ok_or_else(|| CoreError::Failed("Failed to create session".to_string()))?
                 .create_offer()
                 .await
-                .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                .map_err(|e| CoreError::Failed(format!("{e:?}")))
         })
     }
 
@@ -166,7 +166,7 @@ impl VideoSession {
                 .ok_or_else(|| CoreError::Failed("Failed to create session".to_string()))?
                 .set_remote_offer(sdp)
                 .await
-                .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                .map_err(|e| CoreError::Failed(format!("{e:?}")))
         })
     }
 
@@ -182,7 +182,7 @@ impl VideoSession {
                 session
                     .create_answer()
                     .await
-                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                    .map_err(|e| CoreError::Failed(format!("{e:?}")))
             } else {
                 Err(CoreError::Failed("Session not initialized".to_string()))
             }
@@ -202,7 +202,7 @@ impl VideoSession {
                 session
                     .receive_answer(sdp)
                     .await
-                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                    .map_err(|e| CoreError::Failed(format!("{e:?}")))
             } else {
                 Err(CoreError::Failed("Session not initialized".to_string()))
             }
@@ -221,7 +221,7 @@ impl VideoSession {
                 session
                     .mark_offer_sent()
                     .await
-                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                    .map_err(|e| CoreError::Failed(format!("{e:?}")))
             } else {
                 Err(CoreError::Failed("Session not initialized".to_string()))
             }
@@ -240,7 +240,7 @@ impl VideoSession {
                 session
                     .close()
                     .await
-                    .map_err(|e| CoreError::Failed(format!("{:?}", e)))
+                    .map_err(|e| CoreError::Failed(format!("{e:?}")))
             } else {
                 Err(CoreError::Failed("Session not initialized".to_string()))
             }
@@ -653,7 +653,7 @@ mod tests {
 
     #[test]
     fn places_are_named_and_found_through_the_core() {
-        let berlin = place_name("DE".into(), 2950159, "ru".into()).expect("Berlin");
+        let berlin = place_name("DE".into(), 2_950_159, "ru".into()).expect("Berlin");
         assert_eq!(berlin.name, "Берлин");
         let found = search_places("DE".into(), "ber".into(), "en".into(), 3);
         assert_eq!(found.len(), 3);

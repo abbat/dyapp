@@ -31,5 +31,5 @@ async fn client_fetches_turn_credentials_only_from_a_turn_node() {
     let now = chrono::Utc::now().timestamp().unsigned_abs();
     assert!(turn.expires > now);
     assert!(turn.username.starts_with(&format!("{}:", turn.expires)));
-    assert!(!turn.password.is_empty());
+    assert_ne!(turn.password, "");
 }

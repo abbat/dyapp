@@ -15,8 +15,8 @@ fn as_pack(mut descriptor: Attachment) -> Attachment {
 
 #[test]
 fn sealed_pack_limit_and_single_sticker_budget_are_independent() {
-    let descriptor = as_pack(candidate(99, 6289920));
-    assert_eq!(encode(&descriptor, Kind::Pack).unwrap().1, 31457280);
+    let descriptor = as_pack(candidate(99, 6_289_920));
+    assert_eq!(encode(&descriptor, Kind::Pack).unwrap().1, 31_457_280);
     let mut invalid = descriptor.clone();
     invalid.size += 1;
     assert!(encode(&invalid, Kind::Pack).is_err());
@@ -27,17 +27,17 @@ fn sealed_pack_limit_and_single_sticker_budget_are_independent() {
     for index in 0..12 {
         upload(
             store
-                .plan_sticker_upload(&candidate(index, 262144), 100)
+                .plan_sticker_upload(&candidate(index, 262_144), 100)
                 .unwrap(),
         );
     }
     upload(
         store
-            .plan_sticker_upload(&candidate(20, 208883), 100)
+            .plan_sticker_upload(&candidate(20, 208_883), 100)
             .unwrap(),
     );
     upload(store.plan_sticker_pack_upload(&descriptor, 100).unwrap());
-    assert_eq!(used(&store), 16777215);
+    assert_eq!(used(&store), 16_777_215);
     assert!(matches!(
         store.plan_sticker_upload(&candidate(21, 1), 100).unwrap(),
         UploadPlan::Fallback
@@ -71,7 +71,7 @@ fn pack_descriptor_reuses_after_restart_and_refresh_keeps_immutable_blob() {
             .plan_sticker_pack_upload(&newer, now + 8 * 86400)
             .unwrap(),
     );
-    assert!(expired.attachment == newer);
+    assert_eq!(expired.attachment, newer);
 }
 
 #[test]

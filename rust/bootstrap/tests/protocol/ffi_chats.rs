@@ -110,7 +110,7 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
     assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(false, false));
 
     assert_eq!(bob.like(alice_id.clone(), true).unwrap(), likes(true, true));
-    assert!(bob.liked_you().unwrap().is_empty());
+    assert_eq!(bob.liked_you().unwrap(), [] as [std::string::String; 0]);
     assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);
     assert!(alice.receive().unwrap() > 0);
     assert_eq!(alice.likes(bob_id.clone()).unwrap(), likes(true, true));
@@ -205,11 +205,10 @@ fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
 
     // Clearing is local: the author keeps the deletion marker.
     assert!(bob.clear_chat(alice_id.clone()).unwrap() > 0);
-    assert!(bob
-        .chat_history(alice_id.clone())
-        .unwrap()
-        .messages
-        .is_empty());
+    assert_eq!(
+        bob.chat_history(alice_id.clone()).unwrap().messages,
+        [] as [dyapp_ffi::ChatMessage; 0]
+    );
     assert_eq!(
         alice.chat_history(bob_id.clone()).unwrap().messages.len(),
         1
@@ -223,7 +222,7 @@ fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
         "{:?}",
         blocked.detail
     );
-    assert!(bob.chat_rows().unwrap().is_empty());
+    assert_eq!(bob.chat_rows().unwrap(), [] as [dyapp_ffi::ChatRow; 0]);
     bob.unblock(alice_id.clone()).unwrap();
     assert_eq!(bob.chat_rows().unwrap().len(), 1);
 }

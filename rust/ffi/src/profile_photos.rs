@@ -162,7 +162,7 @@ mod tests {
         let add = |full: Vec<u8>, thumbnail: Vec<u8>| {
             add_profile_photo(dir.clone(), key.clone(), full, thumbnail)
         };
-        assert!(profile_photos(dir.clone(), key.clone()).unwrap().is_empty());
+        assert_eq!(profile_photos(dir.clone(), key.clone()).unwrap().len(), 0);
         let (small, large) = (jpeg(4, 2), jpeg(MAX_FULL_SIDE, 2));
         assert_eq!(err(add(b"GIF89a".to_vec(), small.clone())), "corrupted");
         assert_eq!(

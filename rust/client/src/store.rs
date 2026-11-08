@@ -786,14 +786,14 @@ pub(crate) mod tests {
             failed.stage_group(&group, &bob_profile, &sealed, std::slice::from_ref(&write)),
             Err(Error::Sql(_))
         ));
-        assert!(failed.known_groups().unwrap().is_empty());
+        assert_eq!(failed.known_groups().unwrap().len(), 0);
         assert!(failed.due_outbound(0).unwrap().is_empty());
         let mut store = Store::open(&path, &alice_id).unwrap();
         assert!(matches!(
             store.stage_group(&group, &carol_profile, &sealed, &[]),
             Err(Error::GroupConflict)
         ));
-        assert!(store.known_groups().unwrap().is_empty());
+        assert_eq!(store.known_groups().unwrap().len(), 0);
         assert!(matches!(
             store.stage_group(&group, &alice_profile, &sealed, &[]),
             Err(Error::GroupConflict)
@@ -914,7 +914,7 @@ pub(crate) mod tests {
         assert_eq!(format!("{key:?}"), "InboxKey { .. }");
         let mut store = Store::open(&path, &owner).unwrap();
         assert!(!store.has_inbox(&key).unwrap());
-        assert!(store.pending_acks().unwrap().is_empty());
+        assert_eq!(store.pending_acks().unwrap(), [] as [InboxKey; 0]);
         assert!(store
             .stage_inbound(b"sealed-v1", &key, InboxKind::Message, b"hi", None)
             .unwrap());
@@ -933,7 +933,7 @@ pub(crate) mod tests {
         assert_eq!(store.pending_acks().unwrap(), [key]);
         assert!(store.mark_acked(&key).unwrap());
         assert!(!store.mark_acked(&key).unwrap());
-        assert!(store.pending_acks().unwrap().is_empty());
+        assert_eq!(store.pending_acks().unwrap(), [] as [InboxKey; 0]);
     }
 
     #[test]
@@ -955,7 +955,7 @@ pub(crate) mod tests {
             Err(Error::Sql(_))
         ));
         assert!(!store.has_inbox(&key).unwrap());
-        assert!(store.pending_acks().unwrap().is_empty());
+        assert_eq!(store.pending_acks().unwrap(), [] as [InboxKey; 0]);
         assert!(store.sealed_device().unwrap().is_none());
     }
 

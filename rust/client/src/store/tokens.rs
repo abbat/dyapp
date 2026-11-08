@@ -400,7 +400,10 @@ mod tests {
             }
         }
         assert_eq!(store.write_token_epochs(&mailbox, 10).unwrap(), [10, 12]);
-        assert!(store.write_token_epochs(&[2; 32], 0).unwrap().is_empty());
+        assert_eq!(
+            store.write_token_epochs(&[2; 32], 0).unwrap(),
+            [] as [u32; 0]
+        );
         // Yesterday's token still works for the node's late window.
         store.prune_tokens(11).unwrap();
         assert_eq!(store.write_token_epochs(&mailbox, 0).unwrap(), [10, 12]);
@@ -428,7 +431,10 @@ mod tests {
         assert!(store.issued_revoked(&[3; 32]).unwrap());
         assert!(store.issued_revoked(&[4; 32]).unwrap());
         assert!(!store.issued_revoked(&[5; 32]).unwrap());
-        assert!(store.revoke_issued("dave", 10).unwrap().is_empty());
+        assert_eq!(
+            store.revoke_issued("dave", 10).unwrap(),
+            [] as [[u8; 32]; 0]
+        );
         store.prune_tokens(12).unwrap();
         assert!(!store.issued_revoked(&[3; 32]).unwrap());
         assert!(store.issued_revoked(&[4; 32]).unwrap());

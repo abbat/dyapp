@@ -117,7 +117,7 @@ fn message_v1_json_remains_compatible() {
         recipient_id: "recipient".into(),
         text: "hello\nπ".into(),
         timestamp: u64::MAX.into(),
-        created_at: 1700000000000,
+        created_at: 1_700_000_000_000,
         status: MessageStatus::Delivered,
         encrypted_payload: Some(vec![0, 255]),
         signature: Some(vec![1, 2, 3]),

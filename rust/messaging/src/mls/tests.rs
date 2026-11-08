@@ -453,11 +453,10 @@ fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
         profile(&p.alice, &[&p.alice_device, &laptop]),
         profile(&p.bob, &[&p.bob_device]),
     ];
-    assert!(p
-        .alice_group
-        .missing_devices(&p.profiles[0])
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        p.alice_group.missing_devices(&p.profiles[0]).unwrap(),
+        [] as [std::vec::Vec<u8>; 0]
+    );
     assert_eq!(
         p.alice_group.missing_devices(&linked[0]).unwrap(),
         vec![laptop.device_key().unwrap()]
@@ -472,11 +471,10 @@ fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
         .alice_group
         .add(&p.alice_device, &[package], &linked)
         .unwrap();
-    assert!(p
-        .alice_group
-        .missing_devices(&linked[0])
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        p.alice_group.missing_devices(&linked[0]).unwrap(),
+        [] as [std::vec::Vec<u8>; 0]
+    );
     // Decrypting the refused commit spends its secret, so the retry starts from the seal.
     let sealed_bob = p.bob_device.seal(&[3; 32]).unwrap();
     let epoch = p.bob_group.epoch();

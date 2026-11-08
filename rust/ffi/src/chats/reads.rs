@@ -172,7 +172,10 @@ mod tests {
         let own = crate::IdentityKey::generate();
         let (own_id, peer_id) = (own.peer_id(), crate::IdentityKey::generate().peer_id());
         let mut store = Store::open(&dir.join("client.db"), &own.identity).unwrap();
-        assert!(due_reads(&store, &peer_id).unwrap().is_empty());
+        assert_eq!(
+            due_reads(&store, &peer_id).unwrap(),
+            [] as [(std::vec::Vec<u8>, [u8; 16]); 0]
+        );
         // Mutual likes open the conversation, which still has no partner text to receipt.
         for (sender, target, event_id) in [(&own_id, &peer_id, 1), (&peer_id, &own_id, 2)] {
             let interaction = Interaction {
@@ -185,7 +188,10 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(store.conversation(&peer_id).unwrap(), Conversation::Open);
-        assert!(due_reads(&store, &peer_id).unwrap().is_empty());
+        assert_eq!(
+            due_reads(&store, &peer_id).unwrap(),
+            [] as [(std::vec::Vec<u8>, [u8; 16]); 0]
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

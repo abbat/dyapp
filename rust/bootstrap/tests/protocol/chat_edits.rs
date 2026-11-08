@@ -92,7 +92,7 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         Some(&b"private first text"[..])
     );
     // The recipient's signed ACK removed the original from this cooperating node.
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     // A local operation must target this sender's text in this exact group.
     assert!(matches!(
         alice_session.stage_edit(b"wrong group", id, b"forged", &alice_key),
@@ -102,13 +102,13 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         bob_session.stage_delete(&group_id, id, &bob_key),
         Err(dyapp_client::session::Error::UnknownMessage)
     ));
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 
     // Stage while offline, reopen the saved MLS state, then retry the exact signed write.
     let (edit_operation, edit_writes) = alice_session
         .stage_edit(&group_id, id, b"private replacement", &alice_key)
         .unwrap();
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     drop(alice_session);
     let mut alice_session = Session::open(
         Store::open(&alice_path, &alice.identity).unwrap(),
@@ -146,7 +146,7 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
     let (delete_operation, delete_writes) = alice_session
         .stage_delete(&group_id, id, &alice_key)
         .unwrap();
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     drop(alice_session);
     let mut alice_session = Session::open(
         Store::open(&alice_path, &alice.identity).unwrap(),
@@ -179,37 +179,37 @@ async fn two_sessions_converge_on_edit_and_terminal_delete() {
         alice_session.stage_edit(&group_id, id, b"revive", &alice_key),
         Err(dyapp_client::session::Error::UnknownMessage)
     ));
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     // The node may accept the same signed envelope after an ACK; inbox dedupe shows nothing.
     alice.node.put_prepared(&delete_writes[0]).await.unwrap();
-    assert!(bob_session
+    let checked_items = bob_session
         .receive(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
             &profiles,
-            &bob_key
+            &bob_key,
         )
         .await
-        .unwrap()
-        .is_empty());
+        .unwrap();
+    assert_eq!(checked_items.len(), 0);
     let current = bob_session.chat_message(&key).unwrap().unwrap();
     assert!(current.deleted && current.text.is_none());
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     // A node may receive the original again after its ACK; replay stays invisible and is ACKed.
     alice.node.put_prepared(&text_writes[0]).await.unwrap();
-    assert!(bob_session
+    let checked_items = bob_session
         .receive(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
             &profiles,
-            &bob_key
+            &bob_key,
         )
         .await
-        .unwrap()
-        .is_empty());
+        .unwrap();
+    assert_eq!(checked_items.len(), 0);
     let current = bob_session.chat_message(&key).unwrap().unwrap();
     assert!(current.deleted && current.text.is_none());
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
     let (count, shortest, longest): (i64, i64, i64) =
         rusqlite::Connection::open(&bob_path)
             .unwrap()
@@ -315,5 +315,5 @@ async fn offline_recipient_acknowledges_original_and_delete_after_reconnect() {
     };
     let current = bob_session.chat_message(&key).unwrap().unwrap();
     assert!(current.deleted && current.text.is_none());
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 }

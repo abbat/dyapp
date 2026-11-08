@@ -97,7 +97,7 @@ fn search_publish_query_get() {
         conditions: vec![proto::Condition {
             field: crate::search::BIRTH_AGE,
             op: proto::Op::Range.into(),
-            ints: vec![19921025, 19931025],
+            ints: vec![19_921_025, 19_931_025],
             strings: vec![],
         }],
         limit: 0,
@@ -174,7 +174,7 @@ fn search_publish_query_get() {
     assert_eq!(store_only.info().min_profile_pow, 11);
     store_only.config.search.min_profile_pow_bits = 0;
     assert_eq!(store_only.info().min_profile_pow, 0);
-    assert!(store_only.info().search_fields.is_empty());
+    assert_eq!(store_only.info().search_fields, [] as [u32; 0]);
 }
 
 /// The key of the one profile with birth year 1993.
@@ -183,7 +183,7 @@ fn r_key(s: &Service) -> Vec<u8> {
         conditions: vec![proto::Condition {
             field: crate::search::BIRTH_AGE,
             op: proto::Op::Range.into(),
-            ints: vec![19921025, 19931025],
+            ints: vec![19_921_025, 19_931_025],
             strings: vec![],
         }],
         limit: 0,
@@ -621,7 +621,7 @@ fn search_peers_sync_on_their_own_budget() {
         };
         s.search_inventory(&sync, request).unwrap()
     };
-    assert!(bounded(key.to_vec()).have.is_empty());
+    assert_eq!(bounded(key.to_vec()).have.len(), 0);
     let mut above = key;
     above[31] = above[31].wrapping_add(1);
     assert_eq!(

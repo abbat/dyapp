@@ -659,7 +659,10 @@ mod tests {
             .unwrap();
         assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
         let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
-        assert!(other.favorite_peers().unwrap().is_empty());
+        assert_eq!(
+            other.favorite_peers().unwrap(),
+            [] as [std::string::String; 0]
+        );
         assert!(Store::open(&path, &Identity::generate()).is_err());
     }
 

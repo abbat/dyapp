@@ -2,6 +2,10 @@ use super::*;
 use crate::chat::sticker::Sticker;
 use crate::store::sticker_packs::exchange::tests::{database, selected};
 
+// Literal times around the rolling 24-hour boundary after the first response at 100 ms.
+const DUE: u64 = 86_400_100;
+const EARLY: u64 = 86_400_099;
+
 fn inbox(id: u8) -> InboxKey {
     InboxKey {
         mailbox: [9; 32],
@@ -81,8 +85,8 @@ fn retry_deadlines_match_outbox_backoff_and_duplicates_cannot_reset_them() {
     assert!(!store.defer_sticker_pack_response(&stale, 100).unwrap());
     let mut now = 100;
     for delay in [
-        1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000,
-        3600000, 3600000,
+        1000, 2000, 4000, 8000, 16000, 32000, 64000, 128_000, 256_000, 512_000, 1_024_000,
+        2_048_000, 3_600_000, 3_600_000,
     ] {
         assert!(store.defer_sticker_pack_response(&job, now).unwrap());
         let deadline = now + delay;
@@ -152,18 +156,12 @@ fn queue_cap_batch_size_and_rolling_cooldown_boundaries_are_literal() {
         .stage_sticker_pack_request_inbound(b"rollback", &inbox(66), sender(&peer), &request, 99)
         .unwrap());
     assert!(!store
-        .stage_sticker_pack_request_inbound(b"early", &inbox(67), sender(&peer), &request, 86400099)
+        .stage_sticker_pack_request_inbound(b"early", &inbox(67), sender(&peer), &request, EARLY)
         .unwrap());
     assert!(store
-        .stage_sticker_pack_request_inbound(
-            b"boundary",
-            &inbox(68),
-            sender(&peer),
-            &request,
-            86400100
-        )
+        .stage_sticker_pack_request_inbound(b"boundary", &inbox(68), sender(&peer), &request, DUE)
         .unwrap());
-    assert!(!store.defer_sticker_pack_response(&first, 86400100).unwrap());
+    assert!(!store.defer_sticker_pack_response(&first, DUE).unwrap());
     let count: i64 = store
         .db
         .query_row(

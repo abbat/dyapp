@@ -1,6 +1,9 @@
 //! Envelope writes: the per-mailbox quotas, the tokenless pool and its eviction rule.
 
-use super::*;
+use super::{
+    decode, lock, params, storage_error, BootstrapStore, Connection, Message, Result, SignedRecord,
+    TransactionBehavior, EVICT_STEPS,
+};
 use std::collections::BTreeMap;
 
 /// An envelope to store, and where it came from.

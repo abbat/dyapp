@@ -67,7 +67,7 @@ impl Replication {
     /// codec or parity encoding fails.
     pub fn encode(&self, data: &[u8]) -> Result<Vec<ReplicationFragment>> {
         let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
+            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
 
         let shard_size = data.len().div_ceil(self.data_shards);
         let mut shards: Vec<Vec<u8>> =
@@ -78,7 +78,7 @@ impl Replication {
         }
 
         rs.encode(&mut shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
+            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
 
         Ok(shards
             .into_iter()
@@ -110,7 +110,7 @@ impl Replication {
         }
 
         let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
+            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
 
         let mut shards: Vec<Option<Vec<u8>>> = vec![None; self.data_shards + self.parity_shards];
 
@@ -121,7 +121,7 @@ impl Replication {
         }
 
         rs.reconstruct(&mut shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
+            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
 
         let mut result = Vec::with_capacity(original_length);
         for shard in shards.iter().take(self.data_shards) {

@@ -168,7 +168,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
         mailbox_status(&mailbox(&service, &mut None, request))
     };
     assert_eq!(batch(vec![signed(2)]), Status::Ok);
-    assert!(inventory(vec![vec![2; 16]]).missing.is_empty());
+    assert_eq!(inventory(vec![vec![2; 16]]).missing.len(), 0);
     let mut forged = signed(3);
     forged.signature[0] ^= 1;
     assert_eq!(batch(vec![signed(4), forged]), Status::Denied);
@@ -188,7 +188,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
         )
         .unwrap();
     assert_eq!(mailbox_status(&client), Status::Denied);
-    assert!(client.missing.is_empty());
+    assert_eq!(client.missing.len(), 0);
     assert!(service.reputation.banned("p"));
 }
 
@@ -414,9 +414,8 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         Status::Denied
     );
     let nonce = challenge(&service, &mut conn);
-    assert!(mailbox(&service, &mut conn, fetch(&device, nonce))
-        .envelopes
-        .is_empty());
+    let checked_items = mailbox(&service, &mut conn, fetch(&device, nonce)).envelopes;
+    assert_eq!(checked_items.len(), 0);
 
     // An ack forwarded by another replica needs no nonce of this connection, only the key.
     let response = mailbox(&service, &mut conn, put(envelope(vec![7; 16], vec![2])));
@@ -440,9 +439,8 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         Status::Ok
     );
     let nonce = challenge(&service, &mut conn);
-    assert!(mailbox(&service, &mut conn, fetch(&device, nonce))
-        .envelopes
-        .is_empty());
+    let checked_items = mailbox(&service, &mut conn, fetch(&device, nonce)).envelopes;
+    assert_eq!(checked_items.len(), 0);
 }
 
 #[test]

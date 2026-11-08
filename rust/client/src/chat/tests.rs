@@ -43,7 +43,10 @@ fn removing_a_dropped_device_commits_to_those_that_stay() {
         carol.key_package(false).unwrap(),
     ];
     let (mut group, _) = alice.create_group(&packages, &profiles).unwrap();
-    assert!(remove(&mut group, &alice, &profiles).unwrap().is_empty());
+    assert_eq!(
+        remove(&mut group, &alice, &profiles).unwrap(),
+        [] as [crate::chat::Delivery; 0]
+    );
     let dropped = Profile {
         version: 2,
         ..Default::default()
@@ -64,7 +67,7 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     let (mut group, welcome) = alice.create_group(&[package], &profiles).unwrap();
     let mut groups = Vec::new();
     let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(1, welcome)], &profiles);
-    assert!(events == [Event::Joined(group.id().to_vec())]);
+    assert_eq!(events, [Event::Joined(group.id().to_vec())]);
     assert_eq!(acked, [vec![1]]);
     let timed = Body::Text {
         id: [1; 16],
@@ -78,15 +81,13 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
         vec![envelope(2, sent[0].mls.clone())],
         &profiles,
     );
-    assert!(
-        events
-            == [Event::Message {
-                group: group.id().to_vec(),
-                sender: alice_identity.peer_id(),
-                device: alice.device_key().unwrap(),
-                body: timed,
-            }]
-    );
+    let expected = [Event::Message {
+        group: group.id().to_vec(),
+        sender: alice_identity.peer_id(),
+        device: alice.device_key().unwrap(),
+        body: timed,
+    }];
+    assert_eq!(events, expected);
     assert_eq!(acked, [vec![2]]);
 
     // A forward arrives marked as forwarded, from the forwarder.
@@ -101,15 +102,13 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
         vec![envelope(9, sent[0].mls.clone())],
         &profiles,
     );
-    assert!(
-        events
-            == [Event::Message {
-                group: group.id().to_vec(),
-                sender: alice_identity.peer_id(),
-                device: alice.device_key().unwrap(),
-                body: forward,
-            }]
-    );
+    let expected = [Event::Message {
+        group: group.id().to_vec(),
+        sender: alice_identity.peer_id(),
+        device: alice.device_key().unwrap(),
+        body: forward,
+    }];
+    assert_eq!(events, expected);
 
     let like = Interaction {
         kind: Kind::Like,
@@ -132,7 +131,7 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     let [Event::Interaction { device, event, .. }] = events.as_slice() else {
         panic!("expected decrypted interaction");
     };
-    assert!(*event == like);
+    assert_eq!(*event, like);
     assert_eq!(*device, alice.device_key().unwrap());
     assert_eq!(acked, [vec![3]]);
 
@@ -158,7 +157,10 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     // An untagged plaintext, as before the frame, is refused and still acked.
     let raw = group.encrypt(&alice, &pad(b"hi")).unwrap();
     let (events, acked) = apply_all(&bob, &mut groups, vec![envelope(4, raw)], &profiles);
-    assert!(events == [Event::Refused("bad reply: unknown message kind".into())]);
+    assert_eq!(
+        events,
+        [Event::Refused("bad reply: unknown message kind".into())]
+    );
     assert_eq!(acked, [vec![4]]);
 }
 
@@ -382,7 +384,7 @@ fn peer_changes_are_strict() {
         PeerChange::Note("Case\nСохраняется\n".into()),
         PeerChange::Note("😀".repeat(MAX_NOTE_CHARS)),
     ] {
-        assert!(body(change.clone()).encode()[2..10] == 7u64.to_be_bytes());
+        assert_eq!(body(change.clone()).encode()[2..10], 7u64.to_be_bytes());
         assert!(Body::decode(&body(change.clone()).encode()).ok() == Some(body(change)));
     }
     let good = body(PeerChange::Blocked(true)).encode();
@@ -515,7 +517,7 @@ fn padding_hides_length_up_to_a_power_of_two() {
     }
     assert_eq!(unpad(&[0, 0, 4, 1, 0]), None);
     assert_eq!(unpad(&[0, 0]), None);
-    assert!(pad(b"").len() == MIN_PADDED_BYTES);
+    assert_eq!(pad(b"").len(), MIN_PADDED_BYTES);
 }
 
 #[test]

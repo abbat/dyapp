@@ -56,7 +56,7 @@ async fn upload_failure_keeps_job_and_common_outbox_with_dynamic_retry_deadline(
         0
     );
     assert_eq!(pair.session.due_outbound(i64::MAX).unwrap().len(), count);
-    assert!(pair.session.store.sealed_device().unwrap() == sealed);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), sealed);
     let db = rusqlite::Connection::open(path).unwrap();
     let deadline: i64 = db.query_row(
         "SELECT `retry_at_ms` FROM `sticker_pack_responses` WHERE `peer_id` = ?1 AND `pack_id` = ?2",

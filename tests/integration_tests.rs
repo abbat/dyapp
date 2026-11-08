@@ -9,7 +9,7 @@ async fn test_video_session_lifecycle() {
     assert_eq!(session.state().await, SessionState::Idle);
 
     let session_id = session.session_id();
-    assert!(!session_id.is_empty());
+    assert_ne!(session_id, "");
 
     // Offer creation
     let _offer = session.create_offer().await.unwrap();

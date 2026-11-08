@@ -101,7 +101,7 @@ fn client_put_denies_forged_tokens_with_a_strike_and_expired_without() {
         let service = service_with(|l| l.strikes_to_ban = 1);
         assert_eq!(put(&service, &peer("p"), request), Status::Denied, "{i}");
         assert!(service.reputation.banned("p"), "{i}");
-        assert!(service.held_ids(&mailbox).unwrap().is_empty());
+        assert_eq!(service.held_ids(&mailbox).unwrap().len(), 0);
     }
 }
 
@@ -315,7 +315,7 @@ fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
     };
     let request = mailbox_request::Request::ReplicaPut(batch);
     assert_eq!(put(&service, &replica_peer("r"), request), Status::Ok);
-    assert!(service.held(&mailbox).unwrap()[&long.id].1.is_empty());
+    assert_eq!(service.held(&mailbox).unwrap()[&long.id].1, [] as [u8; 0]);
 }
 
 #[test]

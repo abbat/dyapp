@@ -566,7 +566,7 @@ mod tests {
         let chats = open(&device_key, &state_key).unwrap();
         assert_eq!(chats.state("ab".repeat(32)).unwrap(), ChatState::None);
         assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
-        assert!(chats.chat_rows().unwrap().is_empty());
+        assert_eq!(chats.chat_rows().unwrap().len(), 0);
         let peer = "ab".repeat(32);
         assert_eq!(
             chats.photo_download().unwrap(),
@@ -590,7 +590,7 @@ mod tests {
         std::fs::write(originals.join("cached"), b"download").unwrap();
         assert_eq!(chats.media_cache().unwrap().used_bytes, 8);
         assert_eq!(chats.clear_media_cache().unwrap(), cache);
-        assert!(chats.chat_rows().unwrap().is_empty());
+        assert_eq!(chats.chat_rows().unwrap().len(), 0);
         // Even Always must keep a stranger behind a tap, regardless of network reports.
         chats
             .session
@@ -628,14 +628,14 @@ mod tests {
                 passed: false
             }
         );
-        assert!(chats.liked_you().unwrap().is_empty());
+        assert_eq!(chats.liked_you().unwrap().len(), 0);
         assert!(chats.profiles(Vec::new()).unwrap().is_empty());
         assert_eq!(
             chats.profiles(vec![peer.clone()]).unwrap_err().to_string(),
             "notConnected"
         );
-        assert!(chats.chat_photos(peer.clone()).unwrap().is_empty());
-        assert!(chats.chat_items(peer.clone()).unwrap().is_empty());
+        assert_eq!(chats.chat_photos(peer.clone()).unwrap().len(), 0);
+        assert_eq!(chats.chat_items(peer.clone()).unwrap().len(), 0);
         assert_eq!(
             chats
                 .chat_photo_original(peer.clone(), vec![1], peer.clone(), vec![2; 16])
@@ -716,7 +716,7 @@ mod tests {
         );
         assert_eq!(chats.blocked_peers().unwrap(), std::slice::from_ref(&peer));
         chats.unblock(peer.clone()).unwrap();
-        assert!(chats.blocked_peers().unwrap().is_empty());
+        assert_eq!(chats.blocked_peers().unwrap().len(), 0);
         assert!(!chats.chat_history(peer.clone()).unwrap().muted);
         // A mute changes only the flag, and like a block it needs a valid other peer.
         chats.set_muted(peer.clone(), true).unwrap();
@@ -734,7 +734,7 @@ mod tests {
         assert!(chats.set_passed(peer.clone(), true).unwrap().passed);
         assert_eq!(chats.passed_peers().unwrap(), std::slice::from_ref(&peer));
         assert!(!chats.set_passed(peer.clone(), false).unwrap().passed);
-        assert!(chats.passed_peers().unwrap().is_empty());
+        assert_eq!(chats.passed_peers().unwrap().len(), 0);
         let pass_self = chats.set_passed(key.peer_id(), true);
         assert_eq!(pass_self.unwrap_err().to_string(), "invalidPeer");
         // Off keeps the chosen content for the next turn-on.

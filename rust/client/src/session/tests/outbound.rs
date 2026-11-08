@@ -100,7 +100,7 @@ fn only_a_newer_profile_without_this_device_revokes_it() {
         session.list_self(&mut draft, binding),
         Err(Error::Revoked)
     ));
-    assert!(draft.devices.is_empty());
+    assert_eq!(draft.devices, [] as [dyapp_identity::SignedRecord; 0]);
 }
 
 #[test]

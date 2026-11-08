@@ -254,11 +254,11 @@ async fn a_client_finds_and_queries_search_nodes() {
         let nobody = proto::Condition {
             field: dyapp_p2p_net::search_results::BIRTH_AGE,
             op: proto::Op::Range.into(),
-            ints: vec![990000, 991231],
+            ints: vec![990_000, 991_231],
             strings: vec![],
         };
         let response = search.search_query(vec![nobody], 0).await.unwrap();
-        assert!(response.hits.is_empty());
+        assert_eq!(response.hits, [] as [dyapp_p2p_net::proto::SearchHit; 0]);
     }
     assert!(peers.contains(&node.peer()));
     assert_eq!(peers.len(), 2);
@@ -272,7 +272,7 @@ async fn a_client_finds_and_queries_search_nodes() {
     let nobody = proto::Condition {
         field: dyapp_p2p_net::search_results::BIRTH_AGE,
         op: proto::Op::Range.into(),
-        ints: vec![990000, 991231],
+        ints: vec![990_000, 991_231],
         strings: vec![],
     };
     let results = dyapp_client::search::search(
@@ -284,7 +284,7 @@ async fn a_client_finds_and_queries_search_nodes() {
         &[],
     )
     .await;
-    assert!(results.profiles.is_empty());
+    assert_eq!(results.profiles, [] as [dyapp_profile::VerifiedProfile; 0]);
     assert!(results.failures.is_empty(), "{:?}", results.failures);
 }
 

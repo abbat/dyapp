@@ -149,7 +149,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         ]
     );
     bob.node.ack(&bob.device_key, ids).await.unwrap();
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 
     let reply = chat::message(
         &mut bob_groups[0],
@@ -228,7 +228,7 @@ async fn a_welcome_waits_in_the_mailbox_for_its_sender_s_profile() {
     .await
     .unwrap();
     assert_eq!(events, vec![Event::UnknownOwner(alice.identity.peer_id())]);
-    assert!(ids.is_empty());
+    assert_eq!(ids, [] as [std::vec::Vec<u8>; 0]);
     let (events, ids) = chat::receive(
         &mut bob.node,
         &bob.device_key,
@@ -535,7 +535,7 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     .await
     .unwrap();
     assert_eq!(events, vec![Event::Gap(group.id().to_vec())]);
-    assert!(ids.is_empty());
+    assert_eq!(ids.len(), 0);
 
     let mut scores = dyapp_client::scores::Scores::default();
     let (events, ids) = chat::cross_check(
@@ -570,8 +570,8 @@ async fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it() {
     assert_eq!(scores.penalty(second.peer(), now), 0);
     bob.node.ack(&bob.device_key, ids.clone()).await.unwrap();
     second.ack(&bob.device_key, ids).await.unwrap();
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
-    assert!(second.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
+    assert_eq!(second.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 }
 
 /// A fresh database path for one person's client store.
@@ -678,7 +678,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         )
         .unwrap();
     drop(group);
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 
     // After a restart the exact signed Welcome is retried from the outbox.
     let mut alice_session = Session::open(
@@ -782,7 +782,7 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     assert!(matches!(events.as_slice(),
         [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
         if joined == &group_id && group == &group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 
     // Bob's receipt drops the Welcome from Alice's outbox; a repeated put of the exact Welcome
     // shows nothing twice.
@@ -810,17 +810,17 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
     drop(bob_session);
     let mut bob_session =
         Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
-    assert!(bob_session
+    let checked_items = bob_session
         .receive(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
             &profiles,
-            &bob_key
+            &bob_key,
         )
         .await
-        .unwrap()
-        .is_empty());
-    assert!(bob.node.fetch(&bob.device_key).await.unwrap().0.is_empty());
+        .unwrap();
+    assert_eq!(checked_items.len(), 0);
+    assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
 
     // The restored group keeps working in both directions.
     bob_session

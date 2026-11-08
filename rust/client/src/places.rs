@@ -160,16 +160,16 @@ mod tests {
 
     #[test]
     fn names_follow_the_language() {
-        let berlin = place("DE", 2950159, "ru").expect("Berlin");
+        let berlin = place("DE", 2_950_159, "ru").expect("Berlin");
         assert_eq!(berlin.name, "Берлин");
-        let name = |lang| place("DE", 2950159, lang).map(|p| p.name);
+        let name = |lang| place("DE", 2_950_159, lang).map(|p| p.name);
         assert_eq!(name("en").as_deref(), Some("Berlin"));
         assert_eq!(name("de").as_deref(), Some("Berlin"));
         // DE.16; other countries have a .16 region and DE has earlier ones.
         assert_eq!(berlin.region, "Берлин");
-        let region = place("DE", 2950159, "en").map(|p| p.region);
+        let region = place("DE", 2_950_159, "en").map(|p| p.region);
         assert_eq!(region.as_deref(), Some("State of Berlin"));
-        assert_eq!(place("FR", 2950159, "en"), None);
+        assert_eq!(place("FR", 2_950_159, "en"), None);
         assert_eq!(place("DE", 1, "en"), None);
     }
 
@@ -181,8 +181,11 @@ mod tests {
         assert_eq!(first("Mos", "en").as_deref(), Some("Moscow"));
         assert_eq!(search("RU", "", "en", 5).len(), 5);
         assert_eq!(search("RU", "", "en", 1)[0].name, "Moscow");
-        assert!(search("RU", "zzzz", "en", 5).is_empty());
-        assert!(search("XX", "", "en", 5).is_empty());
+        assert_eq!(
+            search("RU", "zzzz", "en", 5),
+            [] as [crate::places::Place; 0]
+        );
+        assert_eq!(search("XX", "", "en", 5), [] as [crate::places::Place; 0]);
     }
 
     #[test]

@@ -154,7 +154,7 @@ fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() 
     assert!(!repair.has_job(job));
     repair.advance(&origin, me);
     assert!(repair.done());
-    assert!(repair.queued().is_empty());
+    assert_eq!(repair.queued(), [] as [(libp2p::PeerId, usize); 0]);
     assert_eq!(
         repair.results().collect::<Vec<_>>(),
         vec![(hash.as_slice(), false)]

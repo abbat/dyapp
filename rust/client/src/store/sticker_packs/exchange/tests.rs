@@ -89,7 +89,7 @@ fn request_restart_retry_and_generation_keep_clicked_hash_and_exact_outbox() {
     let next = store
         .stage_sticker_pack_request(b"new", &[], &[9], &key, &request)
         .unwrap();
-    assert!(next.token != pending.token);
+    assert_ne!(next.token, pending.token);
     assert!(!store
         .finish_sticker_pack(&peer, &request.pack_id, &pending.token)
         .unwrap());

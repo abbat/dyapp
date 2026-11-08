@@ -1,6 +1,6 @@
 //! Bounded background search work for the swarm loop.
 
-use super::*;
+use super::{jobs, run_get, run_query, Peer, ResponseChannel, Search, SearchResponse, Service};
 
 pub(super) struct SearchJob {
     pub(super) from: Peer,

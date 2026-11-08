@@ -1,6 +1,6 @@
 //! The index writer connection and the keys changed while a rebuild copies the index.
 
-use super::*;
+use super::{lock, storage_error, Connection, Result, SearchIndex};
 use std::collections::HashSet;
 
 /// Most changed keys tracked (about 16 MiB); past it the rebuild must copy again.

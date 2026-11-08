@@ -1,6 +1,9 @@
 //! Per-place profile counts, the newcomer quota and eviction.
 
-use super::*;
+use super::{
+    flip, lock, params, storage_error, writer, Connection, OptionalExtension, Ordering, Result,
+    SearchIndex, BATCH,
+};
 
 /// Adds `delta` to the profiles indexed under (country, place); a zero count has no row.
 pub(super) fn count_place(tx: &Connection, country: &str, place: &str, delta: i64) -> Result<()> {

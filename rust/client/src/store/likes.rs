@@ -507,7 +507,7 @@ mod tests {
         store.set_blocked(c, true).unwrap();
         assert_eq!(store.liked_by().unwrap(), std::slice::from_ref(d));
         put(&mut store, d, &a, b"p", event(Kind::Unlike, 5, 12));
-        assert!(store.liked_by().unwrap().is_empty());
+        assert_eq!(store.liked_by().unwrap(), [] as [std::string::String; 0]);
     }
 
     #[test]
@@ -518,12 +518,15 @@ mod tests {
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         put(&mut store, &b, &a, b"p", event(Kind::Like, 1, 10));
         assert!(store.pass(&b, true, 1_000).unwrap());
-        assert!(store.liked_by().unwrap().is_empty());
+        assert_eq!(store.liked_by().unwrap(), [] as [std::string::String; 0]);
         assert_eq!(store.passed_peers().unwrap(), std::slice::from_ref(&b));
         // An undo in the same millisecond still moves forward.
         assert!(store.pass(&b, false, 1_000).unwrap());
         assert_eq!(store.liked_by().unwrap(), std::slice::from_ref(&b));
-        assert!(store.passed_peers().unwrap().is_empty());
+        assert_eq!(
+            store.passed_peers().unwrap(),
+            [] as [std::string::String; 0]
+        );
     }
 
     #[test]

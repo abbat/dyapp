@@ -20,7 +20,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
     assert!(store
         .stage_fresh_sticker_pack_request(b"fresh", &[], &[9], &job)
         .is_err());
-    assert!(store.sealed_device().unwrap() == snapshot);
+    assert_eq!(store.sealed_device().unwrap(), snapshot);
     assert_eq!(
         store
             .sticker_pack_download_state(&peer, &job.pack_id)
@@ -95,7 +95,7 @@ fn outbox_failure_rolls_back_answer_reset_and_policy_refusal_keeps_generation() 
             .unwrap()
             == Some(answer)
     );
-    assert!(store.sealed_device().unwrap() == snapshot);
+    assert_eq!(store.sealed_device().unwrap(), snapshot);
     assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
     store.set_blocked(&peer, true).unwrap();
     assert!(matches!(
@@ -107,12 +107,12 @@ fn outbox_failure_rolls_back_answer_reset_and_policy_refusal_keeps_generation() 
         ),
         Err(Error::BlockedPeer)
     ));
-    assert!(
+    assert_eq!(
         store
             .pending_sticker_pack(&peer, &job.pack_id)
             .unwrap()
             .unwrap()
-            .token
-            == job.token
+            .token,
+        job.token
     );
 }

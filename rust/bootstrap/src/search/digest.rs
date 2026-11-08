@@ -62,10 +62,10 @@ fn slots_and_inventory_range_boundaries() {
         index.inventory(3, &keys[0], &keys[3], 10_000).unwrap(),
         all[1..3]
     );
-    assert!(index
-        .inventory(3, &keys[2], &keys[2], 10_000)
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        index.inventory(3, &keys[2], &keys[2], 10_000).unwrap(),
+        [] as [([u8; 32], u64); 0]
+    );
     assert_eq!(index.inventory(3, &[], &[], 0).unwrap().len(), 0);
     assert_digest_consistent(&index);
     let (sub, count) = index.sub_digest(3, 255).unwrap();

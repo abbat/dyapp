@@ -87,7 +87,7 @@ fn cursor_resumes_and_wraps() {
     scanner.scan(store, batch(store, 0..3), closest(&peers, 0), false);
     assert_eq!(scanner.cursor(store), [2]);
     scanner.scan(store, batch(store, 3..5), closest(&peers, 0), true);
-    assert!(scanner.cursor(store).is_empty());
+    assert_eq!(scanner.cursor(store), [] as [u8; 0]);
     drain(&mut scanner, store, true);
 
     // Key 9 is handed over, then not scanned for a whole cycle (it expired): it is forgotten

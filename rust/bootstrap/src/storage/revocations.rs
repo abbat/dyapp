@@ -1,6 +1,9 @@
 //! Revoked write token keys and the signed revokes that carry them to other replicas.
 
-use super::*;
+use super::{
+    decode, lock, params, storage_error, BootstrapStore, Message, Result, SignedRecord,
+    TransactionBehavior,
+};
 
 /// Revoked keys kept per mailbox, and signed revokes: about 130 blocked contacts a month.
 pub const MAX_REVOKED: i64 = 4096;
@@ -141,6 +144,7 @@ impl BootstrapStore {
 mod tests {
     use super::*;
     use crate::storage::tests::temp_store;
+    use crate::storage::{NewEnvelope, Put};
 
     fn record(n: u8) -> SignedRecord {
         SignedRecord {
@@ -205,7 +209,10 @@ mod tests {
         assert!(store
             .revoke(&[1], &record(9), &[Vec::new()], 200, 100)
             .unwrap());
-        assert!(store.envelope_ids(&[1], 10).unwrap().is_empty());
+        assert_eq!(
+            store.envelope_ids(&[1], 10).unwrap(),
+            [] as [std::vec::Vec<u8>; 0]
+        );
         assert!(store.is_revoked(&[1], b"", 199).unwrap());
     }
 

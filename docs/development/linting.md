@@ -129,6 +129,10 @@ The root workspace and the bootstrap/FFI manifests deny `missing_errors_doc`,
 therefore reject missing error/panic contracts, ignored return-value contracts and
 Rustdoc markup violations on their checked targets. The compilation-free
 `make quick-check` continues to cover formatting and web/Swift static checks.
+The same Cargo manifests deny `assert_is_empty`, `manual_assert_eq`,
+`uninlined_format_args`, `unreadable_literal` and `wildcard_imports`: assertions
+show compared values, formatting captures local names, long numeric literals use
+digit separators, and imports name their dependencies explicitly.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable

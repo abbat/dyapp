@@ -74,10 +74,12 @@ fn old_heartbeat_decodes_with_version_zero() {
         before: vec![],
     }
     .encode_to_vec();
-    assert!(proto::InventoryRequest::decode(old.as_slice())
-        .unwrap()
-        .before
-        .is_empty());
+    assert_eq!(
+        proto::InventoryRequest::decode(old.as_slice())
+            .unwrap()
+            .before,
+        [] as [u8; 0]
+    );
 }
 
 fn frame_bytes(size: usize) -> Vec<u8> {

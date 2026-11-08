@@ -47,7 +47,7 @@ fn sticker_sends_have_fresh_ids_and_durable_media_delivery() {
         session.stage_sticker(group.id(), &template, &seal),
         Err(Error::ConversationNotOpen)
     ));
-    assert!(session.store.sealed_device().unwrap() == before);
+    assert_eq!(session.store.sealed_device().unwrap(), before);
     let request = chat::message(
         &mut group,
         &alice,

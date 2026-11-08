@@ -151,7 +151,7 @@ fn the_owner_closes_a_revoked_device_mailbox() {
     let record = close(&identity, &identity, &device);
     let request = mailbox_request::Request::Revoke(record.clone());
     assert_eq!(put(&service, &client, request), Status::Ok);
-    assert!(service.held_ids(&mailbox).unwrap().is_empty());
+    assert_eq!(service.held_ids(&mailbox).unwrap().len(), 0);
 
     // The lost device's fetch, new puts and repair inventory are refused.
     let nonce = [5; 32];

@@ -67,14 +67,14 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
         .unwrap()
         .unwrap();
     assert!(state.failure.is_none() && state.attempts == 0);
-    assert!(
+    assert_eq!(
         pair.session
             .store
             .pending_sticker_pack(&job.peer, &job.pack_id)
             .unwrap()
             .unwrap()
-            .token
-            == next.token
+            .token,
+        next.token
     );
     assert!(pair
         .session
@@ -280,19 +280,19 @@ fn full_clear_cancels_old_fetch_but_preserves_saved_packs_recents_and_sharing() 
         .session
         .stage_sticker_pack_request(&job.peer, &selected, &SEAL)
         .unwrap();
-    assert!(next.token != job.token);
+    assert_ne!(next.token, job.token);
     assert!(!pair
         .session
         .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
         .unwrap());
-    assert!(
+    assert_eq!(
         pair.session
             .store
             .pending_sticker_pack(&job.peer, &job.pack_id)
             .unwrap()
             .unwrap()
-            .token
-            == next.token
+            .token,
+        next.token
     );
     assert!(pair
         .session

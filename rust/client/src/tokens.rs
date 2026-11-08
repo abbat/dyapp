@@ -378,7 +378,7 @@ mod tests {
         else {
             panic!("no retry");
         };
-        assert!(retry == first);
+        assert_eq!(retry, first);
         let Body::TokenAnswer(answered) = answer(&issuer, &owner, "bob", &first, today)
             .unwrap()
             .remove(0)
@@ -436,7 +436,10 @@ mod tests {
             signed_tokens: bad.to_vec(),
         };
         assert_eq!(accept(&contact, &forgeries, &seal).unwrap(), 0);
-        assert!(contact.write_token_epochs(&own, today).unwrap().is_empty());
+        assert_eq!(
+            contact.write_token_epochs(&own, today).unwrap(),
+            [] as [u32; 0]
+        );
         let good = TokenAnswer {
             signed_tokens: vec![sign(&owner, own, key, today)],
         };

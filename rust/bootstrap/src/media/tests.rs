@@ -288,6 +288,9 @@ fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
         "unsigned b skipped"
     );
     assert_eq!(media.keeps_after("a", 1).unwrap(), all[1..]);
-    assert!(media.keeps_after("c", 10).unwrap().is_empty());
+    assert_eq!(
+        media.keeps_after("c", 10).unwrap(),
+        [] as [(std::string::String, dyapp_identity::SignedRecord); 0]
+    );
     crate::storage::assert_indexed(&lock(&media.db).unwrap(), KEEPS_AFTER);
 }

@@ -443,7 +443,7 @@ mod tests {
     fn someone_i_unmatched_is_not_listed_in_liked_you() {
         let mut p = matched_pair();
         p.own_like(Kind::Unlike);
-        assert!(p.store.liked_by().unwrap().is_empty());
+        assert_eq!(p.store.liked_by().unwrap(), [] as [std::string::String; 0]);
     }
 
     #[test]

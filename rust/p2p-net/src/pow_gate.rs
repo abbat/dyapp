@@ -125,10 +125,11 @@ mod tests {
             assert_eq!(guard.take_denied(), 1);
             assert_eq!(guard.take_denied(), 0);
             for peer in [None, Some(peer_with_proof(true))] {
-                assert!(gate
-                    .handle_pending_outbound_connection(id, peer, &addresses, Endpoint::Dialer)
-                    .unwrap()
-                    .is_empty());
+                assert_eq!(
+                    gate.handle_pending_outbound_connection(id, peer, &addresses, Endpoint::Dialer)
+                        .unwrap(),
+                    [] as [libp2p::Multiaddr; 0]
+                );
             }
             gate.handle_pending_inbound_connection(id, &address, &address)
                 .unwrap();

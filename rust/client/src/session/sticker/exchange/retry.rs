@@ -1,5 +1,5 @@
 //! Single-group cleanup may remove the selected row; full Clear chat cancels pair intent.
-use super::*;
+use super::{Body, Error, Node, PendingPack, PreparedEnvelope, Session};
 use crate::chat::pack_control::PackRequest;
 use crate::store::{sticker_packs::exchange::download::PackDownloadJob, Error as StoreError};
 

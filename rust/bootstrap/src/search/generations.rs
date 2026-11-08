@@ -1,6 +1,7 @@
 //! Generation start, activation and forced rebuild tests.
 use super::*;
 use crate::maintenance::RebuildBudget;
+use crate::search::candidate;
 use crate::search::tests::{fill, index};
 use std::time::Duration;
 

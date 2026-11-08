@@ -139,11 +139,10 @@ fn envelopes_once_per_id_limits_and_expiry() {
         store.fetch_envelopes(&a, 10, u64::MAX).unwrap().0,
         vec![record(2)]
     );
-    assert!(store
-        .fetch_envelopes(&b, 10, u64::MAX)
-        .unwrap()
-        .0
-        .is_empty());
+    assert_eq!(
+        store.fetch_envelopes(&b, 10, u64::MAX).unwrap().0,
+        [] as [dyapp_identity::SignedRecord; 0]
+    );
 }
 
 #[test]
@@ -271,12 +270,18 @@ fn signed_profile_versions_and_tombstone() {
     let stored = store.get_profile(&owner.peer_id()).unwrap().unwrap();
     assert_eq!(dyapp_profile::stored_version(&stored), Ok(2));
     assert_eq!(store.list_profiles(0, 10).unwrap().len(), 1);
-    assert!(store.list_profiles(1, 10).unwrap().is_empty());
+    assert_eq!(
+        store.list_profiles(1, 10).unwrap(),
+        [] as [dyapp_identity::SignedRecord; 0]
+    );
 
     store
         .put_profile(&Profile::tombstone(3, 0, 0).sign(&owner))
         .unwrap();
-    assert!(store.list_profiles(0, 10).unwrap().is_empty());
+    assert_eq!(
+        store.list_profiles(0, 10).unwrap(),
+        [] as [dyapp_identity::SignedRecord; 0]
+    );
     assert!(store.put_profile(&profile(2).sign(&owner)).is_err());
     assert!(matches!(
         store.put_profile(&profile(4).sign(&owner)),
@@ -324,7 +329,10 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
         store.mailboxes_after(&[1; 32], 1).unwrap(),
         vec![vec![3; 32]]
     );
-    assert!(store.mailboxes_after(&[3; 32], 10).unwrap().is_empty());
+    assert_eq!(
+        store.mailboxes_after(&[3; 32], 10).unwrap(),
+        [] as [std::vec::Vec<u8>; 0]
+    );
 
     let mut owners: Vec<_> = (0..3).map(|_| Identity::generate()).collect();
     owners.sort_by_key(Identity::peer_id);

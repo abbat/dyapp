@@ -3,6 +3,10 @@ use crate::chat::{pack_control::PackRequest, sticker::Sticker};
 use crate::store::{messages::VerifiedChatSender, InboxKey};
 use dyapp_identity::Identity;
 
+// Literal times around the rolling 24-hour boundary after the first response at 100 ms.
+const DUE: u64 = 86_400_100;
+const EARLY: u64 = 86_400_099;
+
 fn fixture() -> (Store, Identity, PackResponseJob, PackAnswer) {
     let (mut store, owner, _, peer) = crate::store::sticker_packs::exchange::tests::database();
     let pack = sticker_packs::tests::pack("Cats");
@@ -104,7 +108,7 @@ fn durable_response_and_cooldown_survive_restart_and_reject_stale_workers() {
             },
             sender,
             &request,
-            86400099
+            EARLY
         )
         .unwrap());
     assert!(store
@@ -116,16 +120,16 @@ fn durable_response_and_cooldown_survive_restart_and_reject_stale_workers() {
             },
             sender,
             &request,
-            86400100
+            DUE
         )
         .unwrap());
     assert!(!store.retire_sticker_pack_response(&job).unwrap());
-    assert!(!store.defer_sticker_pack_response(&job, 86400100).unwrap());
+    assert!(!store.defer_sticker_pack_response(&job, DUE).unwrap());
     assert!(store
-        .stage_sticker_pack_response(b"stale", &[write], &job, &answer, 86400100)
+        .stage_sticker_pack_response(b"stale", &[write], &job, &answer, DUE)
         .is_err());
     assert_eq!(store.sealed_device().unwrap().unwrap(), b"boundary");
-    assert_eq!(store.due_sticker_pack_responses(86400100).unwrap().len(), 1);
+    assert_eq!(store.due_sticker_pack_responses(DUE).unwrap().len(), 1);
     assert_eq!(last(&store), Some(100));
 }
 

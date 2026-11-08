@@ -130,13 +130,13 @@ impl VideoSession {
             local_candidates: local_candidates.clone(),
         });
         let peer_connection = new_peer_connection(events).await.map_err(|e| {
-            VideoError::InvalidState(format!("Failed to create peer connection: {}", e))
+            VideoError::InvalidState(format!("Failed to create peer connection: {e}"))
         })?;
         // Without a media section the offer carries no ICE credentials and a peer rejects it.
         peer_connection
             .add_transceiver_from_kind(RtpCodecKind::Video, None)
             .await
-            .map_err(|e| VideoError::InvalidState(format!("Failed to add video: {}", e)))?;
+            .map_err(|e| VideoError::InvalidState(format!("Failed to add video: {e}")))?;
 
         Ok(Self {
             id: Uuid::new_v4().to_string(),
@@ -192,7 +192,7 @@ impl VideoSession {
             .map_err(|e| VideoError::OfferGenerationFailed(e.to_string()))?;
 
         pc.set_local_description(offer).await.map_err(|e| {
-            VideoError::InvalidState(format!("Failed to set local description: {}", e))
+            VideoError::InvalidState(format!("Failed to set local description: {e}"))
         })?;
 
         let sdp = pc
@@ -223,12 +223,12 @@ impl VideoSession {
         }
 
         let answer = RTCSessionDescription::answer(sdp.clone())
-            .map_err(|e| VideoError::InvalidState(format!("Invalid answer: {}", e)))?;
+            .map_err(|e| VideoError::InvalidState(format!("Invalid answer: {e}")))?;
         self.peer_connection
             .set_remote_description(answer)
             .await
             .map_err(|e| {
-                VideoError::InvalidState(format!("Failed to set remote description: {}", e))
+                VideoError::InvalidState(format!("Failed to set remote description: {e}"))
             })?;
 
         *self.remote_sdp.write().await = Some(sdp);
@@ -251,12 +251,12 @@ impl VideoSession {
         }
 
         let offer = RTCSessionDescription::offer(sdp.clone())
-            .map_err(|e| VideoError::InvalidState(format!("Invalid offer: {}", e)))?;
+            .map_err(|e| VideoError::InvalidState(format!("Invalid offer: {e}")))?;
         self.peer_connection
             .set_remote_description(offer)
             .await
             .map_err(|e| {
-                VideoError::InvalidState(format!("Failed to set remote description: {}", e))
+                VideoError::InvalidState(format!("Failed to set remote description: {e}"))
             })?;
 
         *self.remote_sdp.write().await = Some(sdp);
@@ -282,7 +282,7 @@ impl VideoSession {
             .await
             .map_err(|e| VideoError::AnswerGenerationFailed(e.to_string()))?;
         pc.set_local_description(answer).await.map_err(|e| {
-            VideoError::InvalidState(format!("Failed to set local description: {}", e))
+            VideoError::InvalidState(format!("Failed to set local description: {e}"))
         })?;
         let sdp = pc
             .local_description()
@@ -364,7 +364,7 @@ impl VideoSession {
         self.peer_connection
             .close()
             .await
-            .map_err(|e| VideoError::InvalidState(format!("Failed to close: {}", e)))?;
+            .map_err(|e| VideoError::InvalidState(format!("Failed to close: {e}")))?;
         *self.state.write().await = SessionState::Closed;
         Ok(())
     }
@@ -396,7 +396,7 @@ mod tests {
     async fn test_video_session_creation() {
         let session = VideoSession::new().await.expect("Failed to create session");
         assert_eq!(session.state().await, SessionState::Idle);
-        assert!(!session.session_id().is_empty());
+        assert_ne!(session.session_id(), "");
     }
 
     #[tokio::test]

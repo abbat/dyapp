@@ -158,7 +158,7 @@ async fn corrupt_ready_single_key_cannot_stage_a_bad_sticker_before_delivery_fai
             .len(),
         count
     );
-    assert!(pair.session.store.sealed_device().unwrap() == sealed);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), sealed);
 }
 
 #[tokio::test]

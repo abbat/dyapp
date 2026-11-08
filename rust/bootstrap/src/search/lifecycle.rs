@@ -19,7 +19,10 @@ fn versions_limits_and_tombstones() {
     let (_, p3, r3) = signed(&id, Profile::tombstone(3, 0, 0));
     // A tombstone skips the update limit; the version after it does not.
     assert_eq!(index.put(&key, &p3, &r3, 1_700, true).unwrap(), Put::Stored);
-    assert!(index.records(&[key], 1 << 20).unwrap().is_empty());
+    assert_eq!(
+        index.records(&[key], 1 << 20).unwrap(),
+        [] as [dyapp_identity::SignedRecord; 0]
+    );
     assert_eq!(index.versions(&[key]).unwrap(), vec![Some(3)]);
     assert_eq!(index.put(&key, &p2, &r2, 9_000, true).unwrap(), Put::Stale);
     let (_, p4, r4) = signed(&id, profile(4));

@@ -49,7 +49,7 @@ fn encode(attachment: &Attachment, kind: Kind) -> Result<(Vec<u8>, i64), Error> 
     attachment.check().map_err(|_| Error::InboxConflict)?;
     let valid = match kind {
         Kind::Sticker => {
-            (1..=262144).contains(&attachment.size)
+            (1..=262_144).contains(&attachment.size)
                 && attachment.mime == "image/webp"
                 && (1..=512).contains(&attachment.width)
                 && (1..=512).contains(&attachment.height)

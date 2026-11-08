@@ -1,6 +1,6 @@
 //! Mailbox write token revocation and device mailbox closing: `revoke` and `replica_revoke`.
 
-use super::*;
+use super::{owner_request, proto, status, Domain, MailboxResponse, Service, SignedRecord, Status};
 
 /// Token keys one revoke may name.
 const MAX_REVOKE_KEYS: usize = 64;

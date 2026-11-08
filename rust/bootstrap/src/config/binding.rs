@@ -1,7 +1,9 @@
 //! Binds `storage.dir` to one network through the `network` marker file: a node moved to another
 //! network would serve the old network's data in it.
 
-use super::*;
+use super::{
+    fs, message, russian_locale, File, NodeConfig, OpenOptions, Path, PathBuf, Read, Write,
+};
 
 /// The marker holds a network name: at most 64 bytes.
 const MAX_MARKER: u64 = 64;

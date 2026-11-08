@@ -338,7 +338,7 @@ fn pow_timing() {
 fn optional_career_fields_are_signed_and_validated() {
     let owner = Identity::generate();
     let mut profile = sample(1);
-    assert!(profile.profession.is_empty());
+    assert_eq!(profile.profession, "");
     assert!(verify(&profile.sign(&owner)).is_ok());
 
     profile.profession = "Engineer".into();

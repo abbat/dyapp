@@ -8,7 +8,7 @@ fn answer() -> PackAnswer {
             plaintext_sha256: [2; 32],
             blob_sha256: [3; 32],
             release_secret: [0; 32],
-            size: 6289920,
+            size: 6_289_920,
             preview: vec![],
             mime: "application/octet-stream".into(),
             width: 0,
@@ -35,7 +35,7 @@ fn controls_roundtrip_and_allow_bounded_unknown_extensions() {
 fn sealed_six_mib_boundary_and_owner_capability_are_checked_both_ways() {
     let mut answer = answer();
     assert!(answer.encode().is_ok()); // 6,289,920 plaintext + 96 GCM tags = 6 MiB.
-    for invalid_size in [0, 6289921, u64::MAX] {
+    for invalid_size in [0, 6_289_921, u64::MAX] {
         answer.attachment.size = invalid_size;
         assert!(answer.encode().is_err());
         assert!(PackAnswer::decode(&answer.encode_unchecked()).is_err());

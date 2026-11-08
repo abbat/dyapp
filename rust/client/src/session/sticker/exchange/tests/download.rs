@@ -58,7 +58,7 @@ async fn offline_failure_survives_restart_and_explicit_retry_finishes_from_saved
         .unwrap()
         .is_empty());
     assert_eq!(pair.session.due_outbound(i64::MAX).unwrap().len(), count);
-    assert!(pair.session.store.sealed_device().unwrap() == snapshot);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), snapshot);
     drop(pair.session);
     let mut session = Session::open(Store::open(&path, &pair.bob_id).unwrap(), &SEAL).unwrap();
     assert_eq!(
@@ -127,5 +127,5 @@ async fn stop_and_block_prevent_fetch_or_save_without_chat_or_mls_mutation() {
         .saved_sticker_pack(&SEAL, pack.id())
         .unwrap()
         .is_none());
-    assert!(pair.session.store.sealed_device().unwrap() == snapshot);
+    assert_eq!(pair.session.store.sealed_device().unwrap(), snapshot);
 }

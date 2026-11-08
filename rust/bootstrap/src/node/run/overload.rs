@@ -1,6 +1,6 @@
 //! Which events are requests, dropped unanswered at `max_memory_mb`.
 
-use super::*;
+use super::{BehaviourEvent, Event, Message};
 
 /// An inbound request of any served protocol.
 pub(super) fn is_request(event: &BehaviourEvent) -> bool {

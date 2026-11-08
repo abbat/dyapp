@@ -1,7 +1,10 @@
 //! What a node does with a peer's identify info: drops a peer of another network, routes to and
 //! remembers a node of its own.
 
-use super::*;
+use super::{
+    identify, kad, remember_anchor, Behaviour, ConnectionId, HashMap, Instant, Multiaddr, PeerId,
+    Service, Swarm,
+};
 use crate::claims::Claims;
 use dyapp_p2p_net::Endpoints;
 use libp2p::core::ConnectedPoint;
@@ -222,8 +225,10 @@ fn cut(s: &str, max: usize) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dyapp_p2p_net::Mode;
     use libp2p::core::transport::PortUse;
     use libp2p::core::Endpoint;
+    use libp2p::{identity::Keypair, multiaddr::Protocol};
 
     #[test]
     fn cut_keeps_whole_characters() {
@@ -335,9 +340,10 @@ mod tests {
         }
         admission.add_provider(&mut swarm, record(dyapp_p2p_net::SEARCH_KEY));
         let store = swarm.behaviour_mut().kad.store_mut();
-        assert!(store
-            .providers(&kad::RecordKey::new(&0u32.to_be_bytes()))
-            .is_empty());
+        assert_eq!(
+            store.providers(&kad::RecordKey::new(&0u32.to_be_bytes())),
+            [] as [libp2p::kad::ProviderRecord; 0]
+        );
         let key = kad::RecordKey::new(&dyapp_p2p_net::SEARCH_KEY);
         assert_eq!(store.providers(&key).len(), 1);
     }
@@ -365,11 +371,11 @@ mod tests {
         admission.claims.start(Instant::now(), |_, _| Some(id));
 
         admission.established(&mut swarm, unrelated, peer, &endpoint);
-        assert!(dyapp_p2p_net::known_peers(&mut swarm).is_empty());
+        assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
         admission.established(&mut swarm, id, other, &endpoint);
-        assert!(dyapp_p2p_net::known_peers(&mut swarm).is_empty());
+        assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
         admission.established(&mut swarm, id, peer, &endpoint);
-        assert!(dyapp_p2p_net::known_peers(&mut swarm).is_empty());
+        assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
 
         let next = ConnectionId::new_unchecked(9);
         let second: Multiaddr = "/ip4/198.51.100.2/tcp/7070".parse().unwrap();
@@ -377,7 +383,7 @@ mod tests {
         admission.claims.start(Instant::now(), |_, _| Some(next));
         admission.failed(&mut swarm, next);
         admission.established(&mut swarm, next, peer, &endpoint);
-        assert!(dyapp_p2p_net::known_peers(&mut swarm).is_empty());
+        assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
 
         let success = ConnectionId::new_unchecked(10);
         let third: Multiaddr = "/ip4/198.51.100.3/tcp/7070".parse().unwrap();

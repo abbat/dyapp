@@ -14,7 +14,7 @@ fn descriptor_validation_and_corruption_fail_without_replacing_the_row() {
     invalid.mime = "image/jpeg".into();
     assert!(store.plan_sticker_upload(&invalid, 100).is_err());
     assert!(store
-        .plan_sticker_upload(&candidate(2, 262145), 100)
+        .plan_sticker_upload(&candidate(2, 262_145), 100)
         .is_err());
     assert_eq!(used(&store), 0);
     upload(store.plan_sticker_upload(&good, 100).unwrap());
@@ -51,7 +51,7 @@ fn parallel_reservations_cannot_both_spend_the_last_budget() {
     for index in 0..12 {
         upload(
             store
-                .plan_sticker_upload(&candidate(index, 262144), 100)
+                .plan_sticker_upload(&candidate(index, 262_144), 100)
                 .unwrap(),
         );
     }
@@ -61,7 +61,7 @@ fn parallel_reservations_cannot_both_spend_the_last_budget() {
         let mut connection = Store::open(&path, &owner).unwrap();
         let barrier = barrier.clone();
         jobs.push(std::thread::spawn(move || {
-            let candidate = candidate(index, 208883);
+            let candidate = candidate(index, 208_883);
             barrier.wait();
             matches!(
                 connection.plan_sticker_upload(&candidate, 100).unwrap(),
@@ -75,7 +75,7 @@ fn parallel_reservations_cannot_both_spend_the_last_budget() {
         .map(|job| usize::from(job.join().unwrap()))
         .sum::<usize>();
     assert_eq!(admitted, 1);
-    assert_eq!(used(&store), 16777215);
+    assert_eq!(used(&store), 16_777_215);
 }
 
 #[test]

@@ -28,7 +28,7 @@ fn projection_hook_shares_inbox_mls_and_ack_transaction() {
         Err(Error::InboxConflict)
     ));
     assert!(!store.has_inbox(&key).unwrap());
-    assert!(store.pending_acks().unwrap().is_empty());
+    assert_eq!(store.pending_acks().unwrap(), [] as [InboxKey; 0]);
     assert!(store.sealed_device().unwrap().is_none());
 
     assert!(store
