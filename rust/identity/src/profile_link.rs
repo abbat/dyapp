@@ -7,12 +7,14 @@ use crate::safety::parse_peer_id;
 const PREFIX: &str = "dyapp-profile:1:";
 
 /// The link to a canonical lowercase hexadecimal Peer ID.
+#[must_use]
 pub fn profile_link(peer_id: &str) -> Option<String> {
     parse_peer_id(peer_id)?;
     Some(format!("{PREFIX}{peer_id}"))
 }
 
 /// The Peer ID of a message body that is exactly one link; a link inside other text is just text.
+#[must_use]
 pub fn parse_profile_link(text: &str) -> Option<&str> {
     let peer_id = text.strip_prefix(PREFIX)?;
     parse_peer_id(peer_id)?;

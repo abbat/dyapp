@@ -104,6 +104,7 @@ impl SignedRecord {
 }
 
 /// Hex SHA-256 of an identity public key.
+#[must_use]
 pub fn peer_id(public_key: &[u8; 32]) -> String {
     key_hash(public_key)
         .iter()
@@ -112,11 +113,13 @@ pub fn peer_id(public_key: &[u8; 32]) -> String {
 }
 
 /// SHA-256 of a public key: the raw peer ID of an identity, the mailbox address of a device.
+#[must_use]
 pub fn key_hash(public_key: &[u8; 32]) -> [u8; 32] {
     sha256(public_key)
 }
 
 /// SHA-256 of `data`.
+#[must_use]
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()
 }
@@ -143,6 +146,7 @@ impl Identity {
     ///
     /// # Panics
     /// Panics if the OS random number generator cannot fill the secret key bytes.
+    #[must_use]
     pub fn generate() -> Self {
         let mut secret = Zeroizing::new([0u8; 32]);
         // Like OsRng before it: no key without the OS random number generator.
@@ -151,6 +155,7 @@ impl Identity {
     }
 
     /// The key whose Ed25519 secret is `secret`.
+    #[must_use]
     pub fn from_secret(secret: &[u8; 32]) -> Self {
         Self {
             key: SigningKey::from_bytes(secret),
@@ -158,6 +163,7 @@ impl Identity {
     }
 
     /// Owned secret bytes, cleared when this guard is dropped.
+    #[must_use]
     pub fn secret(&self) -> Zeroizing<[u8; 32]> {
         let mut secret = Zeroizing::new([0u8; 32]);
         secret.copy_from_slice(self.key.as_bytes());
@@ -165,16 +171,19 @@ impl Identity {
     }
 
     /// The Ed25519 public key bytes.
+    #[must_use]
     pub fn public_key(&self) -> [u8; 32] {
         self.key.verifying_key().to_bytes()
     }
 
     /// Hex SHA-256 of the public key: see [`peer_id`].
+    #[must_use]
     pub fn peer_id(&self) -> String {
         peer_id(&self.public_key())
     }
 
     /// Signs `payload` in `domain` and returns it with the public key and signature.
+    #[must_use]
     pub fn sign(&self, domain: Domain, payload: Vec<u8>) -> SignedRecord {
         let signature = self.key.sign(&signed_bytes(domain, &payload));
         SignedRecord {

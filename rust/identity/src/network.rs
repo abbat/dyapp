@@ -24,6 +24,7 @@ pub enum Settings {
 
 impl Settings {
     /// The file name inside the identity folder; removal deletes it with the folder.
+    #[must_use]
     pub fn file_name(self) -> &'static str {
         match self {
             Self::Draft => "network-draft",

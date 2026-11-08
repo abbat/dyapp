@@ -12,17 +12,20 @@ const ITERATIONS: usize = 5200;
 const LABEL: &[u8] = b"dyapp/safety-number/v1\0";
 
 /// The 60-digit safety number of two identity keys, the same on both sides.
+#[must_use]
 pub fn safety_number(mine: &[u8; 32], theirs: &[u8; 32]) -> String {
     from_hashes(&key_hash(mine), &key_hash(theirs))
 }
 
 /// The same safety number from canonical lowercase hexadecimal Peer IDs.
 /// A verified profile already supplies a Peer ID, so its signer key need not be retained.
+#[must_use]
 pub fn safety_number_for_peer_ids(mine: &str, theirs: &str) -> Option<String> {
     Some(from_hashes(&parse_peer_id(mine)?, &parse_peer_id(theirs)?))
 }
 
 /// The same safety number as it is shown and copied: groups of five digits.
+#[must_use]
 pub fn grouped_safety_number(mine: &str, theirs: &str) -> Option<String> {
     let digits = safety_number_for_peer_ids(mine, theirs)?;
     let groups = digits
@@ -84,11 +87,13 @@ fn half(peer: &[u8; 32]) -> String {
 }
 
 /// What this profile's QR code carries: a version, then its raw Peer ID and the contact's.
+#[must_use]
 pub fn qr_payload(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
     qr_from_hashes(&key_hash(mine), &key_hash(theirs))
 }
 
 /// The same QR payload from canonical lowercase hexadecimal Peer IDs.
+#[must_use]
 pub fn qr_payload_for_peer_ids(mine: &str, theirs: &str) -> Option<Vec<u8>> {
     Some(qr_from_hashes(
         &parse_peer_id(mine)?,
@@ -101,11 +106,13 @@ fn qr_from_hashes(mine: &[u8; 32], theirs: &[u8; 32]) -> Vec<u8> {
 }
 
 /// Whether a QR code scanned from the contact's screen names both keys the right way round.
+#[must_use]
 pub fn qr_matches(scanned: &[u8], mine: &[u8; 32], theirs: &[u8; 32]) -> bool {
     scanned == qr_payload(theirs, mine)
 }
 
 /// The same check for canonical lowercase hexadecimal Peer IDs.
+#[must_use]
 pub fn qr_matches_peer_ids(scanned: &[u8], mine: &str, theirs: &str) -> bool {
     qr_payload_for_peer_ids(theirs, mine).is_some_and(|expected| scanned == expected)
 }
