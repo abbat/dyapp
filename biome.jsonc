@@ -22,7 +22,8 @@
       "clients/desktop/ui-tests/removal.js",
       "clients/desktop/ui-tests/settings-lists.js",
       "clients/desktop/ui-tests/settings-nav.js",
-      "clients/desktop/ui-tests/clear.js"
+      "clients/desktop/ui-tests/clear.js",
+      "clients/desktop/ui-tests/composer.js"
     ],
     "linter": { "rules": {
       "complexity": {
