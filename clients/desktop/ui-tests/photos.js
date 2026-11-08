@@ -2,71 +2,8 @@
 // undecodable preview, the text actions a photo must not offer, the tap on the original and
 // sending a photo without its metadata.
 const checkChatPhoto = async () => {
-  const source = document.createElement('canvas');
-  source.width = 8;
-  source.height = 8;
-  const paint = source.getContext('2d');
-  paint.fillStyle = '#c03030';
-  paint.fillRect(0, 0, 8, 8);
-  const jpeg = await new Promise((resolve) => {
-    source.toBlob(resolve, 'image/jpeg');
-  });
-  const original = await jpeg.arrayBuffer();
-  const preview = [...new Uint8Array(original)];
-  const peer = 'e'.repeat(64);
-  const photo = { mime: 'image/jpeg', width: 400, height: 200, size: 2048, preview, hoursLeft: 5 };
-  const entry = (author, id, shape) => ({
-    groupId: [1],
-    author,
-    id: Array(16).fill(id),
-    text: null,
-    edited: false,
-    deleted: false,
-    unread: false,
-    forwarded: false,
-    delivery: null,
-    read: false,
-    sentAtMs: 1000,
-    photo: shape,
-  });
-  let state = 'requestReceived';
-  const downloads = ['notConnected', original, 'notFound'];
-  let fetched = null;
-  let autoAllowed = false;
-  const sends = [];
-  let sent = null;
-  const messages = [entry(peer, 1, photo)];
-  const call = (command, args) => {
-    if (command === 'chat_rows') {
-      return Promise.resolve([
-        {
-          peerId: peer,
-          state: 'open',
-          unreadCount: 1,
-          activeRecently: false,
-          lastMessage: entry(peer, 1, { ...photo, preview: [] }),
-        },
-      ]);
-    }
-    if (command === 'chat_history') {
-      return Promise.resolve({ state, messages, activeRecently: false });
-    }
-    if (command === 'chat_photo_auto') return Promise.resolve(autoAllowed);
-    if (command === 'send_chat_photo') {
-      sent = args;
-      const refusal = sends.shift();
-      return refusal ? Promise.reject(refusal) : Promise.resolve(Array(16).fill(9));
-    }
-    if (command === 'chat_photo_original') {
-      fetched = args;
-      const next = downloads.shift();
-      return typeof next === 'string' ? Promise.reject(next) : Promise.resolve(next);
-    }
-    if (command === 'contact_names') {
-      return Promise.resolve(args.peerIds.map((peerId) => ({ peerId, name: '', verified: null })));
-    }
-    return Promise.resolve(0);
-  };
+  const fixture = await window.uiSmokeChatPhotoFixture();
+  const { original, peer, photo, entry, downloads, sends, messages, call } = fixture;
   const { strings } = window;
   await openArea('chats-area');
   await window.chatsDone;
@@ -105,7 +42,7 @@ const checkChatPhoto = async () => {
   }
   await shot('chat-photo-shown');
 
-  state = 'open';
+  fixture.state = 'open';
   messages.splice(
     0,
     1,
@@ -141,7 +78,11 @@ const checkChatPhoto = async () => {
     });
   button.click();
   await finished(strings['chats.photoFailed']);
-  if (fetched.id[0] !== 2 || fetched.author !== current.peerId || !button.isConnected) {
+  if (
+    fixture.fetched.id[0] !== 2 ||
+    fixture.fetched.author !== current.peerId ||
+    !button.isConnected
+  ) {
     throw new Error('a failed fetch left no retry');
   }
   button.click();
@@ -188,16 +129,16 @@ const checkChatPhoto = async () => {
   await new Promise((resolve) => {
     setTimeout(resolve, 50);
   });
-  if (!waiting().querySelector('.photo-download') || fetched.id[0] === 4) {
+  if (!waiting().querySelector('.photo-download') || fixture.fetched.id[0] === 4) {
     throw new Error('a refused policy still fetched');
   }
-  autoAllowed = true;
+  fixture.autoAllowed = true;
   await openChat(peer, call);
   await seen(() => waiting().querySelector('canvas').width === 8);
   if (downloads.length) throw new Error('the allowed photo was not fetched');
 
   // A kept original needs no node: no expiry in its caption, and it opens under any policy.
-  autoAllowed = false;
+  fixture.autoAllowed = false;
   downloads.push(original);
   messages.splice(
     1,
@@ -235,10 +176,16 @@ const checkChatPhoto = async () => {
   );
   await sendChatPhoto(tagged, call);
   const holds = (bytes) => bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
-  if (sent.peerId !== peer || sent.width !== 8 || sent.photo[0] !== 0xff || !sent.preview.length) {
-    throw new Error(`the photo was not sent: ${sent.width}`);
+  if (
+    fixture.sent.peerId !== peer ||
+    fixture.sent.width !== 8 ||
+    fixture.sent.photo[0] !== 0xff ||
+    !fixture.sent.preview.length
+  ) {
+    throw new Error(`the photo was not sent: ${fixture.sent.width}`);
   }
-  if (holds(sent.photo) || holds(sent.preview)) throw new Error('the metadata left the computer');
+  if (holds(fixture.sent.photo) || holds(fixture.sent.preview))
+    throw new Error('the metadata left the computer');
   const status = document.getElementById('chat-compose-status');
   const refused = async (file, key) => {
     await sendChatPhoto(file, call);
