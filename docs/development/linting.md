@@ -386,5 +386,6 @@ guard let value = object as? String else { return }
 
 ## Gaps
 
-- `codeql.yml` clippy flags differ from the quality container (pedantic only there).
+- Root-workspace `pedantic` remains advisory in `codeql.yml`; Linux native lint denies the
+  complete group. Root API error and panic contracts are being documented before enforcement.
 - Required status checks are not established.

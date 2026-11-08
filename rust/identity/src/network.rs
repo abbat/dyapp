@@ -42,6 +42,10 @@ pub struct Network {
 }
 
 /// Checks an ADR 0017 network name: at most 64 printable ASCII bytes, without edge spaces.
+///
+/// # Errors
+/// Returns an explanation if the name contains non-printable or non-ASCII characters,
+/// exceeds 64 bytes, or begins or ends with a space.
 pub fn check_name(name: &str) -> Result<(), String> {
     if let Some(c) = name.chars().find(|c| !(' '..='~').contains(c)) {
         return Err(format!("network name: {c:?} is not printable ASCII"));
@@ -92,6 +96,11 @@ fn decode(text: &str) -> io::Result<Network> {
 
 /// Reads one settings file of the identity folder `dir`; `None` when it was never saved.
 /// A damaged file is an error, never an empty default a later save would overwrite blindly.
+///
+/// # Errors
+/// Returns an I/O error if the file cannot be opened or read, except that a missing
+/// file returns `Ok(None)`. Invalid UTF-8, oversized files and malformed settings
+/// also return errors.
 pub fn load(dir: &Path, which: Settings) -> io::Result<Option<Network>> {
     let file = match fs::File::open(dir.join(which.file_name())) {
         Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
@@ -106,6 +115,11 @@ pub fn load(dir: &Path, which: Settings) -> io::Result<Option<Network>> {
 }
 
 /// Replaces one settings file of `dir` atomically: a crash leaves the old or the new content.
+///
+/// # Errors
+/// Returns an error if a field contains a line break, or if creating, writing,
+/// syncing or renaming the temporary file fails. On Unix, syncing the directory
+/// may fail after the new settings have already replaced the old file.
 pub fn save(dir: &Path, which: Settings, network: &Network) -> io::Result<()> {
     let text = encode(network)?;
     let path = dir.join(which.file_name());

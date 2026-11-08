@@ -83,6 +83,11 @@ pub use generated::SignedRecord;
 
 impl SignedRecord {
     /// Checks the signature and returns the signer's Peer ID.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidKey`] for an invalid Ed25519 public key, or
+    /// [`Error::InvalidSignature`] for a malformed signature or one that does not
+    /// authenticate this payload in `domain`.
     pub fn verify(&self, domain: Domain) -> Result<String, Error> {
         let key: [u8; 32] = self
             .public_key
@@ -134,7 +139,10 @@ impl std::fmt::Debug for Identity {
 }
 
 impl Identity {
-    /// A new key from the OS random number generator; panics if it is unavailable.
+    /// A new key from the OS random number generator.
+    ///
+    /// # Panics
+    /// Panics if the OS random number generator cannot fill the secret key bytes.
     pub fn generate() -> Self {
         let mut secret = Zeroizing::new([0u8; 32]);
         // Like OsRng before it: no key without the OS random number generator.
