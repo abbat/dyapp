@@ -12,6 +12,7 @@ pub struct CivilDate {
 
 impl CivilDate {
     /// A valid date from year 1 through 9999.
+    #[must_use]
     pub fn new(year: u32, month: u8, day: u8) -> Option<Self> {
         (year > 0 && year <= 9999 && day > 0 && day <= days_in_month(year, month)).then_some(Self {
             year,
@@ -21,6 +22,7 @@ impl CivilDate {
     }
 
     /// The UTC civil date `days` after 1970-01-01; `None` after 9999.
+    #[must_use]
     pub fn from_unix_days(days: u64) -> Option<Self> {
         // Howard Hinnant's civil_from_days over 400-year eras of 146 097 days.
         let z = days.checked_add(719_468)?;
@@ -35,11 +37,13 @@ impl CivilDate {
     }
 
     /// Numeric `YYYYMMDD` form for a search index or bound.
+    #[must_use]
     pub fn yyyymmdd(self) -> u32 {
         self.year * 10_000 + u32::from(self.month) * 100 + u32::from(self.day)
     }
 
     /// Latest birth date whose age is at least `years` on this date; zero if out of range.
+    #[must_use]
     pub fn age_cutoff(self, years: u32) -> u32 {
         let Some(year) = self.year.checked_sub(years).filter(|year| *year > 0) else {
             return 0;
@@ -74,6 +78,7 @@ pub struct BirthBounds {
 
 impl Profile {
     /// Whether the independently optional parts can describe a Gregorian date.
+    #[must_use]
     pub fn valid_birth_parts(&self) -> bool {
         let year = self.birth_year.unwrap_or(2000); // Leap year admits yearless February 29.
         if !(1..=9999).contains(&year)
@@ -89,6 +94,7 @@ impl Profile {
     }
 
     /// First and last possible dates when a year is published; otherwise unknown.
+    #[must_use]
     pub fn birth_bounds(&self) -> Option<BirthBounds> {
         if !self.valid_birth_parts() {
             return None;
@@ -119,6 +125,7 @@ impl Profile {
     }
 
     /// Youngest and oldest possible ages at `today`; absent or future dates are unknown.
+    #[must_use]
     pub fn possible_age_range(&self, today: CivilDate) -> Option<(u32, u32)> {
         let bounds = self.birth_bounds()?;
         Some((bounds.latest.age_on(today)?, bounds.earliest.age_on(today)?))

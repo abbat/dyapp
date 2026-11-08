@@ -388,5 +388,5 @@ guard let value = object as? String else { return }
 
 - Root-workspace `pedantic` remains advisory in `codeql.yml`; Linux native lint denies the
   complete group. Root API error and panic contracts are being documented before enforcement;
-  identity value-producing APIs mark their results `must_use`.
+  identity and profile value-producing APIs mark their results `must_use`.
 - Required status checks are not established.

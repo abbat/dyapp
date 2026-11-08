@@ -325,7 +325,7 @@ fn tombstone_keeps_pow() {
 fn pow_timing() {
     let start = std::time::Instant::now();
     for nonce in 0..20 {
-        pow_leading_bits(&[1; 32], nonce);
+        std::hint::black_box(pow_leading_bits(&[1; 32], nonce));
     }
     let ms = start.elapsed().as_secs_f64() * 1000.0 / 20.0;
     println!(

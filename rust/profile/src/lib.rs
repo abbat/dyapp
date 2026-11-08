@@ -77,17 +77,20 @@ pub use scales::{
 };
 
 /// Whether `height` is unset or within [`MIN_HEIGHT_CM`]..=[`MAX_HEIGHT_CM`].
+#[must_use]
 pub fn valid_height(height: Option<u32>) -> bool {
     height.is_none_or(|cm| (MIN_HEIGHT_CM..=MAX_HEIGHT_CM).contains(&cm))
 }
 
 /// Whether `about` fits [`MAX_ABOUT_CHARS`] and each of its lines passes [`is_clean_text`].
+#[must_use]
 pub fn valid_about(about: &str) -> bool {
     about.chars().count() <= MAX_ABOUT_CHARS && about.split('\n').all(is_clean_text)
 }
 
 /// Whether the genders hold no zero or repeat and fit [`MAX_SEEKING_GENDERS`], and the age bounds
 /// are in range and not reversed. Unknown gender codes pass, as for every scale on nodes.
+#[must_use]
 pub fn valid_seeking(genders: &[u32], age_from: Option<u32>, age_to: Option<u32>) -> bool {
     let age =
         |age: Option<u32>| age.is_none_or(|a| (MIN_SEEKING_AGE..=MAX_SEEKING_AGE).contains(&a));
@@ -101,6 +104,7 @@ pub fn valid_seeking(genders: &[u32], age_from: Option<u32>, age_to: Option<u32>
 
 impl Profile {
     /// A deletion marker: version and proof of work set, every other field empty.
+    #[must_use]
     pub fn tombstone(version: u64, pow_nonce: u64, pow_bits: u32) -> Self {
         Self {
             version,
@@ -112,12 +116,17 @@ impl Profile {
     }
 
     /// Signs the encoded profile with the owner's identity key.
+    #[must_use]
     pub fn sign(&self, identity: &Identity) -> SignedRecord {
         identity.sign(Domain::Profile, self.encode_to_vec())
     }
 
     /// Re-encodes an edited profile without discarding fields this client does not know.
     /// Untouched photos retain their original bytes, including unknown nested fields.
+    ///
+    /// # Errors
+    /// Returns [`Error::Decode`] if the original profile or its protobuf field spans
+    /// cannot be decoded.
     pub fn encode_preserving(&self, original: &[u8]) -> Result<Vec<u8>, Error> {
         let previous = Self::decode(original).map_err(|_| Error::Decode)?;
         let known: HashSet<u32> = fields(&previous.encode_to_vec())?
@@ -264,6 +273,7 @@ impl Profile {
 }
 
 /// Canonical interest tag used by both profile publication and search: trim, lowercase, NFC.
+#[must_use]
 pub fn normalize_interest(text: &str) -> String {
     let lower = text.trim().to_lowercase();
     ComposingNormalizerBorrowed::new_nfc()
@@ -273,6 +283,7 @@ pub fn normalize_interest(text: &str) -> String {
 
 /// Whether `text` may appear in a profile string: NFC, with no control, format (bidi, zero-width)
 /// or private-use characters except ZWNJ and ZWJ, which emoji sequences and several scripts need.
+#[must_use]
 pub fn is_clean_text(text: &str) -> bool {
     let category = CodePointMapData::<GeneralCategory>::new();
     ComposingNormalizerBorrowed::new_nfc().is_normalized(text)
@@ -297,6 +308,10 @@ pub struct VerifiedProfile {
 }
 
 /// Checks size, signature, encoding and content rules of a profile record.
+///
+/// # Errors
+/// Returns an error for an oversized payload, invalid signature, malformed protobuf
+/// or a profile that violates the content rules.
 pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
     if record.payload.len() > MAX_PAYLOAD_LEN {
         return Err(Error::Invalid("profile too large"));
@@ -309,6 +324,10 @@ pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
 
 /// Verifies `record` and accepts it only if it is newer than `current`, the owner's stored
 /// version (already verified when it was stored).
+///
+/// # Errors
+/// Returns any error from [`verify`], or [`Error::Stale`] if the verified version
+/// does not exceed `current`.
 pub fn accept(record: &SignedRecord, current: Option<u64>) -> Result<VerifiedProfile, Error> {
     let verified = verify(record)?;
     verified.check_newer(current)?;
@@ -316,7 +335,10 @@ pub fn accept(record: &SignedRecord, current: Option<u64>) -> Result<VerifiedPro
 }
 
 impl VerifiedProfile {
-    /// Fails with [`Error::Stale`] unless this version is above `current`, the stored one.
+    /// Checks whether this version is above `current`, the stored one.
+    ///
+    /// # Errors
+    /// Returns [`Error::Stale`] when `current` is at least this profile's version.
     pub fn check_newer(&self, current: Option<u64>) -> Result<(), Error> {
         match current {
             Some(version) if self.profile.version <= version => Err(Error::Stale),
@@ -337,6 +359,7 @@ pub fn set_required_pow_bits(bits: u32) {
 }
 
 /// Profile proof of work this process computes and requires.
+#[must_use]
 pub fn required_pow_bits() -> u32 {
     REQUIRED_POW_BITS.load(Ordering::Relaxed)
 }
@@ -345,6 +368,7 @@ const POW_SALT: &[u8] = b"dyapp-profile-pow";
 const HEARTBEAT_POW_SALT: &[u8] = b"dyapp-heartbeat-pow";
 
 /// Leading zero bits of Argon2id(key ‖ nonce): the profile proof of work. 8 MiB, one pass.
+#[must_use]
 pub fn pow_leading_bits(key: &[u8; 32], nonce: u64) -> u32 {
     let mut password = [0u8; 40];
     password[..32].copy_from_slice(key);
@@ -353,6 +377,7 @@ pub fn pow_leading_bits(key: &[u8; 32], nonce: u64) -> u32 {
 }
 
 /// Leading zero bits of the heartbeat proof for UTC `day` (days since the epoch).
+#[must_use]
 pub fn heartbeat_pow_bits(key: &[u8; 32], day: u32, nonce: u64) -> u32 {
     let mut password = [0u8; 44];
     password[..32].copy_from_slice(key);
@@ -362,6 +387,10 @@ pub fn heartbeat_pow_bits(key: &[u8; 32], day: u32, nonce: u64) -> u32 {
 }
 
 /// [`solve`] for the heartbeat proof of `day`.
+///
+/// # Errors
+/// Returns the next nonce to resume from if no nonce in the bounded search reaches
+/// `bits`. The search end saturates at [`u64::MAX`].
 pub fn solve_heartbeat(
     key: &[u8; 32],
     day: u32,
@@ -395,6 +424,10 @@ fn argon_bits(salt: &[u8], password: &[u8]) -> u32 {
 
 /// Tries nonces `start..start + tries`: `Ok` with the first reaching `bits`, else `Err` with the
 /// nonce to resume from.
+///
+/// # Errors
+/// Returns the next nonce to resume from if the bounded search finds no solution.
+/// The search end saturates at [`u64::MAX`].
 pub fn solve(key: &[u8; 32], bits: u32, start: u64, tries: u64) -> Result<u64, u64> {
     let end = start.saturating_add(tries);
     (start..end)
@@ -403,6 +436,9 @@ pub fn solve(key: &[u8; 32], bits: u32, start: u64, tries: u64) -> Result<u64, u
 }
 
 /// Version of a record that was verified before it was stored.
+///
+/// # Errors
+/// Returns [`Error::Decode`] if the stored payload cannot be decoded as a profile.
 pub fn stored_version(record: &SignedRecord) -> Result<u64, Error> {
     Profile::decode(record.payload.as_slice())
         .map(|profile| profile.version)

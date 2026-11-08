@@ -27,14 +27,17 @@ macro_rules! scale {
             ];
 
             /// Numeric value in the signed profile.
+            #[must_use]
             pub const fn code(self) -> u32 { self as u32 }
 
             /// Stable localization key; clients translate this key for display.
+            #[must_use]
             pub const fn key(self) -> &'static str {
                 match self { $(Self::$variant => stringify!($variant)),+ }
             }
 
             /// Decodes a published value; zero and unknown values have no variant.
+            #[must_use]
             pub fn from_code(code: u32) -> Option<Self> {
                 Self::ALL.iter().copied().find(|value| value.code() == code)
             }
@@ -172,6 +175,7 @@ scale!(
 
 /// A code as search sees it: zero and a code above `maximum`, from a newer client, are not stated.
 /// A code in a gap below `maximum` stays, so a value added later falls inside its ranges.
+#[must_use]
 pub const fn stated(code: u32, maximum: u32) -> Option<u32> {
     if code == 0 || code > maximum {
         None
@@ -206,6 +210,7 @@ pub struct Scale {
 
 impl Scale {
     /// Whether a client may publish `code`: zero or exactly one of this scale's values.
+    #[must_use]
     pub fn knows(&self, code: u32) -> bool {
         code == 0 || self.options.iter().any(|option| option.code == code)
     }
@@ -242,6 +247,7 @@ pub const SCALES: &[Scale] = &[
 ];
 
 /// Returns the closed scale for a searchable protobuf field.
+#[must_use]
 pub fn scale(field: u32) -> Option<Scale> {
     SCALES.iter().copied().find(|scale| scale.field == field)
 }
