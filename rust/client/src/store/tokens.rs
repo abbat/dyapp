@@ -18,6 +18,11 @@ const KEEP_DAYS: u32 = 1;
 
 impl Store {
     /// Whether the app should request missing write tokens at Unix second `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database read fails or the stored refill setting has an
+    /// unsupported format or invalid length.
     pub fn token_refill_due(&self, now: u64) -> Result<bool, Error> {
         let value: Option<(u32, Vec<u8>)> = self
             .db
@@ -37,6 +42,10 @@ impl Store {
     }
 
     /// Advance the next refill only after every group's request was sent or not needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database write fails.
     pub fn token_refill_sent(&self, now: u64) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
@@ -51,6 +60,11 @@ impl Store {
 
     /// The public token key for `mailbox` on `epoch`, generated and sealed on first use; a retry
     /// returns the same key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database access or nonce generation fails, or if sealing or
+    /// opening the stored key fails, including when `seal_key` does not match.
     pub fn token_key(
         &mut self,
         mailbox: &[u8; 32],
@@ -80,6 +94,11 @@ impl Store {
     }
 
     /// Record the owner's signed WriteToken for a held key; the caller has verified it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database update fails or no held key matches the mailbox
+    /// and epoch.
     pub fn set_write_token(
         &self,
         mailbox: &[u8; 32],
@@ -98,6 +117,11 @@ impl Store {
     }
 
     /// The token key and signed WriteToken that let this profile write to `mailbox` on `epoch`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database access fails or the held key is missing, malformed,
+    /// or cannot be opened with `seal_key`.
     pub fn write_token(
         &self,
         mailbox: &[u8; 32],
@@ -122,6 +146,10 @@ impl Store {
     }
 
     /// The days from `from` on with a WriteToken for `mailbox`, ascending.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the stored epochs fails.
     pub fn write_token_epochs(&self, mailbox: &[u8; 32], from: u32) -> Result<Vec<u32>, Error> {
         let mut query = self.db.prepare(
             "SELECT `epoch` FROM `held_tokens`
@@ -134,6 +162,11 @@ impl Store {
     }
 
     /// Remember that this profile signed `token_key` for `contact` to write to `mailbox`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database write fails or the token is already recorded
+    /// for another contact.
     pub fn record_issued(
         &self,
         contact: &str,
@@ -157,6 +190,11 @@ impl Store {
 
     /// Mark every token issued to `contact` revoked and return the keys still valid on or after
     /// `today`, which the node must be told to refuse.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating, querying, or decoding stored tokens fails. Tokens
+    /// may already be marked revoked when reading the keys fails.
     pub fn revoke_issued(&self, contact: &str, today: u32) -> Result<Vec<[u8; 32]>, Error> {
         self.db.execute(
             "UPDATE `issued_tokens` SET `revoked` = 1 WHERE `contact` = ?1",
@@ -173,6 +211,10 @@ impl Store {
     }
 
     /// Whether `token_key` was issued to a contact this profile later revoked.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the stored revocation state fails.
     pub fn issued_revoked(&self, token_key: &[u8; 32]) -> Result<bool, Error> {
         Ok(self.db.query_row(
             "SELECT EXISTS (SELECT 1 FROM `issued_tokens` WHERE `token_key` = ?1 AND `revoked` = 1)",
@@ -183,6 +225,11 @@ impl Store {
 
     /// Replace pending write `refused`, which a node refused for its token, with `next`, the same
     /// ciphertext under another token or none, in one commit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailboxes differ, the pending write no longer matches
+    /// `refused`, or the database update fails.
     pub fn replace_outbound(
         &mut self,
         refused: &PreparedEnvelope,
@@ -211,6 +258,11 @@ impl Store {
     }
 
     /// Delete held and issued tokens that no node accepts on `today` any more.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a database deletion fails. Held tokens may already have
+    /// been pruned when pruning issued tokens fails.
     pub fn prune_tokens(&self, today: u32) -> Result<(), Error> {
         for table in ["held_tokens", "issued_tokens"] {
             self.db.execute(
