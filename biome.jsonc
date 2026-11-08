@@ -18,6 +18,7 @@
       "clients/desktop/ui/**/*.js",
       "clients/desktop/prototype/**/*.js",
       "clients/desktop/video-frame-renderer.js",
+      "clients/desktop/video-frame-smoke.js",
       "clients/desktop/ui-tests/removal.js"
     ],
     "linter": { "rules": {

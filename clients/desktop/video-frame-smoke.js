@@ -28,6 +28,11 @@ const videoFrames = async (size, count = 4) => {
   renderer.setProduced(produced);
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const metrics = renderer.metrics();
+  checkVideoFrames(canvas, renderer, size, count, channelError, metrics);
+  canvas.remove();
+  return metrics;
+};
+const checkVideoFrames = (canvas, renderer, size, count, channelError, metrics) => {
   const [width, height] = size === '360p' ? [640, 360] : [1280, 720];
   const pixel = [...canvas.getContext('2d').getImageData(0, 0, 1, 1).data];
   if (
@@ -56,8 +61,6 @@ const videoFrames = async (size, count = 4) => {
     renderer.metrics().errors !== 2
   )
     throw new Error('malformed video frame accepted');
-  canvas.remove();
-  return metrics;
 };
 // A separate real-host benchmark step keeps the four-frame CI smoke quick.
 globalThis.videoBenchmark = async (size) => {
