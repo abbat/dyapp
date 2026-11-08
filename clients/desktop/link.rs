@@ -246,7 +246,13 @@ fn write(
         .and_then(|store| store.profile_draft().map_err(|e| e.to_string()));
     if wizard == Some(old.id.as_str()) && matches!(draft, Ok(None)) {
         let peer_id = current.peer_id();
-        let _ = slots::remove(root, &old.id, Some(peer_id.as_str()), &crate::load, &crate::erase);
+        let _ = slots::remove(
+            root,
+            &old.id,
+            Some(peer_id.as_str()),
+            &crate::load,
+            &crate::erase,
+        );
     }
     Ok(slot)
 }

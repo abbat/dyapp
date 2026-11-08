@@ -65,13 +65,17 @@ pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
     #[cfg(unix)]
     let (node_path, node, node_limit) = {
         let store = dir.join("node");
-        let limit = crate::node::load(dir).ok().map(|settings| settings.disk_mb << 20);
+        let limit = crate::node::load(dir)
+            .ok()
+            .map(|settings| settings.disk_mb << 20);
         (Some(store.display().to_string()), bytes(&store), limit)
     };
     #[cfg(not(unix))]
     let (node_path, node, node_limit) = (None, None, None);
     #[cfg(unix)]
-    let free = dir.to_str().and_then(|path| dyapp_bootstrap::storage::free(path).ok());
+    let free = dir
+        .to_str()
+        .and_then(|path| dyapp_bootstrap::storage::free(path).ok());
     // The volume is the disk whose mount point is the longest prefix of `dir`.
     #[cfg(windows)]
     let free = sysinfo::Disks::new_with_refreshed_list()
@@ -104,8 +108,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-desktop-usage-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         let empty = usage(None, &dir);
-        assert_eq!((empty.identity_dir, empty.messages, empty.node), (None, None, None));
-        assert_eq!(empty.messages_path, dir.join("client.db").display().to_string());
+        assert_eq!(
+            (empty.identity_dir, empty.messages, empty.node),
+            (None, None, None)
+        );
+        assert_eq!(
+            empty.messages_path,
+            dir.join("client.db").display().to_string()
+        );
 
         fs::write(dir.join("client.db"), [0; 100]).unwrap();
         fs::write(dir.join("client.db-wal"), [0; 20]).unwrap();

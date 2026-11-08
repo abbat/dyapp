@@ -70,5 +70,8 @@ fn configured_window_is_visible_and_local() {
     assert_eq!(app.windows[0].title, "DYApp");
     assert!(matches!(app.windows[0].url, tauri::WebviewUrl::App(_)));
     // No capabilities: the page can call only the app's own command, no plugin APIs.
-    assert_eq!(app.security.capabilities, Vec::<tauri::utils::config::CapabilityEntry>::new());
+    assert_eq!(
+        app.security.capabilities,
+        Vec::<tauri::utils::config::CapabilityEntry>::new()
+    );
 }

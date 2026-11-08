@@ -47,13 +47,22 @@ fn overlap(a: Rect, b: Rect) -> u64 {
 /// otherwise centred on `primary`, shrunk to fit it.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn place(window: Rect, displays: &[Rect], primary: Rect) -> Rect {
-    let visible: u64 = displays.iter().map(|display| overlap(window, *display)).sum();
-    let title = Rect { height: TITLE_BAR.min(window.height), ..window };
+    let visible: u64 = displays
+        .iter()
+        .map(|display| overlap(window, *display))
+        .sum();
+    let title = Rect {
+        height: TITLE_BAR.min(window.height),
+        ..window
+    };
     let area = window.width as u64 * window.height as u64;
     if visible * 4 >= area && displays.iter().any(|display| overlap(title, *display) > 0) {
         return window;
     }
-    let (width, height) = (window.width.min(primary.width), window.height.min(primary.height));
+    let (width, height) = (
+        window.width.min(primary.width),
+        window.height.min(primary.height),
+    );
     Rect {
         x: primary.x + ((primary.width - width) / 2) as i32,
         y: primary.y + ((primary.height - height) / 2) as i32,
@@ -63,7 +72,12 @@ pub fn place(window: Rect, displays: &[Rect], primary: Rect) -> Rect {
 }
 
 fn rect(position: PhysicalPosition<i32>, size: PhysicalSize<u32>) -> Rect {
-    Rect { x: position.x, y: position.y, width: size.width, height: size.height }
+    Rect {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    }
 }
 
 /// Puts the window where `config/window.json` says, then shows it. A missing or unreadable file
@@ -81,7 +95,11 @@ pub fn restore<R: Runtime>(window: &WebviewWindow<R>, config: Option<&Path>) {
         .collect();
     let primary = window.primary_monitor().ok().flatten();
     if let (Some(saved), Some(primary)) = (saved, primary) {
-        let at = place(saved.normal, &displays, rect(*primary.position(), *primary.size()));
+        let at = place(
+            saved.normal,
+            &displays,
+            rect(*primary.position(), *primary.size()),
+        );
         let _ = window.set_size(PhysicalSize::new(at.width, at.height));
         let _ = window.set_position(PhysicalPosition::new(at.x, at.y));
         if saved.maximized {
@@ -105,7 +123,10 @@ pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
         return;
     }
     if let (Ok(position), Ok(size)) = (window.outer_position(), window.inner_size()) {
-        *saved = Some(Saved { normal: rect(position, size), maximized: false });
+        *saved = Some(Saved {
+            normal: rect(position, size),
+            maximized: false,
+        });
     }
 }
 
@@ -123,27 +144,62 @@ pub fn save(state: &WindowState, config: &Path) {
 mod tests {
     use super::*;
 
-    const SCREEN: Rect = Rect { x: 0, y: 0, width: 1920, height: 1080 };
+    const SCREEN: Rect = Rect {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+    };
 
     #[test]
     fn a_window_on_a_display_keeps_its_place_and_one_off_screen_is_centred() {
-        let window = Rect { x: 100, y: 50, width: 1024, height: 720 };
+        let window = Rect {
+            x: 100,
+            y: 50,
+            width: 1024,
+            height: 720,
+        };
         assert_eq!(place(window, &[SCREEN], SCREEN), window);
         // Three quarters off the right edge, title bar still visible: kept.
-        let edge = Rect { x: 1920 - 256, ..window };
+        let edge = Rect {
+            x: 1920 - 256,
+            ..window
+        };
         assert_eq!(place(edge, &[SCREEN], SCREEN), edge);
         // A display that went away.
         let gone = Rect { x: 2500, ..window };
-        assert_eq!(place(gone, &[SCREEN], SCREEN), Rect { x: 448, y: 180, ..window });
+        assert_eq!(
+            place(gone, &[SCREEN], SCREEN),
+            Rect {
+                x: 448,
+                y: 180,
+                ..window
+            }
+        );
         // Title bar above the display, the body below it.
         let above = Rect { y: -40, ..window };
-        assert_eq!(place(above, &[SCREEN], SCREEN), Rect { x: 448, y: 180, ..window });
+        assert_eq!(
+            place(above, &[SCREEN], SCREEN),
+            Rect {
+                x: 448,
+                y: 180,
+                ..window
+            }
+        );
         // Larger than the primary display: shrunk to fit.
-        let big = Rect { x: -5000, y: 0, width: 3000, height: 2000 };
+        let big = Rect {
+            x: -5000,
+            y: 0,
+            width: 3000,
+            height: 2000,
+        };
         assert_eq!(place(big, &[SCREEN], SCREEN), SCREEN);
         // Spread over two displays, a quarter on each.
         let second = Rect { x: 1920, ..SCREEN };
-        let across = Rect { x: 1920 - 512, ..window };
+        let across = Rect {
+            x: 1920 - 512,
+            ..window
+        };
         assert_eq!(place(across, &[SCREEN, second], SCREEN), across);
     }
 }

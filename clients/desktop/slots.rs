@@ -656,12 +656,12 @@ mod tests {
         let root = temp_root();
         let keys = RefCell::new(HashMap::new());
         let save = |slot: &Slot, identity: &Identity| {
-            keys.borrow_mut().insert(slot.id.clone(), *identity.secret());
+            keys.borrow_mut()
+                .insert(slot.id.clone(), *identity.secret());
             Ok::<_, String>(())
         };
-        let load = |slot: &Slot| {
-            Ok::<_, String>(keys.borrow().get(&slot.id).map(Identity::from_secret))
-        };
+        let load =
+            |slot: &Slot| Ok::<_, String>(keys.borrow().get(&slot.id).map(Identity::from_secret));
         let (first, _) = create(&root, "file", &save, &load).unwrap();
         let linked = Identity::generate();
         let failed = adopt(&root, "file", &linked, &save, &load, &|_| {
@@ -719,10 +719,18 @@ mod tests {
             key.set(Some(*identity.secret()));
             Ok::<_, String>(())
         };
-        let load = |_: &Slot| Ok::<_, String>(key.get().map(|secret| Identity::from_secret(&secret)));
+        let load =
+            |_: &Slot| Ok::<_, String>(key.get().map(|secret| Identity::from_secret(&secret)));
         let (slot, alice) = create(&root, "file", &save, &load).unwrap();
         for name in REMOVABLE.iter().filter(|name| {
-            !["storage-mode", "state", "node", "originals", "sticker-packs"].contains(name)
+            ![
+                "storage-mode",
+                "state",
+                "node",
+                "originals",
+                "sticker-packs",
+            ]
+            .contains(name)
         }) {
             fs::write(slot.dir.join(name), "secret").unwrap();
         }
@@ -738,7 +746,10 @@ mod tests {
         };
         remove(&root, &slot.id, Some(&alice.peer_id()), &load, &erase).unwrap();
         assert!(!slot.dir.exists());
-        assert!(!root.join("profiles").join(format!(".{}.removed", slot.id)).exists());
+        assert!(!root
+            .join("profiles")
+            .join(format!(".{}.removed", slot.id))
+            .exists());
     }
 
     #[test]

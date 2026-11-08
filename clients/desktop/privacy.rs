@@ -84,8 +84,8 @@ pub fn passed(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub mod commands {
     use crate::chats::{self, own, Likes, Sessions};
-    use dyapp_client::chat::PeerChange;
     use crate::identity_runtime::IdentityState;
+    use dyapp_client::chat::PeerChange;
 
     /// The open identity's privacy settings; see `privacy::load`.
     #[tauri::command]

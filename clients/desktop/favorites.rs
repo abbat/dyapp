@@ -99,8 +99,10 @@ mod tests {
             .await
             .unwrap();
         assert!(!saved(&dir, &owner, &peer).unwrap());
-        assert_eq!(list(&directory(), &Identity::generate())
-            .unwrap(), Vec::<String>::new());
+        assert_eq!(
+            list(&directory(), &Identity::generate()).unwrap(),
+            Vec::<String>::new()
+        );
         assert!(saved(&dir, &owner, "bad").is_err());
         assert!(saved(&dir, &owner, &owner.peer_id()).is_err());
         assert_eq!(
