@@ -26,6 +26,12 @@ impl Store {
     /// supplies the verified sender device, not an untrusted body field. A replay is a no-op;
     /// reuse of an operation ID with other bytes or another device is a conflict. A deletion is
     /// terminal even against a later edit. Unknown originals consume a bounded pending slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sender, body, target, operation, or stored message state
+    /// conflicts, text or pending-operation limits are exceeded, clock skew or
+    /// storage range checks fail, or database access or transaction commit fails.
     pub fn apply_chat_operation(
         &mut self,
         key: &MessageKey,

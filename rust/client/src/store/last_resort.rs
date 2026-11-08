@@ -24,6 +24,11 @@ pub struct LastResort {
 
 impl Store {
     /// The saved publication; none before this device's first one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the saved publication fails, its format or
+    /// header length is invalid, or its signed record cannot be decoded.
     pub fn last_resort(&self) -> Result<Option<LastResort>, Error> {
         let row: Option<(u32, Vec<u8>)> = self
             .db
@@ -50,6 +55,10 @@ impl Store {
     }
 
     /// Replace the saved publication. Seal the private MLS state first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the saved publication to the database fails.
     pub fn save_last_resort(&self, state: &LastResort) -> Result<(), Error> {
         let mut value = Vec::with_capacity(HEADER_BYTES + state.record.encoded_len());
         value.extend_from_slice(&state.revision.to_be_bytes());

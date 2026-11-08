@@ -40,11 +40,17 @@ fn file_key(seal_key: &[u8; 32], blob_sha256: &[u8; 32]) -> [u8; 32] {
 }
 
 /// Whether this device keeps the original under this blob hash.
+#[must_use]
 pub fn is_kept(dir: &Path, blob_sha256: &[u8; 32]) -> bool {
     path(dir, blob_sha256).is_file()
 }
 
 /// Writes an opened original. Sweep afterwards: the limit applies then.
+///
+/// # Errors
+///
+/// Returns an error if encrypting the original, creating its directory, or
+/// writing the file fails. A failed write may leave a partial file.
 pub fn keep(
     dir: &Path,
     seal_key: &[u8; 32],
@@ -60,6 +66,7 @@ pub fn keep(
 /// The kept original, marked as just used for eviction. A missing file is `None`, and so is a torn
 /// or foreign one, which goes, so that the photo stops counting as kept: the caller falls back to
 /// the nodes, which the automatic path may only do under the download policy.
+#[must_use]
 pub fn read(dir: &Path, seal_key: &[u8; 32], photo: &Attachment) -> Option<Vec<u8>> {
     let path = path(dir, &photo.blob_sha256);
     let sealed = fs::read(&path).ok()?;
@@ -140,6 +147,12 @@ impl Store {
     /// Erases kept originals of attachments gone from every chat and what the limit no longer
     /// admits. Call after keeping an original, clearing a chat or changing the limit.
     // ponytail: reads every descriptor, an index of blob hashes if histories outgrow this.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cache settings or stored attachment descriptors cannot
+    /// be read or validated, or filesystem enumeration, metadata, or removal fails.
+    /// Earlier file removals remain applied when a later operation fails.
     pub fn sweep_originals(&self, dir: &Path) -> io::Result<()> {
         let config = self.media_cache_config().map_err(io::Error::other)?;
         let known = self.attachment_blobs().map_err(io::Error::other)?;

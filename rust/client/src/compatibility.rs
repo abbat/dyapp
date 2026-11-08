@@ -13,6 +13,7 @@ pub struct Evidence {
 }
 
 /// Compare two already verified profiles locally; never send this evidence to a node.
+#[must_use]
 pub fn compare(own: &VerifiedProfile, other: &VerifiedProfile) -> Evidence {
     evidence(&own.profile, &other.profile)
 }

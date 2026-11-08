@@ -9,6 +9,10 @@ const KEY: &str = "profile_draft";
 
 impl Store {
     /// Save `draft`, replacing any earlier one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the encoded draft to the database fails.
     pub fn save_profile_draft(&self, draft: &Profile) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
@@ -19,6 +23,11 @@ impl Store {
     }
 
     /// The saved draft, or `None` before the first save.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying the draft fails, its format is unsupported,
+    /// or its saved protobuf cannot be decoded.
     pub fn profile_draft(&self) -> Result<Option<Profile>, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db

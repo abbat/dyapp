@@ -15,6 +15,12 @@ fn decode(bytes: &[u8], expected: &[u8; 32]) -> Result<PackAnswer, Error> {
 impl Store {
     /// ACK unsolicited/policy-rejected answers without storing a descriptor or initiating a fetch.
     /// A newly accepted answer commits with MLS, inbox digest and ACK; a later answer cannot replace it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sender or answer metadata is invalid, sealed state is
+    /// empty, inbox content conflicts, saved authorization/answer state is corrupt,
+    /// or database access or transaction commit fails.
     pub fn stage_sticker_pack_answer(
         &mut self,
         sealed: &[u8],
@@ -59,6 +65,11 @@ impl Store {
 
     /// Read a descriptor only for the same active request generation in an open/unblocked chat.
     /// The caller must validate the downloaded pack ID and clicked hash before saving.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the chat is invalid, blocked, closed, or mismatched,
+    /// database access fails, or the saved answer is malformed or noncanonical.
     pub fn sticker_pack_answer(
         &self,
         group: &[u8],

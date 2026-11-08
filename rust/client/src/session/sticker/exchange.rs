@@ -41,6 +41,13 @@ impl Session {
     }
 
     /// Derive a request from the selected received sticker and atomically stage its intent and writes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pair has no group, the selected request is invalid
+    /// or ineligible, the session is invalidated, or encryption, sealing, token
+    /// preparation, or request/outbox persistence fails. Staging failure can
+    /// invalidate the in-memory session.
     pub fn stage_sticker_pack_request(
         &mut self,
         peer: &str,
@@ -56,6 +63,11 @@ impl Session {
     }
 
     /// Send only after the selected request and exact encrypted writes are durable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`Self::stage_sticker_pack_request`] or staged delivery
+    /// fails. Committed intent and writes remain available for retry.
     pub async fn send_sticker_pack_request(
         &mut self,
         nodes: &mut [Node],
@@ -69,6 +81,13 @@ impl Session {
     }
 
     /// Stage a validated descriptor for the current response job, advancing cooldown with the outbox.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the answer is invalid, the session or group is unavailable,
+    /// the response job is stale or ineligible, or encryption, sealing, token
+    /// preparation, clock checks, or persistence fails. Staging failure can
+    /// invalidate the in-memory session.
     pub fn stage_sticker_pack_response(
         &mut self,
         job: &PackResponseJob,
@@ -85,6 +104,11 @@ impl Session {
     }
 
     /// Deliver a response only after exact writes and its daily cooldown commit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`Self::stage_sticker_pack_response`] or staged delivery
+    /// fails. Committed writes and cooldown remain applied.
     pub async fn send_sticker_pack_response(
         &mut self,
         nodes: &mut [Node],

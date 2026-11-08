@@ -5,6 +5,12 @@ use crate::store::{sticker_packs::exchange::download::PackDownloadJob, Error as 
 
 impl Session {
     /// Explicitly request a new descriptor, retiring the old answer with the new MLS/outbox commit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pair has no group, the request generation is stale
+    /// or inconsistent, eligibility checks fail, or MLS/request/outbox staging
+    /// fails. Staging failure can invalidate the in-memory session.
     pub fn stage_fresh_sticker_pack_request(
         &mut self,
         job: &PackDownloadJob,
@@ -27,6 +33,11 @@ impl Session {
     }
 
     /// Deliver a fresh request after its new generation and exact encrypted writes are durable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`Self::stage_fresh_sticker_pack_request`] or staged
+    /// delivery fails. The new request generation and writes may already be committed.
     pub async fn send_fresh_sticker_pack_request(
         &mut self,
         nodes: &mut [Node],

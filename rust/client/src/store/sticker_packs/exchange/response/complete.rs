@@ -8,6 +8,12 @@ use rusqlite::{params, OptionalExtension, TransactionBehavior};
 impl Store {
     /// Commit one current response generation and its rolling daily cooldown with exact writes.
     /// Recheck saved-file presence under the pack writer lock: Remove may run during upload.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the answer, writes, time, authorization, or job generation
+    /// is invalid, cooldown has not elapsed, the saved pack is unavailable, outbox
+    /// state conflicts, or database access or transaction commit fails.
     pub fn stage_sticker_pack_response(
         &mut self,
         sealed: &[u8],
@@ -77,6 +83,10 @@ impl Store {
     }
 
     /// Retire a job for an unavailable saved pack without pretending a response was sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating the matching response generation fails.
     pub fn retire_sticker_pack_response(&self, job: &PackResponseJob) -> Result<bool, Error> {
         Ok(self.db.execute(
             "UPDATE `sticker_pack_responses` SET `pending_group` = NULL, `job_token` = NULL,

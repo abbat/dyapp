@@ -38,6 +38,12 @@ impl Session {
     /// Upload the `blob` from [`crate::attachment::seal`], signed by the owner `identity`, to the
     /// first of `nodes` that takes it, then send its [`Attachment`], with any preview, MIME type
     /// and dimensions set, like a text. Nothing is staged when no node takes the blob.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if attachment validation, upload, randomness, clock access,
+    /// or message staging/delivery fails. A blob may already be uploaded, and
+    /// staged writes remain durable when delivery fails.
     pub async fn send_attachment(
         &mut self,
         nodes: &mut [Node],
@@ -69,6 +75,11 @@ impl Session {
 
     /// [`Session::send_attachment`] into the pair's canonical joined group, which must be an open
     /// conversation: an attachment never opens a message request.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pair has no group, the peer is blocked, the chat is
+    /// not open, storage checks fail, or [`Self::send_attachment`] fails.
     pub async fn send_attachment_to(
         &mut self,
         nodes: &mut [Node],

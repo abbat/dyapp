@@ -32,6 +32,11 @@ pub enum Conversation {
 
 impl Store {
     /// This profile's conversation state with `peer_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying the conversation fails or its stored state
+    /// and request ID are inconsistent.
     pub fn conversation(&self, peer_id: &str) -> Result<Conversation, Error> {
         load(&self.db, peer_id)
     }

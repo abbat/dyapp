@@ -11,6 +11,12 @@ use crate::chat::sticker::Sticker;
 impl Session {
     /// Stage a sticker into an open pair chat with a fresh logical ID and sender HLC.
     /// The template's ID/HLC are ignored; its fallback labels and optional descriptor are validated.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group is unknown, the peer is blocked, the chat is
+    /// not open, randomness or clock access fails, sticker validation fails,
+    /// or MLS/outbox staging fails.
     pub fn stage_sticker(
         &mut self,
         group_id: &[u8],
@@ -35,6 +41,11 @@ impl Session {
     }
 
     /// Deliver only after the exact encrypted writes and local projection are durable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`Self::stage_sticker`] or staged delivery fails.
+    /// Committed writes remain available for retry.
     pub async fn send_sticker(
         &mut self,
         nodes: &mut [Node],
@@ -48,6 +59,10 @@ impl Session {
     }
 
     /// Send through the pair's canonical joined group; never opens a request.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pair has no joined group or [`Self::send_sticker`] fails.
     pub async fn send_sticker_to(
         &mut self,
         nodes: &mut [Node],

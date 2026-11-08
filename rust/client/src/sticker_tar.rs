@@ -61,6 +61,11 @@ fn checked_header(header: &[u8]) -> Result<(), String> {
 /// Returns borrowed root-file bytes after bounded header, checksum and path validation.
 /// PAX metadata is skipped, never interpreted as a path override. Manifest membership and
 /// content hashes are validated by the caller before storing or decoding any returned file.
+///
+/// # Errors
+///
+/// Returns an error if archive size or alignment, headers, checksums, filenames,
+/// entry types, file/count limits, offsets, padding, or end blocks are invalid.
 pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
     if bytes.len() > MAX_ARCHIVE || !bytes.len().is_multiple_of(BLOCK) {
         return Err("TAR archive too large or not block aligned".into());

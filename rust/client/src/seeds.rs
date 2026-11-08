@@ -58,6 +58,12 @@ fn dial_opts(address: Multiaddr) -> DialOpts {
 }
 
 /// Dials every row of `network` over TCP and QUIC and reports each within `wait`.
+///
+/// # Errors
+///
+/// Returns an error if there are no seed rows, the network name is invalid,
+/// or the client swarm cannot be constructed. Per-row dial and validation
+/// failures are returned as [`Row`] values.
 pub async fn check(network: &Network, wait: Duration) -> Result<Vec<Row>, CheckError> {
     if network.seeds.is_empty() {
         return Err(CheckError::NoSeeds);

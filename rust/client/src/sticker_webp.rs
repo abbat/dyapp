@@ -76,6 +76,11 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
 
 /// Checks container bounds, metadata and advertised canvas/frame dimensions before decoding.
 /// A successful check still requires bounded WebP bitstream decoding and nontransparent RGBA.
+///
+/// # Errors
+///
+/// Returns an error if container structure, bounds, dimensions, chunk ordering,
+/// metadata policy, padding, or animation frame/duration limits are invalid.
 pub fn check_header(bytes: &[u8]) -> Result<(), &'static str> {
     if bytes.len() > MAX_BYTES
         || bytes.len() < 12

@@ -47,6 +47,13 @@ impl Session {
     /// Upload/reuse one validated saved-pack entry, then stage its metadata through the outbox.
     /// Upload failure leaves a resumable reservation and does not stage a chat message.
     /// After staging, transient mailbox failure returns the ID: the durable outbox owns retry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if ownership, group, chat eligibility, sticker index or
+    /// decoding checks fail, randomness or encryption fails, upload reservation
+    /// or transport fails, or staging/non-client delivery fails. Reservations or
+    /// writes may already be durable; client delivery errors after staging return the ID.
     pub async fn send_pack_sticker_to(
         &mut self,
         nodes: &mut [Node],

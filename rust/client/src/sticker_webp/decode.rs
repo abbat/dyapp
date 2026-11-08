@@ -20,6 +20,12 @@ pub struct Frame {
 }
 
 /// Validates the container and returns its nontransparent first frame, containing decoder panics.
+///
+/// # Errors
+///
+/// Returns an error if container checks, decoding, dimensions, animation limits,
+/// or output-size checks fail, the first frame is fully transparent, or the
+/// decoder panics.
 pub fn first_frame(bytes: &[u8]) -> Result<Frame, &'static str> {
     check_header(bytes)?;
     std::panic::catch_unwind(|| decode(bytes)).map_err(|_| "WebP decoder panic")?

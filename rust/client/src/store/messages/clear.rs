@@ -9,6 +9,10 @@ impl Store {
     /// Remove every current text, placeholder and attachment of `group`, its operations and unsent
     /// outbox writes in one transaction, marking each removed message and each target of a
     /// removed pending operation. Returns how many chat items went. Nothing is sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `group` is empty or database access or transaction commit fails.
     pub fn clear_chat(&mut self, group: &[u8]) -> Result<usize, Error> {
         if group.is_empty() {
             return Err(Error::InboxConflict);
@@ -22,6 +26,11 @@ impl Store {
     /// Clear every cataloged MLS group for one peer in a single device-local transaction.
     /// Pending pack requests are cancelled; saved packs, recents and sharing proof remain.
     /// Conversation state and other peers are unchanged; no receipt is sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer is empty or identifies this owner, or database
+    /// access or transaction commit fails.
     pub fn clear_chat_pair(&mut self, peer_id: &str) -> Result<usize, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);

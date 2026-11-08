@@ -10,6 +10,11 @@ const MAX_PEER_ID: usize = 64;
 
 impl Store {
     /// The last saved cursor for `node`. Switching holders clears the old position.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the saved cursor fails, its encoding or peer ID
+    /// is invalid, or clearing a different holder's cursor fails.
     pub fn mailbox_cursor_for(&self, node: PeerId) -> Result<Option<Vec<u8>>, Error> {
         let row: Option<(i64, Vec<u8>)> = self
             .db
@@ -46,6 +51,11 @@ impl Store {
     }
 
     /// Save a cursor only after the page's durable processing and ACK attempt.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer ID or cursor is empty or oversized, or writing
+    /// the cursor setting fails.
     pub fn save_mailbox_cursor(&self, node: PeerId, cursor: &[u8]) -> Result<(), Error> {
         let peer = node.to_bytes();
         if peer.is_empty()
@@ -63,6 +73,10 @@ impl Store {
     }
 
     /// Start the next pass from the mailbox head. This keeps one bounded settings row.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the empty cursor setting fails.
     pub fn clear_mailbox_cursor(&self) -> Result<(), Error> {
         self.write_mailbox_cursor(&[])
     }

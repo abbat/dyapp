@@ -15,6 +15,13 @@ use crate::{
 impl Session {
     /// Complete at most four admitted downloads, preserving typed failures for scheduled retry.
     /// A stop cannot interrupt an attachment request already awaiting its transport deadline.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if listing jobs, reading eligibility or admitted answers,
+    /// retiring requests, or persisting retry state fails. Fetch, validation and
+    /// save failures are recorded for retry when possible. Earlier jobs may
+    /// already be completed when a later job fails.
     pub async fn download_sticker_packs(
         &mut self,
         nodes: &mut [Node],

@@ -48,6 +48,11 @@ impl Store {
     /// A closed conversation with nothing left in it is not listed.
     /// Timed rows sort first by original HLC; legacy rows use local arrival order. Empty
     /// conversations follow rows with messages, then Peer ID breaks any remaining tie.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding conversation, message, or media
+    /// state fails, or stored metadata, timestamps, or unread counts are invalid.
     pub fn chat_rows(&self) -> Result<Vec<ChatRow>, Error> {
         let mut query = self.db.prepare(
             "WITH `ranked` AS (

@@ -16,6 +16,10 @@ pub enum NoticeContent {
 
 impl Store {
     /// What a local notice shows.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the setting cannot be read or its encoding or value is invalid.
     pub fn notice_content(&self) -> Result<NoticeContent, Error> {
         match self.setting_byte("notice_content")? {
             None | Some(0) => Ok(NoticeContent::Fixed),
@@ -26,6 +30,10 @@ impl Store {
     }
 
     /// Persist what a local notice shows.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the notice setting to the database fails.
     pub fn set_notice_content(&self, content: NoticeContent) -> Result<(), Error> {
         let value = match content {
             NoticeContent::Fixed => 0,

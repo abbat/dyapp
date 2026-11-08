@@ -59,6 +59,7 @@ pub enum DecodeError {
 
 impl Interaction {
     /// Encode exactly one version-1 interaction. No peer identity or user text is included.
+    #[must_use]
     pub fn encode(self) -> [u8; ENCODED_LEN] {
         let mut bytes = [0; ENCODED_LEN];
         bytes[0] = VERSION;
@@ -69,6 +70,11 @@ impl Interaction {
     }
 
     /// Decode only the exact version-1 layout; never accept trailing data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the payload length differs from the exact layout, or
+    /// its version or action kind is unsupported.
     pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         if bytes.len() != ENCODED_LEN {
             return Err(DecodeError::Length);

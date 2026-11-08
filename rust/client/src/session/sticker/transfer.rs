@@ -13,6 +13,13 @@ const RESPONSE_BATCH: usize = 4;
 impl Session {
     /// Process a bounded response batch, retaining failed uploads for deadline-based retry.
     /// Only completed outbox staging advances cooldown; later mailbox errors use normal retry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identity is not the store owner, reading or updating
+    /// job state fails, encryption or upload reservation fails, descriptor checks
+    /// fail, or staging, recovery, or non-client delivery fails. Earlier jobs may
+    /// already be committed; client upload/delivery errors use durable retry.
     pub async fn respond_sticker_pack_requests(
         &mut self,
         nodes: &mut [Node],

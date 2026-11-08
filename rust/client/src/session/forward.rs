@@ -6,6 +6,11 @@ impl Session {
     /// Forward text as this MLS sender into an existing open conversation. The forwarded body
     /// names no original author; the new logical ID, HLC and exact encrypted writes are durable
     /// before any network request.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group is unknown, the peer is blocked, the chat is
+    /// not open, randomness or clock access fails, or MLS/outbox staging fails.
     pub fn stage_forwarded_text(
         &mut self,
         group_id: &[u8],
@@ -32,6 +37,11 @@ impl Session {
     }
 
     /// Send a forwarded text after its exact writes are committed locally.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`Self::stage_forwarded_text`] or delivering the staged
+    /// writes fails. Committed writes remain available for retry.
     pub async fn send_forwarded_text(
         &mut self,
         nodes: &mut [Node],
@@ -45,6 +55,11 @@ impl Session {
     }
 
     /// Forward into the pair's canonical joined group after the target profile was checked.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pair has no joined group or
+    /// [`Self::send_forwarded_text`] fails.
     pub async fn send_forwarded_text_to(
         &mut self,
         nodes: &mut [Node],

@@ -15,6 +15,12 @@ impl Session {
     /// group one receipt for its new envelopes. Write-token and receipt bodies are handled here
     /// and not returned; a join also asks the group for tokens. On an error, events committed so
     /// far are in the inbox history and their ACKs stay pending.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching, processing or storing envelopes, handling
+    /// control messages, acknowledging deliveries, or staging receipts fails.
+    /// Earlier envelopes and their ACK intent may already be committed.
     pub async fn receive(
         &mut self,
         nodes: &mut [Node],
@@ -33,6 +39,12 @@ impl Session {
 
     /// Process one bounded page and report whether another page is due on this same node.
     /// The caller schedules the continuation; each call commits inbox work before ACK.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or processing a page fails, the node omits a
+    /// required continuation cursor, or cursor/inbox storage fails. Earlier
+    /// envelope and ACK updates may already be committed.
     pub async fn receive_page(
         &mut self,
         nodes: &mut [Node],
@@ -81,6 +93,10 @@ impl Session {
     /// profile resolved, the next page is the head: the owner's earlier texts wait there, and
     /// opening later ones first would push them past the ratchet's out-of-order window, refused
     /// for good. A resolved owner never stops a page again, so this cannot stall the mailbox.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if clearing the stored mailbox cursor fails.
     pub fn next_page(&self, more: bool, resolved: bool) -> Result<bool, Error> {
         if resolved {
             self.store.clear_mailbox_cursor()?;
