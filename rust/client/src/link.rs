@@ -41,6 +41,7 @@ pub struct Code {
 
 impl Code {
     /// The text form of the code. Contact QR codes never match it.
+    #[must_use]
     pub fn text(&self) -> String {
         format!(
             "{PREFIX}{}:{}:{}",
@@ -51,6 +52,11 @@ impl Code {
     }
 
     /// Reads a scanned code, refusing a malformed or an expired one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the prefix, field count, keys, or expiry is malformed,
+    /// or `now` is at or after the expiry.
     pub fn parse(text: &str, now: u64) -> Result<Self, Error> {
         let rest = text
             .strip_prefix(PREFIX)
@@ -80,6 +86,11 @@ impl Code {
     }
 
     /// Seals the identity key and the owner's local state for this code, as parts for its mailbox.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the code has expired, HPKE sealing or random ID generation
+    /// fails, or the sealed state requires more parts than the format supports.
     pub fn seal_record(
         &self,
         identity: &Identity,
@@ -103,6 +114,12 @@ impl Code {
     }
 
     /// Seals the record and puts its parts in the code's mailbox.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sealing the record fails as described in
+    /// [`Self::seal_record`], or sending any part fails. Earlier parts may already
+    /// be in the mailbox.
     pub async fn send(
         &self,
         node: &mut Node,
@@ -136,6 +153,15 @@ type Parts<'a> = BTreeMap<u16, &'a [u8]>;
 
 impl Invite {
     /// Starts a link that delivers to `mailbox`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if key generation fails or the generated public key has an
+    /// unexpected length.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `now + TTL_SECONDS` overflows when overflow checks are enabled.
     pub fn new(mailbox: [u8; 32], now: u64) -> Result<Self, Error> {
         let key = LinkKey::generate()?;
         let public = key
@@ -153,12 +179,20 @@ impl Invite {
     }
 
     /// The code to show.
+    #[must_use]
     pub fn code(&self) -> &Code {
         &self.code
     }
 
     /// The record waiting in the mailbox of `device_key`, if a complete one opens. Poll this until
     /// the code expires; the call after that erases the key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the code has expired, fetching any page fails, or an
+    /// authenticated record is too short to hold an identity key. Expiry erases
+    /// the one-use key; a short authenticated record also consumes it.
+    /// Acknowledgement failures are ignored after a record opens.
     pub async fn receive(
         &mut self,
         node: &mut Node,
@@ -197,6 +231,13 @@ impl Invite {
 
     /// Looks for a record in what the mailbox holds, in any order and among anything else. `None`
     /// means no complete record opened yet: someone who saw the code cannot spend the key with junk.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the code has expired or an authenticated record is too
+    /// short to hold an identity key. Either case consumes the one-use key.
+    /// Incomplete records and records that fail authentication return `Ok(None)`
+    /// without consuming a live key.
     pub fn open(&mut self, parts: &[Vec<u8>], now: u64) -> Result<Option<Linked>, Error> {
         self.live(now)?;
         let mut records: BTreeMap<(&[u8], u16), Parts> = BTreeMap::new();
