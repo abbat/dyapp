@@ -240,7 +240,7 @@ const expectedFields = (photos = 0) =>
     `${window.strings['profile.seekingAgeTo']}: 60`,
     ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
   ].join('|');
-const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
+const preparePublishDraft = (saved) => {
   if (saved) {
     if (
       byId('profile-gender').value !== '1' ||
@@ -262,6 +262,9 @@ const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0
     byId('profile-about').value = ABOUT;
     fillSeeking();
   }
+};
+const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0) => {
+  preparePublishDraft(saved);
   const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields(photos))
     throw new Error(`profile preview changed: ${fields}`);
