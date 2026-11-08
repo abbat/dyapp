@@ -284,8 +284,9 @@ writable source mount. Checks retain read-only mounts. Formatting uses two space
 JavaScript quotes and 100 columns. Assist actions remain disabled.
 The complexity rollout currently enforces cognitive complexity 15 and function length 50 code
 lines on chat UI/photo/message rendering, contact notes, identifiers, network, search, peer photos and
-saved profile UI scripts, settings collections, sticker collection/picker/message/request scripts, and removal smoke
-helpers. Blank lines and immediate closure wrappers used to scope classic scripts are excluded;
+saved profile UI scripts, the app/profile-form controller, settings collections,
+sticker collection/picker/message/request scripts, and removal smoke helpers. Blank lines and
+immediate closure wrappers used to scope classic scripts are excluded;
 nested functions remain checked. Extending this scope to the remaining UI and smoke scripts is
 planned after their measured backlog is refactored. The recommended rules apply except three,
 each justified in the config:

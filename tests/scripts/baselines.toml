@@ -86,7 +86,6 @@ max_lines = 1000
 "clients/desktop/ui-tests/chats.js" = 1319
 "clients/desktop/ui-tests/guards.js" = 1310
 "clients/desktop/ui-tests/identity.js" = 1209
-"clients/desktop/ui/app.js" = 1034
 # Files over the limit may shrink, never grow; lower each budget when it shrinks.
 
 [settings]

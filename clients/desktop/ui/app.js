@@ -613,30 +613,7 @@ const showProfile = async (call = invoke) => {
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile(generation);
   scaleFields = scales;
-  const rows = scales.map((scale) => {
-    const label = document.createElement('label');
-    const select = document.createElement('select');
-    select.id = `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`;
-    label.htmlFor = select.id;
-    label.textContent = window.strings[`profile.field.${scale.key}`];
-    const unset = document.createElement('option');
-    unset.value = '0';
-    unset.textContent = window.strings['profile.unset'];
-    select.append(
-      unset,
-      ...scale.choices.map((choice) => {
-        const option = document.createElement('option');
-        option.value = String(choice.code);
-        option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
-        return option;
-      }),
-    );
-    select.value = String(view.draft[camel(scale.key)] || 0);
-    const row = document.createElement('div');
-    row.className = 'field';
-    row.append(label, select);
-    return row;
-  });
+  const rows = scales.map((scale) => window.profileForm.scaleRow(scale, view.draft));
   const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
   document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
@@ -648,21 +625,7 @@ const showProfile = async (call = invoke) => {
   document.getElementById('profile-about').value = view.draft.about;
   window.showProfileInterests(view.draft.interests);
   showSeeking(view.draft);
-  const unsetCountry = document.createElement('option');
-  unsetCountry.value = '';
-  unsetCountry.textContent = window.strings['profile.unset'];
-  placeCountry.replaceChildren(
-    unsetCountry,
-    ...countries
-      .map((code) => [code, countryName(code)])
-      .sort(([, a], [, b]) => a.localeCompare(b, window.locale))
-      .map(([code, name]) => {
-        const option = document.createElement('option');
-        option.value = code;
-        option.textContent = name;
-        return option;
-      }),
-  );
+  placeCountry.replaceChildren(...window.profileForm.countryOptions(countries));
   document.getElementById('profile-name').value = view.draft.name;
   placeCountry.value = view.draft.country;
   const place =
@@ -932,39 +895,41 @@ profileHidden.addEventListener('change', () => {
   window.hideDone = hideProfile();
 });
 
+async function renderReady(state, generation, fresh) {
+  document.getElementById('peer-id').textContent = state.peerId;
+  document.getElementById('file-backup').hidden = state.mode !== 'file';
+  document.getElementById('key-path').textContent = state.keyPath || '';
+  const items = await invoke('list_identities');
+  if (!identityCurrent(generation)) return state;
+  knowPeers(items);
+  const sidebarIdentity = document.getElementById('sidebar-identity');
+  const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
+  text.className = 'label';
+  text.lastChild.className = 'sub';
+  sidebarIdentity.replaceChildren(avatar, text);
+  await window.showNetwork();
+  if (!identityCurrent(generation)) return state;
+  window.connectionShown = connectAtLaunch();
+  await showProfile();
+  if (!identityCurrent(generation)) return state;
+  setProfileBusy(false);
+  profileCancel.disabled = false;
+  if (publishDialog.open) publishDialog.close();
+  window.resetSearch();
+  // Starts the node when its setting is on and stops another identity's node; never blocks.
+  invoke('apply_node').catch(() => {});
+  window.announcePresence();
+  showArea('profile-area');
+  window.statusShown = showStatus();
+  wizardStep(fresh);
+  show(fresh ? wizardNetwork : identity, 'status.ready');
+  return state;
+}
+
 async function render(state, generation = identityGeneration, fresh = false) {
   if (!identityCurrent(generation)) return state;
   if (state.status === 'ready' || state.status === 'recovery') current = state;
-  if (state.status === 'ready') {
-    document.getElementById('peer-id').textContent = state.peerId;
-    document.getElementById('file-backup').hidden = state.mode !== 'file';
-    document.getElementById('key-path').textContent = state.keyPath || '';
-    const items = await invoke('list_identities');
-    if (!identityCurrent(generation)) return state;
-    knowPeers(items);
-    const sidebarIdentity = document.getElementById('sidebar-identity');
-    const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
-    text.className = 'label';
-    text.lastChild.className = 'sub';
-    sidebarIdentity.replaceChildren(avatar, text);
-    await window.showNetwork();
-    if (!identityCurrent(generation)) return state;
-    window.connectionShown = connectAtLaunch();
-    await showProfile();
-    if (!identityCurrent(generation)) return state;
-    setProfileBusy(false);
-    profileCancel.disabled = false;
-    if (publishDialog.open) publishDialog.close();
-    window.resetSearch();
-    // Starts the node when its setting is on and stops another identity's node; never blocks.
-    invoke('apply_node').catch(() => {});
-    window.announcePresence();
-    showArea('profile-area');
-    window.statusShown = showStatus();
-    wizardStep(fresh);
-    show(fresh ? wizardNetwork : identity, 'status.ready');
-    return state;
-  }
+  if (state.status === 'ready') return renderReady(state, generation, fresh);
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
     if (!identityCurrent(generation)) return state;

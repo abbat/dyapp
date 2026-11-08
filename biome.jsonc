@@ -19,6 +19,8 @@
       "clients/desktop/ui/chat-photos.js",
       "clients/desktop/ui/chat-message.js",
       "clients/desktop/ui/settings-collections.js",
+      "clients/desktop/ui/app.js",
+      "clients/desktop/ui/profile-form.js",
       "clients/desktop/ui/contact-notes.js",
       "clients/desktop/ui/identifiers.js",
       "clients/desktop/ui/network.js",
