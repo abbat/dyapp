@@ -284,8 +284,8 @@ writable source mount. Checks retain read-only mounts. Formatting uses two space
 JavaScript quotes and 100 columns. Assist actions remain disabled.
 Cognitive complexity 15 and function length 50 code lines are blocking for every desktop UI
 and prototype JavaScript file, including future files in those directories. The test-only video
-frame renderer, video smoke, settings-list smoke and removal smoke helpers also enforce these
-limits. Blank lines and immediate closure wrappers used to scope classic scripts are excluded; nested functions remain checked.
+frame renderer, video smoke, settings list/navigation smoke and removal smoke helpers also enforce
+these limits. Blank lines and immediate closure wrappers used to scope classic scripts are excluded; nested functions remain checked.
 Extending this scope to the remaining smoke scripts is planned after their measured backlog is
 refactored. The recommended rules apply except three,
 each justified in the config:

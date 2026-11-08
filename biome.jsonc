@@ -20,7 +20,8 @@
       "clients/desktop/video-frame-renderer.js",
       "clients/desktop/video-frame-smoke.js",
       "clients/desktop/ui-tests/removal.js",
-      "clients/desktop/ui-tests/settings-lists.js"
+      "clients/desktop/ui-tests/settings-lists.js",
+      "clients/desktop/ui-tests/settings-nav.js"
     ],
     "linter": { "rules": {
       "complexity": {
