@@ -20,6 +20,7 @@ mod list;
 
 impl ChatSticker {
     /// Authenticated sender wall time, without the HLC logical counter.
+    #[must_use]
     pub fn sent_at_ms(&self) -> u64 {
         dyapp_messaging::hlc::Timestamp::from(self.sticker.hlc).wall_ms()
     }
@@ -37,6 +38,12 @@ impl ChatSticker {
 impl Store {
     /// Persist verified metadata once; a replay does not restore local unread state.
     /// Direct storage API; session receive uses the shared inbox/MLS transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sticker, sender, or group validation fails, the timestamp
+    /// exceeds the storage range, message state conflicts, pending operations
+    /// cannot be resolved, or database access or transaction commit fails.
     pub fn record_chat_sticker(
         &mut self,
         sender: VerifiedChatSender<'_>,
@@ -99,6 +106,11 @@ impl Store {
 
     /// Whether this owner explicitly shared the pack with this peer in a verified pair chat.
     /// Historical proof only: responses must also check open/unblocked chat and saved-pack existence.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer is empty or identifies this owner, or querying
+    /// or decoding the stored sharing evidence fails.
     pub fn shared_sticker_pack(&self, peer: &str, pack_id: &[u8; 32]) -> Result<bool, Error> {
         if peer.is_empty() || peer == self.owner_peer_id {
             return Err(Error::InboxConflict);
@@ -121,6 +133,11 @@ impl Store {
     }
 
     /// Read a pair's stickers in original sender-time order, including unavailable media.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer is empty or identifies this owner, querying or
+    /// decoding fails, or stored sticker descriptors and metadata are inconsistent.
     pub fn current_chat_stickers(&self, peer_id: &str) -> Result<Vec<ChatSticker>, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);

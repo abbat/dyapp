@@ -5,6 +5,10 @@ use rusqlite::{params, OptionalExtension, Transaction};
 
 impl Store {
     /// Check before processing MLS bytes so a repeated fetch cannot apply or display them twice.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the inbox entry fails.
     pub fn has_inbox(&self, key: &InboxKey) -> Result<bool, Error> {
         let found: Option<i64> = self
             .db
@@ -20,6 +24,12 @@ impl Store {
     /// Commit the new sealed MLS snapshot, processed delivery and pending ACK together, and the
     /// `(group ID, peer ID)` catalog entry of a group a Welcome joined.
     /// Returns false for an identical duplicate without replacing the saved MLS state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sealed MLS state is empty, joined-group metadata is
+    /// invalid or conflicts, a duplicate envelope has different content, or
+    /// database access or transaction commit fails.
     pub fn stage_inbound(
         &mut self,
         sealed_device: &[u8],
@@ -87,6 +97,11 @@ impl Store {
     }
 
     /// Delivery IDs to acknowledge after the MLS snapshot and deduplication row are durable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding pending ACKs fails, or a stored
+    /// mailbox or envelope ID has an invalid length.
     pub fn pending_acks(&self) -> Result<Vec<InboxKey>, Error> {
         let mut query = self.db.prepare(
             "SELECT `mailbox`, `envelope_id` FROM `inbox` WHERE `ack_pending` = 1
@@ -106,6 +121,10 @@ impl Store {
     }
 
     /// Mark an ACK completed only after the node confirms it; repeated calls are harmless.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating the ACK state in the database fails.
     pub fn mark_acked(&self, key: &InboxKey) -> Result<bool, Error> {
         Ok(self.db.execute(
             "UPDATE `inbox` SET `ack_pending` = 0 WHERE `mailbox` = ?1

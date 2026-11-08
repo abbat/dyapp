@@ -46,6 +46,7 @@ impl ChatMessage {
 
 impl ChatAttachment {
     /// The sender's authenticated wall time.
+    #[must_use]
     pub fn sent_at_ms(&self) -> u64 {
         Timestamp::from(self.message.hlc).wall_ms()
     }
@@ -106,7 +107,13 @@ pub(super) fn exists(tx: &Transaction<'_>, key: &MessageKey) -> Result<bool, Err
 
 impl Store {
     /// Record a verified media body once. A replay keeps local unread state unchanged.
-    /// Session receive/send will call the transaction form in the next checkpoint.
+    /// Session receive/send uses the shared inbox/outbox transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the body is not a valid attachment, sender or group
+    /// metadata is invalid, the timestamp exceeds the storage range, a logical
+    /// message key conflicts, or database access or transaction commit fails.
     pub fn record_chat_attachment(
         &mut self,
         sender: VerifiedChatSender<'_>,
@@ -148,6 +155,11 @@ impl Store {
     }
 
     /// Read descriptors across the pair's cataloged groups in stable sender-time order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer is empty or identifies this owner, querying or
+    /// decoding fails, or stored descriptors and message metadata are inconsistent.
     pub fn current_chat_attachments(&self, peer_id: &str) -> Result<Vec<ChatAttachment>, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);
@@ -168,6 +180,11 @@ impl Store {
 
     /// Merge a pair's texts and attachments. Legacy texts come first in local arrival order;
     /// everything else follows original HLC, author, logical ID and group ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the peer is invalid, querying or decoding texts,
+    /// attachments, or stickers fails, or their stored metadata is inconsistent.
     pub fn current_chat_items(&self, peer_id: &str) -> Result<Vec<ChatItem>, Error> {
         let texts = self.current_chat_messages(peer_id)?;
         let attachments = self.current_chat_attachments(peer_id)?;
