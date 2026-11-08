@@ -390,5 +390,6 @@ guard let value = object as? String else { return }
   complete group. Root API error and panic contracts are being documented before enforcement;
   identity, profile, networking, messaging and video value-producing APIs mark their results
   `must_use`. Client envelope preparation lives in `rust/client/src/prepared.rs`, with stable
-  root reexports, to keep API contracts below the per-file size limit.
+  root reexports, to keep API contracts below the per-file size limit. Session restoration and
+  read-only accessors live in `rust/client/src/session/state.rs`.
 - Required status checks are not established.
