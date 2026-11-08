@@ -376,6 +376,9 @@ impl Default for SwarmOptions {
 }
 
 /// A swarm with default options in `mode`.
+///
+/// # Errors
+/// Returns transport or authentication setup errors from [`build_configured_swarm`].
 pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behaviour>> {
     build_configured_swarm(
         keypair,
@@ -389,6 +392,9 @@ pub fn build_swarm(keypair: Keypair, mode: Mode) -> anyhow::Result<Swarm<Behavio
 /// [`build_swarm`] with connection limits and at most `max_streams` concurrent streams per
 /// connection and protocol; new connections are refused while the process uses more than
 /// `max_memory_bytes` of physical memory. `search` serves the search protocols and gossip.
+///
+/// # Errors
+/// Returns transport or authentication setup errors from [`build_configured_swarm`].
 pub fn build_limited_swarm(
     keypair: Keypair,
     mode: Mode,
@@ -411,6 +417,13 @@ pub fn build_limited_swarm(
 }
 
 /// Builds a swarm with explicit settings; legacy constructors delegate here.
+///
+/// # Errors
+/// Returns an error if transport or relay authentication setup fails.
+///
+/// # Panics
+/// Panics if search gossip configuration or signed gossip behaviour cannot be
+/// constructed from the supplied protocols and key.
 pub fn build_configured_swarm(
     keypair: Keypair,
     options: SwarmOptions,
@@ -648,6 +661,10 @@ pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
 }
 
 /// A fresh Ed25519 key whose peer ID has the proof of work of `bits`, searched on every CPU.
+///
+/// # Panics
+/// Panics if a search worker cannot be spawned or panics, or if every worker
+/// returns without a key. Key generation also requires an available OS random source.
 pub fn generate_pow_keypair(bits: u32) -> Keypair {
     let threads = std::thread::available_parallelism().map_or(1, usize::from);
     let found = AtomicBool::new(false);

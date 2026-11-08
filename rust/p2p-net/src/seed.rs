@@ -15,6 +15,10 @@ pub enum SeedError {
 }
 
 /// The TCP and QUIC addresses of one seed row; a pinned row ends both with `/p2p/<peer ID>`.
+///
+/// # Errors
+/// Returns [`SeedError::Address`] for an invalid host/port row, or
+/// [`SeedError::PeerId`] if the optional peer suffix cannot be parsed.
 pub fn parse(row: &str) -> Result<[Multiaddr; 2], SeedError> {
     if let Some((host, peer)) = row.split_once('/') {
         let addresses = parse(host)?;

@@ -21,7 +21,11 @@ pub struct IncomingGroupLimits {
 
 impl IncomingGroupLimits {
     /// `max` connections per remote group of IPv4 `/ipv4_prefix` or IPv6 `/ipv6_prefix`;
-    /// fails if `max` is zero or a prefix is out of range.
+    /// enforces one shared limit for each address group.
+    ///
+    /// # Errors
+    /// Returns an error if `max` is zero, `ipv4_prefix` exceeds 32, or
+    /// `ipv6_prefix` exceeds 128.
     pub fn new(max: u32, ipv4_prefix: u8, ipv6_prefix: u8) -> anyhow::Result<Self> {
         anyhow::ensure!(max > 0, "incoming group connection limit must be positive");
         anyhow::ensure!(

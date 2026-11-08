@@ -286,6 +286,10 @@ pub enum FilterError {
 impl Filter {
     /// The conditions for a query and for [`check`] at an explicit UTC date:
     /// at most 32, one per field.
+    ///
+    /// # Errors
+    /// Returns a [`FilterError`] for missing required country context, empty or
+    /// reversed ranges, invalid categorical values, or exceeded query limits.
     pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);

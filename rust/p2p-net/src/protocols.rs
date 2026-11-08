@@ -60,6 +60,10 @@ impl Protocols {
 
     /// Empty means public. A name is at most 64 printable ASCII bytes, without edge spaces.
     /// The namespace is the first eight bytes of SHA-256("dyapp/network/" || name), in hex.
+    ///
+    /// # Errors
+    /// Returns an error if the network name is invalid or a derived protocol ID
+    /// cannot be represented as a stream protocol.
     pub fn new(name: &str) -> anyhow::Result<Self> {
         if name.is_empty() {
             return Ok(Self::public());
