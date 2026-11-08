@@ -3,6 +3,7 @@
 //! with `bits` zero bits.
 
 /// Whether `nonce` solves `challenge` for `peer` at `bits`.
+#[must_use]
 pub fn solved(challenge: &[u8], peer: &str, nonce: u64, bits: u32) -> bool {
     let mut data = b"dyapp-search-puzzle".to_vec();
     data.extend_from_slice(challenge);
@@ -14,11 +15,13 @@ pub fn solved(challenge: &[u8], peer: &str, nonce: u64, bits: u32) -> bool {
 }
 
 /// A nonce solving `challenge` for `peer` at `bits`.
+#[must_use]
 pub fn solve(challenge: &[u8; 16], peer: &str, bits: u32) -> u64 {
     solve_from(challenge, peer, bits, 0)
 }
 
 /// The first nonce from `start` solving `challenge` for `peer` at `bits`.
+#[must_use]
 pub fn solve_from(challenge: &[u8; 16], peer: &str, bits: u32, start: u64) -> u64 {
     let mut nonce = start;
     while !solved(challenge, peer, nonce, bits) {

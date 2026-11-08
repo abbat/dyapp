@@ -63,6 +63,7 @@ pub struct IncomingGroupGuard {
 
 impl IncomingGroupGuard {
     /// An empty guard enforcing `limits`.
+    #[must_use]
     pub fn new(limits: IncomingGroupLimits) -> Self {
         Self {
             limits,
@@ -73,11 +74,13 @@ impl IncomingGroupGuard {
     }
 
     /// Pending and established incoming slots currently reserved.
+    #[must_use]
     pub fn active_connections(&self) -> usize {
         self.connections.len()
     }
 
     /// IP groups with at least one reserved slot.
+    #[must_use]
     pub fn active_groups(&self) -> usize {
         self.groups.len()
     }

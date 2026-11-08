@@ -30,6 +30,7 @@ pub const MAX_IN_VALUES: usize = 16;
 /// misses a condition or lacks a profile proof of work of `min_pow_bits` that the Argon2 hash
 /// confirms. A condition the node would skip (unknown field or op, `range` on a string field)
 /// is skipped here too; a malformed one matches nothing.
+#[must_use]
 pub fn check(
     conditions: &[Condition],
     min_pow_bits: u32,
@@ -66,6 +67,7 @@ pub fn check(
 
 /// Whether `profile` is no tombstone, matches every condition and claims at least `min_pow_bits`
 /// of proof of work, as in [`check`], which also confirms the claim with the Argon2 hash.
+#[must_use]
 pub fn passes(conditions: &[Condition], min_pow_bits: u32, profile: &Profile) -> bool {
     !profile.deleted
         && conditions.iter().all(|c| matches(c, profile))
@@ -74,6 +76,7 @@ pub fn passes(conditions: &[Condition], min_pow_bits: u32, profile: &Profile) ->
 
 /// Whether [`check`] re-applies a condition on `field`, or, for [`ACTIVE_DAY`], drops the nodes
 /// that skip it; any other field a node lists cannot be checked and is not to be offered.
+#[must_use]
 pub fn checkable(field: u32) -> bool {
     field == ACTIVE_DAY
         || field == BIRTH_AGE

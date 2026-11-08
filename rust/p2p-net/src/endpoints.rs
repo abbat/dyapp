@@ -92,16 +92,19 @@ pub struct Endpoints {
 
 impl Endpoints {
     /// The remote IP of `connection`; `None` while it is unknown or the connection is closed.
+    #[must_use]
     pub fn ip(&self, connection: ConnectionId) -> Option<IpAddr> {
         self.ips.get(&connection).copied()
     }
 
     /// Connections with a known IP.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.ips.len()
     }
 
     /// Whether no connection has a known IP.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.ips.is_empty()
     }

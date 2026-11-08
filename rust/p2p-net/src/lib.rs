@@ -55,6 +55,11 @@ pub use wire::{Dir, WireBytes, WireCounts};
 pub mod proto {
     // prost emits no docs for messages without proto comments.
     #![expect(missing_docs, reason = "prost-generated messages omit documentation")]
+    #![warn(clippy::must_use_candidate)]
+    #![expect(
+        clippy::must_use_candidate,
+        reason = "prost emits enum name conversion methods without must_use attributes"
+    )]
     include!(concat!(env!("OUT_DIR"), "/dyapp.node.rs"));
 }
 
@@ -90,6 +95,7 @@ pub const SEARCH_KEY: &[u8] = b"dyapp/search";
 pub const MAX_GOSSIP_BYTES: usize = (1 << 20) + 4096;
 
 /// Gossipsub topic `n` of the search index (`/dyapp/profiles/<n>`).
+#[must_use]
 pub fn search_topic(n: u32) -> gossipsub::IdentTopic {
     gossipsub::IdentTopic::new(format!("/dyapp/profiles/{n}"))
 }
@@ -102,6 +108,7 @@ pub const REPLICAS: u8 = 5;
 
 /// Kademlia lookup key of replica `i` (`0..REPLICAS`) of `key`: Kademlia hashes it with SHA-256,
 /// so the replica lives on the store nodes closest to H(key ‖ i). The acceptor looks up every holder and writes the replicas.
+#[must_use]
 pub fn replica_key(key: &[u8], i: u8) -> Vec<u8> {
     [key, &[i]].concat()
 }
@@ -166,6 +173,7 @@ impl<Req, Resp> ProtoCodec<Req, Resp> {
     }
 
     /// Configures exact protocol IDs for frame limits and stable wire counter labels.
+    #[must_use]
     pub fn with_protocols(mut self, protocols: Arc<Protocols>) -> Self {
         self.protocols = protocols;
         self
@@ -651,6 +659,7 @@ pub fn id_pow_bits() -> u32 {
 }
 
 /// Whether `peer` carries the node-ID proof of work of `bits` leading zero bits.
+#[must_use]
 pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
     let hash = dyapp_identity::sha256(&peer.to_bytes());
     let zeros = hash

@@ -48,6 +48,7 @@ pub struct DialSlot {
 
 impl DialGuard {
     /// A guard with IP and group checks on, or bypassing them when `enabled` is false.
+    #[must_use]
     pub fn new(enabled: bool) -> Self {
         Self {
             shared: Arc::new(Shared {
@@ -101,6 +102,7 @@ impl DialGuard {
     }
 
     /// Refusals since the preceding take, shared with clones and the future peer-proof gate.
+    #[must_use]
     pub fn take_denied(&self) -> u64 {
         self.shared.denied.swap(0, Ordering::Relaxed)
     }

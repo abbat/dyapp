@@ -53,6 +53,7 @@ impl WireBytes {
     pub const NAMES: [&'static str; 11] = SLOTS;
 
     /// Slot for a protobuf request-response protocol, or `OTHER` for an unknown one.
+    #[must_use]
     pub fn protocol_slot(protocol: &StreamProtocol) -> usize {
         if protocol == &KEY_PACKAGE_PROTOCOL {
             return 10;
@@ -73,6 +74,7 @@ impl WireBytes {
     }
 
     /// Slot for this configured network, without interpreting arbitrary protocol suffixes.
+    #[must_use]
     pub fn protocol_slot_for(protocol: &StreamProtocol, protocols: &crate::Protocols) -> usize {
         if protocol == &protocols.key_package {
             return 10;

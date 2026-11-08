@@ -3,6 +3,7 @@ use super::{CivilDate, Condition, Filter, Op, Profile, MAX_SEEKING_AGE, MIN_SEEK
 
 /// The conditions of a mutual search for `me`, or `None` when `me` states no known gender or the
 /// age at `today` is not exact or not within the ages a profile can seek.
+#[must_use]
 pub fn mutual_conditions(me: &Profile, today: CivilDate) -> Option<Vec<Condition>> {
     let (youngest, oldest) = me.possible_age_range(today)?;
     if youngest != oldest {

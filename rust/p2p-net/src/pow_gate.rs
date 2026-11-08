@@ -19,6 +19,7 @@ pub struct PowGate {
 
 impl PowGate {
     /// Uses the process node-ID difficulty at the time of each outbound attempt.
+    #[must_use]
     pub fn new(guard: DialGuard) -> Self {
         Self {
             guard,
@@ -27,6 +28,7 @@ impl PowGate {
     }
 
     /// The shared guard: its `take_denied` counts transport and peer-proof refusals together.
+    #[must_use]
     pub fn guard(&self) -> &DialGuard {
         &self.guard
     }

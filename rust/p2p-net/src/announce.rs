@@ -33,6 +33,7 @@ pub struct Announce {
 
 impl Announce {
     /// Wraps `inner`.
+    #[must_use]
     pub fn new(inner: identify::Behaviour) -> Self {
         Self {
             inner,

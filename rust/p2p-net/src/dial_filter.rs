@@ -19,6 +19,7 @@ pub struct DialFilter {
 
 impl DialFilter {
     /// A filter that refuses dials to addresses in `nets`.
+    #[must_use]
     pub fn new(nets: Vec<IpNet>) -> Self {
         Self {
             nets: nets.into(),
@@ -46,6 +47,7 @@ impl DialFilter {
     }
 
     /// Refusals since the last call, shared by clones.
+    #[must_use]
     pub fn take_denied(&self) -> u64 {
         self.denied.swap(0, Ordering::Relaxed)
     }

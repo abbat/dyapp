@@ -40,6 +40,7 @@ pub struct Protocols {
 
 impl Protocols {
     /// The existing public network, with unchanged protocol IDs and gossip defaults.
+    #[must_use]
     pub fn public() -> Self {
         Self {
             version: IDENTIFY_PROTOCOL.to_owned(),
@@ -91,11 +92,13 @@ impl Protocols {
     }
 
     /// Topic `<version>/profiles/<n>` of the search index.
+    #[must_use]
     pub fn search_topic(&self, n: u32) -> gossipsub::IdentTopic {
         gossipsub::IdentTopic::new(format!("{}/profiles/{n}", self.version))
     }
 
     /// The eleven served protocol IDs.
+    #[must_use]
     pub fn all(&self) -> [&StreamProtocol; 11] {
         [
             &self.kad,
