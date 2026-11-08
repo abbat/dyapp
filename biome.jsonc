@@ -33,7 +33,8 @@
       "clients/desktop/ui-tests/sticker-picker.js",
       "clients/desktop/ui-tests/stickers.js",
       "clients/desktop/ui-tests/common.js",
-      "clients/desktop/ui-tests/system-steps.js"
+      "clients/desktop/ui-tests/system-steps.js",
+      "clients/desktop/ui-tests/ready-step.js"
     ],
     "linter": { "rules": {
       "complexity": {
