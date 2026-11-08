@@ -16,6 +16,11 @@ impl Profiles {
     /// Keeps `profile` if it is newer than the one held for its owner. An equal version keeps the
     /// held one; a lower version is refused with [`Error::Rollback`], and any newer version after
     /// a tombstone with [`Error::Deleted`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Rollback`] for an older version or [`Error::Deleted`]
+    /// for a newer version after a held tombstone.
     pub fn accept(&mut self, profile: VerifiedProfile) -> Result<&VerifiedProfile, Error> {
         let Some(index) = self
             .0
@@ -39,11 +44,13 @@ impl Profiles {
     }
 
     /// The held profile of the owner with hex Peer ID `peer_id`.
+    #[must_use]
     pub fn get(&self, peer_id: &str) -> Option<&VerifiedProfile> {
         self.0.iter().find(|held| held.peer_id == peer_id)
     }
 
     /// Every held profile, for the MLS checks in [`crate::chat`].
+    #[must_use]
     pub fn all(&self) -> &[VerifiedProfile] {
         &self.0
     }
@@ -51,6 +58,11 @@ impl Profiles {
 
 /// The highest valid version of `peer_id`'s profile among `nodes`, e.g. its replicas; fails
 /// only if none of them returns one. A node that fails or serves a lower version loses score.
+///
+/// # Errors
+///
+/// Returns the last request or reply-validation error if no node returns a valid
+/// profile. With no nodes, returns the not-found status.
 pub async fn newest(
     scores: &mut Scores,
     nodes: &mut [Node],
