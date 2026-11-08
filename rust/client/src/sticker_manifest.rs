@@ -47,6 +47,11 @@ fn safe_file(name: &str) -> bool {
 /// Checks a decoded manifest against root files, including `manifest.json`.
 /// No path is opened. Both an importer and a peer-record decoder must call the
 /// same checks, then validate manifest text, WebP pixels and the sealed record size.
+///
+/// # Errors
+///
+/// Returns an error if manifest bytes, counts, filenames, membership, sizes, or
+/// hashes are invalid, or summing file sizes overflows.
 pub fn check_files<'a>(
     manifest: &[u8],
     entries: &[File<'_>],

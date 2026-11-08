@@ -104,6 +104,7 @@ impl From<&Error> for SearchFailure {
 /// The condition fields a search over these nodes may offer, ascending: those every node lists in
 /// `NodeInfo.search_fields` and the client can check ([`search_results::checkable`]). No nodes,
 /// none.
+#[must_use]
 pub fn offered_fields(infos: &[proto::NodeInfo]) -> Vec<u32> {
     let Some((first, rest)) = infos.split_first() else {
         return Vec::new();
@@ -249,6 +250,12 @@ pub async fn search(
 /// from [`Node::providers`] with [`dyapp_p2p_net::SEARCH_KEY`], two are enough since they gossip
 /// it on) once its window has ended at Unix second `now`. Returns whether a node took it; else
 /// it stays held, for the `RATE_LIMITED` wait if a node gave one, and is sent on a later call.
+///
+/// # Errors
+///
+/// Returns an error if reading or updating the held-publication state fails or
+/// its stored encoding is invalid. Node request failures are retained for retry
+/// rather than returned; a node may already have accepted the profile.
 pub async fn publish_due(
     store: &Store,
     nodes: &mut [Node],
@@ -317,6 +324,12 @@ async fn fetch(
 /// nodes' `NodeInfo.min_heartbeat_pow`. Returns whether a node took it; `RATE_LIMITED` means it
 /// has two for today. On `NOT_FOUND` a node lacks this version, which the next publish fixes.
 /// A hidden profile ([`Store::profile_hidden`]) sends none.
+///
+/// # Errors
+///
+/// Returns an error if visibility or heartbeat state cannot be read or decoded,
+/// scheduling randomness fails, or saving the next heartbeat time fails. Nodes
+/// may already have accepted a heartbeat before a later storage failure.
 pub async fn beat_due(
     store: &Store,
     identity: &Identity,

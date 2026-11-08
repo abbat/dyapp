@@ -13,6 +13,7 @@ pub struct Version {
 
 impl Version {
     /// Parse exactly `MAJOR.MINOR.PATCH`, without leading zeros or suffixes.
+    #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         let mut parts = value.split('.');
         let major = component(parts.next()?)?;
@@ -29,6 +30,7 @@ impl Version {
     }
 
     /// Parse exactly `vMAJOR.MINOR.PATCH`.
+    #[must_use]
     pub fn parse_tag(tag: &str) -> Option<Self> {
         Self::parse(tag.strip_prefix('v')?)
     }
@@ -60,6 +62,7 @@ pub enum Interval {
 
 impl Interval {
     /// Duration of this interval in seconds.
+    #[must_use]
     pub const fn seconds(self) -> u64 {
         match self {
             Self::SixHours => 6 * 60 * 60,
@@ -101,6 +104,7 @@ pub enum Trigger {
 /// True when a check is due at Unix time `now`. `jitter` is a stable, local installation seed;
 /// it only spreads timer requests and must never be sent to the feed host. In-flight request
 /// coalescing and monotonic timers are the app's responsibility.
+#[must_use]
 pub fn check_due(
     now: u64,
     interval: Interval,

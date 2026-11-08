@@ -44,16 +44,23 @@ pub struct Parsed<'a> {
 
 impl Parsed<'_> {
     /// Clean, nonblank pack name, at most 64 code points.
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// Entries in manifest order.
+    #[must_use]
     pub fn stickers(&self) -> &[Sticker] {
         &self.stickers
     }
 
     /// Binds the parsed entries to exact files and hashes. Still does not validate pixels.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the supplied files fail the membership, filename, size,
+    /// or digest checks described in [`super::check_files`].
     pub fn check_files<'a>(&self, files: &BTreeMap<&str, &'a [u8]>) -> Result<Files<'a>, String> {
         let entries: Vec<_> = self
             .stickers
@@ -94,6 +101,12 @@ fn hash(text: &str) -> Option<[u8; 32]> {
 
 /// Decodes at most 64 KiB before file/pixel checks. Unknown fields are ignored for
 /// future extensions; duplicate known fields are refused. Unknown format asks to update.
+///
+/// # Errors
+///
+/// Returns an error if the input is empty, oversized, malformed JSON, or uses an
+/// unsupported format; required fields are missing or duplicated; or pack name,
+/// sticker count, filenames, emoji labels, or SHA-256 digests are invalid.
 pub fn parse(bytes: &[u8]) -> Result<Parsed<'_>, String> {
     if bytes.is_empty() || bytes.len() > MAX_MANIFEST_BYTES {
         return Err("manifest.json: invalid manifest size".into());
