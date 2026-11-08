@@ -135,7 +135,10 @@ complexity findings. Exact per-function budgets can only shrink, including both 
 and the number of excessively nested regions. The live Clippy fixture checks that force-warn
 still exposes findings hidden by expectation attributes.
 
-Production runner wiring, measured budgets and native integration are planned.
+Initial measured budgets cover 294 workspace functions and 17 native Linux functions in
+`tests/scripts/rust-complexity/`. The parser rejects per-item cognitive threshold overrides,
+including conditional attributes; comments and literals are ignored.
+Production runner wiring and native integration are planned.
 
 ## Python
 

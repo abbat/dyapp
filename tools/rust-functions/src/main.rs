@@ -1,5 +1,5 @@
 //! Map lint spans to current-source function identities without compiling the application.
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use serde_json::{json, Value};
 use std::{env, fs, process};
@@ -132,6 +132,27 @@ fn functions(source: &str) -> syn::Result<Vec<Value>> {
     Ok(functions.entries)
 }
 
+fn ident_is(token: &TokenTree, expected: &str) -> bool {
+    matches!(token, TokenTree::Ident(name)
+        if name.to_string().trim_start_matches("r#") == expected)
+}
+
+fn threshold_override(tokens: TokenStream) -> bool {
+    let tokens: Vec<_> = tokens.into_iter().collect();
+    let assignment = tokens.windows(5).any(|part| {
+        ident_is(&part[0], "clippy")
+            && matches!(&part[1], TokenTree::Punct(p) if p.as_char() == ':')
+            && matches!(&part[2], TokenTree::Punct(p) if p.as_char() == ':')
+            && ident_is(&part[3], "cognitive_complexity")
+            && matches!(&part[4], TokenTree::Punct(p) if p.as_char() == '=')
+    });
+    assignment
+        || tokens.into_iter().any(|token| match token {
+            TokenTree::Group(group) => threshold_override(group.stream()),
+            _ => false,
+        })
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("function-map: {error}");
@@ -140,14 +161,25 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let paths: Vec<_> = env::args().skip(1).collect();
+    let mut paths: Vec<_> = env::args().skip(1).collect();
+    let check_thresholds = paths.first().is_some_and(|arg| arg == "--check-thresholds");
+    if check_thresholds {
+        paths.remove(0);
+    }
     if paths.is_empty() {
         return Err("expected at least one Rust source path".into());
     }
     for path in paths {
         let source = fs::read_to_string(&path)?;
-        let entries = functions(&source).map_err(|error| format!("{path}: {error}"))?;
-        println!("{}", json!({"path":path,"functions":entries}));
+        if check_thresholds {
+            let tokens = source.parse().map_err(|error| format!("{path}: {error}"))?;
+            if threshold_override(tokens) {
+                return Err(format!("{path}: per-item cognitive threshold override").into());
+            }
+        } else {
+            let entries = functions(&source).map_err(|error| format!("{path}: {error}"))?;
+            println!("{}", json!({"path":path,"functions":entries}));
+        }
     }
     Ok(())
 }
@@ -186,6 +218,24 @@ mod inner { fn run() {} }
         assert_eq!(entries[0]["nesting"], 5);
         assert_eq!(entries[1]["kind"], "closure");
         assert_eq!(entries[1]["nesting"], 5);
+    }
+
+    #[test]
+    fn threshold_guard_sees_cfg_attributes_but_ignores_literals_and_comments() {
+        for source in [
+            "#[clippy::cognitive_complexity = 100] fn f() {}",
+            "#[r#clippy::r#cognitive_complexity = 100] fn f() {}",
+            "#[cfg_attr(test, clippy::cognitive_complexity = 100)] fn f() {}",
+        ] {
+            assert!(threshold_override(source.parse().unwrap()));
+        }
+        for source in [
+            "// clippy::cognitive_complexity = 100\nfn f() {}",
+            r#"const TEXT: &str = "clippy::cognitive_complexity = 100";"#,
+            "#[expect(clippy::cognitive_complexity)] fn f() {}",
+        ] {
+            assert!(!threshold_override(source.parse().unwrap()));
+        }
     }
 
     #[test]
