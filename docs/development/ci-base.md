@@ -210,7 +210,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Python lint | `flake8 scripts tools tests` |
 | Swift lint and format | SwiftLint strict plus `tests/scripts/swift-format.sh lint` (pinned official formatter container on CI) |
 | Kotlin lint | detekt CLI: `--config detekt.yml --input clients/android --build-upon-default-config` |
-| Format | `cargo fmt --all -- --check` |
+| Format | Cargo fmt for workspace, native and tool manifests; `desktop-rust-format.py check` explicitly checks the shared desktop Rust reached through `include!` |
 | Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |
 | Lint | `check-rust-complexity.py`: strict all-feature/all-target workspace Clippy, 15/50/5 function limits with exact shrinking legacy budgets; `missing_docs` is denied ([B9](code-quality.md#public-api-documentation)). Raw metadata, diagnostics and parser reports stay under `build/complexity/`. `COMPLEXITY_BASE` binds budget changes to the push or PR base. |
 | Explicit panic budgets | `tests/scripts/check-panics.py`: [B8](code-quality.md#explicit-panic-budgets), non-test workspace Clippy `unwrap_used`/`expect_used`/`panic` counts; JSON artifact `panic-budgets` when the checker ran |

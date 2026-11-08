@@ -88,12 +88,14 @@ step() {
             cargo fmt --manifest-path clients/linux/Cargo.toml
             cargo fmt --manifest-path clients/windows/Cargo.toml
             cargo fmt --manifest-path tools/rust-functions/Cargo.toml
+            python3 -B tests/scripts/desktop-rust-format.py write
             ;;
         fmt)
             check rustfmt cargo fmt --all -- --check
             check rustfmt cargo fmt --manifest-path clients/linux/Cargo.toml -- --check
             check rustfmt cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
             check rustfmt cargo fmt --manifest-path tools/rust-functions/Cargo.toml -- --check
+            check rustfmt python3 -B tests/scripts/desktop-rust-format.py check
             ;;
         android-lint)
             # Both checks run even if the first fails: one pass reports every Android finding.

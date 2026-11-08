@@ -61,8 +61,11 @@ on a cold cache. Tauri's generated capability schemas use a separate bind mount 
 `build/linux-tauri-gen`; the source checkout stays read-only. `make fmt` checks formatting
 without compilation. Native desktop manifests also deny `clippy::assert_is_empty`: test assertions
 compare collections to explicit empty values, so failures show their contents.
-Shared desktop formatting through `include!` still needs explicit coverage; preparatory
-extractions preserve the function budgets before that check is enabled.
+Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
+checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no
+sources are found. Both `make fmt` (also quality and quick-check) and `make fmt-write` run it
+in the dev container with the pinned rustfmt and native crates' Rust 2021 edition.
+A real formatter fixture covers included sources, unreferenced sources and empty discovery.
 
 Quality container (the gate):
 
