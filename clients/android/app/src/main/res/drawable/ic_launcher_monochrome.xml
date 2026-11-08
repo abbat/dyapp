@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Parts differ by alpha: union .5 (pink ear), base .5 over it (.75), blue ear 1. Overlap instead of shared edges avoids seams. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -6,14 +7,22 @@
     android:viewportHeight="108">
     <path
         android:fillColor="#00000000"
-        android:pathData="M35,37 L73,71"
+        android:pathData="M54,22.72 L83.74,44.33 L72.39,79.39 L35.61,79.39 L24.26,44.33 Z"
         android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round"
-        android:strokeWidth="10" />
+        android:strokeLineJoin="round"
+        android:strokeWidth="0.47" />
+    <path
+        android:fillAlpha="0.5"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M37.17,77.2 L70.83,77.2 L81.16,45.19 L64.33,57.4 L54,25.46 Z" />
+    <path
+        android:fillAlpha="0.5"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M37.17,77.2 L70.83,77.2 L64.33,57.4 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M46,37 A11,11 0,1 1,24 37 A11,11 0,1 1,46 37 Z" />
+        android:pathData="M37.17,77.2 L64.33,57.4 L54,25.46 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M84,71 A11,11 0,1 1,62 71 A11,11 0,1 1,84 71 Z" />
+        android:pathData="M52.28,22.72 A1.72,1.72 0,1 1,55.72,22.72 A1.72,1.72 0,1 1,52.28,22.72 Z M82.02,44.33 A1.72,1.72 0,1 1,85.47,44.33 A1.72,1.72 0,1 1,82.02,44.33 Z M70.67,79.39 A1.72,1.72 0,1 1,74.12,79.39 A1.72,1.72 0,1 1,70.67,79.39 Z M33.88,79.39 A1.72,1.72 0,1 1,37.33,79.39 A1.72,1.72 0,1 1,33.88,79.39 Z M22.53,44.33 A1.72,1.72 0,1 1,25.98,44.33 A1.72,1.72 0,1 1,22.53,44.33 Z" />
 </vector>
