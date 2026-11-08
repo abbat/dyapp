@@ -52,6 +52,13 @@ fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {
 impl Store {
     /// Lists metadata without retaining compressed packs or decoded frames.
     /// Invalid content remains visible as an entry error; no file is removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the store path or directory is invalid, a directory
+    /// entry is not a regular file, filesystem enumeration or metadata fails,
+    /// or summing file sizes overflows. Individual pack-read failures remain in
+    /// each entry's `details` result.
     pub fn saved_sticker_packs(
         &self,
         secret: &[u8; 32],

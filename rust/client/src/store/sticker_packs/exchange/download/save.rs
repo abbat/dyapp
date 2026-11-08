@@ -12,6 +12,13 @@ use rusqlite::params;
 impl Store {
     /// Save a validated requested pack and retire only its current, still permitted generation.
     /// A rename followed by failed SQLite commit retains intent; retry validates the saved file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request is stale or no longer permitted, the pack
+    /// or clicked sticker does not match, or saving fails as described in
+    /// [`Self::save_sticker_pack`]. The file may already be published when a later
+    /// synchronization or transaction commit fails.
     pub fn save_requested_sticker_pack(
         &mut self,
         secret: &[u8; 32],

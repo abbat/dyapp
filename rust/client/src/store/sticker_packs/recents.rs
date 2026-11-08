@@ -33,6 +33,11 @@ pub(crate) fn record(tx: &Transaction<'_>, sticker: &Sticker) -> Result<(), Erro
 }
 impl Store {
     /// Read at most twenty recent choices, newest first, without pack names or media keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding fails, a stored digest has an
+    /// invalid length, or a stored emoji is not one clean grapheme.
     pub fn recent_stickers(&self) -> Result<Vec<RecentSticker>, Error> {
         let mut query = self.db.prepare(
             "SELECT `pack_id`, `sticker_hash`, `emoji` FROM `sticker_recents`

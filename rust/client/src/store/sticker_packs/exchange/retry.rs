@@ -9,6 +9,12 @@ use rusqlite::{params, TransactionBehavior};
 impl Store {
     /// Discard an old answer only while durably staging a fresh request for the same clicked hash.
     /// Already queued mailbox writes and the sender's daily answer limit remain in effect.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writes are empty, the chat is no longer eligible, the
+    /// request generation is stale or inconsistent, token randomness fails,
+    /// outbox state conflicts, or database access or transaction commit fails.
     pub fn stage_fresh_sticker_pack_request(
         &mut self,
         sealed: &[u8],

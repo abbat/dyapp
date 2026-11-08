@@ -111,6 +111,12 @@ fn time(now: u64) -> Result<i64, Error> {
 impl Store {
     /// Atomically reuse/reserve one plaintext hash; no network work runs under the DB lock.
     /// Pending work retains charge for eight days and resumes its exact descriptor after a crash.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the candidate or saved descriptor is invalid, time is
+    /// out of range or precedes a saved upload, reservation randomness fails, or
+    /// database access or transaction commit fails.
     pub fn plan_sticker_upload(
         &mut self,
         candidate: &Attachment,
@@ -120,6 +126,12 @@ impl Store {
     }
 
     /// Reserve/reuse one validated whole-pack record; node owner quota bounds its upload.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if pack descriptor validation fails, time is out of range
+    /// or precedes a saved upload, reservation randomness fails, or database
+    /// access or transaction commit fails.
     pub fn plan_sticker_pack_upload(
         &mut self,
         candidate: &Attachment,
@@ -211,6 +223,11 @@ impl Store {
     }
 
     /// Confirm only the same still-reserved descriptor; a stale completion cannot replace another.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the descriptor is invalid, time is outside the supported
+    /// range, the reservation is stale or expired, or the database update fails.
     pub fn finish_sticker_upload(
         &mut self,
         pending: &PendingUpload,
@@ -220,6 +237,11 @@ impl Store {
     }
 
     /// Confirm the current whole-pack reservation after node upload/refresh succeeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pack descriptor is invalid, time is outside the
+    /// supported range, the reservation is stale or expired, or updating it fails.
     pub fn finish_sticker_pack_upload(
         &mut self,
         pending: &PendingUpload,

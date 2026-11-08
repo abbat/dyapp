@@ -27,6 +27,12 @@ pub struct PackResponseJob {
 impl Store {
     /// Queue at most one response per authorized peer/pack, with a global bound of 64 pending jobs.
     /// Unauthorized, duplicate, cooling-down and over-cap requests keep only inbox digest and ACK.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sender metadata or time is invalid, sealed state is
+    /// empty, inbox content conflicts, stored authorization state cannot be read,
+    /// token randomness fails, or database access or transaction commit fails.
     pub fn stage_sticker_pack_request_inbound(
         &mut self,
         sealed: &[u8],
@@ -77,6 +83,11 @@ impl Store {
     }
 
     /// Read a bounded due batch. Listing never uploads bytes or mutates retry deadlines.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if time exceeds the supported range, querying or decoding
+    /// fails, or stored peer, group, digest, or generation metadata is invalid.
     pub fn due_sticker_pack_responses(&self, now_ms: u64) -> Result<Vec<PackResponseJob>, Error> {
         let now = time(now_ms)?;
         let mut query = self.db.prepare(
@@ -107,6 +118,11 @@ impl Store {
     }
 
     /// Reuse the outbox's 1 s exponential retry schedule, capped at 1 h, without sleeping.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if time exceeds the supported range or updating the
+    /// matching response generation fails.
     pub fn defer_sticker_pack_response(
         &self,
         job: &PackResponseJob,
