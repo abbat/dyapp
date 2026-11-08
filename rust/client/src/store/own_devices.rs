@@ -10,6 +10,11 @@ const LISTED: &str = "device_listed";
 
 impl Store {
     /// Seconds since this device first saw own profile `version` or a newer one, 0 the first time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the stored profile clock has an unsupported format or
+    /// invalid length, or reading or updating the database fails.
     pub fn own_profile_age(&self, version: u64, now: u64) -> Result<u64, Error> {
         if let Some((held, at)) = self.own_profile_row()? {
             if held >= version {
@@ -26,11 +31,20 @@ impl Store {
     }
 
     /// The newest own profile version this device has seen, 0 before the first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the profile clock fails or its stored format
+    /// or length is invalid.
     pub fn own_profile_seen(&self) -> Result<u64, Error> {
         Ok(self.own_profile_row()?.map_or(0, |(version, _)| version))
     }
 
     /// Records that own profile `version` lists this device; a lower one changes nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the listing version to the database fails.
     pub fn note_device_listed(&self, version: u64) -> Result<(), Error> {
         // Big-endian bytes compare as the numbers do.
         self.db.execute(
@@ -43,6 +57,11 @@ impl Store {
     }
 
     /// The newest own profile version known to list this device, 0 before the first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the listing version fails or its
+    /// stored value has an invalid length.
     pub fn device_listed(&self) -> Result<u64, Error> {
         let held: Option<Vec<u8>> = self
             .db
@@ -58,6 +77,11 @@ impl Store {
     }
 
     /// Seconds since this device first saw a dropped device in `group`, 0 the first time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the stored timestamp has an invalid length, or reading
+    /// or inserting the dropped-device clock fails.
     pub fn dropped_leaf_age(&self, group: &[u8], now: u64) -> Result<u64, Error> {
         let key = format!("{DROPPED}{}", crate::link::hex(group));
         let held: Option<Vec<u8>> = self
@@ -80,6 +104,10 @@ impl Store {
     }
 
     /// Stops the clock of `group`: its next dropped device starts one of its own.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deleting the dropped-device clock from the database fails.
     pub fn forget_dropped_leaf(&self, group: &[u8]) -> Result<(), Error> {
         self.db.execute(
             "DELETE FROM `settings` WHERE `key` = ?1",
