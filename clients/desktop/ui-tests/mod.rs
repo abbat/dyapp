@@ -7,6 +7,7 @@ pub(crate) fn scripts() -> String {
         include_str!("identity.js"),
         include_str!("chats.js"),
         include_str!("presence.js"),
+        include_str!("contact-names.js"),
         include_str!("names.js"),
         include_str!("profile-photos.js"),
         include_str!("peer-photos.js"),
