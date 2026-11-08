@@ -122,7 +122,7 @@ fn interest_limits_apply_after_normalization() {
         vec!["x".into(); dyapp_profile::MAX_INTERESTS + 1],
         vec!["x".repeat(MAX_FIELD_CHARS + 1)],
         vec!["a\u{202e}b".into()],
-        vec!["".into()],
+        vec![String::new()],
     ] {
         assert_eq!(canonical_interests(&tags), Err("invalidInterests".into()));
     }

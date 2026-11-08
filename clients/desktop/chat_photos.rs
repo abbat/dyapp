@@ -131,7 +131,7 @@ pub(crate) async fn chat_photo_original(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
-/// NetworkManager's connection is known or guessed unmetered. Anything else, a missing service
+/// `NetworkManager`'s connection is known or guessed unmetered. Anything else, a missing service
 /// included, counts as metered.
 #[cfg(unix)]
 pub(crate) async fn metered() -> bool {

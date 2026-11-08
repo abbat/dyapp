@@ -115,7 +115,10 @@ pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
     if window.is_minimized().unwrap_or(true) || window.is_fullscreen().unwrap_or(true) {
         return;
     }
-    let mut saved = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    let mut saved = state
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if window.is_maximized().unwrap_or(false) {
         if let Some(saved) = saved.as_mut() {
             saved.maximized = true;
@@ -133,7 +136,10 @@ pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
 /// Writes the last recorded state to `config/window.json`.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(state: &WindowState, config: &Path) {
-    let saved = *state.0.lock().unwrap_or_else(|e| e.into_inner());
+    let saved = *state
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(json) = saved.and_then(|saved| serde_json::to_vec(&saved).ok()) {
         let _ = fs::create_dir_all(config);
         let _ = fs::write(config.join(FILE), json);

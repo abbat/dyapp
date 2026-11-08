@@ -219,7 +219,7 @@ fn notice<'a>(
     actions: &'a [&'a str],
     replaces: u32,
 ) -> Notify<'a> {
-    let hints = Default::default();
+    let hints = std::collections::HashMap::default();
     ("DYApp", replaces, "", summary, body, actions, hints, -1)
 }
 
@@ -285,7 +285,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-notify-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (me, peer) = (Identity::generate(), Identity::generate());
-        let (me_id, peer_id) = (me.peer_id().to_string(), peer.peer_id().to_string());
+        let (me_id, peer_id) = (me.peer_id(), peer.peer_id());
         let like = |store: &mut dyapp_client::store::Store, sender: &str, target: &str, n: u8| {
             let kind = Kind::Like;
             let (event_id, hlc) = ([n; 16], u64::from(n) << 16);

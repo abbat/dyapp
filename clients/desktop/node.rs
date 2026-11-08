@@ -77,7 +77,7 @@ pub fn config(dir: &Path, settings: &Settings, network: &network::Network) -> No
         .filter(|seed| dyapp_p2p_net::seed::parse(seed).is_ok())
         .cloned()
         .collect();
-    config.network.name = network.name.clone();
+    config.network.name.clone_from(&network.name);
     config.network.id_pow_bits = dyapp_p2p_net::id_pow_bits();
     config.limits.max_connections = settings.max_connections;
     config.limits.profiles_max_mb = settings.disk_mb / 4;

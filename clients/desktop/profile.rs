@@ -24,7 +24,7 @@ use dyapp_profile::{is_clean_text, CivilDate, Profile, MAX_FIELD_CHARS};
 const STEP: u64 = 8;
 /// Search nodes a publish sends the profile to; they gossip it on.
 const SEARCH_NODES: usize = 2;
-/// Single-use KeyPackages each publish puts on the network for peers' first texts.
+/// Single-use `KeyPackages` each publish puts on the network for peers' first texts.
 const KEY_PACKAGES: usize = 4;
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.
@@ -47,7 +47,10 @@ impl ProfileState {
     /// Signal the registered solve without changing a future solve's token.
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn cancel(&self) {
-        let mut current = self.0.lock().unwrap_or_else(|error| error.into_inner());
+        let mut current = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(token) = current.take() {
             token.store(true, Ordering::Relaxed);
         }
@@ -503,7 +506,7 @@ fn publish_code(failure: publish::Failure) -> String {
 /// network or no answering node), `full` (the node's quota has no room for the photos) or a node
 /// or storage message; each leaves the draft as it was.
 /// The profile lists this device, made on the first publish under `device_key`, and its
-/// KeyPackages follow, so peers can invite it to chats.
+/// `KeyPackages` follow, so peers can invite it to chats.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn publish(
     root: &Path,
@@ -561,7 +564,7 @@ pub async fn publish(
     view(&published, today, Some(session.store()))
 }
 
-/// Hides the profile from search, keeping direct profile and KeyPackage lookup available.
+/// Hides the profile from search, keeping direct profile and `KeyPackage` lookup available.
 /// The signed search tombstone remains pending until a search node accepts it.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {

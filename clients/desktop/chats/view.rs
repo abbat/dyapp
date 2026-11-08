@@ -140,6 +140,10 @@ pub struct MessageView {
 }
 
 impl From<ChatMessage> for MessageView {
+    #[expect(
+        clippy::redundant_closure_for_method_calls,
+        reason = "Timestamp belongs to a transitive dependency, so its method cannot be imported"
+    )]
     fn from(message: ChatMessage) -> Self {
         let text = message
             .current

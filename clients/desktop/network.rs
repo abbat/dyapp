@@ -208,7 +208,7 @@ mod tests {
 
     fn draft(seeds: &[&str], name: &str) -> Draft {
         Draft {
-            seeds: seeds.iter().map(|seed| seed.to_string()).collect(),
+            seeds: seeds.iter().map(ToString::to_string).collect(),
             name: name.into(),
         }
     }
@@ -344,7 +344,7 @@ mod tests {
         };
         let result = tokio::select! {
             result = running => result,
-            _ = stop => unreachable!(),
+            () = stop => unreachable!(),
         };
         assert_eq!(result, Err("cancelled".into()));
         assert!(started.elapsed() < Duration::from_secs(30));

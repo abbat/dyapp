@@ -117,7 +117,7 @@ impl<T> Drop for Lease<T> {
             .gate
             .state
             .lock()
-            .unwrap_or_else(|error| error.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.leases -= 1;
         if state.leases == 0 {
             self.gate.drained.notify_all();
@@ -180,7 +180,7 @@ impl<T> Drop for Transition<T> {
                 .gate
                 .state
                 .lock()
-                .unwrap_or_else(|error| error.into_inner());
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             state.transitioning = false;
         }
     }

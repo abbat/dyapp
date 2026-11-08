@@ -61,6 +61,12 @@ on a cold cache. Tauri's generated capability schemas use a separate bind mount 
 `build/linux-tauri-gen`; the source checkout stays read-only. `make fmt` checks formatting
 without compilation. Native desktop manifests also deny `clippy::assert_is_empty`: test assertions
 compare collections to explicit empty values, so failures show their contents.
+Native manifests also deny the resolved pedantic rules for redundant method closures, implicit
+cloning, clone assignment, ambiguous defaults, empty strings, ignored unit patterns, result
+mapping, bool-to-int conversions, inline format arguments, literal readability, wildcard imports
+and Rustdoc markup. The message view retains one exact expectation for mapping a timestamp
+method: that type belongs to a transitive messaging dependency and is not directly importable.
+The expectation is checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
 Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
 checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no
 sources are found. Both `make fmt` (also quality and quick-check) and `make fmt-write` run it

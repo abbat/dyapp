@@ -703,7 +703,7 @@ mod tests {
     #[tokio::test]
     async fn only_a_returned_peer_can_be_liked_and_no_like_needs_no_network() {
         let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
-        let stranger = Identity::generate().peer_id().to_string();
+        let stranger = Identity::generate().peer_id();
         let device = Identity::generate();
         assert_eq!(
             like(&cache, &dir, &dir, &alice, &device, &stranger, true).await,

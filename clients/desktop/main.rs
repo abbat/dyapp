@@ -283,7 +283,7 @@ async fn create_identity(
     let result = tauri::async_runtime::spawn_blocking(move || {
         if mode == "system" {
             system_store::probe()
-                .map_err(|reason| format!("System storage unavailable: {:?}", reason))?;
+                .map_err(|reason| format!("System storage unavailable: {reason:?}"))?;
         }
         slots::create(&dir, mode, &save, &load)
     })
@@ -667,7 +667,7 @@ async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String>
             .args(["-window", "root", "-crop", &crop, "+repage"])
             .arg(&file)
             .status();
-        if !shot.map(|s| s.success()).unwrap_or(false)
+        if !shot.is_ok_and(|s| s.success())
             || !file.metadata().is_ok_and(|metadata| metadata.len() > 0)
         {
             failure = Some(format!("screenshot {} failed or is empty", file.display()));
@@ -705,7 +705,7 @@ fn ui_test_result(
             reason.chars().take(160).collect::<String>()
         );
     }
-    app.exit(if success { 0 } else { 1 });
+    app.exit(i32::from(!success));
 }
 
 /// Settings → Window: the tray icon and close-to-tray, stored when `prefs` is given; `labels` are

@@ -1,4 +1,4 @@
-//! Synthetic RGBA source for the Linux WebView rendering experiment.
+//! Synthetic RGBA source for the Linux `WebView` rendering experiment.
 //! Wire format: 20-byte little-endian header (DVF1, width, height, sequence,
 //! Unix microseconds at send) followed by tightly packed RGBA pixels.
 //! This module is compiled only into Linux debug builds.
@@ -105,7 +105,7 @@ mod tests {
         for (size, width, height) in [("360p", 640, 360), ("720p", 1280, 720)] {
             let (w, h) = dimensions(size).unwrap();
             assert_eq!((w, h), (width, height));
-            let bytes = frame(&template(w, h), 0x12345678, 42);
+            let bytes = frame(&template(w, h), 0x1234_5678, 42);
             assert_eq!(
                 bytes.len(),
                 HEADER_LEN + usize::from(w) * usize::from(h) * 4
@@ -115,7 +115,7 @@ mod tests {
             assert_eq!(u16::from_le_bytes(bytes[6..8].try_into().unwrap()), h);
             assert_eq!(
                 u32::from_le_bytes(bytes[8..12].try_into().unwrap()),
-                0x12345678
+                0x1234_5678
             );
             assert_eq!(u64::from_le_bytes(bytes[12..20].try_into().unwrap()), 42);
             assert_eq!(&bytes[20..24], &[32, 96, 160, 255]);

@@ -1,5 +1,5 @@
 //! The tray icon with Open and Quit, and the Settings that control it (v0.0.1-client-screens.md,
-//! Desktop window and tray). On Linux a tray exists only while a StatusNotifierItem host is on the
+//! Desktop window and tray). On Linux a tray exists only while a `StatusNotifierItem` host is on the
 //! session bus; when it goes away the window is shown again, so the app never stays unreachable.
 
 /// Ctrl+Q: ends the process; the window state is saved on the way out.
@@ -73,7 +73,9 @@ const WATCHER: &str = "org.kde.StatusNotifierWatcher";
 
 impl Tray {
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Closing the window hides it only while the icon is there to bring it back.
@@ -198,16 +200,15 @@ fn library() -> bool {
     std::process::Command::new("/sbin/ldconfig")
         .arg("-p")
         .output()
-        .map(|out| {
+        .is_ok_and(|out| {
             let text = String::from_utf8_lossy(&out.stdout);
             ["libayatana-appindicator3.so", "libappindicator3.so"]
                 .iter()
                 .any(|name| text.contains(name))
         })
-        .unwrap_or(false)
 }
 
-/// Follows the StatusNotifierItem host on the session bus, checking every two seconds.
+/// Follows the `StatusNotifierItem` host on the session bus, checking every two seconds.
 #[cfg(unix)]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
