@@ -25,7 +25,8 @@
       "clients/desktop/ui-tests/clear.js",
       "clients/desktop/ui-tests/composer.js",
       "clients/desktop/ui-tests/identifiers.js",
-      "clients/desktop/ui-tests/chat-redraw.js"
+      "clients/desktop/ui-tests/chat-redraw.js",
+      "clients/desktop/ui-tests/media-cache.js"
     ],
     "linter": { "rules": {
       "complexity": {
