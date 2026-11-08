@@ -61,6 +61,8 @@ on a cold cache. Tauri's generated capability schemas use a separate bind mount 
 `build/linux-tauri-gen`; the source checkout stays read-only. `make fmt` checks formatting
 without compilation. Native desktop manifests also deny `clippy::assert_is_empty`: test assertions
 compare collections to explicit empty values, so failures show their contents.
+Shared desktop formatting through `include!` still needs explicit coverage; preparatory
+extractions preserve the function budgets before that check is enabled.
 
 Quality container (the gate):
 

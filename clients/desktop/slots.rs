@@ -239,7 +239,7 @@ pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     let mut profiles = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|e| e.to_string())?;
-        let Some(id) = entry.file_name().to_str().filter(|n| is_uuid(n)).map(str::to_owned) else {
+        let Some(id) = entry_id(&entry) else {
             continue;
         };
         let slot = if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
@@ -257,6 +257,14 @@ pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     profiles.sort_by(|a, b| a.id.cmp(&b.id));
     slots.extend(profiles);
     Ok(slots)
+}
+
+fn entry_id(entry: &fs::DirEntry) -> Option<String> {
+    entry
+        .file_name()
+        .to_str()
+        .filter(|n| is_uuid(n))
+        .map(str::to_owned)
 }
 
 /// Reserves a fresh slot for a key in `mode`, written as `pending` before any key exists.

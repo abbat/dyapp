@@ -726,6 +726,7 @@ mod tests {
 
     #[test]
     fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
+        use super::view::ChatRowView;
         use dyapp_client::interactions::Interaction;
         let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
         let alice_id = alice.peer_id();
@@ -755,9 +756,8 @@ mod tests {
         assert_eq!(row.state, view::ChatState::Open);
         assert_eq!(row.last_message, None);
         assert_eq!(row.unread_count, 0);
-        assert_eq!(chat_history(&dir, &alice, &bob_id)
-            .unwrap()
-            .messages, Vec::<view::MessageView>::new());
+        let history = chat_history(&dir, &alice, &bob_id).unwrap();
+        assert_eq!(history.messages, Vec::<view::MessageView>::new());
         assert!(chat_rows(&dir, &bob).is_err());
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Ok(0));
         assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Ok(0));
@@ -778,7 +778,7 @@ mod tests {
         );
         let store = open(&dir, &alice).unwrap();
         store.set_blocked(&bob_id, true).unwrap();
-        assert_eq!(chat_rows(&dir, &alice).unwrap(), Vec::<view::ChatRowView>::new());
+        assert_eq!(chat_rows(&dir, &alice).unwrap(), Vec::<ChatRowView>::new());
         assert_eq!(chat_history(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(clear_chat(&dir, &alice, &bob_id), Err("blocked".into()));
         assert_eq!(mark_chat_read(&dir, &alice, &bob_id), Err("blocked".into()));
