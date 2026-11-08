@@ -41,118 +41,6 @@ const checkStaleSettingsInventory = async () => {
   if ([...list.children].map((row) => row.dataset.peerId).join() !== newerRows || !error.hidden)
     throw new Error('old inventory error changed new settings');
 };
-// Node Settings has two load waits and a save completion tied to one identity.
-const checkStaleNode = async () => {
-  const readyState = current;
-  const node = document.getElementById('node');
-  const save = document.getElementById('node-save');
-  const saved = { enabled: false, diskMb: 40, maxConnections: 2 };
-  const switchAndShow = async () => {
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
-    await openArea('settings', 'node');
-    await window.nodeShown;
-    await showNode((command) =>
-      Promise.resolve(command === 'node_status' ? { status: 'off', peerId: '' } : saved),
-    );
-  };
-  const checkNew = (message) => {
-    if (
-      node.hidden ||
-      node.dataset.status !== 'off' ||
-      document.getElementById('node-enabled').checked ||
-      document.getElementById('node-disk').value !== '40' ||
-      document.getElementById('node-connections').value !== '2'
-    )
-      throw new Error(message);
-  };
-  await openArea('settings', 'node');
-  let finishStatus;
-  const oldStatus = showNode(
-    () =>
-      new Promise((resolve) => {
-        finishStatus = resolve;
-      }),
-  );
-  await switchAndShow();
-  finishStatus({ status: 'running', peerId: 'old' });
-  await oldStatus;
-  checkNew('old node status changed new form');
-
-  let finishSettings;
-  const oldSettings = showNode((command) =>
-    command === 'node_status'
-      ? Promise.resolve({ status: 'off', peerId: '' })
-      : new Promise((resolve) => {
-          finishSettings = resolve;
-        }),
-  );
-  await new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
-  if (!finishSettings) throw new Error('old node settings load did not start');
-  await switchAndShow();
-  finishSettings({ enabled: true, diskMb: 100, maxConnections: 10 });
-  await oldSettings;
-  checkNew('old node settings changed new form');
-
-  let failSettings;
-  const oldSettingsFailure = showNode((command) =>
-    command === 'node_status'
-      ? Promise.resolve({ status: 'off', peerId: '' })
-      : new Promise((_, reject) => {
-          failSettings = reject;
-        }),
-  );
-  await new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
-  await switchAndShow();
-  failSettings(new Error('old settings'));
-  await oldSettingsFailure;
-  checkNew('old node settings error changed new form');
-
-  let finishOldSave;
-  const oldSave = saveNodeSettings(
-    saved,
-    () =>
-      new Promise((resolve) => {
-        finishOldSave = resolve;
-      }),
-  );
-  await switchAndShow();
-  let finishNewSave;
-  const newSave = saveNodeSettings(
-    { ...saved, enabled: true },
-    () =>
-      new Promise((resolve) => {
-        finishNewSave = resolve;
-      }),
-  );
-  finishOldSave({ status: 'running', peerId: 'old' });
-  await oldSave;
-  if (!save.disabled || node.dataset.status !== 'starting') {
-    throw new Error('old node save changed new status or unlocked Save');
-  }
-  finishNewSave({ status: 'off', peerId: '' });
-  await newSave;
-  if (save.disabled || node.dataset.status !== 'off')
-    throw new Error('new node save did not finish');
-
-  let failOldSave;
-  const oldSaveFailure = saveNodeSettings(
-    saved,
-    () =>
-      new Promise((_, reject) => {
-        failOldSave = reject;
-      }),
-  );
-  await switchAndShow();
-  failOldSave(new Error('old save'));
-  await oldSaveFailure;
-  checkNew('old node save error changed new status');
-  await showNode();
-};
 // A tray result from an old Settings view cannot replace the new controls.
 const checkStaleTray = async () => {
   const readyState = current;
@@ -1284,7 +1172,7 @@ globalThis.uiSmokeGuards = Object.freeze({
   linkStep,
   checkLinkedNotice,
   checkStaleSettingsInventory,
-  checkStaleNode,
+  checkStaleNode: window.uiSmokeNodeGuard,
   checkStaleTray,
   checkStaleRemovePreparation,
   checkStaleWithdrawal,
