@@ -78,6 +78,10 @@ impl Session {
     /// publish them through `node` under the mailbox key `device_key`. Publish after the profile
     /// that lists this device; a failed publish leaves only unused keys sealed. A node that holds
     /// its full stock already replies `Full`, which ends the batch as done.
+    ///
+    /// # Errors
+    /// Returns [`Error::Invalidated`] without a live device, MLS/storage errors
+    /// while preparing the durable keys, or client errors during publication.
     pub async fn publish_key_packages(
         &mut self,
         node: &mut Node,
@@ -108,6 +112,10 @@ impl Session {
     /// private key is sealed and the exact signed record saved before the network sees it. An
     /// unconfirmed record is repeated as it is. Call after publishing the profile and from then
     /// on; a failure stays due for the next call.
+    ///
+    /// # Errors
+    /// Returns invalidated-device, MLS, storage or client errors while rotating,
+    /// saving or publishing the reusable package. Saved work remains due for retry.
     pub async fn keep_last_resort(
         &mut self,
         node: &mut Node,
@@ -149,6 +157,10 @@ impl Session {
     /// Block `contact` (hex Peer ID): record it, sign it no more tokens, and revoke those it holds
     /// through the first node that answers. The block stays if the revoke fails; call again to
     /// repeat it.
+    ///
+    /// # Errors
+    /// Returns storage errors or token-revocation errors. A saved block remains
+    /// effective even if remote revocation fails.
     pub async fn block(
         &mut self,
         nodes: &mut [Node],
@@ -160,11 +172,18 @@ impl Session {
     }
 
     /// Unblock `contact`. Revoked keys stay revoked; it gets tokens again for days it asks anew.
+    ///
+    /// # Errors
+    /// Returns [`Error::Store`] if saving the unblocked state fails.
     pub fn unblock(&mut self, contact: &str) -> Result<(), Error> {
         Ok(self.store.set_blocked(contact, false)?)
     }
 
     /// Reopen the committed snapshot after a local failure; never reuse the advanced handles.
+    ///
+    /// # Errors
+    /// Returns [`Error::MissingSnapshot`], storage errors or MLS restoration errors.
+    /// Failure leaves the session without a live device and clears old group handles.
     pub fn recover(&mut self, seal_key: &[u8; 32]) -> Result<(), Error> {
         self.device = None;
         self.groups.clear();
@@ -279,6 +298,11 @@ impl Session {
 
     /// Stage a new text with a caller-visible logical ID before any network request. The returned
     /// exact writes stay in the outbox across an offline period; `retry_due` sends them later.
+    ///
+    /// # Errors
+    /// Returns client errors for randomness/preparation failures, storage or MLS
+    /// errors, [`Error::Invalidated`] or [`Error::UnknownGroup`]. A failure after
+    /// MLS advancement invalidates the session.
     pub fn stage_text(
         &mut self,
         group_id: &[u8],
@@ -301,6 +325,10 @@ impl Session {
     /// Send a text only after the new MLS state and every signed envelope are durable. Each write
     /// carries this device's token for today when it holds one; a write refused for its token is
     /// replaced in the outbox as in [`tokens::send`] and put again.
+    ///
+    /// # Errors
+    /// Returns staging errors from [`Self::stage_text`] or durable delivery errors.
+    /// Network failures may leave committed writes queued for retry.
     pub async fn send_message(
         &mut self,
         nodes: &mut [Node],
@@ -316,6 +344,11 @@ impl Session {
     /// in the pair's canonical group: the joined one with the lowest ID, which both sides pick
     /// once each holds every Welcome. With none yet, a group made from `packages`
     /// ([`chat::key_packages`]) commits its Welcome with the text; the Welcome writes come first.
+    ///
+    /// # Errors
+    /// Returns invalid profile selection, invalidated-device, randomness, MLS,
+    /// preparation or storage errors. Failure after new-group advancement
+    /// invalidates the session.
     pub fn stage_text_to(
         &mut self,
         profiles: &[VerifiedProfile],
@@ -370,6 +403,10 @@ impl Session {
 
     /// Send a text to the other owner in `profiles` as [`Session::stage_text_to`] stages it,
     /// fetching the KeyPackages only when the pair has no group yet.
+    ///
+    /// # Errors
+    /// Returns profile selection, KeyPackage fetch, staging or durable delivery
+    /// errors; committed writes can remain queued for retry.
     pub async fn send_text_to(
         &mut self,
         nodes: &mut [Node],
@@ -390,6 +427,10 @@ impl Session {
     /// Like, unlike or view the other owner in `profiles` in the pair's canonical group, as
     /// [`Session::interact`] does. A like with no group yet first invites the peer: the Welcome
     /// and the like are staged before either is sent. Without a group nothing else is sent.
+    ///
+    /// # Errors
+    /// Returns profile selection, blocked-peer, KeyPackage, staging or delivery
+    /// errors. Committed invitation and signal writes remain durable.
     pub async fn interact_with(
         &mut self,
         nodes: &mut [Node],
@@ -525,6 +566,10 @@ impl Session {
     }
 
     /// Stage an edit of this profile's current text and return its operation ID and exact writes.
+    ///
+    /// # Errors
+    /// Returns [`Error::UnknownMessage`] for an absent/deleted target, storage
+    /// errors, or the MLS/preparation/group errors of text staging.
     pub fn stage_edit(
         &mut self,
         group_id: &[u8],
@@ -536,6 +581,10 @@ impl Session {
     }
 
     /// Stage a terminal deletion of this profile's current text and return its operation ID.
+    ///
+    /// # Errors
+    /// Returns [`Error::UnknownMessage`] for an absent/deleted target, storage
+    /// errors, or the MLS/preparation/group errors of text staging.
     pub fn stage_delete(
         &mut self,
         group_id: &[u8],
@@ -546,6 +595,10 @@ impl Session {
     }
 
     /// Send an edit after staging its exact encrypted writes and local current text.
+    ///
+    /// # Errors
+    /// Returns errors from [`Self::stage_edit`] or durable delivery; committed
+    /// writes may remain queued for retry.
     pub async fn send_edit(
         &mut self,
         nodes: &mut [Node],
@@ -560,6 +613,10 @@ impl Session {
     }
 
     /// Send a terminal delete after staging its exact encrypted writes and local placeholder.
+    ///
+    /// # Errors
+    /// Returns errors from [`Self::stage_delete`] or durable delivery; committed
+    /// writes may remain queued for retry.
     pub async fn send_delete(
         &mut self,
         nodes: &mut [Node],
@@ -575,6 +632,9 @@ impl Session {
     /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
     /// [`Store::draft_interaction`] creates it; `None` when no view is due. Like a text, a failed put stays
     /// in the outbox, and every retry carries the same event.
+    ///
+    /// # Errors
+    /// Returns [`Error::UnknownGroup`], storage, staging or delivery errors.
     pub async fn interact(
         &mut self,
         nodes: &mut [Node],
@@ -594,6 +654,10 @@ impl Session {
 
     /// When the app comes to the foreground: send one presence to each allowed match not sent one
     /// in the last hour ([presence](../../docs/design/presence.md)). Unsent ones expire in 2 h.
+    ///
+    /// # Errors
+    /// Returns storage, staging or delivery errors; earlier presence writes may
+    /// already be committed when a later group fails.
     pub async fn announce_presence(
         &mut self,
         nodes: &mut [Node],
@@ -628,6 +692,9 @@ impl Session {
     /// When the app shows a chat: send a read receipt for `seen`, the latest text from the other
     /// owner of `group_id` on screen, if one is due ([read receipts](../../docs/design/read-receipts.md)).
     /// Returns whether one was sent.
+    ///
+    /// # Errors
+    /// Returns [`Error::UnknownGroup`], storage, staging or delivery errors.
     pub async fn mark_read(
         &mut self,
         nodes: &mut [Node],
@@ -681,6 +748,10 @@ impl Session {
     /// Put every outbox write due by `now_ms` again, as the app does after a restart or a lost
     /// connection; a failed one waits longer each time, up to an hour. An accepted write is put
     /// again until its receipt, 1 h later and then up to a day apart, for 30 days.
+    ///
+    /// # Errors
+    /// Returns storage or non-client delivery errors. Client delivery failures
+    /// are rescheduled; earlier writes may already have been processed.
     pub async fn retry_due(
         &mut self,
         nodes: &mut [Node],
@@ -753,6 +824,10 @@ impl Session {
     /// Ask every group's other devices for missing write tokens. The desktop mailbox poll calls
     /// this when its persisted daily due time arrives. A join, a newly opened chat, and a
     /// contact's request ask by themselves.
+    ///
+    /// # Errors
+    /// Returns token-draft, staging or delivery errors; earlier groups may already
+    /// have committed requests.
     pub async fn refill(&mut self, nodes: &mut [Node], seal_key: &[u8; 32]) -> Result<(), Error> {
         let ids = self
             .groups
@@ -867,6 +942,9 @@ impl Session {
     }
 
     /// Reopen exact signed bytes for the retry worker after a crash or failed node request.
+    ///
+    /// # Errors
+    /// Returns [`Error::Store`] if queued envelopes cannot be read or decoded.
     pub fn due_outbound(&self, now_ms: i64) -> Result<Vec<PreparedEnvelope>, Error> {
         Ok(self.store.due_outbound(now_ms)?)
     }
