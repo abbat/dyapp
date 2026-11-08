@@ -68,13 +68,13 @@ mod tests {
     use dyapp_identity::Identity;
     use dyapp_profile::{verify, Profile};
 
-    fn verified(profile: Profile) -> VerifiedProfile {
+    fn verified(profile: &Profile) -> VerifiedProfile {
         verify(&profile.sign(&Identity::generate())).unwrap()
     }
 
     #[test]
     fn each_optional_text_field_contributes_only_when_both_publish_it() {
-        let own = verified(Profile {
+        let own = verified(&Profile {
             version: 1,
             profession: "Engineer".into(),
             company: "Example".into(),
@@ -87,7 +87,7 @@ mod tests {
             version: 1,
             ..Profile::default()
         };
-        assert_eq!(compare(&own, &verified(other.clone())), Evidence::default());
+        assert_eq!(compare(&own, &verified(&other)), Evidence::default());
         for (field, value) in ["Engineer", "Example", "Technology", "Senior", "Flexible"]
             .into_iter()
             .enumerate()
@@ -101,7 +101,7 @@ mod tests {
             ][field] = value.into();
             let count = u8::try_from(field + 1).unwrap();
             assert_eq!(
-                compare(&own, &verified(other.clone())),
+                compare(&own, &verified(&other)),
                 Evidence {
                     matches: count,
                     compared: count
@@ -110,7 +110,7 @@ mod tests {
         }
         other.company = "Another".into();
         assert_eq!(
-            compare(&own, &verified(other)),
+            compare(&own, &verified(&other)),
             Evidence {
                 matches: 4,
                 compared: 5
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn income_requires_complete_ranges_in_the_same_country() {
-        let own = verified(Profile {
+        let own = verified(&Profile {
             version: 1,
             country: "DE".into(),
             income_from: Some(100),
@@ -135,7 +135,7 @@ mod tests {
             ..Profile::default()
         };
         assert_eq!(
-            compare(&own, &verified(other.clone())),
+            compare(&own, &verified(&other)),
             Evidence {
                 matches: 1,
                 compared: 1
@@ -143,19 +143,19 @@ mod tests {
         );
         other.income_from = Some(201);
         assert_eq!(
-            compare(&own, &verified(other.clone())),
+            compare(&own, &verified(&other)),
             Evidence {
                 matches: 0,
                 compared: 1
             }
         );
         other.country = "FR".into();
-        assert_eq!(compare(&own, &verified(other.clone())), Evidence::default());
+        assert_eq!(compare(&own, &verified(&other)), Evidence::default());
         other.country.clear();
-        assert_eq!(compare(&own, &verified(other.clone())), Evidence::default());
+        assert_eq!(compare(&own, &verified(&other)), Evidence::default());
         other.country = "DE".into();
         other.income_to = None;
-        assert_eq!(compare(&own, &verified(other)), Evidence::default());
+        assert_eq!(compare(&own, &verified(&other)), Evidence::default());
     }
 
     #[test]
@@ -167,18 +167,18 @@ mod tests {
             interests: vec!["Hiking".into(), "chess".into()],
             ..Profile::default()
         };
-        let unset = verified(Profile {
+        let unset = verified(&Profile {
             version: 1,
             ..Profile::default()
         });
-        let differs = verified(Profile {
+        let differs = verified(&Profile {
             version: 1,
             relationship_goal: 3,
             wants_more_kids: Some(false),
             interests: vec!["films".into()],
             ..Profile::default()
         });
-        let same = verified(Profile {
+        let same = verified(&Profile {
             version: 1,
             relationship_goal: 2,
             wants_more_kids: Some(true),
@@ -186,7 +186,7 @@ mod tests {
             ..Profile::default()
         });
         // Published interests are normalized; the own draft may not be yet.
-        let own_verified = verified(Profile {
+        let own_verified = verified(&Profile {
             interests: vec!["hiking".into(), "chess".into()],
             ..own.clone()
         });

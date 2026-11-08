@@ -98,6 +98,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own, blocked or unknown peer, or if session locking, stored
     /// read-state lookup, network access, receipt sending or result-count conversion fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn send_reads(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.

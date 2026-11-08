@@ -66,6 +66,10 @@ const KEY_PACKAGES: usize = 4;
 /// # Errors
 ///
 /// Returns an error if state-key generation or the platform keystore wrapping fails.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn new_chat_state_key(store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
     let key = Zeroizing::new(Device::state_key()?);
     Ok(store.wrap(key.to_vec())?)
@@ -120,6 +124,10 @@ impl ChatSession {
     ///
     /// Returns an error if the identity directory, unwrapped key, stored device state or device-key
     /// binding is invalid, or storage access or runtime initialization fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn open(
         dir: String,
         key: Arc<IdentityKey>,
@@ -207,6 +215,10 @@ impl ChatSession {
     /// # Errors
     ///
     /// Returns an error if the session lock or stored conversation lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn state(&self, peer_id: String) -> Result<ChatState, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         Ok(session.conversation(&peer_id).map_err(failed)?.into())
@@ -222,6 +234,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own peer, invalid text, a blocked or unpublished peer, or if
     /// session locking, network access, message encryption or persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn send_text(&self, peer_id: String, text: String) -> Result<Vec<u8>, CoreError> {
         if peer_id == self.key.identity.peer_id() {
             return Err(CoreError::Failed("ownPeer".into()));
@@ -282,6 +298,10 @@ impl ChatSession {
     ///
     /// Returns an error for a blocked peer, or if the session lock, history, read marks or
     /// conversation settings cannot be read.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_history(&self, peer_id: String) -> Result<ChatHistory, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -308,6 +328,10 @@ impl ChatSession {
     /// # Errors
     ///
     /// Returns an error if the session lock or stored like/pass lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn likes(&self, peer_id: String) -> Result<ChatLikes, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         likes_in(session.store(), &peer_id)
@@ -346,6 +370,10 @@ impl ChatSession {
     ///
     /// Returns an error if the session lock, published own profile, active network, peer profile,
     /// encrypted signal or stored like state cannot be obtained or updated.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.

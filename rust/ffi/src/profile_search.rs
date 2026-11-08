@@ -130,6 +130,10 @@ pub fn search_height_condition(
 /// # Errors
 ///
 /// Returns an error if the current UTC date cannot be represented.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn search_mutual_conditions(
     draft: PublicProfileDraft,
 ) -> Result<Vec<SearchCondition>, CoreError> {
@@ -297,6 +301,10 @@ impl ProfileSearcher {
     /// Returns an error if locking or storage fails, saved settings are invalid,
     /// no active network answers, or the network worker fails. Individual search
     /// node failures are reported in the result's failures and partial flag.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn search(
         &self,
         key: Arc<IdentityKey>,

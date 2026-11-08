@@ -110,6 +110,10 @@ impl ProfileSearcher {
     /// Returns an error if cache locking, active settings, network-thread execution,
     /// or connecting fails. Individual blob failures are skipped; photos cached
     /// before a later error remain available.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn fetch_peer_photos(&self, hashes: Vec<Vec<u8>>, full: bool) -> Result<(), CoreError> {
         let wanted: Vec<[u8; 32]> = {
             let mut photos = self.photos.lock().map_err(failed)?;
@@ -153,6 +157,10 @@ impl ProfileSearcher {
     /// # Errors
     ///
     /// Returns an error if the cache lock is poisoned or the photo is not cached.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn peer_photo(&self, hash: Vec<u8>) -> Result<Vec<u8>, CoreError> {
         self.photos
             .lock()
@@ -171,6 +179,10 @@ impl ProfileSearcher {
 ///
 /// Returns an error if the identity directory, database, or download setting
 /// cannot be opened, read, or validated.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn peer_photo_auto(dir: String, key: Arc<IdentityKey>) -> Result<bool, CoreError> {
     let store = Store::open(&database(&dir)?.join("client.db"), &key.identity).map_err(failed)?;
     let mode = store.auto_download().map_err(failed)?;

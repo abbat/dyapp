@@ -25,6 +25,10 @@ impl ChatSession {
     ///
     /// Returns an error for a blocked peer or inconsistent history projection, or if session
     /// locking, stored history or read-mark lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
         use super::ChatItem;
         use dyapp_client::store::messages::ChatItem as Stored;
@@ -74,6 +78,10 @@ impl ChatSession {
     /// # Errors
     ///
     /// Returns an error for a blocked peer, or if the session lock or attachment-history lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_photos(&self, peer_id: String) -> Result<Vec<super::ChatPhoto>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -95,6 +103,10 @@ impl ChatSession {
     ///
     /// Returns an error for a blocked peer, or if the session lock, download policy or
     /// conversation-state lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_photo_auto(&self, peer_id: String) -> Result<bool, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();

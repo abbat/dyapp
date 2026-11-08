@@ -234,6 +234,10 @@ pub(crate) fn database(dir: &str) -> Result<&Path, CoreError> {
 ///
 /// Returns an error if the identity directory or database is invalid or cannot
 /// be read, or the saved draft format or protobuf is invalid.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn load_profile_draft(
     dir: String,
     key: Arc<IdentityKey>,
@@ -258,6 +262,10 @@ pub fn load_profile_draft(
 ///
 /// Returns an error if editable fields fail validation, the identity directory
 /// or database cannot be opened, or reading or saving the draft fails.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn save_profile_draft(
     dir: String,
     key: Arc<IdentityKey>,

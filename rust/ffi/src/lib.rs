@@ -97,6 +97,10 @@ impl MessageService {
     /// # Errors
     ///
     /// This placeholder currently always returns `Ok`; it does not send or queue data.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn send_message(&self, peer_id: String, text: String) -> Result<String, CoreError> {
         let _ = text;
         Ok(format!("Message queued to {peer_id}"))
@@ -374,6 +378,10 @@ impl IdentityKey {
     ///
     /// Returns an error if the platform keystore cannot unwrap the blob or the
     /// unwrapped secret is not exactly 32 bytes.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn unwrap(store: Arc<dyn KeyStore>, wrapped: Vec<u8>) -> Result<Arc<Self>, CoreError> {
         let secret = Zeroizing::new(store.unwrap(wrapped)?);
         let secret: &[u8; 32] = secret
@@ -390,6 +398,10 @@ impl IdentityKey {
     /// # Errors
     ///
     /// Returns an error if the platform keystore cannot encrypt the identity secret.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn wrap(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
         // ponytail: the FFI buffer that carries the secret to the app is freed, not wiped.
         Ok(store.wrap(self.identity.secret().to_vec())?)
@@ -516,6 +528,10 @@ impl From<dyapp_client::places::Place> for Place {
 /// The place `id` of `country` named in `lang` (`ru`, else English); none outside the picker set.
 #[uniffi::export]
 #[must_use]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn place_name(country: String, id: u32, lang: String) -> Option<Place> {
     dyapp_client::places::place(&country, id, &lang).map(Place::from)
 }
@@ -524,6 +540,10 @@ pub fn place_name(country: String, id: u32, lang: String) -> Option<Place> {
 /// largest first.
 #[uniffi::export]
 #[must_use]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn search_places(country: String, prefix: String, lang: String, limit: u32) -> Vec<Place> {
     dyapp_client::places::search(&country, &prefix, &lang, limit as usize)
         .into_iter()

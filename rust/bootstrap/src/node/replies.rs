@@ -188,7 +188,7 @@ impl Replicas {
         service: &Service,
         peer: PeerId,
         request_id: OutboundRequestId,
-        response: proto::KeyPackageResponse,
+        response: &proto::KeyPackageResponse,
     ) {
         service.traffic.add(response.encoded_len() as u64);
         self.trust.add(peer, 1);

@@ -136,7 +136,7 @@ impl BootstrapStore {
             .query_map(params![mailbox, now], |row| row.get(0))
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
-        rows.into_iter().map(decode).collect()
+        rows.into_iter().map(|bytes| decode(&bytes)).collect()
     }
 }
 

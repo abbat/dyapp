@@ -240,7 +240,7 @@ impl BootstrapStore {
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         rows.into_iter()
-            .map(|(record, group, expires_at)| Ok((decode(record)?, group, expires_at)))
+            .map(|(record, group, expires_at)| Ok((decode(&record)?, group, expires_at)))
             .collect()
     }
 

@@ -62,6 +62,10 @@ impl MlsDevice {
     /// # Errors
     ///
     /// Returns an error if device certification, MLS initialization or state-key generation fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn new(
         identity: Arc<IdentityKey>,
         device_key: Arc<IdentityKey>,
@@ -85,6 +89,10 @@ impl MlsDevice {
     ///
     /// Returns an error if keystore unwrapping fails, the key has the wrong length, or the sealed
     /// state cannot be authenticated or restored.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn open(
         store: Arc<dyn KeyStore>,
         wrapped_key: Vec<u8>,
@@ -102,6 +110,10 @@ impl MlsDevice {
     /// # Errors
     ///
     /// Returns an error if the platform keystore cannot wrap the state key.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn wrap_state_key(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
         // ponytail: the FFI buffer that carries the key to the app is freed, not wiped.
         Ok(store.wrap(self.state_key.to_vec())?)
@@ -136,6 +148,10 @@ impl MlsDevice {
     ///
     /// Returns an error if a supplied profile is malformed or fails verification, or if member
     /// validation, MLS group creation or Welcome serialization fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn create_group(
         &self,
         key_packages: Vec<Vec<u8>>,
@@ -158,6 +174,10 @@ impl MlsDevice {
     ///
     /// Returns an error if a supplied profile is malformed or fails verification, or if Welcome
     /// validation, device membership checks or MLS state persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn join(
         &self,
         welcome: Vec<u8>,
@@ -174,6 +194,10 @@ impl MlsDevice {
     /// # Errors
     ///
     /// Returns an error if stored MLS group state cannot be loaded; an absent group returns `None`.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn load_group(&self, id: Vec<u8>) -> Result<Option<Arc<MlsGroup>>, CoreError> {
         Ok(Group::load(&self.device, &id)?.map(|group| {
             Arc::new(MlsGroup {
@@ -247,6 +271,10 @@ impl MlsGroup {
     /// # Errors
     ///
     /// Returns an error if the group lock is poisoned or MLS message encryption or persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn encrypt(
         &self,
         device: Arc<MlsDevice>,
@@ -265,6 +293,10 @@ impl MlsGroup {
     ///
     /// Returns an error if the group lock is poisoned, a profile is invalid, or message parsing,
     /// authentication, sender authorization or MLS state processing fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn process(
         &self,
         device: Arc<MlsDevice>,
@@ -290,6 +322,10 @@ impl MlsGroup {
     ///
     /// Returns an error if the group lock is poisoned, a supplied profile is invalid, or revoked
     /// member removal, commit generation or MLS state persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn remove_revoked(
         &self,
         device: Arc<MlsDevice>,
@@ -308,6 +344,10 @@ impl MlsGroup {
     ///
     /// Returns an error if the requested length cannot fit the platform, the group lock is poisoned,
     /// or the MLS exporter rejects the request.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn export_secret(
         &self,
         device: Arc<MlsDevice>,

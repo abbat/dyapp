@@ -45,7 +45,7 @@ fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
     }
     open(&store, &peer);
     open(&store, &other);
-    deliver(&mut store, 1, &[3], &peer, text(1, Some(300)));
+    deliver(&mut store, 1, &[3], &peer, &text(1, Some(300)));
     for (group, name, id, time) in [(&[3][..], &peer, 2, 400), (&[5], &other, 5, 450)] {
         store
             .record_chat_attachment(
@@ -72,7 +72,7 @@ fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
     assert_eq!(rows[0].last_sticker.as_ref().unwrap().key.id, [3; 16]);
     assert_eq!(rows[0].unread_count, 1);
     assert_eq!(store.mark_chat_read(&peer).unwrap(), 1);
-    deliver(&mut store, 7, &[4], &peer, text(7, Some(600)));
+    deliver(&mut store, 7, &[4], &peer, &text(7, Some(600)));
     let rows = store.chat_rows().unwrap();
     assert!(rows[0].last_sticker.is_none() && rows[0].last_attachment.is_none());
     assert_eq!(rows[0].last_message.as_ref().unwrap().key.id, [7; 16]);

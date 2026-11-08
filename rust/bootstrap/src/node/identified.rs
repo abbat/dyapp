@@ -90,9 +90,9 @@ impl Admission {
     }
 
     /// The remote address of a connection this node dialled.
-    pub(super) fn dialed(&self, id: &ConnectionId) -> Option<&Multiaddr> {
+    pub(super) fn dialed(&self, id: ConnectionId) -> Option<&Multiaddr> {
         self.remotes
-            .get(id)
+            .get(&id)
             .filter(|(_, _, dialer)| *dialer)
             .map(|(_, a, _)| a)
     }
@@ -201,7 +201,7 @@ pub(super) fn add_node(
         return false;
     }
     // A routable peer this node dialled answered: it becomes an anchor.
-    if let Some(address) = admission.dialed(&id) {
+    if let Some(address) = admission.dialed(id) {
         if pow {
             remember_anchor(anchors, peer_id, address);
         }

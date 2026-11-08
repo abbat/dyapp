@@ -89,9 +89,9 @@ fn crc32(bytes: &[u8]) -> u32 {
     })
 }
 
-fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+fn chunk(kind: [u8; 4], data: &[u8]) -> Vec<u8> {
     let mut chunk = u32::try_from(data.len()).unwrap().to_be_bytes().to_vec();
-    chunk.extend_from_slice(kind);
+    chunk.extend_from_slice(&kind);
     chunk.extend_from_slice(data);
     chunk.extend(crc32(&chunk[4..]).to_be_bytes());
     chunk
@@ -114,7 +114,7 @@ fn plain_png() -> Vec<(&'static [u8; 4], Vec<u8>)> {
 fn png_of(chunks: &[(&[u8; 4], Vec<u8>)]) -> Vec<u8> {
     let mut png = PNG_SIGNATURE.to_vec();
     for (kind, data) in chunks {
-        png.extend(chunk(kind, data));
+        png.extend(chunk(**kind, data));
     }
     png
 }

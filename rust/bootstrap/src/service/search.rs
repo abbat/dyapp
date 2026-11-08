@@ -64,11 +64,11 @@ pub enum Search {
 }
 
 /// The refusal of a heartbeat, or `None` when it may be counted.
-fn beaten(beat: crate::search::Beat) -> Option<Applied> {
+fn beaten(beat: &crate::search::Beat) -> Option<Applied> {
     match beat {
         crate::search::Beat::Ok => None,
         crate::search::Beat::NotFound => Some(Applied::Status(Status::NotFound)),
-        crate::search::Beat::Limited { retry_after } => Some(Applied::Limited(retry_after)),
+        crate::search::Beat::Limited { retry_after } => Some(Applied::Limited(*retry_after)),
     }
 }
 
@@ -149,7 +149,7 @@ impl Service {
                     request: Some(request),
                 },
             ),
-            applied => Search::Reply(self.applied(peer, applied)),
+            applied => Search::Reply(self.applied(peer, &applied)),
         };
         Ok(match request.request {
             Some(search_request::Request::Publish(record)) => pow(
@@ -235,28 +235,28 @@ impl Service {
             .is_ok_and(|peers| peers.contains(&peer.id))
     }
 
-    pub(super) fn applied(&self, peer: &Peer, applied: Applied) -> SearchResponse {
+    pub(super) fn applied(&self, peer: &Peer, applied: &Applied) -> SearchResponse {
         match applied {
             Applied::Done | Applied::Skipped => search_reply(Status::Ok),
             Applied::Bad => {
                 self.strike(peer);
                 search_reply(Status::Denied)
             }
-            Applied::Status(status) => search_reply(status),
+            Applied::Status(status) => search_reply(*status),
             Applied::TooLarge(max) => SearchResponse {
-                max_bytes: max as u64,
+                max_bytes: *max as u64,
                 ..search_reply(Status::TooLarge)
             },
             Applied::RequiredPow(required_pow_bits) => SearchResponse {
-                required_pow_bits,
+                required_pow_bits: *required_pow_bits,
                 ..search_reply(Status::Invalid)
             },
             Applied::Clock(server_time) => SearchResponse {
-                server_time,
+                server_time: *server_time,
                 ..search_reply(Status::Invalid)
             },
             Applied::Limited(retry_after) => SearchResponse {
-                retry_after,
+                retry_after: *retry_after,
                 ..search_reply(Status::RateLimited)
             },
             // The cache was cleared between the check and this run: the client retries.
@@ -288,7 +288,7 @@ impl Service {
             Some(search_request::Request::Heartbeat(record)) => self.beat_search(record)?,
             _ => Applied::Status(Status::Unsupported),
         };
-        Ok(self.applied(peer, applied))
+        Ok(self.applied(peer, &applied))
     }
 
     /// `limit = false` (catch-up) skips only the 10-minute update limit.
@@ -373,7 +373,7 @@ impl Service {
         }
         let min = self.config.search.min_heartbeat_pow_bits;
         if min > 0 {
-            if let Some(refused) = beaten(index.can_beat(&key, beat.version, now)?) {
+            if let Some(refused) = beaten(&index.can_beat(&key, beat.version, now)?) {
                 return Ok(refused);
             }
             if beat.pow_bits < min || i64::from(beat.pow_day) != now.div_euclid(86_400) {
@@ -389,7 +389,7 @@ impl Service {
                 return Ok(Applied::Pow(check));
             }
         }
-        Ok(beaten(index.heartbeat(&key, beat.version, now)?).unwrap_or(Applied::Done))
+        Ok(beaten(&index.heartbeat(&key, beat.version, now)?).unwrap_or(Applied::Done))
     }
 
     /// Applies a gossiped publish or heartbeat. On `Reject` the node strikes the peer that
@@ -439,6 +439,10 @@ impl Service {
     ///
     /// Returns an error if the index lock or ordered inventory query fails.
     /// Admission and request-validation failures use the response status.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "The public protocol handler retains the owned request contract used by dispatch"
+    )]
     pub fn search_inventory(
         &self,
         peer: &Peer,

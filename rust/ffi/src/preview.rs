@@ -46,6 +46,10 @@ fn failed(reason: &str) -> CoreError {
 ///
 /// Returns an error if dimensions are zero or do not match the RGBA buffer, JPEG encoding
 /// fails, or no preview fits the byte limit.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn make_preview(
     rgba: Vec<u8>,
     width: u32,
@@ -102,6 +106,10 @@ fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
 ///
 /// Returns an error for oversized, malformed or unsupported JPEG data, invalid dimensions,
 /// a decoding failure or panic, or inconsistent decoded pixels.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn check_preview(bytes: Vec<u8>) -> Result<Rgba, CoreError> {
     if bytes.len() > MAX_BYTES as usize {
         return Err(failed("preview over 24 KiB"));
@@ -163,11 +171,11 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
     Ok(Rgba {
         width: u32::from(info.width),
         height: u32::from(info.height),
-        pixels: rgba_pixels(&decoded, &info.pixel_format, pixels)?,
+        pixels: rgba_pixels(&decoded, info.pixel_format, pixels)?,
     })
 }
 
-fn rgba_pixels(decoded: &[u8], format: &PixelFormat, pixels: usize) -> Result<Vec<u8>, CoreError> {
+fn rgba_pixels(decoded: &[u8], format: PixelFormat, pixels: usize) -> Result<Vec<u8>, CoreError> {
     let mut rgba = Vec::with_capacity(pixels * 4);
     match format {
         PixelFormat::RGB24 if decoded.len() == pixels * 3 => {

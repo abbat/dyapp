@@ -7,7 +7,7 @@ use crate::chat::{AttachmentMessage, Body};
 use dyapp_identity::Identity;
 use dyapp_messaging::hlc::Timestamp;
 
-fn deliver(store: &mut Store, envelope: u8, group: &[u8], author: &str, body: Body) {
+fn deliver(store: &mut Store, envelope: u8, group: &[u8], author: &str, body: &Body) {
     let inbox = InboxKey {
         mailbox: [1; 32],
         id: [envelope; 16],
@@ -21,7 +21,7 @@ fn deliver(store: &mut Store, envelope: u8, group: &[u8], author: &str, body: Bo
                 author,
                 device: &[6; 32],
             },
-            &body,
+            body,
             1_000,
         )
         .unwrap());
@@ -67,13 +67,13 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
     super::tests::catalog_group(&mut store, &group_a, &a);
     super::tests::catalog_group(&mut store, &group_b, &b);
     super::tests::catalog_group(&mut store, &group_c, &c);
-    deliver(&mut store, 1, &group_a, &a, text(1, None));
+    deliver(&mut store, 1, &group_a, &a, &text(1, None));
     // The reply opens the chat; a second text of a pending request would be dropped.
     let own = owner.peer_id();
-    deliver(&mut store, 9, &group_a, &own, text(8, Some(150)));
-    deliver(&mut store, 2, &group_a, &a, text(2, Some(300)));
-    deliver(&mut store, 3, &group_b, &b, text(3, Some(400)));
-    deliver(&mut store, 4, &group_c, &c, text(4, Some(100)));
+    deliver(&mut store, 9, &group_a, &own, &text(8, Some(150)));
+    deliver(&mut store, 2, &group_a, &a, &text(2, Some(300)));
+    deliver(&mut store, 3, &group_b, &b, &text(3, Some(400)));
+    deliver(&mut store, 4, &group_c, &c, &text(4, Some(100)));
     for (group, author, id, time) in [
         (&group_a, &a, 5, 200),
         (&group_a, &a, 6, 500),
@@ -129,10 +129,10 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     for (group, peer) in [(&a1[..], &a), (&a2[..], &a), (&b1[..], &b)] {
         super::tests::catalog_group(&mut store, group, peer);
     }
-    deliver(&mut store, 1, &a1, &a, text(1, None));
-    deliver(&mut store, 2, &a1, &own, text(2, None));
-    deliver(&mut store, 3, &b1, &b, text(3, Some(300)));
-    deliver(&mut store, 4, &a2, &a, text(4, Some(200)));
+    deliver(&mut store, 1, &a1, &a, &text(1, None));
+    deliver(&mut store, 2, &a1, &own, &text(2, None));
+    deliver(&mut store, 3, &b1, &b, &text(3, Some(300)));
+    deliver(&mut store, 4, &a2, &a, &text(4, Some(200)));
     let rows = store.chat_rows().unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].peer_id, b);
@@ -158,8 +158,8 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
         operation: [8; 16],
         hlc: Timestamp::new(600, 0).into(),
     };
-    deliver(&mut store, 5, &a2, &a, edit);
-    deliver(&mut store, 6, &b1, &b, delete);
+    deliver(&mut store, 5, &a2, &a, &edit);
+    deliver(&mut store, 6, &b1, &b, &delete);
     let rows = store.chat_rows().unwrap();
     assert!(rows[0].last_message.as_ref().unwrap().current.deleted);
     assert_eq!(
@@ -182,7 +182,7 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     );
 
     assert_eq!(store.mark_chat_read(&a).unwrap(), 2);
-    deliver(&mut store, 7, &a2, &a, text(9, Some(100)));
+    deliver(&mut store, 7, &a2, &a, &text(9, Some(100)));
     let rows = store.chat_rows().unwrap();
     assert_eq!(rows[1].unread_count, 1);
     assert_eq!(rows[1].last_message.as_ref().unwrap().key.id, [4; 16]);

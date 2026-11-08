@@ -88,6 +88,10 @@ impl ProfileSearcher {
     ///
     /// Returns an error if cache locking, opening the identity database, or reading
     /// local names and verification state fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn contact_names(
         &self,
         key: Arc<IdentityKey>,

@@ -81,7 +81,7 @@ impl Store {
             tx,
             owner,
             sender,
-            media::MediaRecord {
+            &media::MediaRecord {
                 id: sticker.id,
                 hlc: sticker.hlc,
                 kind: 2,

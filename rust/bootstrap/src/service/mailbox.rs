@@ -388,7 +388,14 @@ impl Service {
             Err((answer, strike)) => return Ok((status(answer), strike)),
         };
         self.store_put(
-            record, &envelope, token_key, store, source, via, group, expires_at,
+            record,
+            &envelope,
+            token_key.as_deref(),
+            store,
+            source,
+            via,
+            group,
+            expires_at,
         )
         .map(|response| (response, true))
     }
@@ -402,7 +409,7 @@ impl Service {
         &self,
         record: &SignedRecord,
         envelope: &proto::Envelope,
-        token_key: Option<Vec<u8>>,
+        token_key: Option<&[u8]>,
         store: bool,
         source: Source,
         via: &str,
@@ -443,7 +450,7 @@ impl Service {
         };
         let via = label(via.as_bytes());
         let new = crate::storage::NewEnvelope {
-            token_key: token_key.as_deref(),
+            token_key,
             via: &via,
             source_group: &group,
             ..crate::storage::NewEnvelope::new(

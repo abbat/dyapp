@@ -57,6 +57,10 @@ impl ChatSession {
     /// Returns an error for the own or blocked peer, a conversation that is not open, invalid
     /// image data or an unpublished device, or if session locking, encryption, storage or network
     /// access fails. Node failures include `full`, `tooLarge` and `peerUnavailable`.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn send_chat_photo(
         &self,
         peer_id: String,

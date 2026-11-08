@@ -42,6 +42,10 @@ pub struct ProfileVisibility {
 ///
 /// Returns an error if the identity directory is invalid, database metadata or
 /// opening fails, or saved draft/visibility state cannot be read or decoded.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn profile_visibility(
     dir: String,
     key: Arc<IdentityKey>,
@@ -188,6 +192,10 @@ impl ProfilePublisher {
     /// Returns an error if locking, storage, the age/attestation/proof gate, active
     /// settings, network execution, publication or search scheduling fails.
     /// Remote publication or local draft updates may already have succeeded.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn publish(
         &self,
         key: Arc<IdentityKey>,
@@ -223,6 +231,10 @@ impl ProfilePublisher {
     /// Returns an error if locking, storage, active settings, network execution,
     /// hiding or search scheduling fails. Local visibility updates may already
     /// be applied when a later step fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn hide(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
@@ -253,6 +265,10 @@ impl ProfilePublisher {
     /// Returns an error if locking, storage, active settings, network execution,
     /// tombstone publication/readback, or search scheduling fails. Remote and
     /// local updates may already be applied when a later step fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn withdraw(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;

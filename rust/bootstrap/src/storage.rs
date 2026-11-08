@@ -26,6 +26,10 @@ pub struct BootstrapStore {
     messages: Mutex<Connection>,
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "map_err transfers ownership of its source error into this adapter"
+)]
 pub(crate) fn storage_error(error: impl ToString) -> BootstrapError {
     BootstrapError::StorageError(error.to_string())
 }
@@ -197,9 +201,8 @@ pub(crate) fn lock<T>(db: &Mutex<T>) -> Result<MutexGuard<'_, T>> {
     db.lock().map_err(storage_error)
 }
 
-fn decode(bytes: Vec<u8>) -> Result<SignedRecord> {
-    SignedRecord::decode(bytes.as_slice())
-        .map_err(|e| BootstrapError::SerializationError(e.to_string()))
+fn decode(bytes: &[u8]) -> Result<SignedRecord> {
+    SignedRecord::decode(bytes).map_err(|e| BootstrapError::SerializationError(e.to_string()))
 }
 
 impl BootstrapStore {
@@ -284,7 +287,7 @@ impl BootstrapStore {
             if bytes > max_bytes && !records.is_empty() {
                 break;
             }
-            records.push(decode(row)?);
+            records.push(decode(&row)?);
             next = Some((class, seq));
         }
         let more = total > records.len();
@@ -380,11 +383,11 @@ impl BootstrapStore {
         db.query_row(
             "SELECT `record` FROM `profiles` WHERE `peer_id` = ?",
             [peer_id],
-            |row| row.get(0),
+            |row| row.get::<_, Vec<u8>>(0),
         )
         .optional()
         .map_err(storage_error)?
-        .map(decode)
+        .map(|bytes| decode(&bytes))
         .transpose()
     }
 
@@ -429,7 +432,7 @@ impl BootstrapStore {
             .query_map([limit, skip], |row| row.get(0))
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
-        records.into_iter().map(decode).collect()
+        records.into_iter().map(|bytes| decode(&bytes)).collect()
     }
 
     /// Live profiles with a peer ID after `after`, in peer ID order; tombstones are skipped.
@@ -444,7 +447,7 @@ impl BootstrapStore {
             .query_map(params![after, limit], |row| row.get(0))
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
-        records.into_iter().map(decode).collect()
+        records.into_iter().map(|bytes| decode(&bytes)).collect()
     }
 
     /// Mailboxes after `after` that hold an unexpired envelope, in mailbox order.

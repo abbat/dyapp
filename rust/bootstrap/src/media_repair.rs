@@ -291,7 +291,7 @@ impl Repair {
         match job {
             Job::Have(peer) => {
                 if let Some(inventory) = response.and_then(|r| r.inventory) {
-                    self.inventory(peer, inventory);
+                    self.inventory(peer, &inventory);
                 }
             }
             Job::Get(blob, _) => {
@@ -317,7 +317,7 @@ impl Repair {
         }
     }
 
-    fn inventory(&mut self, peer: PeerId, inventory: proto::MediaInventory) {
+    fn inventory(&mut self, peer: PeerId, inventory: &proto::MediaInventory) {
         let requested = &self.groups[&peer];
         let mut checked = HashSet::new();
         for part in inventory.present.iter().chain(&inventory.missing) {

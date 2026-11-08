@@ -30,6 +30,10 @@ fn failed(reason: &str) -> CoreError {
 ///
 /// Returns an error for an unsupported or malformed image, a PNG with EXIF orientation,
 /// or a JPEG decoding, orientation or re-encoding failure.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn strip_metadata(bytes: Vec<u8>) -> Result<Vec<u8>, CoreError> {
     if bytes.starts_with(&[0xFF, 0xD8]) {
         upright_jpeg(&bytes)

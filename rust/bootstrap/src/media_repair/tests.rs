@@ -366,7 +366,7 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
         ..manifest.clone()
     };
     assert!(foreign.data_shards().is_some());
-    let accepted = |inventory| {
+    let accepted = |inventory: &proto::MediaInventory| {
         let mut repair = fresh();
         repair.inventory(remote, inventory);
         !repair.blobs[0].gaps.is_empty()
@@ -378,17 +378,17 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
         ..Default::default()
     };
     // A full window of whole copies and manifests is accepted; one more is not.
-    assert!(accepted(inventory(
+    assert!(accepted(&inventory(
         gap(),
         vec![hash.clone(); WINDOW],
         vec![manifest.clone(); WINDOW]
     )));
-    assert!(!accepted(inventory(
+    assert!(!accepted(&inventory(
         gap(),
         vec![hash.clone(); WINDOW + 1],
         Vec::new()
     )));
-    assert!(!accepted(inventory(
+    assert!(!accepted(&inventory(
         gap(),
         Vec::new(),
         vec![manifest.clone(); WINDOW + 1]
@@ -396,15 +396,15 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
     // Any part, whole copy or manifest for an unrequested hash discards it all.
     let mut missing = gap();
     missing.push(part(&other, None));
-    assert!(!accepted(inventory(missing, Vec::new(), Vec::new())));
-    assert!(!accepted(inventory(gap(), vec![other], Vec::new())));
-    assert!(!accepted(inventory(gap(), Vec::new(), vec![foreign])));
+    assert!(!accepted(&inventory(missing, Vec::new(), Vec::new())));
+    assert!(!accepted(&inventory(gap(), vec![other], Vec::new())));
+    assert!(!accepted(&inventory(gap(), Vec::new(), vec![foreign])));
 
     // Shard holders count only under the manifest the repair adopted.
     let mut repair = fresh();
     repair.inventory(
         remote,
-        inventory(Vec::new(), Vec::new(), vec![manifest.clone()]),
+        &inventory(Vec::new(), Vec::new(), vec![manifest.clone()]),
     );
     let mut changed = manifest.clone();
     changed.shard_hashes[0] = vec![1; 32];
@@ -413,13 +413,13 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
         manifests: vec![manifest],
         ..Default::default()
     };
-    repair.inventory(remote, present(changed, 0));
+    repair.inventory(remote, &present(changed, 0));
     assert!(repair.blobs[0].shard_sources.is_empty());
     // Requested, since keys cover ten shards before the layout is known.
     let past = manifest.shard_hashes.len() as u32;
-    repair.inventory(remote, present(manifest.clone(), past));
+    repair.inventory(remote, &present(manifest.clone(), past));
     assert!(repair.blobs[0].shard_sources.is_empty());
-    repair.inventory(remote, present(manifest, 0));
+    repair.inventory(remote, &present(manifest, 0));
     assert_eq!(repair.blobs[0].shard_sources[&0], [remote]);
 }
 
@@ -487,7 +487,7 @@ fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
     repair.inventoried = true;
     repair.inventory(
         lacking,
-        proto::MediaInventory {
+        &proto::MediaInventory {
             missing: vec![proto::MediaPart {
                 hash: hash.clone(),
                 index: None,
@@ -499,7 +499,7 @@ fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
     for peer in [other, me] {
         repair.inventory(
             peer,
-            proto::MediaInventory {
+            &proto::MediaInventory {
                 whole: vec![hash.clone()],
                 ..Default::default()
             },

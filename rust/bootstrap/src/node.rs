@@ -311,7 +311,7 @@ fn judge(
     service: &Service,
     id: &gossipsub::MessageId,
     source: &PeerId,
-    verdict: Verdict,
+    verdict: &Verdict,
 ) {
     let acceptance = match verdict {
         Verdict::Accept => gossipsub::MessageAcceptance::Accept,

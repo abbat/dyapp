@@ -9,7 +9,7 @@ fn encoded(pixels: &[u8], width: u32, height: u32, color: ColorType) -> Vec<u8> 
     bytes
 }
 
-fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+fn chunk(kind: [u8; 4], data: &[u8]) -> Vec<u8> {
     let mut out = kind.to_vec();
     out.extend_from_slice(&(data.len() as u32).to_le_bytes());
     out.extend_from_slice(data);
@@ -21,14 +21,14 @@ fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
 
 fn animation(first: &[u8], second: &[u8]) -> Vec<u8> {
     let mut body = b"WEBP".to_vec();
-    body.extend(chunk(b"VP8X", &[0x12, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
-    body.extend(chunk(b"ANIM", &[0; 6]));
+    body.extend(chunk(*b"VP8X", &[0x12, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+    body.extend(chunk(*b"ANIM", &[0; 6]));
     for image in [first, second] {
         let mut frame = vec![0; 16];
         frame[12] = 100; // 100 ms, 1x1 full-canvas frame.
         frame[15] = 2; // Replace instead of blending.
         frame.extend_from_slice(&image[12..]);
-        body.extend(chunk(b"ANMF", &frame));
+        body.extend(chunk(*b"ANMF", &frame));
     }
     let mut bytes = b"RIFF".to_vec();
     bytes.extend_from_slice(&(body.len() as u32).to_le_bytes());
@@ -105,7 +105,7 @@ fn valid_header_does_not_authorize_corrupt_pixels() {
     let bytes = encoded(&[20, 30, 40], 1, 1, ColorType::Rgb8);
     let payload = &bytes[20..25]; // VP8L signature and dimension header, no pixels.
     let mut corrupt = b"RIFF".to_vec();
-    let image = chunk(b"VP8L", payload);
+    let image = chunk(*b"VP8L", payload);
     corrupt.extend_from_slice(&((image.len() + 4) as u32).to_le_bytes());
     corrupt.extend_from_slice(b"WEBP");
     corrupt.extend(image);

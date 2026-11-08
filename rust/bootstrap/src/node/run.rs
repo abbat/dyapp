@@ -378,7 +378,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     match service.search_gossip(&message.data) {
                         // Queue full: drop without a strike.
                         Verdict::Pow(_) if pow_gossip >= POW_GOSSIP_QUEUE => {
-                            judge(&mut swarm, &service, &message_id, &propagation_source, Verdict::Ignore);
+                            judge(&mut swarm, &service, &message_id, &propagation_source, &Verdict::Ignore);
                         }
                         Verdict::Pow(check) => {
                             pow_gossip += 1;
@@ -394,7 +394,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                                 .await;
                             });
                         }
-                        verdict => judge(&mut swarm, &service, &message_id, &propagation_source, verdict),
+                        verdict => judge(&mut swarm, &service, &message_id, &propagation_source, &verdict),
                     }
                 }
                 // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
@@ -603,7 +603,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
                     peer: id, message: Message::Response { request_id, response }, ..
                 })) => {
-                    replicas.keypackage_response(&mut swarm, &service, id, request_id, response);
+                    replicas.keypackage_response(&mut swarm, &service, id, request_id, &response);
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::OutboundFailure {
                     peer, request_id, error, ..
@@ -625,7 +625,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id, peer_id, info,
                 })) if info.protocol_version != service.protocols.version => {
                     foreign_peers += 1;
-                    identified::drop_foreign(&mut swarm, admission.dialed(&connection_id), peer_id, &info.protocol_version);
+                    identified::drop_foreign(&mut swarm, admission.dialed(connection_id), peer_id, &info.protocol_version);
                 }
                 // Kademlia learns a dialer's address only from identify: without this a node
                 // never routes to peers that joined through it.
@@ -738,7 +738,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         Some(Verdict::Pow(_)) => Verdict::Ignore,
                         Some(verdict) => verdict,
                     };
-                    judge(&mut swarm, &service, &id, &source, verdict);
+                    judge(&mut swarm, &service, &id, &source, &verdict);
                 }
                 PowDone::CatchUp { records } => {
                     let stored = records.iter().filter(|r| matches!(service.search_apply(r), Ok(Caught::Stored))).count();

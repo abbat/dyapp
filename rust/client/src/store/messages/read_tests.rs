@@ -8,7 +8,7 @@ fn deliver(
     group: &[u8],
     author: &str,
     device: &[u8; 32],
-    body: Body,
+    body: &Body,
 ) {
     let inbox = InboxKey {
         mailbox: [1; 32],
@@ -23,7 +23,7 @@ fn deliver(
                 author,
                 device,
             },
-            &body,
+            body,
             1_000,
         )
         .unwrap());
@@ -49,12 +49,12 @@ fn pair_history_orders_legacy_and_timed_current_messages_across_groups() {
     for (group, author) in [(&a[..], &peer), (&b[..], &peer), (&c[..], &other)] {
         crate::store::tests::catalog_group(&mut store, group, author);
     }
-    deliver(&mut store, 1, &b, &peer, &device, text(1, None));
-    deliver(&mut store, 2, &b, &own, &device, text(2, None));
-    deliver(&mut store, 3, &a, &peer, &device, text(3, Some(200)));
-    deliver(&mut store, 4, &b, &peer, &device, text(3, Some(200)));
-    deliver(&mut store, 5, &a, &own, &device, text(4, Some(150)));
-    deliver(&mut store, 6, &c, &other, &device, text(5, None));
+    deliver(&mut store, 1, &b, &peer, &device, &text(1, None));
+    deliver(&mut store, 2, &b, &own, &device, &text(2, None));
+    deliver(&mut store, 3, &a, &peer, &device, &text(3, Some(200)));
+    deliver(&mut store, 4, &b, &peer, &device, &text(3, Some(200)));
+    deliver(&mut store, 5, &a, &own, &device, &text(4, Some(150)));
+    deliver(&mut store, 6, &c, &other, &device, &text(5, None));
 
     let history = store.current_chat_messages(&peer).unwrap();
     assert_eq!(history.len(), 5);
@@ -90,9 +90,9 @@ fn pair_history_orders_legacy_and_timed_current_messages_across_groups() {
         operation: [8; 16],
         hlc: Timestamp::new(400, 0).into(),
     };
-    deliver(&mut store, 7, &a, &peer, &device, edit);
-    deliver(&mut store, 8, &b, &peer, &device, delete);
-    deliver(&mut store, 9, &a, &peer, &device, text(9, Some(100)));
+    deliver(&mut store, 7, &a, &peer, &device, &edit);
+    deliver(&mut store, 8, &b, &peer, &device, &delete);
+    deliver(&mut store, 9, &a, &peer, &device, &text(9, Some(100)));
     drop(store);
 
     let mut store = Store::open(&path, &owner).unwrap();

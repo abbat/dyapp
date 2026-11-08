@@ -3,6 +3,10 @@
 /// The 60 digits of a pair in groups of five; none for a Peer ID that is not canonical.
 #[uniffi::export]
 #[must_use]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn safety_number_text(mine: String, theirs: String) -> Option<String> {
     dyapp_identity::safety::grouped_safety_number(&mine, &theirs)
 }
@@ -10,6 +14,10 @@ pub fn safety_number_text(mine: String, theirs: String) -> Option<String> {
 /// The bytes of the QR code `mine` shows to `theirs`; none for a Peer ID that is not canonical.
 #[uniffi::export]
 #[must_use]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn safety_qr_payload(mine: String, theirs: String) -> Option<Vec<u8>> {
     dyapp_identity::safety::qr_payload_for_peer_ids(&mine, &theirs)
 }

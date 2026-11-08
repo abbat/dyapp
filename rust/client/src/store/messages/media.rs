@@ -39,7 +39,7 @@ pub(super) fn record(
     tx: &Transaction<'_>,
     owner: &str,
     sender: VerifiedChatSender<'_>,
-    media: MediaRecord,
+    media: &MediaRecord,
     unread: bool,
 ) -> Result<bool, Error> {
     let hlc = i64::try_from(media.hlc).map_err(|_| Error::ClockRange)?;

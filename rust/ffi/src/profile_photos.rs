@@ -51,6 +51,10 @@ fn index(value: u32) -> usize {
 ///
 /// Returns an error if the identity directory or database cannot be opened,
 /// or the saved draft cannot be read or decoded.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>, CoreError> {
     let draft = store(&dir, &key)?.profile_draft().map_err(code)?;
     Ok(draft.as_ref().map(thumbnails).unwrap_or_default())
@@ -66,6 +70,10 @@ pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>
 /// Returns `corrupted` for invalid JPEG dimensions, `photoRefused` for count
 /// or byte limits, or a storage error. Photo blobs may already be stored when
 /// saving the updated draft fails.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn add_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -88,6 +96,10 @@ pub fn add_profile_photo(
 ///
 /// Returns `photoRefused` if the index is out of bounds, or an error if the
 /// identity directory or saved draft cannot be opened, read, or updated.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn remove_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -104,6 +116,10 @@ pub fn remove_profile_photo(
 ///
 /// Returns `photoRefused` for an out-of-bounds index, or a directory, database,
 /// or draft-decoding error.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn move_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -120,6 +136,10 @@ pub fn move_profile_photo(
 /// # Errors
 ///
 /// Returns `notFound` if no blob is stored, or a directory/database read error.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn profile_photo(
     dir: String,
     key: Arc<IdentityKey>,

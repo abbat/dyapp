@@ -31,6 +31,10 @@ impl ChatSession {
     /// Returns an error for a blocked peer, missing message or original, corrupt image or an
     /// unavailable network, or if worker startup, session locking, storage access or fetching fails.
     /// Failure to retain a successfully fetched image in the local cache is ignored.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_photo_original(
         &self,
         peer_id: String,

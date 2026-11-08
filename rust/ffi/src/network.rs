@@ -115,6 +115,10 @@ pub enum CheckError {
     },
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "map_err transfers ownership of its source error into this adapter"
+)]
 fn failed(error: impl ToString) -> CheckError {
     CheckError::Failed {
         reason: error.to_string(),

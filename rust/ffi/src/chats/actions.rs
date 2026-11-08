@@ -102,6 +102,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own, blocked or unknown peer, or if session locking, history
     /// clearing, original-file cleanup or result-count conversion fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn clear_chat(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
         self.check_visible(&session, &peer_id)?;
@@ -117,6 +121,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own, blocked or unknown peer, or if session locking, read-state
     /// storage or result-count conversion fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
         self.check_visible(&session, &peer_id)?;
@@ -132,6 +140,10 @@ impl ChatSession {
     ///
     /// Returns an error for invalid text, the own or blocked peer or an unknown own message,
     /// or if session locking, network access, encrypted sending or persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn edit_text(
         &self,
         peer_id: String,
@@ -152,6 +164,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own or blocked peer or an unknown own message, or if session
     /// locking, network access, encrypted sending or persistence fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn delete_text(
         &self,
         peer_id: String,
@@ -169,6 +185,10 @@ impl ChatSession {
     ///
     /// Returns an error for an invalid or own peer, or if session locking, storing the block,
     /// worker startup or clock conversion fails. Revocation failures are returned as pending.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn block(&self, peer_id: String) -> Result<ChatBlock, CoreError> {
         let change = PeerChange::Blocked(true);
         if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
@@ -235,8 +255,12 @@ impl ChatSession {
     ///
     /// Returns an error for an invalid or own peer, or if session locking, worker startup,
     /// encryption or storage of the own-device change fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn unblock(&self, peer_id: String) -> Result<(), CoreError> {
-        self.change_own(peer_id, PeerChange::Blocked(false))
+        self.change_own(&peer_id, PeerChange::Blocked(false))
     }
 
     /// Mute `peer_id` here and for the owner's other devices, or end that. Only notifications
@@ -246,8 +270,12 @@ impl ChatSession {
     ///
     /// Returns an error for an invalid or own peer, or if session locking, worker startup,
     /// encryption or storage of the own-device change fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn set_muted(&self, peer_id: String, muted: bool) -> Result<(), CoreError> {
-        self.change_own(peer_id, PeerChange::Muted(muted))
+        self.change_own(&peer_id, PeerChange::Muted(muted))
     }
 
     /// Give `peer_id`, whose chat is visible, a local name only this identity sees, shared with
@@ -259,6 +287,10 @@ impl ChatSession {
     ///
     /// Returns an error for the own, blocked or unknown peer or an invalid name, or if session
     /// locking, worker startup, encryption or storage of the own-device change fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
         // `&*` keeps `?` from expecting a `Session`; the guard drops before `change_own` locks.
         self.check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
@@ -266,7 +298,7 @@ impl ChatSession {
         if !change.valid(&peer_id) {
             return Err(code("invalidName"));
         }
-        self.change_own(peer_id, change)
+        self.change_own(&peer_id, change)
     }
 
     /// Pass on `peer_id` here and for the owner's other devices, or undo that; no signal goes to
@@ -278,7 +310,7 @@ impl ChatSession {
     /// Returns an error for an invalid or own peer, or if session locking, worker startup,
     /// change persistence or the resulting like/pass lookup fails.
     pub fn set_passed(&self, peer_id: String, passed: bool) -> Result<ChatLikes, CoreError> {
-        self.change_own(peer_id.clone(), PeerChange::Passed(passed))?;
+        self.change_own(&peer_id, PeerChange::Passed(passed))?;
         self.likes(peer_id)
     }
 
@@ -304,8 +336,8 @@ impl ChatSession {
 }
 
 impl ChatSession {
-    fn change_own(&self, peer_id: String, change: PeerChange) -> Result<(), CoreError> {
-        if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
+    fn change_own(&self, peer_id: &str, change: PeerChange) -> Result<(), CoreError> {
+        if peer_id == self.key.identity.peer_id() || !change.valid(peer_id) {
             return Err(code("invalidPeer"));
         }
         let mut guard = self.session.lock().map_err(failed)?;
@@ -313,7 +345,7 @@ impl ChatSession {
         on_network_stack(|| {
             self.runtime.block_on(async {
                 session
-                    .change_peer(&mut [], &peer_id, change, &self.seal_key)
+                    .change_peer(&mut [], peer_id, change, &self.seal_key)
                     .await
                     .map_err(failed)
             })

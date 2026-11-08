@@ -138,6 +138,11 @@ constructor and node runner pin their large child futures on the heap. Shared
 CLI and test connection helpers keep swarms on the heap, and the protocol test
 person keeps its state boxed while publishing; these boundaries also shrink the
 futures of their callers. Results, awaits, deadlines and cancellation remain unchanged.
+The manifests also deny `needless_pass_by_value` and `trivially_copy_pass_by_ref`.
+Internal helpers borrow read-only descriptors and results; small connection IDs,
+pixel formats and fixture tags pass by value. Declaration-level checked expectations
+preserve UniFFI's owned argument lifting, the public inventory handler's owned request
+contract and `map_err` adapters that receive ownership of their source error.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable

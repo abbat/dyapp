@@ -61,6 +61,10 @@ pub fn hash_app_pin(pin: String) -> Result<Vec<u8>, CoreError> {
 ///
 /// Returns an error if the PIN is invalid, the record length or version is unsupported,
 /// or the Argon2 verifier cannot be computed. A valid record with a wrong PIN returns `false`.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned arguments across the native language boundary"
+)]
 pub fn verify_app_pin(pin: String, record: Vec<u8>) -> Result<bool, CoreError> {
     let pin = Zeroizing::new(pin);
     if !valid_pin(&pin) {

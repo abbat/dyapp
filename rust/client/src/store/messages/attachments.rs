@@ -143,7 +143,7 @@ impl Store {
             tx,
             owner,
             sender,
-            super::media::MediaRecord {
+            &super::media::MediaRecord {
                 id: message.id,
                 hlc: message.hlc,
                 kind: 1,
