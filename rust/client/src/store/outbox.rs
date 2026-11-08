@@ -13,6 +13,11 @@ const GRACE_MS: i64 = 60_000;
 
 impl Store {
     /// Like [`Store::stage_outbound`], for a receipt: node acceptance is enough to drop it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the sealed state is empty, a write conflicts with an
+    /// existing outbox entry, or database access or transaction commit fails.
     pub fn stage_receipt(
         &mut self,
         sealed_device: &[u8],
@@ -22,6 +27,11 @@ impl Store {
     }
 
     /// Schedule a retry after a failed attempt: 1 s after the first, doubling up to 1 h.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database update fails or exactly one queued write
+    /// does not match the supplied envelope.
     pub fn schedule_retry(&self, write: &PreparedEnvelope, now_ms: i64) -> Result<(), Error> {
         let changed = self.db.execute(
             "UPDATE `outbox` SET `attempts` = `attempts` + 1,
@@ -39,6 +49,11 @@ impl Store {
 
     /// Node `peer` accepted `write`: drop it if it needs no receipt, else resend it 1 h after the
     /// first acceptance, doubling up to a day.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the queued write no longer matches the envelope, or
+    /// database updates or transaction commit fail.
     pub fn accepted(
         &mut self,
         write: &PreparedEnvelope,
@@ -83,6 +98,10 @@ impl Store {
     }
 
     /// The node that last accepted `write`, unless a receipt blamed it since.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the accepting node fails.
     pub fn accepted_by(&self, write: &PreparedEnvelope) -> Result<Option<String>, Error> {
         Ok(self
             .db
@@ -98,6 +117,16 @@ impl Store {
     /// The owner of `mailbox` received writes `ids`: drop those still waiting. Returns how many,
     /// and the nodes that dropped earlier writes to `mailbox`: those writes still wait though
     /// their latest copy was accepted before the received ones. They become due at once.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying, decoding, or updating stored delivery and
+    /// outbox state fails, or the transaction cannot be committed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if subtracting the grace interval from a stored acceptance time
+    /// overflows `i64` when overflow checks are enabled.
     pub fn receipted(
         &mut self,
         mailbox: &[u8; 32],
@@ -149,6 +178,10 @@ impl Store {
 
     /// Give up writes first accepted 30 or more days before `now_ms` and writes past their own
     /// expiry, such as a presence. Returns how many.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deleting expired outbox entries from the database fails.
     pub fn expire_outbound(&self, now_ms: i64) -> Result<usize, Error> {
         Ok(self.db.execute(
             "DELETE FROM `outbox` WHERE `accepted_at_ms` <= ?1 OR `expires_at_ms` <= ?2",
