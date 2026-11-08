@@ -668,91 +668,14 @@ Promise.all([
       if (state.status !== 'setup') throw new Error('storage picker not shown');
       await chooseStorage(mode, step.slice('wizard-connect:'.length));
     } else if (step === 'add') {
-      if (state.status !== 'ready') throw new Error('identity not reopened');
-      await checkSettingsInventory(state.peerId, state.mode);
-      await window.checkStickerCollection();
-      await window.checkStickerRemoval();
-      await window.checkChatComposer();
-      await window.checkStickerPicker();
-      await window.checkStickerMessages();
-      await window.checkChatRedraw();
-      await window.checkStickerRequests();
-      await window.checkClearDialog();
-      await window.checkIdentifiers();
-      await window.checkSettingsNavigation();
-      await window.checkMediaCache();
-      await window.checkSettingsLists();
-      await openArea('settings', 'identities');
-      document.getElementById('settings-create').click();
-      await waitFor('setup');
-      await chooseStorage(mode);
-      const addedPeer = document.getElementById('peer-id').textContent;
-      await checkSettingsInventory(addedPeer, mode);
-      await expectPrivacy('false,false,true,true,true');
-      document.getElementById('send-views').click();
-      await window.privacySaved;
-      await switchFromSettings(state.mode);
-      await checkSettingsInventory(state.peerId, state.mode);
-      await expectPrivacy('false,false,true,true,true');
-      await switchFromSettings(mode);
-      await checkSettingsInventory(addedPeer, mode);
-      await expectPrivacy('true,false,true,true,true');
-      document.getElementById('send-views').click();
-      await window.privacySaved;
-      await openArea('profile-area');
-      await identityChecks.checkStaleRender();
-      await identityChecks.checkStaleSearchAndChats();
-      await chatChecks.checkChatProjection();
-      await chatChecks.checkFirstMessage();
-      await chatChecks.checkClearChat();
-      await chatChecks.checkChatBlock();
-      await chatChecks.checkChatEdit();
-      await chatChecks.checkChatDelete();
-      await chatChecks.checkChatDelivery();
-      await chatChecks.checkNewDevice();
-      await chatChecks.checkChatRead();
-      await presenceChecks.checkChatPresence();
-      await presenceChecks.checkLikePending();
-      await nameChecks.checkContactNames();
-      await nameChecks.checkPublicName();
-      await nameChecks.checkInterests();
-      await nameChecks.checkFavoriteAction();
-      await nameChecks.checkContactNotes();
-      await nameChecks.checkPassActions();
-      await nameChecks.checkProfileActionGuards();
-      await nameChecks.checkSavedProfiles();
-      await nameChecks.checkChatMute();
-      await photoChecks.checkChatPhoto();
-      await photoChecks.checkProfilePhotos();
-      await photoChecks.checkPeerPhotos();
-      await chatChecks.checkChatForwarded();
-      await chatChecks.checkChatForwardAction();
-      await chatChecks.checkChatLinkHosts();
-      await nameChecks.checkProfileShare();
-      await identityChecks.checkStalePeerActions();
-      await identityChecks.checkStaleSafety();
-      await identityChecks.checkStaleProfileLoad();
-      await identityChecks.checkStaleProfileHandlers();
-      await identityChecks.checkStalePublishAndHide();
-      await identityChecks.checkStaleProfileTimers();
-      await identityChecks.checkStaleUsageStatus();
-      await identityChecks.checkStalePrivacy();
-      await identityChecks.checkStaleBlocked();
-      await guardChecks.checkStaleSettingsInventory();
-      await guardChecks.checkStaleNode();
-      await guardChecks.checkStaleTray();
-      await guardChecks.checkStaleRemovePreparation();
-      await guardChecks.checkStaleWithdrawal();
-      await guardChecks.checkDeviceRevoked();
-      await guardChecks.checkDevices();
-      await guardChecks.checkLinkCode();
-      await guardChecks.checkLinkScreen();
-      await guardChecks.checkLinkedNotice();
-      await guardChecks.checkStaleLaunchConnection();
-      await guardChecks.checkStaleNetworkForm();
-      await guardChecks.checkStaleNetworkCheck();
-      await guardChecks.checkStaleCopy();
-      await guardChecks.checkStalePlaceSuggestions();
+      await window.uiSmokeAddStep(state, mode, {
+        identityChecks,
+        chatChecks,
+        presenceChecks,
+        nameChecks,
+        photoChecks,
+        guardChecks,
+      });
     } else if (step === 'pick') {
       if (state.status !== 'picker') throw new Error('identity picker not shown');
       await pickReady(mode);

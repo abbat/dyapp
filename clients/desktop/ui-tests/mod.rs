@@ -28,6 +28,7 @@ pub(crate) fn scripts() -> String {
         include_str!("removal.js"),
         include_str!("system-steps.js"),
         include_str!("ready-step.js"),
+        include_str!("add-step.js"),
         include_str!("main.js"),
     ]
     .join("\n")
