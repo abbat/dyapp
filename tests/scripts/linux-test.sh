@@ -26,7 +26,7 @@ fi
 shift
 manifest="$root/clients/linux/Cargo.toml"
 units="$root/build/unit-build.json"
-cargo clippy --manifest-path "$manifest" --all-targets --locked -- -D warnings
+python3 -B "$root/tests/scripts/check-rust-complexity.py" --scope linux
 if [[ ${1:-} == --lint ]]; then
     exit 0
 fi

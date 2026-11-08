@@ -129,20 +129,20 @@ Run locally: `make quality` (all checks) or `make fmt` (format check only; it do
 format checks include it. It maps current source spans to module/impl/function identities and
 measures block nesting, including inline module and impl scopes. Anonymous closures are marked
 separately so they cannot inherit a named function's cognitive-complexity budget. Parse failures
-are errors. The tested comparison layer in `tests/scripts/rust_complexity.py` rejects
-incomplete Clippy reports, unknown functions, stale source spans and anonymous cognitive
-complexity findings. Exact per-function budgets can only shrink, including both maximum nesting
-and the number of excessively nested regions. The live Clippy fixture checks that force-warn
-still exposes findings hidden by expectation attributes.
-
-Initial measured budgets cover 294 workspace functions and 17 native Linux functions in
-`tests/scripts/rust-complexity/`. The parser rejects per-item cognitive threshold overrides,
-including conditional attributes; comments and literals are ignored.
-Workspace quality enforces 15 cognitive complexity, 50 code lines and 5 nesting levels through
-`tests/scripts/check-rust-complexity.py --scope workspace`. The runner preserves production
-secret/crypto lint settings and retains metadata, Clippy output, parser output and its verdict
-under `build/complexity/`. CI supplies `COMPLEXITY_BASE`; local runs compare against `origin/main`.
-Native production wiring remains planned.
+are errors. Workspace quality and `make lint-linux` enforce 15 cognitive complexity, 50 code
+lines and 5 nesting levels with exact existing-function budgets. The tested
+`tests/scripts/rust_complexity.py` comparison layer rejects incomplete reports, unknown
+functions, stale source spans, anonymous cognitive-complexity findings and metrics above budgets.
+It requires improvements to lower their recorded budgets, and checks both maximum nesting and
+the number of excessively nested regions. The explicit runner
+`tests/scripts/check-rust-complexity.py --scope workspace` (also `linux` or `windows`) retains metadata,
+Clippy output, parser output and its verdict under `build/complexity/`. It preserves production
+secret/crypto lint settings and rejects per-item cognitive threshold overrides, including those
+in files without diagnostics. CI compares budgets against the push or PR base through
+`COMPLEXITY_BASE`; local runs use `origin/main`. Allowances can only shrink. Detailed reports
+remain in the local/container build directory; no extra report artifact is uploaded.
+Windows measurements and native CI wiring remain planned. Run local checks through the existing
+Docker containers; Git and parser dependencies are provisioned in the Linux image.
 
 ## Python
 

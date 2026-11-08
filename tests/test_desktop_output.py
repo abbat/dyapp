@@ -140,6 +140,7 @@ class DesktopOutput(unittest.TestCase):
             (scripts / "linux-test.sh").write_text(
                 (ROOT / "tests/scripts/linux-test.sh").read_text())
             (scripts / "run-cargo-unit-binaries.py").write_text("")
+            (scripts / "check-rust-complexity.py").write_text("")
             (root / "build").mkdir()
             cargo = root / "cargo"
             cargo.write_text("#!/bin/sh\n")
