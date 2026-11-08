@@ -71,6 +71,10 @@ video helpers borrow their inputs. Tauri commands, the permission callback and `
 classifiers retain owned contracts with declaration-level expectations and reasons; no module
 suppression hides new helper findings. Place-picker IPC wrappers live in `clients/desktop/places.rs`
 so these markers keep the main module below its file-size limit; IPC command names are unchanged.
+Window geometry also denies narrowing, wrapping, sign-loss and lossless `as` casts. Its pure
+math uses widened edges, saturating visible-area accumulation and clamped saved coordinates;
+quarter visibility and title-bar requirements stay unchanged. Boundary tests execute the actual
+geometry module with rustc in Docker, without linking Tauri.
 All expectations are checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
 Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
 checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no

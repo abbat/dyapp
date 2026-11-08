@@ -1,6 +1,16 @@
 //! The main window's normal size, position and maximized state across launches
 //! (v0.0.1-client-screens.md, Desktop window and tray). Minimized and fullscreen are never saved.
 
+#![deny(
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation
+)]
+
+#[path = "window/geometry.rs"]
+mod geometry;
+
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
@@ -31,44 +41,11 @@ pub struct Saved {
 pub struct WindowState(Mutex<Option<Saved>>);
 
 const FILE: &str = "window.json";
-/// The strip at the top of the window that must stay on a display so it can be dragged back.
-const TITLE_BAR: u32 = 32;
-
-fn overlap(a: Rect, b: Rect) -> u64 {
-    let width = (a.x + a.width as i32).min(b.x + b.width as i32) - a.x.max(b.x);
-    let height = (a.y + a.height as i32).min(b.y + b.height as i32) - a.y.max(b.y);
-    if width <= 0 || height <= 0 {
-        return 0;
-    }
-    width as u64 * height as u64
-}
-
 /// `window` as saved when at least a quarter of it and part of its title bar are on a display;
 /// otherwise centred on `primary`, shrunk to fit it.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn place(window: Rect, displays: &[Rect], primary: Rect) -> Rect {
-    let visible: u64 = displays
-        .iter()
-        .map(|display| overlap(window, *display))
-        .sum();
-    let title = Rect {
-        height: TITLE_BAR.min(window.height),
-        ..window
-    };
-    let area = window.width as u64 * window.height as u64;
-    if visible * 4 >= area && displays.iter().any(|display| overlap(title, *display) > 0) {
-        return window;
-    }
-    let (width, height) = (
-        window.width.min(primary.width),
-        window.height.min(primary.height),
-    );
-    Rect {
-        x: primary.x + ((primary.width - width) / 2) as i32,
-        y: primary.y + ((primary.height - height) / 2) as i32,
-        width,
-        height,
-    }
+    geometry::place(window, displays, primary)
 }
 
 fn rect(position: PhysicalPosition<i32>, size: PhysicalSize<u32>) -> Rect {
