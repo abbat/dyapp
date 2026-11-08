@@ -29,7 +29,8 @@
       "clients/desktop/ui-tests/media-cache.js",
       "clients/desktop/ui-tests/sticker-removal.js",
       "clients/desktop/ui-tests/sticker-requests.js",
-      "clients/desktop/ui-tests/sticker-messages.js"
+      "clients/desktop/ui-tests/sticker-messages.js",
+      "clients/desktop/ui-tests/sticker-picker.js"
     ],
     "linter": { "rules": {
       "complexity": {
