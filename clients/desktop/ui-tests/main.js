@@ -511,13 +511,8 @@ const checkMutualFilter = async () => {
   if (status !== `${window.strings['search.results']} 1`)
     throw new Error(`mutual search: ${status}`);
 };
-const searchOnLoopback = async (connected) => {
-  await checkStatus(false);
-  await openArea('search-area');
-  document.getElementById('run-search').click();
-  await window.searchDone;
-  const status = document.getElementById('search-status').textContent;
-  if (!connected) {
+const searchOnLoopback = (() => {
+  const checkDisconnectedSearch = async (status) => {
     if (
       status !== window.strings['search.notConnected'] ||
       !shown('search-error') ||
@@ -535,61 +530,74 @@ const searchOnLoopback = async (connected) => {
       throw new Error('Chats showed a fresh empty list without a network');
     }
     await shot('chats-not-connected');
-    return;
-  }
-  const peers = [...document.querySelectorAll('#search-results [data-peer-id]')].map(
-    (item) => item.dataset.peerId,
-  );
-  if (
-    status !== `${window.strings['search.results']} 1` ||
-    shown('search-error') ||
-    shown('search-empty') ||
-    !shown('search-again') ||
-    !shown('search-filters') ||
-    peers.join() !== document.getElementById('peer-id').textContent
-  ) {
-    throw new Error(`loopback search: ${status}, peers ${peers}, failures ${searchFailures()}`);
-  }
-  await shot('search-results');
-  document.getElementById('result-1').click();
-  if (
-    shown('search-main') ||
-    !shown('profile-view') ||
-    document.activeElement.id !== 'view-back' ||
-    !document.getElementById('view-title').textContent
-  ) {
-    throw new Error('the result card did not open the profile');
-  }
-  await shot('search-profile');
-  await globalThis.checkSafetyNumber();
-  await shot('search-safety');
-  document.getElementById('view-back').click();
-  if (
-    !shown('search-main') ||
-    shown('profile-view') ||
-    document.activeElement.id !== 'result-1' ||
-    document.querySelectorAll('#search-results [data-peer-id]').length !== 1
-  ) {
-    throw new Error('Back did not return to the same results');
-  }
-  await checkStatus(true);
-  await shot('statusbar');
-  await checkHeightFilter();
-  await checkHabitFilters();
-  await checkMutualFilter();
-  if (document.getElementById('search-place-row').hidden)
-    throw new Error('place filter not offered');
-  await pickPlace('search');
-  document.getElementById('run-search').click();
-  await window.searchDone;
-  const placed = document.getElementById('search-status').textContent;
-  if (placed !== window.strings['search.empty'] || !shown('search-empty')) {
-    throw new Error(`place search: ${placed}`);
-  }
-  await shot('search-empty');
-  document.getElementById('search-country').value = '';
-  document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
-};
+  };
+  const checkSearchResult = async (status) => {
+    const peers = [...document.querySelectorAll('#search-results [data-peer-id]')].map(
+      (item) => item.dataset.peerId,
+    );
+    if (
+      status !== `${window.strings['search.results']} 1` ||
+      shown('search-error') ||
+      shown('search-empty') ||
+      !shown('search-again') ||
+      !shown('search-filters') ||
+      peers.join() !== document.getElementById('peer-id').textContent
+    ) {
+      throw new Error(`loopback search: ${status}, peers ${peers}, failures ${searchFailures()}`);
+    }
+    await shot('search-results');
+    document.getElementById('result-1').click();
+    if (
+      shown('search-main') ||
+      !shown('profile-view') ||
+      document.activeElement.id !== 'view-back' ||
+      !document.getElementById('view-title').textContent
+    ) {
+      throw new Error('the result card did not open the profile');
+    }
+    await shot('search-profile');
+    await globalThis.checkSafetyNumber();
+    await shot('search-safety');
+    document.getElementById('view-back').click();
+    if (
+      !shown('search-main') ||
+      shown('profile-view') ||
+      document.activeElement.id !== 'result-1' ||
+      document.querySelectorAll('#search-results [data-peer-id]').length !== 1
+    ) {
+      throw new Error('Back did not return to the same results');
+    }
+  };
+  const checkSearchFilters = async () => {
+    await checkStatus(true);
+    await shot('statusbar');
+    await checkHeightFilter();
+    await checkHabitFilters();
+    await checkMutualFilter();
+    if (document.getElementById('search-place-row').hidden)
+      throw new Error('place filter not offered');
+    await pickPlace('search');
+    document.getElementById('run-search').click();
+    await window.searchDone;
+    const placed = document.getElementById('search-status').textContent;
+    if (placed !== window.strings['search.empty'] || !shown('search-empty')) {
+      throw new Error(`place search: ${placed}`);
+    }
+    await shot('search-empty');
+    document.getElementById('search-country').value = '';
+    document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  return async (connected) => {
+    await checkStatus(false);
+    await openArea('search-area');
+    document.getElementById('run-search').click();
+    await window.searchDone;
+    const status = document.getElementById('search-status').textContent;
+    if (!connected) return checkDisconnectedSearch(status);
+    await checkSearchResult(status);
+    await checkSearchFilters();
+  };
+})();
 // The fixture forged the signature of the published profile in the node's index: the search drops
 // it and explains the forged reply under Details instead of showing a person.
 const searchForged = async () => {
