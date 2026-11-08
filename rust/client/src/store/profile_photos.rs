@@ -25,12 +25,17 @@ fn key(hash: &[u8]) -> String {
 }
 
 /// Whether `jpeg` is within `limit` and starts as a JPEG; a blob from a node passes this too.
+#[must_use]
 pub fn fits(jpeg: &[u8], limit: usize) -> bool {
     jpeg.len() <= limit && jpeg.starts_with(&[0xFF, 0xD8, 0xFF])
 }
 
 impl Store {
     /// Stores a blob of the published profile under its hash, as a linked device takes it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if storing the blob in the database fails.
     pub fn save_profile_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
         let hash = sha256(data).to_vec();
         self.db.execute(
@@ -43,6 +48,12 @@ impl Store {
 
     /// Stores a photo and appends it to the draft; the caller has checked its pixels. Refuses a
     /// non-JPEG, an oversized blob or a seventh photo.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the draft is corrupt or unsupported, a photo exceeds the
+    /// count, size, or JPEG limits, or database access fails. Blobs may already be
+    /// stored when saving the draft fails.
     pub fn add_profile_photo(&self, full: &[u8], thumbnail: &[u8]) -> Result<Profile, Error> {
         let mut draft = self.profile_draft()?.unwrap_or_default();
         if draft.photos.len() >= MAX_PROFILE_PHOTOS
@@ -60,6 +71,11 @@ impl Store {
     }
 
     /// Drops the photo at `index` from the draft. Its blobs stay until a publish succeeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the draft is corrupt or unsupported, `index` is out of
+    /// bounds, or reading or saving the draft fails.
     pub fn remove_profile_photo(&self, index: usize) -> Result<Profile, Error> {
         let mut draft = self.profile_draft()?.unwrap_or_default();
         if index >= draft.photos.len() {
@@ -71,6 +87,11 @@ impl Store {
     }
 
     /// Moves the photo at `from` to `to`; the first photo is the main one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the draft is corrupt or unsupported, either index is out
+    /// of bounds, or reading or saving the draft fails.
     pub fn move_profile_photo(&self, from: usize, to: usize) -> Result<Profile, Error> {
         let mut draft = self.profile_draft()?.unwrap_or_default();
         if from >= draft.photos.len() || to >= draft.photos.len() {
@@ -83,6 +104,10 @@ impl Store {
     }
 
     /// The stored blob of `hash`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the stored blob fails.
     pub fn profile_photo(&self, hash: &[u8]) -> Result<Option<Vec<u8>>, Error> {
         Ok(self
             .db
@@ -103,12 +128,21 @@ impl Store {
     }
 
     /// Whether any blob is stored, so nodes may hold a list that needs replacing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the stored blob keys fails.
     pub fn has_profile_photos(&self) -> Result<bool, Error> {
         Ok(!self.profile_photo_keys()?.is_empty())
     }
 
     /// Whether a keep refresh is due at Unix second `now`. A clock moved back counts as elapsed, so
     /// it cannot stop the refresh for as long as it moved.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the refresh time fails or its stored value has
+    /// an invalid length.
     pub fn profile_keep_due(&self, now: u64) -> Result<bool, Error> {
         let kept: Option<Vec<u8>> = self
             .db
@@ -126,6 +160,10 @@ impl Store {
     }
 
     /// Records a keep refresh attempted at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the refresh time to the database fails.
     pub fn profile_keep_refreshed(&self, now: u64) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
@@ -136,6 +174,11 @@ impl Store {
     }
 
     /// Deletes every blob but `hashes`, after the profile that lists them is published.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if listing blob keys or deleting a blob fails. Earlier
+    /// deletions remain applied when a later deletion fails.
     pub fn retain_profile_photos(&self, hashes: &[Vec<u8>]) -> Result<(), Error> {
         let wanted: Vec<String> = hashes.iter().map(|hash| key(hash)).collect();
         for stored in self.profile_photo_keys()? {
