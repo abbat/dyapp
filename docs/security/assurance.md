@@ -73,10 +73,34 @@ scopes exceptions to a scan source's directory; [supported manifests](https://gi
 include Cargo locks and Gradle verification metadata.
 The new `RUSTSEC-2026-0385` for `ctutils 0.4.3` was addressed by updating both affected Cargo
 locks to the fixed `0.4.4`; the main Scorecard run above confirmed zero findings.
-`GHSA-qwgh-2vcv-g2f7` lists every `block-buffer` before 0.12.1, but its corrupted cursor is the
-inline one of 0.11 and 0.12.0. All four Cargo locks keep 0.10.4 for RustCrypto `digest` 0.10,
-whose separate `pos` field is written only after `compress` returns, so each `osv-scanner.toml`
-ignores it.
+**2026-11-08 exception review.** The updated
+[block-buffer advisory](https://github.com/RustCrypto/utils/security/advisories/GHSA-qwgh-2vcv-g2f7)
+and OSV record now limit the affected range to `>=0.11.0, <0.12.1`. All four Cargo locks
+contain only 0.10.4 and 0.12.1, so the four OSV exceptions have been removed.
+
+The remaining exceptions due on November 21 were rechecked against RustSec advisories,
+locked dependency manifests and target-filtered Cargo graphs. Their next review is December 8:
+
+- Unmaintained paste, basic-toml, proc-macro-error and proc-macro-error2 still have no fixed
+  release on the current dependency paths. They run at compile time; this limits exposure
+  but does not establish that unmaintained code is safe.
+- [libcrux-kem's hybrid seed](https://rustsec.org/advisories/RUSTSEC-2026-0330.html) and
+  [key decoding](https://rustsec.org/advisories/RUSTSEC-2026-0331.html) panics are fixed in
+  0.0.10, but hpke-rs-libcrux 0.7 pins 0.0.9. The latest stable OpenMLS RustCrypto provider
+  remains 0.6.0 and requires hpke-rs 0.7. Its HPKE constructors instantiate `HpkeRustCrypto`;
+  dyapp creates suite 0x0001 groups and rejects other suites. Key-package cryptographic
+  validation precedes the application's suite check, so that check alone is not evidence
+  that every unsupported cryptographic operation is unreachable.
+- [lru's panic-unsafe removal](https://rustsec.org/advisories/RUSTSEC-2026-0253.html) requires
+  a key destructor that panics. The locked reed-solomon-erasure 6.0.0 cache uses `Vec<usize>`
+  keys, whose destruction does not run a user-defined panicking destructor.
+- GTK 3 still pins glib 0.18.5, below the fixed 0.20 series. The application does not call
+  `VariantStrIter`; this is not a proof about every transitive GTK call. The previously
+  accepted Linux risk remains. Windows target graphs exclude GTK/glib and its proc macro,
+  as well as the plugin's Linux-only zbus 5 and the three unmaintained zvariant family crates.
+
+The separate crypto-bigint risk acceptance and its November 24 review date remain unchanged.
+These reviews add no ignored advisory IDs and do not change expiry enforcement.
 
 For another low Scorecard Vulnerabilities score, download the run's `scorecard` artifact,
 map every advisory ID to **all** scanned manifests, and check the `osv-scanner.toml` beside
