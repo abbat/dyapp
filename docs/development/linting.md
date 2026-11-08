@@ -282,14 +282,12 @@ The quality step and `make lint-web` run `biome check --error-on-warnings` on
 scripts. `make fmt-web` formats all these files in the dev Docker container with an explicit
 writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
 JavaScript quotes and 100 columns. Assist actions remain disabled.
-The complexity rollout currently enforces cognitive complexity 15 and function length 50 code
-lines on chat UI/photo/message rendering, contact notes, identifiers, network, search, peer photos and
-saved profile UI scripts, the app/profile-form controller, settings collections,
-sticker collection/picker/message/request scripts, the test-only video frame renderer, and
-removal smoke helpers. Blank lines and
-immediate closure wrappers used to scope classic scripts are excluded;
-nested functions remain checked. Extending this scope to the remaining UI and smoke scripts is
-planned after their measured backlog is refactored. The recommended rules apply except three,
+Cognitive complexity 15 and function length 50 code lines are blocking for every desktop UI
+and prototype JavaScript file, including future files in those directories. The test-only video
+frame renderer and removal smoke helpers also enforce these limits. Blank lines and immediate
+closure wrappers used to scope classic scripts are excluded; nested functions remain checked.
+Extending this scope to the remaining smoke scripts is planned after their measured backlog is
+refactored. The recommended rules apply except three,
 each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

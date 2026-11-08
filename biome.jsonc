@@ -15,24 +15,10 @@
   // Expand this enforced scope as the measured backlog is refactored.
   "overrides": [{
     "includes": [
-      "clients/desktop/ui/chats-ui.js",
-      "clients/desktop/ui/chat-photos.js",
-      "clients/desktop/ui/chat-message.js",
-      "clients/desktop/ui/settings-collections.js",
-      "clients/desktop/ui/app.js",
-      "clients/desktop/ui/profile-form.js",
+      "clients/desktop/ui/**/*.js",
+      "clients/desktop/prototype/**/*.js",
       "clients/desktop/video-frame-renderer.js",
-      "clients/desktop/ui/contact-notes.js",
-      "clients/desktop/ui/identifiers.js",
-      "clients/desktop/ui/network.js",
-      "clients/desktop/ui/search.js",
-      "clients/desktop/ui/peer-photos.js",
-      "clients/desktop/ui/saved-profiles.js",
-      "clients/desktop/ui-tests/removal.js",
-      "clients/desktop/ui/sticker-picker.js",
-      "clients/desktop/ui/sticker-requests.js",
-      "clients/desktop/ui/sticker-messages.js",
-      "clients/desktop/ui/stickers.js"
+      "clients/desktop/ui-tests/removal.js"
     ],
     "linter": { "rules": {
       "complexity": {
