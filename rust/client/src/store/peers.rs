@@ -124,11 +124,17 @@ fn write_pass(
 impl Store {
     /// Set or undo a local pass. An older event cannot overwrite a newer one.
     /// Returns whether the stored state changed.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::ClockRange`] if the timestamp cannot be stored.
     pub fn set_pass(&self, peer_id: &str, passed: bool, at: Timestamp) -> Result<bool, Error> {
         write_pass(&self.db, peer_id, passed, at, &[])
     }
 
     /// The next own clock value.
+    ///
+    /// # Errors
+    /// Returns database errors or clock-range errors while loading or saving the clock.
     pub fn tick(&mut self, wall_ms: u64) -> Result<Timestamp, Error> {
         let at = HybridClock::resume(load_hlc(&self.db)?).now_at(wall_ms);
         let tx = self.db.transaction()?;
@@ -138,6 +144,10 @@ impl Store {
     }
 
     /// Apply `change`, made here at `at`, on a device with no own group to send it in.
+    ///
+    /// # Errors
+    /// Returns database errors, [`Error::ClockRange`] for an unrepresentable timestamp,
+    /// or [`Error::InvalidSetting`] for an invalid note.
     pub fn apply_peer_change(
         &self,
         peer_id: &str,
@@ -149,6 +159,10 @@ impl Store {
     }
 
     /// Apply `change`, made here at `hlc`, in the commit that stages it for the own devices.
+    ///
+    /// # Errors
+    /// Returns change-validation, clock-range, database or outbound-staging errors.
+    /// The transaction commits the peer change and outbound state together.
     pub fn stage_peer_change(
         &mut self,
         peer_id: &str,
@@ -167,6 +181,10 @@ impl Store {
 
     /// Apply `change` from another own device and move the clock past it, unless a newer change
     /// is held. Returns whether it applied.
+    ///
+    /// # Errors
+    /// Returns database, clock-range, future-clock-skew or change-validation errors.
+    /// Rejected changes do not commit their clock advancement.
     pub fn receive_peer_change(
         &mut self,
         peer_id: &str,
@@ -185,31 +203,49 @@ impl Store {
     }
 
     /// Block or unblock `peer_id` on this profile.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn set_blocked(&self, peer_id: &str, blocked: bool) -> Result<(), Error> {
         self.set_flag("blocked", peer_id, blocked)
     }
 
     /// Mute or unmute `peer_id` on this profile.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn set_muted(&self, peer_id: &str, muted: bool) -> Result<(), Error> {
         self.set_flag("muted", peer_id, muted)
     }
 
     /// Whether this profile blocks `peer_id`; absent means not blocked.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn blocked(&self, peer_id: &str) -> Result<bool, Error> {
         self.flag("blocked", peer_id)
     }
 
     /// Whether this profile mutes `peer_id`; absent means not muted.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn muted(&self, peer_id: &str) -> Result<bool, Error> {
         self.flag("muted", peer_id)
     }
 
     /// Whether this identity has saved a peer; blocking hides it without erasing this flag.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn favorite(&self, peer_id: &str) -> Result<bool, Error> {
         self.flag("favorite", peer_id)
     }
 
     /// Saved peers visible to the app, excluding blocked peers in stable Peer ID order.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn favorite_peers(&self) -> Result<Vec<String>, Error> {
         let mut query = self.db.prepare(
             "SELECT `peer_id` FROM `peers` WHERE `favorite` = 1 AND `blocked` = 0 ORDER BY `peer_id`",
@@ -219,6 +255,9 @@ impl Store {
     }
 
     /// Private note of this identity about a peer; absent means empty.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn contact_note(&self, peer_id: &str) -> Result<String, Error> {
         Ok(self
             .db
@@ -232,6 +271,9 @@ impl Store {
     }
 
     /// Name `peer_id` on this profile only; an empty name clears it.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidName`] for an oversized or unclean name, or database errors.
     pub fn set_local_name(&self, peer_id: &str, name: &str) -> Result<(), Error> {
         if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
             return Err(Error::InvalidName);
@@ -245,6 +287,9 @@ impl Store {
     }
 
     /// The name this profile gave `peer_id`; empty means none.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn local_name(&self, peer_id: &str) -> Result<String, Error> {
         let name = self
             .db
@@ -258,6 +303,9 @@ impl Store {
     }
 
     /// The name to show for the owner of `profile`: the local name, else its public name.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn contact_name(&self, profile: &VerifiedProfile) -> Result<ContactName, Error> {
         let local = self.local_name(&profile.peer_id)?;
         Ok(if !local.is_empty() {
@@ -274,6 +322,9 @@ impl Store {
 
     /// Mark the owner of `profile` verified after its safety number or QR code matched. This is
     /// a fresh check, so it also ends a new-device notice.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn set_verified(&self, profile: &VerifiedProfile) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`, `verified`)
@@ -294,6 +345,9 @@ impl Store {
     /// devices count as seen, so one link raises one notice. A newer profile replaces what was
     /// seen, so a removed device that returns is new again; one of the same version adds to it, so
     /// two signed forks cannot raise the notice in turn.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn verified(&self, profile: &VerifiedProfile) -> Result<bool, Error> {
         let known: Option<(Vec<u8>, i64, bool)> = self
             .db
@@ -343,6 +397,9 @@ impl Store {
     }
 
     /// Take the verified mark off `peer_id`. The devices seen stay, so the notice still works.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn clear_verified(&self, peer_id: &str) -> Result<(), Error> {
         self.db.execute(
             "UPDATE `peers` SET `verified` = 0 WHERE `peer_id` = ?1",
@@ -352,16 +409,25 @@ impl Store {
     }
 
     /// Whether the chat with `peer_id` shows the new-device notice.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn new_device(&self, peer_id: &str) -> Result<bool, Error> {
         self.flag("new_device", peer_id)
     }
 
     /// End the new-device notice for `peer_id` after the user acknowledged it.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn acknowledge_new_device(&self, peer_id: &str) -> Result<(), Error> {
         self.set_flag("new_device", peer_id, false)
     }
 
     /// Every peer this profile blocks, in Peer ID order.
+    ///
+    /// # Errors
+    /// Returns database errors if reading or updating the peer state fails.
     pub fn blocked_peers(&self) -> Result<Vec<String>, Error> {
         let mut query = self
             .db
