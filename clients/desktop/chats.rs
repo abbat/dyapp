@@ -250,6 +250,14 @@ pub fn likes(dir: &Path, identity: &Identity, peer_id: &str) -> Result<Likes, St
     likes_in(&open(dir, identity)?, peer_id)
 }
 
+fn today() -> Result<u32, String> {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs();
+    u32::try_from(seconds / 86_400).map_err(|error| error.to_string())
+}
+
 /// Persist a local block before trying to revoke this profile's issued write tokens. A retry
 /// sends the same live keys again; a failed node call never undoes the local block.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -265,12 +273,8 @@ pub async fn block(
         return Ok(BlockResult::pending(&error));
     }
     let store = open(dir, identity)?;
-    let today = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| error.to_string())?
-        .as_secs()
-        / 86_400;
-    let keys = match store.revoke_issued(peer_id, today as u32) {
+    let today = today()?;
+    let keys = match store.revoke_issued(peer_id, today) {
         Ok(keys) => keys,
         Err(error) => return Ok(BlockResult::pending(&error)),
     };
@@ -692,15 +696,9 @@ mod tests {
             Identity::generate().peer_id(),
         );
         let store = open(&dir, &owner).unwrap();
-        let today = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            / 86_400;
+        let today = today().unwrap();
         let key = [7; 32];
-        store
-            .record_issued(&peer, &[1; 32], &key, today as u32)
-            .unwrap();
+        store.record_issued(&peer, &[1; 32], &key, today).unwrap();
         for _ in 0..2 {
             let result = block(&dir, &dir, &owner, &peer).await.unwrap();
             assert_eq!(result.revocation, Revocation::Pending);
@@ -708,7 +706,7 @@ mod tests {
             let store = open(&dir, &owner).unwrap();
             assert!(store.blocked(&peer).unwrap());
             assert!(store.issued_revoked(&key).unwrap());
-            assert_eq!(store.revoke_issued(&peer, today as u32).unwrap(), [key]);
+            assert_eq!(store.revoke_issued(&peer, today).unwrap(), [key]);
         }
     }
 

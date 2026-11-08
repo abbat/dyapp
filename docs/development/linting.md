@@ -71,7 +71,11 @@ video helpers borrow their inputs. Tauri commands, the permission callback and `
 classifiers retain owned contracts with declaration-level expectations and reasons; no module
 suppression hides new helper findings. Place-picker IPC wrappers live in `clients/desktop/places.rs`
 so these markers keep the main module below its file-size limit; IPC command names are unchanged.
-Window geometry also denies narrowing, wrapping, sign-loss and lossless `as` casts. Its pure
+Native manifests deny narrowing, wrapping, sign-loss and lossless `as` casts. UTC days and video
+microseconds use checked conversion and reject unsupported clocks. Photo labels preserve hour
+rounding for valid times; unsupported clocks or overflowing deadlines label the original expired,
+without changing retained files or the core retention policy. Test fixture indices and QR sizes
+also use explicit checked conversion. Window geometry's pure
 math uses widened edges, saturating visible-area accumulation and clamped saved coordinates;
 quarter visibility and title-bar requirements stay unchanged. Boundary tests execute the actual
 geometry module with rustc in Docker, without linking Tauri.

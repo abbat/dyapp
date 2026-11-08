@@ -330,7 +330,7 @@ mod tests {
     use std::sync::Mutex;
 
     fn grayscale(matrix: &QrMatrix) -> (usize, Vec<u8>) {
-        let size = matrix.size as usize;
+        let size = usize::try_from(matrix.size).unwrap();
         let side = (size + 8) * 6;
         let mut pixels = vec![255; side * side];
         for (index, black) in matrix.modules.iter().enumerate() {
@@ -351,7 +351,10 @@ mod tests {
         let bob = "22".repeat(32);
         let carol = "33".repeat(32);
         let shown = matrix_for_peer_ids(&alice, &bob).unwrap();
-        assert_eq!(shown.modules.len(), (shown.size * shown.size) as usize);
+        assert_eq!(
+            shown.modules.len(),
+            usize::try_from(shown.size * shown.size).unwrap()
+        );
         assert!(shown.modules[0]); // top-left finder pattern
         assert_ne!(
             shown.modules,

@@ -181,7 +181,7 @@ mod tests {
     }
 
     fn hash(index: usize) -> Vec<u8> {
-        (index as u32).to_be_bytes().to_vec()
+        u32::try_from(index).unwrap().to_be_bytes().to_vec()
     }
 
     #[test]

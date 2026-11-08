@@ -62,10 +62,11 @@ fn send_frames(
         if let Some(wait) = target.checked_sub(started.elapsed()) {
             std::thread::sleep(wait);
         }
-        let sent_at_us = SystemTime::now()
+        let micros = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| error.to_string())?
-            .as_micros() as u64;
+            .as_micros();
+        let sent_at_us = u64::try_from(micros).map_err(|error| error.to_string())?;
         channel
             .send(InvokeResponseBody::Raw(frame(&base, sequence, sent_at_us)))
             .map_err(|error| error.to_string())?;
