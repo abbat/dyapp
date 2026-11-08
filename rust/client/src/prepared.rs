@@ -16,6 +16,10 @@ pub struct PreparedEnvelope {
 
 impl PreparedEnvelope {
     /// Reopen exact bytes saved before the first network attempt.
+    ///
+    /// # Errors
+    /// Returns [`Error::PreparedEnvelope`] for noncanonical record bytes, an invalid
+    /// signature, an undecodable envelope, or a mailbox/ID with an invalid length.
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, Error> {
         let record = SignedRecord::decode(bytes.as_slice()).map_err(|_| Error::PreparedEnvelope)?;
         if record.encode_to_vec() != bytes || record.verify(Domain::Envelope).is_err() {
@@ -40,16 +44,19 @@ impl PreparedEnvelope {
     }
 
     /// The exact signed record bytes for the durable outbox.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
 
     /// The destination device mailbox.
+    #[must_use]
     pub fn mailbox(&self) -> &[u8; 32] {
         &self.mailbox
     }
 
     /// The stable envelope ID, also used for idempotent retry.
+    #[must_use]
     pub fn id(&self) -> &[u8; 16] {
         &self.id
     }
@@ -69,12 +76,21 @@ impl std::fmt::Debug for PreparedEnvelope {
 }
 
 /// Sign an ordinary MLS mailbox message with a fresh one-off key, before any network write.
+///
+/// # Errors
+/// Returns [`Error::Input`] for an invalid mailbox length, [`Error::Request`] if
+/// envelope ID generation fails, or [`Error::PreparedEnvelope`] if reopening fails.
 pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelope, Error> {
     prepare(mailbox, ciphertext, proto::EnvelopeClass::Message, None)
 }
 
 /// Like [`prepare_put`], but carrying `token`, a signed WriteToken for `mailbox`, and signed by
 /// its `token_key` so the node bills it to the mailbox quota rather than the tokenless pool.
+///
+/// # Errors
+/// Returns [`Error::Input`] for an invalid mailbox length or malformed token,
+/// [`Error::Request`] if ID generation fails, or [`Error::PreparedEnvelope`] if
+/// reopening the prepared record fails.
 pub fn prepare_tokened_put(
     mailbox: &[u8],
     ciphertext: Vec<u8>,

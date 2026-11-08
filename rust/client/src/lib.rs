@@ -154,6 +154,7 @@ fn wire() -> Arc<WireBytes> {
 
 /// `[in, out]` payload bytes of every client swarm since the first one started this process;
 /// `None` before that. Excludes transport, encryption and gossip control traffic.
+#[must_use]
 pub fn traffic() -> Option<[u64; 2]> {
     let slots = WIRE.get()?.totals().0;
     Some(slots.iter().fold([0, 0], |[i, o], [a, b]| [i + a, o + b]))
@@ -167,6 +168,10 @@ pub struct Node {
 
 impl Node {
     /// Dials `addr` with a fresh transport key and speaks `protocols`' network.
+    ///
+    /// # Errors
+    /// Returns [`Error::Connect`] for swarm setup or dial failure, or
+    /// [`Error::Timeout`] if no connection is established before the deadline.
     pub async fn connect(addr: Multiaddr, protocols: Arc<Protocols>) -> Result<Self, Error> {
         let options = SwarmOptions {
             mode: Mode::Client,
@@ -199,6 +204,7 @@ impl Node {
     }
 
     /// The node's Peer ID, the key of its [`scores::Scores`] entry.
+    #[must_use]
     pub fn peer(&self) -> PeerId {
         self.peer
     }
@@ -276,6 +282,10 @@ impl Node {
     }
 
     /// Publishes a signed profile.
+    ///
+    /// # Errors
+    /// Returns request/deadline errors, [`Error::Status`] for rejection, or
+    /// [`Error::Reply`] for an unknown status.
     pub async fn publish_profile(&mut self, record: SignedRecord) -> Result<(), Error> {
         let response = self
             .profile(profile_request::Request::Publish(record))
@@ -284,6 +294,11 @@ impl Node {
     }
 
     /// The owner's profile, checked; `peer_id` is its hex Peer ID.
+    ///
+    /// # Errors
+    /// Returns [`Error::Input`] for an invalid Peer ID, request/deadline/status
+    /// errors, [`Error::Profile`] for invalid profile content, or [`Error::Reply`]
+    /// for a missing record, unknown status or mismatched owner.
     pub async fn get_profile(&mut self, peer_id: &str) -> Result<VerifiedProfile, Error> {
         let peer_id = unhex(peer_id)?;
         let response = self
@@ -301,6 +316,10 @@ impl Node {
 
     /// Publishes a KeyPackage of the device whose mailbox key is `device`, owned by `owner`
     /// (hex Peer ID).
+    ///
+    /// # Errors
+    /// Returns [`Error::Input`] for an invalid owner Peer ID, or the request,
+    /// deadline, status and reply errors of [`Self::publish_signed_key_package`].
     pub async fn publish_key_package(
         &mut self,
         device: &Identity,
@@ -314,6 +333,10 @@ impl Node {
     }
 
     /// Publishes a signed KeyPackage record; the node takes a repeat of a stored one as done.
+    ///
+    /// # Errors
+    /// Returns request/deadline errors, [`Error::Status`] for rejection, or
+    /// [`Error::Reply`] for an unknown status.
     pub async fn publish_signed_key_package(&mut self, signed: SignedRecord) -> Result<(), Error> {
         let response = self
             .keypackage(key_package_request::Request::Publish(signed))
@@ -323,6 +346,11 @@ impl Node {
 
     /// Takes one KeyPackage of the device with `mailbox` in `owner`'s profile, trying each
     /// allocation slot in turn; ordinary ones are consumed, a last-resort one stays.
+    ///
+    /// # Errors
+    /// Returns [`Error::Input`] for an invalid owner Peer ID, request/deadline
+    /// errors, the last rejected slot's status, or [`Error::Reply`] for missing,
+    /// malformed, wrongly signed or wrong-device records.
     pub async fn fetch_key_package(
         &mut self,
         owner: &VerifiedProfile,
@@ -359,6 +387,10 @@ impl Node {
 
     /// Stores `ciphertext` in `mailbox`, signed by a fresh key used only for this envelope (sealed
     /// sender), never a published one; returns the envelope id.
+    ///
+    /// # Errors
+    /// Returns preparation errors from [`prepare_put`] or submission errors from
+    /// [`Self::put_prepared`].
     pub async fn put(&mut self, mailbox: &[u8], ciphertext: Vec<u8>) -> Result<Vec<u8>, Error> {
         let prepared = prepare_put(mailbox, ciphertext)?;
         self.put_prepared(&prepared).await?;
@@ -366,6 +398,9 @@ impl Node {
     }
 
     /// Submit a previously prepared mailbox write; retries keep its exact ID and signed bytes.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors, or [`Error::Reply`] for an unknown status.
     pub async fn put_prepared(&mut self, prepared: &PreparedEnvelope) -> Result<(), Error> {
         let response = self
             .mailbox(mailbox_request::Request::Put(prepared.record.clone()))
@@ -376,6 +411,10 @@ impl Node {
 
     /// The envelopes waiting in the mailbox of `device`, and whether more are waiting.
     /// Existing first-page callers can use this API without handling a cursor.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for malformed
+    /// challenge, status or envelope data.
     pub async fn fetch(&mut self, device: &Identity) -> Result<(Vec<Envelope>, bool), Error> {
         let page = self.fetch_inner(device, None, 0, false).await?;
         Ok((page.envelopes, page.more))
@@ -383,6 +422,10 @@ impl Node {
 
     /// Fetch one bounded page from this node. `cursor` must come from this same node's Peer ID.
     /// An old or malformed node that claims more without advancing is rejected.
+    ///
+    /// # Errors
+    /// Returns [`Error::Input`] for an invalid limit or cursor, request/deadline/status
+    /// errors, or [`Error::Reply`] for malformed data or a cursor that does not advance.
     pub async fn fetch_page(
         &mut self,
         device: &Identity,
@@ -442,6 +485,10 @@ impl Node {
     }
 
     /// Deletes envelopes `ids` from the mailbox of `device`.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for malformed
+    /// challenge data or an unknown status.
     pub async fn ack(&mut self, device: &Identity, ids: Vec<Vec<u8>>) -> Result<(), Error> {
         let nonce = self.challenge().await?;
         let record = device.sign(
@@ -455,6 +502,10 @@ impl Node {
     /// Closes the mailbox of a device that the owner `identity` dropped from its profile, so
     /// nodes delete its envelopes and refuse its fetch and puts. `owner` is the binding the
     /// device signed at linking ([`owner_binding`]).
+    ///
+    /// # Errors
+    /// Returns [`Error::Reply`] for an invalid device key or unknown status,
+    /// or request/deadline/status errors.
     pub async fn close_mailbox(
         &mut self,
         identity: &Identity,
@@ -480,6 +531,10 @@ impl Node {
 
     /// Revokes write token `keys` of the mailbox of `device`, so nodes delete their envelopes and
     /// refuse their puts. Sends one revoke per 64 keys, the most a node takes.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for an unknown
+    /// status. Earlier chunks may already have been revoked when a later chunk fails.
     pub async fn revoke_tokens(
         &mut self,
         device: &Identity,
@@ -503,6 +558,9 @@ impl Node {
 
     /// Replaces `owner`'s complete blob list on this node with `hashes` at `version`; returns
     /// the hashes the node could not recover or check.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for an unknown status.
     pub async fn keep_media(
         &mut self,
         owner: &Identity,
@@ -521,6 +579,10 @@ impl Node {
     }
 
     /// Uploads a blob that a keep or attachment of `owner` (hex Peer ID) lists on this node.
+    ///
+    /// # Errors
+    /// Returns [`Error::Input`] for an invalid owner Peer ID, request/deadline/status
+    /// errors, or [`Error::Reply`] for an unknown status.
     pub async fn put_media(&mut self, owner: &str, data: Vec<u8>) -> Result<(), Error> {
         let put = proto::MediaPut {
             owner: unhex(owner)?,
@@ -532,6 +594,9 @@ impl Node {
 
     /// Announces the blob of `attachment`, signed by `sender`, so this node accepts its put;
     /// returns the hashes the node does not hold yet.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for an unknown status.
     pub async fn attach_media(
         &mut self,
         sender: &Identity,
@@ -550,6 +615,10 @@ impl Node {
 
     /// The whole blob whose SHA-256 is `hash`, checked against it.
     // shortcut: one request for the whole blob, at most 6 MiB; read pieces once blobs grow.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for an unknown
+    /// status or a blob whose hash differs from `hash`.
     pub async fn get_media(&mut self, hash: &[u8; 32]) -> Result<Vec<u8>, Error> {
         let get = proto::GetMedia {
             hash: hash.to_vec(),
@@ -564,6 +633,9 @@ impl Node {
     }
 
     /// Drops the blobs of the attachment released by `secret` from this node.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors or [`Error::Reply`] for an unknown status.
     pub async fn release_media(&mut self, secret: &[u8; 32]) -> Result<(), Error> {
         let release = proto::MediaRelease {
             secret: secret.to_vec(),
@@ -581,6 +653,10 @@ impl Node {
 
     /// Search index hits (key hash, version) for `conditions`, at most `limit` (0 means 50,
     /// at most 200), with the conditions the node applied.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status/rate-limit errors, or [`Error::Reply`] for
+    /// an unknown status, malformed puzzle challenge or excessive puzzle difficulty.
     pub async fn search_query(
         &mut self,
         conditions: Vec<proto::Condition>,
@@ -598,6 +674,10 @@ impl Node {
 
     /// Signed search profiles of up to 50 key hashes; `partial` when the node cut the
     /// reply at 1 MiB, so the keys it left out need another request.
+    ///
+    /// # Errors
+    /// Returns the request, deadline, status, rate-limit and puzzle errors of
+    /// [`Self::search_query`].
     pub async fn search_get(&mut self, keys: Vec<Vec<u8>>) -> Result<proto::SearchResponse, Error> {
         self.search_puzzled(|puzzle| {
             search_request::Request::Get(proto::SearchGet {
@@ -609,6 +689,9 @@ impl Node {
     }
 
     /// Publishes a signed profile to the search index.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status/rate-limit errors, or [`Error::Reply`] for an unknown status.
     pub async fn search_publish(&mut self, record: SignedRecord) -> Result<(), Error> {
         search_ok(
             self.search(search_request::Request::Publish(record))
@@ -618,6 +701,9 @@ impl Node {
     }
 
     /// Sends a signed heartbeat that keeps the owner's search profile listed.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status/rate-limit errors, or [`Error::Reply`] for an unknown status.
     pub async fn search_heartbeat(&mut self, record: SignedRecord) -> Result<(), Error> {
         search_ok(
             self.search(search_request::Request::Heartbeat(record))
@@ -628,6 +714,10 @@ impl Node {
 
     /// TURN credentials for a call's ICE servers from a node with the turn role; find such
     /// nodes with [`Self::providers`] on [`dyapp_p2p_net::TURN_KEY`]. Ask again before `expires`.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors, or [`Error::Reply`] for an unknown
+    /// status or missing TURN credentials.
     pub async fn turn(&mut self) -> Result<proto::TurnCredentials, Error> {
         let response = self
             .node(node_request::Request::Turn(proto::TurnRequest {}))
@@ -636,6 +726,10 @@ impl Node {
     }
 
     /// The node's roles and limits; each value is a hint from an untrusted node.
+    ///
+    /// # Errors
+    /// Returns request/deadline/status errors, or [`Error::Reply`] for an unknown
+    /// status or missing node information.
     pub async fn info(&mut self) -> Result<proto::NodeInfo, Error> {
         let response = self
             .node(node_request::Request::Info(proto::InfoRequest {}))
@@ -804,6 +898,7 @@ impl Node {
 }
 
 /// The mailbox address of a device mailbox key.
+#[must_use]
 pub fn mailbox(device_key: &[u8; 32]) -> [u8; 32] {
     dyapp_identity::key_hash(device_key)
 }
@@ -812,6 +907,7 @@ pub fn mailbox(device_key: &[u8; 32]) -> [u8; 32] {
 /// the identity key `identity` as the owner that may later close its mailbox. The owner's profile
 /// carries it ([`publish::list_device`]), so another own device can send it with
 /// [`Node::close_mailbox`].
+#[must_use]
 pub fn owner_binding(device_key: &Identity, identity: &[u8; 32]) -> SignedRecord {
     device_key.sign(Domain::DeviceOwner, identity.to_vec())
 }
@@ -851,6 +947,7 @@ fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, E
 }
 
 /// Unix seconds.
+#[must_use]
 pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
