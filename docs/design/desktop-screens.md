@@ -521,8 +521,7 @@ selected message and observed request attempt; quota/storage recovery opens the 
 The additional prototype states `chat-sticker-checking`, `chat-sticker-fetch`,
 `chat-sticker-storage`, `chat-sticker-storage-idle`, `chat-sticker-missing`,
 `chat-sticker-read-error` and `chat-sticker-request-error` cover the typed failures and uncertain
-actions. Quota/storage recovery reuses the collection manager. Review evidence belongs in
-[the sticker interaction record](desktop-sticker-review.md).
+actions. Quota/storage recovery reuses the collection manager.
 
 Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning

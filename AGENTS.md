@@ -46,3 +46,9 @@ User instructions take priority over this file. Details:
   interface updates the affected pages in [docs/](docs/README.md) in the same commit: describe
   what the code does, mark unimplemented parts as planned, delete statements that are no longer
   true, keep the `docs/README.md` index and relative links valid.
+- **Docs are for agents.** `docs/` holds only what an agent needs to decide or work: current
+  behaviour, contracts, rules, commands. Research, audits, investigations, reviews and finished
+  migrations go to beads (or the issue), not `docs/`; git history keeps the rest.
+- **ADRs are rare.** Offer an ADR only when an agent without it would make a wrong decision; this
+  overrides any skill's bias toward offering one. A gate A5 trigger that records no such decision
+  carries `ADR: none — <reason>` ([triggers](docs/decisions/README.md#triggers)).

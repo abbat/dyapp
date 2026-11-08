@@ -26,7 +26,10 @@ the 32-byte identity secret as a 64-character hex string so both GNOME Keyring a
 can handle it. Preserve existing `application`/`kind`/`slot` item attributes and the user's
 selected storage mode. A provider without a usable default collection is unavailable until a
 separately tested path is implemented. The Linux package declares its `libdbus` runtime
-requirement; CI builds with the development headers.
+requirement; CI builds with the development headers. `secret-service` 5 was dropped because it
+pulls `zbus` 5 and its retired `zvariant`/`zbus_names` crates; a hand-written `zbus` 6 adapter was
+rejected because zbus 6 has no blocking API and we would own session encryption, prompts and
+error mapping, which is security-sensitive code.
 
 On Windows use `keyring-core` 1.0.0 with `windows-native-keyring-store` 1.1.0. Set the
 credential's `persistence` modifier to `Local`; the store's default `Enterprise`

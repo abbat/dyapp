@@ -52,6 +52,20 @@ class Adr(unittest.TestCase):
             "+ CREATE TABLE items"), [
                 "storage schema tools/rust-functions/src/main.rs"])
 
+    def test_trailer(self):
+        adr = "docs/decisions/0001-record-architecture-decisions.md"
+        for message, error in [
+                (f"x\n\nADR: {adr}", None),
+                ("x\n\nADR: docs/decisions/9999-missing.md",
+                 "names a missing ADR"),
+                ("x\n\nADR: none — lint tool, no app architecture", None),
+                ("x\n\nADR: none - lint tool, no app architecture", None),
+                ("x\n\nADR: none", "has no ADR: trailer"),
+                ("x\n\nADR: none — ok", "has no ADR: trailer"),
+                ("x", "has no ADR: trailer")]:
+            self.assertEqual(CHECK.trailer_error(message, "HEAD"), error,
+                             message)
+
     def test_unpushed_commits_name_their_adr(self):
         shas = subprocess.check_output(
             CHECK.GIT + ["rev-list", "--no-merges", CHECK.base() + "..HEAD"],

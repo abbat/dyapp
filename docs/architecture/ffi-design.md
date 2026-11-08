@@ -249,7 +249,11 @@ depends on the native side not using a handle after freeing it.
 
 ## Design rules (target)
 
-- Business logic in Rust; platform code is UI and event handling.
+- Business logic in Rust; platform code is UI and event handling. Platform code may hold layout and
+  rendering, input, OS permissions, local file pickers, notification registration, OS settings
+  and accessibility. It must not encrypt or decrypt, generate keys, sign or verify records, open
+  network connections, discover peers, queue messages, negotiate video codecs or run database
+  queries: those stay in the Rust crates.
 - Cross the boundary with primitives, strings, records and opaque objects; no
   Protobuf messages or raw key bytes.
 - Signed records are parsed and verified only in Rust; Dart never parses signed bytes.

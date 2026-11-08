@@ -15,6 +15,16 @@
 | Swift / Kotlin API | none | No DocC catalog, no Dokka plugin. |
 | Link check | none | Markdown links are not checked by any script or CI job. |
 
+## What belongs in docs/
+
+The reader is an AI agent. A page stays only if an agent needs it to make a decision or do the
+work: current behaviour, contracts, rules, commands, and the FIX anchors that check output points
+to. Research, audits, investigations, design reviews, reference surveys and finished migrations
+go to a bead (or the issue) and leave `docs/` when their result has landed in code, a contract page
+or an ADR. Review files keep open findings only; closed ones live in git history. An ADR is
+written only when an agent without it would make a wrong decision
+([triggers](../decisions/README.md#triggers)).
+
 ## Local use
 
 ```bash

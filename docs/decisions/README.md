@@ -33,7 +33,10 @@ application crates, wire formats and storage schemas retain their normal require
 
 The ADR must exist in that commit. An existing ADR that already covers the change is enough, for
 example [0015](0015-sqlite-node-storage.md) for a new SQLite table; otherwise the commit adds or
-updates one, which a person confirms first. `tests/scripts/check-adr.py` checks the commits after `ADR_BASE` (the push or PR base in CI,
+updates one, which a person confirms first. A trigger that records no decision an agent would
+otherwise get wrong (a routine tool or test dependency, a column added under an existing ADR's
+rules) carries `ADR: none — <reason>` instead, with a reason of at least ten characters.
+`tests/scripts/check-adr.py` checks the commits after `ADR_BASE` (the push or PR base in CI,
 `origin/main` locally) in the quality step (`make quality`, CI job quality) and lists each trigger
 with its commit. History is not rewritten and pushed commits are not listed: a missed trailer
 fails only the push that carries it.

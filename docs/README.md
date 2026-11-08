@@ -13,7 +13,6 @@ it are entry points that tools discover by path (see
 - [Privacy & Metadata Visibility](security/privacy.md): which observer sees which field, retention, residual risk
 - [Threat Model](security/threat-model.md): attackers, assets, and which defence covers each threat today
 - [Security Assurance](security/assurance.md): OpenSSF Scorecard ratchet, Best Practices badge, verification checklist catalogue, vulnerability disclosure
-- [Repository exception audit](security/exception-audit-2026-10-24.md): first inventory review, decisions and next review date
 - [OpenMLS curve dependency migration](security/openmls-curve-migration.md): audit failure, candidate migration and compatibility gates
 
 ### Architecture
@@ -26,7 +25,6 @@ it are entry points that tools discover by path (see
 - [Search capacity](architecture/search-capacity.md)
 - [FFI design](architecture/ffi-design.md)
 - [Protobuf schema](architecture/protobuf-schema.md)
-- [Platform integration](architecture/platform-integration.md)
 - [UI state retention](architecture/ui-state-contract.md): current Linux profile draft survival and planned chat draft contract
 
 ### Product and operator design
@@ -45,16 +43,10 @@ it are entry points that tools discover by path (see
 - [Profile photos](design/profile-photos.md): planned publication, limits, cache and failure states
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
 - [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client, checked against the static Android prototype
-- [Desktop UX references](design/desktop-ux-references.md): platform guidelines and reference-app patterns for the desktop redesign; [accepted shell](decisions/0033-desktop-navigation-shell.md)
 - [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of the prototype and the shipped desktop UI, its fixes and the rule to re-check screen changes
-- [Desktop sticker interaction review](design/desktop-sticker-review.md): picker, image, pack-request, import and Clear chat review
 - [UI review criteria](design/review-criteria.md): sourced settings, layout, identifier and dialog criteria, and the checks that enforce them; [decision](decisions/0046-ui-review-criteria.md)
-- [Desktop UX audit](design/desktop-ux-audit.md): generated control inventory of the current desktop UI and mismatches with the draft
 - [Localized configuration diagnostics](design/localized-config-diagnostics.md): Russian guidance, technical details and secret-safe errors
 - [Client update discovery](design/client-updates.md): release source, version, schedule, platform delivery and EN/RU notice UX
-- [Bootstrap update policy analysis](design/bootstrap-update-policy.md): threat model, alternatives and safeguards; [manual upgrade policy](decisions/0023-bootstrap-node-update-policy.md)
-- [Bootstrap update channel analysis](design/bootstrap-update-channel.md): historical TUF/key custody proposal; [rejected v0.0.1 channel](decisions/0024-bootstrap-update-channel.md)
-- [Linux Secret Service migration](design/linux-secret-service-migration.md): options and proposed ADR amendment for removing the zbus 5 advisory chain
 
 ### Development
 
@@ -67,7 +59,6 @@ it are entry points that tools discover by path (see
 - [FFI bindings (UniFFI)](development/ffi-bindings.md)
 - [Protobuf code generation](development/protobuf-codegen.md)
 - [Linting](development/linting.md)
-- [Architecture lint](development/arch-lint.md)
 - [Code quality](development/code-quality.md)
 - [Check output inventory](development/check-output.md): quiet checks and named data consumers
 - [Weekly flow metrics](development/flow-metrics.md): local A7 report over beads, Git and GitHub
@@ -84,7 +75,6 @@ it are entry points that tools discover by path (see
 - [UI testing](testing/ui-testing.md)
 - [Docker testing](testing/docker.md)
 - [Bootstrap acceptance tests](testing/bootstrap-acceptance.md)
-- [RSS plateau investigation](testing/memory-plateau-investigation.md): measurements and unresolved growth attribution
 
 ### Platforms
 

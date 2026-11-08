@@ -14,7 +14,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: cargo
-    directories: [/, /clients/linux, /clients/windows, /tests/fuzz, /tools/arch-lint]
+    directories: [/, /clients/linux, /clients/windows, /tests/fuzz]
     schedule:
       interval: weekly
     cooldown:

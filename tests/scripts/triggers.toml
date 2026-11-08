@@ -70,7 +70,6 @@ paths = [
     ".github/*",
     "tools/scripts/*",
     "tests/*",
-    "tools/arch-lint/*",
     "tools/docker/*",
     "Makefile",
     "deny.toml",

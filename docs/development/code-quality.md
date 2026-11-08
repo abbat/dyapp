@@ -279,7 +279,7 @@ generated item gains documentation and the exemption becomes unnecessary.
 `unsafe_code = "forbid"` applies to every crate except two:
 
 - workspace members via `[workspace.lints.rust]` in the root `Cargo.toml` and `[lints] workspace =
-  true`; `clients/linux/`, `clients/windows/`, `tools/arch-lint` and `tests/fuzz/` set it in their own `[lints.rust]`;
+  true`; `clients/linux/`, `clients/windows/` and `tests/fuzz/` set it in their own `[lints.rust]`;
 - `rust/bootstrap` (libc calls) and `rust/ffi` (uniffi generates `#[no_mangle]`) instead deny
   `clippy::undocumented_unsafe_blocks`: each `unsafe` block needs a `// SAFETY:` comment stating
   the invariant that makes it sound.

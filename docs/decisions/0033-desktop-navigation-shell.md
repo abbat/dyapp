@@ -7,9 +7,9 @@
 
 The Linux and Windows client (`clients/desktop/ui`) shows every feature on one centred page:
 same-looking full-width buttons, about 30 lines of CSS and no navigation. The maintainer judged it
-unusable. [Desktop UX references](../design/desktop-ux-references.md) collected how GNOME,
-Fluent, Apple and Material guidelines and key-as-account apps (Signal, Session, Element, Jami,
-Syncthing, KeePassXC) solve the same tasks, and listed the open choices in its section 9. The
+unusable. A survey (kept in git history) collected how GNOME, Fluent, Apple and Material
+guidelines and key-as-account apps (Signal, Session, Element, Jami, Syncthing, KeePassXC) solve
+the same tasks. The
 desktop app has five areas (Profile, Search, Chats, Network, Settings), several local identities, no key
 backup in v0.0.1, and the Android client must keep the same control IDs and decision order.
 

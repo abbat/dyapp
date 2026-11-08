@@ -9,9 +9,8 @@ A node upgrade restarts service, can migrate SQLite stores in place, and resets
 peer trust for `network.storage_trust_minutes`. The former policy required an
 opt-in unattended installer before v0.0.1, with an independent release channel,
 a privileged installer, a proven stopped-node backup, staged rollout and failure
-rehearsal. Those gates have not been delivered. The
-[analysis](../design/bootstrap-update-policy.md) found that manual rolling
-upgrades preserve operator control and the existing node privilege boundary.
+rehearsal. Those gates have not been delivered. Manual rolling upgrades
+preserve operator control and the existing node privilege boundary.
 
 ## Decision
 

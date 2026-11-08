@@ -10,7 +10,8 @@ origin/main for a local run before a push):
 - a storage-schema change: an added or removed SQL schema line in Rust code.
 
 The trailer `ADR: docs/decisions/NNNN-title.md` must name an ADR that exists
-in that commit; an older ADR that covers the change is fine.
+in that commit; an older ADR that covers the change is fine. A routine change
+that records no decision says why instead: `ADR: none — <reason>`.
 """
 import os
 from pathlib import PurePosixPath
@@ -19,6 +20,7 @@ import subprocess
 import tomllib
 
 TRAILER = re.compile(r"^ADR: (docs/decisions/\d{4}-[\w.-]+\.md)$", re.M)
+NONE = re.compile(r"^ADR: none [—-] \S.{9,}$", re.M)
 GRADLE = re.compile(r"^\s*\w*[iI]mplementation\s*\(?\s*(?:platform\()?\s*"
                     r"""['"]([\w.-]+:[\w.-]+)""", re.M)
 SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
@@ -90,13 +92,18 @@ def commit_errors(sha):
             GIT + ["diff", "-U0", f"{sha}^!", "--", path], text=True) \
             if path.endswith(".rs") else ""
         found += triggers(path, show(f"{sha}^", path), show(sha, path), diff)
-    if not found:
-        return []
+    reason = trailer_error(message, sha) if found else None
+    return [f"{sha[:12]} {reason}: " + "; ".join(found)] if reason else []
+
+
+def trailer_error(message, sha):
+    """Why the ADR trailer of a triggering commit is not accepted, or None."""
+    if NONE.search(message):
+        return None
     adr = TRAILER.search(message)
     if adr and show(sha, adr.group(1)):
-        return []
-    reason = "names a missing ADR" if adr else "has no ADR: trailer"
-    return [f"{sha[:12]} {reason}: " + "; ".join(found)]
+        return None
+    return "names a missing ADR" if adr else "has no ADR: trailer"
 
 
 def base():

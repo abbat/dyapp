@@ -166,8 +166,7 @@ in a comment (`uses: owner/action@<sha> # v1.2.3`). Workflows without a job that
 the token to `contents: read`.
 
 Dependabot (`.github/dependabot.yml`) opens version-update PRs weekly for GitHub Actions, Cargo
-(the root workspace, `clients/linux`, `clients/windows`, `tests/fuzz`,
-`tools/arch-lint`), Gradle (`clients/android`) and the Dockerfiles in
+(the root workspace, `clients/linux`, `clients/windows`, `tests/fuzz`), Gradle (`clients/android`) and the Dockerfiles in
 `tests/docker/` and `tools/docker/`. It waits 14 days after a release ([dependency age](code-quality.md#dependency-age)), groups minor and
 patch updates into one PR per ecosystem and moves all `libp2p*` crates in one PR, majors included. Cargo ignores
 libc 0.2.190 (`nix` fails to build for iOS against it), argon2 0.6+ (it needs blake2 0.11,
