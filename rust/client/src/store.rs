@@ -79,6 +79,10 @@ pub enum InboxKind {
 
 impl Store {
     /// Open a profile database without replacing an unknown or mismatched one.
+    ///
+    /// # Errors
+    /// Rejects relative paths, symlinks, unknown schemas and another identity's
+    /// database. Returns database errors for opening, schema or binding failures.
     pub fn open(path: &Path, identity: &Identity) -> Result<Self, Error> {
         if !path.is_absolute() {
             return Err(Error::RelativePath);
@@ -137,46 +141,73 @@ impl Store {
     }
 
     /// Whether this profile sends optional view signals; absent means off.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for malformed stored settings.
     pub fn send_profile_views(&self) -> Result<bool, Error> {
         self.setting_flag("send_profile_views")
     }
 
     /// Persist this profile's choice to send optional view signals.
+    ///
+    /// # Errors
+    /// Returns database errors if persisting the setting fails.
     pub fn set_send_profile_views(&self, enabled: bool) -> Result<(), Error> {
         self.set_setting_flag("send_profile_views", enabled)
     }
 
     /// Whether this profile shows that it is typing; absent means on.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for malformed stored settings.
     pub fn send_typing(&self) -> Result<bool, Error> {
         Ok(!self.setting_flag("hide_typing")?)
     }
 
     /// Persist whether this profile shows that it is typing.
+    ///
+    /// # Errors
+    /// Returns database errors if persisting the setting fails.
     pub fn set_send_typing(&self, enabled: bool) -> Result<(), Error> {
         self.set_setting_flag("hide_typing", !enabled)
     }
 
     /// Whether new messages and likes notify on this device; absent means on.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for malformed stored settings.
     pub fn notifications(&self) -> Result<bool, Error> {
         Ok(!self.setting_flag("mute_notifications")?)
     }
 
     /// Persist whether new messages and likes notify on this device.
+    ///
+    /// # Errors
+    /// Returns database errors if persisting the setting fails.
     pub fn set_notifications(&self, enabled: bool) -> Result<(), Error> {
         self.set_setting_flag("mute_notifications", !enabled)
     }
 
     /// Whether the owner hid the profile from search with a tombstone; absent means shown.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for malformed stored settings.
     pub fn profile_hidden(&self) -> Result<bool, Error> {
         self.setting_flag("profile_hidden")
     }
 
     /// Persist whether the profile is hidden from search.
+    ///
+    /// # Errors
+    /// Returns database errors if persisting the setting fails.
     pub fn set_profile_hidden(&self, hidden: bool) -> Result<(), Error> {
         self.set_setting_flag("profile_hidden", hidden)
     }
 
     /// The user's choice for downloading originals without a tap; absent means by network.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for malformed stored settings.
     pub fn auto_download(&self) -> Result<AutoDownload, Error> {
         match self.setting_byte("auto_download")? {
             None | Some(0) => Ok(AutoDownload::ByNetwork),
@@ -187,6 +218,9 @@ impl Store {
     }
 
     /// Persist the choice for downloading originals without a tap.
+    ///
+    /// # Errors
+    /// Returns database errors if persisting the setting fails.
     pub fn set_auto_download(&self, mode: AutoDownload) -> Result<(), Error> {
         let value = match mode {
             AutoDownload::ByNetwork => 0,
@@ -234,6 +268,9 @@ impl Store {
     }
 
     /// Whether this profile currently passes on `peer_id`; absent means no pass.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::InvalidSetting`] for an invalid stored flag.
     pub fn passed(&self, peer_id: &str) -> Result<bool, Error> {
         let value: Option<i64> = self
             .db
@@ -251,6 +288,10 @@ impl Store {
     }
 
     /// Commit a new sealed MLS snapshot and exact mailbox writes before any network send.
+    ///
+    /// # Errors
+    /// Returns database errors, [`Error::EmptyMlsState`] for an empty snapshot,
+    /// or [`Error::OutboxConflict`] for conflicting bytes under an existing ID.
     pub fn stage_outbound(
         &mut self,
         sealed_device: &[u8],
@@ -260,6 +301,10 @@ impl Store {
     }
 
     /// Register a new conversation in the same commit as its MLS state and Welcome writes.
+    ///
+    /// # Errors
+    /// Returns group-validation/MLS errors, [`Error::GroupConflict`] for an invalid
+    /// catalog binding, or snapshot/outbox/database errors from staging.
     pub fn stage_group(
         &mut self,
         group: &Group,
@@ -290,6 +335,9 @@ impl Store {
     }
 
     /// IDs needed to reopen every conversation from the saved Device snapshot.
+    ///
+    /// # Errors
+    /// Returns database errors if the conversation catalog cannot be read.
     pub fn known_groups(&self) -> Result<Vec<(Vec<u8>, String)>, Error> {
         let mut query = self.db.prepare(
             "SELECT `group_id`, `peer_id` FROM `conversation_groups` ORDER BY `group_id`",
@@ -299,6 +347,10 @@ impl Store {
     }
 
     /// Reopen and check every cataloged group against the restored sealed Device.
+    ///
+    /// # Errors
+    /// Returns database or MLS errors, or [`Error::GroupMismatch`] for a missing
+    /// group or a group whose membership does not fit its catalog entry.
     pub fn load_groups(&self, device: &Device) -> Result<Vec<(Group, String)>, Error> {
         self.known_groups()?
             .into_iter()
@@ -372,6 +424,9 @@ impl Store {
     }
 
     /// The last sealed MLS snapshot, if one was stored; unwrap its key outside SQLite.
+    ///
+    /// # Errors
+    /// Returns database errors if the saved snapshot cannot be read.
     pub fn sealed_device(&self) -> Result<Option<Vec<u8>>, Error> {
         Ok(self
             .db
@@ -384,6 +439,10 @@ impl Store {
     }
 
     /// Pending writes due by `now_ms`, reopened from exact signed bytes.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::OutboxConflict`] for malformed signed
+    /// envelope bytes or a stored mailbox/ID mismatch.
     pub fn due_outbound(&self, now_ms: i64) -> Result<Vec<PreparedEnvelope>, Error> {
         let mut query = self.db.prepare(
             "SELECT `mailbox`, `envelope_id`, `signed_envelope` FROM `outbox`
@@ -408,6 +467,7 @@ impl Store {
     }
 
     /// The Peer ID this database is bound to.
+    #[must_use]
     pub fn owner_peer_id(&self) -> &str {
         &self.owner_peer_id
     }
