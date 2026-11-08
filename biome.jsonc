@@ -45,7 +45,8 @@
       "clients/desktop/ui-tests/photo-settings.js",
       "clients/desktop/ui-tests/chat-photo-send.js",
       "clients/desktop/ui-tests/chat-photo-render.js",
-      "clients/desktop/ui-tests/photos.js"
+      "clients/desktop/ui-tests/photos.js",
+      "clients/desktop/ui-tests/contact-names.js"
     ],
     "linter": { "rules": {
       "complexity": {

@@ -17,19 +17,20 @@
       [plain, { peerId: plain, name: '', verified: null }],
     ]);
     const fixture = { refuse: null };
-    const call = (command, args) => {
-      if (command === 'chat_rows') return Promise.resolve([named, claimed, plain].map(row));
-      if (command === 'chat_history') {
-        return Promise.resolve({ state: 'open', messages: [], activeRecently: false });
-      }
-      if (command === 'contact_names') {
-        return Promise.resolve(args.peerIds.map((peerId) => names.get(peerId)));
-      }
-      if (command === 'set_contact_name') {
-        if (fixture.refuse) return Promise.reject(fixture.refuse);
-        names.set(args.peerId, { peerId: args.peerId, name: args.name.trim(), verified: null });
-      }
+    const saveName = (args) => {
+      if (fixture.refuse) return Promise.reject(fixture.refuse);
+      names.set(args.peerId, { peerId: args.peerId, name: args.name.trim(), verified: null });
       return Promise.resolve(0);
+    };
+    const replies = {
+      chat_rows: () => [named, claimed, plain].map(row),
+      chat_history: () => ({ state: 'open', messages: [], activeRecently: false }),
+      contact_names: (args) => args.peerIds.map((peerId) => names.get(peerId)),
+    };
+    const call = (command, args) => {
+      if (command === 'set_contact_name') return saveName(args);
+      const reply = replies[command];
+      return Promise.resolve(reply ? reply(args) : 0);
     };
     const label = (peerId) => liveRow('chat-list', peerId).querySelector('b').textContent;
     return Object.assign(fixture, { named, claimed, plain, call, label });
@@ -51,7 +52,7 @@
       throw new Error('no name lost the Peer ID');
   };
   const checkRename = async (fixture) => {
-    const { plain, call, label } = fixture;
+    const { plain, call } = fixture;
     await openChat(plain, call);
     const dialog = document.getElementById('chat-rename-dialog');
     const input = document.getElementById('chat-rename-input');
@@ -66,6 +67,11 @@
     if (!dialog.open || error.textContent !== window.strings['chats.renameInvalid']) {
       throw new Error('a refused name did not explain itself');
     }
+    await checkRenameSaved(fixture, dialog, input);
+  };
+  const checkRenameSaved = async (fixture, dialog, input) => {
+    const { plain, call, label } = fixture;
+    const { saveRename } = globalThis.uiSmokeRename;
     fixture.refuse = null;
     input.value = '  Cleo  ';
     await saveRename(call);
