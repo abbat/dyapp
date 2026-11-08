@@ -69,6 +69,7 @@ INSERT OR IGNORE INTO `meta` (`name`, `value`)
 ";
 
 /// The gossip topic of a key: H(key) mod 16, where the key is already a hash.
+#[must_use]
 pub fn topic(key: &[u8; 32]) -> u32 {
     u32::from(key[0] % 16)
 }
@@ -77,6 +78,7 @@ pub fn topic(key: &[u8; 32]) -> u32 {
 pub const SLOTS: u32 = 1 << 16;
 
 /// Position inside a topic, using the first 16 key bits after its topic nibble.
+#[must_use]
 pub fn slot(key: &[u8; 32]) -> u32 {
     u32::from(key[0] >> 4) << 12 | u32::from(key[1]) << 4 | u32::from(key[2] >> 4)
 }
@@ -85,6 +87,7 @@ pub fn slot(key: &[u8; 32]) -> u32 {
 ///
 /// # Panics
 /// Panics if `topic >= SEARCH_TOPICS` or `p >= SLOTS`.
+#[must_use]
 pub fn slot_start(topic: u32, p: u32) -> [u8; 32] {
     assert!(topic < SEARCH_TOPICS && p < SLOTS);
     let position = p.to_be_bytes();
@@ -323,6 +326,11 @@ impl SearchIndex {
     }
 
     /// The 256 bucket hashes of a topic; an empty bucket has an all-zero hash.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if opening the reader or querying stored digests fails, or a stored bucket
+    /// index or hash length is invalid.
     pub fn digest(&self, topic: u32) -> Result<Vec<[u8; 32]>> {
         let db = self.reader()?;
         let mut out = vec![[0; 32]; 256];
@@ -347,6 +355,11 @@ impl SearchIndex {
     }
 
     /// Hashes of the 256 sub-buckets, plus the number of scanned rows for service billing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the topic is invalid, opening the reader or scanning keys fails,
+    /// or a stored key has an invalid length.
     pub fn sub_digest(&self, topic: u32, bucket: u8) -> Result<(Vec<[u8; 32]>, usize)> {
         if topic >= SEARCH_TOPICS {
             return Err(storage_error("invalid search topic"));
@@ -391,6 +404,11 @@ impl SearchIndex {
 
     /// Stores a new version or a tombstone (`p.deleted`). `limit = false` skips the update
     /// limit for catch-up; every other check stays.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking, profile/version persistence, digest updates or
+    /// newcomer/size eviction fails. Update refusals are reported through `Put`.
     pub fn put(
         &self,
         key: &[u8; 32],
@@ -510,6 +528,11 @@ impl SearchIndex {
     /// Refreshes the heartbeat of the stored version, at most `HEARTBEATS_PER_DAY` per UTC day.
     /// An unknown key, a tombstone or any other version is `NotFound`: the sender republishes
     /// or catch-up brings the newer version.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking, heartbeat lookup or the tracked update transaction fails.
+    /// Missing versions and exhausted daily quotas are reported through `Beat`.
     pub fn heartbeat(&self, key: &[u8; 32], version: u64, now: i64) -> Result<Beat> {
         let mut db = lock(&self.db)?;
         let mut tx = db.change()?;
@@ -528,6 +551,10 @@ impl SearchIndex {
     }
 
     /// What [`SearchIndex::heartbeat`] would return, without counting the beat.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or the stored heartbeat/quota lookup fails.
     pub fn can_beat(&self, key: &[u8; 32], version: u64, now: i64) -> Result<Beat> {
         let db = lock(&self.db)?;
         Ok(due(&db, key, version, now)?.err().unwrap_or(Beat::Ok))
@@ -567,6 +594,11 @@ fn due(
 
 impl SearchIndex {
     /// Difficulty advertised by the stored profile; missing or undecodable records have none.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or the record query fails. Missing or undecodable
+    /// records return `None`.
     pub fn pow_bits(&self, key: &[u8; 32]) -> Result<Option<u32>> {
         let db = lock(&self.db)?;
         let bytes: Option<Vec<u8>> = db
@@ -587,6 +619,10 @@ impl SearchIndex {
 
     /// The signed records of `keys` in the given order, missing ones skipped, cut before the
     /// total passes `max_bytes`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if opening the reader, querying records or decoding a stored record fails.
     pub fn records(&self, keys: &[[u8; 32]], max_bytes: usize) -> Result<Vec<SignedRecord>> {
         let db = self.reader()?;
         let mut statement = db
@@ -609,6 +645,10 @@ impl SearchIndex {
     }
 
     /// The stored version of each key, tombstones included.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or querying stored versions fails.
     pub fn versions(&self, keys: &[[u8; 32]]) -> Result<Vec<Option<u64>>> {
         let db = lock(&self.db)?;
         let mut statement = db
@@ -627,6 +667,10 @@ impl SearchIndex {
 
     /// Up to `limit` (key, version) of one topic, after `after` and before `before`.
     /// Empty `before` means no upper bound; keys are sorted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or the ordered inventory query fails.
     pub fn inventory(
         &self,
         topic: u32,
@@ -660,6 +704,10 @@ impl SearchIndex {
     /// Removes keys whose last heartbeat (or update) is before `before`, at most
     /// `EXPIRE_BATCHES` batches per call; the node calls it on its hourly cleanup. Returns keys
     /// removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a bounded expiration transaction, digest update or dirty-key tracking fails.
     pub fn expire(&self, before: i64) -> Result<usize> {
         let mut removed = 0;
         for _ in 0..EXPIRE_BATCHES {
@@ -672,11 +720,20 @@ impl SearchIndex {
     }
 
     /// Bytes used by the index.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or SQLite page-usage queries fail.
     pub fn usage(&self) -> Result<u64> {
         storage::used(&*lock(&self.db)?)
     }
 
     /// `storage::maintain` on the active generation; returns the free pages left.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking, incremental vacuum, WAL checkpoint, planner refresh
+    /// or the remaining-free-page query fails.
     pub fn maintain(&self, pages: u32) -> Result<i64> {
         storage::maintain(&*lock(&self.db)?, pages)
     }

@@ -2,6 +2,11 @@ use super::*;
 
 impl NodeConfig {
     /// Checks everything that could otherwise fail at runtime. Creates missing directories.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when running as root, a configured address, role, policy or resource limit
+    /// is invalid, required directories cannot be prepared, or the storage network binding fails.
     pub fn validate(&self) -> anyhow::Result<()> {
         // SAFETY: geteuid has no preconditions; unlike /proc/self it also exists on macOS.
         if unsafe { libc::geteuid() } == 0 {

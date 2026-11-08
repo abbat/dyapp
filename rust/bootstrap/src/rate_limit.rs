@@ -40,6 +40,7 @@ pub struct PeerRateLimiter {
 
 impl PeerRateLimiter {
     /// Allows `messages_per_second` units per key; zero panics on first use.
+    #[must_use]
     pub fn new(messages_per_second: u32) -> Self {
         Self {
             limiters: Arc::new(RwLock::new((HashMap::new(), Instant::now()))),
@@ -61,11 +62,18 @@ impl PeerRateLimiter {
     }
 
     /// Charges one request to `peer_id`; false when its bucket is empty.
+    #[must_use]
     pub fn check_limit(&self, peer_id: &str) -> bool {
         self.check_units(peer_id, 1)
     }
 
     /// Charges the complete operation atomically; an insufficient bucket spends no units.
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bucket lock is poisoned or a nonzero charge creates a bucket with a
+    /// configured rate of zero.
     pub fn check_units(&self, peer_id: &str, units: u32) -> bool {
         let Some(units) = NonZeroU32::new(units) else {
             return false;
@@ -104,6 +112,11 @@ impl PeerRateLimiter {
     }
 
     /// Keys with a bucket.
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bucket lock is poisoned.
     pub fn get_active_peers(&self) -> usize {
         self.limiters.read().unwrap().0.len()
     }
@@ -121,6 +134,7 @@ pub struct Reputation {
 impl Reputation {
     /// A peer with `strikes` strikes, each less than `ban` after the previous one, is banned
     /// until `ban` passes without a strike.
+    #[must_use]
     pub fn new(strikes: u32, ban: Duration) -> Self {
         Self {
             strikes,
@@ -130,6 +144,10 @@ impl Reputation {
     }
 
     /// Counts a strike; returns true when it bans the peer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the reputation-state lock is poisoned.
     pub fn strike(&self, peer: &str) -> bool {
         let now = Instant::now();
         let mut peers = self.peers.lock().unwrap();
@@ -145,6 +163,10 @@ impl Reputation {
     }
 
     /// Whether `peer` is banned now.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the reputation-state lock is poisoned.
     pub fn banned(&self, peer: &str) -> bool {
         let peers = self.peers.lock().unwrap();
         peers
@@ -162,6 +184,7 @@ pub struct Traffic {
 
 impl Traffic {
     /// A counter allowing `rate` bytes per second; 0 = no limit.
+    #[must_use]
     pub fn new(rate: u64) -> Self {
         Self {
             rate,
@@ -239,6 +262,7 @@ pub struct Memory {
 
 impl Memory {
     /// A sampler against `max` bytes; 0 = no limit.
+    #[must_use]
     pub fn new(max: u64) -> Self {
         Self {
             max,
@@ -247,6 +271,10 @@ impl Memory {
     }
 
     /// The share of `max` in percent, 0 without a limit or a measurement.
+    ///
+    /// # Panics
+    ///
+    /// Panics if memory limiting is enabled and the sample-state lock is poisoned.
     pub fn share(&self) -> u64 {
         if self.max == 0 {
             return 0;
@@ -266,6 +294,10 @@ impl Memory {
 
     /// Fixes the share for an hour.
     #[cfg(test)]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sample-state lock is poisoned.
     pub fn set(&self, share: u64) {
         let later = Instant::now() + Duration::from_secs(3600);
         *self.sample.lock().unwrap() = Some((later, share));
@@ -318,11 +350,11 @@ mod tests {
         let limiter = PeerRateLimiter::new(1);
         assert!(limiter.check_limit("busy"));
         for peer in 1..MAX_BUCKETS {
-            limiter.check_limit(&peer.to_string());
+            assert!(limiter.check_limit(&peer.to_string()));
         }
         assert!(!limiter.check_limit("busy"), "an active bucket was reset");
         std::thread::sleep(Duration::from_millis(1100));
-        limiter.check_limit("new");
+        assert!(limiter.check_limit("new"));
         assert_eq!(limiter.get_active_peers(), 1);
     }
 
@@ -330,14 +362,14 @@ mod tests {
     fn idle_buckets_are_dropped_after_a_second_below_the_cap() {
         let limiter = PeerRateLimiter::new(1);
         for peer in 0..3 {
-            limiter.check_limit(&peer.to_string());
+            assert!(limiter.check_limit(&peer.to_string()));
         }
         assert!(
             !limiter.check_limit("0"),
             "the bucket was dropped within a second"
         );
         std::thread::sleep(Duration::from_millis(1100));
-        limiter.check_limit("new");
+        assert!(limiter.check_limit("new"));
         assert_eq!(limiter.get_active_peers(), 1);
     }
 
@@ -377,9 +409,9 @@ mod tests {
     fn test_active_peers_tracking() {
         let limiter = PeerRateLimiter::new(10);
 
-        limiter.check_limit("alice");
-        limiter.check_limit("bob");
-        limiter.check_limit("charlie");
+        assert!(limiter.check_limit("alice"));
+        assert!(limiter.check_limit("bob"));
+        assert!(limiter.check_limit("charlie"));
 
         assert_eq!(limiter.get_active_peers(), 3);
     }

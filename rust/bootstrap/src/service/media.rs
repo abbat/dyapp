@@ -4,6 +4,11 @@ use super::*;
 
 impl Service {
     /// Errors as in [`Service::profile`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if media storage, ownership lookup, blob/cache access, inventory or
+    /// replica persistence fails. Admission and invalid-request outcomes use response statuses.
     pub fn media(&self, peer: &Peer, request: MediaRequest) -> crate::Result<MediaResponse> {
         if let Some(media_request::Request::Put(put)) = &request.request {
             return match self.prepare_media(peer, put)? {
@@ -209,6 +214,15 @@ impl Service {
     }
 
     /// Sorts `items` into present and missing, with the whole blobs and manifests held.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stored blobs, manifests or shards cannot be read or decoded,
+    /// or a fallback shard cannot be encoded.
+    ///
+    /// # Panics
+    ///
+    /// Panics if this service has no media store; callers must first check that media is enabled.
     pub fn media_inventory(&self, items: &[proto::MediaPart]) -> crate::Result<MediaResponse> {
         let media = self.media.as_ref().unwrap();
         let mut inventory = proto::MediaInventory::default();
@@ -265,6 +279,16 @@ impl Service {
     }
 
     /// Stores a shard of a sharded media replica; the replica must be authorized.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if replica authorization storage or manifest/shard persistence fails.
+    /// Invalid or refused replicas use response statuses.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an accepted replica reaches shard persistence without a media store.
+    /// The preceding replica-storage status check prevents that state.
     pub fn store_shard(&self, put: &proto::MediaShardPut) -> crate::Result<MediaResponse> {
         let Some(replica) = &put.replica else {
             return Ok(media_status(Status::Denied));
@@ -297,6 +321,16 @@ impl Service {
 
     /// The piece `get` asks for of a blob from its whole copy, or decoded from `shards` and
     /// cached for the next pieces; discards shards and manifest that do not decode.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the whole blob or discarding undecodable sharded content fails.
+    /// A cache-write failure is logged without discarding a successfully reconstructed blob.
+    ///
+    /// # Panics
+    ///
+    /// Panics if assembly reaches storage access without a media store; callers must first
+    /// check that media is enabled.
     pub fn assemble_media(
         &self,
         manifest: &proto::MediaManifest,
@@ -330,6 +364,11 @@ impl Service {
 
     /// Charges reading the piece `get` asks for and assembling a sharded blob to `peer`; false
     /// when refused.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a manifest accepted by `data_shards` has no shard size, which would violate
+    /// the shared manifest-shape invariant.
     pub fn prepare_media_read(
         &self,
         peer: &Peer,
@@ -362,6 +401,11 @@ impl Service {
     }
 
     /// Accepts one upload without storing locally unless this node holds a replica key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the stored media authorization cannot be read or decoded.
+    /// Admission and invalid-upload outcomes use the inner status.
     pub fn prepare_media(
         &self,
         peer: &Peer,
@@ -413,6 +457,11 @@ impl Service {
     }
 
     /// Independently verifies the authorization and checks against the latest local keep.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if ownership/attachment records, blob data or manifests cannot be
+    /// stored or read. Invalid or refused replicas use response statuses.
     pub fn store_media(&self, replica: &proto::MediaReplicaPut) -> crate::Result<MediaResponse> {
         let deny = self.deny.read().unwrap_or_else(PoisonError::into_inner);
         self.store_media_with_deny(replica, &deny)

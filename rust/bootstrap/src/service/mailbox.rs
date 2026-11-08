@@ -25,6 +25,11 @@ impl Service {
     /// `nonce` is the challenge issued on this libp2p connection: `challenge` sets it and the
     /// next `fetch` or `ack` takes it, valid or not, so a captured request cannot be replayed on
     /// this or another connection. Errors as in [`Service::profile`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox storage, revocation lookup or stored-record decoding fails.
+    /// Admission, authentication and request-validation failures use response statuses.
     pub fn mailbox(
         &self,
         peer: &Peer,
@@ -35,6 +40,11 @@ impl Service {
     }
 
     /// Validates and bills a client put before the swarm looks up its holders; stores nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if storage access needed to validate the envelope or its write token fails.
+    /// Admission and envelope-validation failures use response statuses.
     pub fn prepare_mailbox(
         &self,
         peer: &Peer,
@@ -261,12 +271,21 @@ impl Service {
 
     /// The ids of the first [`MAX_INVENTORY`] envelopes of a mailbox in fetch order, read without
     /// the records.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or ordered envelope-ID lookup fails.
     pub fn held_ids(&self, mailbox: &[u8]) -> crate::Result<Vec<Vec<u8>>> {
         self.store.envelope_ids(mailbox, MAX_INVENTORY as u32)
     }
 
     /// The oldest [`MAX_INVENTORY`] envelopes of a mailbox by id, with their source groups and
     /// expiry, for repair.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, stored-envelope lookup or signed-record decoding fails.
+    /// Undecodable envelope payloads are omitted.
     pub fn held(&self, mailbox: &[u8]) -> crate::Result<HashMap<Vec<u8>, Held>> {
         let held = self.store.held_envelopes(mailbox, MAX_INVENTORY as u32)?;
         Ok(held
@@ -282,6 +301,11 @@ impl Service {
 
     /// Stores a locally held replica after admission, without billing the client twice. `local`
     /// is this node's peer ID and `group` the source group from [`Service::put_group`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if revocation checks, mailbox storage or accepted-envelope persistence fails.
+    /// Invalid or refused envelopes use response statuses.
     pub fn store_mailbox(
         &self,
         record: &SignedRecord,

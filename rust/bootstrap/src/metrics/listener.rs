@@ -20,6 +20,10 @@ const CONTENT_TYPE: &str = "text/plain; version=0.0.4; charset=utf-8";
 
 /// Opens `addresses`. An address that cannot be opened, such as `[::1]` on a host without IPv6,
 /// is skipped; the node does not start when one is taken by another process or none opens.
+///
+/// # Errors
+///
+/// Returns an error if any requested address is already in use, or none can be bound.
 pub async fn bind(addresses: &[SocketAddr]) -> anyhow::Result<Vec<TcpListener>> {
     let mut listeners = Vec::new();
     for &address in addresses {

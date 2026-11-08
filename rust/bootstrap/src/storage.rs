@@ -155,6 +155,10 @@ fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
 }
 
 /// Bytes free for this user on the file system of `path`.
+///
+/// # Errors
+///
+/// Returns an error if `path` contains a NUL byte or the filesystem free-space query fails.
 pub fn free(path: &str) -> Result<u64> {
     let path = std::ffi::CString::new(path).map_err(storage_error)?;
     let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
@@ -200,6 +204,11 @@ fn decode(bytes: Vec<u8>) -> Result<SignedRecord> {
 
 impl BootstrapStore {
     /// Opens `profiles.db` and `messages.db` in one directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory cannot be created or either database cannot be opened
+    /// and initialized with its supported schema.
     pub fn new(path: &str) -> Result<Self> {
         let dir = Path::new(path);
         std::fs::create_dir_all(dir).map_err(storage_error)?;
@@ -207,6 +216,11 @@ impl BootstrapStore {
     }
 
     /// Opens or creates the profile and mailbox databases.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either database cannot be opened, has an unsupported format version,
+    /// or its schema or SQLite settings cannot be initialized.
     pub fn open(profiles: &Path, messages: &Path) -> Result<Self> {
         Ok(Self {
             profiles: open(profiles, &[PROFILES, keypackages::SCHEMA])?,
@@ -219,6 +233,10 @@ impl BootstrapStore {
 
     /// The envelopes of a mailbox, messages first, then signals, oldest first in each: at most
     /// `limit`, and no more than `max_bytes` of records unless the first alone is larger.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock, envelope query or stored record decoding fails.
     pub fn fetch_envelopes(
         &self,
         mailbox: &[u8],
@@ -231,6 +249,10 @@ impl BootstrapStore {
 
     /// Fetch strictly after this holder's (class, sequence) position. The last returned
     /// position survives deletion of its row; a cursor from another holder is meaningless.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock, paginated query or stored record decoding fails.
     pub fn fetch_envelopes_after(
         &self,
         mailbox: &[u8],
@@ -271,6 +293,10 @@ impl BootstrapStore {
 
     /// The ids of the first `limit` envelopes of a mailbox in fetch order, without reading the
     /// records.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or ordered envelope-ID query fails.
     pub fn envelope_ids(&self, mailbox: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
         let db = lock(&self.messages)?;
         let mut query = db
@@ -285,6 +311,10 @@ impl BootstrapStore {
     }
 
     /// Deletes envelopes from a mailbox; unknown ids are ignored.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or acknowledgment transaction fails.
     pub fn ack_envelopes(&self, mailbox: &[u8], ids: &[Vec<u8>]) -> Result<()> {
         let mut db = lock(&self.messages)?;
         let tx = db.transaction().map_err(storage_error)?;
@@ -300,11 +330,21 @@ impl BootstrapStore {
 
     /// Verifies a signed profile and stores it if it is newer than the owner's stored version.
     /// A tombstone replaces the profile and prevents any later version while it is retained.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the incoming or stored profile fails verification, the version is not
+    /// newer, the owner was deleted, or profile locking, decoding or persistence fails.
     pub fn put_profile(&self, record: &SignedRecord) -> Result<VerifiedProfile> {
         self.put_profile_seen(record, chrono::Utc::now().timestamp())
     }
 
     /// [`Self::put_profile`] with the owner last seen at `last_seen`; a later stored time stays.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the incoming or stored profile fails verification, the version is not
+    /// newer, the owner was deleted, or profile locking, decoding or persistence fails.
     pub fn put_profile_seen(
         &self,
         record: &SignedRecord,
@@ -349,6 +389,10 @@ impl BootstrapStore {
     }
 
     /// When the owner of `peer_id`'s stored profile was last seen.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock or liveness query fails.
     pub fn profile_last_seen(&self, peer_id: &str) -> Result<Option<i64>> {
         lock(&self.profiles)?
             .query_row(
@@ -361,11 +405,19 @@ impl BootstrapStore {
     }
 
     /// The stored profile record of `peer_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock, record query or stored record decoding fails.
     pub fn get_profile(&self, peer_id: &str) -> Result<Option<SignedRecord>> {
         Self::profile(&*lock(&self.profiles)?, peer_id)
     }
 
     /// Live profiles in key order; tombstones are skipped.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock, ordered query or stored record decoding fails.
     pub fn list_profiles(&self, skip: u32, limit: u32) -> Result<Vec<SignedRecord>> {
         let db = lock(&self.profiles)?;
         let mut query = db
@@ -381,6 +433,10 @@ impl BootstrapStore {
     }
 
     /// Live profiles with a peer ID after `after`, in peer ID order; tombstones are skipped.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock, paginated query or stored record decoding fails.
     pub fn profiles_after(&self, after: &str, limit: u32) -> Result<Vec<SignedRecord>> {
         let db = lock(&self.profiles)?;
         let mut query = db.prepare(PROFILES_AFTER).map_err(storage_error)?;
@@ -392,6 +448,10 @@ impl BootstrapStore {
     }
 
     /// Mailboxes after `after` that hold an unexpired envelope, in mailbox order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or active-mailbox query fails.
     pub fn mailboxes_after(&self, after: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
         let db = lock(&self.messages)?;
         let mut query = db.prepare(MAILBOXES_AFTER).map_err(storage_error)?;
@@ -405,6 +465,10 @@ impl BootstrapStore {
     }
 
     /// Advances liveness to the validated, signed heartbeat time; false if no profile is stored.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock or liveness update fails.
     pub fn touch_profile(&self, peer_id: &str, now: i64) -> Result<bool> {
         let touched = lock(&self.profiles)?
             .execute(
@@ -416,6 +480,10 @@ impl BootstrapStore {
     }
 
     /// Deletes profiles and tombstones whose owner was last seen at `cutoff` or before.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock or expired-profile deletion fails.
     pub fn expire_profiles(&self, cutoff: i64) -> Result<usize> {
         lock(&self.profiles)?
             .execute("DELETE FROM `profiles` WHERE `last_seen` <= ?", [cutoff])
@@ -424,6 +492,10 @@ impl BootstrapStore {
 
     /// Deletes envelopes, revoked keys and revokes expired at `now` (Unix seconds); returns how
     /// many envelopes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or expired envelope/revocation deletion fails.
     pub fn cleanup_expired(&self, now: i64) -> Result<usize> {
         let db = lock(&self.messages)?;
         for table in ["revoked", "revokes"] {
@@ -439,6 +511,11 @@ impl BootstrapStore {
 
     /// Runs the free `maintain` on each store, holding one store's lock at a time so a run stays short.
     /// Returns the free pages left in `profiles.db` and `messages.db`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either database lock, incremental vacuum, WAL checkpoint, planner
+    /// refresh or remaining-free-page query fails.
     pub fn maintain(&self, pages: u32) -> Result<[i64; 2]> {
         Ok([
             maintain(&*lock(&self.profiles)?, pages)?,
@@ -447,11 +524,19 @@ impl BootstrapStore {
     }
 
     /// Bytes used by `profiles.db`, and bytes free on its file system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock, page-usage query or filesystem-space query fails.
     pub fn profiles_usage(&self) -> Result<(u64, u64)> {
         usage(&self.profiles)
     }
 
     /// Bytes used by `messages.db`, and bytes free on its file system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock, page-usage query or filesystem-space query fails.
     pub fn messages_usage(&self) -> Result<(u64, u64)> {
         usage(&self.messages)
     }
@@ -459,6 +544,10 @@ impl BootstrapStore {
     /// Deletes the profiles published longest ago until `profiles.db` holds less than `target`
     /// bytes: `INSERT OR REPLACE` gives a republished profile the highest rowid, so rowid order
     /// is publish order. Bounded per call; returns the profiles deleted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the profile database lock, page-usage query or bounded eviction fails.
     pub fn evict_profiles(&self, target: u64) -> Result<usize> {
         evict(&self.profiles, "profiles", target)
     }
@@ -468,11 +557,19 @@ impl BootstrapStore {
     /// mostly those of mailboxes inactive longest.
     // ponytail: arrival order, not per-mailbox activity; a spam flood ages out undelivered mail
     // of inactive users first (ADR 0009 accepts this; spam defences are ADR 0008).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock, page-usage query or bounded eviction fails.
     pub fn evict_envelopes(&self, target: u64) -> Result<usize> {
         evict(&self.messages, "envelopes", target)
     }
 
     /// Takes and releases the write lock of every store.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either database lock or its immediate write-lock probe fails.
     pub fn health_check(&self) -> Result<()> {
         for db in [&self.profiles, &self.messages] {
             lock(db)?

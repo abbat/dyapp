@@ -143,6 +143,11 @@ fn hold(base: &Path) -> Result<std::fs::File> {
 impl SearchIndex {
     /// Opens or creates the index whose first generation is `path`, keeping it below
     /// `search.max_bytes`. Holds `search.lock` beside it until dropped.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the index lock, generation discovery or metadata access fails,
+    /// a complete generation is newer than supported, or index initialization/digest rebuilding fails.
     pub fn open(path: &Path, search: &crate::config::Search) -> Result<Self> {
         Self::open_target(path, search, INDEX_VERSION)
     }
@@ -273,6 +278,11 @@ impl SearchIndex {
     /// since the last round and sets it complete in one transaction, switches the writer and
     /// the reader pool, then deletes the old generation. On failure the candidate is deleted,
     /// except on `Postpone`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Postpone` if settled replay still has too many dirty keys, `Overflow` if tracking
+    /// overflowed, or a storage abort if locking, replay, candidate opening or activation fails.
     pub fn activate(&self, candidate: Candidate, replay: Replay) -> std::result::Result<(), Abort> {
         let started = std::time::Instant::now();
         let mut db = lock(&self.db)?;
@@ -356,6 +366,10 @@ impl SearchIndex {
     }
 
     /// Drops the index for an empty complete generation `target` that refills by catch-up.
+    ///
+    /// # Errors
+    ///
+    /// Returns a storage abort if the empty generation cannot be opened, stamped or activated.
     pub fn refill(&self) -> std::result::Result<(), Abort> {
         let candidate = Candidate {
             path: self.generation_path(self.target),
@@ -376,6 +390,10 @@ impl SearchIndex {
     }
 
     /// Ends refilling after a full catch-up round.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index locking or deleting the persisted refill marker fails.
     pub fn refilled(&self) -> Result<()> {
         if !self.refilling() {
             return Ok(());

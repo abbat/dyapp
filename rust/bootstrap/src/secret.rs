@@ -12,6 +12,7 @@ pub struct Secret(Zeroizing<String>);
 
 impl Secret {
     /// The secret itself.
+    #[must_use]
     pub fn expose(&self) -> &str {
         &self.0
     }
@@ -21,6 +22,12 @@ impl Secret {
         clippy::disallowed_types,
         reason = "coturn's use-auth-secret is HMAC-SHA1"
     )]
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HMAC backend rejects the secret's length. The current HMAC-SHA1 backend
+    /// accepts keys of every length, so this invariant cannot fail.
     pub fn hmac_sha1(&self, message: &[u8]) -> [u8; 20] {
         use hmac::Mac;
         let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(self.0.as_bytes())

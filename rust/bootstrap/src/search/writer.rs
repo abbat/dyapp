@@ -113,6 +113,10 @@ impl Change<'_> {
 
 impl SearchIndex {
     /// Starts tracking changed keys for a rebuild, dropping any earlier set and overflow.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the index writer lock is poisoned.
     pub fn track_start(&self) -> Result<()> {
         let mut db = lock(&self.db)?;
         db.dirty = Some(HashSet::new());
@@ -121,6 +125,11 @@ impl SearchIndex {
     }
 
     /// Takes the keys changed since `track_start` or the previous call; empty when not tracking.
+    ///
+    /// # Errors
+    ///
+    /// Returns an outer error if the index writer lock is poisoned. The inner error reports
+    /// that the dirty-key tracking budget overflowed.
     pub fn take_dirty(&self) -> Result<std::result::Result<Vec<[u8; 32]>, Overflow>> {
         let mut db = lock(&self.db)?;
         if db.overflow {
@@ -134,6 +143,10 @@ impl SearchIndex {
     }
 
     /// Stops tracking and frees the set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the index writer lock is poisoned.
     pub fn track_stop(&self) -> Result<()> {
         lock(&self.db)?.stop();
         Ok(())

@@ -124,6 +124,12 @@ reasoned expectations at its include or derive boundary. The generated node-prot
 expects `doc_markdown`: prost's fixed enum documentation and copied schema comments do not
 follow Rustdoc code markup. Handwritten documentation keeps the lint enabled.
 
+The root workspace and the bootstrap/FFI manifests deny `missing_errors_doc`,
+`missing_panics_doc`, `must_use_candidate` and `doc_markdown`. CI and `make quality`
+therefore reject missing error/panic contracts, ignored return-value contracts and
+Rustdoc markup violations on their checked targets. The compilation-free
+`make quick-check` continues to cover formatting and web/Swift static checks.
+
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable
 selected rules. `nursery` and `restriction` lints (for example `arithmetic_side_effects`) are not

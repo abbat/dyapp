@@ -192,6 +192,16 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
 impl SearchIndex {
     /// A random sample of up to `limit` matching keys, reading at most `max_scan_rows` rows.
     /// The inner `Err(())` means the conditions are `INVALID`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an outer error if the reader, SQL preparation, scanning or stored row decoding fails.
+    /// Invalid conditions are reported as the inner `Err(())`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the selected merge head is absent, which would violate the internal invariant
+    /// that only present heads enter the selection.
     pub fn query(
         &self,
         conditions: &[Condition],

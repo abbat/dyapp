@@ -9,6 +9,11 @@ const MAX_MARKER: u64 = 64;
 impl NodeConfig {
     /// Checks that `storage.dir` belongs to `network.name`, writing the configured name to the
     /// `network` marker when it is missing. An existing marker is never replaced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the network marker cannot be read or created, is invalid, disappears
+    /// during binding, or names a different network.
     pub fn bind_network(&self) -> anyhow::Result<()> {
         let path = self.storage.dir.join("network");
         let stored = match read_marker(&path)? {

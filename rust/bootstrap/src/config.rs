@@ -22,6 +22,7 @@ pub use relay::Relay;
 pub const ENV_PREFIX: &str = "DYAPPD_";
 
 /// Whether the process message locale requests Russian operator text.
+#[must_use]
 pub fn russian_locale() -> bool {
     ["LC_ALL", "LC_MESSAGES", "LANG"]
         .into_iter()
@@ -30,6 +31,7 @@ pub fn russian_locale() -> bool {
 }
 
 /// Keep diagnostics stable for English while translating operator-facing text.
+#[must_use]
 pub fn message(english: &'static str, russian: &'static str) -> &'static str {
     if russian_locale() {
         russian
@@ -65,11 +67,13 @@ fn documented() -> Vec<(String, &'static str, &'static str, &'static str)> {
 }
 
 /// The options of `dyappd --help`, one per config key, with its default and description.
+#[must_use]
 pub fn options_help() -> String {
     options_help_for_locale(false)
 }
 
 /// The same flags and defaults, with Russian descriptions.
+#[must_use]
 pub fn options_help_russian() -> String {
     options_help_for_locale(true)
 }
@@ -212,6 +216,10 @@ fn set(
 }
 
 /// The TCP and QUIC (UDP) addresses of a `host:port` listen or external address.
+///
+/// # Errors
+///
+/// Returns an error if `address` is not an IP socket address with a port.
 pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     let socket: SocketAddr = address.parse().map_err(|_| {
         anyhow::anyhow!(
@@ -231,6 +239,10 @@ pub fn transports(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
 }
 
 /// TCP and QUIC addresses of a `host:port[/peer-ID]` seed, with an IP or DNS host.
+///
+/// # Errors
+///
+/// Returns an error if the seed address or its optional peer ID is malformed.
 pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
     dyapp_p2p_net::seed::parse(address).map_err(|error| {
         let hint = match error {
@@ -330,6 +342,11 @@ impl Default for Search {
 
 impl Search {
     /// Fails on a value outside its documented range.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a search size, scan budget, topic, newcomer policy or proof-of-work
+    /// setting is outside its supported range.
     pub fn validate(&self) -> anyhow::Result<()> {
         if self.max_profile_bytes == 0
             || self.max_profile_bytes > crate::service::SEARCH_ACCEPT_BYTES
@@ -362,6 +379,7 @@ impl Search {
     }
 
     /// Whether this node keeps keys of `topic`.
+    #[must_use]
     pub fn keeps(&self, topic: u32) -> bool {
         self.topics.is_empty() || self.topics.contains(&topic)
     }
@@ -378,6 +396,7 @@ pub struct Metrics {
 impl Metrics {
     /// The listener addresses, IPv6 first; none when off. Loopback only: the endpoint has no
     /// authentication.
+    #[must_use]
     pub fn addresses(&self) -> Vec<SocketAddr> {
         if self.port == 0 {
             return vec![];
@@ -495,6 +514,10 @@ impl Default for Network {
 
 impl Network {
     /// The outgoing filter of [`Network::deny_dial`]; fails on the first entry that is no CIDR.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any configured outgoing deny entry is not a valid CIDR.
     pub fn dial_filter(&self) -> anyhow::Result<dyapp_p2p_net::DialFilter> {
         let nets = self.deny_dial.iter().map(|entry| {
             entry
@@ -696,26 +719,31 @@ impl Default for Limits {
 
 impl StorageConfig {
     /// The profile store, `profiles.db`.
+    #[must_use]
     pub fn profiles_path(&self) -> PathBuf {
         self.dir.join("profiles.db")
     }
 
     /// The search role's index, `profiles-idx.db`.
+    #[must_use]
     pub fn search_path(&self) -> PathBuf {
         self.dir.join("profiles-idx.db")
     }
 
     /// The mailbox store, `messages.db`.
+    #[must_use]
     pub fn messages_path(&self) -> PathBuf {
         self.dir.join("messages.db")
     }
 
     /// `media.db`; the blob files are in `data/` next to it, see [`crate::media::MediaStore`].
+    #[must_use]
     pub fn media_path(&self) -> PathBuf {
         self.dir.join("media.db")
     }
 
     /// Where keygen writes the node's libp2p key: `key`, or `node.key` in `dir`.
+    #[must_use]
     pub fn key_path(&self) -> PathBuf {
         if self.key.as_os_str().is_empty() {
             self.dir.join("node.key")
@@ -739,16 +767,19 @@ impl StorageConfig {
     }
 
     /// The routing-table peers saved by the last run, one multiaddr per line.
+    #[must_use]
     pub fn peers_path(&self) -> PathBuf {
         self.dir.join("peers")
     }
 
     /// The last outbound peers that answered, dialled first on the next start.
+    #[must_use]
     pub fn anchors_path(&self) -> PathBuf {
         self.dir.join("anchors")
     }
 
     /// The operator's deny list, edited by `dyappd deny`.
+    #[must_use]
     pub fn deny_path(&self) -> PathBuf {
         self.dir.join("deny.db")
     }
@@ -756,6 +787,10 @@ impl StorageConfig {
     /// Holds `dyappd.lock` in [`Self::dir`] until the returned file is dropped, so a second node
     /// or an offline backup cannot use the directory at the same time. The kernel releases it
     /// when the process exits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock file cannot be opened or another process holds its lock.
     pub fn lock(&self) -> anyhow::Result<File> {
         let path = self.dir.join("dyappd.lock");
         let file = OpenOptions::new()
@@ -789,6 +824,7 @@ impl StorageConfig {
 
 impl NodeConfig {
     /// The hop config of role relay; `None` without it.
+    #[must_use]
     pub fn relay_hop(&self) -> Option<libp2p::relay::Config> {
         self.roles
             .contains(&Role::Relay)
@@ -796,6 +832,11 @@ impl NodeConfig {
     }
 
     /// Reads `turn.secret_file` into `turn.secret`; call before [`NodeConfig::validate`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if both TURN secret sources are configured, or the secret file cannot
+    /// be read as UTF-8 or is empty after its trailing newline is removed.
     pub fn resolve_secrets(&mut self) -> anyhow::Result<()> {
         let path = &self.turn.secret_file;
         if path.as_os_str().is_empty() {
@@ -838,6 +879,11 @@ impl NodeConfig {
     /// Reads the file (if given), the environment and the `--` options as (`section.key`,
     /// value); an option is named as its key with `-` for `_`, and a list option is given once
     /// per item. Returns the config and the ignored keys; an unknown option is refused.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration file cannot be read or parsed, an override has an
+    /// invalid path or type, an option is unknown, or the merged configuration cannot be decoded.
     pub fn load(
         file: Option<&Path>,
         env: impl IntoIterator<Item = (String, String)>,

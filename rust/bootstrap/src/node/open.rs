@@ -35,6 +35,12 @@ impl Opened {
 /// metrics listener, listens on `config.listen` and dials the anchors and cached peers; seeds are
 /// dialled by the first maintenance run of [`Opened::run`]. `config` must be validated, with its
 /// secrets resolved. The metrics listener, if any, runs for the rest of the process.
+///
+/// # Errors
+///
+/// Returns an error if storage locking, key loading, network binding, metrics binding,
+/// protocol/filter setup, swarm or store initialization fails, an address is invalid,
+/// or no configured listen address can be opened.
 pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
     let lock = config.storage.lock()?;
     let keypair = config.node_key()?;

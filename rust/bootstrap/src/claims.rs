@@ -107,11 +107,13 @@ impl Claims {
     }
 
     /// Queued and dialled claims.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.pending.len()
     }
 
     /// Whether no claim is queued or dialled.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.pending.is_empty()
     }

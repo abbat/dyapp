@@ -76,6 +76,10 @@ impl Service {
     }
 
     /// The unexpired signed revokes of a mailbox, for repair.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, the live-revocation query or stored-record decoding fails.
     pub fn revokes(&self, mailbox: &[u8]) -> crate::Result<Vec<SignedRecord>> {
         self.store.revokes(mailbox, chrono::Utc::now().timestamp())
     }

@@ -10,7 +10,9 @@
 //! `limits.media_cache_minutes`; under the disk guard it goes before any list.
 
 use crate::replication::MediaManifestExt;
-use crate::storage::{free, lock, open, storage_error};
+mod files;
+
+use crate::storage::{lock, open, storage_error};
 use crate::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
@@ -145,6 +147,11 @@ fn remove_file(path: &Path) -> Result<bool> {
 impl MediaStore {
     /// Opens `dir/media.db` with the blob files under `dir/data` and assembled ones under
     /// `dir/cache`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the blob directory cannot be created, the database cannot be opened
+    /// with its supported schema, or the stored blob-size refresh fails.
     pub fn open(dir: &Path) -> Result<Self> {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
         fs::create_dir_all(&data).map_err(storage_error)?;
@@ -218,6 +225,11 @@ impl MediaStore {
     /// Replaces the list for a newer version, or refreshes an identical list for a newer signed
     /// time. The caller validates time against the clock. Deletes orphan files and returns missing
     /// hashes; `None` means an older version, repeated time, or a conflicting same-version list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the version or time cannot fit storage, a database or removed-hash
+    /// lock fails, the ownership transaction fails, or orphan files cannot be removed.
     pub fn keep(
         &self,
         owner: &str,
@@ -229,6 +241,11 @@ impl MediaStore {
     }
 
     /// Persists the already-verified signature atomically with the latest keep.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the version or time cannot fit storage, a database or removed-hash
+    /// lock fails, the signed ownership transaction fails, or orphan files cannot be removed.
     pub fn keep_signed(
         &self,
         owner: &str,
@@ -298,6 +315,11 @@ impl MediaStore {
 
     /// Lists `hashes` for `owner` in the attachment released by the secret hashing to `release`,
     /// until `expires` (Unix seconds).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if attachment timestamps cannot fit storage, database locking or the
+    /// attachment transaction fails.
     pub fn attach(
         &self,
         owner: &str,
@@ -311,6 +333,11 @@ impl MediaStore {
     }
 
     /// Like [`Self::attach`], and persists the already-verified signed `record` with the slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if attachment timestamps cannot fit storage, database locking or the
+    /// signed attachment transaction fails.
     pub fn attach_signed(
         &self,
         owner: &str,
@@ -389,6 +416,10 @@ impl MediaStore {
     }
 
     /// A stored keep is authoritative even when a replica carries an older signed list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock or ownership lookup fails.
     pub fn kept(&self, owner: &str, hash: &[u8]) -> Result<bool> {
         lock(&self.db)?
             .query_row(
@@ -400,6 +431,10 @@ impl MediaStore {
     }
 
     /// Owners after `after` with a signed keep, in owner order, and that keep.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, ordered keep query or stored signed-record decoding fails.
     pub fn keeps_after(&self, after: &str, limit: u32) -> Result<Vec<(String, SignedRecord)>> {
         let db = lock(&self.db)?;
         let mut query = db.prepare(KEEPS_AFTER).map_err(storage_error)?;
@@ -416,6 +451,10 @@ impl MediaStore {
     }
 
     /// The signed keep of `owner`, if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, owner query or stored signed-record decoding fails.
     pub fn keep_of(&self, owner: &str) -> Result<Option<SignedRecord>> {
         let bytes: Option<Option<Vec<u8>>> = lock(&self.db)?
             .query_row(
@@ -432,6 +471,10 @@ impl MediaStore {
     }
 
     /// Returns the latest signed list naming this hash; legacy unsigned rows need a fresh keep.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, authorization query or stored signed-record decoding fails.
     pub fn authorization(&self, owner: &str, hash: &[u8]) -> Result<Option<Authorization>> {
         let now = chrono::Utc::now().timestamp();
         let held: Option<(bool, Vec<u8>)> = lock(&self.db)?.query_row(
@@ -456,6 +499,11 @@ impl MediaStore {
 
     /// Drops the attachments released by `secret` and refuses their release hash until they
     /// would have expired; false if there were none.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database or removed-hash locking, the release transaction or orphan-file
+    /// removal fails.
     pub fn release(&self, secret: &[u8]) -> Result<bool> {
         let release = dyapp_identity::sha256(secret);
         Ok(self.drop_attachments(
@@ -468,6 +516,11 @@ impl MediaStore {
 
     /// Drops the attachments and release records expired at `now` (Unix seconds); returns how
     /// many attachments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `now` cannot fit storage, database or removed-hash locking fails,
+    /// or expired-record deletion or orphan-file removal fails.
     pub fn expire(&self, now: u64) -> Result<usize> {
         self.drop_attachments(
             "`expires` <= ?",
@@ -497,6 +550,11 @@ impl MediaStore {
     }
 
     /// Drops inactive owners' keeps. Attachments retain their independent lifetime.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database or removed-hash locking, expired-owner deletion or orphan-file
+    /// removal fails.
     pub fn expire_owners(&self, cutoff: i64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
@@ -533,6 +591,11 @@ impl MediaStore {
 
     /// Evicts assembled blobs by last read, then attachments by creation time, then keeps by
     /// liveness, down to `target` bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database or removed-hash locking, usage queries, eviction transactions
+    /// or blob/cache-file removal fails.
     pub fn evict(&self, target: u64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let mut removed = 0;
@@ -592,6 +655,10 @@ impl MediaStore {
 
     /// Removes a deny-listed blob's local payload while preserving keep and attachment rows.
     /// Returns whether stored content or storage metadata was present.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, purge transaction or blob/cache-file removal fails.
     pub fn purge(&self, hash: &[u8]) -> Result<bool> {
         let mut db = lock(&self.db)?;
         let stored: bool = db
@@ -642,60 +709,21 @@ impl MediaStore {
     }
 
     /// The hashes removed since the last call, so the node stops trusting what it knew of them.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the removed-hash queue lock is poisoned.
     pub fn take_removed(&self) -> Result<Vec<Vec<u8>>> {
         Ok(std::mem::take(&mut *lock(&self.removed)?))
     }
 
-    /// Keeps an assembled blob for the next pieces; `now` in Unix seconds.
-    pub fn cache(&self, hash: &[u8], data: &[u8], now: i64) -> Result<()> {
-        let db = lock(&self.db)?;
-        write_aside(&self.cache.join(hex(hash)), data)?;
-        db.execute(
-            "INSERT OR REPLACE INTO `cache` (`hash`, `size`, `read`) VALUES (?, ?, ?)",
-            params![hash, data.len() as i64, now],
-        )
-        .map_err(storage_error)?;
-        Ok(())
-    }
-
-    /// An assembled blob, refreshing its last read.
-    pub fn cached(&self, hash: &[u8], now: i64) -> Result<Option<Vec<u8>>> {
-        let db = lock(&self.db)?;
-        let held = db
-            .execute(
-                "UPDATE `cache` SET `read` = ? WHERE `hash` = ?",
-                params![now, hash],
-            )
-            .map_err(storage_error)?;
-        if held == 0 {
-            return Ok(None);
-        }
-        match fs::read(self.cache.join(hex(hash))) {
-            Ok(data) => Ok(Some(data)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                db.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
-                    .map_err(storage_error)?;
-                Ok(None)
-            }
-            Err(e) => Err(storage_error(e)),
-        }
-    }
-
-    /// Drops assembled blobs last read before `before` (Unix seconds); returns how many.
-    pub fn expire_cache(&self, before: i64) -> Result<usize> {
-        let db = lock(&self.db)?;
-        let hashes: Vec<Vec<u8>> = db
-            .prepare("DELETE FROM `cache` WHERE `read` < ? RETURNING `hash`")
-            .and_then(|mut q| q.query_map([before], |row| row.get(0))?.collect())
-            .map_err(storage_error)?;
-        for hash in &hashes {
-            remove_file(&self.cache.join(hex(hash)))?;
-        }
-        Ok(hashes.len())
-    }
-
     /// Stores `data` for `owner` if a keep or an attachment of the owner lists its hash and the
     /// owner stays within `quota` bytes. A repeated put is `Stored`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, quota queries, blob read/write or storage transaction
+    /// fails. An unlisted blob or exceeded quota is reported through `Put`.
     pub fn put(&self, owner: &str, data: &[u8], quota: u64) -> Result<Put> {
         let hash = dyapp_identity::sha256(data);
         let mut db = lock(&self.db)?;
@@ -764,6 +792,10 @@ impl MediaStore {
     }
 
     /// The stored manifest of a sharded blob.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, manifest query or stored manifest decoding fails.
     pub fn manifest(&self, hash: &[u8]) -> Result<Option<proto::MediaManifest>> {
         let bytes: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
@@ -779,6 +811,11 @@ impl MediaStore {
     }
 
     /// Stores the manifest of a blob the owner lists, charging its billed bytes to `quota`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if blob access, database locking or the manifest transaction fails,
+    /// or the manifest has no valid billed size. Refusal statuses are reported through `Put`.
     pub fn put_manifest(
         &self,
         owner: &str,
@@ -844,6 +881,11 @@ impl MediaStore {
     }
 
     /// Stores shard `index` of a blob whose manifest is stored.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if blob access, database locking, manifest lookup or shard persistence fails.
+    /// An invalid shard or missing manifest is reported through `Put`.
     pub fn put_shard(
         &self,
         manifest: &proto::MediaManifest,
@@ -882,6 +924,11 @@ impl MediaStore {
     }
 
     /// Shard `index` of a blob: stored, or encoded from a verified whole copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, shard query, whole-blob read or fallback erasure
+    /// encoding fails.
     pub fn shard(&self, hash: &[u8], index: usize) -> Result<Option<Vec<u8>>> {
         let data: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
@@ -904,6 +951,10 @@ impl MediaStore {
     }
 
     /// Invalid decoded content is discarded locally; ownership lists remain for reupload.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock or sharded-content removal transaction fails.
     pub fn discard_sharded(&self, hash: &[u8]) -> Result<()> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
@@ -918,23 +969,6 @@ impl MediaStore {
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
         Ok(())
-    }
-
-    /// The whole blob file, if stored.
-    pub fn get(&self, hash: &[u8]) -> Result<Option<Vec<u8>>> {
-        match fs::read(self.path(hash)) {
-            Ok(data) => Ok(Some(data)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(storage_error(e)),
-        }
-    }
-
-    /// Bytes of distinct stored blobs, and bytes free on their file system.
-    pub fn usage(&self) -> Result<(u64, u64)> {
-        Ok((
-            Self::used(&*lock(&self.db)?)?,
-            free(&self.dir.to_string_lossy())?,
-        ))
     }
 
     fn used(db: &Connection) -> Result<u64> {

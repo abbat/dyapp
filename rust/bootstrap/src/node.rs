@@ -52,6 +52,10 @@ use std::time::{Duration, Instant};
 /// The public node swarm with the connection and stream limits from the config. Store Kademlia
 /// is the key space of the store role: a node without it is a DHT client and serves no protocol, so it
 /// is never picked as a replica. New connections are refused above `max_memory_mb`.
+///
+/// # Errors
+///
+/// Returns an error if connection-group limits are invalid or transport/swarm initialization fails.
 pub fn swarm(
     keypair: Keypair,
     limits: &Limits,
@@ -61,6 +65,10 @@ pub fn swarm(
 }
 
 /// Builds the node swarm with counters shared with its service.
+///
+/// # Errors
+///
+/// Returns an error if connection-group limits are invalid or transport/swarm initialization fails.
 pub fn swarm_with_wire(
     keypair: Keypair,
     limits: &Limits,
@@ -86,6 +94,10 @@ pub fn swarm_with_wire(
     clippy::too_many_arguments,
     reason = "each argument is a separate config part"
 )]
+///
+/// # Errors
+///
+/// Returns an error if connection-group limits are invalid or transport/swarm initialization fails.
 pub fn swarm_with_protocols(
     keypair: Keypair,
     limits: &Limits,
@@ -166,6 +178,7 @@ fn masked(ip: IpAddr, ipv4: u8, ipv6: u8) -> String {
 }
 
 /// Peers saved by the last run; a missing file or a damaged line is skipped.
+#[must_use]
 pub fn cached_peers(path: &Path) -> Vec<Multiaddr> {
     let text = fs::read_to_string(path).unwrap_or_default();
     text.lines().filter_map(|line| line.parse().ok()).collect()

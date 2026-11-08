@@ -25,6 +25,7 @@ pub struct NewEnvelope<'a> {
 
 impl<'a> NewEnvelope<'a> {
     /// A tokenless envelope with empty labels.
+    #[must_use]
     pub fn new(
         mailbox: &'a [u8],
         id: &'a [u8],
@@ -124,6 +125,11 @@ impl BootstrapStore {
     /// counts against `max_bytes` and evicts tokenless signals by the pool rule first, tokened
     /// ones only when none remain: the oldest of the token key holding most bytes. Messages are
     /// never evicted for a signal.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the encoded record length cannot fit storage, mailbox locking fails,
+    /// or quota lookup, eviction or the insertion transaction fails.
     pub fn put_envelope(
         &self,
         envelope: &NewEnvelope,
@@ -208,6 +214,10 @@ impl BootstrapStore {
 
     /// The first `limit` envelopes of a mailbox in fetch order, each with its source group and
     /// expiry, for repair.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, the ordered envelope query or stored-record decoding fails.
     pub fn held_envelopes(
         &self,
         mailbox: &[u8],
@@ -235,6 +245,10 @@ impl BootstrapStore {
     /// the (mailbox, class) holding most of them, by the pool rule, until it is no longer the
     /// largest. Signals only unless `messages`. Bounded per call; returns the envelopes deleted.
     // ponytail: picks the largest (mailbox, class) row, not a mailbox's sum over both classes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, quota/victim queries or a bounded eviction transaction fails.
     pub fn evict_tokenless(&self, limit: u64, messages: bool) -> Result<usize> {
         let classes: &[i64] = if messages { &[0, 1] } else { &[1] };
         let limit = i64::try_from(limit).unwrap_or(i64::MAX);

@@ -40,6 +40,7 @@ fn fresh() -> [u8; 16] {
 
 impl Puzzle {
     /// Off until the median queue wait passes `wait_ms`; at most `max_bits`.
+    #[must_use]
     pub fn new(wait_ms: u64, max_bits: u32, now: Instant) -> Self {
         Self {
             inner: Mutex::new(State {

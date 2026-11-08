@@ -206,6 +206,11 @@ impl SearchIndex {
     /// until a round takes at most 1024. The old generation serves throughout; `min_free`
     /// bytes stay free on its disk.
     // ponytail: batches run inline on the calling task; call it from a task of its own.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Disk` if the reserved free space cannot be maintained, `Overflow` if dirty tracking
+    /// overflows, `Postpone` if replay does not settle, or a storage abort if copying/replay fails.
     pub async fn build(
         &self,
         version: u32,
@@ -226,6 +231,11 @@ impl SearchIndex {
     }
 
     /// Replays changed keys into a built or postponed candidate.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Disk` if the free-space reserve is exhausted, `Overflow` if dirty tracking overflows,
+    /// `Postpone` if replay does not settle, or a storage abort if replay fails.
     pub async fn replay(
         &self,
         candidate: Candidate,

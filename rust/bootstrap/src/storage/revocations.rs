@@ -29,6 +29,11 @@ impl BootstrapStore {
     /// key marks the mailbox closed and deletes all its envelopes. `false`,
     /// with nothing changed, when the mailbox would hold more than [`MAX_REVOKED`] keys or
     /// records.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, quota/revocation queries or the revocation transaction
+    /// fails. Exceeding the per-mailbox budget returns `false`.
     pub fn revoke(
         &self,
         mailbox: &[u8],
@@ -101,6 +106,10 @@ impl BootstrapStore {
     }
 
     /// Whether `key` is revoked for `mailbox` at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking or the live-revocation lookup fails.
     pub fn is_revoked(&self, mailbox: &[u8], key: &[u8], now: i64) -> Result<bool> {
         lock(&self.messages)?
             .query_row(IS_REVOKED, params![mailbox, key, now], |row| row.get(0))
@@ -108,6 +117,10 @@ impl BootstrapStore {
     }
 
     /// The signed revokes of `mailbox` not expired at `now`, oldest first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if mailbox locking, the ordered revocation query or stored-record decoding fails.
     pub fn revokes(&self, mailbox: &[u8], now: i64) -> Result<Vec<SignedRecord>> {
         let db = lock(&self.messages)?;
         let mut query = db

@@ -74,6 +74,7 @@ fn range(topic: u32, from: u32, to: u32) -> Range {
 
 /// What to ask next after a digest answer (`None`: the request failed). `bucket` is the bucket
 /// the request named; `local` is this node's answer to the same request.
+#[must_use]
 pub fn on_digest(
     local: &[[u8; 32]],
     topic: u32,
@@ -131,6 +132,7 @@ pub fn on_digest(
 
 /// Keeps the page's keys below `range.before` and returns the next page's range when the page
 /// was full and nothing was past the bound (an old peer ignores `before`).
+#[must_use]
 pub fn on_inventory(
     range: &Range,
     mut have: Vec<([u8; 32], u64)>,
@@ -157,6 +159,7 @@ pub struct Asks {
 
 impl Asks {
     /// Nothing waits or is in flight.
+    #[must_use]
     pub fn idle(&self) -> bool {
         self.queue.is_empty() && self.digests.is_empty() && self.ranges.is_empty()
     }

@@ -30,6 +30,11 @@ pub(super) const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS `keypackages` (
 
 impl BootstrapStore {
     /// Stores a signed package without resetting an earlier consume. False means quota is full.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the encoded record length cannot fit storage, profile-store locking fails,
+    /// or package cleanup, quota lookup or the insertion transaction fails.
     pub fn put_keypackage(
         &self,
         package: &KeyPackageRecord,
@@ -111,6 +116,11 @@ impl BootstrapStore {
     }
 
     /// Allocates once on this holder. The fallback record remains reusable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if profile-store locking, package cleanup/allocation, consume persistence
+    /// or stored signed-record decoding fails.
     pub fn allocate_keypackage(
         &self,
         owner: &[u8],
@@ -155,6 +165,10 @@ impl BootstrapStore {
     }
 
     /// Removes expired stock; called by the regular node cleanup.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if profile-store locking or expired-package deletion fails.
     pub fn expire_keypackages(&self, now: i64) -> Result<usize> {
         lock(&self.profiles)?
             .execute("DELETE FROM `keypackages` WHERE `expires` <= ?1", [now])

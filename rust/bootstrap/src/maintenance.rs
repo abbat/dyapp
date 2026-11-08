@@ -18,6 +18,11 @@ struct State {
 
 impl RebuildBudget {
     /// `mb_per_second` is the positive startup-validated maintenance setting (MiB/s).
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// Panics if `mb_per_second` is zero.
     pub fn new(mb_per_second: u32) -> Self {
         assert!(mb_per_second > 0);
         Self {
@@ -48,6 +53,10 @@ impl RebuildBudget {
     }
 
     /// Reports progress on the node's maintenance schedule, including a completed build once.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the shared maintenance-state lock is poisoned.
     pub fn report(&self) {
         let mut state = self.state.lock().unwrap();
         for (file, percent) in &state.progress {

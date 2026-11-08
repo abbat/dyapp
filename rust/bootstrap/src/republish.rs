@@ -28,6 +28,7 @@ pub enum Store {
 }
 
 /// The replica keys of `keys`: a mailbox or profile key hash, or every blob hash of a keep.
+#[must_use]
 pub fn replica_keys(store: Store, keys: &[Vec<u8>]) -> Vec<Vec<u8>> {
     let count = if store == Store::Media {
         MEDIA_REPLICAS
@@ -76,6 +77,7 @@ pub struct Scanner {
 
 impl Scanner {
     /// The key the next batch is read after; empty at the start of a cycle.
+    #[must_use]
     pub fn cursor(&self, store: Store) -> &[u8] {
         &self.lanes[store as usize].cursor
     }

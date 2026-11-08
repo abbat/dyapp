@@ -17,6 +17,7 @@ pub(super) fn search_reply(status: Status) -> SearchResponse {
 }
 
 /// The key hash of a publish or heartbeat, which picks its gossip topic.
+#[must_use]
 pub fn search_key(request: &SearchRequest) -> Option<[u8; 32]> {
     match &request.request {
         Some(search_request::Request::Publish(r) | search_request::Request::Heartbeat(r)) => {
@@ -67,6 +68,11 @@ fn beaten(beat: crate::search::Beat) -> Option<Applied> {
 }
 
 /// Runs `query`, scanning at most `max_scan_rows` rows.
+///
+/// # Errors
+///
+/// Returns an error if index reader access, SQL scanning or stored-row decoding fails.
+/// Invalid conditions use the response status.
 pub fn run_query(
     index: &SearchIndex,
     query: &proto::SearchQuery,
@@ -94,6 +100,10 @@ pub fn run_query(
 }
 
 /// The indexed records of `keys`, bounded by the reply size.
+///
+/// # Errors
+///
+/// Returns an error if index reader access, record lookup or stored-record decoding fails.
 pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchResponse> {
     Ok(SearchResponse {
         records: index.records(keys, MAX_SEARCH_REPLY)?,
@@ -103,6 +113,11 @@ pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchRe
 
 impl Service {
     /// Errors as in [`Service::profile`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if backing search-index operations fail. Admission, proof-of-work
+    /// requirements and invalid requests are represented by `Search` outcomes.
     pub fn search(&self, peer: &Peer, request: SearchRequest) -> crate::Result<Search> {
         let reply = |status| Ok(Search::Reply(search_reply(status)));
         if self.search.is_none() {
@@ -249,6 +264,11 @@ impl Service {
 
     /// Finishes a publish or heartbeat after its off-loop proof-of-work check; a forged proof
     /// is a strike.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if publication or heartbeat index operations fail.
+    /// Invalid proofs and request failures use the response status.
     pub fn search_pow_done(
         &self,
         peer: &Peer,
@@ -393,6 +413,11 @@ impl Service {
     }
 
     /// Stores a record fetched in catch-up, without the update limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if storing the verified record or maintaining index limits fails.
+    /// Rejected records and required proof checks are represented by `Caught`.
     pub fn search_apply(&self, record: &SignedRecord) -> crate::Result<Caught> {
         Ok(
             match self.publish_search(record, false, SEARCH_ACCEPT_BYTES)? {
@@ -404,6 +429,11 @@ impl Service {
     }
 
     /// `/dyapp/inventory`: the key hashes and versions of one topic, for catch-up.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the index lock or ordered inventory query fails.
+    /// Admission and request-validation failures use the response status.
     pub fn search_inventory(
         &self,
         peer: &Peer,
@@ -452,6 +482,11 @@ impl Service {
     }
 
     /// `/dyapp/digest`: 256 bucket hashes of a topic, or 256 sub-bucket hashes of one bucket.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index access, digest queries or stored bucket/key decoding fails.
+    /// Admission and request-validation failures use the response status.
     pub fn search_digest(
         &self,
         peer: &Peer,

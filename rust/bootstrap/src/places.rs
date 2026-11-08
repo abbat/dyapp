@@ -9,6 +9,7 @@ static PLACES: &[u8] = include_bytes!("../data/places.bin");
 
 /// `place` when `(country, place)` is a known `GeoNames` ID, else `""` (the country bucket).
 /// Only the canonical decimal text counts: `"+2950159"` and `"02950159"` do not.
+#[must_use]
 pub fn canonical<'a>(country: &str, place: &'a str) -> &'a str {
     let known = place
         .parse::<u32>()

@@ -22,6 +22,11 @@ fn response(status: Status) -> KeyPackageResponse {
 
 impl Service {
     /// Checks a client publication before the node fans it out.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the owner's stored profile cannot be read or verified.
+    /// Admission and package-validation failures are reported in the response status.
     pub fn prepare_keypackage(
         &self,
         peer: &Peer,
@@ -37,11 +42,21 @@ impl Service {
     }
 
     /// Verifies and stores a replica without per-peer admission limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the owner's stored profile cannot be read or verified,
+    /// or the accepted package cannot be persisted.
     pub fn store_keypackage(&self, record: &SignedRecord) -> crate::Result<KeyPackageResponse> {
         self.publish_keypackage(record, true)
     }
 
     /// Handles `KeyPackage` publication, replication and allocation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stored profile access or verification, package persistence or allocation
+    /// fails. Admission and request-validation outcomes are reported in the response status.
     pub fn keypackage(
         &self,
         peer: &Peer,

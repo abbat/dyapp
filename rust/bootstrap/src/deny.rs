@@ -23,6 +23,7 @@ pub struct DenyStore {
 
 /// The entry in its stored form, or `None` when it is no peer ID, SHA-256 or IP group with the
 /// prefix of `limits` (an address in the group is masked: `203.0.113.77/24` is `203.0.113.0/24`).
+#[must_use]
 pub fn normalize(entry: &str, limits: &Limits) -> Option<String> {
     let entry = entry.trim();
     if entry.parse::<PeerId>().is_ok() {
@@ -62,6 +63,7 @@ pub fn sign(key: &Identity, entries: &HashSet<String>) -> SignedRecord {
 }
 
 /// The list in `record` when `peer`'s own node key signed it.
+#[must_use]
 pub fn verify(record: &SignedRecord, peer: &PeerId) -> Option<proto::DenyList> {
     record.verify(Domain::DenyList).ok()?;
     let key = ed25519::PublicKey::try_from_bytes(&record.public_key).ok()?;
@@ -72,6 +74,7 @@ pub fn verify(record: &SignedRecord, peer: &PeerId) -> Option<proto::DenyList> {
 }
 
 /// The signing key of `keypair` (an Ed25519 libp2p key) for [`sign`].
+#[must_use]
 pub fn signer(keypair: &libp2p::identity::Keypair) -> Option<Identity> {
     let secret = keypair.clone().try_into_ed25519().ok()?.secret();
     Some(Identity::from_secret(secret.as_ref().try_into().ok()?))
@@ -79,6 +82,11 @@ pub fn signer(keypair: &libp2p::identity::Keypair) -> Option<Identity> {
 
 impl DenyStore {
     /// Opens or creates the database at `path`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database cannot be opened, has an unsupported format,
+    /// or its schema and SQLite settings cannot be initialized.
     pub fn open(path: &Path) -> Result<Self> {
         Ok(Self {
             db: open(
@@ -100,6 +108,10 @@ impl DenyStore {
 
     /// Stores `peer`'s signed list, checked by [`verify`], unless one signed at `time` or later is
     /// stored; false then. The node takes no action on it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking, storing the newer list or pruning older lists fails.
     pub fn keep_received(&self, peer: &str, time: u64, record: &SignedRecord) -> Result<bool> {
         let db = lock(&self.db)?;
         let kept = db
@@ -126,6 +138,10 @@ impl DenyStore {
     }
 
     /// Every stored list: the node that signed it, the signing time and the signed record.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking, reading stored lists or signed-record decoding fails.
     pub fn received(&self) -> Result<Vec<(String, i64, SignedRecord)>> {
         let db = lock(&self.db)?;
         let mut statement = db
@@ -146,6 +162,10 @@ impl DenyStore {
     }
 
     /// Adds an entry; false when it was listed already.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking or inserting the deny entry fails.
     pub fn add(&self, entry: &str, note: &str) -> Result<bool> {
         let added = lock(&self.db)?
             .execute(
@@ -157,6 +177,10 @@ impl DenyStore {
     }
 
     /// Removes an entry; false when it was not listed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking or deleting the deny entry fails.
     pub fn remove(&self, entry: &str) -> Result<bool> {
         let removed = lock(&self.db)?
             .execute("DELETE FROM `deny` WHERE `entry` = ?", [entry])
@@ -165,6 +189,10 @@ impl DenyStore {
     }
 
     /// Every entry with its note and the Unix time it was added, oldest first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking or reading deny entries and their metadata fails.
     pub fn list(&self) -> Result<Vec<(String, String, i64)>> {
         let db = lock(&self.db)?;
         let mut statement = db
@@ -179,11 +207,19 @@ impl DenyStore {
     // ponytail: the node holds every entry in memory; query the indexed table per request if
     // lists grow past a few hundred thousand entries.
     /// Every entry, without notes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking or reading the deny entries fails.
     pub fn entries(&self) -> Result<HashSet<String>> {
         Ok(self.list()?.into_iter().map(|(entry, ..)| entry).collect())
     }
 
     /// A counter that changes when another connection commits, so the node reloads only then.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking or reading SQLite's data-version counter fails.
     pub fn version(&self) -> Result<i64> {
         lock(&self.db)?
             .query_row("PRAGMA data_version", [], |row| row.get(0))

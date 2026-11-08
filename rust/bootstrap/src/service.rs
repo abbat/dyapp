@@ -511,6 +511,11 @@ impl Service {
 
     /// `peer` is the key for rate limiting and strikes. A storage failure is an
     /// error: the caller drops the request and the client tries another node.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if backing storage access or stored profile/version decoding fails.
+    /// Admission and request-validation failures are reported in the response status.
     pub fn profile(&self, peer: &Peer, request: ProfileRequest) -> crate::Result<ProfileResponse> {
         self.profile_inner(peer, request, true, &|_| None)
     }
@@ -527,6 +532,11 @@ impl Service {
     }
 
     /// Admits and checks a profile publish from `peer` without storing it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stored profile access or decoding fails during publication validation.
+    /// Admission and invalid-publication outcomes are reported in the response status.
     pub fn prepare_profile(
         &self,
         peer: &Peer,
@@ -684,6 +694,11 @@ impl Service {
     }
 
     /// Verifies and stores a profile record, without per-peer limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stored profile access, decoding or persistence fails.
+    /// Invalid or stale publications are reported in the response status.
     pub fn store_profile(&self, record: &SignedRecord) -> crate::Result<ProfileResponse> {
         self.publish(record, true, PROFILE_ACCEPT_BYTES, None, &|_| None)
     }

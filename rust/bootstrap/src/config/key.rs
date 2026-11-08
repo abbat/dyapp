@@ -7,6 +7,11 @@ impl NodeConfig {
     /// 2 vCPU) and binds the data directory to it and to `network.name`. Refuses an existing key,
     /// existing data or a directory of another network: a new key is a new node. The key goes to
     /// `out` when given (to be sealed by another tool), else to a new 0600 file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a key, node ID or existing node data is present, network binding fails,
+    /// or key encoding, output writing or node-ID persistence fails.
     pub fn keygen(&self, out: Option<&mut dyn Write>) -> anyhow::Result<PeerId> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
@@ -53,6 +58,11 @@ impl NodeConfig {
 
     /// Loads the node key made by [`Self::keygen`]. A key that does not belong to the stored data
     /// or lacks the proof of work is refused, as is a key file with group/other permission bits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if key or node-ID files cannot be read, the key file has unsafe permissions
+    /// or changes during reading, the key is malformed, or its proof of work or stored node ID differs.
     pub fn node_key(&self) -> anyhow::Result<Keypair> {
         self.load_key(
             std::env::var_os("CREDENTIALS_DIRECTORY")

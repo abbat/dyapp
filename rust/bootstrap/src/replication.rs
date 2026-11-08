@@ -25,6 +25,10 @@ pub struct Replication {
 
 impl Replication {
     /// A codec of `data_shards` and `parity_shards`; fails above 256 in total.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the combined data and parity shard count exceeds 256.
     pub fn new(data_shards: usize, parity_shards: usize) -> Result<Self> {
         if data_shards + parity_shards > 256 {
             return Err(BootstrapError::ReplicationError(
@@ -39,6 +43,10 @@ impl Replication {
     }
 
     /// A codec storing `replication_factor` (1 to 4) times the data at most, rounded up.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the replication factor is outside 1–4.
     pub fn new_with_replication_factor(replication_factor: usize) -> Result<Self> {
         match replication_factor {
             1 => Self::new(1, 0),
@@ -52,6 +60,11 @@ impl Replication {
     }
 
     /// Splits `data` into equal data shards and adds the parity shards.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configured shard counts are not accepted by the Reed–Solomon
+    /// codec or parity encoding fails.
     pub fn encode(&self, data: &[u8]) -> Result<Vec<ReplicationFragment>> {
         let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
             .map_err(|e| BootstrapError::ReplicationError(format!("{:?}", e)))?;
@@ -80,6 +93,11 @@ impl Replication {
     }
 
     /// Rebuilds the first `original_length` bytes from at least the data shard count of fragments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if too few fragments are supplied, shard counts or fragment sizes are
+    /// invalid, reconstruction fails, or a reconstructed data shard is missing.
     pub fn decode(
         &self,
         fragments: &[ReplicationFragment],
@@ -117,11 +135,13 @@ impl Replication {
     }
 
     /// Stored bytes per data byte, rounded up.
+    #[must_use]
     pub fn replication_factor(&self) -> usize {
         (self.data_shards + self.parity_shards).div_ceil(self.data_shards)
     }
 
     /// Shards that can be lost: the parity count.
+    #[must_use]
     pub fn fault_tolerance(&self) -> usize {
         self.parity_shards
     }
@@ -177,6 +197,10 @@ impl MediaManifestExt for dyapp_p2p_net::proto::MediaManifest {
 }
 
 /// Returns the unique manifest and bounded fragments of a nonempty protocol-sized blob.
+///
+/// # Errors
+///
+/// Returns an error if the blob is empty or larger than 6 MiB, or erasure encoding fails.
 pub fn media_encode(data: &[u8]) -> Result<(dyapp_p2p_net::proto::MediaManifest, Vec<Vec<u8>>)> {
     if !(1..=MEDIA_MAX_BYTES).contains(&data.len()) {
         return Err(BootstrapError::ReplicationError(
@@ -200,6 +224,11 @@ pub fn media_encode(data: &[u8]) -> Result<(dyapp_p2p_net::proto::MediaManifest,
 }
 
 /// Rebuilds a blob from shards checked against `manifest`; fails on an invalid or duplicate shard.
+///
+/// # Errors
+///
+/// Returns an error if the manifest or any shard is invalid, a shard index repeats,
+/// reconstruction fails, or the reconstructed blob hash differs from the manifest.
 pub fn media_decode(
     manifest: &dyapp_p2p_net::proto::MediaManifest,
     shards: &[(usize, Vec<u8>)],
