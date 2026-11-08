@@ -20,6 +20,9 @@ unsafe_code = "forbid"
 missing_docs = "deny"
 
 [workspace.lints.clippy]
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
 allow_attributes = "deny"
 allow_attributes_without_reason = "deny"
 

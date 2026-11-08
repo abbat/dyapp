@@ -63,7 +63,7 @@ step() {
             check clippy cargo clippy --manifest-path tools/rust-functions/Cargo.toml --all-targets --locked -- -D warnings
             step unused-public
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
-            check clippy cargo clippy --workspace --all-features --all-targets --locked -- -D warnings -D clippy::todo
+            check clippy python3 -B tests/scripts/check-rust-complexity.py --raw
             check panics python3 -B tests/scripts/check-panics.py --raw
             step rustdoc
             ;;

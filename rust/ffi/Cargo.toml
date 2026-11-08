@@ -44,6 +44,9 @@ unfulfilled_lint_expectations = "deny"
 missing_docs = "deny"
 
 [lints.clippy]
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
 # Practice C5: uniffi generates `#[no_mangle]`, so unsafe_code cannot be forbidden;
 # hand-written unsafe blocks carry a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "deny"

@@ -1,3 +1,8 @@
+# Function limits; measured legacy functions have shrinking per-function budgets.
+cognitive-complexity-threshold = 15
+too-many-lines-threshold = 50
+excessive-nesting-threshold = 5
+
 # Practice C6: methods and types that leak or weaken secrets
 # (docs/development/code-quality.md#secret-and-crypto-hygiene). A site that needs one says why:
 # #[expect(clippy::disallowed_methods, reason = "...")].

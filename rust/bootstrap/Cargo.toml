@@ -64,6 +64,9 @@ unfulfilled_lint_expectations = "deny"
 missing_docs = "deny"
 
 [lints.clippy]
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
 # Practice C5: the only crate with unsafe; each block carries a `// SAFETY:` comment.
 undocumented_unsafe_blocks = "deny"
 allow_attributes = "deny"

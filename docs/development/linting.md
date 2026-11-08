@@ -67,7 +67,7 @@ Quality container (the gate):
 cargo fmt --all -- --check
 cargo fmt --manifest-path clients/linux/Cargo.toml -- --check
 cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
-cargo clippy --workspace --all-features --all-targets --locked --offline -- -D warnings
+python3 -B tests/scripts/check-rust-complexity.py --scope workspace
 ```
 
 The root workspace, bootstrap/FFI crates and native desktop manifests deny `unreachable_pub`
@@ -138,7 +138,11 @@ still exposes findings hidden by expectation attributes.
 Initial measured budgets cover 294 workspace functions and 17 native Linux functions in
 `tests/scripts/rust-complexity/`. The parser rejects per-item cognitive threshold overrides,
 including conditional attributes; comments and literals are ignored.
-Production runner wiring and native integration are planned.
+Workspace quality enforces 15 cognitive complexity, 50 code lines and 5 nesting levels through
+`tests/scripts/check-rust-complexity.py --scope workspace`. The runner preserves production
+secret/crypto lint settings and retains metadata, Clippy output, parser output and its verdict
+under `build/complexity/`. CI supplies `COMPLEXITY_BASE`; local runs compare against `origin/main`.
+Native production wiring remains planned.
 
 ## Python
 
