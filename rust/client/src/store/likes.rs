@@ -20,6 +20,7 @@ pub struct Likes {
 
 impl Likes {
     /// A match is a like in both directions.
+    #[must_use]
     pub const fn matched(self) -> bool {
         self.ours && self.theirs
     }
@@ -29,6 +30,10 @@ impl Store {
     /// Choose an event without changing the store. The caller encrypts this exact event, then
     /// commits it with the sealed MLS state and prepared outbound writes via [`Self::stage_interaction`].
     /// A disabled or already-sent daily view returns `None`.
+    ///
+    /// # Errors
+    /// Returns self-interaction, blocked-peer, random-source, clock-range,
+    /// setting-validation or database errors.
     pub fn draft_interaction(
         &self,
         target: &str,
@@ -59,6 +64,10 @@ impl Store {
 
     /// Commit an own event and the exact encrypted outbound signal in one transaction. A stale
     /// draft, duplicate daily view or failed outbox write leaves every local state unchanged.
+    ///
+    /// # Errors
+    /// Returns interaction-conflict, blocked-peer, clock-range, setting, outbox
+    /// or database errors. The transaction rolls back on failure.
     pub fn stage_interaction(
         &mut self,
         target: &str,
@@ -96,6 +105,9 @@ impl Store {
     /// must be this profile. The latest like state per direction is ordered by
     /// `(HLC, device, event ID)`, so an unlike stays a tombstone against an older like.
     /// Returns whether the event became the latest like state; a replay or view returns false.
+    ///
+    /// # Errors
+    /// Returns interaction-conflict, clock-range or database errors.
     pub fn apply_interaction(
         &mut self,
         sender: &str,
@@ -112,6 +124,9 @@ impl Store {
     /// Test-only local event helper. Production sends use [`Self::draft_interaction`] and
     /// [`Self::stage_interaction`] so event state and encrypted outbox are committed together.
     #[cfg(test)]
+    ///
+    /// # Errors
+    /// Returns random-source, clock-range, interaction-conflict, setting or database errors.
     pub fn interact(
         &mut self,
         target: &str,
@@ -145,6 +160,9 @@ impl Store {
     /// future-skew guard; a rejected timestamp changes nothing. A view is recorded for its UTC
     /// day whatever the local send setting. Returns what [`Self::apply_interaction`] returns;
     /// an event from a blocked sender is dropped, clock included, and returns false.
+    ///
+    /// # Errors
+    /// Returns future-clock-skew, clock-range, interaction-conflict or database errors.
     pub fn receive_interaction(
         &mut self,
         sender: &str,
@@ -161,6 +179,9 @@ impl Store {
 
     /// Apply an event another device of this owner sent to `peer`, as if it were made here: an
     /// unlike closes the chat and erases this copy. The same guard applies.
+    ///
+    /// # Errors
+    /// Returns future-clock-skew, clock-range, interaction-conflict or database errors.
     pub fn receive_own_interaction(
         &mut self,
         peer: &str,
@@ -193,6 +214,9 @@ impl Store {
     }
 
     /// Whether `sender` viewed `target` on the UTC day of `wall_ms`.
+    ///
+    /// # Errors
+    /// Returns database errors or [`Error::ClockRange`] if the UTC day cannot be stored.
     pub fn viewed_on(&self, sender: &str, target: &str, wall_ms: u64) -> Result<bool, Error> {
         Ok(self.db.query_row(
             "SELECT EXISTS (SELECT 1 FROM `view_days`
@@ -276,6 +300,9 @@ impl Store {
     }
 
     /// The latest like state in both directions between this profile and `peer_id`.
+    ///
+    /// # Errors
+    /// Returns database errors if either direction's like state cannot be read.
     pub fn likes(&self, peer_id: &str) -> Result<Likes, Error> {
         let liked = |sender: &str, target: &str| -> Result<bool, Error> {
             let liked: Option<i64> = self
@@ -296,6 +323,9 @@ impl Store {
 
     /// The "Liked you" peers: each likes this profile, is not liked back, blocked, passed or in a
     /// closed chat, in Peer ID order.
+    ///
+    /// # Errors
+    /// Returns database errors if querying or decoding the peer list fails.
     pub fn liked_by(&self) -> Result<Vec<String>, Error> {
         let mut query = self.db.prepare(
             "SELECT `theirs`.`sender` FROM `like_state` AS `theirs`
@@ -317,6 +347,9 @@ impl Store {
     }
 
     /// The peers this profile currently passes on, in Peer ID order.
+    ///
+    /// # Errors
+    /// Returns database errors if querying or decoding the peer list fails.
     pub fn passed_peers(&self) -> Result<Vec<String>, Error> {
         let mut query = self.db.prepare(
             "SELECT `peer_id` FROM `pass_history` WHERE `passed` = 1 ORDER BY `peer_id`",
@@ -328,6 +361,10 @@ impl Store {
     }
 
     /// Set or undo a local pass at the next own clock value. Returns whether the state changed.
+    ///
+    /// # Errors
+    /// Returns clock or database errors from advancing the clock or saving the pass.
+    /// Clock advancement commits before the pass write.
     pub fn pass(&mut self, peer_id: &str, passed: bool, wall_ms: u64) -> Result<bool, Error> {
         let at = self.tick(wall_ms)?;
         self.set_pass(peer_id, passed, at)
