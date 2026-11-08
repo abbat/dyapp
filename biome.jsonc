@@ -37,10 +37,8 @@
       "clients/desktop/ui-tests/ready-step.js",
       "clients/desktop/ui-tests/add-step.js",
       "clients/desktop/ui-tests/main.js",
-      "clients/desktop/ui-tests/node-guard.js",
-      "clients/desktop/ui-tests/network-guards.js",
-      "clients/desktop/ui-tests/copy-guard.js",
-      "clients/desktop/ui-tests/settings-guards.js"
+      "clients/desktop/ui-tests/*-guard*.js",
+      "clients/desktop/ui-tests/guards.js"
     ],
     "linter": { "rules": {
       "complexity": {

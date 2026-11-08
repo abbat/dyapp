@@ -13,6 +13,7 @@ pub(crate) fn scripts() -> String {
         include_str!("network-guards.js"),
         include_str!("copy-guard.js"),
         include_str!("settings-guards.js"),
+        include_str!("lifecycle-guards.js"),
         include_str!("guards.js"),
         include_str!("stickers.js"),
         include_str!("composer.js"),
