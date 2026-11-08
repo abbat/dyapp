@@ -151,19 +151,15 @@ jobs:
     - name: toolchain
       uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
       with:
-        toolchain: stable
+        toolchain: "1.99.0"
         components: clippy
 
-    # The four steps below are advisory: the gating clippy and cargo-deny runs are in make quality
-    # (tests/scripts/rust-check.sh); here a finding must not stop the SARIF upload.
+    # Dependency reports are advisory here; make quality gates Clippy and cargo-deny.
+    # Clippy diagnostics below inherit the repository policy and feed SARIF.
     - name: install cargo-deny
       uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
       with:
         tool: cargo-deny@0.20.2
-
-    - name: clippy
-      run: python3 tools/scripts/run-check.py --log-dir build/check-output clippy -- cargo clippy --workspace --all-features --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
-      continue-on-error: true
 
     - name: vulnerable dependencies
       run: python3 tools/scripts/run-check.py --log-dir build/check-output cargo-deny -- cargo deny check advisories
@@ -187,6 +183,13 @@ jobs:
     - name: sarif
       if: always()
       run: python3 tests/scripts/clippy-to-sarif.py clippy.json > clippy.sarif
+
+    - name: upload rust diagnostics
+      if: always() && hashFiles('clippy.sarif') != ''
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        sarif_file: clippy.sarif
+        category: rust-clippy
 
     - name: check logs
       if: always()

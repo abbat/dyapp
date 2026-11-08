@@ -129,6 +129,8 @@ The root workspace and the bootstrap/FFI manifests deny `missing_errors_doc`,
 therefore reject missing error/panic contracts, ignored return-value contracts and
 Rustdoc markup violations on their checked targets. The compilation-free
 `make quick-check` continues to cover formatting and web/Swift static checks.
+Client envelope preparation lives in `rust/client/src/prepared.rs`, with stable root reexports;
+session restoration and read-only accessors live in `rust/client/src/session/state.rs`.
 The same Cargo manifests deny `assert_is_empty`, `manual_assert_eq`,
 `uninlined_format_args`, `unreadable_literal` and `wildcard_imports`: assertions
 show compared values, formatting captures local names, long numeric literals use
@@ -147,6 +149,8 @@ The same manifests deny the complete `pedantic` group; only the exact complexity
 cover existing long, nested or cognitively complex functions. Independent serialized flags retain
 checked expectations at their declarations, and async trait/public contracts keep their signatures.
 Private cursor decoding distinguishes invalid data from an empty position with `Result<Option<_>, _>`.
+Live Cargo fixtures copy the three manifests' lint tables: clean code and a justified expectation
+pass, while an unmarked pedantic finding or stale expectation fails.
 A shared identity hex encoder avoids per-byte formatting allocations; all byte values and leading
 zeros are tested. Decimal safety fingerprints and persisted peer lists write into a single string.
 Large test peer arrays live on the heap, and deterministic nonce fixtures use bounded searches.
@@ -184,10 +188,10 @@ Rustdoc uses the same stack limits after a reproduced compiler stack failure. `m
 quality both check workspace documentation with all features and warnings denied. These checks
 compile code and are deliberately separate from the compilation-free `make quick-check`.
 
-`codeql.yml` runs a separate clippy step with `-W clippy::all -W clippy::pedantic -D warnings` and
-the cargo-deny checks, all with `continue-on-error`: they are advisory and mark only their step
-failed, while the gating clippy and cargo-deny runs are in `make quality`. A second clippy run
-converts its JSON output to SARIF for code scanning. That job runs outside Docker.
+`codeql.yml` uses the pinned Rust toolchain and repository Clippy policy to collect JSON diagnostics
+and upload SARIF for code scanning. It does not repeat an advisory pedantic invocation. Its
+cargo-deny reports remain advisory; Clippy, exact complexity budgets and cargo-deny are enforced by
+`make quality`. The code-scanning job runs outside Docker.
 
 CodeQL also compiles Android Kotlin with `:app:compileDebugKotlin` and the iOS Swift app with
 `xcodebuild`, then runs `security-and-quality` analysis and uploads SARIF for both languages.
@@ -391,7 +395,7 @@ whole comment. There is no `# nosec`: bandit is not used.
 
 A suppression comment only silences the named lint at that spot. It does not satisfy other lints,
 and it does not apply to other linters (an `#[expect]` for a default Clippy lint does not hide
-unrelated findings in the `codeql.yml` pedantic run).
+unrelated Clippy findings in the quality run).
 
 There are currently no Kotlin `@Suppress` annotations in the clients.
 [Detekt 1.23.8](https://detekt.dev/docs/1.23.8/intro/) supports suppressing findings but has no
@@ -421,10 +425,5 @@ guard let value = object as? String else { return }
 
 ## Gaps
 
-- Root-workspace `pedantic` remains advisory in `codeql.yml`; Linux native lint denies the
-  complete group. Root API error and panic contracts are being documented before enforcement;
-  identity, profile, networking, messaging and video value-producing APIs mark their results
-  `must_use`. Client envelope preparation lives in `rust/client/src/prepared.rs`, with stable
-  root reexports, to keep API contracts below the per-file size limit. Session restoration and
-  read-only accessors live in `rust/client/src/session/state.rs`.
+- Full Windows-native `pedantic` qualification remains planned; its selected rules are enforced.
 - Required status checks are not established.
