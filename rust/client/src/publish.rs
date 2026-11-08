@@ -28,6 +28,11 @@ pub enum Block {
 
 /// Check `draft` at `today`, the current UTC civil date. `attested` is the owner's fresh 18+
 /// confirmation for this publish; without a birth year it is the only age check.
+///
+/// # Errors
+///
+/// Returns an error if fresh age attestation is missing, the birth-date parts are
+/// invalid, or a supplied birth year does not establish an age of at least 18.
 pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Block> {
     if !attested {
         return Err(Block::NotAttested);
@@ -64,6 +69,7 @@ pub fn list_device(draft: &mut Profile, certificate: SignedRecord, binding: Sign
 }
 
 /// The mailbox keys of the devices `profile` lists.
+#[must_use]
 pub fn device_keys(profile: &Profile) -> Vec<Vec<u8>> {
     profile
         .devices
@@ -112,10 +118,17 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 /// draft and the publish fails with [`Failure::Missed`]. A node holding less than this device has
 /// seen is refused, since it may have lost a device list change.
 /// Succeeds only when the signed readback equals the published profile, which is then
-/// saved as the draft and held for search ([`Store::hold_search_profile`]); on failure the draft
-/// is unchanged and the publish may be retried. A hidden profile is shown again. Photos reach the
-/// node first, so the profile never lists a blob the node has refused; blobs the published profile
-/// no longer lists then leave the store.
+/// saved as the draft and held for search ([`Store::hold_search_profile`]). A failure may leave
+/// remote publication or local updates applied; the publish may be retried. A hidden profile is
+/// shown again. Photos reach the node first, so the profile never lists a blob the node has
+/// refused; blobs the published profile no longer lists then leave the store.
+///
+/// # Errors
+///
+/// Returns an error if storage or node requests fail, a photo to upload is absent,
+/// the node holds an older profile than this device has seen, or signed readback
+/// differs. Returns [`Failure::Missed`] after saving a newer foreign profile.
+/// Remote publication or some local updates may already have succeeded.
 pub async fn publish(
     store: &Store,
     node: &mut Node,
@@ -126,6 +139,11 @@ pub async fn publish(
 }
 
 /// [`publish`] a device list change, which leaves a hidden profile hidden. Returns the new draft.
+///
+/// # Errors
+///
+/// Returns the same publication errors as [`publish`], or an error reading the
+/// saved visibility state. Remote or local updates may already have succeeded.
 pub async fn relist(
     store: &Store,
     node: &mut Node,
@@ -140,6 +158,12 @@ pub async fn relist(
 /// so a device listed elsewhere can go and no other device is lost. A failure may be retried, as a
 /// repeated close is harmless and the draft keeps the binding until the relist succeeds. Returns the
 /// new draft.
+///
+/// # Errors
+///
+/// Returns an error if the device has no owner binding, storage or node requests
+/// fail, or relisting fails as described in [`relist`]. A newer draft may already
+/// be saved or the device mailbox closed when a later step fails.
 pub async fn revoke_device(
     store: &Store,
     node: &mut Node,
@@ -164,6 +188,12 @@ pub async fn revoke_device(
 /// Starts the fresh store of a linked device from the record's `state` and the newest profile with
 /// its photos, kept as the draft. A failure may be retried. The caller then lists the device and
 /// calls [`relist`]; the draft of a hidden profile goes past it, as [`hide`] leaves it.
+///
+/// # Errors
+///
+/// Returns an error if importing link state, reading or saving local state,
+/// fetching the profile or its photos fails, or the account profile is missing
+/// or deleted. Earlier imports and local writes remain applied on later failure.
 pub async fn adopt(
     store: &mut Store,
     node: &mut Node,
@@ -266,6 +296,11 @@ async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Res
 }
 
 /// The owner's profile at `node`, if it has one.
+///
+/// # Errors
+///
+/// Returns an error if the profile request or reply validation fails, except
+/// that a node's not-found response returns `Ok(None)`.
 pub async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
     match node.get_profile(&identity.peer_id()).await {
         Ok(held) => Ok(Some(held.profile)),
@@ -295,6 +330,12 @@ const PUT_WAITS: u32 = 5;
 /// lost. The list comes from the live profile: a draft may hold edits that are not published, and
 /// a keep with them would release a photo readers still see. A failed attempt waits for the next
 /// day, because a failure that repeats would otherwise cost requests on every pass.
+///
+/// # Errors
+///
+/// Returns an error if stored refresh state is invalid, database access or node
+/// requests fail, or a photo requested for upload is absent locally. Once the
+/// attempt is recorded, a later failure still delays the next attempt.
 pub async fn refresh_photos(
     store: &Store,
     node: &mut Node,
@@ -346,6 +387,11 @@ async fn upload_photos(
 /// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary
 /// profile and device directory at store nodes. The caller sends the held record and reports a
 /// pending withdrawal until a search node accepts it. The saved draft advances to that version.
+///
+/// # Errors
+///
+/// Returns an error if saving the advanced draft, holding the search tombstone,
+/// or recording hidden state fails. Earlier local writes remain applied.
 pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profile, Failure> {
     let tombstone = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
     let draft = Profile {
@@ -361,6 +407,12 @@ pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profi
 /// Withdraw an identity before local removal: publish a final tombstone to profile storage,
 /// read it back, then hold it for search. No local key is removed here; the caller decides
 /// whether to retry a failed node request or remove anyway.
+///
+/// # Errors
+///
+/// Returns an error if storage or node requests fail or the signed tombstone
+/// readback differs. The tombstone may already be published or local state
+/// partially updated. Failure to release the photo list is ignored.
 pub async fn withdraw(
     store: &Store,
     node: &mut Node,
