@@ -24,7 +24,8 @@
       "clients/desktop/ui-tests/settings-nav.js",
       "clients/desktop/ui-tests/clear.js",
       "clients/desktop/ui-tests/composer.js",
-      "clients/desktop/ui-tests/identifiers.js"
+      "clients/desktop/ui-tests/identifiers.js",
+      "clients/desktop/ui-tests/chat-redraw.js"
     ],
     "linter": { "rules": {
       "complexity": {
