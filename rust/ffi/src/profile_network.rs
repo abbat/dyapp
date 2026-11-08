@@ -37,6 +37,11 @@ pub struct ProfileVisibility {
 
 /// Read this identity's visibility; absence does not create a database.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the identity directory is invalid, database metadata or
+/// opening fails, or saved draft/visibility state cannot be read or decoded.
 pub fn profile_visibility(
     dir: String,
     key: Arc<IdentityKey>,
@@ -146,6 +151,10 @@ pub struct ProfilePublisher {
 impl ProfilePublisher {
     /// Prepare a private Tokio runtime for this existing identity directory.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identity directory is invalid or runtime creation fails.
     pub fn new(dir: String) -> Result<Arc<Self>, CoreError> {
         database(&dir)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -160,6 +169,11 @@ impl ProfilePublisher {
     }
 
     /// Verify that an active network answers; never uses the unactivated draft settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the serialization lock is poisoned, active settings are
+    /// absent or invalid, thread creation/execution fails, or no node answers.
     pub fn check_connection(&self) -> Result<(), CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let network = active_network(&self.dir)?;
@@ -168,6 +182,12 @@ impl ProfilePublisher {
 
     /// Publish a solved draft through the active network and verify its signed readback.
     /// Any error leaves the saved draft available for retry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if locking, storage, the age/attestation/proof gate, active
+    /// settings, network execution, publication or search scheduling fails.
+    /// Remote publication or local draft updates may already have succeeded.
     pub fn publish(
         &self,
         key: Arc<IdentityKey>,
@@ -197,6 +217,12 @@ impl ProfilePublisher {
 
     /// Hide the profile from search with a signed tombstone, sent once the search window has
     /// ended; the next publication shows it again. Without a node nothing changes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if locking, storage, active settings, network execution,
+    /// hiding or search scheduling fails. Local visibility updates may already
+    /// be applied when a later step fails.
     pub fn hide(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
@@ -221,6 +247,12 @@ impl ProfilePublisher {
     /// Withdraw the profile with a signed tombstone before the identity is removed; a stored
     /// node takes it now and search nodes when the search window has ended. Without a node
     /// nothing changes, and the caller offers Retry or Remove anyway.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if locking, storage, active settings, network execution,
+    /// tombstone publication/readback, or search scheduling fails. Remote and
+    /// local updates may already be applied when a later step fails.
     pub fn withdraw(&self, key: Arc<IdentityKey>) -> Result<ProfileVisibility, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;

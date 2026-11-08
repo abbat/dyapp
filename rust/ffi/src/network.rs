@@ -123,6 +123,10 @@ fn failed(error: impl ToString) -> CheckError {
 
 /// Reads one settings file of the identity folder `dir`; `None` when it was never saved.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if reading, decoding, or validating the selected settings file fails.
 pub fn load_network(dir: String, file: NetworkFile) -> Result<Option<NetworkSettings>, CheckError> {
     let loaded = network::load(&PathBuf::from(dir), settings(file)).map_err(failed)?;
     Ok(loaded.map(Into::into))
@@ -130,6 +134,10 @@ pub fn load_network(dir: String, file: NetworkFile) -> Result<Option<NetworkSett
 
 /// Saves the draft of the identity folder `dir` without connecting.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if validating or writing the draft settings fails.
 pub fn save_network_draft(dir: String, draft: NetworkSettings) -> Result<(), CheckError> {
     network::save(&PathBuf::from(dir), Settings::Draft, &draft.into()).map_err(failed)
 }
@@ -156,6 +164,10 @@ pub struct ConnectionCheck {
 impl ConnectionCheck {
     /// A checker for the identity folder `dir`.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if creating the private Tokio runtime fails.
     pub fn new(dir: String) -> Result<Arc<Self>, CheckError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -171,6 +183,12 @@ impl ConnectionCheck {
 
     /// Saves `draft`, then dials every row for up to `wait_ms` and reports each in order.
     /// Retry is another call; the identity key is never touched.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if saving the draft fails, cancellation occurs, no seed
+    /// rows exist, the network name is invalid, or swarm construction fails.
+    /// The draft remains saved when a later check fails.
     pub fn run(&self, draft: NetworkSettings, wait_ms: u32) -> Result<Vec<SeedRow>, CheckError> {
         let draft = Network::from(draft);
         network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
@@ -210,6 +228,10 @@ impl ConnectionCheck {
     }
 
     /// Makes the last draft that reached a node the identity's active configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no successful check is recorded or saving active settings fails.
     pub fn activate(&self) -> Result<NetworkSettings, CheckError> {
         let checked = self
             .checked

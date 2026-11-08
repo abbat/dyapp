@@ -46,6 +46,11 @@ fn index(value: u32) -> usize {
 
 /// The draft's thumbnail hashes in order, empty without a draft.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the identity directory or database cannot be opened,
+/// or the saved draft cannot be read or decoded.
 pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>, CoreError> {
     let draft = store(&dir, &key)?.profile_draft().map_err(code)?;
     Ok(draft.as_ref().map(thumbnails).unwrap_or_default())
@@ -55,6 +60,12 @@ pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>
 /// frame header that is not a JPEG within 2048 px (320 px for the thumbnail), `photoRefused` for a
 /// seventh photo or an oversized blob, or a storage message.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns `corrupted` for invalid JPEG dimensions, `photoRefused` for count
+/// or byte limits, or a storage error. Photo blobs may already be stored when
+/// saving the updated draft fails.
 pub fn add_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -72,6 +83,11 @@ pub fn add_profile_photo(
 /// Drops the photo at `index` from the draft; the next publish drops it from the network.
 /// Errors are `photoRefused` for an index out of range or a storage message.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns `photoRefused` if the index is out of bounds, or an error if the
+/// identity directory or saved draft cannot be opened, read, or updated.
 pub fn remove_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -83,6 +99,11 @@ pub fn remove_profile_photo(
 
 /// Moves the photo at `from` to `to`. Errors as in [`remove_profile_photo`].
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns `photoRefused` for an out-of-bounds index, or a directory, database,
+/// or draft-decoding error.
 pub fn move_profile_photo(
     dir: String,
     key: Arc<IdentityKey>,
@@ -95,6 +116,10 @@ pub fn move_profile_photo(
 
 /// One stored blob of the owner's photos by hash. Errors are `notFound` or a storage message.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns `notFound` if no blob is stored, or a directory/database read error.
 pub fn profile_photo(
     dir: String,
     key: Arc<IdentityKey>,

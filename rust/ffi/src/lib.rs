@@ -67,11 +67,13 @@ pub struct PeerConnection {
 impl PeerConnection {
     /// Stores the label without validating it as a peer ID.
     #[uniffi::constructor]
+    #[must_use]
     pub fn new(peer_id: String) -> Arc<Self> {
         Arc::new(Self { id: peer_id })
     }
 
     /// Returns a copy of the stored label.
+    #[must_use]
     pub fn get_id(&self) -> String {
         self.id.clone()
     }
@@ -85,17 +87,23 @@ pub struct MessageService {}
 impl MessageService {
     /// Creates the stateless messaging placeholder.
     #[uniffi::constructor]
+    #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {})
     }
 
     /// Ignores the text and returns a status string; nothing is queued or sent.
+    ///
+    /// # Errors
+    ///
+    /// This placeholder currently always returns `Ok`; it does not send or queue data.
     pub fn send_message(&self, peer_id: String, text: String) -> Result<String, CoreError> {
         let _ = text;
         Ok(format!("Message queued to {}", peer_id))
     }
 
     /// Returns zero; there is no backing queue.
+    #[must_use]
     pub fn queue_size(&self) -> i32 {
         0
     }
@@ -111,6 +119,10 @@ pub struct VideoSession {
 #[uniffi::export]
 impl VideoSession {
     /// Creates the private runtime; the WebRTC session is not initialized yet.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if creating the private Tokio runtime fails.
     #[uniffi::constructor]
     pub fn new() -> Result<Arc<Self>, CoreError> {
         let runtime = tokio::runtime::Runtime::new()
@@ -123,6 +135,10 @@ impl VideoSession {
     }
 
     /// Initializes the inner session if absent and returns its SDP offer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if session initialization or SDP offer creation fails.
     pub fn create_offer(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
             self.initialized()
@@ -137,6 +153,11 @@ impl VideoSession {
 
     /// Callee side: initializes the inner session if absent and applies the caller's SDP offer,
     /// then queued ICE candidates.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if session initialization, remote SDP validation/application,
+    /// or applying queued ICE candidates fails.
     pub fn set_remote_offer(&self, sdp: String) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             self.initialized()
@@ -150,6 +171,10 @@ impl VideoSession {
     }
 
     /// Returns the SDP answer to the offer applied by `set_remote_offer`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no session is initialized or SDP answer creation fails.
     pub fn create_answer(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
@@ -165,6 +190,11 @@ impl VideoSession {
     }
 
     /// Applies the remote SDP answer, then queued ICE candidates, to the connection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no session is initialized or applying the answer or
+    /// queued ICE candidates fails.
     pub fn receive_answer(&self, sdp: String) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
@@ -180,6 +210,10 @@ impl VideoSession {
     }
 
     /// Advances the initialized session from offer-created to offer-sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no session is initialized or its state cannot advance.
     pub fn mark_offer_sent(&self) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
@@ -195,6 +229,10 @@ impl VideoSession {
     }
 
     /// Closes the initialized inner session; the wrapper remains allocated.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no session is initialized or closing it fails.
     pub fn end_session(&self) -> Result<(), CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
@@ -210,6 +248,10 @@ impl VideoSession {
     }
 
     /// Returns the initialized inner session's UUID, or an initialization error.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no session is initialized.
     pub fn get_session_id(&self) -> Result<String, CoreError> {
         self.runtime.block_on(async {
             let session_guard = self.inner.read().await;
@@ -279,8 +321,16 @@ impl From<WrapError> for CoreError {
 #[uniffi::export(with_foreign)]
 pub trait KeyStore: Send + Sync {
     /// Encrypts a secret key; the app persists the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform keystore cannot encrypt the secret.
     fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, WrapError>;
     /// Decrypts what `wrap` returned.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform keystore cannot decrypt the blob.
     fn unwrap(&self, wrapped: Vec<u8>) -> Result<Vec<u8>, WrapError>;
 }
 
@@ -295,6 +345,7 @@ pub struct ClientTraffic {
 
 /// Totals of this process's client swarms; `None` until the first one starts.
 #[uniffi::export]
+#[must_use]
 pub fn client_traffic() -> Option<ClientTraffic> {
     dyapp_client::traffic().map(|[received, sent]| ClientTraffic { received, sent })
 }
@@ -309,6 +360,7 @@ pub struct IdentityKey {
 impl IdentityKey {
     /// A new key from the OS random number generator.
     #[uniffi::constructor]
+    #[must_use]
     pub fn generate() -> Arc<Self> {
         Arc::new(Self {
             identity: dyapp_identity::Identity::generate(),
@@ -317,6 +369,11 @@ impl IdentityKey {
 
     /// The key that `store` unwraps from `wrapped`, a blob from [`IdentityKey::wrap`].
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform keystore cannot unwrap the blob or the
+    /// unwrapped secret is not exactly 32 bytes.
     pub fn unwrap(store: Arc<dyn KeyStore>, wrapped: Vec<u8>) -> Result<Arc<Self>, CoreError> {
         let secret = Zeroizing::new(store.unwrap(wrapped)?);
         let secret: &[u8; 32] = secret
@@ -329,17 +386,23 @@ impl IdentityKey {
     }
 
     /// The secret encrypted by `store`, for the app to persist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform keystore cannot encrypt the identity secret.
     pub fn wrap(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
         // ponytail: the FFI buffer that carries the secret to the app is freed, not wiped.
         Ok(store.wrap(self.identity.secret().to_vec())?)
     }
 
     /// Hex SHA-256 of the public key.
+    #[must_use]
     pub fn peer_id(&self) -> String {
         self.identity.peer_id()
     }
 
     /// The Ed25519 public key bytes.
+    #[must_use]
     pub fn public_key(&self) -> Vec<u8> {
         self.identity.public_key().to_vec()
     }
@@ -369,6 +432,7 @@ pub struct ProfileScale {
 
 /// Shared profile picker vocabulary for native clients.
 #[uniffi::export]
+#[must_use]
 pub fn profile_scales() -> Vec<ProfileScale> {
     dyapp_profile::SCALES
         .iter()
@@ -401,6 +465,10 @@ pub struct BirthAssessment {
 
 /// Assess exactly the supplied parts; no missing year, month or day is invented.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if `today_unix_days` cannot be represented as a supported UTC date.
 pub fn assess_birth_parts(
     year: Option<u32>,
     month: Option<u32>,
@@ -447,6 +515,7 @@ impl From<dyapp_client::places::Place> for Place {
 
 /// The place `id` of `country` named in `lang` (`ru`, else English); none outside the picker set.
 #[uniffi::export]
+#[must_use]
 pub fn place_name(country: String, id: u32, lang: String) -> Option<Place> {
     dyapp_client::places::place(&country, id, &lang).map(Place::from)
 }
@@ -454,6 +523,7 @@ pub fn place_name(country: String, id: u32, lang: String) -> Option<Place> {
 /// At most `limit` places of `country` whose English or Russian name starts with `prefix`,
 /// largest first.
 #[uniffi::export]
+#[must_use]
 pub fn search_places(country: String, prefix: String, lang: String, limit: u32) -> Vec<Place> {
     dyapp_client::places::search(&country, &prefix, &lang, limit as usize)
         .into_iter()
@@ -463,6 +533,7 @@ pub fn search_places(country: String, prefix: String, lang: String, limit: u32) 
 
 /// The countries the place picker offers, as ISO codes in code order.
 #[uniffi::export]
+#[must_use]
 pub fn place_countries() -> Vec<String> {
     dyapp_client::places::countries()
         .into_iter()
@@ -492,11 +563,16 @@ pub struct ProfileService {}
 impl ProfileService {
     /// Creates the stateless profile placeholder.
     #[uniffi::constructor]
+    #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {})
     }
 
     /// Returns the constant placeholder ID, unknown birth date and unverified status.
+    ///
+    /// # Errors
+    ///
+    /// This placeholder currently always returns `Ok` with fixed fields.
     pub fn get_profile(&self) -> Result<UserProfile, CoreError> {
         Ok(UserProfile {
             user_id: "placeholder".to_string(),
@@ -508,6 +584,10 @@ impl ProfileService {
     }
 
     /// Accepts and discards both arguments; no profile field is changed.
+    ///
+    /// # Errors
+    ///
+    /// This placeholder currently always returns `Ok` without persisting changes.
     pub fn update_field(&self, field: String, value: String) -> Result<(), CoreError> {
         let _ = (field, value);
         Ok(())

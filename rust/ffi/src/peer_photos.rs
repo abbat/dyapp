@@ -104,6 +104,12 @@ impl ProfileSearcher {
     /// Loads the photos the cache lacks over one set of connections, so a page of cards costs one
     /// connect; `full` selects the full-image bounds and limit. Errors are `notConnected` or a
     /// storage message; a single blob's failure is not one. Blocks; call it off the UI thread.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cache locking, active settings, network-thread execution,
+    /// or connecting fails. Individual blob failures are skipped; photos cached
+    /// before a later error remain available.
     pub fn fetch_peer_photos(&self, hashes: Vec<Vec<u8>>, full: bool) -> Result<(), CoreError> {
         let wanted: Vec<[u8; 32]> = {
             let mut photos = self.photos.lock().map_err(failed)?;
@@ -143,6 +149,10 @@ impl ProfileSearcher {
     }
 
     /// A cached photo's bytes; `notFound` when it was never fetched, was refused or left the cache.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cache lock is poisoned or the photo is not cached.
     pub fn peer_photo(&self, hash: Vec<u8>) -> Result<Vec<u8>, CoreError> {
         self.photos
             .lock()
@@ -156,6 +166,11 @@ impl ProfileSearcher {
 /// platform's metered report. Opening a profile asks for its photos, so it counts as a contact's
 /// attachment.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the identity directory, database, or download setting
+/// cannot be opened, read, or validated.
 pub fn peer_photo_auto(dir: String, key: Arc<IdentityKey>) -> Result<bool, CoreError> {
     let store = Store::open(&database(&dir)?.join("client.db"), &key.identity).map_err(failed)?;
     let mode = store.auto_download().map_err(failed)?;

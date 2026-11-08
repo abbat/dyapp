@@ -66,6 +66,11 @@ impl From<SearchCondition> for proto::Condition {
 /// is raised to 18, and a range no birth date fits fails with `invalid search age`.
 #[uniffi::export]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+///
+/// # Errors
+///
+/// Returns an error if the current UTC date is unsupported or the requested
+/// age range admits no supported adult birth date.
 pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreError> {
     let filter = Filter {
         age: Some((min, max)),
@@ -88,6 +93,11 @@ pub fn search_age_condition(min: u32, max: u32) -> Result<SearchCondition, CoreE
 /// range no height fits fails with `invalid search height`.
 #[uniffi::export]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+///
+/// # Errors
+///
+/// Returns an error if the current UTC date is unsupported or the requested
+/// height bounds form an invalid range.
 pub fn search_height_condition(
     from: Option<u32>,
     to: Option<u32>,
@@ -116,6 +126,10 @@ pub fn search_height_condition(
 /// age is not exact or adult; the option is then not offered.
 #[uniffi::export]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+///
+/// # Errors
+///
+/// Returns an error if the current UTC date cannot be represented.
 pub fn search_mutual_conditions(
     draft: PublicProfileDraft,
 ) -> Result<Vec<SearchCondition>, CoreError> {
@@ -256,6 +270,10 @@ pub struct ProfileSearcher {
 impl ProfileSearcher {
     /// Prepare a private Tokio runtime for this existing identity directory.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identity directory is invalid or runtime creation fails.
     pub fn new(dir: String) -> Result<Arc<Self>, CoreError> {
         database(&dir)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -273,6 +291,12 @@ impl ProfileSearcher {
     /// Search up to `limit` hits per node (0 means 50); no conditions asks for a sample, and
     /// `employer` then narrows the verified results on this device. Each call connects again, so
     /// retry is a new call; without an answering active network it fails with `notConnected`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if locking or storage fails, saved settings are invalid,
+    /// no active network answers, or the network worker fails. Individual search
+    /// node failures are reported in the result's failures and partial flag.
     pub fn search(
         &self,
         key: Arc<IdentityKey>,

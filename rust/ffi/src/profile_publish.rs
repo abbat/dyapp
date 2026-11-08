@@ -34,6 +34,10 @@ pub(crate) fn block_at(
 /// Return a stable blocking reason, or none if this identity's saved draft is publishable today.
 /// Attestation is supplied fresh for each attempt; this read never creates a draft or database.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if loading the draft fails or the current UTC date is unsupported.
 pub fn profile_publish_block(
     dir: String,
     key: Arc<IdentityKey>,
@@ -72,6 +76,11 @@ pub struct ProfileSolve {
 impl ProfileSolve {
     /// Prepare proof work for this identity without changing its saved draft.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identity directory is not an existing absolute directory
+    /// or is a symlink.
     pub fn new(dir: String, key: Arc<IdentityKey>) -> Result<Arc<Self>, CoreError> {
         database(&dir)?;
         Ok(Arc::new(Self {
@@ -84,6 +93,11 @@ impl ProfileSolve {
 
     /// Try eight nonces and persist progress; call off the UI thread until solved or cancelled.
     /// The shared 18+ gate is checked again for every step using the current UTC day.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if locking, opening or reading the draft, checking the
+    /// current UTC date, or persisting progress fails, or the publish gate blocks it.
     pub fn run_step(&self, attested: bool) -> Result<ProfileWorkStep, CoreError> {
         self.step(attested, dyapp_profile::required_pow_bits())
     }

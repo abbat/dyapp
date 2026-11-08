@@ -229,6 +229,11 @@ pub(crate) fn database(dir: &str) -> Result<&Path, CoreError> {
 
 /// Load this identity's client.db draft; absence does not create a database or a profile.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the identity directory or database is invalid or cannot
+/// be read, or the saved draft format or protobuf is invalid.
 pub fn load_profile_draft(
     dir: String,
     key: Arc<IdentityKey>,
@@ -248,6 +253,11 @@ pub fn load_profile_draft(
 
 /// Save only editable fields, retaining version and proof-of-work progress in client.db.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if editable fields fail validation, the identity directory
+/// or database cannot be opened, or reading or saving the draft fails.
 pub fn save_profile_draft(
     dir: String,
     key: Arc<IdentityKey>,

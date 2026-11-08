@@ -83,6 +83,11 @@ impl ProfileSearcher {
     /// The name and main photo of each of `peer_ids`, in that order. A public name and the photo
     /// need the peer's profile in this searcher's memory, from a search or [`Self::profiles`], so
     /// after a restart they return with the next fetch; a local name is always there.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cache locking, opening the identity database, or reading
+    /// local names and verification state fails.
     pub fn contact_names(
         &self,
         key: Arc<IdentityKey>,
@@ -99,6 +104,12 @@ impl ProfileSearcher {
     /// The verified profiles of `peer_ids` from the active network, in that order, kept in memory
     /// for [`Self::contact_names`]; a peer no node returns is left out. No peers means no
     /// connection. Errors are `notConnected` or a node message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if active settings or network-worker execution fails, no
+    /// entry node answers, or cache locking fails. Individual unavailable profiles
+    /// are omitted from the result.
     pub fn profiles(&self, peer_ids: Vec<String>) -> Result<Vec<FoundProfile>, CoreError> {
         let found = fetch_profiles(&self.runtime, &self.dir, peer_ids)?;
         let mut cache = self.cache.lock().map_err(failed)?;
