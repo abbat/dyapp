@@ -14,6 +14,7 @@ static INIT: Once = Once::new();
 ///
 /// Only the JVM calls this, with the calling thread's `env` and a live `context`.
 #[no_mangle]
+#[expect(unreachable_pub, reason = "The JVM finds this export by symbol name")]
 pub unsafe extern "system" fn Java_com_dyapp_DYApplication_nativeInit(
     env: *mut JNIEnv,
     _application: jobject,

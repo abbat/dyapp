@@ -196,6 +196,7 @@ pub fn watch(app: AppHandle) {
 }
 
 #[cfg(not(unix))]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(_app: AppHandle) {}
 
 #[cfg(unix)]

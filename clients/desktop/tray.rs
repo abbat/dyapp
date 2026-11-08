@@ -295,11 +295,13 @@ pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 #[cfg(not(unix))]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_plugin_single_instance::init(|app, _, _| show(app))
 }
 
 #[cfg(not(unix))]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     available(&app, true);
 }
