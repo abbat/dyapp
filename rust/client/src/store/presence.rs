@@ -25,6 +25,10 @@ CREATE TABLE `presence` (
 
 impl Store {
     /// Whether presence goes to matches (the default) rather than nobody.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying the setting fails or its format or value is invalid.
     pub fn send_presence(&self) -> Result<bool, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db
@@ -43,6 +47,10 @@ impl Store {
     }
 
     /// Persist whether presence goes to matches (`true`) or nobody.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the presence setting to the database fails.
     pub fn set_send_presence(&self, enabled: bool) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
@@ -55,6 +63,11 @@ impl Store {
     /// The HLC of a presence for `target` if one is due at `wall_ms`: the setting is on, the peer
     /// is an unblocked match and nothing was sent to it in the last hour. Changes nothing; commit
     /// the encrypted presence with [`Self::stage_presence`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if eligibility or hybrid-clock state cannot be read or
+    /// decoded, the presence setting is invalid, or the stored send time is negative.
     pub fn draft_presence(&self, target: &str, wall_ms: u64) -> Result<Option<u64>, Error> {
         if !self.presence_allowed(target)? {
             return Ok(None);
@@ -84,6 +97,12 @@ impl Store {
 
     /// Commit a drafted presence, its send time and the encrypted outbound writes in one
     /// transaction. A stale draft or a peer no longer allowed changes nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there are no writes, the target is ineligible, the
+    /// timestamp is stale or outside the supported range, eligibility or clock
+    /// checks fail, outbound state conflicts, or database access or commit fails.
     pub fn stage_presence(
         &mut self,
         target: &str,
@@ -122,6 +141,12 @@ impl Store {
     /// Keep the latest presence from `sender` after the 60-second future-skew guard. Presence
     /// from a blocked peer or a non-match is dropped before its HLC is observed. Returns whether
     /// it became the latest.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading block, match, or clock state fails, the remote
+    /// timestamp exceeds the future-skew limit or supported storage range, or
+    /// database access or transaction commit fails.
     pub fn receive_presence(
         &mut self,
         sender: &str,
@@ -148,6 +173,11 @@ impl Store {
 
     /// Whether to show `peer_id` as active recently at `wall_ms`: an unblocked match whose latest
     /// presence is at most two hours old.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if block, match, or presence state cannot be read or
+    /// decoded, or the stored presence timestamp is negative.
     pub fn active_recently(&self, peer_id: &str, wall_ms: u64) -> Result<bool, Error> {
         if self.blocked(peer_id)? || !self.likes(peer_id)?.matched() {
             return Ok(false);
