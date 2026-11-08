@@ -9,6 +9,7 @@ pub(crate) fn scripts() -> String {
         include_str!("presence.js"),
         include_str!("names.js"),
         include_str!("profile-photos.js"),
+        include_str!("peer-photos.js"),
         include_str!("photos.js"),
         include_str!("node-guard.js"),
         include_str!("network-guards.js"),
