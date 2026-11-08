@@ -21,6 +21,7 @@ pub struct Place {
 }
 
 /// The place `id` of `country`, named in `lang` (`"ru"`, else English).
+#[must_use]
 pub fn place(country: &str, id: u32, lang: &str) -> Option<Place> {
     rows()
         .find(|r| r.country == country && r.id == id)
@@ -29,6 +30,7 @@ pub fn place(country: &str, id: u32, lang: &str) -> Option<Place> {
 
 /// At most `limit` places of `country` whose English or Russian name starts with `prefix`,
 /// ignoring case, largest first; an empty prefix lists the largest places.
+#[must_use]
 pub fn search(country: &str, prefix: &str, lang: &str, limit: usize) -> Vec<Place> {
     let prefix = prefix.trim().to_lowercase();
     let mut found: Vec<_> = rows()
@@ -44,6 +46,7 @@ pub fn search(country: &str, prefix: &str, lang: &str, limit: usize) -> Vec<Plac
 }
 
 /// The countries that have places, in code order.
+#[must_use]
 pub fn countries() -> Vec<&'static str> {
     let mut found: Vec<_> = rows().map(|r| r.country).collect();
     found.dedup();
@@ -52,6 +55,7 @@ pub fn countries() -> Vec<&'static str> {
 
 /// Whether profile `country` and `place` are each empty or offered by the picker; a place needs
 /// its country and is the canonical decimal ID.
+#[must_use]
 pub fn known(country: &str, place: &str) -> bool {
     (country.is_empty() || countries().contains(&country))
         && (place.is_empty()
