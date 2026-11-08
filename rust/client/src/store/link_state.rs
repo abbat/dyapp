@@ -100,6 +100,11 @@ struct Pass {
 impl Store {
     /// Keeps a received record's `state` until [`crate::session::Session::finish_link`] ends: the
     /// mailbox no longer holds the record, so a failed step must not lose it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either database write fails. The linked-device marker
+    /// may already be stored when saving pending state fails.
     pub fn set_link_pending(&self, state: &[u8]) -> Result<(), Error> {
         self.db.execute(
             "INSERT OR IGNORE INTO `settings` (`key`, `format_version`, `value`)
@@ -115,6 +120,11 @@ impl Store {
     }
 
     /// The state of a link this device has not finished.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the pending row fails, or its
+    /// format version is unsupported.
     pub fn link_pending(&self) -> Result<Option<Vec<u8>>, Error> {
         let row: Option<(i64, Vec<u8>)> = self
             .db
@@ -132,6 +142,10 @@ impl Store {
     }
 
     /// Whether this device joined by a link, so holds no history from before that.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the linked-device marker fails.
     pub fn is_linked_device(&self) -> Result<bool, Error> {
         Ok(self.db.query_row(
             "SELECT EXISTS (SELECT 1 FROM `settings` WHERE `key` = ?1)",
@@ -141,6 +155,10 @@ impl Store {
     }
 
     /// Ends a link: the state now lives in the tables it was imported to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deleting the pending-state row from the database fails.
     pub fn clear_link_pending(&self) -> Result<(), Error> {
         self.db
             .execute("DELETE FROM `settings` WHERE `key` = ?1", [PENDING])?;
@@ -148,6 +166,11 @@ impl Store {
     }
 
     /// This store's local state as the bytes of a link record.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading or decoding peer, like, pass, hybrid-clock, or
+    /// visibility state fails.
     pub fn link_state(&self) -> Result<Vec<u8>, Error> {
         let mut peers = self.db.prepare(
             "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
@@ -217,6 +240,13 @@ impl Store {
 
     /// Restores [`Self::link_state`] on the fresh store of a linked device; a retry changes
     /// nothing. The clock goes past every row, or later events would lose to them.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the snapshot cannot be decoded, a peer note is invalid,
+    /// stored clock state is invalid or outside its supported range, or database
+    /// access or transaction commit fails. Imported rows and the clock are already
+    /// committed if the final visibility-setting write fails.
     pub fn import_link_state(&mut self, state: &[u8]) -> Result<(), Error> {
         let state = LinkState::decode(state).map_err(|_| Error::InvalidSetting)?;
         let rows = state.likes.iter().map(|like| like.hlc);
