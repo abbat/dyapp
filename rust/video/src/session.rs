@@ -91,13 +91,15 @@ async fn new_peer_connection(
     let setting_engine = SettingEngineBuilder::new()
         .with_multicast_dns_mode(MulticastDnsMode::Disabled)
         .build();
-    PeerConnectionBuilder::new()
-        .with_media_engine(media_engine)
-        .with_setting_engine(setting_engine)
-        .with_handler(handler)
-        .with_udp_addrs(vec!["0.0.0.0:0"])
-        .build()
-        .await
+    Box::pin(
+        PeerConnectionBuilder::new()
+            .with_media_engine(media_engine)
+            .with_setting_engine(setting_engine)
+            .with_handler(handler)
+            .with_udp_addrs(vec!["0.0.0.0:0"])
+            .build(),
+    )
+    .await
 }
 
 /// WebRTC offer and answer for either side of a call, and remote candidate handling.

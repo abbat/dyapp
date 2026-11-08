@@ -34,6 +34,7 @@ manual_assert_eq = "deny"
 uninlined_format_args = "deny"
 unreadable_literal = "deny"
 wildcard_imports = "deny"
+large_futures = "deny"
 
 [workspace.package]
 version = "0.0.1"

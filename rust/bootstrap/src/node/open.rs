@@ -27,7 +27,7 @@ impl Opened {
             _lock,
             ..
         } = self;
-        run(swarm, service).await;
+        Box::pin(run(swarm, service)).await;
     }
 }
 

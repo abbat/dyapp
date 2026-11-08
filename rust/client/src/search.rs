@@ -424,7 +424,8 @@ mod tests {
             search: true,
             ..SwarmOptions::default()
         };
-        let mut server = build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
+        let mut server =
+            Box::new(build_configured_swarm(Keypair::generate_ed25519(), options).unwrap());
         server
             .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
             .unwrap();

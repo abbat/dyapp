@@ -15,7 +15,7 @@ pub(super) struct Person {
 
 impl Person {
     pub(super) async fn new(address: &Multiaddr) -> Self {
-        let mut person = Self::device(address, Identity::generate(), 1).await;
+        let mut person = Box::new(Self::device(address, Identity::generate(), 1).await);
         let profile = Profile {
             version: 1,
             devices: vec![person.device.certificate().clone()],
@@ -26,7 +26,7 @@ impl Person {
             .publish_profile(profile.sign(&person.identity))
             .await
             .unwrap();
-        person
+        *person
     }
 
     /// A device `generation` of `identity`, not yet in any published profile.

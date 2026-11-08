@@ -19,6 +19,7 @@ use dyapp_p2p_net::{Behaviour, BehaviourEvent, Mode, MAX_CONTROL_MESSAGE_BYTES};
 use dyapp_profile::Profile;
 use libp2p::futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, StreamExt};
 use libp2p::identity::Keypair;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{self, Event, Message, ProtocolSupport};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{noise, tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder};
@@ -86,17 +87,19 @@ async fn start_config_in_protocols(
     let peer = keypair.public().to_peer_id();
     let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
     service.protocols = protocols;
-    let mut swarm = node::swarm_with_protocols(
-        keypair,
-        &service.config.limits,
-        &service.config.roles,
-        service.wire.clone(),
-        service.protocols.clone(),
-        false,
-        dyapp_p2p_net::DialFilter::default(),
-        service.config.relay_hop(),
-    )
-    .unwrap();
+    let mut swarm = Box::new(
+        node::swarm_with_protocols(
+            keypair,
+            &service.config.limits,
+            &service.config.roles,
+            service.wire.clone(),
+            service.protocols.clone(),
+            false,
+            dyapp_p2p_net::DialFilter::default(),
+            service.config.relay_hop(),
+        )
+        .unwrap(),
+    );
     if service.config.roles.contains(&Role::Media) {
         service.media =
             Some(dyapp_bootstrap::media::MediaStore::open(&service.config.storage.dir).unwrap());
@@ -118,12 +121,8 @@ async fn start_config_in_protocols(
     swarm.add_external_address(addr.clone());
     let wire = service.wire.clone();
     let service = std::sync::Arc::new(service);
-    tokio::spawn(node::run(swarm, service.clone()));
-    (
-        addr.with(libp2p::multiaddr::Protocol::P2p(peer)),
-        wire,
-        service,
-    )
+    tokio::spawn(node::run(*swarm, service.clone()));
+    (addr.with(Protocol::P2p(peer)), wire, service)
 }
 
 #[tokio::test]

@@ -585,8 +585,9 @@ mod tests {
     }
 
     async fn profile_node(refuse: Vec<Status>) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
-        let mut server =
-            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+        let mut server = Box::new(
+            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap(),
+        );
         server
             .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
             .unwrap();

@@ -667,7 +667,7 @@ async fn ack(addr: &str, secret: &str, ids: &[&str]) -> anyhow::Result<Value> {
 async fn challenged(
     addr: &str,
     secret: &str,
-) -> anyhow::Result<(Swarm<Behaviour>, PeerId, Identity, Vec<u8>)> {
+) -> anyhow::Result<(Box<Swarm<Behaviour>>, PeerId, Identity, Vec<u8>)> {
     let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
         anyhow!(message(
             "secret must be 32 bytes",
@@ -697,15 +697,15 @@ async fn mailbox_call(
 }
 
 /// Dials `addr` and returns the peer that answered: the address needs no `/p2p/` suffix.
-async fn connect(addr: &str) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
+async fn connect(addr: &str) -> anyhow::Result<(Box<Swarm<Behaviour>>, PeerId)> {
     connect_with_key(addr, Keypair::generate_ed25519()).await
 }
 
 async fn connect_with_key(
     addr: &str,
     keypair: Keypair,
-) -> anyhow::Result<(Swarm<Behaviour>, PeerId)> {
-    let mut swarm = build_configured_swarm(
+) -> anyhow::Result<(Box<Swarm<Behaviour>>, PeerId)> {
+    let mut swarm = Box::new(build_configured_swarm(
         keypair,
         SwarmOptions {
             mode: Mode::Client,
@@ -715,7 +715,7 @@ async fn connect_with_key(
                 .clone(),
             ..SwarmOptions::default()
         },
-    )?;
+    )?);
     let addr = address(addr)?;
     swarm.dial(addr.clone())?;
     loop {
