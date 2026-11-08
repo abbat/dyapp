@@ -41,7 +41,8 @@
       "clients/desktop/ui-tests/guards.js",
       "clients/desktop/ui-tests/profile-photos.js",
       "clients/desktop/ui-tests/peer-photos.js",
-      "clients/desktop/ui-tests/chat-photo-fixture.js"
+      "clients/desktop/ui-tests/chat-photo-fixture.js",
+      "clients/desktop/ui-tests/photo-settings.js"
     ],
     "linter": { "rules": {
       "complexity": {

@@ -11,6 +11,7 @@ pub(crate) fn scripts() -> String {
         include_str!("profile-photos.js"),
         include_str!("peer-photos.js"),
         include_str!("chat-photo-fixture.js"),
+        include_str!("photo-settings.js"),
         include_str!("photos.js"),
         include_str!("node-guard.js"),
         include_str!("network-guards.js"),
