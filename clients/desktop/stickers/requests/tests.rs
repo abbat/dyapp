@@ -4,7 +4,7 @@ use super::*;
 fn local_status_exposes_only_typed_retry_metadata_and_generation() {
     let token = [3; 16];
     let waiting = Status::download(
-        PackDownloadState {
+        &PackDownloadState {
             has_answer: false,
             failure: None,
             attempts: 0,
@@ -23,7 +23,7 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
         (Some(PackDownloadFailure::Storage), "failed"),
     ] {
         let status = Status::download(
-            PackDownloadState {
+            &PackDownloadState {
                 has_answer: true,
                 failure,
                 attempts: 1,

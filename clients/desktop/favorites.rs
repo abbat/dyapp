@@ -22,6 +22,10 @@ fn saved(dir: &Path, identity: &Identity, peer: &str) -> Result<bool, String> {
 
 /// Saved Peer IDs of the active identity, without blocked peers or network requests.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn favorite_peers(
     state: tauri::State<'_, IdentityState>,
 ) -> Result<Vec<String>, String> {
@@ -32,6 +36,10 @@ pub(crate) fn favorite_peers(
 
 /// Whether a peer is saved, including a blocked one so removal remains possible.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn favorite_state(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,

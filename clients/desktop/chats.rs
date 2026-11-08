@@ -262,7 +262,7 @@ pub async fn block(
     search::block(dir, identity, peer_id)?;
     let change = PeerChange::Blocked(true);
     if let Err(error) = own::change_peer(root, dir, identity, peer_id, change).await {
-        return Ok(BlockResult::pending(error));
+        return Ok(BlockResult::pending(&error));
     }
     let store = open(dir, identity)?;
     let today = SystemTime::now()
@@ -272,7 +272,7 @@ pub async fn block(
         / 86_400;
     let keys = match store.revoke_issued(peer_id, today as u32) {
         Ok(keys) => keys,
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     if keys.is_empty() {
         return Ok(BlockResult {
@@ -283,23 +283,23 @@ pub async fn block(
     let active = match network::load(dir, Settings::Active) {
         Ok(Some(active)) => active,
         Ok(None) => return Ok(BlockResult::pending("notConnected")),
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     let mut node = match profile::connect(&active).await {
         Ok(node) => node,
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     let device = match crate::device_key(root, dir, identity) {
         Ok(device) => device,
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     let seal_key = match crate::sealing_key(root, dir, &store) {
         Ok(key) => key,
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     let mut session = match Session::open_or_create(store, identity, &device, &seal_key) {
         Ok(session) => session,
-        Err(error) => return Ok(BlockResult::pending(error)),
+        Err(error) => return Ok(BlockResult::pending(&error)),
     };
     match session
         .block(std::slice::from_mut(&mut node), &device, peer_id)
@@ -309,7 +309,7 @@ pub async fn block(
             revocation: Revocation::Confirmed,
             detail: None,
         }),
-        Err(error) => Ok(BlockResult::pending(error)),
+        Err(error) => Ok(BlockResult::pending(&error)),
     }
 }
 
@@ -433,6 +433,10 @@ pub mod commands {
 
     /// Current Chats rows for the active identity, including empty conversations.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn chat_rows(
         state: tauri::State<'_, crate::IdentityState>,
     ) -> Result<Vec<super::ChatRowView>, String> {
@@ -443,6 +447,10 @@ pub mod commands {
 
     /// Ordered current messages for one peer of the active identity.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn chat_history(
         state: tauri::State<'_, crate::IdentityState>,
         peer_id: String,
@@ -543,6 +551,10 @@ pub mod commands {
 
     /// The like state with a peer; see `likes`.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn peer_likes(
         state: tauri::State<'_, crate::IdentityState>,
         peer_id: String,

@@ -134,6 +134,10 @@ pub(crate) async fn fetch_peer_photos(
 
 /// A cached photo's bytes; `notFound` when it was never fetched, was refused or left the cache.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn peer_photo(
     searching: tauri::State<'_, SearchState>,
     hash: Vec<u8>,

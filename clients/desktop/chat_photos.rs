@@ -201,6 +201,10 @@ fn parse_mode(name: &str) -> Result<AutoDownload, String> {
 
 /// Settings → Photos: this identity's choice on this device.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn auto_download_mode(
     state: tauri::State<'_, crate::IdentityState>,
 ) -> Result<&'static str, String> {
@@ -213,6 +217,10 @@ pub(crate) fn auto_download_mode(
 }
 
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn set_auto_download_mode(
     state: tauri::State<'_, crate::IdentityState>,
     mode: String,
@@ -226,6 +234,10 @@ pub(crate) fn set_auto_download_mode(
 
 /// Settings → Photos: the limit for originals kept on this device, in MiB.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn kept_originals_mib(
     state: tauri::State<'_, crate::IdentityState>,
 ) -> Result<u32, String> {
@@ -238,6 +250,10 @@ pub(crate) fn kept_originals_mib(
 
 /// A lower limit erases what no longer fits at once.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn set_kept_originals_mib(
     state: tauri::State<'_, crate::IdentityState>,
     mib: u32,

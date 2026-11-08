@@ -39,6 +39,7 @@ mod node_usage_commands;
 mod notify;
 #[path = "peer_photos.rs"]
 mod peer_photos;
+mod places;
 #[path = "privacy.rs"]
 mod privacy;
 #[path = "profile.rs"]
@@ -392,6 +393,10 @@ async fn check_connection(
 }
 
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 fn cancel_connection_check(checks: tauri::State<'_, NetworkState>) {
     network::cancel(&checks);
 }
@@ -422,30 +427,6 @@ async fn activate_connection(
 #[tauri::command]
 fn profile_scales() -> Vec<profile::PickerScale> {
     profile::scales()
-}
-
-/// Countries with places for the place picker; the page names them.
-#[tauri::command]
-fn place_countries() -> Vec<&'static str> {
-    dyapp_client::places::countries()
-}
-
-/// The place `id` of `country` in `lang`; see `dyapp_client::places::place`.
-#[tauri::command]
-fn place_name(country: String, id: u32, lang: String) -> Option<profile::Place> {
-    dyapp_client::places::place(&country, id, &lang).map(Into::into)
-}
-
-/// Places of `country` whose name starts with `prefix`; see `dyapp_client::places::search`.
-#[tauri::command]
-fn search_places(
-    country: String,
-    prefix: String,
-    lang: String,
-    limit: usize,
-) -> Vec<profile::Place> {
-    let found = dyapp_client::places::search(&country, &prefix, &lang, limit);
-    found.into_iter().map(Into::into).collect()
 }
 
 /// The open identity's profile draft; see `profile::load`.
@@ -503,6 +484,10 @@ async fn solve_profile(
 }
 
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 fn cancel_profile_solve(solving: tauri::State<'_, ProfileState>) {
     solving.cancel();
 }
@@ -679,6 +664,10 @@ async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String>
 }
 
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 fn ui_test_result(
     app: tauri::AppHandle,
     window: tauri::Window,
@@ -856,9 +845,9 @@ fn main() {
             activate_connection,
             connect_network,
             profile_scales,
-            place_countries,
-            place_name,
-            search_places,
+            places::place_countries,
+            places::place_name,
+            places::search_places,
             load_profile,
             save_profile,
             peer_photos::fetch_peer_photos,

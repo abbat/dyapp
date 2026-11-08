@@ -49,7 +49,7 @@ fn frame(base: &[u8], sequence: u32, sent_at_us: u64) -> Vec<u8> {
 fn send_frames(
     size: &str,
     count: u16,
-    channel: Channel<InvokeResponseBody>,
+    channel: &Channel<InvokeResponseBody>,
 ) -> Result<u16, String> {
     let (width, height) = dimensions(size)?;
     if !(1..=MAX_FRAMES).contains(&count) {
@@ -90,7 +90,7 @@ pub(crate) async fn ui_test_video_frames(
     }
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = RunningGuard;
-        send_frames(&size, count, on_frame)
+        send_frames(&size, count, &on_frame)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -134,7 +134,7 @@ mod tests {
             }
             Ok(())
         });
-        assert_eq!(send_frames("360p", 1, channel).unwrap(), 1);
+        assert_eq!(send_frames("360p", 1, &channel).unwrap(), 1);
         let frames = received.lock().unwrap();
         assert_eq!(frames.len(), 1);
         assert_eq!(&frames[0][..4], b"DVF1");
@@ -143,8 +143,8 @@ mod tests {
     #[test]
     fn count_limits_are_enforced_before_sending() {
         let channel = Channel::new(|_| Ok(()));
-        assert!(send_frames("360p", 0, channel.clone()).is_err());
-        assert!(send_frames("360p", MAX_FRAMES + 1, channel.clone()).is_err());
-        assert!(send_frames("invalid", 1, channel).is_err());
+        assert!(send_frames("360p", 0, &channel).is_err());
+        assert!(send_frames("360p", MAX_FRAMES + 1, &channel).is_err());
+        assert!(send_frames("invalid", 1, &channel).is_err());
     }
 }

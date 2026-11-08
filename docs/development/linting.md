@@ -66,7 +66,12 @@ cloning, clone assignment, ambiguous defaults, empty strings, ignored unit patte
 mapping, bool-to-int conversions, inline format arguments, literal readability, wildcard imports
 and Rustdoc markup. The message view retains one exact expectation for mapping a timestamp
 method: that type belongs to a transitive messaging dependency and is not directly importable.
-The expectation is checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
+Native ownership checks also deny `needless_pass_by_value`. Private status, error-detail and
+video helpers borrow their inputs. Tauri commands, the permission callback and `Result::map_err`
+classifiers retain owned contracts with declaration-level expectations and reasons; no module
+suppression hides new helper findings. Place-picker IPC wrappers live in `clients/desktop/places.rs`
+so these markers keep the main module below its file-size limit; IPC command names are unchanged.
+All expectations are checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
 Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
 checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no
 sources are found. Both `make fmt` (also quality and quick-check) and `make fmt-write` run it

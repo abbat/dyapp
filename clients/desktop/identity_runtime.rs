@@ -80,6 +80,10 @@ impl IdentityState {
     }
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Result::map_err invokes this classifier with an owned error"
+)]
 fn gate_error(error: GateError) -> String {
     match error {
         GateError::NoActive => "No identity is open".into(),

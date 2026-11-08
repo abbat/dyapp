@@ -62,6 +62,10 @@ pub(crate) fn names(
 /// Names for the peers on screen, for the active identity.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn contact_names(
     state: tauri::State<'_, IdentityState>,
     searching: tauri::State<'_, SearchState>,

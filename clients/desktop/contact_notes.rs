@@ -16,6 +16,10 @@ fn read(dir: &Path, identity: &Identity, peer: &str) -> Result<String, String> {
 
 /// Local private text; reading never fetches a profile or contacts a node.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn contact_note(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,

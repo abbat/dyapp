@@ -38,8 +38,8 @@ impl Status {
             ..Self::plain("failed", generation)
         }
     }
-    fn download(state: PackDownloadState, token: [u8; 16]) -> Self {
-        let failure = state.failure.map(|reason| match reason {
+    fn download(state: &PackDownloadState, token: [u8; 16]) -> Self {
+        let failure = state.failure.as_ref().map(|reason| match reason {
             PackDownloadFailure::Fetch => "fetch",
             PackDownloadFailure::Invalid => "invalid",
             PackDownloadFailure::Quota => "quota",
@@ -106,7 +106,7 @@ fn status(store: &mut Store, key: &[u8; 32], selection: &Selection) -> Result<St
         .sticker_pack_download_state(&selection.peer_id, &item.sticker.pack_id)
         .map_err(|e| e.to_string())?
         .ok_or("requestChanged")?;
-    Ok(Status::download(state, pending.token))
+    Ok(Status::download(&state, pending.token))
 }
 
 /// Saved status authenticates the pack and checks this clicked sticker, then reconciles valid intent.

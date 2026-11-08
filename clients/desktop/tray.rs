@@ -4,6 +4,10 @@
 
 /// Ctrl+Q: ends the process; the window state is saved on the way out.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn quit(app: tauri::AppHandle) {
     // The UI smoke ends its window steps here, so this exit is its pass.
     if std::env::args().any(|arg| arg == "--ui-test") {

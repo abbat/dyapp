@@ -15,6 +15,10 @@ use qrcodegen::{QrCode, QrCodeEcc};
 
 #[cfg(unix)]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri requires an owned Webview in its permission callback"
+)]
 pub fn camera_permission(
     webview: tauri::Webview,
     kind: tauri::webview::PermissionKind,
@@ -55,6 +59,10 @@ pub(crate) fn matrix(payload: &[u8]) -> Result<QrMatrix, String> {
 /// Returns a QR matrix for the active identity and selected contact.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn contact_safety_qr(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
@@ -111,6 +119,10 @@ fn scan_frame(
 /// A match is only a comparison result; it never writes a verified-contact mark.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn scan_contact_qr(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
@@ -132,6 +144,10 @@ pub fn scan_contact_qr(
 /// Computes a comparison number from this identity and the found profile's Peer ID.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn contact_safety_number(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
@@ -231,6 +247,10 @@ fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<b
 /// Reads the mark for the profile on screen; see `marked`.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn contact_verified(
     state: tauri::State<'_, IdentityState>,
     searching: tauri::State<'_, SearchState>,
@@ -246,6 +266,10 @@ pub fn contact_verified(
 /// a cached profile that added a device.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn contact_new_device(
     state: tauri::State<'_, IdentityState>,
     searching: tauri::State<'_, SearchState>,
@@ -261,6 +285,10 @@ pub fn contact_new_device(
 /// Ends the notice after the user acknowledged it in the chat.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn acknowledge_new_device(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,
@@ -276,6 +304,10 @@ pub fn acknowledge_new_device(
 /// Takes the mark back, so a mistaken confirmation can be undone without the network.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn unverify_contact(
     state: tauri::State<'_, IdentityState>,
     peer_id: String,

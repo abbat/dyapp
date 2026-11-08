@@ -85,6 +85,10 @@ pub(super) async fn storage_usage(
 
 /// Status-bar traffic and the selected identity's message-store bytes.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(super) fn status(state: tauri::State<'_, IdentityState>) -> usage::Status {
     usage::Status {
         traffic: dyapp_client::traffic(),

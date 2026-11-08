@@ -66,6 +66,10 @@ pub struct Shown {
 /// Starts a link from the open identity, in place of any earlier one.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn start_link(
     state: tauri::State<'_, IdentityState>,
     links: tauri::State<'_, Links>,
@@ -90,6 +94,10 @@ pub fn start_link(
 /// Forgets the link. A record that arrives later cannot be opened.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn cancel_link(links: tauri::State<'_, Links>) {
     let mut link = links.lock();
     link.turn += 1;
@@ -99,6 +107,10 @@ pub fn cancel_link(links: tauri::State<'_, Links>) {
 /// Whether the open identity is linked but has not listed itself yet.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
@@ -110,6 +122,10 @@ pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, Stri
 /// UI test only: hands the code to the smoke, which types it into the other client.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn ui_test_link_code(app: tauri::AppHandle, code: String) -> Result<(), String> {
     if !std::env::args().any(|arg| arg == "--ui-test") {
         return Err("UI test only".into());
@@ -120,6 +136,10 @@ pub fn ui_test_link_code(app: tauri::AppHandle, code: String) -> Result<(), Stri
 /// Whether the open identity came to this computer by a link.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub fn linked_device(state: tauri::State<'_, IdentityState>) -> Result<bool, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active();

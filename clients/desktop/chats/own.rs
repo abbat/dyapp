@@ -179,6 +179,10 @@ pub(crate) async fn revoke_device(
 
 /// See `profile::check_link_code`.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
 pub(crate) fn check_link_code(code: String) -> Result<(), String> {
     crate::profile::check_link_code(&code)
 }

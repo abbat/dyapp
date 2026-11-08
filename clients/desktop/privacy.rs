@@ -89,6 +89,10 @@ pub mod commands {
 
     /// The open identity's privacy settings; see `privacy::load`.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn privacy_settings(
         state: tauri::State<'_, IdentityState>,
     ) -> Result<super::Privacy, String> {
@@ -99,6 +103,10 @@ pub mod commands {
 
     /// Stores the open identity's privacy settings; see `privacy::save`.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn set_privacy(
         state: tauri::State<'_, IdentityState>,
         privacy: super::Privacy,
@@ -110,6 +118,10 @@ pub mod commands {
 
     /// Peers the open identity blocked on this device.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn blocked_peers(
         state: tauri::State<'_, IdentityState>,
     ) -> Result<Vec<String>, String> {
@@ -143,6 +155,10 @@ pub mod commands {
 
     /// Peers the open identity passed on this device.
     #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command state and request values by value"
+    )]
     pub(crate) fn passed_peers(
         state: tauri::State<'_, IdentityState>,
     ) -> Result<Vec<String>, String> {

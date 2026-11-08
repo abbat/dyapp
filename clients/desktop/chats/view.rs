@@ -29,7 +29,7 @@ pub struct BlockResult {
 }
 
 impl BlockResult {
-    pub(super) fn pending(detail: impl ToString) -> Self {
+    pub(super) fn pending(detail: &(impl ToString + ?Sized)) -> Self {
         Self {
             revocation: Revocation::Pending,
             detail: Some(detail.to_string()),

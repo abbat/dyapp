@@ -67,6 +67,10 @@ mod platform {
         Ok(())
     }
 
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Result::map_err invokes this classifier with an owned error"
+    )]
     fn map_service_error(error: Error) -> Unavailable {
         match error {
             Error::Locked => Unavailable::Locked,
@@ -75,6 +79,10 @@ mod platform {
         }
     }
 
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Result::map_err invokes this classifier with an owned error"
+    )]
     fn map_collection_error(error: Error) -> Unavailable {
         match error {
             Error::Locked => Unavailable::Locked,
