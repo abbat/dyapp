@@ -26,6 +26,11 @@ Practice A5. A commit that makes one of these changes names an ADR in an
 - a storage-schema change: an added or removed Rust line with SQL schema text (`CREATE`, `ALTER`
   or `DROP TABLE`/`INDEX`, `PRAGMA user_version`, or a backticked column with an SQLite type).
 
+The development-only `tools/rust-functions` parser and its existing direct dependencies
+(`syn`, `proc-macro2`, `quote`, `serde_json`) are exempt: they support source checks without
+changing application architecture. New dependency names in that crate still trigger review;
+application crates, wire formats and storage schemas retain their normal requirements.
+
 The ADR must exist in that commit. An existing ADR that already covers the change is enough, for
 example [0015](0015-sqlite-node-storage.md) for a new SQLite table; otherwise the commit adds or
 updates one, which a person confirms first. `tests/scripts/check-adr.py` checks the commits after `ADR_BASE` (the push or PR base in CI,

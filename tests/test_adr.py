@@ -37,6 +37,21 @@ class Adr(unittest.TestCase):
         self.assertEqual(CHECK.triggers(
             "rust/x/src/db.rs", "", "", "+let size = 1;\n"), [])
 
+    def test_parser_exception_does_not_exempt_application_dependencies(self):
+        path = "tools/rust-functions/Cargo.toml"
+        parser = ('[package]\nname = "dyapp-function-map"\n'
+                  '[dependencies]\nsyn = "2"\nquote = "1"\n'
+                  'serde_json = "1"\nproc-macro2 = "1"\n')
+        self.assertEqual(CHECK.triggers(path, "", parser, ""), [])
+        self.assertTrue(CHECK.triggers("rust/app/Cargo.toml", "", parser, ""))
+        self.assertEqual(CHECK.triggers(
+            path, parser, parser + 'other = "1"\n', ""), [
+                f"new dependency other in {path}"])
+        self.assertEqual(CHECK.triggers(
+            "tools/rust-functions/src/main.rs", "", "",
+            "+ CREATE TABLE items"), [
+                "storage schema tools/rust-functions/src/main.rs"])
+
     def test_unpushed_commits_name_their_adr(self):
         shas = subprocess.check_output(
             CHECK.GIT + ["rev-list", "--no-merges", CHECK.base() + "..HEAD"],

@@ -25,6 +25,9 @@ SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
                     r"|PRAGMA user_version|`\w+` (?:BLOB|INTEGER|TEXT|REAL)\b")
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
+# Approved development-only parser inputs do not change app architecture.
+TOOLING = {"tools/rust-functions/Cargo.toml": {
+    "proc-macro2", "quote", "serde_json", "syn"}}
 
 
 def dependencies(text):
@@ -47,10 +50,12 @@ def triggers(path, old, new, diff):
     name = PurePosixPath(path)
     found = []
     if name.name == "Cargo.toml":
-        if not old and "[package]" in new:
+        exempt = TOOLING.get(path, set())
+        if not old and "[package]" in new and path not in TOOLING:
             found.append(f"new crate {path}")
         found += [f"new dependency {dep} in {path}"
-                  for dep in sorted(dependencies(new) - dependencies(old))]
+                  for dep in sorted(
+                      dependencies(new) - dependencies(old) - exempt)]
     elif name.suffix in (".gradle", ".kts"):
         found += [f"new dependency {dep} in {path}" for dep in sorted(
             set(GRADLE.findall(new)) - set(GRADLE.findall(old)))]
