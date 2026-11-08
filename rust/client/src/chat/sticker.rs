@@ -72,6 +72,11 @@ impl Sticker {
     }
 
     /// Encodes a validated payload without the outer tag.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the timestamp, labels, or attachment metadata is invalid,
+    /// or the encoded payload exceeds its byte limit.
     pub fn encode(&self) -> Result<Vec<u8>, Error> {
         self.check()?;
         let bytes = self.encode_unchecked();
@@ -102,6 +107,12 @@ impl Sticker {
     }
 
     /// Bounds allocations and validates metadata/descriptor; never decodes image bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the payload is empty, oversized, or malformed; required
+    /// fields or fixed-size IDs are invalid; attachment context differs from the
+    /// message; or timestamp, label, or attachment validation fails.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.is_empty() || bytes.len() > MAX_PAYLOAD_BYTES {
             return Err(bad());
@@ -135,6 +146,11 @@ impl Sticker {
 
     /// Checks independently available bytes against this message and returns only validated RGBA8.
     /// A missing or mismatched download descriptor does not invalidate a saved-pack copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if metadata validation fails, the plaintext is empty or
+    /// oversized, its hash differs from the message, or WebP frame decoding fails.
     pub fn first_frame(
         &self,
         plaintext: &[u8],
@@ -150,6 +166,7 @@ impl Sticker {
     }
 
     /// A descriptor eligible for fetching; image hash and WebP validation still follow fetch.
+    #[must_use]
     pub fn download(&self) -> Option<&Attachment> {
         self.check().ok()?;
         self.attachment
