@@ -28,29 +28,39 @@ pub struct Pack {
 
 impl Pack {
     /// Original manifest digest, independent of protobuf encoding or TAR metadata.
+    #[must_use]
     pub fn id(&self) -> &[u8; 32] {
         &self.id
     }
     /// Display-safe pack name.
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
     /// Manifest order and validated labels/hashes.
+    #[must_use]
     pub fn stickers(&self) -> &[json::Sticker] {
         &self.stickers
     }
     /// Original compressed bytes for storage/upload; use the core decoder for display.
     /// OS decoders must not receive these bytes; future playback needs further validation.
+    #[must_use]
     pub fn sticker_bytes(&self, index: usize) -> Option<&[u8]> {
         self.record.files.get(index).map(Vec::as_slice)
     }
     /// Protobuf attachment plaintext; the sealed blob fits the 6 MiB limit.
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         self.record.encode_to_vec()
     }
 }
 
 /// Imports a bounded TAR without opening any archive path on disk.
+///
+/// # Errors
+///
+/// Returns an error if the TAR, manifest, or file set is invalid, the sealed
+/// pack exceeds its size limit, or a sticker's first frame cannot be decoded.
 pub fn import_tar(bytes: &[u8]) -> Result<Pack, String> {
     let files = sticker_tar::read(bytes)?;
     let manifest = files
@@ -67,6 +77,12 @@ pub fn import_tar(bytes: &[u8]) -> Result<Pack, String> {
 }
 
 /// Opens a pack for the requested manifest ID. Peer input never reaches the TAR reader.
+///
+/// # Errors
+///
+/// Returns an error if protobuf fields exceed their bounds or cannot be decoded,
+/// the manifest ID differs from `expected`, the manifest or file set is invalid,
+/// the sealed pack exceeds its size limit, or a sticker frame cannot be decoded.
 pub fn from_peer(bytes: &[u8], expected: &[u8; 32]) -> Result<Pack, String> {
     preflight(bytes)?;
     let record = Record::decode(bytes).map_err(|_| "invalid sticker pack protobuf")?;
