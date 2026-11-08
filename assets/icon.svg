@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Two connected nodes">
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="#392348"/>
-  <path d="M82 88 174 168" stroke="#FFB38A" stroke-width="25" stroke-linecap="round"/>
-  <circle cx="77" cy="84" r="31" fill="#FFF8F2"/>
-  <circle cx="179" cy="172" r="31" fill="#FFF8F2"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="228" fill="#12141F"/><path d="M512 148 892 424 747 872H277L132 424Z" fill="none" stroke="#FED1C9" stroke-width="6" stroke-linejoin="round"/><path d="M297 844H727L859 435 644 591 512 183Z" fill="#B381CE"/><path d="M297 844 644 591 512 183Z" fill="#3196FF"/><path d="M644 591 727 844 859 435Z" fill="#FF4F9A"/><g fill="#FED1C9"><circle cx="512" cy="148" r="22"/><circle cx="892" cy="424" r="22"/><circle cx="747" cy="872" r="22"/><circle cx="277" cy="872" r="22"/><circle cx="132" cy="424" r="22"/></g></svg>
