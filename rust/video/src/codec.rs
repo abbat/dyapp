@@ -16,6 +16,7 @@ pub enum CodecFormat {
 
 impl CodecFormat {
     /// Returns the codec's video MIME type.
+    #[must_use]
     pub fn mime_type(&self) -> &str {
         match self {
             Self::VP8 => "video/VP8",
@@ -26,11 +27,13 @@ impl CodecFormat {
     }
 
     /// Returns the static H.264 classification; does not probe hardware.
+    #[must_use]
     pub fn is_hardware_accelerated(&self) -> bool {
         matches!(self, Self::H264)
     }
 
     /// Returns the static non-H.264 classification; does not assess licensing.
+    #[must_use]
     pub fn is_open_source(&self) -> bool {
         !matches!(self, Self::H264)
     }
@@ -52,6 +55,7 @@ pub struct CodecInfo {
 
 impl CodecInfo {
     /// Returns VP8 at 90 kHz with payload type 96.
+    #[must_use]
     pub fn vp8() -> Self {
         Self {
             format: CodecFormat::VP8,
@@ -62,6 +66,7 @@ impl CodecInfo {
     }
 
     /// Returns VP9 at 90 kHz with payload type 98.
+    #[must_use]
     pub fn vp9() -> Self {
         Self {
             format: CodecFormat::VP9,
@@ -72,6 +77,7 @@ impl CodecInfo {
     }
 
     /// Returns H.264 at 90 kHz, payload 97, profile-level-id 42e01e.
+    #[must_use]
     pub fn h264() -> Self {
         Self {
             format: CodecFormat::H264,
@@ -82,6 +88,7 @@ impl CodecInfo {
     }
 
     /// Returns AV1 at 90 kHz with payload type 99.
+    #[must_use]
     pub fn av1() -> Self {
         Self {
             format: CodecFormat::AV1,
@@ -103,6 +110,7 @@ pub struct CodecNegotiation {
 
 impl CodecNegotiation {
     /// Starts with local preferences and no remote codecs or agreement.
+    #[must_use]
     pub fn new(local_codecs: Vec<CodecInfo>) -> Self {
         Self {
             local_codecs,
@@ -112,11 +120,13 @@ impl CodecNegotiation {
     }
 
     /// Returns VP8, H.264 and VP9 in preference order; excludes AV1.
+    #[must_use]
     pub fn default_codecs() -> Vec<CodecInfo> {
         vec![CodecInfo::vp8(), CodecInfo::h264(), CodecInfo::vp9()]
     }
 
     /// Starts with the default local preferences.
+    #[must_use]
     pub fn with_defaults() -> Self {
         Self::new(Self::default_codecs())
     }
@@ -140,21 +150,25 @@ impl CodecNegotiation {
     }
 
     /// Returns the selected local description, if formats overlap.
+    #[must_use]
     pub fn agreed_codec(&self) -> Option<&CodecInfo> {
         self.agreed_codec.as_ref()
     }
 
     /// Borrows local codec preferences.
+    #[must_use]
     pub fn local_codecs(&self) -> &[CodecInfo] {
         &self.local_codecs
     }
 
     /// Borrows the supplied remote descriptions.
+    #[must_use]
     pub fn remote_codecs(&self) -> &[CodecInfo] {
         &self.remote_codecs
     }
 
     /// Reports whether a format match exists.
+    #[must_use]
     pub fn has_agreed(&self) -> bool {
         self.agreed_codec.is_some()
     }

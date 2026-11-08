@@ -116,6 +116,10 @@ pub struct VideoSession {
 impl VideoSession {
     /// Creates an idle peer connection with one video transceiver and no track.
     ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] if peer connection or video transceiver
+    /// creation fails.
+    ///
     /// # Panics
     /// Panics if the system clock precedes the Unix epoch.
     pub async fn new() -> Result<Self> {
@@ -150,6 +154,7 @@ impl VideoSession {
     }
 
     /// Returns the generated session UUID string.
+    #[must_use]
     pub fn session_id(&self) -> &str {
         &self.id
     }
@@ -168,6 +173,11 @@ impl VideoSession {
     }
 
     /// Creates and applies a local SDP offer; requires the idle state.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] for a non-idle session or rejected local
+    /// description, and [`VideoError::OfferGenerationFailed`] if offer creation
+    /// fails or no local description is available.
     pub async fn create_offer(&self) -> Result<String> {
         if *self.state.read().await != SessionState::Idle {
             return Err(VideoError::InvalidState(
@@ -202,6 +212,11 @@ impl VideoSession {
 
     /// Applies a remote answer, then queued candidates; requires an offer marked sent.
     /// Candidate application can fail after the answer and state have been stored.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] for an unexpected state, invalid SDP
+    /// or rejected remote description, and [`VideoError::ICEError`] if a queued
+    /// candidate cannot be applied.
     pub async fn receive_answer(&self, sdp: String) -> Result<()> {
         if *self.state.read().await != SessionState::OfferSent {
             return Err(VideoError::InvalidState("Offer not sent yet".to_string()));
@@ -224,6 +239,10 @@ impl VideoSession {
 
     /// Callee side: applies a remote offer, then queued candidates; requires the idle state.
     /// Candidate application can fail after the offer and state have been stored.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] for a non-idle session, invalid SDP or
+    /// rejected remote description, and [`VideoError::ICEError`] for queued candidates.
     pub async fn set_remote_offer(&self, sdp: String) -> Result<()> {
         if *self.state.read().await != SessionState::Idle {
             return Err(VideoError::InvalidState(
@@ -247,6 +266,11 @@ impl VideoSession {
     }
 
     /// Creates and applies the local answer to the remote offer; requires `OfferReceived`.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] for an unexpected state or rejected
+    /// local description, and [`VideoError::AnswerGenerationFailed`] if answer
+    /// creation fails or no local description is available.
     pub async fn create_answer(&self) -> Result<String> {
         if *self.state.read().await != SessionState::OfferReceived {
             return Err(VideoError::InvalidState("Offer not received".to_string()));
@@ -284,6 +308,10 @@ impl VideoSession {
 
     /// Stores a remote candidate and hands it to the peer connection once the remote description
     /// is set; earlier candidates are applied by `receive_answer` or `set_remote_offer`.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::ICEError`] if the peer connection rejects the candidate.
+    /// A rejected candidate is not appended to the stored candidates.
     pub async fn add_ice_candidate(&self, candidate: ICECandidate) -> Result<()> {
         let mut candidates = self.ice_candidates.write().await;
         if self.remote_sdp.read().await.is_some() {
@@ -317,6 +345,9 @@ impl VideoSession {
     }
 
     /// Marks an existing local offer as delivered; performs no signaling.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] unless the local offer was created.
     pub async fn mark_offer_sent(&self) -> Result<()> {
         if *self.state.read().await != SessionState::OfferCreated {
             return Err(VideoError::InvalidState("Offer not created".to_string()));
@@ -326,6 +357,9 @@ impl VideoSession {
     }
 
     /// Closes the peer connection and marks closed only on success.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::InvalidState`] if closing the peer connection fails.
     pub async fn close(&self) -> Result<()> {
         self.peer_connection
             .close()
@@ -336,6 +370,7 @@ impl VideoSession {
     }
 
     /// Returns creation wall-clock milliseconds since the Unix epoch.
+    #[must_use]
     pub fn created_at(&self) -> i64 {
         self.created_at
     }

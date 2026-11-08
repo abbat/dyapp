@@ -25,6 +25,7 @@ pub const REPLAY_WINDOW: u64 = 64;
 const NONCE_BYTES: usize = 12;
 
 /// The KID of member `index` in MLS `epoch`, with context 0.
+#[must_use]
 pub fn kid(epoch: u64, index: u32) -> u64 {
     (u64::from(index) << EPOCH_BITS) | (epoch & ((1 << EPOCH_BITS) - 1))
 }
@@ -76,6 +77,9 @@ pub struct Sender {
 
 impl Sender {
     /// The sender of member `index` in MLS `epoch`, whose exporter gave `base_key`.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::EncryptionError`] if deriving the frame key fails.
     pub fn new(base_key: &[u8], epoch: u64, index: u32) -> Result<Self, VideoError> {
         let kid = kid(epoch, index);
         Ok(Self {
@@ -86,6 +90,10 @@ impl Sender {
     }
 
     /// The SFrame ciphertext of `frame`; `metadata` is authenticated but not sent.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::EncryptionError`] if the frame counter is exhausted
+    /// or encryption fails. An encryption attempt consumes its counter value.
     pub fn encrypt(&mut self, metadata: &[u8], frame: &[u8]) -> Result<Vec<u8>, VideoError> {
         let ctr = self.ctr;
         self.ctr = ctr
@@ -151,6 +159,10 @@ pub struct Receiver {
 impl Receiver {
     /// Adds the keys of members `indices` in MLS `epoch`, whose exporter gave `base_key`, and
     /// drops those of the older epoch with the same low-order bits.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::EncryptionError`] if deriving a member key fails.
+    /// The old epoch's keys have already been removed; earlier insertions remain.
     pub fn add_epoch(
         &mut self,
         base_key: &[u8],
@@ -169,6 +181,11 @@ impl Receiver {
 
     /// The frame inside `ciphertext`. Fails on an unknown KID, a changed byte, other `metadata`
     /// or a replayed counter.
+    ///
+    /// # Errors
+    /// Returns [`VideoError::EncryptionError`] for malformed headers, unknown keys,
+    /// replayed counters or authentication failure. Rejected frames do not advance
+    /// the replay window.
     pub fn decrypt(&mut self, metadata: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, VideoError> {
         let refuse = |why: &str| VideoError::EncryptionError(why.into());
         let (kid, ctr, length) = parse(ciphertext).ok_or_else(|| refuse("bad header"))?;

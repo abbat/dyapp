@@ -31,6 +31,7 @@ impl ICECandidate {
     ///
     /// # Panics
     /// Panics if the system clock precedes the Unix epoch.
+    #[must_use]
     pub fn new(candidate: String, sdp_mid: Option<String>, sdp_mline_index: Option<u16>) -> Self {
         Self {
             candidate,
@@ -44,22 +45,26 @@ impl ICECandidate {
     }
 
     /// Tests for the literal substring `relay`, without parsing ICE syntax.
+    #[must_use]
     pub fn is_relay(&self) -> bool {
         self.candidate.contains("relay")
     }
 
     /// Tests for the literal substring `host`, without parsing ICE syntax.
+    #[must_use]
     pub fn is_host(&self) -> bool {
         self.candidate.contains("host")
     }
 
     /// Tests for the literal substring `srflx`, without parsing ICE syntax.
+    #[must_use]
     pub fn is_srflx(&self) -> bool {
         self.candidate.contains("srflx")
     }
 
     /// Returns a local heuristic: host 300, srflx 200, relay 100, other 0.
     /// This is not the priority encoded in an ICE candidate.
+    #[must_use]
     pub fn priority(&self) -> u32 {
         if self.is_host() {
             300
@@ -82,6 +87,7 @@ pub struct ICEGathering {
 
 impl ICEGathering {
     /// Creates an empty list in the new state.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             state: ICEGatheringState::New,
@@ -105,16 +111,19 @@ impl ICEGathering {
     }
 
     /// Returns the manually assigned state.
+    #[must_use]
     pub fn state(&self) -> ICEGatheringState {
         self.state
     }
 
     /// Borrows all candidates in insertion order.
+    #[must_use]
     pub fn candidates(&self) -> &[ICECandidate] {
         &self.candidates
     }
 
     /// Returns the last candidate with the highest local heuristic priority.
+    #[must_use]
     pub fn best_candidate(&self) -> Option<&ICECandidate> {
         self.candidates.iter().max_by_key(|c| c.priority())
     }
