@@ -21,15 +21,7 @@
     state.list.replaceChildren(...rows.map(({ item, index }) => state.row(item, index)));
     state.previous.disabled = state.page === 0;
     state.next.disabled = state.page === pages - 1;
-    state.status.textContent =
-      state.items === null
-        ? text('failed')
-        : items.length
-          ? text('page')
-              .replace('{page}', state.page + 1)
-              .replace('{pages}', pages)
-              .replace('{count}', items.length)
-          : text('empty');
+    state.status.textContent = pageStatus(state, items.length, pages);
     for (const button of document.querySelectorAll(`[data-settings-open="${state.name}"]`)) {
       let count = button.querySelector('.settings-count');
       if (!count) {
@@ -39,6 +31,14 @@
       }
       count.textContent = state.items === null ? '?' : String(state.items.length);
     }
+  };
+  const pageStatus = (state, count, pages) => {
+    if (state.items === null) return text('failed');
+    if (!count) return text('empty');
+    return text('page')
+      .replace('{page}', state.page + 1)
+      .replace('{pages}', pages)
+      .replace('{count}', count);
   };
   const create = (name) => {
     const list = document.getElementById(ids[name]);
@@ -71,6 +71,12 @@
     list.closest('[data-settings-pane]').append(status, actions);
     const [previous, next, refresh] = buttons;
     const state = { name, list, search, status, previous, next, refresh, items: [], page: 0 };
+    bindControls(state);
+    states.set(name, state);
+    return state;
+  };
+  const bindControls = (state) => {
+    const { previous, next, refresh, search } = state;
     const move = (amount) => {
       state.page += amount;
       render(state);
@@ -98,8 +104,6 @@
           if (identityCurrent(generation)) refresh.disabled = false;
         });
     });
-    states.set(name, state);
-    return state;
   };
   window.renderSettingsRows = (name, items, row, find, reload) => {
     const state = states.get(name) || create(name);
