@@ -229,6 +229,10 @@ impl CurrentMessage {
 impl Store {
     /// Draft the original time for one text without changing durable state. The staged MLS
     /// body and the outbox commit must use this exact value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading or decoding the durable hybrid clock fails.
     pub fn draft_chat_text(&self, wall_ms: u64) -> Result<u64, Error> {
         Ok(HybridClock::resume(load_hlc(&self.db)?)
             .now_at(wall_ms)
@@ -237,6 +241,11 @@ impl Store {
 
     /// Draft a fresh operation ID and HLC without changing durable state. Encrypt this exact
     /// operation before committing it with `stage_chat_outbound`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the durable hybrid clock or generating random
+    /// operation bytes fails.
     pub fn draft_chat_operation(&self, wall_ms: u64) -> Result<([u8; 16], u64), Error> {
         let hlc = self.draft_chat_text(wall_ms)?;
         let mut operation = [0; 16];
@@ -246,6 +255,12 @@ impl Store {
 
     /// Stage an own chat body, current projection, sealed MLS state and exact writes together.
     /// The caller supplies its certified device key; the author must be this store's owner.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sender, body, message, or outbox state conflicts; the
+    /// conversation disallows the action; a timestamp is stale, out of range, or
+    /// too far ahead; or database access or transaction commit fails.
     pub fn stage_chat_outbound(
         &mut self,
         sealed_device: &[u8],
@@ -274,6 +289,13 @@ impl Store {
         clippy::too_many_arguments,
         reason = "the group, its Welcome and the text commit together"
     )]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if group membership cannot be read, the peer is this owner
+    /// or absent from the group, cataloging or staging Welcome writes fails, or
+    /// staging the chat body fails as described in [`Self::stage_chat_outbound`].
+    /// Database and transaction commit failures are also returned.
     pub fn stage_invite_text(
         &mut self,
         group: &Group,
@@ -460,6 +482,12 @@ impl Store {
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
     /// The inbox retains only a body digest, never a second copy of chat content. Returns false for
     /// a duplicate envelope and for a body the request rules drop, which is still ACKed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if authenticated metadata, body, inbox, or message state
+    /// conflicts; timestamps are out of range or too far ahead; or database access
+    /// or transaction commit fails.
     pub fn stage_chat_inbound(
         &mut self,
         sealed_device: &[u8],
@@ -578,6 +606,11 @@ impl Store {
 
     /// Mark all current incoming texts and attachments from one peer read across its MLS groups.
     /// This is device-local and does not send a peer-visible read receipt.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `peer_id` is empty or identifies this owner, or if a
+    /// database update or transaction commit fails.
     pub fn mark_chat_read(&mut self, peer_id: &str) -> Result<usize, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);
@@ -602,6 +635,11 @@ impl Store {
     /// Read a pair's current texts and deletion placeholders across all cataloged MLS groups.
     /// Legacy bodies have no sent time and appear first in local arrival order; timed bodies
     /// follow original HLC, author, logical ID and group ID order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `peer_id` is empty or identifies this owner, database
+    /// querying or decoding fails, or stored message metadata is inconsistent.
     pub fn current_chat_messages(&self, peer_id: &str) -> Result<Vec<ChatMessage>, Error> {
         if peer_id.is_empty() || peer_id == self.owner_peer_id {
             return Err(Error::InboxConflict);
@@ -678,6 +716,11 @@ impl Store {
     }
 
     /// Read one logical message from this profile's current projection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database querying or decoding fails or the stored text
+    /// and edit/deletion flags are inconsistent.
     pub fn chat_message(&self, key: &MessageKey) -> Result<Option<CurrentMessage>, Error> {
         let row: Option<(Option<Vec<u8>>, i64, i64)> = self
             .db
@@ -694,6 +737,12 @@ impl Store {
 
     /// Store first text once. A repeated body is harmless; a different body with the same
     /// logical key is a conflict. The caller has already verified the author through MLS.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group or author is empty, text exceeds its byte
+    /// limit, the logical key conflicts with stored content, resolving pending
+    /// operations fails, or database access or transaction commit fails.
     pub fn record_chat_text(&mut self, key: &MessageKey, text: &[u8]) -> Result<bool, Error> {
         let tx = self.db.transaction()?;
         let changed = Self::record_chat_text_tx(&tx, key, text, None, false, false)?;
