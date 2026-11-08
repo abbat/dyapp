@@ -9,7 +9,7 @@ const THUMBNAIL_SIDE: u32 = 96;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Pixels {
+struct ThumbnailFrame {
     width: u32,
     height: u32,
     pixels: Vec<u8>,
@@ -19,7 +19,7 @@ struct Pixels {
 pub(crate) struct StickerView {
     index: usize,
     emoji: String,
-    frame: Pixels,
+    frame: ThumbnailFrame,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,7 +43,7 @@ pub(crate) fn thumbnail(pack: &Pack, index: usize) -> Result<StickerView, String
     Ok(StickerView {
         index,
         emoji: entry.emoji.clone(),
-        frame: Pixels {
+        frame: ThumbnailFrame {
             width: small.width(),
             height: small.height(),
             pixels: small.into_raw(),

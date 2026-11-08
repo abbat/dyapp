@@ -28,7 +28,7 @@ fn item_matches(item: ChatItem, own: &str, group: &[u8], id: [u8; 16], delete: b
                 && message.key.group == group
                 && message.key.id == id
         }
-        _ => false,
+        ChatItem::Attachment(_) => false,
     }
 }
 

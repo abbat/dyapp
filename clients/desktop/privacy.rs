@@ -18,6 +18,10 @@ enum NoticeContentDef {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent privacy toggles map directly to persisted settings and IPC"
+)]
 pub struct Privacy {
     pub send_views: bool,
     pub send_read_receipts: bool,

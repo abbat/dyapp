@@ -434,7 +434,7 @@ mod tests {
             )
             .unwrap()
         };
-        let stale = verified(&Identity::generate());
+        let prior_profile = verified(&Identity::generate());
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
         let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
         let cache = Arc::clone(&state.0);
@@ -442,7 +442,7 @@ mod tests {
             let (epoch, _) = cache.lock().unwrap().snapshot();
             started_tx.send(()).unwrap();
             resume_rx.await.unwrap();
-            project_current(&cache, epoch, vec![stale])
+            project_current(&cache, epoch, vec![prior_profile])
         });
         started_rx.await.unwrap();
         let current = verified(&Identity::generate());

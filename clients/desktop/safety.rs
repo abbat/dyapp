@@ -330,13 +330,13 @@ mod tests {
     use std::sync::Mutex;
 
     fn grayscale(matrix: &QrMatrix) -> (usize, Vec<u8>) {
-        let size = usize::try_from(matrix.size).unwrap();
-        let side = (size + 8) * 6;
+        let modules_per_edge = usize::try_from(matrix.size).unwrap();
+        let side = (modules_per_edge + 8) * 6;
         let mut pixels = vec![255; side * side];
         for (index, black) in matrix.modules.iter().enumerate() {
             if *black {
-                let x = (index % size + 4) * 6;
-                let y = (index / size + 4) * 6;
+                let x = (index % modules_per_edge + 4) * 6;
+                let y = (index / modules_per_edge + 4) * 6;
                 for row in y..y + 6 {
                     pixels[row * side + x..row * side + x + 6].fill(0);
                 }

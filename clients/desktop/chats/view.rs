@@ -118,6 +118,10 @@ pub struct StickerView {
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent message flags retain the desktop IPC schema"
+)]
 pub struct MessageView {
     pub group_id: Vec<u8>,
     pub author: String,

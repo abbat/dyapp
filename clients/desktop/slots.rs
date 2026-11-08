@@ -106,7 +106,7 @@ fn is_uuid(name: &str) -> bool {
 fn new_uuid() -> String {
     // A throwaway key gives 16 OS-random bytes without another crate; it is never an identity.
     let bytes = Identity::generate().public_key();
-    let hex: String = bytes[..16].iter().map(|b| format!("{b:02x}")).collect();
+    let hex = crate::hex::encode(&bytes[..16]);
     format!(
         "{}-{}-{}-{}-{}",
         &hex[..8],

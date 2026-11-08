@@ -79,6 +79,12 @@ also use explicit checked conversion. Window geometry's pure
 math uses widened edges, saturating visible-area accumulation and clamped saved coordinates;
 quarter visibility and title-bar requirements stay unchanged. Boundary tests execute the actual
 geometry module with rustc in Docker, without linking Tauri.
+Native shape/naming rules also deny excessive boolean fields, repeated struct/field names,
+similar bindings, single-variant wildcards and allocating `format!`/collect loops. The two
+serialized message/privacy DTOs retain checked expectations for independent flags; their IPC
+fields stay unchanged. Private thumbnail frame naming is distinct from the `pixels` field.
+A shared encoder produces identical lowercase hex without per-byte formatting allocations;
+its test covers all byte values and leading zeros.
 All expectations are checked by `unfulfilled_lint_expectations`; the rest of pedantic remains planned.
 Cargo fmt does not traverse `include!`, so `tests/scripts/desktop-rust-format.py` explicitly
 checks every Rust source under `clients/desktop`, including unreferenced files. It fails if no
