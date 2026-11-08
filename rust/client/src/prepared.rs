@@ -84,7 +84,7 @@ pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelo
     prepare(mailbox, ciphertext, proto::EnvelopeClass::Message, None)
 }
 
-/// Like [`prepare_put`], but carrying `token`, a signed WriteToken for `mailbox`, and signed by
+/// Like [`prepare_put`], but carrying `token`, a signed `WriteToken` for `mailbox`, and signed by
 /// its `token_key` so the node bills it to the mailbox quota rather than the tokenless pool.
 ///
 /// # Errors

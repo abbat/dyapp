@@ -120,7 +120,9 @@ Cargo denies Clippy `allow_attributes` and `allow_attributes_without_reason` in 
 standalone crates. Handwritten Rust suppressions use `#[expect(..., reason = "...")]` so
 `unfulfilled_lint_expectations` reports them once the underlying lint stops firing;
 `-D warnings` makes that a quality failure. Generated code remains covered by narrowly
-reasoned expectations at its include or derive boundary.
+reasoned expectations at its include or derive boundary. The generated node-protocol module
+expects `doc_markdown`: prost's fixed enum documentation and copied schema comments do not
+follow Rustdoc code markup. Handwritten documentation keeps the lint enabled.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
 `complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable

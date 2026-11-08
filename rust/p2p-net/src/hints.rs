@@ -3,7 +3,7 @@
 
 use crate::proto::NodeInfo;
 
-/// Highest profile PoW a client computes for a node's hint; a higher hint skips the node.
+/// Highest profile `PoW` a client computes for a node's hint; a higher hint skips the node.
 pub const MAX_HINT_POW_BITS: u32 = 20;
 /// A profile size hint below this skips the node.
 pub const MIN_PROFILE_HINT_BYTES: u64 = 64 << 10;
@@ -14,7 +14,7 @@ pub const MIN_MEDIA_HINT_BYTES: u64 = 256 << 10;
 /// loosened by the node's hints.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Limits {
-    /// Profile PoW to compute, in leading zero bits.
+    /// Profile `PoW` to compute, in leading zero bits.
     pub pow_bits: u32,
     /// Largest profile record to send.
     pub profile_bytes: u64,
@@ -23,9 +23,9 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// `self` are the client's compiled floors. A hint may raise PoW (up to
+    /// `self` are the client's compiled floors. A hint may raise `PoW` (up to
     /// [`MAX_HINT_POW_BITS`]) and lower sizes; zero means absent. `None` skips the node: it asks
-    /// for more PoW than a client computes or for sizes no current client fits in.
+    /// for more `PoW` than a client computes or for sizes no current client fits in.
     #[must_use]
     pub fn with_hints(self, info: &NodeInfo) -> Option<Self> {
         let size = |hint: u64, own: u64, min: u64| match hint {

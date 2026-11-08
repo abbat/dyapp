@@ -56,7 +56,7 @@ fn publish_failed(failure: publish::Failure) -> CoreError {
     }
 }
 
-/// KeyPackages each publish adds, so peers can invite this device.
+/// `KeyPackages` each publish adds, so peers can invite this device.
 const KEY_PACKAGES: usize = 4;
 
 /// A new MLS state key encrypted by `store`, for the app to persist once per identity before
@@ -146,7 +146,7 @@ impl ChatSession {
     }
 
     /// Publish the solved draft listing this device, check the signed readback, then publish
-    /// KeyPackages so peers can invite the device. Errors as in `ProfilePublisher::publish`.
+    /// `KeyPackages` so peers can invite the device. Errors as in `ProfilePublisher::publish`.
     pub fn publish_profile(&self, attested: bool) -> Result<ProfilePublished, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.

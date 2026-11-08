@@ -1,4 +1,4 @@
-//! Canonical places: GeoNames cities1000 IDs per country (CC BY 4.0, see NOTICE). A profile
+//! Canonical places: `GeoNames` cities1000 IDs per country (CC BY 4.0, see NOTICE). A profile
 //! place outside this set is indexed under its country only.
 //!
 //! The data is one block per country, sorted: the country code (2 bytes), the body length
@@ -7,7 +7,7 @@
 
 static PLACES: &[u8] = include_bytes!("../data/places.bin");
 
-/// `place` when `(country, place)` is a known GeoNames ID, else `""` (the country bucket).
+/// `place` when `(country, place)` is a known `GeoNames` ID, else `""` (the country bucket).
 /// Only the canonical decimal text counts: `"+2950159"` and `"02950159"` do not.
 pub fn canonical<'a>(country: &str, place: &'a str) -> &'a str {
     let known = place

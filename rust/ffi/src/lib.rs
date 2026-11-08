@@ -427,7 +427,7 @@ pub fn assess_birth_parts(
 /// A profile place named in the UI language.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct Place {
-    /// GeoNames ID, the profile `place` value in decimal.
+    /// `GeoNames` ID, the profile `place` value in decimal.
     pub id: u32,
     /// Place name.
     pub name: String,

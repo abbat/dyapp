@@ -17,7 +17,7 @@ use prost::Message as _;
 
 /// The only suite accepted, `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (0x0001).
 pub const CIPHERSUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
-/// How long a new KeyPackage stays valid.
+/// How long a new `KeyPackage` stays valid.
 pub const KEY_PACKAGE_LIFETIME_SECONDS: u64 = 30 * 86_400;
 // openmls starts a lifetime an hour in the past for clock skew.
 const LIFETIME_MARGIN_SECONDS: u64 = 3_600;
@@ -28,7 +28,7 @@ const STATE_AAD: &[u8] = b"dyapp mls device state v1";
 /// Why an MLS operation or an incoming MLS message was rejected.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// The KeyPackage or Welcome uses a suite other than [`CIPHERSUITE`].
+    /// The `KeyPackage` or Welcome uses a suite other than [`CIPHERSUITE`].
     #[error("unsupported MLS ciphersuite")]
     Ciphersuite,
     /// A member's credential is not a device certificate for its MLS signature key.
@@ -41,7 +41,7 @@ pub enum Error {
     /// The owner with this Peer ID has no profile among those given: fetch it and retry.
     #[error("owner's profile is not held")]
     UnknownOwner(String),
-    /// The KeyPackage is valid for longer than [`KEY_PACKAGE_LIFETIME_SECONDS`].
+    /// The `KeyPackage` is valid for longer than [`KEY_PACKAGE_LIFETIME_SECONDS`].
     #[error("KeyPackage lifetime is too long")]
     Lifetime,
     /// A sealed state is damaged or was sealed under another key.
@@ -144,7 +144,7 @@ pub fn epoch_of(message: &[u8]) -> Result<Option<(u64, bool)>, Error> {
         .map(|message| (message.epoch().as_u64(), message.is_handshake_message())))
 }
 
-/// One device's MLS signature key and the private keys of its KeyPackages and groups, kept in
+/// One device's MLS signature key and the private keys of its `KeyPackages` and groups, kept in
 /// memory; [`Device::seal`] and [`Device::open`] carry them across restarts.
 pub struct Device {
     provider: OpenMlsRustCrypto,
@@ -192,9 +192,9 @@ impl Device {
         }
     }
 
-    /// The whole MLS state (signature key, unused KeyPackages, every group) encrypted with
+    /// The whole MLS state (signature key, unused `KeyPackages`, every group) encrypted with
     /// ChaCha20-Poly1305 under `key`, a random secret the app keeps wrapped by the platform
-    /// KeyStore. Persist it after every call that changes state and before sending what that
+    /// `KeyStore`. Persist it after every call that changes state and before sending what that
     /// call returned: an older state would reuse its message keys.
     ///
     /// # Errors
@@ -299,11 +299,11 @@ impl Device {
         device_key(&self.certificate)
     }
 
-    /// A TLS-serialized KeyPackage valid for [`KEY_PACKAGE_LIFETIME_SECONDS`]. A single-use one
+    /// A TLS-serialized `KeyPackage` valid for [`KEY_PACKAGE_LIFETIME_SECONDS`]. A single-use one
     /// is gone after its first Welcome; a last-resort one stays.
     ///
     /// # Errors
-    /// Returns [`Error::Mls`] if KeyPackage construction, storage or TLS serialization fails.
+    /// Returns [`Error::Mls`] if `KeyPackage` construction, storage or TLS serialization fails.
     pub fn key_package(&self, last_resort: bool) -> Result<Vec<u8>, Error> {
         self.key_package_for(Lifetime::new(KEY_PACKAGE_LIFETIME_SECONDS), last_resort)
     }
@@ -332,12 +332,12 @@ impl Device {
     }
 
     /// Starts a group with the devices behind `key_packages`; returns it with the Welcome to
-    /// send them. Each KeyPackage must be valid, current, at most 30 days long, use
+    /// send them. Each `KeyPackage` must be valid, current, at most 30 days long, use
     /// [`CIPHERSUITE`] and carry a credential [`verify_member`] accepts with `profiles`.
     ///
     /// # Errors
     /// Returns credential, owner, ciphersuite or lifetime errors for rejected
-    /// KeyPackages. Returns [`Error::Mls`] for package decoding/validation, group
+    /// `KeyPackages`. Returns [`Error::Mls`] for package decoding/validation, group
     /// creation, member addition, commit merge or Welcome serialization failures.
     pub fn create_group(
         &self,
@@ -390,8 +390,8 @@ impl Device {
     }
 
     /// Joins the group a Welcome invites this device to. The Welcome must use [`CIPHERSUITE`],
-    /// target a KeyPackage of this device that is still unused (or last-resort), and list only
-    /// members [`verify_member`] accepts with `profiles`. On [`Error::UnknownOwner`] the KeyPackage
+    /// target a `KeyPackage` of this device that is still unused (or last-resort), and list only
+    /// members [`verify_member`] accepts with `profiles`. On [`Error::UnknownOwner`] the `KeyPackage`
     /// is kept, so the Welcome joins once the owner's profile is given.
     ///
     /// # Errors
@@ -592,7 +592,7 @@ impl Group {
     /// commit for the members and the Welcome for the new devices.
     ///
     /// # Errors
-    /// Returns KeyPackage validation errors as in [`Device::create_group`], or
+    /// Returns `KeyPackage` validation errors as in [`Device::create_group`], or
     /// [`Error::Mls`] for member addition, commit merge or serialization failures.
     pub fn add(
         &mut self,

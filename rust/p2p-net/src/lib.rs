@@ -1,4 +1,4 @@
-//! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, AutoNAT and the node
+//! libp2p node: QUIC and TCP+Noise+Yamux over DNS, Kademlia, identify, `AutoNAT` and the node
 //! protocol (`/dyapp/node`, `/dyapp/profile`, `/dyapp/mailbox`, `/dyapp/mailbox-push`,
 //! `/dyapp/media`) over request-response with protobuf messages. A search node adds
 //! `/dyapp/search-kad`, gossipsub, `/dyapp/search`, `/dyapp/inventory` and `/dyapp/digest`.
@@ -60,6 +60,11 @@ pub mod proto {
         clippy::must_use_candidate,
         reason = "prost emits enum name conversion methods without must_use attributes"
     )]
+    #![warn(clippy::doc_markdown)]
+    #![expect(
+        clippy::doc_markdown,
+        reason = "prost emits fixed enum docs and copies schema comments without Rustdoc markup"
+    )]
     include!(concat!(env!("OUT_DIR"), "/dyapp.node.rs"));
 }
 
@@ -73,7 +78,7 @@ pub const AGENT_VERSION: &str = "dyapp";
 pub const NODE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/node");
 /// Profile publication and lookup.
 pub const PROFILE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/profile");
-/// Device KeyPackage publication and allocation.
+/// Device `KeyPackage` publication and allocation.
 pub const KEY_PACKAGE_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/keypackage");
 /// Mailbox store, fetch and ack.
 pub const MAILBOX_PROTOCOL: StreamProtocol = StreamProtocol::new("/dyapp/mailbox");
@@ -329,7 +334,7 @@ where
 
 /// Kademlia role of the node.
 pub enum Mode {
-    /// DHT server once AutoNAT or the operator confirms an external address.
+    /// DHT server once `AutoNAT` or the operator confirms an external address.
     Auto,
     /// Never answers DHT queries: mobile and other short-lived clients.
     Client,
@@ -360,7 +365,7 @@ pub struct SwarmOptions {
     pub dial_filter: DialFilter,
     /// Serve the circuit relay v2 hop protocol with these limits; `None` serves no circuits.
     pub relay: Option<relay::Config>,
-    /// AutoNAT probes; tests shorten the timers and allow loopback addresses.
+    /// `AutoNAT` probes; tests shorten the timers and allow loopback addresses.
     pub autonat: autonat::Config,
 }
 

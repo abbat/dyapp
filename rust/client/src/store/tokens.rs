@@ -1,5 +1,5 @@
 //! Mailbox write tokens. A contact keeps one generated token key per owner mailbox and UTC day,
-//! sealed under the app's 32-byte sealing key, with the WriteToken the owner signed for it. The
+//! sealed under the app's 32-byte sealing key, with the `WriteToken` the owner signed for it. The
 //! owner keeps the keys it signed per contact so it can revoke them when it blocks that contact.
 
 use super::{Error, Store};
@@ -93,7 +93,7 @@ impl Store {
         Ok(key.public_key())
     }
 
-    /// Record the owner's signed WriteToken for a held key; the caller has verified it.
+    /// Record the owner's signed `WriteToken` for a held key; the caller has verified it.
     ///
     /// # Errors
     ///
@@ -116,7 +116,7 @@ impl Store {
         }
     }
 
-    /// The token key and signed WriteToken that let this profile write to `mailbox` on `epoch`.
+    /// The token key and signed `WriteToken` that let this profile write to `mailbox` on `epoch`.
     ///
     /// # Errors
     ///
@@ -145,7 +145,7 @@ impl Store {
         Ok(Some((key, token)))
     }
 
-    /// The days from `from` on with a WriteToken for `mailbox`, ascending.
+    /// The days from `from` on with a `WriteToken` for `mailbox`, ascending.
     ///
     /// # Errors
     ///

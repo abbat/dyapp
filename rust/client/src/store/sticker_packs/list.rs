@@ -22,13 +22,13 @@ pub struct Entry {
 }
 /// A bounded view of a collection; concurrent saves can appear on later refresh.
 pub struct Page {
-    /// Up to 32 entries in ascending PackID order.
+    /// Up to 32 entries in ascending `PackID` order.
     pub entries: Vec<Entry>,
     /// Exclusive cursor for the next page, if more filenames were found.
     pub next: Option<[u8; 32]>,
     /// All regular file bytes, including interrupted writes.
     pub used_bytes: u64,
-    /// Files without a canonical PackID name, including interrupted writes.
+    /// Files without a canonical `PackID` name, including interrupted writes.
     pub unrecognized_files: u64,
 }
 fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {

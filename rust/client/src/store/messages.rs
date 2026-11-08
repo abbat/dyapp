@@ -481,7 +481,7 @@ impl Store {
 
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
     /// The inbox retains only a body digest, never a second copy of chat content. Returns false for
-    /// a duplicate envelope and for a body the request rules drop, which is still ACKed.
+    /// a duplicate envelope and for a body the request rules drop, which is still `ACKed`.
     ///
     /// # Errors
     ///

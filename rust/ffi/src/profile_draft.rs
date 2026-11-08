@@ -35,7 +35,7 @@ pub struct PublicProfileDraft {
     pub birth_day: Option<u32>,
     /// ISO 3166-1 alpha-2 code from `place_countries`, empty when unset.
     pub country: String,
-    /// Decimal GeoNames ID of a place in `country`, empty when unset.
+    /// Decimal `GeoNames` ID of a place in `country`, empty when unset.
     pub place: String,
     /// Optional public name, empty when unset; saving trims it.
     /// Last, so positional constructors keep working.

@@ -181,7 +181,7 @@ impl Replicas {
         self.profile_inventories.remove(&request_id);
     }
 
-    /// A peer's KeyPackage replica reply confirms a publication.
+    /// A peer's `KeyPackage` replica reply confirms a publication.
     pub(super) fn keypackage_response(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -200,7 +200,7 @@ impl Replicas {
         }
     }
 
-    /// A peer's KeyPackage request failed.
+    /// A peer's `KeyPackage` request failed.
     pub(super) fn keypackage_failure(
         &mut self,
         peer: PeerId,

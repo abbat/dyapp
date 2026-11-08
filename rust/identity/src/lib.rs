@@ -52,7 +52,7 @@ signature_domains! {
     DeviceCertificate => b"dyapp/device-certificate/v1\0",
     /// The identity key a device accepts as its owner (the payload), signed by its device key.
     DeviceOwner => b"dyapp/device-owner/v1\0",
-    /// A device's published MLS KeyPackage.
+    /// A device's published MLS `KeyPackage`.
     KeyPackage => b"dyapp/keypackage/v1\0",
     /// A mailbox envelope, signed by the sender's device key.
     Envelope => b"dyapp/envelope/v1\0",

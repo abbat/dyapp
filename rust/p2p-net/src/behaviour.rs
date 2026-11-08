@@ -44,7 +44,7 @@ pub struct Behaviour {
     pub node: NodeBehaviour,
     /// Profile publication and lookup.
     pub profile: ProfileBehaviour,
-    /// Device KeyPackage publication and allocation.
+    /// Device `KeyPackage` publication and allocation.
     pub key_package: KeyPackageBehaviour,
     /// Mailbox store, fetch and ack.
     pub mailbox: MailboxBehaviour,

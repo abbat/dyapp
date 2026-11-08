@@ -11,7 +11,7 @@ use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::{EnvelopeClass, Status};
 use dyapp_profile::VerifiedProfile;
 
-/// A last-resort KeyPackage is replaced this long after its publication, ahead of its 30-day
+/// A last-resort `KeyPackage` is replaced this long after its publication, ahead of its 30-day
 /// expiry, so a person who opens the app monthly never leaves an expired one behind.
 const LAST_RESORT_ROTATE_SECONDS: u64 = 20 * 86_400;
 
@@ -74,7 +74,7 @@ pub struct Session {
 }
 
 impl Session {
-    /// Make `count` single-use KeyPackages, commit the snapshot holding their private keys, then
+    /// Make `count` single-use `KeyPackages`, commit the snapshot holding their private keys, then
     /// publish them through `node` under the mailbox key `device_key`. Publish after the profile
     /// that lists this device; a failed publish leaves only unused keys sealed. A node that holds
     /// its full stock already replies `Full`, which ends the batch as done.
@@ -107,7 +107,7 @@ impl Session {
         Ok(())
     }
 
-    /// Keep this device's one reusable KeyPackage on `node`, so invites work once the single-use
+    /// Keep this device's one reusable `KeyPackage` on `node`, so invites work once the single-use
     /// stock runs out. Mints a revision when none exists or `now` reached its rotation: the
     /// private key is sealed and the exact signed record saved before the network sees it. An
     /// unconfirmed record is repeated as it is. Call after publishing the profile and from then
@@ -402,10 +402,10 @@ impl Session {
     }
 
     /// Send a text to the other owner in `profiles` as [`Session::stage_text_to`] stages it,
-    /// fetching the KeyPackages only when the pair has no group yet.
+    /// fetching the `KeyPackages` only when the pair has no group yet.
     ///
     /// # Errors
-    /// Returns profile selection, KeyPackage fetch, staging or durable delivery
+    /// Returns profile selection, `KeyPackage` fetch, staging or durable delivery
     /// errors; committed writes can remain queued for retry.
     pub async fn send_text_to(
         &mut self,
@@ -429,7 +429,7 @@ impl Session {
     /// and the like are staged before either is sent. Without a group nothing else is sent.
     ///
     /// # Errors
-    /// Returns profile selection, blocked-peer, KeyPackage, staging or delivery
+    /// Returns profile selection, blocked-peer, `KeyPackage`, staging or delivery
     /// errors. Committed invitation and signal writes remain durable.
     pub async fn interact_with(
         &mut self,
@@ -520,7 +520,7 @@ impl Session {
         }
     }
 
-    /// The peer's verified KeyPackages for a new pair group, from the first node that has them.
+    /// The peer's verified `KeyPackages` for a new pair group, from the first node that has them.
     async fn key_packages(
         &mut self,
         nodes: &mut [Node],

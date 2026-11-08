@@ -104,7 +104,7 @@ impl MlsDevice {
         self.device.certificate().encode_to_vec()
     }
 
-    /// A KeyPackage to publish; a single-use one serves one Welcome.
+    /// A `KeyPackage` to publish; a single-use one serves one Welcome.
     pub fn key_package(&self, last_resort: bool) -> Result<Vec<u8>, CoreError> {
         Ok(self.device.key_package(last_resort)?)
     }

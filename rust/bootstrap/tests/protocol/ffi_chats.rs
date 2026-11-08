@@ -35,7 +35,7 @@ fn seed_row(address: &Multiaddr) -> String {
     format!("127.0.0.1:{}/{}", port.unwrap(), peer.unwrap())
 }
 
-/// An identity folder on the node's network whose device is published with KeyPackages.
+/// An identity folder on the node's network whose device is published with `KeyPackages`.
 fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
     let dir = protocol_build_path("ffi-chats");
     std::fs::create_dir_all(&dir).unwrap();

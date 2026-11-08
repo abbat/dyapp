@@ -1,4 +1,4 @@
-//! AutoNAT that reserves a circuit relay v2 slot while it reports the node private: it remembers
+//! `AutoNAT` that reserves a circuit relay v2 slot while it reports the node private: it remembers
 //! dialled peers whose identify lists the hop protocol and listens on a circuit through one of
 //! them, then through another when that listener closes. A dial to a peer also tries a circuit
 //! through each of them; smart dial starts circuits after the direct addresses.

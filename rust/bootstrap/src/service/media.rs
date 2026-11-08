@@ -556,7 +556,7 @@ fn media_clock_invalid(server_time: u64) -> MediaResponse {
     }
 }
 
-/// Converts prepare_media's upload rejection without changing its Status interface.
+/// Converts `prepare_media`'s upload rejection without changing its Status interface.
 pub(crate) fn media_upload_status(status: Status) -> MediaResponse {
     if status == Status::TooLarge {
         media_too_large(MAX_MEDIA_BYTES)

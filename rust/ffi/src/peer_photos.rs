@@ -1,4 +1,4 @@
-//! Other people's profile photos, the same rules as clients/desktop/peer_photos.rs: thumbnails and
+//! Other people's profile photos, the same rules as `clients/desktop/peer_photos.rs`: thumbnails and
 //! full images from the active network's nodes, held in memory by the identity's
 //! [`ProfileSearcher`] only, so nothing on disk says whose profile the user looked at. A blob that
 //! is missing or refused is not remembered, so the next view asks again.

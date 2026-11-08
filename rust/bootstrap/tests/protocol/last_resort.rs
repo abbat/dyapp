@@ -1,4 +1,4 @@
-//! The last-resort KeyPackage outlives the single-use stock, a lost reply, a rotation and a
+//! The last-resort `KeyPackage` outlives the single-use stock, a lost reply, a rotation and a
 //! restart of the invited device.
 use super::chat::{store_path, Person};
 use super::*;

@@ -12,7 +12,7 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 use std::collections::HashMap;
 
-/// The SFrame cipher suite, `AES_128_GCM_SHA256_128`.
+/// The `SFrame` cipher suite, `AES_128_GCM_SHA256_128`.
 pub const CIPHER_SUITE: u16 = 0x0004;
 /// The MLS exporter label of the base key; the exporter context is empty.
 pub const EXPORTER_LABEL: &str = "SFrame 1.0 Base Key";
@@ -89,7 +89,7 @@ impl Sender {
         })
     }
 
-    /// The SFrame ciphertext of `frame`; `metadata` is authenticated but not sent.
+    /// The `SFrame` ciphertext of `frame`; `metadata` is authenticated but not sent.
     ///
     /// # Errors
     /// Returns [`VideoError::EncryptionError`] if the frame counter is exhausted

@@ -1,4 +1,4 @@
-//! Place names for the profile place picker: GeoNames cities15000 with English and Russian names
+//! Place names for the profile place picker: `GeoNames` cities15000 with English and Russian names
 //! (CC BY 4.0, see NOTICE), a subset of the node's canonical places. Profile field `place` holds
 //! the decimal [`Place::id`].
 //!
@@ -12,11 +12,11 @@ static DATA: &[u8] = include_bytes!("../data/places.z");
 /// One place in the UI language.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Place {
-    /// GeoNames ID.
+    /// `GeoNames` ID.
     pub id: u32,
     /// Place name.
     pub name: String,
-    /// First-level region (state, oblast), empty when GeoNames has none.
+    /// First-level region (state, oblast), empty when `GeoNames` has none.
     pub region: String,
 }
 

@@ -17,7 +17,7 @@ pub const ADD_TURN_SECONDS: u64 = 3600;
 
 impl Session {
     /// Finishes the link whose state [`Store::set_link_pending`] kept: takes the state and the
-    /// newest profile, lists this device, relists and publishes its KeyPackages. Returns whether a
+    /// newest profile, lists this device, relists and publishes its `KeyPackages`. Returns whether a
     /// link was pending. Every step may repeat, so after any failure the caller retries, and a
     /// publish that lost a race or met the profile limit is a normal reason to. The row goes last.
     ///
@@ -288,7 +288,7 @@ impl Session {
 
     /// Add the devices the owner's newest profile `own` lists to every group here that lacks them
     /// and whose turn has come; returns how many groups were committed to. A device with no
-    /// KeyPackage yet joins on a later call. Run it after the mailbox, so a commit from an earlier
+    /// `KeyPackage` yet joins on a later call. Run it after the mailbox, so a commit from an earlier
     /// turn is seen first.
     ///
     /// # Errors

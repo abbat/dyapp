@@ -253,7 +253,7 @@ pub fn seed(address: &str) -> anyhow::Result<[Multiaddr; 2]> {
 pub struct NodeConfig {
     /// `host:port` addresses, each served over TCP and QUIC; see [`transports`].
     pub listen: Vec<String>,
-    /// `host:port` addresses announced to peers when the operator knows them; AutoNAT confirms
+    /// `host:port` addresses announced to peers when the operator knows them; `AutoNAT` confirms
     /// others.
     pub external: Vec<String>,
     /// `host:port[/peer-ID]` nodes dialed over TCP and QUIC; see [`seed`].

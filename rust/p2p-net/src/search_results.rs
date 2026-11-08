@@ -253,7 +253,7 @@ pub struct Filter {
     pub wants_more_kids: Option<bool>,
     /// ISO 3166-1 alpha-2 code, or empty for any country.
     pub country: String,
-    /// GeoNames IDs as profiles state them; needs `country`.
+    /// `GeoNames` IDs as profiles state them; needs `country`.
     pub places: Vec<String>,
     /// Inclusive; matches a profile whose own income range overlaps it. Needs `country`.
     pub income: Option<(u64, u64)>,

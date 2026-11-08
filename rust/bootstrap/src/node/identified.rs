@@ -11,7 +11,7 @@ use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 /// The identify version of a peer of another network is logged up to this many bytes.
 const MAX_LOGGED_VERSION: usize = 80;
 
-/// Disconnects a peer of another network (ADR 0017): identify and AutoNAT are the only protocols
+/// Disconnects a peer of another network (ADR 0017): identify and `AutoNAT` are the only protocols
 /// networks share. `dialed` is the address when this node dialled it, a seed or anchor of the
 /// wrong network.
 pub(super) fn drop_foreign(
@@ -124,7 +124,7 @@ impl Admission {
         }
     }
 
-    /// Store only admissible provider records. FilterBoth leaves all other remote records out.
+    /// Store only admissible provider records. `FilterBoth` leaves all other remote records out.
     pub(super) fn add_provider(&self, swarm: &mut Swarm<Behaviour>, record: kad::ProviderRecord) {
         let bits = dyapp_p2p_net::id_pow_bits();
         if self.provider_allowed(&swarm.behaviour().endpoints, &record, bits) {

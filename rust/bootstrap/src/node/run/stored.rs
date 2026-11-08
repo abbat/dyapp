@@ -257,7 +257,7 @@ pub(super) fn reply(
     answered
 }
 
-/// The hourly expiry of messages, KeyPackages, inactive profiles, attachments, media keeps, idle
+/// The hourly expiry of messages, `KeyPackages`, inactive profiles, attachments, media keeps, idle
 /// assembled media and search entries.
 pub(super) fn expire(service: &Service) {
     let now = chrono::Utc::now().timestamp();

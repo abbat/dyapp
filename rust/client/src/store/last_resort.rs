@@ -1,4 +1,4 @@
-//! This device's one last-resort KeyPackage publication. The exact signed record stays here so a
+//! This device's one last-resort `KeyPackage` publication. The exact signed record stays here so a
 //! lost reply or a restart repeats that record instead of minting another revision.
 
 use super::{Error, Store};
@@ -18,7 +18,7 @@ pub struct LastResort {
     pub rotate_at: u64,
     /// A node accepted `record`; until then every attempt repeats it.
     pub published: bool,
-    /// The signed KeyPackage record exactly as sent.
+    /// The signed `KeyPackage` record exactly as sent.
     pub record: SignedRecord,
 }
 

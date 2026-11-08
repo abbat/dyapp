@@ -14,7 +14,7 @@ fn cond(field: u32, op: Op, ints: Vec<i64>, strings: Vec<&str>) -> Condition {
 
 /// 600 profiles: places p0..p5 in "DE", ages 20..79 on 2026-10-25, interest "chess" on every 3rd, gender
 /// "f" on every 2nd, education level `i % 7 * 10`, one photo on every 4th.
-/// GeoNames IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
+/// `GeoNames` IDs of Berlin, Hamburg, Munich, Cologne, Frankfurt and Stuttgart.
 const SIX: [&str; 6] = [
     "2950159", "2911298", "2867714", "2886242", "2925533", "2825297",
 ];

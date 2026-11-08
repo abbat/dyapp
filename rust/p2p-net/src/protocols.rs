@@ -20,7 +20,7 @@ pub struct Protocols {
     pub node: StreamProtocol,
     /// Profile publication and lookup.
     pub profile: StreamProtocol,
-    /// Device KeyPackage publication and allocation.
+    /// Device `KeyPackage` publication and allocation.
     pub key_package: StreamProtocol,
     /// Mailbox store, fetch and ack.
     pub mailbox: StreamProtocol,

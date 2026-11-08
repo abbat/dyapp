@@ -272,7 +272,7 @@ pub struct SearchIndex {
     newcomer_evictions_taken: AtomicU64,
 }
 
-/// i64 for SQLite; `put` refuses versions above i64::MAX as stale.
+/// i64 for SQLite; `put` refuses versions above `i64::MAX` as stale.
 fn sql(v: u64) -> Option<i64> {
     i64::try_from(v).ok()
 }

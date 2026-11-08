@@ -22,7 +22,7 @@ fn fetch_error(error: Error) -> CoreError {
 
 #[uniffi::export]
 impl ChatSession {
-    /// Fetches a stored photo after an explicit tap (or a positive chat_photo_auto check).
+    /// Fetches a stored photo after an explicit tap (or a positive `chat_photo_auto` check).
     /// Errors include notFound, corrupted and notConnected; never releases the sender's blob.
     /// Blocks off the UI thread; group, author and logical ID must all match the stored message.
     pub fn chat_photo_original(

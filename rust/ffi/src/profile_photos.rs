@@ -1,5 +1,5 @@
 //! The profile editor's own photos in the unpublished draft, the same commands as
-//! clients/desktop/profile_photos.rs; see docs/design/profile-photos.md. The app re-encodes a
+//! `clients/desktop/profile_photos.rs`; see docs/design/profile-photos.md. The app re-encodes a
 //! picked file, so a full image arrives as a bare JPEG of at most 2048 px with its 320 px
 //! thumbnail; the frame headers are checked here, the bytes and count in the client store.
 

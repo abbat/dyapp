@@ -1,4 +1,4 @@
-//! Durable KeyPackage stock and local consume-before-reply allocation.
+//! Durable `KeyPackage` stock and local consume-before-reply allocation.
 
 use super::{lock, storage_error, BootstrapStore};
 use crate::error::Result;

@@ -1,4 +1,4 @@
-//! Admission and lookup for device KeyPackages.
+//! Admission and lookup for device `KeyPackages`.
 
 use super::{hex, Peer, Service, SHED_PROFILES};
 use crate::config::Role;
@@ -41,7 +41,7 @@ impl Service {
         self.publish_keypackage(record, true)
     }
 
-    /// Handles KeyPackage publication, replication and allocation.
+    /// Handles `KeyPackage` publication, replication and allocation.
     pub fn keypackage(
         &self,
         peer: &Peer,

@@ -141,9 +141,9 @@ pub enum Body {
     },
     /// A like, unlike or view, tag 2.
     Interaction(Interaction),
-    /// A contact device asks the owner for WriteTokens, tag 3.
+    /// A contact device asks the owner for `WriteTokens`, tag 3.
     TokenRequest(TokenRequest),
-    /// The owner's signed WriteTokens, tag 4.
+    /// The owner's signed `WriteTokens`, tag 4.
     TokenAnswer(TokenAnswer),
     /// A device received writes in its mailbox, tag 5.
     Receipt(Receipt),
@@ -511,7 +511,7 @@ impl std::fmt::Debug for Event {
     }
 }
 
-/// Publishes `count` single-use KeyPackages of `device` (its MLS state) under the device mailbox
+/// Publishes `count` single-use `KeyPackages` of `device` (its MLS state) under the device mailbox
 /// key `device_key`, owned by `owner` (hex Peer ID). Seal the state before calling: the private
 /// keys are in it.
 ///
@@ -535,7 +535,7 @@ pub async fn publish_key_packages(
 
 /// Starts a group with every device in `profiles` except `own_mailbox`, other devices of this
 /// device's owner included; returns it with the Welcome for each. Fails if any device has no
-/// KeyPackage. `profiles` are the newest ones held, this device's owner's among them.
+/// `KeyPackage`. `profiles` are the newest ones held, this device's owner's among them.
 ///
 /// # Errors
 /// Returns errors from [`key_packages`] or MLS group creation in [`create`].
@@ -549,7 +549,7 @@ pub async fn invite(
     create(device, &packages, profiles)
 }
 
-/// The mailbox and KeyPackage of every device in `profiles` except `own_mailbox`.
+/// The mailbox and `KeyPackage` of every device in `profiles` except `own_mailbox`.
 ///
 /// # Errors
 /// Returns certificate decoding errors from `device_mailbox` or node

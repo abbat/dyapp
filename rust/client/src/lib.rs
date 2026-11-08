@@ -1,4 +1,4 @@
-//! Client network core: one libp2p connection to a node and the profile, search, KeyPackage and
+//! Client network core: one libp2p connection to a node and the profile, search, `KeyPackage` and
 //! mailbox requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
 //! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
 //! [`scores`] ranks nodes by the faults the client saw; [`compatibility`] compares verified
@@ -58,7 +58,7 @@ pub const MAX_PUZZLE_BITS: u32 = 24;
 // Expiry of a published KeyPackage record, below the node's 30-day bound for clock skew.
 const KEY_PACKAGE_RECORD_SECONDS: u64 = dyapp_messaging::mls::KEY_PACKAGE_LIFETIME_SECONDS - 3_600;
 
-/// A KeyPackage record of the device with mailbox key `device`, owned by `owner` (hex Peer ID).
+/// A `KeyPackage` record of the device with mailbox key `device`, owned by `owner` (hex Peer ID).
 fn sign_key_package(
     device: &Identity,
     owner: &str,
@@ -314,7 +314,7 @@ impl Node {
         Ok(profile)
     }
 
-    /// Publishes a KeyPackage of the device whose mailbox key is `device`, owned by `owner`
+    /// Publishes a `KeyPackage` of the device whose mailbox key is `device`, owned by `owner`
     /// (hex Peer ID).
     ///
     /// # Errors
@@ -332,7 +332,7 @@ impl Node {
         self.publish_signed_key_package(signed).await
     }
 
-    /// Publishes a signed KeyPackage record; the node takes a repeat of a stored one as done.
+    /// Publishes a signed `KeyPackage` record; the node takes a repeat of a stored one as done.
     ///
     /// # Errors
     /// Returns request/deadline errors, [`Error::Status`] for rejection, or
@@ -344,7 +344,7 @@ impl Node {
         ok(response.status)
     }
 
-    /// Takes one KeyPackage of the device with `mailbox` in `owner`'s profile, trying each
+    /// Takes one `KeyPackage` of the device with `mailbox` in `owner`'s profile, trying each
     /// allocation slot in turn; ordinary ones are consumed, a last-resort one stays.
     ///
     /// # Errors

@@ -34,7 +34,7 @@
 //! - `dyappd turn <addr>`: `{"status", "username", "password", "urls", "expires"}`;
 //! - `dyappd relays <addr>`: `{"providers"}`, the TURN relays the DHT knows.
 //!
-//! `put-local` takes optional node-ID PoW bits (default 22) and uses a qualifying transport key.
+//! `put-local` takes optional node-ID `PoW` bits (default 22) and uses a qualifying transport key.
 //! `fetch` and `ack` ask for a challenge and sign it on one connection. Every connection speaks
 //! the network of the config's `network.name`. These commands only read the config: they need
 //! neither the node key nor the owner of `storage.dir`.
