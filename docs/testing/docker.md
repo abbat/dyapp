@@ -181,6 +181,12 @@ docker run --rm -e CARGO_INCREMENTAL=0 dyapp:dev cargo build
 DOCKER_BUILDKIT=1 docker build -f tools/docker/Dockerfile.dev -t dyapp:dev .
 ```
 
+### Gradle distribution downloads
+
+Android image preparation uses the pinned Gradle wrapper with a 60-second network timeout and
+three retries with backoff for transient download failures. Distribution URL validation and the
+pinned SHA-256 remain mandatory; exhausted retries fail the image build.
+
 ### Build output
 
 The crates are fetched into the images. Containers run as the host user and write only to
