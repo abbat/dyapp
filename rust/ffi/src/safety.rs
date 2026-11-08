@@ -2,12 +2,14 @@
 
 /// The 60 digits of a pair in groups of five; none for a Peer ID that is not canonical.
 #[uniffi::export]
+#[must_use]
 pub fn safety_number_text(mine: String, theirs: String) -> Option<String> {
     dyapp_identity::safety::grouped_safety_number(&mine, &theirs)
 }
 
 /// The bytes of the QR code `mine` shows to `theirs`; none for a Peer ID that is not canonical.
 #[uniffi::export]
+#[must_use]
 pub fn safety_qr_payload(mine: String, theirs: String) -> Option<Vec<u8>> {
     dyapp_identity::safety::qr_payload_for_peer_ids(&mine, &theirs)
 }

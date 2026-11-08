@@ -58,6 +58,10 @@ impl MlsDevice {
     /// A device with a new MLS key, certified by `identity` with the device key `device_key`
     /// at `generation`, and a new state key.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if device certification, MLS initialization or state-key generation fails.
     pub fn new(
         identity: Arc<IdentityKey>,
         device_key: Arc<IdentityKey>,
@@ -76,6 +80,11 @@ impl MlsDevice {
     /// The device that [`MlsDevice::seal`] wrote to `sealed`, under the state key `store`
     /// unwraps from `wrapped_key`.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if keystore unwrapping fails, the key has the wrong length, or the sealed
+    /// state cannot be authenticated or restored.
     pub fn open(
         store: Arc<dyn KeyStore>,
         wrapped_key: Vec<u8>,
@@ -89,12 +98,20 @@ impl MlsDevice {
     }
 
     /// The state key encrypted by `store`, for the app to persist once.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform keystore cannot wrap the state key.
     pub fn wrap_state_key(&self, store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
         // ponytail: the FFI buffer that carries the key to the app is freed, not wiped.
         Ok(store.wrap(self.state_key.to_vec())?)
     }
 
     /// All MLS state encrypted under the state key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if device-state serialization or authenticated encryption fails.
     pub fn seal(&self) -> Result<Vec<u8>, CoreError> {
         Ok(self.device.seal(&self.state_key)?)
     }
@@ -105,11 +122,20 @@ impl MlsDevice {
     }
 
     /// A `KeyPackage` to publish; a single-use one serves one Welcome.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if MLS key-package generation or state persistence fails.
     pub fn key_package(&self, last_resort: bool) -> Result<Vec<u8>, CoreError> {
         Ok(self.device.key_package(last_resort)?)
     }
 
     /// A new group with the devices behind `key_packages`, and the Welcome to send them.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a supplied profile is malformed or fails verification, or if member
+    /// validation, MLS group creation or Welcome serialization fails.
     pub fn create_group(
         &self,
         key_packages: Vec<Vec<u8>>,
@@ -127,6 +153,11 @@ impl MlsDevice {
     }
 
     /// Joins the group that `welcome` invites this device to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a supplied profile is malformed or fails verification, or if Welcome
+    /// validation, device membership checks or MLS state persistence fails.
     pub fn join(
         &self,
         welcome: Vec<u8>,
@@ -139,6 +170,10 @@ impl MlsDevice {
     }
 
     /// The group with `id` from this device's state, if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stored MLS group state cannot be loaded; an absent group returns `None`.
     pub fn load_group(&self, id: Vec<u8>) -> Result<Option<Arc<MlsGroup>>, CoreError> {
         Ok(Group::load(&self.device, &id)?.map(|group| {
             Arc::new(MlsGroup {
@@ -190,16 +225,28 @@ pub struct MlsGroup {
 #[uniffi::export]
 impl MlsGroup {
     /// The group ID, for [`MlsDevice::load_group`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group lock is poisoned.
     pub fn id(&self) -> Result<Vec<u8>, CoreError> {
         Ok(self.group.lock().map_err(poisoned)?.id().to_vec())
     }
 
     /// Hex Peer IDs of the members' owners.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group lock is poisoned or member credentials cannot be decoded.
     pub fn members(&self) -> Result<Vec<String>, CoreError> {
         Ok(self.group.lock().map_err(poisoned)?.members()?)
     }
 
     /// An application message for the group.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group lock is poisoned or MLS message encryption or persistence fails.
     pub fn encrypt(
         &self,
         device: Arc<MlsDevice>,
@@ -213,6 +260,11 @@ impl MlsGroup {
     }
 
     /// Decrypts a message or applies a commit from the group.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group lock is poisoned, a profile is invalid, or message parsing,
+    /// authentication, sender authorization or MLS state processing fails.
     pub fn process(
         &self,
         device: Arc<MlsDevice>,
@@ -233,6 +285,11 @@ impl MlsGroup {
     }
 
     /// The commit removing members their owner's profile no longer lists, if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the group lock is poisoned, a supplied profile is invalid, or revoked
+    /// member removal, commit generation or MLS state persistence fails.
     pub fn remove_revoked(
         &self,
         device: Arc<MlsDevice>,
@@ -246,6 +303,11 @@ impl MlsGroup {
     }
 
     /// `length` bytes from the epoch's exporter for `label` and `context`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the requested length cannot fit the platform, the group lock is poisoned,
+    /// or the MLS exporter rejects the request.
     pub fn export_secret(
         &self,
         device: Arc<MlsDevice>,

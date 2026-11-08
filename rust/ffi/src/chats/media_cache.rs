@@ -27,12 +27,21 @@ fn view(store: &Store, dir: &Path) -> Result<ChatMediaCache, CoreError> {
 #[uniffi::export]
 impl ChatSession {
     /// Local settings and disk usage; no node is contacted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, stored cache configuration or disk-usage lookup fails.
     pub fn media_cache(&self) -> Result<ChatMediaCache, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         view(session.store(), &self.dir)
     }
 
     /// Applies a numeric budget or retention switch and evicts originals that no longer fit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, disk-usage lookup, configuration update, eviction
+    /// or resulting cache-state lookup fails.
     pub fn set_media_cache(
         &self,
         enabled: bool,
@@ -52,6 +61,11 @@ impl ChatSession {
     }
 
     /// Explicit cache clear preserves history, saved packs and the remembered budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, cache-file removal or resulting configuration
+    /// and usage lookup fails.
     pub fn clear_media_cache(&self) -> Result<ChatMediaCache, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session

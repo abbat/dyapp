@@ -62,6 +62,10 @@ const KEY_PACKAGES: usize = 4;
 /// A new MLS state key encrypted by `store`, for the app to persist once per identity before
 /// the first [`ChatSession::open`].
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if state-key generation or the platform keystore wrapping fails.
 pub fn new_chat_state_key(store: Arc<dyn KeyStore>) -> Result<Vec<u8>, CoreError> {
     let key = Zeroizing::new(Device::state_key()?);
     Ok(store.wrap(key.to_vec())?)
@@ -111,6 +115,11 @@ impl ChatSession {
     /// the mailbox key `device_key` and seals it in client.db under the state key `store`
     /// unwraps from `wrapped_state_key`. A lost key is refused, so it never resets MLS state.
     #[uniffi::constructor]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identity directory, unwrapped key, stored device state or device-key
+    /// binding is invalid, or storage access or runtime initialization fails.
     pub fn open(
         dir: String,
         key: Arc<IdentityKey>,
@@ -147,6 +156,11 @@ impl ChatSession {
 
     /// Publish the solved draft listing this device, check the signed readback, then publish
     /// `KeyPackages` so peers can invite the device. Errors as in `ProfilePublisher::publish`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, draft validation, device listing, active network,
+    /// profile publication, readback, key-package publication or held-photo update fails.
     pub fn publish_profile(&self, attested: bool) -> Result<ProfilePublished, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
@@ -189,6 +203,10 @@ impl ChatSession {
     }
 
     /// Where the chat with `peer_id` stands.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored conversation lookup fails.
     pub fn state(&self, peer_id: String) -> Result<ChatState, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         Ok(session.conversation(&peer_id).map_err(failed)?.into())
@@ -199,6 +217,11 @@ impl ChatSession {
     /// that opens the chat. A failed send stays staged and is retried with the same bytes. Errors
     /// are `ownPeer`, `invalidText`, `blocked`, `unpublished` (this device or the peer has no
     /// published profile), `notConnected` or a node or storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own peer, invalid text, a blocked or unpublished peer, or if
+    /// session locking, network access, message encryption or persistence fails.
     pub fn send_text(&self, peer_id: String, text: String) -> Result<Vec<u8>, CoreError> {
         if peer_id == self.key.identity.peer_id() {
             return Err(CoreError::Failed("ownPeer".into()));
@@ -236,6 +259,10 @@ impl ChatSession {
     }
 
     /// This identity's chats, newest first, without blocked peers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored chat, block or mute lookup fails.
     pub fn chat_rows(&self) -> Result<Vec<ChatRow>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -250,6 +277,11 @@ impl ChatSession {
     }
 
     /// The current messages with `peer_id`; `blocked` for a blocked peer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a blocked peer, or if the session lock, history, read marks or
+    /// conversation settings cannot be read.
     pub fn chat_history(&self, peer_id: String) -> Result<ChatHistory, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -272,6 +304,10 @@ impl ChatSession {
     }
 
     /// The like state with `peer_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored like/pass lookup fails.
     pub fn likes(&self, peer_id: String) -> Result<ChatLikes, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         likes_in(session.store(), &peer_id)
@@ -279,6 +315,10 @@ impl ChatSession {
 
     /// The Liked you peers: each likes this profile, is not liked back and is not blocked, in
     /// Peer ID order. Local: the screen fetches their profiles.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored incoming-like lookup fails.
     pub fn liked_you(&self) -> Result<Vec<String>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session.store().liked_by().map_err(failed)
@@ -287,6 +327,11 @@ impl ChatSession {
     /// The verified profiles of `peer_ids` from the active network, in that order; a peer no node
     /// returns is left out. No peers means no connection. Errors are `notConnected` or a node
     /// message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if active-network configuration, worker startup or node connection fails.
+    /// Individual unavailable peer profiles are omitted.
     pub fn profiles(&self, peer_ids: Vec<String>) -> Result<Vec<FoundProfile>, CoreError> {
         let found = fetch_profiles(&self.runtime, &self.dir, peer_ids)?;
         Ok(found.iter().map(FoundProfile::from).collect())
@@ -296,6 +341,11 @@ impl ChatSession {
     /// network; the first like invites the peer. A failed send stays staged and is retried with
     /// the same bytes. Errors are `unpublished` (no published own profile lists this device),
     /// `notConnected` or a node or storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, published own profile, active network, peer profile,
+    /// encrypted signal or stored like state cannot be obtained or updated.
     pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
@@ -325,6 +375,11 @@ impl ChatSession {
     /// due. Returns how many events changed a chat. An envelope from an owner the node has no
     /// profile for waits in the mailbox for the next call. Errors are `notConnected` or a node
     /// or storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock, own profile, clock, active network, staged-write retry
+    /// or mailbox processing fails. Token refill and photo renewal are best effort.
     pub fn receive(&self) -> Result<u32, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.

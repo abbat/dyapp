@@ -41,6 +41,11 @@ fn failed(reason: &str) -> CoreError {
 /// 80 down to 40 until it fits in `max_bytes` (at most 24 KiB), then the same at 160 px. Errs when
 /// even that does not fit. Transparency is flattened onto white; no metadata is written.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if dimensions are zero or do not match the RGBA buffer, JPEG encoding
+/// fails, or no preview fits the byte limit.
 pub fn make_preview(
     rgba: Vec<u8>,
     width: u32,
@@ -92,6 +97,11 @@ fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
 /// over 24 KiB, not a whole JPEG, or with a frame header over 320 x 320; the decoder itself is
 /// held to 320 x 320 and 1 MiB, and a decoder panic becomes an error. Call it off the UI thread.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error for oversized, malformed or unsupported JPEG data, invalid dimensions,
+/// a decoding failure or panic, or inconsistent decoded pixels.
 pub fn check_preview(bytes: Vec<u8>) -> Result<Rgba, CoreError> {
     if bytes.len() > MAX_BYTES as usize {
         return Err(failed("preview over 24 KiB"));

@@ -20,6 +20,10 @@ pub enum ChatNotice {
 #[uniffi::export]
 impl ChatSession {
     /// The notice setting; the default is [`ChatNotice::Fixed`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored notification settings cannot be read.
     pub fn notice(&self) -> Result<ChatNotice, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -31,6 +35,10 @@ impl ChatSession {
     }
 
     /// What a notice shows once on, kept while notices are off; never [`ChatNotice::Off`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored notice-content setting cannot be read.
     pub fn notice_content(&self) -> Result<ChatNotice, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         Ok(match session.store().notice_content().map_err(failed)? {
@@ -41,6 +49,10 @@ impl ChatSession {
     }
 
     /// Store the notice setting; [`ChatNotice::Off`] keeps the chosen content for a later turn-on.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or storing the notice-content or enabled setting fails.
     pub fn set_notice(&self, notice: ChatNotice) -> Result<(), CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();

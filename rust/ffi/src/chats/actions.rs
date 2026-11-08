@@ -97,6 +97,11 @@ impl ChatSession {
 impl ChatSession {
     /// Remove every message with `peer_id` on this device and return how many went; the peer
     /// keeps its copies. Errors are `ownPeer`, `blocked`, `unknownPeer` or a storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own, blocked or unknown peer, or if session locking, history
+    /// clearing, original-file cleanup or result-count conversion fails.
     pub fn clear_chat(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
         self.check_visible(&session, &peer_id)?;
@@ -107,6 +112,11 @@ impl ChatSession {
 
     /// Mark the texts from `peer_id` read here and return how many were unread. Local only:
     /// `send_reads` sends the receipts. Errors as in [`Self::clear_chat`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own, blocked or unknown peer, or if session locking, read-state
+    /// storage or result-count conversion fails.
     pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
         self.check_visible(&session, &peer_id)?;
@@ -117,6 +127,11 @@ impl ChatSession {
     /// Replace the live own text `message_id` in `group_id` with `text` and return the edit's
     /// ID. A failed send stays staged. Errors are `invalidText`, `ownPeer`, `blocked`,
     /// `unknownMessage`, `notConnected` or a node or storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid text, the own or blocked peer or an unknown own message,
+    /// or if session locking, network access, encrypted sending or persistence fails.
     pub fn edit_text(
         &self,
         peer_id: String,
@@ -132,6 +147,11 @@ impl ChatSession {
 
     /// Delete the live own text `message_id` in `group_id` for both sides and return the
     /// delete's ID. Errors as in [`Self::edit_text`] without `invalidText`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own or blocked peer or an unknown own message, or if session
+    /// locking, network access, encrypted sending or persistence fails.
     pub fn delete_text(
         &self,
         peer_id: String,
@@ -144,6 +164,11 @@ impl ChatSession {
     /// Block `peer_id` here and for the owner's other devices, then revoke the write tokens it
     /// holds. The block stays whatever the revocation does; blocking again repeats it. Errors
     /// are `invalidPeer` (not a Peer ID, or this identity's own) or a storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid or own peer, or if session locking, storing the block,
+    /// worker startup or clock conversion fails. Revocation failures are returned as pending.
     pub fn block(&self, peer_id: String) -> Result<ChatBlock, CoreError> {
         let change = PeerChange::Blocked(true);
         if peer_id == self.key.identity.peer_id() || !change.valid(&peer_id) {
@@ -205,12 +230,22 @@ impl ChatSession {
 
     /// Unblock `peer_id` here and for the owner's other devices. Revoked tokens stay revoked.
     /// Errors are `invalidPeer` or a storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid or own peer, or if session locking, worker startup,
+    /// encryption or storage of the own-device change fails.
     pub fn unblock(&self, peer_id: String) -> Result<(), CoreError> {
         self.change_own(peer_id, PeerChange::Blocked(false))
     }
 
     /// Mute `peer_id` here and for the owner's other devices, or end that. Only notifications
     /// change: the mail, the chat and its unread count stay. Errors as for `unblock`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid or own peer, or if session locking, worker startup,
+    /// encryption or storage of the own-device change fails.
     pub fn set_muted(&self, peer_id: String, muted: bool) -> Result<(), CoreError> {
         self.change_own(peer_id, PeerChange::Muted(muted))
     }
@@ -219,6 +254,11 @@ impl ChatSession {
     /// own devices; the name is trimmed and an empty one removes it. Errors are `ownPeer`,
     /// `blocked`, `unknownPeer`, `invalidName` (over 64 characters or control text) or a
     /// network message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own, blocked or unknown peer or an invalid name, or if session
+    /// locking, worker startup, encryption or storage of the own-device change fails.
     pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
         // `&*` keeps `?` from expecting a `Session`; the guard drops before `change_own` locks.
         self.check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
@@ -232,18 +272,31 @@ impl ChatSession {
     /// Pass on `peer_id` here and for the owner's other devices, or undo that; no signal goes to
     /// the peer. A pass hides the peer from search and Liked you. Returns the like state after it.
     /// Errors as for `unblock`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid or own peer, or if session locking, worker startup,
+    /// change persistence or the resulting like/pass lookup fails.
     pub fn set_passed(&self, peer_id: String, passed: bool) -> Result<ChatLikes, CoreError> {
         self.change_own(peer_id.clone(), PeerChange::Passed(passed))?;
         self.likes(peer_id)
     }
 
     /// The peers this profile blocks, in Peer ID order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored blocked-peer lookup fails.
     pub fn blocked_peers(&self) -> Result<Vec<String>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session.store().blocked_peers().map_err(failed)
     }
 
     /// The peers this profile passes on, in Peer ID order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored passed-peer lookup fails.
     pub fn passed_peers(&self) -> Result<Vec<String>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session.store().passed_peers().map_err(failed)

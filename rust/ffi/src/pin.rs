@@ -31,6 +31,11 @@ fn tag(pin: &str, salt: &[u8]) -> Result<[u8; TAG_LEN], CoreError> {
 /// The caller must protect this record in device-only storage. This function does not enforce
 /// retry limits; invoke it off the UI thread because its KDF uses 64 MiB and three passes.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the PIN is not 6–64 ASCII digits, randomness is unavailable,
+/// or the Argon2 verifier cannot be initialized or computed.
 pub fn hash_app_pin(pin: String) -> Result<Vec<u8>, CoreError> {
     let pin = Zeroizing::new(pin);
     if !valid_pin(&pin) {
@@ -51,6 +56,11 @@ pub fn hash_app_pin(pin: String) -> Result<Vec<u8>, CoreError> {
 /// Check a PIN against a record from [`hash_app_pin`]. Wrong PIN returns `false`; an invalid
 /// record or invalid PIN is an error. The caller enforces retry limits, including on errors.
 #[uniffi::export]
+///
+/// # Errors
+///
+/// Returns an error if the PIN is invalid, the record length or version is unsupported,
+/// or the Argon2 verifier cannot be computed. A valid record with a wrong PIN returns `false`.
 pub fn verify_app_pin(pin: String, record: Vec<u8>) -> Result<bool, CoreError> {
     let pin = Zeroizing::new(pin);
     if !valid_pin(&pin) {

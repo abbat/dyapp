@@ -28,6 +28,10 @@ impl From<ChatPhotoDownload> for AutoDownload {
 #[uniffi::export]
 impl ChatSession {
     /// This identity's persisted download choice on this device.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored download-policy lookup fails.
     pub fn photo_download(&self) -> Result<ChatPhotoDownload, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         Ok(match session.store().auto_download().map_err(failed)? {
@@ -38,6 +42,10 @@ impl ChatSession {
     }
 
     /// Changes the shared chat/profile original download policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or storing the download policy fails.
     pub fn set_photo_download(&self, mode: ChatPhotoDownload) -> Result<(), CoreError> {
         self.session
             .lock()

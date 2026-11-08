@@ -8,6 +8,7 @@ use dyapp_client::store::Conversation;
 /// Whole hours until default node retention ends, shown only in the last day.
 /// Zero means expired or less than one hour; a kept local original can still open.
 #[uniffi::export]
+#[must_use]
 pub fn chat_photo_hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
     attachment::hours_left(
         i64::try_from(sent_ms).unwrap_or(i64::MAX),
@@ -19,6 +20,11 @@ pub fn chat_photo_hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
 impl ChatSession {
     /// Text, photo and sticker metadata in core pair order, with `chat_history`'s text read marks.
     /// Reading history never fetches originals or reveals attachment keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a blocked peer or inconsistent history projection, or if session
+    /// locking, stored history or read-mark lookup fails.
     pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
         use super::ChatItem;
         use dyapp_client::store::messages::ChatItem as Stored;
@@ -64,6 +70,10 @@ impl ChatSession {
 
     /// Safe metadata in core history order, without downloading any original.
     /// A blocked peer is refused just as for text history.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a blocked peer, or if the session lock or attachment-history lookup fails.
     pub fn chat_photos(&self, peer_id: String) -> Result<Vec<super::ChatPhoto>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
@@ -80,6 +90,11 @@ impl ChatSession {
 
     /// Whether originals in this visible chat may download without a tap right now.
     /// Unknown networks are metered; even Always never automatically fetches a stranger's file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a blocked peer, or if the session lock, download policy or
+    /// conversation-state lookup fails.
     pub fn chat_photo_auto(&self, peer_id: String) -> Result<bool, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();

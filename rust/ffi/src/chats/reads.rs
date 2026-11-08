@@ -68,12 +68,20 @@ fn covered(marks: &HashMap<Vec<u8>, Option<Vec<u8>>>, own: &str, messages: &mut 
 #[uniffi::export]
 impl ChatSession {
     /// Whether this profile sends read receipts; off by default.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or stored receipt-setting lookup fails.
     pub fn read_receipts(&self) -> Result<bool, CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session.store().send_read_receipts().map_err(failed)
     }
 
     /// Turn read receipts on or off; off stops new ones, sent ones stay with the peer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session lock or storing the receipt setting fails.
     pub fn set_read_receipts(&self, enabled: bool) -> Result<(), CoreError> {
         let session = self.session.lock().map_err(failed)?;
         session
@@ -85,6 +93,11 @@ impl ChatSession {
     /// Send the receipts the shown chat with `peer_id` owes and return how many went out. With
     /// nothing due, always the case while receipts are off, this never touches the network.
     /// Errors as in [`Self::clear_chat`], then `notConnected` or a node or storage message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own, blocked or unknown peer, or if session locking, stored
+    /// read-state lookup, network access, receipt sending or result-count conversion fails.
     pub fn send_reads(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.

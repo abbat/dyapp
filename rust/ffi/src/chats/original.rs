@@ -25,6 +25,12 @@ impl ChatSession {
     /// Fetches a stored photo after an explicit tap (or a positive `chat_photo_auto` check).
     /// Errors include notFound, corrupted and notConnected; never releases the sender's blob.
     /// Blocks off the UI thread; group, author and logical ID must all match the stored message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a blocked peer, missing message or original, corrupt image or an
+    /// unavailable network, or if worker startup, session locking, storage access or fetching fails.
+    /// Failure to retain a successfully fetched image in the local cache is ignored.
     pub fn chat_photo_original(
         &self,
         peer_id: String,

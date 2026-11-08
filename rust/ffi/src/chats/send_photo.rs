@@ -51,6 +51,12 @@ impl ChatSession {
     /// Sends a bounded prepared JPEG and its preview to an open chat, never a message request.
     /// Nothing is staged if upload fails; a later delivery failure may leave a stored photo.
     /// Errors include unsupported, corrupted, blocked, conversationNotOpen, full and tooLarge.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for the own or blocked peer, a conversation that is not open, invalid
+    /// image data or an unpublished device, or if session locking, encryption, storage or network
+    /// access fails. Node failures include `full`, `tooLarge` and `peerUnavailable`.
     pub fn send_chat_photo(
         &self,
         peer_id: String,
