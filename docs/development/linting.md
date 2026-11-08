@@ -129,8 +129,13 @@ Run locally: `make quality` (all checks) or `make fmt` (format check only; it do
 format checks include it. It maps current source spans to module/impl/function identities and
 measures block nesting, including inline module and impl scopes. Anonymous closures are marked
 separately so they cannot inherit a named function's cognitive-complexity budget. Parse failures
-are errors. The application complexity gate and existing-function budgets are still planned;
-this parser alone does not enable the proposed 15/50/5 limits.
+are errors. The tested comparison layer in `tests/scripts/rust_complexity.py` rejects
+incomplete Clippy reports, unknown functions, stale source spans and anonymous cognitive
+complexity findings. Exact per-function budgets can only shrink, including both maximum nesting
+and the number of excessively nested regions. The live Clippy fixture checks that force-warn
+still exposes findings hidden by expectation attributes.
+
+Production runner wiring, measured budgets and native integration are planned.
 
 ## Python
 
