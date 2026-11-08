@@ -61,6 +61,7 @@ impl Message {
     ///
     /// # Panics
     /// Panics if the system clock is before the Unix epoch.
+    #[must_use]
     pub fn new(
         id: String,
         sender_id: String,
@@ -113,11 +114,13 @@ impl Message {
     }
 
     /// Whether the local status is pending.
+    #[must_use]
     pub fn is_pending(&self) -> bool {
         self.status == MessageStatus::Pending
     }
 
     /// Whether the local status is delivered or read.
+    #[must_use]
     pub fn is_delivered(&self) -> bool {
         matches!(self.status, MessageStatus::Delivered | MessageStatus::Read)
     }

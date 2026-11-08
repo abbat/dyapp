@@ -87,6 +87,11 @@ fn device_key(certificate: &SignedRecord) -> Result<Vec<u8>, Error> {
 /// Checks that `credential` is a device certificate signed by an identity key for
 /// `signature_key` and listed in that identity's profile in `profiles`, the newest the caller
 /// holds; returns the identity's Peer ID.
+///
+/// # Errors
+/// Returns [`Error::Credential`] for an invalid certificate or key binding,
+/// [`Error::UnknownOwner`] if the owner's profile is absent, or [`Error::Revoked`]
+/// if that profile no longer lists the certificate.
 pub fn verify_member(
     credential: &Credential,
     signature_key: &[u8],
@@ -115,6 +120,9 @@ fn verify_leaf(leaf: &LeafNode, profiles: &[VerifiedProfile]) -> Result<String, 
 
 /// The group a protocol message is for, or `None` for anything else, such as a Welcome; the
 /// group ID travels unencrypted in every MLS message.
+///
+/// # Errors
+/// Returns [`Error::Mls`] if the bytes are not a valid TLS-encoded MLS message.
 pub fn group_of(message: &[u8]) -> Result<Option<Vec<u8>>, Error> {
     let message = MlsMessageIn::tls_deserialize_exact(message).map_err(mls)?;
     Ok(message
@@ -125,6 +133,9 @@ pub fn group_of(message: &[u8]) -> Result<Option<Vec<u8>>, Error> {
 
 /// The epoch a protocol message was sent in and whether it is a commit or proposal rather than
 /// an application message, or `None` for anything else; both travel unencrypted.
+///
+/// # Errors
+/// Returns [`Error::Mls`] if the bytes are not a valid TLS-encoded MLS message.
 pub fn epoch_of(message: &[u8]) -> Result<Option<(u64, bool)>, Error> {
     let message = MlsMessageIn::tls_deserialize_exact(message).map_err(mls)?;
     Ok(message
@@ -145,6 +156,9 @@ pub struct Device {
 impl Device {
     /// A device with a new MLS signature key, certified by `identity` together with the device
     /// mailbox key `device_key` at `generation`.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if signature-key generation or storage fails.
     pub fn new(identity: &Identity, device_key: [u8; 32], generation: u64) -> Result<Self, Error> {
         let signer = SignatureKeyPair::new(CIPHERSUITE.signature_algorithm()).map_err(mls)?;
         let certificate = identity.sign(
@@ -182,6 +196,10 @@ impl Device {
     /// ChaCha20-Poly1305 under `key`, a random secret the app keeps wrapped by the platform
     /// KeyStore. Persist it after every call that changes state and before sending what that
     /// call returned: an older state would reuse its message keys.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if a serialized field exceeds the length limit,
+    /// storage cannot be read, nonce generation fails, or encryption fails.
     pub fn seal(&self, key: &[u8; 32]) -> Result<Vec<u8>, Error> {
         // Length-prefixed fields: the certificate, then each storage key and its value.
         let mut state = Vec::new();
@@ -205,6 +223,9 @@ impl Device {
     }
 
     /// A fresh random key for [`Device::seal`].
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if the random source cannot generate the key.
     pub fn state_key() -> Result<[u8; 32], Error> {
         OpenMlsRustCrypto::default()
             .rand()
@@ -213,6 +234,11 @@ impl Device {
     }
 
     /// The device that [`Device::seal`] wrote to `sealed` under `key`.
+    ///
+    /// # Errors
+    /// Returns [`Error::State`] for failed authentication, truncated or malformed
+    /// state, or a missing stored signing key. Returns [`Error::Mls`] if the
+    /// restored storage cannot be written.
     pub fn open(sealed: &[u8], key: &[u8; 32]) -> Result<Self, Error> {
         let (nonce, ciphertext) = sealed
             .split_at_checked(STATE_NONCE_LEN)
@@ -260,17 +286,24 @@ impl Device {
     }
 
     /// The signed certificate for the owner's profile device list.
+    #[must_use]
     pub fn certificate(&self) -> &SignedRecord {
         &self.certificate
     }
 
     /// This device's mailbox key, as its certificate names it.
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if the certificate payload cannot be decoded.
     pub fn device_key(&self) -> Result<Vec<u8>, Error> {
         device_key(&self.certificate)
     }
 
     /// A TLS-serialized KeyPackage valid for [`KEY_PACKAGE_LIFETIME_SECONDS`]. A single-use one
     /// is gone after its first Welcome; a last-resort one stays.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if KeyPackage construction, storage or TLS serialization fails.
     pub fn key_package(&self, last_resort: bool) -> Result<Vec<u8>, Error> {
         self.key_package_for(Lifetime::new(KEY_PACKAGE_LIFETIME_SECONDS), last_resort)
     }
@@ -301,6 +334,11 @@ impl Device {
     /// Starts a group with the devices behind `key_packages`; returns it with the Welcome to
     /// send them. Each KeyPackage must be valid, current, at most 30 days long, use
     /// [`CIPHERSUITE`] and carry a credential [`verify_member`] accepts with `profiles`.
+    ///
+    /// # Errors
+    /// Returns credential, owner, ciphersuite or lifetime errors for rejected
+    /// KeyPackages. Returns [`Error::Mls`] for package decoding/validation, group
+    /// creation, member addition, commit merge or Welcome serialization failures.
     pub fn create_group(
         &self,
         key_packages: &[Vec<u8>],
@@ -355,6 +393,11 @@ impl Device {
     /// target a KeyPackage of this device that is still unused (or last-resort), and list only
     /// members [`verify_member`] accepts with `profiles`. On [`Error::UnknownOwner`] the KeyPackage
     /// is kept, so the Welcome joins once the owner's profile is given.
+    ///
+    /// # Errors
+    /// Returns [`Error::Unexpected`] for a non-Welcome message, [`Error::Ciphersuite`]
+    /// for an unsupported suite, or member-validation errors from [`verify_member`].
+    /// Returns [`Error::Mls`] for decoding, staging, storage or group creation failures.
     pub fn join(&self, welcome: &[u8], profiles: &[VerifiedProfile]) -> Result<Group, Error> {
         let MlsMessageBodyIn::Welcome(welcome) = MlsMessageIn::tls_deserialize_exact(welcome)
             .map_err(mls)?
@@ -430,22 +473,30 @@ pub struct Group {
 
 impl Group {
     /// The group `id` from `device`'s state, e.g. after [`Device::open`].
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if reading the stored MLS group fails.
     pub fn load(device: &Device, id: &[u8]) -> Result<Option<Self>, Error> {
         let group = MlsGroup::load(device.provider.storage(), &GroupId::from_slice(id));
         Ok(group.map_err(mls)?.map(|group| Self { group }))
     }
 
     /// The group ID that names the chat to every member.
+    #[must_use]
     pub fn id(&self) -> &[u8] {
         self.group.group_id().as_slice()
     }
 
     /// The current epoch: one more for every commit applied.
+    #[must_use]
     pub fn epoch(&self) -> u64 {
         self.group.epoch().as_u64()
     }
 
     /// Peer IDs of all members' identities, one per device, in leaf order, revoked ones included.
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if a member has an invalid certificate or key binding.
     pub fn members(&self) -> Result<Vec<String>, Error> {
         self.group
             .members()
@@ -455,6 +506,9 @@ impl Group {
 
     /// Device mailbox keys of every other member, from their certificates: where to deliver
     /// what this device sends to the group.
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if another member's certificate or key binding is invalid.
     pub fn peer_device_keys(&self) -> Result<Vec<Vec<u8>>, Error> {
         let own = self.group.own_leaf_index();
         self.group
@@ -469,6 +523,9 @@ impl Group {
 
     /// Device mailbox keys `owner` lists that have no leaf here: own devices linked since the
     /// group began, which a member adds with [`Self::add`].
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if a group or owner device certificate cannot be decoded or validated.
     pub fn missing_devices(&self, owner: &VerifiedProfile) -> Result<Vec<Vec<u8>>, Error> {
         let joined = self
             .group
@@ -488,6 +545,9 @@ impl Group {
 
     /// How many of `owner`'s devices with a leaf here sort before `device`: the devices that get
     /// to add a missing device first, so that two commits do not fork the group.
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if this device or a group member has an invalid certificate.
     pub fn add_turn(&self, device: &Device, owner: &VerifiedProfile) -> Result<u64, Error> {
         let own = device.device_key()?;
         let mut turn = 0;
@@ -504,6 +564,9 @@ impl Group {
     /// member: the members that get to [`Self::remove_revoked`] first, so that two commits do not
     /// fork the group. A contact counts too, since a group of a contact and a lost device has no
     /// own device left.
+    ///
+    /// # Errors
+    /// Returns [`Error::Credential`] if a required device certificate or member key binding is invalid.
     pub fn remove_turn(
         &self,
         device: &Device,
@@ -527,6 +590,10 @@ impl Group {
 
     /// Adds the devices of `packages`, each checked as in [`Device::create_group`]; returns the
     /// commit for the members and the Welcome for the new devices.
+    ///
+    /// # Errors
+    /// Returns KeyPackage validation errors as in [`Device::create_group`], or
+    /// [`Error::Mls`] for member addition, commit merge or serialization failures.
     pub fn add(
         &mut self,
         device: &Device,
@@ -553,6 +620,9 @@ impl Group {
     /// Removes every other member whose owner's profile in `profiles` no longer lists it, leaving
     /// a member with no profile there; returns the commit to send to the group, or `None` if there
     /// is no such member.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if member removal, commit merge or serialization fails.
     pub fn remove_revoked(
         &mut self,
         device: &Device,
@@ -581,6 +651,9 @@ impl Group {
     }
 
     /// Encrypts and signs `plaintext` for the current epoch; returns the MLS message bytes.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if creating or serializing the encrypted MLS message fails.
     pub fn encrypt(&mut self, device: &Device, plaintext: &[u8]) -> Result<Vec<u8>, Error> {
         self.group
             .create_message(&device.provider, &device.signer, plaintext)
@@ -592,6 +665,11 @@ impl Group {
     /// Decrypts an application message or applies a commit; the sender and every new or updated
     /// leaf must pass [`verify_member`] with `profiles`. A refused commit, or one that changes the
     /// group's extensions, leaves the group as it was.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] for decoding, message processing or commit merge failures;
+    /// [`Error::Unexpected`] for unsupported message content or sender types; and
+    /// credential/owner errors when member validation or extension policy rejects it.
     pub fn process(
         &mut self,
         device: &Device,
@@ -653,6 +731,10 @@ impl Group {
 
     /// A secret of `length` bytes from the current epoch's exporter, as for per-call video keys;
     /// every member derives the same bytes for the same `label` and `context`.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if the MLS exporter rejects the request, including
+    /// an unsupported output length or unavailable group state.
     pub fn export_secret(
         &self,
         device: &Device,

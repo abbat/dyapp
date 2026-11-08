@@ -21,16 +21,19 @@ pub struct Timestamp(u64);
 
 impl Timestamp {
     /// Packs the low 48 bits of wall-clock milliseconds with a 16-bit counter.
+    #[must_use]
     pub fn new(wall_ms: u64, counter: u16) -> Self {
         Self((wall_ms << COUNTER_BITS) | u64::from(counter))
     }
 
     /// Returns the packed wall-clock milliseconds.
+    #[must_use]
     pub fn wall_ms(self) -> u64 {
         self.0 >> COUNTER_BITS
     }
 
     /// Returns the packed logical counter.
+    #[must_use]
     pub fn counter(self) -> u16 {
         (self.0 & 0xffff) as u16
     }
@@ -87,11 +90,13 @@ pub struct HybridClock {
 
 impl HybridClock {
     /// Creates a zero-initialized clock; clones share subsequent advances.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Resumes a clock from a persisted timestamp so a restart never moves it backwards.
+    #[must_use]
     pub fn resume(last: Timestamp) -> Self {
         Self {
             last: Arc::new(Mutex::new(last)),
@@ -99,16 +104,25 @@ impl HybridClock {
     }
 
     /// Timestamp for a local event (sending a message).
+    #[must_use]
     pub fn now(&self) -> Timestamp {
         self.now_at(wall_clock_ms())
     }
 
     /// Advance past a received timestamp; rejects one more than `MAX_CLOCK_SKEW_MS` ahead.
+    ///
+    /// # Errors
+    /// Returns [`ClockSkew`] if the remote wall time exceeds the allowed future skew.
     pub fn observe(&self, remote: Timestamp) -> Result<Timestamp, ClockSkew> {
         self.observe_at(remote, wall_clock_ms())
     }
 
     /// [`Self::now`] at an explicit wall-clock time.
+    ///
+    /// # Panics
+    /// Panics if the shared clock mutex is poisoned, or if advancing an exhausted
+    /// packed timestamp overflows while overflow checks are enabled.
+    #[must_use]
     pub fn now_at(&self, wall_ms: u64) -> Timestamp {
         let mut last = self.last.lock().unwrap();
         *last = last.next(wall_ms);
@@ -116,6 +130,13 @@ impl HybridClock {
     }
 
     /// [`Self::observe`] at an explicit wall-clock time.
+    ///
+    /// # Errors
+    /// Returns [`ClockSkew`] if the remote wall time exceeds the allowed future skew.
+    ///
+    /// # Panics
+    /// Panics if the shared clock mutex is poisoned, or if advancing an exhausted
+    /// packed timestamp overflows while overflow checks are enabled.
     pub fn observe_at(&self, remote: Timestamp, wall_ms: u64) -> Result<Timestamp, ClockSkew> {
         if remote.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
             return Err(ClockSkew {
@@ -143,6 +164,7 @@ pub struct MessageOrdering {
 
 impl MessageOrdering {
     /// Creates an empty ordering buffer.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -154,6 +176,7 @@ impl MessageOrdering {
     }
 
     /// Message IDs in order.
+    #[must_use]
     pub fn get_ordered(&self) -> Vec<String> {
         self.messages.iter().map(|m| m.2.clone()).collect()
     }
@@ -187,7 +210,7 @@ mod tests {
     #[test]
     fn test_now_counts_when_wall_clock_stalls_or_goes_back() {
         let clock = HybridClock::new();
-        clock.now_at(100);
+        assert_eq!(clock.now_at(100), Timestamp::new(100, 0));
         assert_eq!(clock.now_at(100), Timestamp::new(100, 1));
         assert_eq!(clock.now_at(50), Timestamp::new(100, 2));
     }
@@ -205,7 +228,7 @@ mod tests {
     #[test]
     fn test_observe_moves_past_remote() {
         let clock = HybridClock::new();
-        clock.now_at(100);
+        assert_eq!(clock.now_at(100), Timestamp::new(100, 0));
         let ts = clock.observe_at(Timestamp::new(150, 3), 120).unwrap();
         assert_eq!(ts, Timestamp::new(150, 4));
         assert_eq!(clock.now_at(130), Timestamp::new(150, 5));
@@ -234,7 +257,7 @@ mod tests {
     #[test]
     fn test_clock_clone_shares_state() {
         let clock = HybridClock::new();
-        clock.clone().now_at(100);
+        assert_eq!(clock.clone().now_at(100), Timestamp::new(100, 0));
         assert_eq!(clock.now_at(100), Timestamp::new(100, 1));
     }
 }

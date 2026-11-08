@@ -27,6 +27,9 @@ pub struct LinkKey {
 
 impl LinkKey {
     /// A fresh key.
+    ///
+    /// # Errors
+    /// Returns [`Error::Mls`] if random seed generation or HPKE key derivation fails.
     pub fn generate() -> Result<Self, Error> {
         let provider = OpenMlsRustCrypto::default();
         let seed: HpkePrivateKey = provider.rand().random_vec(KEY_LEN).map_err(mls)?.into();
@@ -41,6 +44,7 @@ impl LinkKey {
     }
 
     /// The public half, for the code.
+    #[must_use]
     pub fn public(&self) -> &[u8] {
         &self.public
     }
@@ -51,6 +55,10 @@ impl LinkKey {
     }
 
     /// Opens a [`seal`]ed record; the private key is erased on success.
+    ///
+    /// # Errors
+    /// Returns [`Error::State`] if the key was erased or already used, the record
+    /// is truncated, or authentication fails. Failure preserves any private key.
     pub fn open(&mut self, sealed: &[u8]) -> Result<Vec<u8>, Error> {
         let private = self.private.as_ref().ok_or(Error::State)?;
         let (kem_output, ciphertext) = sealed.split_at_checked(KEY_LEN).ok_or(Error::State)?;
@@ -68,6 +76,9 @@ impl LinkKey {
 }
 
 /// Seals `record` to the public half of a [`LinkKey`].
+///
+/// # Errors
+/// Returns [`Error::Mls`] if HPKE sealing fails, including an invalid public key.
 pub fn seal(public: &[u8], record: &[u8]) -> Result<Vec<u8>, Error> {
     let sealed = OpenMlsRustCrypto::default()
         .crypto()
