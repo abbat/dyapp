@@ -21,6 +21,10 @@ CREATE TABLE `read_marks` (
 
 impl Store {
     /// Whether read receipts are sent; absent means off.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the setting fails or its format or value is invalid.
     pub fn send_read_receipts(&self) -> Result<bool, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db
@@ -39,6 +43,10 @@ impl Store {
     }
 
     /// Persist whether read receipts are sent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing the setting to the database fails.
     pub fn set_send_read_receipts(&self, enabled: bool) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
@@ -51,6 +59,11 @@ impl Store {
     /// Whether a read receipt for `seen`, the latest text from `peer` the app shows in `group`,
     /// is due: the setting is on, the peer is unblocked and `seen` is later than the text last
     /// receipted. Changes nothing; commit the encrypted receipt with [`Self::stage_read`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the receipt setting is invalid or reading settings,
+    /// block state, message ordering, or the previous receipt mark fails.
     pub fn draft_read(&self, group: &[u8], peer: &str, seen: [u8; 16]) -> Result<bool, Error> {
         if peer == self.owner_peer_id || !self.send_read_receipts()? || self.blocked(peer)? {
             return Ok(false);
@@ -61,6 +74,12 @@ impl Store {
     /// Commit a drafted read receipt, its mark and the encrypted outbound writes in one
     /// transaction. The receipt has no expiry and gets no delivery receipt. A stale draft or a
     /// peer no longer allowed changes nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there are no writes, the draft is no longer eligible,
+    /// eligibility checks fail as described in [`Self::draft_read`], staging the
+    /// outbound state conflicts, or database access or transaction commit fails.
     pub fn stage_read(
         &mut self,
         group: &[u8],
@@ -86,6 +105,11 @@ impl Store {
     /// Move the mark of own texts `sender` has read in `group` up to `up_to`. The caller verified
     /// the sender as a group member through MLS. A blocked sender, an ID that is not an own text
     /// in the group and one not later than the mark change nothing. Returns whether it moved.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading block state, message ordering, or the previous
+    /// mark fails, or writing the new receipt mark fails.
     pub fn receive_read(
         &mut self,
         group: &[u8],
@@ -114,6 +138,11 @@ impl Store {
     }
 
     /// The latest own text in `group` that `peer` has read; it and every earlier own text are read.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying or decoding the receipt mark fails, or its
+    /// message ID has an invalid length.
     pub fn read_up_to(&self, group: &[u8], peer: &str) -> Result<Option<[u8; 16]>, Error> {
         let mark: Option<Option<Vec<u8>>> = self
             .db
