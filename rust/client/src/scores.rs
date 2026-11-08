@@ -26,6 +26,7 @@ impl Scores {
     }
 
     /// The penalty of `node` at `now`: 0 for a node without faults.
+    #[must_use]
     pub fn penalty(&self, node: PeerId, now: u64) -> u32 {
         self.0.get(&node).map_or(0, |&(penalty, at)| {
             let halvings = now.saturating_sub(at) / HALF_LIFE;
@@ -37,6 +38,7 @@ impl Scores {
     }
 
     /// Indexes of `nodes` by penalty at `now`; equal penalties keep the given order.
+    #[must_use]
     pub fn ranked(&self, nodes: &[PeerId], now: u64) -> Vec<usize> {
         let mut order: Vec<usize> = (0..nodes.len()).collect();
         order.sort_by_key(|&i| self.penalty(nodes[i], now));
@@ -46,6 +48,7 @@ impl Scores {
 
 /// Whether `error` from a node request counts against the node: anything but `NotFound`, which
 /// an honest node also answers.
+#[must_use]
 pub fn faulty(error: &Error) -> bool {
     !matches!(error, Error::Status(Status::NotFound))
 }
@@ -53,6 +56,11 @@ pub fn faulty(error: &Error) -> bool {
 /// The first success of `request` over `nodes`, tried in [`Scores::ranked`] order; `peer` names
 /// each node. Every failure is scored and the next node tried; the last error is returned when
 /// all fail.
+///
+/// # Errors
+///
+/// Returns the last request error when every node fails, or the not-found status
+/// when `nodes` is empty. Fault penalties from failed attempts remain applied.
 pub async fn first<T, R>(
     scores: &mut Scores,
     nodes: &mut [T],
