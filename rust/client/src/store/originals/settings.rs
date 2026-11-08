@@ -32,6 +32,11 @@ impl MediaCacheConfig {
 
 impl Store {
     /// Numeric cache preference. Pre-release development encodings are not migrated.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the setting fails, its encoding or format is
+    /// invalid, or the stored budget is outside 1 MiB through 10 GiB.
     pub fn media_cache_config(&self) -> Result<MediaCacheConfig, Error> {
         let row: Option<(i64, Vec<u8>)> = self
             .db
@@ -56,6 +61,11 @@ impl Store {
     }
 
     /// Persists both fields together; callers sweep afterwards to apply a lower budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the budget is outside 1 MiB through 10 GiB or writing
+    /// the setting to the database fails.
     pub fn set_media_cache_config(&self, config: MediaCacheConfig) -> Result<(), Error> {
         let config = config.validate()?;
         let mut value = vec![u8::from(config.enabled)];
@@ -69,6 +79,11 @@ impl Store {
     }
 
     /// MiB view retained for existing client controls; off is represented by zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cache setting cannot be read or validated, or the
+    /// enabled budget cannot be represented as a `u32` MiB count.
     pub fn kept_originals_mib(&self) -> Result<u32, Error> {
         let config = self.media_cache_config()?;
         if !config.enabled {
@@ -78,6 +93,11 @@ impl Store {
     }
 
     /// Numeric MiB wrapper. Zero disables retention without forgetting the configured quota.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the existing setting cannot be read or validated, a
+    /// nonzero budget is outside the supported range, or storing the update fails.
     pub fn set_kept_originals_mib(&self, mib: u32) -> Result<(), Error> {
         let mut config = self.media_cache_config()?;
         config.enabled = mib != 0;
@@ -88,6 +108,12 @@ impl Store {
     }
 
     /// Actual encrypted original-file bytes; a missing cache uses no space.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if filesystem metadata or directory enumeration fails,
+    /// the cache folder is not a directory, an entry is not a regular file, or
+    /// adding file sizes overflows `u64`. A missing cache returns zero.
     pub fn media_cache_usage(&self, dir: &Path) -> io::Result<u64> {
         let folder = dir.join(FOLDER);
         match fs::symlink_metadata(&folder) {
@@ -123,6 +149,12 @@ impl Store {
     }
 
     /// Explicit local cache clear; leaves history, saved packs and the configured quota intact.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cache validation fails as described in
+    /// [`Self::media_cache_usage`], or pruning fails. Earlier files may already
+    /// have been removed when a later pruning operation fails.
     pub fn clear_media_cache(&self, dir: &Path) -> io::Result<()> {
         // Validate entries before pruning: never traverse an unexpected directory or symlink.
         self.media_cache_usage(dir)?;
