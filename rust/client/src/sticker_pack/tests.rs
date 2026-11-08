@@ -10,10 +10,15 @@ fn image(pixel: [u8; 4]) -> Vec<u8> {
 }
 
 fn manifest(images: &[(&str, &[u8])]) -> Vec<u8> {
-    let stickers: Vec<_> = images.iter().map(|(name, bytes)| serde_json::json!({
-        "file": name, "emoji": "😺",
-        "sha256": sha256(bytes).iter().map(|byte| format!("{byte:02x}")).collect::<String>(),
-    })).collect();
+    let stickers: Vec<_> = images
+        .iter()
+        .map(|(name, bytes)| {
+            serde_json::json!({
+                "file": name, "emoji": "😺",
+                "sha256": dyapp_identity::hex(&sha256(bytes)),
+            })
+        })
+        .collect();
     serde_json::to_vec(&serde_json::json!({"format":1,"name":"Cats","stickers":stickers})).unwrap()
 }
 
@@ -104,7 +109,7 @@ fn protobuf_preflight_rejects_repetition_lengths_and_duplicate_manifest() {
     bytes.extend([10, 1, b'x']);
     assert!(preflight(&bytes).err().unwrap().contains("duplicate"));
     let mut bytes = vec![10, 1, b'x'];
-    for _ in 0..MAX_STICKERS + 1 {
+    for _ in 0..=MAX_STICKERS {
         bytes.extend([18, 1, 0]);
     }
     assert!(preflight(&bytes).err().unwrap().contains("count"));

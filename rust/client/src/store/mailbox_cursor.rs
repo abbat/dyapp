@@ -41,8 +41,7 @@ impl Store {
         {
             return Err(Error::InvalidSetting);
         }
-        let saved =
-            PeerId::from_bytes(&value[1..1 + peer_len]).map_err(|_| Error::InvalidSetting)?;
+        let saved = PeerId::from_bytes(&value[1..=peer_len]).map_err(|_| Error::InvalidSetting)?;
         if saved != node {
             self.clear_mailbox_cursor()?;
             return Ok(None);

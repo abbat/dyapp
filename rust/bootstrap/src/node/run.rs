@@ -9,6 +9,25 @@ use search_jobs::{start_search, SearchDone, SearchJob};
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
+    enum PowDone {
+        Publish {
+            peer: PeerId,
+            from: Peer,
+            channel: ResponseChannel<SearchResponse>,
+            request: proto::SearchRequest,
+            ok: bool,
+        },
+        Gossip {
+            source: PeerId,
+            id: gossipsub::MessageId,
+            data: Vec<u8>,
+            ok: bool,
+        },
+        CatchUp {
+            records: Vec<SignedRecord>,
+        },
+    }
+    const POW_GOSSIP_QUEUE: usize = 64;
     use tokio::signal::unix::{signal, SignalKind};
     let mut hangup = match signal(SignalKind::hangup()) {
         Ok(hangup) => hangup,
@@ -70,25 +89,6 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     // Profile and heartbeat proof-of-work checks run off the loop on their own permits (half
     // the cores, at least two), so a flood of them cannot starve queries. A client publish without a permit gets RATE_LIMITED; gossip
     // and catch-up wait, gossip at most POW_GOSSIP_QUEUE messages.
-    enum PowDone {
-        Publish {
-            peer: PeerId,
-            from: Peer,
-            channel: ResponseChannel<SearchResponse>,
-            request: proto::SearchRequest,
-            ok: bool,
-        },
-        Gossip {
-            source: PeerId,
-            id: gossipsub::MessageId,
-            data: Vec<u8>,
-            ok: bool,
-        },
-        CatchUp {
-            records: Vec<SignedRecord>,
-        },
-    }
-    const POW_GOSSIP_QUEUE: usize = 64;
     let pow_permits = Arc::new(tokio::sync::Semaphore::new(
         std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).max(2)),
     ));
@@ -150,7 +150,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             match event {
                 SwarmEvent::NewListenAddr { address, .. } => tracing::info!(%address, "listening"),
                 SwarmEvent::ExternalAddrConfirmed { address } => {
-                    tracing::info!(%address, "external address confirmed")
+                    tracing::info!(%address, "external address confirmed");
                 }
                 // At max_memory_mb a request is dropped unanswered: its stream is reset and the
                 // client tries another node.
@@ -202,7 +202,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         // An accepted heartbeat repairs the stored profile's replicas.
                         let stored = heartbeat.filter(|_| ok).and_then(|key| {
                             let owner = dyapp_identity::key_hash(&key.as_slice().try_into().ok()?);
-                            let owner = owner.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+                            let owner = dyapp_identity::hex(&owner);
                             service.store.get_profile(&owner).unwrap_or_else(|error| {
                                 tracing::error!(%error, "heartbeat repair failed");
                                 None
@@ -301,24 +301,21 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             service.traffic.add(response.encoded_len() as u64);
                             let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         }
-                        Ok(Search::Pow(check, request)) => match pow_permits.clone().try_acquire_owned() {
-                            Ok(permit) => {
-                                let (cache, done) = (service.pow.clone(), pow_tx.clone());
-                                tokio::task::spawn_blocking(move || {
-                                    let _permit = permit;
-                                    let ok = cache.check(&check);
-                                    let _ = done.send(PowDone::Publish { peer: id, from, channel, request, ok });
-                                });
-                            }
-                            Err(_) => {
-                                answered += 1;
-                                let response = SearchResponse {
-                                    status: Status::RateLimited.into(),
-                                    retry_after: 1,
-                                    ..SearchResponse::default()
-                                };
-                                let _ = swarm.behaviour_mut().search.send_response(channel, response);
-                            }
+                        Ok(Search::Pow(check, request)) => if let Ok(permit) = pow_permits.clone().try_acquire_owned() {
+                            let (cache, done) = (service.pow.clone(), pow_tx.clone());
+                            tokio::task::spawn_blocking(move || {
+                                let _permit = permit;
+                                let ok = cache.check(&check);
+                                let _ = done.send(PowDone::Publish { peer: id, from, channel, request, ok });
+                            });
+                        } else {
+                            answered += 1;
+                            let response = SearchResponse {
+                                status: Status::RateLimited.into(),
+                                retry_after: 1,
+                                ..SearchResponse::default()
+                            };
+                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
                         },
                         Ok(work) => {
                             let group = (!service.is_search_peer(&from)).then(|| from.group.clone());
@@ -745,7 +742,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     tracing::debug!(stored, "search catch-up records applied after proof of work");
                 }
             },
-            _ = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
+            () = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
                 catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
                     .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
             }

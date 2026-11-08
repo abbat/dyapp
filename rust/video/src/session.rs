@@ -384,6 +384,11 @@ impl VideoSession {
     ///
     /// # Panics
     /// Panics if the system clock precedes the Unix epoch.
+    #[expect(
+        clippy::unused_async,
+        clippy::unused_async_trait_impl,
+        reason = "Retain the public async duration API for existing callers"
+    )]
     pub async fn duration_ms(&self) -> i64 {
         let now = i64::try_from(
             std::time::SystemTime::now()
@@ -491,34 +496,40 @@ mod tests {
 
     #[tokio::test]
     async fn test_callee_answers_an_offer() {
-        let caller = VideoSession::new().await.expect("caller");
-        let callee = VideoSession::new().await.expect("callee");
-        assert!(callee.create_answer().await.is_err());
+        let initiator = VideoSession::new().await.expect("caller");
+        let responder = VideoSession::new().await.expect("callee");
+        assert!(responder.create_answer().await.is_err());
 
         let candidate = ICECandidate::new(
             "candidate:1 1 udp 2130706431 127.0.0.1 50000 typ host".to_string(),
             None,
             Some(0),
         );
-        callee.add_ice_candidate(candidate).await.expect("stored");
-        let offer = caller.create_offer().await.expect("offer");
-        callee
+        responder
+            .add_ice_candidate(candidate)
+            .await
+            .expect("stored");
+        let offer = initiator.create_offer().await.expect("offer");
+        responder
             .set_remote_offer(offer.clone())
             .await
             .expect("offer applied");
-        assert_eq!(callee.state().await, SessionState::OfferReceived);
-        assert_eq!(*callee.remote_sdp.read().await, Some(offer.clone()));
-        assert!(callee.set_remote_offer(offer).await.is_err());
+        assert_eq!(responder.state().await, SessionState::OfferReceived);
+        assert_eq!(*responder.remote_sdp.read().await, Some(offer.clone()));
+        assert!(responder.set_remote_offer(offer).await.is_err());
 
-        let answer = callee.create_answer().await.expect("answer");
+        let answer = responder.create_answer().await.expect("answer");
         assert!(answer.contains("m=video"));
-        assert_eq!(callee.state().await, SessionState::AnswerCreated);
-        assert_eq!(*callee.local_sdp.read().await, Some(answer.clone()));
-        assert!(callee.create_answer().await.is_err());
+        assert_eq!(responder.state().await, SessionState::AnswerCreated);
+        assert_eq!(*responder.local_sdp.read().await, Some(answer.clone()));
+        assert!(responder.create_answer().await.is_err());
 
-        caller.mark_offer_sent().await.expect("sent");
-        caller.receive_answer(answer).await.expect("answer applied");
-        assert_eq!(caller.state().await, SessionState::AnswerReceived);
+        initiator.mark_offer_sent().await.expect("sent");
+        initiator
+            .receive_answer(answer)
+            .await
+            .expect("answer applied");
+        assert_eq!(initiator.state().await, SessionState::AnswerReceived);
     }
 
     #[tokio::test]
@@ -596,29 +607,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_peers_connect_with_gathered_candidates() {
-        let caller = VideoSession::new().await.expect("caller");
-        let callee = VideoSession::new().await.expect("callee");
-        let offer = caller.create_offer().await.expect("offer");
-        caller.mark_offer_sent().await.expect("sent");
-        callee.set_remote_offer(offer).await.expect("offer applied");
-        let answer = callee.create_answer().await.expect("answer");
-        caller.receive_answer(answer).await.expect("answer applied");
+        let initiator = VideoSession::new().await.expect("caller");
+        let responder = VideoSession::new().await.expect("callee");
+        let offer = initiator.create_offer().await.expect("offer");
+        initiator.mark_offer_sent().await.expect("sent");
+        responder
+            .set_remote_offer(offer)
+            .await
+            .expect("offer applied");
+        let answer = responder.create_answer().await.expect("answer");
+        initiator
+            .receive_answer(answer)
+            .await
+            .expect("answer applied");
 
-        for (from, to) in [(&caller, &callee), (&callee, &caller)] {
+        for (from, to) in [(&initiator, &responder), (&responder, &initiator)] {
             assert!(eventually(|| async { !from.local_ice_candidates().await.is_empty() }).await);
             for candidate in from.local_ice_candidates().await {
                 assert!(candidate.candidate.starts_with("candidate:"));
                 to.add_ice_candidate(candidate).await.expect("candidate");
             }
         }
-        for session in [&caller, &callee] {
+        for session in [&initiator, &responder] {
             assert!(
                 eventually(|| async { session.state().await == SessionState::Connected }).await
             );
         }
 
-        caller.close().await.expect("closed");
-        assert_eq!(caller.state().await, SessionState::Closed);
+        initiator.close().await.expect("closed");
+        assert_eq!(initiator.state().await, SessionState::Closed);
     }
 
     #[tokio::test]

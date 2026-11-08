@@ -71,7 +71,7 @@ impl Protocols {
         }
         dyapp_identity::network::check_name(name).map_err(anyhow::Error::msg)?;
         let hash = dyapp_identity::sha256(&[b"dyapp/network/", name.as_bytes()].concat());
-        let namespace: String = hash[..8].iter().map(|b| format!("{b:02x}")).collect();
+        let namespace: String = dyapp_identity::hex(&hash[..8]);
         let prefix = format!("/dyapp/net-{namespace}");
         let id = |name| StreamProtocol::try_from_owned(format!("{prefix}/{name}"));
         Ok(Self {
@@ -123,7 +123,11 @@ mod tests {
     #[test]
     fn public_and_named_protocols_keep_stable_ids() {
         let public = Protocols::public();
-        let ids: Vec<_> = public.all().into_iter().map(|id| id.as_ref()).collect();
+        let ids: Vec<_> = public
+            .all()
+            .into_iter()
+            .map(std::convert::AsRef::as_ref)
+            .collect();
         assert_eq!(
             ids,
             [

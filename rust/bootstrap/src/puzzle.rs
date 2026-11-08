@@ -60,7 +60,7 @@ impl Puzzle {
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
         self.inner
             .lock()
-            .unwrap_or_else(|poison| poison.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Current (challenge, bits); bits 0 = off.
@@ -179,7 +179,7 @@ mod tests {
         let mine = solution("me", 0);
         assert!(p.check("me", &mine));
         // A fixed name solves the same nonce once in 2^bits runs, as any peer may.
-        let other = (0..)
+        let other = (0..1_000)
             .map(|n| format!("other{n}"))
             .find(|peer| !solved(&challenge, peer, mine.nonce, bits))
             .unwrap();

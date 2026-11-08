@@ -206,7 +206,7 @@ fn mutated_previews_never_panic() {
     let mut rng = Rng(0xD1A9_5EED);
     for round in 0..10_000 {
         let mut bytes = valid.clone();
-        for _ in 0..1 + rng.next() % 4 {
+        for _ in 0..=(rng.next() % 4) {
             let at = usize::try_from(rng.next() % bytes.len() as u64).unwrap();
             bytes[at] ^= u8::try_from(rng.next() % 255 + 1).unwrap();
         }

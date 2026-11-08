@@ -247,14 +247,14 @@ impl Service {
                     profiles,
                     messages,
                     "store maintenance done, free pages left"
-                )
+                );
             }
             Err(error) => tracing::error!(%error, "store maintenance failed"),
         }
         if let Some(index) = &self.search {
             match index.maintain(pages) {
                 Ok(index) => {
-                    tracing::info!(index, "search index maintenance done, free pages left")
+                    tracing::info!(index, "search index maintenance done, free pages left");
                 }
                 Err(error) => tracing::error!(%error, "search index maintenance failed"),
             }
@@ -897,7 +897,7 @@ fn turn_credentials(turn: &Turn, user: &str, now: u64) -> TurnCredentials {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    dyapp_identity::hex(bytes)
 }
 
 #[cfg(test)]

@@ -182,7 +182,7 @@ impl NetworkBehaviour for AutoRelay {
             FromSwarm::ListenerError(e) => self.closed(e.listener_id),
             _ => {}
         }
-        self.inner.on_swarm_event(event)
+        self.inner.on_swarm_event(event);
     }
 
     fn on_connection_handler_event(
@@ -259,6 +259,16 @@ mod tests {
 
     #[tokio::test]
     async fn a_private_node_listens_on_a_circuit_through_a_connected_relay() {
+        fn dial(node: &mut libp2p::Swarm<crate::Behaviour>, peer: PeerId) -> Vec<Multiaddr> {
+            node.behaviour_mut()
+                .handle_pending_outbound_connection(
+                    ConnectionId::new_unchecked(usize::MAX),
+                    Some(peer),
+                    &[],
+                    Endpoint::Dialer,
+                )
+                .unwrap()
+        }
         let make = |mode, relay| {
             let autonat = autonat::Config {
                 boot_delay: Duration::from_millis(100),
@@ -314,16 +324,6 @@ mod tests {
         assert!(crate::is_circuit(&circuit), "{circuit}");
 
         // A dial to another peer adds the circuit through the relay after its direct address.
-        fn dial(node: &mut libp2p::Swarm<crate::Behaviour>, peer: PeerId) -> Vec<Multiaddr> {
-            node.behaviour_mut()
-                .handle_pending_outbound_connection(
-                    ConnectionId::new_unchecked(usize::MAX),
-                    Some(peer),
-                    &[],
-                    Endpoint::Dialer,
-                )
-                .unwrap()
-        }
         let relay_peer = *relay.local_peer_id();
         assert!(dial(&mut node, relay_peer)
             .iter()

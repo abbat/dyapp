@@ -100,7 +100,7 @@ async fn overflow_aborts_and_deletes_the_candidate() {
         mark(
             &index,
             (0..=u32::try_from(writer::DIRTY_KEYS).unwrap()).map(fake),
-        )
+        );
     };
     let (built, ()) = tokio::join!(index.build(NEXT, &budget, 0), flood);
     assert!(matches!(built, Err(Abort::Overflow)));

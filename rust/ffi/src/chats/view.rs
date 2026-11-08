@@ -38,6 +38,10 @@ impl From<DeliveryState> for ChatDelivery {
 
 /// Current text or deletion marker, in the Store's pair-wide order.
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent edited, deleted, unread and forwarded fields retain the UniFFI record contract"
+)]
 pub struct ChatMessage {
     /// The MLS group it was sent in.
     pub group_id: Vec<u8>,
@@ -79,7 +83,9 @@ impl From<messages::ChatMessage> for ChatMessage {
             forwarded: message.forwarded,
             delivery: message.delivery.map(Into::into),
             read: false,
-            sent_at_ms: message.original_hlc.map(|hlc| hlc.wall_ms()),
+            sent_at_ms: message
+                .original_hlc
+                .map(dyapp_messaging::Timestamp::wall_ms),
         }
     }
 }

@@ -50,7 +50,10 @@ pub const MAX_SHARED: usize = 20_000;
 pub const MAX_RECEIVED: u32 = 1000;
 
 /// The node's own list as it shares it: sorted entries, cut at [`MAX_SHARED`], signed by `key`.
-pub fn sign(key: &Identity, entries: &HashSet<String>) -> SignedRecord {
+pub fn sign<S: std::hash::BuildHasher>(
+    key: &Identity,
+    entries: &HashSet<String, S>,
+) -> SignedRecord {
     let mut entries: Vec<String> = entries.iter().cloned().collect();
     entries.sort();
     if entries.len() > MAX_SHARED {

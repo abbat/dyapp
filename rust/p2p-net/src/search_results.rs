@@ -92,14 +92,14 @@ enum Value<'a> {
 
 /// Field numbers as in `search::COLUMNS` on the node; `None` for a field queries cannot use.
 fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
-    fn text(v: &str) -> Option<Value<'_>> {
-        Some(Value::Strings(vec![v]))
+    fn text(v: &str) -> Value<'_> {
+        Value::Strings(vec![v])
     }
     let int = |v: Option<i64>| Some(Value::Ints(v.into_iter().collect()));
     let wide = |v: Option<u64>| int(v.map(|v| i64::try_from(v).unwrap_or(i64::MAX)));
     let code = |v: u32, maximum: u32| int(stated(v, maximum).map(i64::from));
     match field {
-        4 => text(&profile.country),
+        4 => Some(text(&profile.country)),
         6 => wide(profile.income_from),
         7 => wide(profile.income_to),
         8 => int(profile.has_kids.map(i64::from)),
@@ -115,7 +115,7 @@ fn value(profile: &Profile, field: u32) -> Option<Value<'_>> {
         19 => Some(Value::Strings(
             profile.interests.iter().map(String::as_str).collect(),
         )),
-        20 => text(&profile.place),
+        20 => Some(text(&profile.place)),
         21 => int(i64::try_from(profile.photos.len()).ok()),
         Gender::FIELD => code(profile.gender, Gender::MAX),
         EducationLevel::FIELD => code(profile.education_level, EducationLevel::MAX),

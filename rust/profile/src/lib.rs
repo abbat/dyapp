@@ -163,8 +163,8 @@ impl Profile {
         if !self.valid_birth_parts() {
             return Err(Error::Invalid("invalid birth date"));
         }
-        if !self.country.is_empty()
-            && !(self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))
+        if !(self.country.is_empty()
+            || self.country.len() == 2 && self.country.bytes().all(|b| b.is_ascii_uppercase()))
         {
             return Err(Error::Invalid("country is not an ISO 3166-1 alpha-2 code"));
         }

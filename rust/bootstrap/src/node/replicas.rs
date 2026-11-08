@@ -56,7 +56,11 @@ impl Replicas {
         now: Instant,
     ) {
         // A blob written before its removal is missing again if the owner lists it anew.
-        if let Some(Ok(removed)) = service.media.as_ref().map(|media| media.take_removed()) {
+        if let Some(Ok(removed)) = service
+            .media
+            .as_ref()
+            .map(super::super::media::MediaStore::take_removed)
+        {
             for hash in removed {
                 self.media_repaired.forget(&hash);
             }
@@ -570,10 +574,10 @@ impl Replicas {
                     if matches!(status, Status::Ok | Status::Stale) {
                         match &put.record {
                             PutRecord::Media(replica) => {
-                                media_written.push(dyapp_identity::sha256(&replica.data).to_vec())
+                                media_written.push(dyapp_identity::sha256(&replica.data).to_vec());
                             }
                             PutRecord::Sharded(replica, _) => {
-                                media_written.push(replica.manifest.as_ref().unwrap().hash.clone())
+                                media_written.push(replica.manifest.as_ref().unwrap().hash.clone());
                             }
                             _ => {}
                         }

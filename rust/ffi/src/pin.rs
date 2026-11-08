@@ -75,7 +75,7 @@ pub fn verify_app_pin(pin: String, record: Vec<u8>) -> Result<bool, CoreError> {
     if record.len() != RECORD_LEN || record[0] != FORMAT {
         return Err(CoreError::Failed("Invalid PIN verifier record".into()));
     }
-    let computed = Zeroizing::new(tag(&pin, &record[1..1 + SALT_LEN])?);
+    let computed = Zeroizing::new(tag(&pin, &record[1..=SALT_LEN])?);
     Ok(bool::from(computed[..].ct_eq(&record[1 + SALT_LEN..])))
 }
 

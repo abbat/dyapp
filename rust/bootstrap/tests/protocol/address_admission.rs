@@ -178,15 +178,14 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
         let result = tokio::time::timeout(Duration::from_secs(20), async {
             loop {
                 let peers = closest(&mut observer, advertiser_peer, search).await;
-                let Some(advertised) = peers.iter().find(|peer| peer.peer_id == advertiser_peer)
-                else {
+                let Some(entry) = peers.iter().find(|peer| peer.peer_id == advertiser_peer) else {
                     continue;
                 };
                 assert!(
-                    !advertised.addrs.contains(&fake_routed),
+                    !entry.addrs.contains(&fake_routed),
                     "foreign identify address entered a DHT"
                 );
-                last = advertised.addrs.clone();
+                last = entry.addrs.clone();
                 if last.contains(&alternative) {
                     break;
                 }

@@ -143,7 +143,13 @@ fn cooldown_survives_disconnects_and_expires() {
     claims.fail(id(1));
     // addr(2) was never dialled; addr(1) cools down.
     assert!(claims.claim(now, peer, addr(2)));
-    assert!(!claims.claim(now + COOLDOWN - Duration::from_secs(1), peer, addr(1)));
+    assert!(!claims.claim(
+        (now + COOLDOWN)
+            .checked_sub(Duration::from_secs(1))
+            .unwrap(),
+        peer,
+        addr(1)
+    ));
     assert!(claims.claim(now + COOLDOWN, peer, addr(1)));
 }
 

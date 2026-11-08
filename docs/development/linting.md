@@ -143,7 +143,14 @@ Internal helpers borrow read-only descriptors and results; small connection IDs,
 pixel formats and fixture tags pass by value. Declaration-level checked expectations
 preserve UniFFI's owned argument lifting, the public inventory handler's owned request
 contract and `map_err` adapters that receive ownership of their source error.
-The same manifests deny narrowing, wrapping, sign-loss, precision-loss and lossless `as` casts.
+The same manifests deny the complete `pedantic` group; only the exact complexity budgets below
+cover existing long, nested or cognitively complex functions. Independent serialized flags retain
+checked expectations at their declarations, and async trait/public contracts keep their signatures.
+Private cursor decoding distinguishes invalid data from an empty position with `Result<Option<_>, _>`.
+A shared identity hex encoder avoids per-byte formatting allocations; all byte values and leading
+zeros are tested. Decimal safety fingerprints and persisted peer lists write into a single string.
+Large test peer arrays live on the heap, and deterministic nonce fixtures use bounded searches.
+The manifests also deny narrowing, wrapping, sign-loss, precision-loss and lossless `as` casts.
 Variable numeric values use checked conversions; unsupported client clocks return `ClockRange`.
 Millisecond wall clocks saturate at their integer maximum instead of wrapping. Retention seconds
 use signed timestamp arithmetic directly from the configured unsigned 32-bit hour count.
@@ -151,8 +158,8 @@ Checked expectations document bounded image/header arithmetic and intentional fr
 rounding; test byte streams explicitly select their low byte when modulo-256 data is intended.
 
 `-D warnings` turns the **default** clippy lint groups (`correctness`, `suspicious`, `style`,
-`complexity`, `perf`) into errors. Linux additionally denies `pedantic`; other crates enable
-selected rules. `nursery` and `restriction` lints (for example `arithmetic_side_effects`) are not
+`complexity`, `perf`) into errors. The root workspace, bootstrap, FFI and Linux also deny
+`pedantic`; Windows currently enables selected rules. `nursery` and `restriction` lints (for example `arithmetic_side_effects`) are not
 generally enabled. A separate
 [B8 check](code-quality.md#explicit-panic-budgets) force-enables `unwrap_used`,
 `expect_used` and `panic` on non-test workspace targets and enforces their budgets.

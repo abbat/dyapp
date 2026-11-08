@@ -77,7 +77,9 @@ async fn waits_for_bootstrap_warmup() {
     replicas.scan(
         &mut swarm,
         &service,
-        now + REPUBLISH_WARMUP - Duration::from_nanos(1),
+        (now + REPUBLISH_WARMUP)
+            .checked_sub(Duration::from_nanos(1))
+            .unwrap(),
     );
     assert!(
         replicas.republish.scanner.pop(Store::Mailbox).is_none(),

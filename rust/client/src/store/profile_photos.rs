@@ -20,7 +20,7 @@ const KEPT: &str = "profile_photos_kept";
 const KEEP_INTERVAL: u64 = 86_400;
 
 fn key(hash: &[u8]) -> String {
-    let hex: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+    let hex: String = dyapp_identity::hex(hash);
     format!("{PREFIX}{hex}")
 }
 

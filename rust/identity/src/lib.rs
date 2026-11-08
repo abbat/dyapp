@@ -8,6 +8,9 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+mod hex;
+pub use hex::encode as hex;
+
 pub mod network;
 pub mod profile_link;
 pub mod safety;
@@ -106,10 +109,7 @@ impl SignedRecord {
 /// Hex SHA-256 of an identity public key.
 #[must_use]
 pub fn peer_id(public_key: &[u8; 32]) -> String {
-    key_hash(public_key)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    hex(&key_hash(public_key))
 }
 
 /// SHA-256 of a public key: the raw peer ID of an identity, the mailbox address of a device.
@@ -279,11 +279,7 @@ mod tests {
         let identity = Identity::from_secret(&[0xab; 32]);
         let debug = format!("{identity:?}");
         assert_eq!(debug, format!("Identity({:?})", identity.peer_id()));
-        let secret: String = identity
-            .secret()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
+        let secret: String = hex(&identity.secret()[..]);
         assert!(!debug.contains(&secret) && !debug.contains("171"));
     }
 

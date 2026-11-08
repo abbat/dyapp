@@ -140,7 +140,7 @@ impl NetworkBehaviour for Announce {
         id: ConnectionId,
         event: THandlerOutEvent<Self>,
     ) {
-        self.inner.on_connection_handler_event(peer, id, event)
+        self.inner.on_connection_handler_event(peer, id, event);
     }
 
     fn poll(

@@ -232,9 +232,10 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
             .unwrap(),
         usize::from(alice_first)
     );
-    let (second, second_node, key) = match alice_first {
-        true => (&mut bob_session, &mut bob.node, &bob.device_key),
-        false => (&mut alice_session, &mut alice.node, &alice.device_key),
+    let (second, second_node, key) = if alice_first {
+        (&mut bob_session, &mut bob.node, &bob.device_key)
+    } else {
+        (&mut alice_session, &mut alice.node, &alice.device_key)
     };
     let events = second
         .receive(from_mut(second_node), key, &dropped, &SEAL)
@@ -243,14 +244,10 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
     assert!(events
         .iter()
         .any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
+    let next_turn = now + ADD_TURN_SECONDS;
     assert_eq!(
         second
-            .remove_dropped_devices(
-                from_mut(second_node),
-                &dropped,
-                now + ADD_TURN_SECONDS,
-                &SEAL
-            )
+            .remove_dropped_devices(from_mut(second_node), &dropped, next_turn, &SEAL)
             .await
             .unwrap(),
         0
@@ -358,9 +355,9 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
     let owner = phone.identity.peer_id();
     let identity = Identity::from_secret(&phone.identity.secret());
     let laptop = Person::device(&address, identity, 2).await;
-    let mut devices = [phone, laptop];
+    let mut devices = vec![phone, laptop];
     devices.sort_by_key(Person::mailbox);
-    let [mut first, mut second] = devices;
+    let (mut first, mut second) = (devices.remove(0), devices.remove(0));
     let profile = Profile {
         version: 2,
         devices: vec![

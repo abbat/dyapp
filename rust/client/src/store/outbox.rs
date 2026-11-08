@@ -316,12 +316,15 @@ mod tests {
 
     #[test]
     fn a_receipt_for_a_later_write_blames_the_node_of_an_earlier_one() {
+        fn blamed(store: &mut Store, ids: &[[u8; 16]]) -> (usize, Vec<String>) {
+            store.receipted(&[1; 32], ids).unwrap()
+        }
         let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         let mailbox = [1; 32];
         let [early, close, recent, fresh, later] =
             [9, 8, 7, 6, 5].map(|byte| prepare_put(&mailbox, vec![byte]).unwrap());
         let elsewhere = prepare_put(&[2; 32], vec![9]).unwrap();
-        let writes = [&early, &close, &recent, &elsewhere].map(|w| w.clone());
+        let writes = [&early, &close, &recent, &elsewhere].map(std::clone::Clone::clone);
         store.stage_outbound(b"mls", &writes).unwrap();
         store.accepted(&early, 0, "x").unwrap();
         store.accepted(&elsewhere, 0, "z").unwrap();
@@ -351,10 +354,6 @@ mod tests {
             blamed(&mut store, &[*later.id()]),
             (1, vec!["u".to_owned()])
         );
-
-        fn blamed(store: &mut Store, ids: &[[u8; 16]]) -> (usize, Vec<String>) {
-            store.receipted(&[1; 32], ids).unwrap()
-        }
     }
 
     fn due_bytes(store: &Store, now_ms: i64) -> Vec<Vec<u8>> {

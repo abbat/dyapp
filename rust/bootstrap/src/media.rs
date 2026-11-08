@@ -62,7 +62,7 @@ pub struct MediaStore {
 const MAX_REMOVED: usize = 4096;
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    dyapp_identity::hex(bytes)
 }
 
 /// Rows of the owner `?1`: its keep and its attachments.

@@ -18,28 +18,27 @@ impl NodeConfig {
     /// during binding, or names a different network.
     pub fn bind_network(&self) -> anyhow::Result<()> {
         let path = self.storage.dir.join("network");
-        let stored = match read_marker(&path)? {
-            Some(stored) => stored,
-            None => {
-                let stored = self.network.name.as_str();
-                match OpenOptions::new().write(true).create_new(true).open(&path) {
-                    Ok(mut file) => {
-                        file.write_all(stored.as_bytes())
-                            .and_then(|()| file.sync_all())
-                            .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
-                        stored.to_owned()
-                    }
-                    // Another start or keygen bound it first: its marker wins.
-                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => read_marker(&path)?
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "{}: {}",
-                                path.display(),
-                                message("vanished while binding", "исчез во время привязки сети")
-                            )
-                        })?,
-                    Err(e) => anyhow::bail!("{}: {e}", path.display()),
+        let stored = if let Some(stored) = read_marker(&path)? {
+            stored
+        } else {
+            let stored = self.network.name.as_str();
+            match OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(mut file) => {
+                    file.write_all(stored.as_bytes())
+                        .and_then(|()| file.sync_all())
+                        .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+                    stored.to_owned()
                 }
+                // Another start or keygen bound it first: its marker wins.
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => read_marker(&path)?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "{}: {}",
+                            path.display(),
+                            message("vanished while binding", "исчез во время привязки сети")
+                        )
+                    })?,
+                Err(e) => anyhow::bail!("{}: {e}", path.display()),
             }
         };
         if stored != self.network.name {

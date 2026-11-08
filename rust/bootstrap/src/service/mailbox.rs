@@ -9,15 +9,18 @@ use super::{
 use crate::storage::Put;
 
 // The position is local to one holder. Version 1: class byte, then signed big-endian seq.
-fn decode_fetch_cursor(bytes: &[u8]) -> Option<Option<(i64, i64)>> {
+fn decode_fetch_cursor(bytes: &[u8]) -> Result<Option<(i64, i64)>, ()> {
     if bytes.is_empty() {
-        return Some(None);
+        return Ok(None);
     }
     if bytes.len() != 10 || bytes[0] != 1 || bytes[1] > 1 {
-        return None;
+        return Err(());
     }
-    let seq = i64::from_be_bytes(bytes[2..].try_into().ok()?);
-    (seq > 0).then_some(Some((i64::from(bytes[1]), seq)))
+    let seq = i64::from_be_bytes(bytes[2..].try_into().map_err(|_| ())?);
+    if seq <= 0 {
+        return Err(());
+    }
+    Ok(Some((i64::from(bytes[1]), seq)))
 }
 
 fn encode_fetch_cursor((class, seq): (i64, i64)) -> Vec<u8> {
@@ -160,7 +163,7 @@ impl Service {
                 if self.listed(&mailbox) || self.closed(&mailbox)? {
                     return Ok(status(Status::Refused));
                 }
-                let Some(after) = decode_fetch_cursor(&fetch.cursor) else {
+                let Ok(after) = decode_fetch_cursor(&fetch.cursor) else {
                     return Ok(status(Status::Invalid));
                 };
                 let limit = match fetch.limit {

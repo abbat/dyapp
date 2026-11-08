@@ -75,7 +75,7 @@ async fn slow_clients_are_dropped_and_free_their_slots() {
     for mut stream in idle {
         let mut rest = Vec::new();
         let closed = tokio::time::timeout(10 * DEADLINE, stream.read_to_end(&mut rest)).await;
-        assert!(matches!(closed, Ok(Ok(0)) | Ok(Err(_))), "{closed:?}");
+        assert!(matches!(closed, Ok(Ok(0) | Err(_))), "{closed:?}");
     }
 }
 

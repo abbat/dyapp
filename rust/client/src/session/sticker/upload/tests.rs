@@ -16,10 +16,7 @@ fn pack() -> Pack {
     WebPEncoder::new(&mut image)
         .encode(&[255, 0, 0, 255], 1, 1, ColorType::Rgba8)
         .unwrap();
-    let hash = sha256(&image)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<String>();
+    let hash = dyapp_identity::hex(&sha256(&image));
     let manifest = serde_json::to_vec(&serde_json::json!({
         "format":1,"name":"Cats","stickers":[{"file":"cat.webp","emoji":"😺","sha256":hash}]
     }))
@@ -129,13 +126,12 @@ async fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capabilit
         .is_empty());
     assert_eq!(session.store.due_outbound(i64::MAX).unwrap().len(), before);
     let (_, candidate) = prepare(&pack, 0).unwrap();
-    let pending = match session
+    let UploadPlan::Upload(pending) = session
         .store
         .plan_sticker_upload(&candidate, crate::now())
         .unwrap()
-    {
-        UploadPlan::Upload(value) => value,
-        _ => panic!("failed upload must remain pending"),
+    else {
+        panic!("failed upload must remain pending")
     };
     session
         .store

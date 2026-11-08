@@ -85,13 +85,13 @@ fn check(
     let Ok(token) = proto::WriteToken::decode(record.payload.as_slice()) else {
         return Ok(None);
     };
-    let (Ok(signer), Ok(mailbox)) = (
+    let (Ok(issuer_key), Ok(mailbox)) = (
         <[u8; 32]>::try_from(record.public_key.as_slice()),
         <[u8; 32]>::try_from(token.mailbox.as_slice()),
     ) else {
         return Ok(None);
     };
-    if record.verify(Domain::WriteToken).is_err() || crate::mailbox(&signer) != mailbox {
+    if record.verify(Domain::WriteToken).is_err() || crate::mailbox(&issuer_key) != mailbox {
         return Ok(None);
     }
     let held = store.held_key(&mailbox, token.epoch, seal_key)?;

@@ -547,7 +547,7 @@ impl Session {
             .map(|profile| profile.peer_id.as_str())
             .filter(|peer| *peer != self.store.owner_peer_id())
             .collect();
-        others.sort();
+        others.sort_unstable();
         others.dedup();
         match others[..] {
             [peer] => Ok(peer.to_owned()),

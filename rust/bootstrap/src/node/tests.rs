@@ -587,12 +587,9 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
     let now = Instant::now();
     replicas.repair_profile(&mut swarm, &service, record.clone(), now);
     assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    replicas.repair_profile(
-        &mut swarm,
-        &service,
-        record.clone(),
-        now + PROFILE_REPAIR_INTERVAL - Duration::from_nanos(1),
-    );
+    let edge = now + PROFILE_REPAIR_INTERVAL;
+    let early = edge.checked_sub(Duration::from_nanos(1)).unwrap();
+    replicas.repair_profile(&mut swarm, &service, record.clone(), early);
     assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
     replicas.lookups.clear();
     replicas.repair_profile(
@@ -913,16 +910,22 @@ fn replicas_go_to_peers_seen_long_enough_that_answer() {
     assert!(!trust.trusted(&peer), "never seen");
     trust.seen.insert(peer, Instant::now());
     assert!(!trust.trusted(&peer), "seen just now");
-    trust
-        .seen
-        .insert(peer, Instant::now() - Duration::from_secs(3600));
+    trust.seen.insert(
+        peer,
+        Instant::now()
+            .checked_sub(Duration::from_secs(3600))
+            .unwrap(),
+    );
     assert!(trust.trusted(&peer));
     trust.forget(&peer);
     assert!(!trust.trusted(&peer), "forgotten");
     assert!(trust.seen.is_empty() && trust.score.is_empty());
-    trust
-        .seen
-        .insert(peer, Instant::now() - Duration::from_secs(3600));
+    trust.seen.insert(
+        peer,
+        Instant::now()
+            .checked_sub(Duration::from_secs(3600))
+            .unwrap(),
+    );
     trust.retain(|_| false);
     assert!(!trust.trusted(&peer), "swept");
 }

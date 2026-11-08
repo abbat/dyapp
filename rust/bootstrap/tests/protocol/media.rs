@@ -266,7 +266,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         .await
         .unwrap();
     let photo = b"a photo only bob may see".repeat(4096);
-    let (mut sent, blob) = attachment::seal(&photo).unwrap();
+    let (mut sent, sealed) = attachment::seal(&photo).unwrap();
     sent.preview = b"preview".to_vec();
     sent.mime = "image/jpeg".into();
     let sent_id = alice_session
@@ -275,7 +275,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
             &alice.identity,
             &bob_owner,
             &sent,
-            &blob,
+            &sealed,
             &SEAL,
         )
         .await
@@ -290,9 +290,9 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
         own[0].delivery,
         Some(dyapp_client::store::messages::DeliveryState::NodeAccepted)
     );
-    let blob = bob.node.get_media(&sent.blob_sha256).await.unwrap();
-    assert!(!blob.windows(16).any(|window| photo.starts_with(window)));
-    assert!(!blob.windows(32).any(|window| window == sent.key));
+    let sealed = bob.node.get_media(&sent.blob_sha256).await.unwrap();
+    assert!(!sealed.windows(16).any(|window| photo.starts_with(window)));
+    assert!(!sealed.windows(32).any(|window| window == sent.key));
 
     let events = bob_session
         .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)

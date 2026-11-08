@@ -161,13 +161,13 @@ impl Service {
                 search_request::Request::Heartbeat(record),
             ),
             Some(search_request::Request::Query(query)) => {
-                match self.puzzled(peer, &query.puzzle) {
+                match self.puzzled(peer, query.puzzle.as_ref()) {
                     Some(reply) => reply,
                     None => Search::Query(query),
                 }
             }
             Some(search_request::Request::Get(get)) => {
-                if let Some(reply) = self.puzzled(peer, &get.puzzle) {
+                if let Some(reply) = self.puzzled(peer, get.puzzle.as_ref()) {
                     return Ok(reply);
                 }
                 let keys: Option<Vec<[u8; 32]>> = (get.keys.len() <= MAX_SEARCH_GET)
@@ -211,13 +211,11 @@ impl Service {
 
     /// The `PUZZLE` reply to a client's query or get without a valid solution while the node
     /// asks for one; search nodes skip it. The node consumes the solution on admission.
-    pub(super) fn puzzled(&self, peer: &Peer, puzzle: &Option<proto::Puzzle>) -> Option<Search> {
+    pub(super) fn puzzled(&self, peer: &Peer, puzzle: Option<&proto::Puzzle>) -> Option<Search> {
         let (challenge, bits) = self.puzzle.current();
         if bits == 0
             || self.is_search_peer(peer)
-            || puzzle
-                .as_ref()
-                .is_some_and(|p| self.puzzle.check(&peer.id, p))
+            || puzzle.is_some_and(|p| self.puzzle.check(&peer.id, p))
         {
             return None;
         }

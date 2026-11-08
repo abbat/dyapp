@@ -144,7 +144,7 @@ impl Replicas {
     /// The hourly scan: queues the held keys whose closest nodes changed, from the routing table
     /// alone. Nothing runs before the bootstrap warmup has passed.
     pub(super) fn scan(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service, now: Instant) {
-        if !self.republish.ready_at.is_some_and(|at| now >= at) {
+        if self.republish.ready_at.is_none_or(|at| now < at) {
             return;
         }
         for store in STORES {
@@ -210,7 +210,7 @@ impl Replicas {
                     let peer = std::str::from_utf8(&key).unwrap_or_default();
                     match service.store.get_profile(peer) {
                         Ok(Some(record)) => {
-                            queries = self.repair_profile(swarm, service, record, now)
+                            queries = self.repair_profile(swarm, service, record, now);
                         }
                         Ok(None) => {}
                         Err(error) => tracing::error!(%error, "profile republish failed"),

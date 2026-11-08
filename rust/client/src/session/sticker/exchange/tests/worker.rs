@@ -27,14 +27,13 @@ fn pending() -> (Invite, std::path::PathBuf, Pack, PackResponseJob) {
 fn confirmed(pair: &mut Invite, pack: &Pack) -> crate::attachment::Attachment {
     let (mut candidate, _) = crate::attachment::seal(&pack.encode()).unwrap();
     candidate.mime = "application/octet-stream".into();
-    let pending = match pair
+    let UploadPlan::Upload(pending) = pair
         .session
         .store
         .plan_sticker_pack_upload(&candidate, crate::now())
         .unwrap()
-    {
-        UploadPlan::Upload(pending) => pending,
-        _ => panic!("fresh pack fixture"),
+    else {
+        panic!("fresh pack fixture")
     };
     pair.session
         .store

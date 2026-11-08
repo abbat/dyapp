@@ -169,7 +169,7 @@ fn unknown_places_go_to_the_country_bucket() {
         .collect();
     assert_eq!(stored, ["2950159", "", "", ""]);
     let expected: Counts = vec![
-        ("DE".into(), "".into(), 3),
+        ("DE".into(), String::new(), 3),
         ("DE".into(), "2950159".into(), 1),
     ];
     assert_eq!(index.place_counts(), expected);

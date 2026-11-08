@@ -41,9 +41,9 @@ pub fn check(draft: &Profile, attested: bool, today: CivilDate) -> Result<(), Bl
         return Err(Block::InvalidBirthDate);
     }
     if draft.birth_year.is_some()
-        && !draft
+        && draft
             .possible_age_range(today)
-            .is_some_and(|(youngest, _)| youngest >= 18)
+            .is_none_or(|(youngest, _)| youngest < 18)
     {
         return Err(Block::Underage);
     }

@@ -6,6 +6,7 @@
 
 use crate::key_hash;
 use sha2::{Digest, Sha512};
+use std::fmt::Write as _;
 
 const VERSION: u8 = 1;
 const ITERATIONS: usize = 5200;
@@ -75,15 +76,15 @@ fn half(peer: &[u8; 32]) -> String {
             .finalize()
             .into();
     }
-    hash[..30]
-        .chunks(5)
-        .map(|chunk| {
-            let value = chunk
-                .iter()
-                .fold(0u64, |value, byte| value << 8 | u64::from(*byte));
-            format!("{:05}", value % 100_000)
-        })
-        .collect()
+    let mut digits = String::with_capacity(30);
+    for chunk in hash[..30].chunks(5) {
+        let value = chunk
+            .iter()
+            .fold(0u64, |value, byte| value << 8 | u64::from(*byte));
+        // Formatting into a String cannot fail.
+        let _ = write!(digits, "{:05}", value % 100_000);
+    }
+    digits
 }
 
 /// What this profile's QR code carries: a version, then its raw Peer ID and the contact's.

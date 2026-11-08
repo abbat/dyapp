@@ -15,9 +15,9 @@ fn hold(contact: &mut Store, signer: &Identity, mailbox: &[u8; 32], epoch: u32) 
         token_key: key.to_vec(),
         epoch,
     };
-    let signed = signer.sign(Domain::WriteToken, token.encode_to_vec());
+    let record = signer.sign(Domain::WriteToken, token.encode_to_vec());
     contact
-        .set_write_token(mailbox, epoch, &signed.encode_to_vec())
+        .set_write_token(mailbox, epoch, &record.encode_to_vec())
         .unwrap();
     key
 }

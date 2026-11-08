@@ -390,6 +390,6 @@ fn status(config: &NodeConfig, running: bool) -> String {
         ),
     ]
     .iter()
-    .map(|(name, value)| format!("{name} {value}\n"))
+    .flat_map(|(name, value)| [*name, " ", value.as_str(), "\n"])
     .collect()
 }

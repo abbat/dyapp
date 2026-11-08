@@ -205,7 +205,7 @@ pub async fn search(
         }
         let mut keys = Vec::new();
         for hit in reply.hits {
-            let peer_id: String = hit.key.iter().map(|byte| format!("{byte:02x}")).collect();
+            let peer_id: String = dyapp_identity::hex(&hit.key);
             if blocked.contains(&peer_id) {
                 continue;
             }
@@ -569,6 +569,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[expect(
+        clippy::many_single_char_names,
+        reason = "Alphabetic identities track the distinct cache, age-filter and retry cases in this fixture"
+    )]
     async fn merges_nodes_skips_cached_hits_and_resends_cut_gets() {
         let [a, b, c, d, e, f, g, h] = [(); 8].map(|()| Identity::generate());
         let mut cache = Profiles::default();
@@ -621,7 +625,7 @@ mod tests {
             ints: vec![19_901_025, 20_011_025],
             strings: Vec::new(),
         }];
-        let mut nodes = [one, two, down];
+        let mut nodes = vec![one, two, down].into_boxed_slice();
         // Blocked: b is cached and c would be fetched.
         let blocked = [b.peer_id(), c.peer_id()];
         let search = search(&mut nodes, &conditions, 0, 0, &cache, &blocked);
@@ -668,7 +672,7 @@ mod tests {
         .await;
         let (broken, _) = fake(|_| status(Status::Invalid, 0)).await;
         let (refusing, _) = fake(|_| status(Status::Refused, 0)).await;
-        let mut nodes = [liar, busy, hard, broken, refusing];
+        let mut nodes = vec![liar, busy, hard, broken, refusing].into_boxed_slice();
         let cache = Profiles::default();
         let search = search(&mut nodes, &[], 0, 0, &cache, &[]);
         let found = tokio::time::timeout(Duration::from_secs(10), search)
@@ -737,7 +741,7 @@ mod tests {
         ];
         let mut slow = slow.map(|(s, after)| status(s, after)).into_iter();
         let (slow, _) = fake(move |_| slow.next().unwrap()).await;
-        let mut nodes = [busy, slow];
+        let mut nodes = vec![busy, slow].into_boxed_slice();
         // Nothing held: no node is asked.
         assert!(!within(publish_due(&store, &mut nodes, 1000)).await);
         store.hold_search_profile(&first).unwrap();
@@ -827,7 +831,7 @@ mod tests {
             [] as [std::string::String; 0]
         );
         assert_eq!(
-            kept(Employer::Exclude(vec!["ACME CORP".into(), "".into()])),
+            kept(Employer::Exclude(vec!["ACME CORP".into(), String::new()])),
             ["", "Other"]
         );
     }

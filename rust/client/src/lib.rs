@@ -372,12 +372,12 @@ impl Node {
                 continue;
             }
             let signed = response.record.ok_or(Error::Reply("no record"))?;
-            let signer = signed
+            let issuer = signed
                 .verify(Domain::KeyPackage)
                 .map_err(|_| Error::Reply("bad KeyPackage signature"))?;
             let record = proto::KeyPackageRecord::decode(signed.payload.as_slice())
                 .map_err(|_| Error::Reply("bad KeyPackage record"))?;
-            if unhex(&signer)? != mailbox || record.mailbox != mailbox {
+            if unhex(&issuer)? != mailbox || record.mailbox != mailbox {
                 return Err(Error::Reply("KeyPackage of another device"));
             }
             return Ok(record.package);
@@ -432,7 +432,7 @@ impl Node {
         cursor: Option<&[u8]>,
         limit: u32,
     ) -> Result<MailboxPage, Error> {
-        if !(1..=100).contains(&limit) || cursor.is_some_and(|value| value.is_empty()) {
+        if !(1..=100).contains(&limit) || cursor.is_some_and(<[u8]>::is_empty) {
             return Err(Error::Input("bad mailbox page limit or cursor"));
         }
         self.fetch_inner(device, cursor, limit, true).await

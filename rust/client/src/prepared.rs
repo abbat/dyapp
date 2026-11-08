@@ -114,15 +114,14 @@ pub(crate) fn prepare(
     token: Option<(&Identity, &[u8])>,
 ) -> Result<PreparedEnvelope, Error> {
     let one_off;
-    let (signer, write_token) = match token {
-        Some((key, token)) => (
+    let (signer, write_token) = if let Some((key, token)) = token {
+        (
             key,
             Some(SignedRecord::decode(token).map_err(|_| Error::Input("bad write token"))?),
-        ),
-        None => {
-            one_off = Identity::generate();
-            (&one_off, None)
-        }
+        )
+    } else {
+        one_off = Identity::generate();
+        (&one_off, None)
     };
     let mailbox: [u8; 32] = mailbox
         .try_into()

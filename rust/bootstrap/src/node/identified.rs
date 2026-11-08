@@ -24,14 +24,15 @@ pub(super) fn drop_foreign(
     version: &str,
 ) {
     let version = cut(version, MAX_LOGGED_VERSION);
-    match dialed {
-        Some(address) => tracing::warn!(
+    if let Some(address) = dialed {
+        tracing::warn!(
             %peer_id,
             %address,
             ?version,
             "dialled a node of another network: check seeds and anchors"
-        ),
-        None => tracing::debug!(%peer_id, ?version, "peer of another network dropped"),
+        );
+    } else {
+        tracing::debug!(%peer_id, ?version, "peer of another network dropped");
     }
     let _ = swarm.disconnect_peer_id(peer_id);
 }

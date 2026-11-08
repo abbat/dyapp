@@ -112,12 +112,12 @@ fn incoming_group_and_coarse_settings_validate_boundaries() {
 
 #[test]
 fn invalid_config_fails() {
-    let invalid = |edit: fn(&mut NodeConfig)| {
+    fn invalid(edit: impl FnOnce(&mut NodeConfig)) -> bool {
         let mut config = NodeConfig::default();
         config.storage.dir = temp_dir();
         edit(&mut config);
         config.validate().is_err()
-    };
+    }
     assert!(!invalid(|_| {}));
     assert!(invalid(|c| c.media.shard_threshold = (1 << 20) + 1));
     assert!(invalid(|c| c.media.shard_threshold = 0));
@@ -153,11 +153,11 @@ fn invalid_config_fails() {
         seed("[2001:db8::7]:7070").unwrap(),
         transports("[2001:db8::7]:7070").unwrap()
     );
-    fn turn(c: &mut NodeConfig) {
+    let turn = |c: &mut NodeConfig| {
         c.roles = vec![Role::Store, Role::Turn];
         c.turn.secret = "s".into();
         c.turn.urls = vec!["turn:relay.example:3478".into()];
-    }
+    };
     assert!(!invalid(turn));
     assert!(invalid(|c| {
         turn(c);
@@ -165,7 +165,7 @@ fn invalid_config_fails() {
     }));
     assert!(invalid(|c| {
         turn(c);
-        c.turn.secret = Default::default();
+        c.turn.secret = crate::secret::Secret::default();
     }));
     assert!(invalid(|c| {
         turn(c);
@@ -189,10 +189,10 @@ fn invalid_config_fails() {
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Media]));
     assert!(invalid(|c| c.roles = vec![Role::Search]));
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Search]));
-    fn subset(c: &mut NodeConfig) {
+    let subset = |c: &mut NodeConfig| {
         c.roles = vec![Role::Store, Role::Search];
         c.search.topics = vec![3];
-    }
+    };
     assert!(invalid(subset));
     assert!(!invalid(|c| {
         subset(c);

@@ -14,7 +14,7 @@ const LINKED: &str = "linked_device";
 #[derive(Clone, PartialEq, prost::Message)]
 struct LinkState {
     #[prost(message, repeated, tag = "1")]
-    peers: Vec<Peer>,
+    peers: Vec<PeerSnapshot>,
     #[prost(message, repeated, tag = "2")]
     likes: Vec<Like>,
     #[prost(message, repeated, tag = "3")]
@@ -26,7 +26,11 @@ struct LinkState {
 }
 
 #[derive(Clone, PartialEq, prost::Message)]
-struct Peer {
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent peer settings retain their separate protobuf tags and merge clocks"
+)]
+struct PeerSnapshot {
     #[prost(string, tag = "1")]
     peer_id: String,
     #[prost(bool, tag = "2")]
@@ -180,7 +184,7 @@ impl Store {
              FROM `peers` ORDER BY `peer_id`",
         )?;
         let peers = peers.query_map([], |row| {
-            Ok(Peer {
+            Ok(PeerSnapshot {
                 peer_id: row.get(0)?,
                 blocked: row.get(1)?,
                 muted: row.get(2)?,

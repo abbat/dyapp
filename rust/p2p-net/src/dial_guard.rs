@@ -28,7 +28,7 @@ impl Shared {
     fn groups(&self) -> MutexGuard<'_, HashMap<IpAddr, Group>> {
         self.groups
             .lock()
-            .unwrap_or_else(|poison| poison.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
@@ -308,7 +308,12 @@ mod tests {
             guard.admit(&addr, time).unwrap().fail(time);
         }
         assert!(guard
-            .admit(&addr, now + FAILURE_WINDOW - Duration::from_nanos(1))
+            .admit(
+                &addr,
+                (now + FAILURE_WINDOW)
+                    .checked_sub(Duration::from_nanos(1))
+                    .unwrap()
+            )
             .is_none());
         drop(guard.admit(&addr, now + FAILURE_WINDOW).unwrap());
         assert_eq!(

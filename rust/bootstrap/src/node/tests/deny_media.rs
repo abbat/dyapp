@@ -34,7 +34,7 @@ fn reloading_deny_purges_whole_and_sharded_blobs_without_dropping_keeps() {
 
     let deny = DenyStore::open(&service.config.storage.deny_path()).unwrap();
     for hash in &hashes {
-        let entry: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+        let entry: String = dyapp_identity::hex(hash);
         deny.add(&entry, "operator decision").unwrap();
     }
     let mut version = None;
@@ -98,7 +98,7 @@ fn outgoing_media_requests_skip_listed_blobs() {
     let service = Service::new(BootstrapStore::new(&dir).unwrap(), NodeConfig::default());
     let data = b"repair payload".to_vec();
     let hash = dyapp_identity::sha256(&data);
-    let entry: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+    let entry: String = dyapp_identity::hex(&hash);
     service.deny.write().unwrap().insert(entry);
     assert!(listed_media_request(
         &service,

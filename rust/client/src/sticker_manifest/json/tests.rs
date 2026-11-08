@@ -4,8 +4,7 @@ use dyapp_identity::sha256;
 fn source(name: &str, emoji: &str) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({
         "format": 1, "name": name,
-        "stickers": [{"file": "cat.webp", "sha256": sha256(b"image").iter()
-            .map(|byte| format!("{byte:02x}")).collect::<String>(), "emoji": emoji}]
+        "stickers": [{"file": "cat.webp", "sha256": dyapp_identity::hex(&sha256(b"image")), "emoji": emoji}]
     }))
     .unwrap()
 }
@@ -55,7 +54,7 @@ fn labels_use_clean_nfc_and_extended_graphemes() {
     }
     assert!(parse(&source(&"a".repeat(64), "😺")).is_ok());
     for name in [
-        "".into(),
+        String::new(),
         " ".into(),
         "a\n".into(),
         "a\u{202e}".into(),

@@ -5,6 +5,7 @@
 //! verbatim, so an explicit port such as 7070 is never rewritten. A missing file means nothing
 //! was saved yet: an empty draft and no active configuration.
 
+use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::{self, ErrorKind, Read, Write};
 use std::path::Path;
@@ -71,7 +72,8 @@ fn encode(network: &Network) -> io::Result<String> {
     }
     let mut text = format!("{HEADER}\nname {}\n", network.name);
     for seed in &network.seeds {
-        text += &format!("seed {seed}\n");
+        // Formatting into a String cannot fail.
+        let _ = writeln!(text, "seed {seed}");
     }
     Ok(text)
 }

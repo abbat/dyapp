@@ -329,7 +329,7 @@ fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
     assert_eq!(s.pow.totals(), (1, 0));
 
     let mut forged_profile = profile;
-    forged_profile.pow_nonce = (0..)
+    forged_profile.pow_nonce = (0..1_000)
         .find(|nonce| dyapp_profile::pow_leading_bits(&owner.public_key(), *nonce) < 2)
         .unwrap();
     forged_profile.version = 2;
@@ -622,7 +622,7 @@ fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
         Status::RateLimited
     );
     let info = NodeRequest {
-        request: Some(node_request::Request::Info(Default::default())),
+        request: Some(node_request::Request::Info(proto::InfoRequest::default())),
     };
     assert_eq!(
         service.node(&unknown, info).status,

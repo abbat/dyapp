@@ -217,7 +217,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
         let ids = info
             .protocols
             .iter()
-            .map(|id| id.as_ref())
+            .map(std::convert::AsRef::as_ref)
             .collect::<Vec<_>>();
         for id in &ids {
             if id.starts_with("/dyapp") || id.starts_with("/meshsub") {

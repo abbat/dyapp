@@ -64,6 +64,7 @@ unfulfilled_lint_expectations = "deny"
 missing_docs = "deny"
 
 [lints.clippy]
+pedantic = { level = "deny", priority = -1 }
 cognitive_complexity = "warn"
 too_many_lines = "warn"
 excessive_nesting = "warn"

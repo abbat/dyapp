@@ -9,12 +9,11 @@ fn store(owner: &str, path: Option<&Path>) -> Store {
             "saved-pack-test-{}",
             dyapp_identity::Identity::generate().peer_id()
         ));
-    let path = match path {
-        Some(path) => path.to_path_buf(),
-        None => {
-            fs::create_dir_all(&dir).unwrap();
-            dir.join("client.db")
-        }
+    let path = if let Some(path) = path {
+        path.to_path_buf()
+    } else {
+        fs::create_dir_all(&dir).unwrap();
+        dir.join("client.db")
     };
     Store {
         db: rusqlite::Connection::open(path).unwrap(),
@@ -22,6 +21,13 @@ fn store(owner: &str, path: Option<&Path>) -> Store {
     }
 }
 pub(crate) fn pack(name: &str) -> Pack {
+    #[derive(Clone, PartialEq, Message)]
+    struct Record {
+        #[prost(bytes, tag = "1")]
+        manifest: Vec<u8>,
+        #[prost(bytes, repeated, tag = "2")]
+        files: Vec<Vec<u8>>,
+    }
     let mut image = Vec::new();
     WebPEncoder::new(&mut image)
         .encode(&[1, 2, 3, 255], 1, 1, ColorType::Rgba8)
@@ -32,13 +38,6 @@ pub(crate) fn pack(name: &str) -> Pack {
         }]
     }))
     .unwrap();
-    #[derive(Clone, PartialEq, Message)]
-    struct Record {
-        #[prost(bytes, tag = "1")]
-        manifest: Vec<u8>,
-        #[prost(bytes, repeated, tag = "2")]
-        files: Vec<Vec<u8>>,
-    }
     let id = sha256(&manifest);
     sticker_pack::from_peer(
         &Record {
@@ -207,7 +206,7 @@ fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
         store.save_sticker_pack(&[7; 32], &pack).unwrap();
         ids.push(*pack.id());
     }
-    ids.sort();
+    ids.sort_unstable();
     let dir = directory(&store).unwrap();
     fs::write(dir.join(hex(&ids[1])), b"broken").unwrap();
     fs::write(dir.join(".interrupted.pending"), b"pending").unwrap();

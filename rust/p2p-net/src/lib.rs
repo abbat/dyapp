@@ -172,6 +172,7 @@ pub struct ProtoCodec<Req, Resp> {
 
 impl<Req, Resp> ProtoCodec<Req, Resp> {
     /// Shares successful protobuf frame counts across codecs and connections.
+    #[must_use]
     pub fn with_wire(mut self, wire: Arc<WireBytes>) -> Self {
         self.wire = wire;
         self

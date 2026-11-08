@@ -147,7 +147,7 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
         .is_empty());
 
     // The resend goes through the second node first, by score, and reaches Bob.
-    let mut nodes = [alice.node, alice_second];
+    let mut nodes = vec![alice.node, alice_second].into_boxed_slice();
     alice_session
         .retry_due(&mut nodes, now_ms + 120_000, &SEAL)
         .await

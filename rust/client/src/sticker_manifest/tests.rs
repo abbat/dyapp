@@ -125,7 +125,7 @@ fn manifest_count_and_sticker_byte_limits_are_inclusive() {
         ("cat.webp", b"".as_slice()),
     ]);
     rejected(b"m", &entries, &files, "invalid sticker byte size");
-    let names: Vec<_> = (0..MAX_STICKERS + 1).map(|i| format!("{i}.webp")).collect();
+    let names: Vec<_> = (0..=MAX_STICKERS).map(|i| format!("{i}.webp")).collect();
     let entries: Vec<_> = names.iter().map(|name| entry(name, b"x")).collect();
     let mut files: BTreeMap<_, _> = names
         .iter()

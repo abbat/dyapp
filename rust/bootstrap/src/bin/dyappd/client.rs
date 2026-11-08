@@ -273,7 +273,7 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
     Ok(output)
 }
 
-async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
+async fn media(addr: &str, data: &str, include_details: bool) -> anyhow::Result<Value> {
     let data = unhex(data)?;
     let owner = Identity::generate();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -316,7 +316,7 @@ async fn media(addr: &str, data: &str, owned: bool) -> anyhow::Result<Value> {
         }
         .into();
     }
-    if owned {
+    if include_details {
         output["details"] = details;
     }
     Ok(output)
@@ -425,7 +425,7 @@ async fn relays(addr: &str) -> anyhow::Result<Value> {
                 return None;
             }
             Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) => Ok(providers),
-            Ok(_) => Ok(Default::default()),
+            Ok(_) => Ok(std::collections::HashSet::default()),
             Err(error) => Err(anyhow!("{}: {error}", message("providers", "провайдеры"))),
         }),
         _ => None,
@@ -785,7 +785,7 @@ fn status(value: i32) -> &'static str {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    dyapp_identity::hex(bytes)
 }
 
 fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {

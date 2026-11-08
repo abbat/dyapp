@@ -19,7 +19,9 @@ fn cursor_wraps_with_a_256_hash_window_and_rolling_hour() {
         schedule.select(
             vec![2],
             &hashes[..256],
-            now + INTERVAL - Duration::from_nanos(1)
+            (now + INTERVAL)
+                .checked_sub(Duration::from_nanos(1))
+                .unwrap()
         ),
         [] as [std::vec::Vec<u8>; 0]
     );

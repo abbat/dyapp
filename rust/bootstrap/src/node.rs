@@ -140,7 +140,7 @@ pub fn swarm_with_protocols(
             dial_guard: Some(DialGuard::new(guard_dials)),
             dial_filter,
             relay,
-            autonat: Default::default(),
+            autonat: libp2p::autonat::Config::default(),
         },
     )
 }
@@ -201,10 +201,13 @@ fn remember_anchor(anchors: &mut Vec<Multiaddr>, peer: PeerId, address: &Multiad
 }
 
 fn save_peers(path: &Path, peers: &[Multiaddr]) -> std::io::Result<()> {
-    fs::write(
-        path,
-        peers.iter().map(|p| format!("{p}\n")).collect::<String>(),
-    )
+    use std::fmt::Write as _;
+    let mut text = String::new();
+    for peer in peers {
+        // Formatting into a String cannot fail.
+        let _ = writeln!(text, "{peer}");
+    }
+    fs::write(path, text)
 }
 
 /// Stores `peer`'s deny list if its node key signed it.

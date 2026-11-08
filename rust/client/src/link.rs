@@ -18,7 +18,7 @@ const HEADER_LEN: usize = ID_LEN + 4;
 const PART_DATA: usize = 90 * 1024;
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    dyapp_identity::hex(bytes)
 }
 
 fn key32(text: &str) -> Result<[u8; 32], Error> {

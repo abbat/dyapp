@@ -116,7 +116,7 @@ pub(crate) fn maintain(db: &Connection, pages: u32) -> Result<i64> {
 pub(crate) fn used(db: &Connection) -> Result<u64> {
     let pragma = |name: &str| -> Result<u64> {
         db.query_row(&format!("PRAGMA {name}"), [], |row| row.get::<_, i64>(0))
-            .map(|value| value.unsigned_abs())
+            .map(i64::unsigned_abs)
             .map_err(storage_error)
     };
     Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)

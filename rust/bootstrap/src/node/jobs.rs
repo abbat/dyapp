@@ -127,19 +127,18 @@ impl<T> GroupQueue<T> {
 
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn pop(&mut self) -> Option<T> {
-        let item = match self.peers.pop_front() {
-            Some(item) => item,
-            None => {
-                let group = self.turn.pop_front()?;
-                let queue = self.groups.get_mut(&group)?;
-                let item = queue.pop_front()?;
-                if queue.is_empty() {
-                    self.groups.remove(&group);
-                } else {
-                    self.turn.push_back(group);
-                }
-                item
+        let item = if let Some(item) = self.peers.pop_front() {
+            item
+        } else {
+            let group = self.turn.pop_front()?;
+            let queue = self.groups.get_mut(&group)?;
+            let item = queue.pop_front()?;
+            if queue.is_empty() {
+                self.groups.remove(&group);
+            } else {
+                self.turn.push_back(group);
             }
+            item
         };
         self.len -= 1;
         Some(item)
@@ -207,7 +206,7 @@ mod tests {
     #[test]
     fn at_most_store_workers_run() {
         let mut queue = FairQueue::default();
-        let peers: Vec<PeerId> = (0..STORE_WORKERS + 1).map(|_| PeerId::random()).collect();
+        let peers: Vec<PeerId> = (0..=STORE_WORKERS).map(|_| PeerId::random()).collect();
         for peer in &peers {
             queue.push(*peer, ()).unwrap();
         }

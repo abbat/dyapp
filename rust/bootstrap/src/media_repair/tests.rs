@@ -231,7 +231,7 @@ fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
     let replica = replica(&record, Vec::new(), Some(manifest.clone()));
     for service in [&source, &target] {
         for (index, shard) in shards.iter().enumerate() {
-            if std::ptr::eq(service, &target) && index == 1 {
+            if std::ptr::eq(service, &raw const target) && index == 1 {
                 continue;
             }
             assert_eq!(
@@ -416,8 +416,8 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
     repair.inventory(remote, &present(changed, 0));
     assert!(repair.blobs[0].shard_sources.is_empty());
     // Requested, since keys cover ten shards before the layout is known.
-    let past = u32::try_from(manifest.shard_hashes.len()).unwrap();
-    repair.inventory(remote, &present(manifest.clone(), past));
+    let out_of_range = u32::try_from(manifest.shard_hashes.len()).unwrap();
+    repair.inventory(remote, &present(manifest.clone(), out_of_range));
     assert!(repair.blobs[0].shard_sources.is_empty());
     repair.inventory(remote, &present(manifest, 0));
     assert_eq!(repair.blobs[0].shard_sources[&0], [remote]);

@@ -135,9 +135,8 @@ pub fn check_due(
             .last_attempt
             .is_none_or(|at| now.saturating_sub(at) >= retry);
     }
-    let success = match state.last_success {
-        Some(success) => success,
-        None => return true,
+    let Some(success) = state.last_success else {
+        return true;
     };
     let period = interval.seconds();
     let due_after = if trigger == Trigger::Timer {

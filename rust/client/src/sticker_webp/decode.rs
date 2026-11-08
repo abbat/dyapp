@@ -47,18 +47,18 @@ fn decode(bytes: &[u8]) -> Result<Frame, &'static str> {
     if decoder.output_buffer_size() != Some(expected) {
         return Err("WebP output size mismatch");
     }
-    let mut decoded = vec![0; expected];
+    let mut buffer = vec![0; expected];
     decoder
-        .read_image(&mut decoded)
+        .read_image(&mut buffer)
         .map_err(|_| "invalid WebP first frame")?;
     let pixels = if alpha {
-        if decoded.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0) {
+        if buffer.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0) {
             return Err("transparent WebP first frame");
         }
-        decoded
+        buffer
     } else {
         let mut rgba = Vec::with_capacity(count * 4);
-        for rgb in decoded.as_chunks::<3>().0 {
+        for rgb in buffer.as_chunks::<3>().0 {
             rgba.extend_from_slice(rgb);
             rgba.push(255);
         }

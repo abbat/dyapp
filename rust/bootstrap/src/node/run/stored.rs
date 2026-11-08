@@ -1,6 +1,7 @@
 //! Replies to store jobs finished off the loop, and the replication they start.
 
 use super::*;
+use mailbox_request::Request::{ReplicaAck, ReplicaPut, ReplicaRevoke};
 
 /// Replies to finished store job `done` of `peer` and starts what follows it: a put's
 /// replication, a profile or media repair, a mailbox watch. Returns false when the store
@@ -200,12 +201,7 @@ pub(super) fn reply(
         StoreDone::Mailbox(channel, kind, result) => match result {
             Ok(response) => {
                 let ok = response.status == i32::from(Status::Ok);
-                let signed = matches!(
-                    kind,
-                    Some(mailbox_request::Request::ReplicaPut(_))
-                        | Some(mailbox_request::Request::ReplicaAck(_))
-                        | Some(mailbox_request::Request::ReplicaRevoke(_))
-                );
+                let signed = matches!(kind, Some(ReplicaPut(_) | ReplicaAck(_) | ReplicaRevoke(_)));
                 service.traffic.add(response.encoded_len() as u64);
                 let _ = swarm
                     .behaviour_mut()

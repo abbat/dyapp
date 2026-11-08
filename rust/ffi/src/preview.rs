@@ -168,7 +168,7 @@ pub(crate) fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
 fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
     let mut decoder = Decoder::new(bytes);
     decoder.set_max_decoding_buffer_size(MAX_ALLOC);
-    let decoded = decoder
+    let buffer = decoder
         .decode()
         .map_err(|e| CoreError::Failed(e.to_string()))?;
     let info = decoder.info().ok_or_else(|| failed("missing JPEG frame"))?;
@@ -179,7 +179,7 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, CoreError> {
     Ok(Rgba {
         width: u32::from(info.width),
         height: u32::from(info.height),
-        pixels: rgba_pixels(&decoded, info.pixel_format, pixels)?,
+        pixels: rgba_pixels(&buffer, info.pixel_format, pixels)?,
     })
 }
 

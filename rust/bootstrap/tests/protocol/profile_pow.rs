@@ -33,7 +33,7 @@ async fn store_and_mixed_nodes_verify_profile_proofs_before_holding_copies() {
         assert!(service.store.get_profile(&owner_id).unwrap().is_none());
         assert_eq!(service.pow.totals(), (0, 0));
 
-        let bad_nonce = (0..)
+        let bad_nonce = (0..1_000)
             .find(|nonce| dyapp_profile::pow_leading_bits(&key, *nonce) < 2)
             .unwrap();
         let forged = Profile {

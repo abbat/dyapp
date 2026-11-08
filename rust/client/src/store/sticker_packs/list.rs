@@ -32,16 +32,16 @@ pub struct Page {
     pub unrecognized_files: u64,
 }
 fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {
-    let name = name.to_str()?.as_bytes();
-    if name.len() != 64 {
-        return None;
-    }
     fn nibble(byte: u8) -> Option<u8> {
         match byte {
             b'0'..=b'9' => Some(byte - b'0'),
             b'a'..=b'f' => Some(byte - b'a' + 10),
             _ => None,
         }
+    }
+    let name = name.to_str()?.as_bytes();
+    if name.len() != 64 {
+        return None;
     }
     let mut id = [0; 32];
     for (index, pair) in name.as_chunks::<2>().0.iter().enumerate() {

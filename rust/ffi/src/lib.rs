@@ -733,16 +733,16 @@ mod tests {
 
     #[test]
     fn video_sessions_exchange_an_offer_and_an_answer() {
-        let caller = VideoSession::new().unwrap();
-        let callee = VideoSession::new().unwrap();
-        assert!(callee.create_answer().is_err());
-        callee
-            .set_remote_offer(caller.create_offer().unwrap())
+        let initiator = VideoSession::new().unwrap();
+        let responder = VideoSession::new().unwrap();
+        assert!(responder.create_answer().is_err());
+        responder
+            .set_remote_offer(initiator.create_offer().unwrap())
             .unwrap();
-        let answer = callee.create_answer().unwrap();
-        caller.mark_offer_sent().unwrap();
-        caller.receive_answer(answer).unwrap();
-        assert!(callee.set_remote_offer("v=0".to_string()).is_err());
+        let answer = responder.create_answer().unwrap();
+        initiator.mark_offer_sent().unwrap();
+        initiator.receive_answer(answer).unwrap();
+        assert!(responder.set_remote_offer("v=0".to_string()).is_err());
     }
 
     #[test]

@@ -294,7 +294,7 @@ fn deny_list_refuses_replica_and_shard_restoration() {
         i32::from(Status::Refused)
     );
     assert_eq!(
-        s.assemble_media(&manifest, &[], &Default::default())
+        s.assemble_media(&manifest, &[], &proto::GetMedia::default())
             .unwrap()
             .status,
         i32::from(Status::Refused)
@@ -501,7 +501,7 @@ fn media_manifests_shards_quota_and_corruption() {
     put.replica = Some(replica);
     assert_eq!(s.store_shard(&put).unwrap().status, i32::from(Status::Ok));
     assert_eq!(
-        s.assemble_media(&wrong, &fragments, &Default::default())
+        s.assemble_media(&wrong, &fragments, &proto::GetMedia::default())
             .unwrap()
             .status,
         i32::from(Status::NotFound)
@@ -535,7 +535,7 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
         None
     );
     assert_eq!(
-        s.assemble_media(&manifest, &[], &Default::default())
+        s.assemble_media(&manifest, &[], &proto::GetMedia::default())
             .unwrap()
             .data,
         small.data
@@ -594,6 +594,7 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
 
 #[test]
 fn media_keep_put_get() {
+    use media_request::Request::{Attach, Release};
     use media_request::Request::{Get, Keep, Put};
     // Each peer within the media request rate.
     let call_as = |service: &Service, name: &str, request| {
@@ -677,7 +678,6 @@ fn media_keep_put_get() {
     assert_eq!(call(&service, Keep(forged)).0, Status::Denied);
 
     // An attachment: put after the attach, gone after the release.
-    use media_request::Request::{Attach, Release};
     let file = b"attachment".to_vec();
     let file_hash = dyapp_identity::sha256(&file).to_vec();
     let secret = vec![7u8; 32];
@@ -850,9 +850,8 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     let s = media_service(|l| l.media_max_mb = 1);
     let media = s.media.as_ref().unwrap();
     for read in 1..=3u8 {
-        media
-            .cache(&[read; 32], &[read; 400 << 10], read.into())
-            .unwrap();
+        let data = vec![read; 400 << 10].into_boxed_slice();
+        media.cache(&[read; 32], &data, read.into()).unwrap();
     }
     let fits = media_replica(&owner, b"fits".to_vec(), 1);
     assert_eq!(status(&s, &fits), Status::Ok);

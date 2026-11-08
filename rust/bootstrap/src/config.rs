@@ -121,7 +121,7 @@ fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error) -> anyhow
         .span()
         .map(|span| {
             let prefix = &source.as_bytes()[..span.start.min(source.len())];
-            let line = prefix.iter().filter(|&&byte| byte == b'\n').count() + 1;
+            let line = prefix.split(|byte| *byte == b'\n').count();
             let column = prefix
                 .iter()
                 .rev()
@@ -359,8 +359,9 @@ impl Search {
         if self.max_scan_rows == 0 || self.max_bytes == 0 {
             anyhow::bail!("search.max_scan_rows and max_bytes must be at least 1");
         }
-        if !(1..=365).contains(&self.newcomer_days)
-            || !(self.newcomer_share > 0.0 && self.newcomer_share <= 1.0)
+        if !((1..=365).contains(&self.newcomer_days)
+            && self.newcomer_share > 0.0
+            && self.newcomer_share <= 1.0)
         {
             anyhow::bail!("search.newcomer_days must be 1..=365 and newcomer_share in (0, 1]");
         }
@@ -449,22 +450,13 @@ impl Default for Turn {
     }
 }
 
-impl Turn {
-    fn validate(&self) -> anyhow::Result<()> {
-        if self.secret.expose().is_empty() || self.credential_minutes < 1 {
-            anyhow::bail!("role turn needs turn.secret and turn.credential_minutes >= 1");
-        }
-        let turn_url = |u: &String| u.starts_with("turn:") || u.starts_with("turns:");
-        if self.urls.is_empty() || !self.urls.iter().all(turn_url) {
-            anyhow::bail!("role turn needs turn.urls, each starting with turn: or turns:");
-        }
-        Ok(())
-    }
-}
-
 /// Which network the node joins and how it treats peers.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent named config switches"
+)]
 pub struct Network {
     /// Exact network name; empty selects public. Binary activation awaits storage binding.
     pub name: String,

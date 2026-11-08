@@ -67,12 +67,9 @@ impl Session {
             if stop() {
                 break;
             }
-            let bytes = match fetched {
-                Ok(bytes) => bytes,
-                Err(_) => {
-                    self.defer_pack_download(&job, Failure::Fetch)?;
-                    continue;
-                }
+            let Ok(bytes) = fetched else {
+                self.defer_pack_download(&job, Failure::Fetch)?;
+                continue;
             };
             completed += usize::from(self.complete_pack_download(&group, &job, &bytes, seal_key)?);
         }
@@ -92,12 +89,9 @@ impl Session {
         bytes: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<bool, Error> {
-        let pack = match sticker_pack::from_peer(bytes, &job.pack_id) {
-            Ok(pack) => pack,
-            Err(_) => {
-                self.defer_pack_download(job, Failure::Invalid)?;
-                return Ok(false);
-            }
+        let Ok(pack) = sticker_pack::from_peer(bytes, &job.pack_id) else {
+            self.defer_pack_download(job, Failure::Invalid)?;
+            return Ok(false);
         };
         self.retain_downloaded_pack(group, job, &pack, seal_key)
     }

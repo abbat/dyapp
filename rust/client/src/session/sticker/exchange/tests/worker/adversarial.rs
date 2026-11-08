@@ -123,14 +123,13 @@ async fn corrupt_ready_single_key_cannot_stage_a_bad_sticker_before_delivery_fai
     descriptor.mime = "image/webp".into();
     descriptor.width = 1;
     descriptor.height = 1;
-    let lease = match pair
+    let UploadPlan::Upload(lease) = pair
         .session
         .store
         .plan_sticker_upload(&descriptor, crate::now())
         .unwrap()
-    {
-        UploadPlan::Upload(value) => value,
-        _ => panic!("fresh single fixture"),
+    else {
+        panic!("fresh single fixture")
     };
     pair.session
         .store

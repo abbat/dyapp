@@ -42,7 +42,7 @@ fn fallback_survives_restart_read_and_clear_without_resurrection() {
     let mut store = Store::open(&path, &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let mut message = sticker(1, false);
-    message.hlc = (1_234 << 16) | 17;
+    message.hlc = (1_234 << 16) | 0x11;
     assert!(store
         .record_chat_sticker(sender(&peer), &message, true)
         .unwrap());

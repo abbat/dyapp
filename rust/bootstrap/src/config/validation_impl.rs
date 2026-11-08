@@ -1,5 +1,23 @@
 use super::{fs, message, russian_locale, seed, transports, NodeConfig, Path, Role};
 
+fn effective_uid() -> libc::uid_t {
+    // SAFETY: geteuid has no preconditions and does not access configuration fields.
+    unsafe { libc::geteuid() }
+}
+
+impl super::Turn {
+    pub(super) fn validate(&self) -> anyhow::Result<()> {
+        if self.secret.expose().is_empty() || self.credential_minutes < 1 {
+            anyhow::bail!("role turn needs turn.secret and turn.credential_minutes >= 1");
+        }
+        let turn_url = |u: &String| u.starts_with("turn:") || u.starts_with("turns:");
+        if self.urls.is_empty() || !self.urls.iter().all(turn_url) {
+            anyhow::bail!("role turn needs turn.urls, each starting with turn: or turns:");
+        }
+        Ok(())
+    }
+}
+
 impl NodeConfig {
     /// Checks everything that could otherwise fail at runtime. Creates missing directories.
     ///
@@ -8,8 +26,7 @@ impl NodeConfig {
     /// Returns an error when running as root, a configured address, role, policy or resource limit
     /// is invalid, required directories cannot be prepared, or the storage network binding fails.
     pub fn validate(&self) -> anyhow::Result<()> {
-        // SAFETY: geteuid has no preconditions; unlike /proc/self it also exists on macOS.
-        if unsafe { libc::geteuid() } == 0 {
+        if effective_uid() == 0 {
             anyhow::bail!(message(
                 "refusing to run as root: start the node as an unprivileged user",
                 "запуск от root запрещён: запустите узел от непривилегированного пользователя"

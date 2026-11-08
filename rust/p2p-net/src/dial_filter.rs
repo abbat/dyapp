@@ -39,7 +39,7 @@ impl DialFilter {
         };
         let canonical = match ip {
             IpAddr::V6(ip) => ip.to_canonical(),
-            ip => ip,
+            IpAddr::V4(_) => ip,
         };
         self.nets
             .iter()

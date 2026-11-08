@@ -97,7 +97,7 @@ mod tests {
     }
 
     impl Fake {
-        async fn put(&mut self, user: &str) -> Result<PeerId, Error> {
+        fn put(&mut self, user: &str) -> Result<PeerId, Error> {
             if user == self.refused {
                 return Err(Error::Status(Status::Refused));
             }
@@ -123,7 +123,7 @@ mod tests {
             &mut scores,
             &mut nodes,
             |node| node.peer,
-            async |node| node.put("alice").await,
+            async |node| node.put("alice"),
         )
         .await
         .unwrap();
@@ -135,7 +135,7 @@ mod tests {
             &mut scores,
             &mut nodes,
             |node| node.peer,
-            async |node| node.put("bob").await,
+            async |node| node.put("bob"),
         )
         .await
         .unwrap();

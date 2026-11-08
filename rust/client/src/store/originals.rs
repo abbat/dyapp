@@ -26,7 +26,7 @@ mod stickers;
 pub use settings::MediaCacheConfig;
 
 fn file_name(blob_sha256: &[u8; 32]) -> String {
-    blob_sha256.iter().map(|b| format!("{b:02x}")).collect()
+    dyapp_identity::hex(blob_sha256)
 }
 
 fn path(dir: &Path, blob_sha256: &[u8; 32]) -> PathBuf {

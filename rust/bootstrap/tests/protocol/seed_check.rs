@@ -14,7 +14,7 @@ async fn client_seed_check_names_a_real_node_of_each_network() {
         let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new(node_name).unwrap());
         let (address, _, _) = start_config_in_protocols(|_| {}, protocols).await;
         let (mut port, mut peer) = (0, None);
-        for part in address.iter() {
+        for part in &address {
             match part {
                 Protocol::Tcp(p) => port = p,
                 Protocol::P2p(id) => peer = Some(id),

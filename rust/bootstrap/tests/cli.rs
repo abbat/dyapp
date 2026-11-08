@@ -170,7 +170,7 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     assert!(stopped_status(&dir).contains("deny_entries 1\n"));
 
     let remote = Identity::generate();
-    let peer = remote.peer_id().to_string();
+    let peer = remote.peer_id().clone();
     let record = deny::sign(&remote, &["198.51.100.0/24".to_owned()].into());
     let list = proto::DenyList::decode(record.payload.as_slice()).unwrap();
     let store = DenyStore::open(&dir.join("deny.db")).unwrap();
@@ -330,12 +330,15 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     let base = ["--network.id-pow-bits", "0", "--limits.min-free-mb", "0"];
     let ports = |listen: &str, metrics: &str| -> Vec<String> {
         let ports = ["--listen", listen, "--metrics.port", metrics];
-        base.iter().chain(&ports).map(|s| s.to_string()).collect()
+        base.iter()
+            .chain(&ports)
+            .map(std::string::ToString::to_string)
+            .collect()
     };
     success(&dir, &[&["keygen"], &base[..]].concat());
     let blob = b"media CLI roundtrip";
     let hash = dyapp_identity::sha256(blob);
-    let hash_hex: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+    let hash_hex: String = dyapp_identity::hex(&hash);
     let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -390,12 +393,7 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     let fetched: serde_json::Value =
         serde_json::from_str(&success(&dir, &["media-get", listen, &hash_hex])).unwrap();
     assert_eq!(fetched["status"], "STATUS_OK");
-    assert_eq!(
-        fetched["data"],
-        blob.iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
+    assert_eq!(fetched["data"], dyapp_identity::hex(blob));
     let running = String::from_utf8(status(&[]).stdout).unwrap();
     assert!(running.starts_with("node running\n"), "{running}");
     for name in [

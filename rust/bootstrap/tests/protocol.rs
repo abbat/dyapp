@@ -529,7 +529,7 @@ async fn store_profile_pow_is_checked_on_network_publish() {
     assert_eq!(status(response.status), Status::Ok);
 
     profile.version = 2;
-    profile.pow_nonce = (0..)
+    profile.pow_nonce = (0..1_000)
         .find(|nonce| dyapp_profile::pow_leading_bits(&owner.public_key(), *nonce) < 2)
         .unwrap();
     let response = client
@@ -603,6 +603,10 @@ impl request_response::Codec for RawCodec {
     type Request = Vec<u8>;
     type Response = Vec<u8>;
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "The codec trait requires an async method; this outbound-only operation deliberately fails immediately"
+    )]
     async fn read_request<T: AsyncRead + Unpin + Send>(
         &mut self,
         _: &StreamProtocol,
@@ -630,6 +634,10 @@ impl request_response::Codec for RawCodec {
         io.write_all(&request).await
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "The codec trait requires an async method; this outbound-only operation deliberately fails immediately"
+    )]
     async fn write_response<T: AsyncWrite + Unpin + Send>(
         &mut self,
         _: &StreamProtocol,

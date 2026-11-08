@@ -96,7 +96,7 @@ impl Session {
     ) -> Result<Vec<PreparedEnvelope>, Error> {
         answer.encode()?;
         let body = Body::PackAnswer(Box::new(answer.clone()));
-        let (_, writes) =
+        let ((), writes) =
             self.stage_pack_control(&job.group, &body, seal_key, |store, sealed, writes| {
                 store.stage_sticker_pack_response(sealed, writes, job, answer, crate::now() * 1000)
             })?;

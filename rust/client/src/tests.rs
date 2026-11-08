@@ -193,9 +193,8 @@ async fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors() {
                         let (envelopes, more, next_cursor) = match fetch.cursor.as_slice() {
                             [] if fetch.limit == 2 => (vec![first.clone()], true, vec![1; 10]),
                             [1, ..] => (vec![second.clone()], false, Vec::new()),
-                            [2, ..] => (Vec::new(), true, Vec::new()),
                             [3, ..] => (Vec::new(), true, vec![3; 10]),
-                            [] => (Vec::new(), true, Vec::new()),
+                            [] | [2, ..] => (Vec::new(), true, Vec::new()),
                             _ => panic!("unexpected cursor"),
                         };
                         proto::MailboxResponse {
