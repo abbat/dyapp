@@ -1,37 +1,5 @@
-window.checkIdentifiers = async () => {
-  const selection = window.getSelection();
-  const savedRanges = Array.from({ length: selection.rangeCount }, (_, index) =>
-    selection.getRangeAt(index).cloneRange(),
-  );
-  const box = document.createElement('div');
-  box.style.maxWidth = '32ch';
-  const code = document.createElement('code');
-  box.append(code);
-  document.body.append(box);
-  const check = (ok, reason) => {
-    if (!ok) throw Error(reason);
-  };
-  const formatted = (raw) =>
-    new Promise((resolve, reject) => {
-      const ready = () => code.textContent === raw && code.querySelector('wbr');
-      if (ready()) {
-        resolve();
-        return;
-      }
-      const observer = new MutationObserver(() => {
-        if (ready()) {
-          observer.disconnect();
-          clearTimeout(deadline);
-          resolve();
-        }
-      });
-      observer.observe(code, { attributes: true, childList: true, subtree: true });
-      const deadline = setTimeout(() => {
-        observer.disconnect();
-        reject(Error('Identifier format deadline'));
-      }, 10000);
-    });
-  try {
+(() => {
+  const checkIdentifierContent = async (code, selection, formatted, check) => {
     check(typeof Intl.Segmenter === 'function', 'Target engine lacks grapheme segmentation');
     const raw = '0123456789abcdef'.repeat(4);
     code.textContent = raw;
@@ -78,9 +46,46 @@ window.checkIdentifiers = async () => {
       !code.querySelector('img') && code.textContent === markup,
       'Identifier interpreted markup',
     );
-  } finally {
-    selection.removeAllRanges();
-    for (const range of savedRanges) selection.addRange(range);
-    box.remove();
-  }
-};
+  };
+  window.checkIdentifiers = async () => {
+    const selection = window.getSelection();
+    const savedRanges = Array.from({ length: selection.rangeCount }, (_, index) =>
+      selection.getRangeAt(index).cloneRange(),
+    );
+    const box = document.createElement('div');
+    box.style.maxWidth = '32ch';
+    const code = document.createElement('code');
+    box.append(code);
+    document.body.append(box);
+    const check = (ok, reason) => {
+      if (!ok) throw Error(reason);
+    };
+    const formatted = (raw) =>
+      new Promise((resolve, reject) => {
+        const ready = () => code.textContent === raw && code.querySelector('wbr');
+        if (ready()) {
+          resolve();
+          return;
+        }
+        const observer = new MutationObserver(() => {
+          if (ready()) {
+            observer.disconnect();
+            clearTimeout(deadline);
+            resolve();
+          }
+        });
+        observer.observe(code, { attributes: true, childList: true, subtree: true });
+        const deadline = setTimeout(() => {
+          observer.disconnect();
+          reject(Error('Identifier format deadline'));
+        }, 10000);
+      });
+    try {
+      await checkIdentifierContent(code, selection, formatted, check);
+    } finally {
+      selection.removeAllRanges();
+      for (const range of savedRanges) selection.addRange(range);
+      box.remove();
+    }
+  };
+})();
