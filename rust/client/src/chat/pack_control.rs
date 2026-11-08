@@ -46,6 +46,7 @@ fn bounded(bytes: &[u8]) -> Result<(), Error> {
 
 impl PackRequest {
     /// Encode the request payload without an outer chat tag.
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         RequestWire {
             pack_id: self.pack_id.to_vec(),
@@ -53,6 +54,11 @@ impl PackRequest {
         .encode_to_vec()
     }
     /// Bound input before protobuf allocation, then require an exact digest.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the payload is empty, oversized, or malformed, or the
+    /// manifest digest is not exactly 32 bytes.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         bounded(bytes)?;
         let wire = RequestWire::decode(bytes).map_err(|_| bad())?;
@@ -77,6 +83,12 @@ impl PackAnswer {
         Ok(())
     }
     /// Encode a validated answer payload without an outer tag.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if attachment metadata is invalid, the sealed pack size
+    /// exceeds its limit, a preview or release capability is present, or the
+    /// encoded answer exceeds its byte limit.
     pub fn encode(&self) -> Result<Vec<u8>, Error> {
         self.check()?;
         let bytes = self.encode_unchecked();
@@ -95,6 +107,12 @@ impl PackAnswer {
         .encode_to_vec()
     }
     /// Parse bounded metadata only; this does not authorize fetching or saving a pack.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the payload is empty, oversized, or malformed, its
+    /// digest or attachment is missing or invalid, message context is nonzero,
+    /// or attachment validation fails as described in [`Self::encode`].
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         bounded(bytes)?;
         let wire = AnswerWire::decode(bytes).map_err(|_| bad())?;
