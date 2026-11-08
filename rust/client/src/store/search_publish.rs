@@ -37,6 +37,11 @@ impl State {
 impl Store {
     /// Hold `record`, the newest signed profile, for search; it replaces any held one. The caller
     /// then sends [`Self::due_search_profile`], if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the saved publication state is malformed or unsupported,
+    /// or reading or writing it in the database fails.
     pub fn hold_search_profile(&self, record: &SignedRecord) -> Result<(), Error> {
         let mut state = self.search_publish()?;
         state.pending = Some(record.clone());
@@ -45,6 +50,11 @@ impl Store {
 
     /// The held profile once the window has ended at Unix second `now`; ask again after an edit
     /// and on app start.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the saved publication state is malformed or unsupported,
+    /// or reading it from the database fails.
     pub fn due_search_profile(&self, now: u64) -> Result<Option<SignedRecord>, Error> {
         let state = self.search_publish()?;
         let ready = now >= state.ready_at();
@@ -53,6 +63,11 @@ impl Store {
 
     /// Record that search nodes accepted `record` at `now`. A newer edit made meanwhile stays
     /// held.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the saved publication state is malformed or unsupported,
+    /// or reading or writing it in the database fails.
     pub fn search_profile_sent(&self, record: &SignedRecord, now: u64) -> Result<(), Error> {
         let mut state = self.search_publish()?;
         if state.pending.as_ref() == Some(record) {
@@ -63,6 +78,16 @@ impl Store {
     }
 
     /// A search node answered `RATE_LIMITED` at `now`: keep the profile held for `retry_after`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the saved publication state is malformed or unsupported,
+    /// or reading or writing it in the database fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if rounding `retry_after` up to whole seconds overflows `u64` when
+    /// overflow checks are enabled.
     pub fn search_profile_rate_limited(
         &self,
         now: u64,
@@ -75,6 +100,11 @@ impl Store {
     }
 
     /// Minutes, rounded up, until held changes reach search, or `None` with nothing held.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the saved publication state is malformed or unsupported,
+    /// or reading it from the database fails.
     pub fn search_profile_minutes_left(&self, now: u64) -> Result<Option<u64>, Error> {
         let state = self.search_publish()?;
         let left = state.ready_at().saturating_sub(now).div_ceil(60);
@@ -83,6 +113,11 @@ impl Store {
 
     /// Whether a search heartbeat is due at Unix second `now`: the first one at once, then one at
     /// a random second of each next UTC day, so the time a node sees does not follow app use.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading the heartbeat setting fails or its stored value
+    /// has an invalid length.
     pub fn search_heartbeat_due(&self, now: u64) -> Result<bool, Error> {
         let value: Option<Vec<u8>> = self
             .db
@@ -101,6 +136,16 @@ impl Store {
 
     /// Record that a search node accepted a heartbeat at `now`; the next one is due at a random
     /// second of the next UTC day.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if generating randomness or writing the heartbeat setting
+    /// to the database fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if calculating the next UTC day's scheduled second overflows `u64`
+    /// when overflow checks are enabled.
     pub fn search_heartbeat_sent(&self, now: u64) -> Result<(), Error> {
         let mut random = [0; 8];
         getrandom::fill(&mut random).map_err(|_| Error::Random)?;
