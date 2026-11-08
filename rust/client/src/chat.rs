@@ -29,6 +29,7 @@ pub const MAX_TEXT_BYTES: usize = 64 * 1024;
 pub const MAX_NOTE_CHARS: usize = 2_000;
 
 /// Plain private note text: clean NFC lines, retaining case and LF line breaks.
+#[must_use]
 pub fn valid_note(note: &str) -> bool {
     note.chars().count() <= MAX_NOTE_CHARS && note.split('\n').all(is_clean_text)
 }
@@ -114,6 +115,7 @@ pub enum PeerChange {
 
 impl PeerChange {
     /// Whether the Peer ID and any private text fit their respective limits.
+    #[must_use]
     pub fn valid(&self, peer: &str) -> bool {
         let name_fits = match self {
             Self::Name(name) => name.chars().count() <= MAX_FIELD_CHARS && is_clean_text(name),
@@ -266,6 +268,7 @@ pub struct TokenAnswer {
 
 impl Body {
     /// Media message carried directly or inside a forward.
+    #[must_use]
     pub fn attachment_message(&self) -> Option<&AttachmentMessage> {
         match self {
             Self::Attachment(message) => Some(message),
@@ -283,6 +286,7 @@ impl Body {
     }
 
     /// Makes a text body with a caller-owned logical ID, shared by all device deliveries.
+    #[must_use]
     pub fn text_with_id(id: [u8; 16], text: Vec<u8>) -> Self {
         Self::Text {
             id,
@@ -292,6 +296,7 @@ impl Body {
     }
 
     /// The tag byte, then the bounded body bytes.
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         match self {
             Self::Text { id, hlc, text } => match hlc {
@@ -354,6 +359,10 @@ impl Body {
     /// Refuses an unknown or missing tag, a malformed interaction, a token body that is empty or
     /// too long, a token, receipt or attachment field of the wrong length, and a forward of
     /// anything but a text or attachment.
+    ///
+    /// # Errors
+    /// Returns [`Error::Reply`] for unsupported tags, malformed payloads or fields
+    /// that violate the body size, length or content rules.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
             Some((1, body)) => {
@@ -505,6 +514,10 @@ impl std::fmt::Debug for Event {
 /// Publishes `count` single-use KeyPackages of `device` (its MLS state) under the device mailbox
 /// key `device_key`, owned by `owner` (hex Peer ID). Seal the state before calling: the private
 /// keys are in it.
+///
+/// # Errors
+/// Returns MLS KeyPackage-generation errors or node publication errors.
+/// Earlier packages may already have been published.
 pub async fn publish_key_packages(
     node: &mut Node,
     device_key: &Identity,
@@ -523,6 +536,9 @@ pub async fn publish_key_packages(
 /// Starts a group with every device in `profiles` except `own_mailbox`, other devices of this
 /// device's owner included; returns it with the Welcome for each. Fails if any device has no
 /// KeyPackage. `profiles` are the newest ones held, this device's owner's among them.
+///
+/// # Errors
+/// Returns errors from [`key_packages`] or MLS group creation in [`create`].
 pub async fn invite(
     node: &mut Node,
     device: &Device,
@@ -534,6 +550,10 @@ pub async fn invite(
 }
 
 /// The mailbox and KeyPackage of every device in `profiles` except `own_mailbox`.
+///
+/// # Errors
+/// Returns certificate decoding errors from `device_mailbox` or node
+/// KeyPackage-fetch errors; earlier single-use packages may already be consumed.
 pub async fn key_packages(
     node: &mut Node,
     own_mailbox: &[u8],
@@ -554,6 +574,9 @@ pub async fn key_packages(
 }
 
 /// Starts a group with `packages` from [`key_packages`]; returns it with the Welcome for each.
+///
+/// # Errors
+/// Returns MLS errors for package validation, group creation or Welcome serialization.
 pub fn create(
     device: &Device,
     packages: &[(Vec<u8>, Vec<u8>)],
@@ -576,6 +599,10 @@ pub fn create(
 
 /// Adds the devices of `packages` from [`key_packages`] to `group`: the commit for its members,
 /// the Welcome for the new devices.
+///
+/// # Errors
+/// Returns MLS member-addition errors or delivery preparation errors from
+/// [`to_members`]. The group may already have advanced before delivery preparation fails.
 pub fn add(
     group: &mut Group,
     device: &Device,
@@ -597,6 +624,9 @@ pub fn add(
 }
 
 /// Removes the members `profiles` no longer lists from `group`: the commit for the other members.
+///
+/// # Errors
+/// Returns MLS removal errors or delivery preparation errors from [`to_members`].
 pub fn remove(
     group: &mut Group,
     device: &Device,
@@ -636,6 +666,9 @@ fn peer_change(body: &[u8]) -> Option<Body> {
 }
 
 /// Pads and encrypts `body` for every other device in `group`.
+///
+/// # Errors
+/// Returns body-validation, MLS encryption or member delivery preparation errors.
 pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<Delivery>, Error> {
     let floor = match body {
         Body::Interaction(_) | Body::Presence { .. } | Body::Read { .. } => SIGNAL_PADDED_BYTES,
@@ -648,6 +681,9 @@ pub fn message(group: &mut Group, device: &Device, body: &Body) -> Result<Vec<De
 }
 
 /// The deliveries of `commit` to the group's other devices.
+///
+/// # Errors
+/// Returns MLS certificate errors or [`Error::Reply`] for an invalid device-key length.
 pub fn to_members(group: &Group, commit: &[u8]) -> Result<Vec<Delivery>, Error> {
     group
         .peer_device_keys()?
@@ -663,6 +699,9 @@ pub fn to_members(group: &Group, commit: &[u8]) -> Result<Vec<Delivery>, Error> 
 }
 
 /// Puts each delivery in its mailbox.
+///
+/// # Errors
+/// Returns mailbox submission errors; earlier deliveries may already be accepted.
 pub async fn send(node: &mut Node, deliveries: &[Delivery]) -> Result<(), Error> {
     for delivery in deliveries {
         node.put(&delivery.mailbox, delivery.mls.clone()).await?;
@@ -674,6 +713,9 @@ pub async fn send(node: &mut Node, deliveries: &[Delivery]) -> Result<(), Error>
 /// group, a commit or message goes to its group. Returns what happened and the ids to ack after
 /// sealing the state. Senders' profiles must be in `profiles`; an envelope for a group not
 /// joined yet stays in the mailbox for a later call.
+///
+/// # Errors
+/// Returns mailbox-fetch errors from [`Node::fetch`].
 pub async fn receive(
     node: &mut Node,
     device_key: &Identity,
@@ -688,6 +730,9 @@ pub async fn receive(
 /// [`receive`] from the union of the mailbox at `first` and at `second`, a node of another
 /// replica key: call it on [`Event::Gap`] and once a day. An envelope only `second` holds counts
 /// against `first` in `scores` when `first` returned its whole mailbox. Ack the ids at both.
+///
+/// # Errors
+/// Returns mailbox-fetch errors from either node.
 pub async fn cross_check(
     scores: &mut Scores,
     first: &mut Node,
@@ -801,6 +846,7 @@ pub(crate) fn device_mailbox(certificate: &SignedRecord) -> Result<Vec<u8>, Erro
 
 /// `plaintext` after its length, zero-filled to the next power of two from
 /// [`MIN_PADDED_BYTES`].
+#[must_use]
 pub fn pad(plaintext: &[u8]) -> Vec<u8> {
     pad_from(plaintext, MIN_PADDED_BYTES)
 }
@@ -818,6 +864,7 @@ fn pad_from(plaintext: &[u8], floor: usize) -> Vec<u8> {
 }
 
 /// The plaintext [`pad`] wrapped, or `None` if the length prefix overruns.
+#[must_use]
 pub fn unpad(padded: &[u8]) -> Option<&[u8]> {
     let (length, rest) = padded.split_first_chunk::<LENGTH_BYTES>()?;
     rest.get(..usize::try_from(u32::from_be_bytes(*length)).ok()?)
