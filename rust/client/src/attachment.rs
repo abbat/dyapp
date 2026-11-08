@@ -56,11 +56,17 @@ impl std::fmt::Debug for Attachment {
 
 impl Attachment {
     /// The hash the sender attaches the blob under; the release secret opens it.
+    #[must_use]
     pub fn release_hash(&self) -> [u8; 32] {
         sha256(&self.release_secret)
     }
 
     /// Refuses a preview or MIME type over its bound or a MIME type that is not printable ASCII.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the preview exceeds its byte limit or the MIME type is
+    /// too long or contains non-graphic ASCII or non-ASCII bytes.
     pub fn check(&self) -> Result<(), Error> {
         if self.preview.len() > MAX_PREVIEW_BYTES {
             return Err(Error::Attachment("preview too large"));
@@ -73,12 +79,14 @@ impl Attachment {
 }
 
 /// `max_bytes` for each preview of a message with `count` images.
+#[must_use]
 pub fn preview_budget(count: usize) -> usize {
     MAX_PREVIEW_BYTES.min(MESSAGE_PREVIEW_BYTES / count.max(1))
 }
 
 /// The layout size for claimed dimensions: the aspect ratio clamped to 1:20..20:1, a zero side
 /// counted as 1. The decoded image's real dimensions replace it after download.
+#[must_use]
 pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
     let (width, height) = (u64::from(width.max(1)), u64::from(height.max(1)));
     let width = width.min(height * MAX_ASPECT);
@@ -89,6 +97,7 @@ pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
 
 /// Exact encrypted blob length, including one GCM tag per chunk (even for empty input).
 /// Returns `None` if the length cannot fit this platform's address space.
+#[must_use]
 pub fn sealed_size(plaintext_bytes: usize) -> Option<usize> {
     let chunks = plaintext_bytes.div_ceil(CHUNK_BYTES).max(1);
     plaintext_bytes.checked_add(chunks.checked_mul(TAG_BYTES)?)
@@ -113,6 +122,10 @@ pub(crate) fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, Error
 }
 
 /// Encrypts `plaintext` under a fresh key; returns its [`Attachment`] and the blob to upload.
+///
+/// # Errors
+///
+/// Returns an error if OS randomness is unavailable or encrypting a chunk fails.
 pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
     let key = random()?;
     let blob = encrypt(&key, plaintext)?;
@@ -132,6 +145,11 @@ pub fn seal(plaintext: &[u8]) -> Result<(Attachment, Vec<u8>), Error> {
 
 /// Checks `blob` against `attachment` and decrypts it. Fails on any changed, reordered or
 /// missing byte, and on a wrong key.
+///
+/// # Errors
+///
+/// Returns an error if either hash does not match, the blob is empty, or a chunk
+/// cannot be authenticated and decrypted with the attachment key.
 pub fn open(attachment: &Attachment, blob: &[u8]) -> Result<Vec<u8>, Error> {
     if sha256(blob) != attachment.blob_sha256 {
         return Err(Error::Attachment("blob hash mismatch"));
@@ -180,6 +198,7 @@ pub enum AutoDownload {
 
 /// Whether to download the full file without a tap. A stranger's never is, in every mode; the
 /// platform reports an unknown network as metered. Call again when the network changes.
+#[must_use]
 pub fn auto_download(mode: AutoDownload, metered: bool, from_contact: bool) -> bool {
     from_contact
         && match mode {
@@ -191,6 +210,7 @@ pub fn auto_download(mode: AutoDownload, metered: bool, from_contact: bool) -> b
 
 /// Whole hours left of the original sent at `sent_ms`, when under a day remains; `None` before.
 /// `Some(0)` means it has expired or is about to.
+#[must_use]
 pub fn hours_left(sent_ms: i64, now_ms: i64) -> Option<u32> {
     const HOUR_MS: i64 = 3_600_000;
     let left = sent_ms
@@ -202,6 +222,12 @@ pub fn hours_left(sent_ms: i64, now_ms: i64) -> Option<u32> {
 /// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. A
 /// recipient never releases it: in MLS every device is a member, so the first release would drop
 /// it for the others; it expires after the retention.
+///
+/// # Errors
+///
+/// Returns an error if there are no nodes, every node request fails, or the first
+/// successfully fetched blob fails hash or decryption checks. If all requests
+/// fail, returns the last request error.
 pub async fn fetch(nodes: &mut [crate::Node], attachment: &Attachment) -> Result<Vec<u8>, Error> {
     let mut last = Error::Request("no node".into());
     for node in nodes {
