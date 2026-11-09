@@ -16,6 +16,7 @@ let savedSelection = 0;
 let savedCall = invoke;
 const savedCurrent = (context) =>
   context.run === savedRun && identityCurrent(context.generation) && savedPanel.open;
+/** @param {string} key */
 const savedMessage = (key) => {
   savedStatus.textContent = key ? strings[`favorites.${key}`] : '';
 };
@@ -36,6 +37,7 @@ const removeSavedProfile = async ({ peerId, context, row }) => {
   await controller.showSaved(context.call);
   if (savedPanel.open && identityCurrent(context.generation)) savedRefresh.focus();
 };
+/** @param {number} selection */
 const savedRowFailure = (opening, selection, context, row) => {
   if ((!opening || selection === savedSelection) && savedCurrent(context) && row.isConnected) {
     savedMessage(opening ? 'openFailed' : 'changeFailed');
@@ -65,6 +67,10 @@ const savedRowAction = ({ peerId, context, row, open, remove }) => {
   };
   return run;
 };
+/**
+ * @param {string} peerId
+ * @param {{ run: number; generation: number; call: import('./ipc.js').Invoke; }} context
+ */
 const savedRow = (peerId, context) => {
   const row = document.createElement('li');
   row.className = 'actions';

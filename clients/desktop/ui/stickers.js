@@ -23,6 +23,7 @@ export const controller = {};
     domById('sticker-status', HTMLParagraphElement).hidden = !key;
     domById('sticker-status', HTMLParagraphElement).classList.toggle('error', error);
   };
+  /** @param {boolean} value */
   const busy = (target, value) => {
     target.busy = value;
     for (const id of ['sticker-import', 'sticker-refresh', 'sticker-next'])
@@ -30,6 +31,7 @@ export const controller = {};
     for (const button of domById('sticker-list', HTMLUListElement).querySelectorAll('button'))
       button.disabled = value;
   };
+  /** @param {string} key */
   const failure = (key, error) => {
     message(key, true);
     domById('sticker-details', HTMLDetailsElement).hidden = false;
@@ -72,6 +74,7 @@ export const controller = {};
     item.append(name, id, info, remove);
     return item;
   };
+  /** @param {string} notice */
   const showCollectionStatus = (page, notice) => {
     const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
     message('');
@@ -213,6 +216,7 @@ export const controller = {};
         error,
       );
   };
+  /** @param {File} file */
   const importFile = async (file, target = view) => {
     if (!prepareImport(file, target)) return;
     try {

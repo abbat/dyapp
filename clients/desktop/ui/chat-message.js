@@ -10,6 +10,7 @@ export const controller = {};
 
 // Message rows use the chat controller's explicitly imported rendering helpers.
 (() => {
+  /** @param {HTMLDivElement | HTMLParagraphElement} item */
   function appendMessageBody(item, message, peerId, history, call) {
     const sticker = message.sticker && !message.deleted;
     const label = document.createElement('b');
@@ -38,6 +39,7 @@ export const controller = {};
     return message.text || '';
   }
 
+  /** @param {HTMLSpanElement} body */
   function messageContent(message, peerId, history, call, body) {
     const { photoBubble } = chatsUiController.chatMessageHelpers;
     if (message.photo) {
@@ -55,6 +57,7 @@ export const controller = {};
     return body;
   }
 
+  /** @param {HTMLDivElement | HTMLParagraphElement} item */
   function appendMessageMetadata(item, message) {
     const { chatLinkHosts } = chatsUiController.chatMessageHelpers;
     const hosts = chatLinkHosts(message.deleted ? '' : message.text);
@@ -79,6 +82,7 @@ export const controller = {};
     }
   }
 
+  /** @param {HTMLDivElement | HTMLParagraphElement} item */
   function appendMessageActions(item, message, history) {
     const { openEdit, openDelete, openForward } = chatsUiController.chatMessageHelpers;
     const sticker = message.sticker && !message.deleted;
@@ -119,6 +123,7 @@ export const controller = {};
     }
   }
 
+  /** @param {HTMLDivElement | HTMLParagraphElement} item */
   function appendMessageTime(item, message) {
     const time = chatTime(message);
     if (time) {

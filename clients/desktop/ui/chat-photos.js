@@ -26,6 +26,7 @@ const fitCanvas = (canvas, width, height, side) => {
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
 };
+/** @param {number | undefined} [side] */
 const drawPhoto = async (canvas, bytes, mime, side) => {
   const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
   if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
@@ -42,6 +43,7 @@ const photoCaption = (photo) => {
   return parts.join(' · ');
 };
 const photoKey = (message) => `${message.author}:${message.id}`;
+/** @param {string} code */
 const photoError = (code) =>
   strings[
     {
@@ -49,6 +51,7 @@ const photoError = (code) =>
       corrupted: 'chats.photoBroken',
     }[code] || 'chats.photoFailed'
   ];
+/** @param {string} key @param {string} name @param {() => void} click */
 const photoButton = (key, name, click) => {
   const button = document.createElement('button');
   button.type = 'button';

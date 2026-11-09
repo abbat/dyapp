@@ -31,6 +31,7 @@ export const controller = {};
       ? sizeText(known.usedBytes)
       : strings['usage.unavailable'];
   };
+  /** @param {string} key */
   const status = (key) => {
     domById('media-cache-status', HTMLParagraphElement).textContent = key
       ? strings[`photos.cache.${key}`]
@@ -95,6 +96,7 @@ export const controller = {};
       }
     }
   };
+  /** @param {'set_media_cache' | 'clear_media_cache'} command */
   const change = (command, values = {}) => {
     const target = view;
     if (!target?.config || target.busy) return;

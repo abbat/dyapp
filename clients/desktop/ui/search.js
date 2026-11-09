@@ -38,9 +38,11 @@ const HEIGHT_FIELD = 46;
 const SEEKING_GENDERS_FIELD = 53;
 const SEEKING_AGE_FIELD = 54;
 let searchBusy = false;
+/** @param {string} key */
 const searchMessage = (key, detail = '') =>
   statusMessage(domById('search-status', HTMLParagraphElement), 'search-open-network', key, detail);
 // Hidden filters are disabled, so they neither block validation nor reach the query.
+/** @param {HTMLDivElement} element */
 const showFilter = (element, shown) => {
   element.hidden = !shown;
   for (const input of domAll(element, 'input, select', HTMLInputElement, HTMLSelectElement))
@@ -109,6 +111,7 @@ const searchEmployer = () => {
   return { kind: 'any' };
 };
 const searchQuery = () => {
+  /** @param {string} id */
   const filled = (id) => {
     const input = domById(id, HTMLElement);
     if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement))
@@ -173,6 +176,7 @@ const summaryText = (found) =>
   [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
 // self-declared claim as verified.
+/** @param {string} id */
 const resultCard = (found, id) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -193,6 +197,7 @@ const withPlaces = (profiles) =>
     })),
   );
 const viewStatus = domById('view-status', HTMLParagraphElement);
+/** @param {{ ours: boolean; matched: boolean; } | import('./ipc.js').Likes} likes */
 const showLikes = (likes) => {
   domById('view-like', HTMLButtonElement).hidden = likes.ours || likes.passed;
   domById('view-unlike', HTMLButtonElement).hidden = !likes.ours;
@@ -205,6 +210,7 @@ let safetyScanToken = 0;
 
 let cameraTimer = null;
 let cameraPending = false;
+/** @param {string} key */
 const showSafetyStatus = (key) => {
   const status = domById('view-safety-scan-status', HTMLParagraphElement);
   status.textContent = strings[key];
@@ -232,6 +238,7 @@ document.addEventListener('dyapp:area-change', (event) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopSafetyCamera();
 });
+/** @param {boolean} verified */
 const showVerified = (verified) => {
   domById('view-verified', HTMLParagraphElement).hidden = !verified;
   const state = domById('view-safety-state', HTMLParagraphElement);
@@ -325,6 +332,7 @@ domById('view-back', HTMLButtonElement).addEventListener('click', () => {
   card.focus();
 });
 // A like goes to the pair group on the active network; the first one invites the peer.
+/** @param {boolean} liked */
 const sendLike = async (liked, call = invoke) => {
   const target = viewed;
   if (!target || target.actionBusy) return;
@@ -381,6 +389,7 @@ domById('unlike-confirm', HTMLButtonElement).addEventListener('click', () => {
   controller.likeDone = sendLike(false);
 });
 // A pass stays with the own devices: the card leaves its list at once and the open profile can undo it.
+/** @param {boolean} passed */
 const sendPass = async (passed, call = invoke) => {
   const target = viewed;
   if (!target || target.actionBusy) return;
@@ -412,11 +421,13 @@ const sendPass = async (passed, call = invoke) => {
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
-for (const [id, passed] of [
+/** @type {Array<[string, boolean]>} */
+const passActions = [
   ['view-pass', true],
   ['view-unpass', false],
-]) {
-  domById(String(id), HTMLButtonElement).addEventListener('click', () => {
+];
+for (const [id, passed] of passActions) {
+  domById(id, HTMLButtonElement).addEventListener('click', () => {
     controller.passDone = sendPass(passed);
   });
 }
@@ -591,6 +602,7 @@ domById('verify-confirm', HTMLButtonElement).addEventListener('click', () => {
 domById('view-unverify', HTMLButtonElement).addEventListener('click', () => {
   controller.confirmDone = removeMark();
 });
+/** @param {CanvasRenderingContext2D | null} context @param {number} width @param {number} height */
 const grayscaleFrame = (context, width, height) => {
   const rgba = context.getImageData(0, 0, width, height).data;
   const pixels = new Array(width * height);
@@ -612,6 +624,7 @@ controller.scanQrFile = async (file) => {
     token === safetyScanToken &&
     viewed?.found === found &&
     !panel.hidden;
+  /** @param {string} key */
   const report = (key) => {
     if (!current()) return;
     showSafetyStatus(`view.safety.scan.${key}`);
@@ -689,6 +702,7 @@ const safetyCameraScanner = (found, preview, current) => {
   };
   return scan;
 };
+/** @param {HTMLVideoElement} preview @param {() => boolean} current */
 const startSafetyCamera = async (found, preview, current) => {
   let stream;
   try {
@@ -792,6 +806,7 @@ domById('view-block', HTMLButtonElement).addEventListener('click', () => {
   controller.blockDone = blockViewed();
 });
 const searchError = domById('search-error', HTMLDivElement);
+/** @param {string} key */
 const showSearchError = (key, details) => {
   domById('search-error-text', HTMLParagraphElement).textContent = strings[key];
   domById('search-failures', HTMLPreElement).textContent = details;
@@ -802,6 +817,7 @@ copyFrom(
   domById('search-failures', HTMLPreElement),
 );
 // Loading blocks repeated requests, not navigation.
+/** @param {boolean} busy */
 const setSearchBusy = (busy) => {
   searchBusy = busy;
   domById('search-loading', HTMLDivElement).hidden = !busy;
@@ -817,6 +833,7 @@ const clearSearch = () => {
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
+/** @param {import('./ipc.js').SearchResults} result @param {import('./ipc.js').Invoke} call */
 const renderSearchResults = (result, found, call) => {
   showSearchFilters(result.offered);
   searchResults.replaceChildren(

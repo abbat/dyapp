@@ -20,6 +20,7 @@ controller.peerName = (id) => {
 };
 controller.peerPhoto = (id) => peerNames.get(id)?.photo;
 // A failed read keeps the last names: every peer still shows at least its short Peer ID.
+/** @param {import('./ipc.js').Invoke} call */
 const loadPeerNames = async (peerIds, call) => {
   if (!peerIds.length) return;
   const generation = identityState.generation;

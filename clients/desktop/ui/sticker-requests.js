@@ -34,11 +34,13 @@ export const controller = {};
   };
   const focusHere = (target) =>
     target.root.contains(document.activeElement) ? document.activeElement : null;
+  /** @param {boolean} value */
   const busy = (target, value) => {
     target.busy = value;
     target.root.setAttribute('aria-busy', String(value));
     for (const button of target.actions.children) button.disabled = value;
   };
+  /** @param {Element | null} focus */
   const finish = (target, focus) => {
     if (!active(target)) return;
     busy(target, false);
@@ -76,6 +78,7 @@ export const controller = {};
     target.caption.textContent = text(
       value.state === 'failed' ? value.failure : value.state,
     ).replace('{name}', () => target.name);
+    /** @param {string} key @param {string} kind */
     const action = (key, kind) => add(target, key, () => change(target, kind));
     if (value.state === 'new') action('add', 'request');
     if (value.state === 'failed') failedActions(target, value, action);

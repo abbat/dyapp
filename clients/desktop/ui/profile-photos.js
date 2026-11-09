@@ -40,6 +40,7 @@ const profilePhotoFailure = (error) => {
   if (key) profileMessage(key);
   else profileMessage('profile.failed', String(error));
 };
+/** @param {() => void} focus */
 const changeProfilePhotos = async (work, call, focus) => {
   if (profileBusy) return;
   const generation = identityState.generation;
@@ -92,8 +93,10 @@ const askProfilePhotoRemoval = (index, call) => {
   profilePhotoDialog.showModal();
   profilePhotoCancel.focus();
 };
+/** @param {string} key */
 const profilePhotoText = (key, index, count) =>
   strings[key].replace('{n}', index + 1).replace('{count}', count);
+/** @param {string} glyph @param {string} name @param {string} label @param {() => void} click */
 const profilePhotoTool = (glyph, name, label, click) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -104,6 +107,7 @@ const profilePhotoTool = (glyph, name, label, click) => {
   button.addEventListener('click', click);
   return button;
 };
+/** @param {number} index @param {number} count @param {import('./ipc.js').Invoke} call */
 const profilePhotoTile = (hash, index, count, call) => {
   /** @type {HTMLElement & { ready?: Promise<void> }} */
   const tile = document.createElement('figure');
@@ -123,6 +127,7 @@ const profilePhotoTile = (hash, index, count, call) => {
     main.textContent = strings['profile.photoMain'];
     tile.append(main);
   }
+  /** @param {string} name */
   const moved = (to, name) => () => {
     controller.profilePhotoChanged = moveProfilePhoto(index, to, name, call);
   };
@@ -177,6 +182,7 @@ controller.ownAvatar = (avatar) => {
   avatar.dataset.own = 'true';
   paintOwnAvatar(avatar);
 };
+/** @param {import('./ipc.js').Invoke} call */
 const showOwnAvatars = async (hash, call) => {
   const run = ++ownPhotoRun;
   const photo = hash ? await call('profile_photo', { hash }).catch(() => null) : null;

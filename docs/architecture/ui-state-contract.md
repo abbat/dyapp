@@ -29,6 +29,8 @@ state. Invalid catalogues leave that state intact. Sticker rendering rejects an 
 canvas context explicitly.
 Startup still waits for `stringsShown`. Rust mail/revocation notifications dispatch the DOM events
 `dyapp:mail-updated` and `dyapp:device-revoked`; the entry module routes them to their controllers.
+`chat-row.js` owns list-row markup and previews; the controller supplies each row's opening
+callback. Startup's wizard mode is `false`, `true` or `'link'`, retained through identity rendering.
 Native smoke has its own local interface and async scope, included only with `ui-smoke`.
 Locale selection, validation and native CSP are unchanged. Modules are served directly, without
 a bundler.

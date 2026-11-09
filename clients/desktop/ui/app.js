@@ -47,6 +47,7 @@ const sections = [
 // The opened identity or recovery state the remove dialog acts on.
 
 // Shows one section (or none, the boot page) with its status line.
+/** @param {HTMLElement | null} section @param {string} status */
 const show = (section, status) => {
   if (removeDialog.open) removeDialog.close();
   devicesController.closeDeviceDialogs?.();
@@ -79,6 +80,7 @@ const showError = () => {
   bootRetry.focus();
 };
 
+/** @param {string | undefined} [reason] */
 const reasonText = (reason) =>
   localeModule_strings[`recovery.${reason}`] || localeModule_strings['recovery.unavailable'];
 
@@ -87,6 +89,10 @@ const reasonText = (reason) =>
 
 // A result belongs to the identity view that started it, even after its Rust lease ends.
 
+/**
+ * @param {import('./identity-state.js').IdentityResponse | PromiseLike<import('./identity-state.js').IdentityResponse>} pending
+ * @param {boolean | 'link'} [fresh]
+ */
 const act = async (pending, fresh = false) => {
   const generation = ++identityState.generation;
   document.dispatchEvent(new Event('dyapp:identity-change'));
@@ -104,6 +110,7 @@ const act = async (pending, fresh = false) => {
   }
 };
 
+/** @param {HTMLElement} element @param {string} id */
 const peerLabel = (element, id) => {
   Object.assign(element.dataset, { peerId: id });
   element.title = id;
@@ -111,6 +118,12 @@ const peerLabel = (element, id) => {
 };
 
 // An identity as an avatar, its short ID (or why it cannot open) and a caption under it.
+/**
+ * @param {HTMLElement} element
+ * @param {string | undefined} id
+ * @param {string | undefined} reason
+ * @param {string} caption
+ */
 const who = (element, id, reason, caption) => {
   const avatar = document.createElement('span');
   avatar.className = 'avatar';
@@ -126,8 +139,12 @@ const who = (element, id, reason, caption) => {
   if (id && id === identityState.current?.peerId) profilePhotosController.ownAvatar(avatar);
   return [avatar, text];
 };
+/** @param {{ mode?: import('./identity-state.js').StorageMode }} item */
 const modeText = (item) => localeModule_strings[`identity.mode.${item.mode}`] || '';
 
+/**
+ * @param {import('./identity-state.js').ReadyIdentity | import('./identity-state.js').RecoveryIdentity} item
+ */
 const identityButton = (item) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -162,8 +179,10 @@ controller.settingsIdentity = (item) => {
 
 // Settings → Storage: binary units with one decimal; an unknown number reads Unavailable, not 0.
 
+/** @param {number | null} bytes */
 const knownSize = (bytes) =>
   bytes === null ? localeModule_strings['usage.unavailable'] : sizeText(bytes);
+/** @param {string} id @param {string} text */
 const usageText = (id, text) => {
   domById(id, HTMLElement).textContent = text;
 };
@@ -236,6 +255,7 @@ const showStatus = async (call = invoke) => {
 // Settings → Window: the tray icon and close-to-tray, usable only while a tray host is running.
 const trayShow = domById('tray-show', HTMLInputElement);
 const trayClose = domById('tray-close', HTMLInputElement);
+/** @param {{ show: boolean; closeToTray: boolean; } | null} prefs */
 const setTray = async (prefs, call = invoke) => {
   const generation = identityState.generation;
   const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
@@ -256,6 +276,7 @@ trayClose.addEventListener('change', changeTray);
 progress.trayShown = stringsShown.then(() => setTray(null));
 
 // Settings → Appearance: kept by this app for every identity; a language change reloads the page.
+/** @param {string | null} theme */
 const applyTheme = (theme) => {
   if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
@@ -277,6 +298,7 @@ languageChoice.addEventListener('change', () => {
 
 // The shell: one area at a time; below 640 px the sidebar slides in over a scrim.
 const menuOpen = domById('menu-open', HTMLButtonElement);
+/** @param {boolean} open */
 const setMenu = (open) => {
   if (open) document.documentElement.dataset.screen = 'menu';
   else delete document.documentElement.dataset.screen;
@@ -323,6 +345,7 @@ const nodeStatus = (status, detail) => {
   domById('node-status', HTMLParagraphElement).textContent = detail ? `${text} ${detail}` : text;
   nodeForm.dataset.status = status;
 };
+/** @param {import('./ipc.js').NodeStatus} result */
 const nodeResult = (result) => nodeStatus(result.status, result.peerId);
 controller.showNode = async (call = invoke) => {
   const generation = identityState.generation;
@@ -345,6 +368,7 @@ controller.showNode = async (call = invoke) => {
     if (identityCurrent(generation)) nodeStatus('error', String(error));
   }
 };
+/** @param {{ enabled: boolean; diskMb: number; maxConnections: number; }} node */
 const saveNodeSettings = (node, call = invoke) => {
   const generation = identityState.generation;
   nodeSave.disabled = true;
@@ -391,6 +415,7 @@ const profileDisclosure = domById('profile-disclosure', HTMLInputElement);
 const profileCancel = domById('profile-cancel', HTMLButtonElement);
 let profileBusy = false;
 let profilePublished = false;
+/** @param {string} part */
 const birthValue = (part) => {
   const value = domById(`birth-${part}`, HTMLInputElement).value;
   return value === '' ? null : Number(value);
@@ -432,6 +457,7 @@ const profileDraft = () => ({
   ...seekingDraft(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
+/** @param {HTMLParagraphElement} status @param {string} open @param {string} detail */
 const statusMessage = (status, open, key, detail) => {
   status.textContent = `${localeModule_strings[key]}${detail ? ` ${detail}` : ''}`;
   const offline = key.endsWith('.notConnected');
@@ -455,6 +481,7 @@ const sendSearchProfile = (generation = identityState.generation, call = invoke)
     () => {},
   );
 };
+/** @param {profileFieldsModule.ProfileView} view */
 const showSearchWait = (view, send = sendSearchProfile) => {
   clearTimeout(searchWaitTimer);
   const generation = identityState.generation;
@@ -483,6 +510,7 @@ const showProfile = async (call = invoke) => {
   if (view.searchMinutes === 0) sendSearchProfile(generation);
   profileFieldsModule.setScaleFields(scales);
   const rows = scales.map((scale) => profileFormModule_profileForm.scaleRow(scale, view.draft));
+  /** @param {HTMLDivElement} row */
   const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
   domById('profile-basics', HTMLDivElement).replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
@@ -511,6 +539,7 @@ const showProfile = async (call = invoke) => {
   profilePhotosController.showProfilePhotos(view.draft.photos, call);
 };
 // The switch works once a version is published; hidden, the status and notice say so.
+/** @param {profileFieldsModule.ProfileView} view */
 const showHidden = (view) => {
   profilePublished = Boolean(view.published);
   profileHidden.disabled = !profilePublished;
@@ -526,6 +555,7 @@ const showHidden = (view) => {
       view.published ? String(view.published) : '',
     );
 };
+/** @param {profileFieldsModule.ProfileView} view */
 const showAge = (view) => {
   const [youngest, oldest] = view.ages || [];
   domById('profile-age', HTMLParagraphElement).textContent = view.ages
@@ -565,6 +595,7 @@ const publicFacts = (draft, place) => {
   return facts;
 };
 // The same fields as lines, or the empty notice.
+/** @param {string} place */
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
   if (draft.name) fields.unshift(`${localeModule_strings['profile.name']}: ${draft.name}`);
@@ -572,6 +603,7 @@ const publicFields = (draft, place) => {
     fields.push(`${localeModule_strings['profile.photos']}: ${draft.photos.length}`);
   return fields.length ? fields : [localeModule_strings['profile.empty']];
 };
+/** @param {string[]} values */
 const listItems = (values) =>
   values.map((value) => {
     const item = document.createElement('li');
@@ -598,6 +630,7 @@ const saveProfile = async (call = invoke) => {
   return view;
 };
 // The dialog lists exactly the public fields and asks both consents afresh each time.
+/** @param {profileFieldsModule.ProfileView} view */
 const openPublishDialog = (view) => {
   domById('profile-public-fields', HTMLUListElement).replaceChildren(
     ...listItems(publicFields(view.draft, placeInput.value)),
@@ -633,6 +666,7 @@ const startElapsed = () => {
   elapsedTimer = setInterval(tick, 1000);
   return elapsedTimer;
 };
+/** @param {boolean} busy */
 const setProfileBusy = (busy) => {
   profileBusy = busy;
   for (const element of domAll(
@@ -777,6 +811,11 @@ profileHidden.addEventListener('change', () => {
   controller.hideDone = hideProfile();
 });
 
+/**
+ * @param {import('./identity-state.js').ReadyIdentity} state
+ * @param {number} generation
+ * @param {boolean | 'link'} fresh
+ */
 async function renderReady(state, generation, fresh) {
   domById('peer-id', HTMLElement).textContent = state.peerId;
   domById('file-backup', HTMLDivElement).hidden = state.mode !== 'file';
@@ -808,6 +847,11 @@ async function renderReady(state, generation, fresh) {
   return state;
 }
 
+/**
+ * @param {import('./identity-state.js').IdentityResponse} state
+ * @param {number} [generation]
+ * @param {boolean | 'link'} [fresh]
+ */
 async function render(state, generation = identityState.generation, fresh = false) {
   if (!identityCurrent(generation)) return state;
   if (state.status === 'ready' || state.status === 'recovery') identityState.current = state;
@@ -847,6 +891,7 @@ async function render(state, generation = identityState.generation, fresh = fals
 }
 
 // A new identity opens on the network step of the wizard, whichever way it goes on from there.
+/** @param {boolean | 'link'} wizard */
 const create = (wizard) => {
   const mode = systemChoice.checked ? 'system' : 'file';
   for (const each of [systemChoice, fileChoice, createIdentity, linkIdentity]) each.disabled = true;

@@ -66,6 +66,7 @@ controller.showContactNote = async (call = invoke) => {
     }
   }
 };
+/** @param {boolean} clear */
 const prepareNoteSave = (clear) => {
   const target = noteView;
   if (!target || !noteCurrent(target) || !target.loaded || target.busy) return;

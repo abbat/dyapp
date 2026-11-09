@@ -34,6 +34,12 @@ const encodePhoto = (bitmap, side, quality) =>
       quality,
     );
   });
+/**
+ * @param {ImageBitmap} bitmap
+ * @param {number[]} sides
+ * @param {number[]} qualities
+ * @param {number} limit
+ */
 const fittedPhoto = async (bitmap, sides, qualities, limit) => {
   for (const side of sides) {
     for (const quality of qualities) {

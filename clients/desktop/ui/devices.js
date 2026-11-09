@@ -37,6 +37,7 @@ const deviceShort = (key) =>
     .slice(0, 3)
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+/** @param {boolean} offline */
 const disconnectOffline = (offline) => {
   disconnectProblem.hidden = !offline;
   disconnectAction.hidden = offline;

@@ -20,6 +20,7 @@ export const controller = {};
 
 // Profile links in chats reuse the chat controller's Forward dialog through imports.
 // Forward and Share use one dialog; its title and button name the action.
+/** @param {string} action */
 const showForwardDialog = (action, targets) => {
   for (const [id, key] of [
     ['chat-forward-title', `chats.${action}Title`],
@@ -67,6 +68,7 @@ domById('view-share', HTMLButtonElement).addEventListener('click', () => {
 });
 const profileCardText = (peerId) => `${strings['chats.profileCard']} ${shortPeer(peerId)}`;
 // Nothing about the shared peer is fetched until the card is pressed, and then only verified.
+/** @param {HTMLButtonElement} card */
 const openShared = async (peerId, card, call = invoke) => {
   const generation = identityState.generation;
   try {

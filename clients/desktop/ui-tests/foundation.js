@@ -32,11 +32,57 @@
     }
     if (!rejected) throw new Error('Unavailable sticker canvas was accepted');
   };
+  const checkChatRow = (build, strings) => {
+    const message = {
+      groupId: [],
+      author: 'a'.repeat(64),
+      id: [],
+      text: 'row preview',
+      edited: false,
+      deleted: false,
+      unread: false,
+      forwarded: false,
+      delivery: null,
+      read: false,
+      sentAtMs: 1,
+      photo: null,
+      sticker: null,
+      sharedPeer: null,
+    };
+    let opened = 0;
+    const row = build(
+      {
+        peerId: 'b'.repeat(64),
+        state: 'requestReceived',
+        lastMessage: message,
+        unreadCount: 2,
+        activeRecently: true,
+        muted: true,
+      },
+      () => {
+        opened += 1;
+      },
+    );
+    if (
+      row.dataset.peerId !== 'b'.repeat(64) ||
+      !row.textContent.includes(strings['chats.state.requestReceived']) ||
+      !row.textContent.includes(strings['chats.active']) ||
+      !row.textContent.includes(strings['chats.muted']) ||
+      row.querySelector('.caption.ellipsis').textContent !== 'row preview' ||
+      row.querySelector('.meta .badge').textContent !== '2' ||
+      !row.querySelector('.meta .caption').textContent
+    )
+      throw new Error('Chat row lost its identity, preview or status metadata');
+    row.click();
+    if (opened !== 1) throw new Error('Chat row did not retain its opening callback');
+  };
   smoke.checkFoundationContracts = async () => {
     const localization = await import(new URL('locale.js', document.baseURI).href);
     const pixels = await import(new URL('sticker-pixels.js', document.baseURI).href);
     for (const catalogue of [null, [], 'text', { invalid: 1 }])
       await checkCatalogue(localization, catalogue);
     checkCanvas(pixels);
+    const rows = await import(new URL('chat-row.js', document.baseURI).href);
+    checkChatRow(rows.chatRow, localization.strings);
   };
 })();

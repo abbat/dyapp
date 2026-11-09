@@ -9,6 +9,7 @@ export const controller = {};
   let epoch = 0;
   let batch = Promise.resolve();
   const pending = new Map();
+  /** @param {string} key */
   const text = (key) => strings[`stickerImage.${key}`];
   const active = (target) =>
     target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
@@ -40,6 +41,7 @@ export const controller = {};
     if (['expired', 'notFound'].includes(code)) return 'unavailable';
     return 'failed';
   };
+  /** @param {boolean} manual */
   const load = async (target, manual) => {
     if (!active(target) || target.busy || target.loaded) return;
     const focused = manual && document.activeElement === target.button;

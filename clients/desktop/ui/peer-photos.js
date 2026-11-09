@@ -16,6 +16,7 @@ let viewPhotoRun = 0;
 /** @type {() => boolean | undefined | Promise<boolean | undefined>} */
 let loadViewPhoto = () => undefined;
 
+/** @param {boolean} full */
 const fetchPeerPhotos = async (hashes, full, call) => {
   try {
     await call('fetch_peer_photos', { hashes, full });
@@ -32,6 +33,7 @@ const peerCanvas = async (hash, call) => {
     return null;
   }
 };
+/** @param {import('./ipc.js').Invoke} call */
 const peerPhotoAuto = async (call) => {
   try {
     return (await call('peer_photo_auto')) === true;
@@ -62,6 +64,7 @@ controller.showCardPhotos = async (found, cards, call = invoke) => {
   );
 };
 
+/** @param {number} index @param {string} letters */
 const thumbButton = (canvas, index, count, letters) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -76,6 +79,7 @@ const thumbButton = (canvas, index, count, letters) => {
 
 // Returns undefined when another choice takes over, otherwise whether the full image is showing.
 const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call }) => {
+  /** @param {boolean} load */
   const choose = async (index, load) => {
     const choice = ++viewPhotoRun;
     const current = () => choice === viewPhotoRun;

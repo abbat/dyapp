@@ -12,6 +12,7 @@ export const controller = {};
     blocked: 'blocked-list',
     passed: 'passed-list',
   };
+  /** @param {string} key */
   const text = (key) => strings[`settings.collection.${key}`];
   const render = (state) => {
     const term = state.search.value.trim().toLocaleLowerCase();
@@ -37,6 +38,7 @@ export const controller = {};
       count.textContent = state.items === null ? '?' : String(state.items.length);
     }
   };
+  /** @param {number} pages */
   const pageStatus = (state, count, pages) => {
     if (state.items === null) return text('failed');
     if (!count) return text('empty');
@@ -82,6 +84,7 @@ export const controller = {};
   };
   const bindControls = (state) => {
     const { previous, next, refresh, search } = state;
+    /** @param {number} amount */
     const move = (amount) => {
       state.page += amount;
       render(state);

@@ -13,6 +13,7 @@ const privacyInputs = {
 };
 const privacyError = domById('privacy-error', HTMLParagraphElement);
 const noticeContent = domById('notice-content', HTMLSelectElement);
+/** @param {boolean} failed */
 const privacyFailure = (failed) => {
   privacyError.hidden = !failed;
   domById('notifications-error', HTMLParagraphElement).hidden = !failed;

@@ -21,6 +21,7 @@ const connectionStatus = domById('connection-status', HTMLButtonElement);
 // Only the latest launch connect or check may set the shell status.
 let connectionRun = 0;
 let checkGeneration = identityState.generation;
+/** @param {undefined | string} [name] */
 const showConnection = (state, name) => {
   connectionStatus.dataset.state = state;
   for (const dot of domAll(document, '.connection-dot', HTMLElement)) {
@@ -54,6 +55,7 @@ const connectAtLaunch = async (call = invoke) => {
     showConnection(answered ? 'connected' : 'offline');
   }
 };
+/** @param {string} key @param {undefined | string} [detail] */
 const networkStatus = (key, detail) => {
   const text = strings[key];
   domById('network-status', HTMLParagraphElement).textContent = detail ? `${text} ${detail}` : text;
@@ -118,12 +120,17 @@ const summary = (rows) => {
 };
 
 // The collapsed details name the outcome code and every row, for the network operator.
+/** @param {string} code */
 const showNetworkError = (code, lines = []) => {
   domById('network-error-details', HTMLPreElement).textContent = [code, ...lines].join('\n');
   domById('network-error-more', HTMLDetailsElement).open = false;
   networkError.hidden = false;
 };
 
+/**
+ * @param {{ seeds: string[]; name: string; }} rows
+ * @param {import('./ipc.js').NetworkCheckRow[]} result
+ */
 const renderNetworkCheck = (rows, result) => {
   seedRows.replaceChildren(...result.map((row, at) => rowItem(rows.seeds[at], row)));
   networkStatus(summary(result));
@@ -137,6 +144,7 @@ const renderNetworkCheck = (rows, result) => {
   return false;
 };
 
+/** @param {string | undefined} [before] */
 const restoreNetworkCheck = (before) => {
   if (connectionStatus.dataset.state === 'connecting') {
     if (before === 'connecting') progress.connectionShown = connectAtLaunch();
@@ -209,6 +217,7 @@ const peerCard = peerCode.parentElement;
 const skipNetwork = domById('skip-network', HTMLButtonElement);
 const linkNetworkCancel = domById('link-network-cancel', HTMLButtonElement);
 // `on` is 'link' for the step of a link: that identity is about to go, so no Peer ID and no Skip.
+/** @param {boolean | 'link'} on */
 const wizardStep = (on) => {
   const linking = on === 'link';
   (on ? domById('wizard-peer', HTMLParagraphElement) : peerCard).append(peerCode);

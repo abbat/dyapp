@@ -9,6 +9,7 @@ export const controller = {};
 
 // Every opening and page read owns its callbacks; committed sends belong to the common outbox.
 (() => {
+  /** @param {string} id */
   const el = (id) => domById(`sticker-picker-${id}`, HTMLElement);
   const dialog = domById('sticker-picker', HTMLDialogElement);
   const text = (key) => strings[`stickerPicker.${key}`];
@@ -16,6 +17,7 @@ export const controller = {};
   let returnTo = null;
   const active = (target) =>
     target && view === target && dialog.open && identityCurrent(target.generation);
+  /** @param {string} key */
   const notice = (key, error = false) => {
     domById('sticker-picker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
     domById('sticker-picker-status', HTMLParagraphElement).hidden = !key;
@@ -30,6 +32,7 @@ export const controller = {};
       focus.focus();
     }
   };
+  /** @param {boolean} value */
   const busy = (target, value) => {
     if (value && !target.busy) target.focus = document.activeElement;
     target.busy = value;
@@ -65,6 +68,7 @@ export const controller = {};
     });
     return button;
   };
+  /** @param {number} after */
   const renderPage = (target, page, after) => {
     target.after = after;
     target.next = page.next;
@@ -79,6 +83,7 @@ export const controller = {};
     );
     notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
   };
+  /** @param {number} read */
   const pageCurrent = (target, read) => active(target) && target.read === read;
   const load = async (target, after = 0) => {
     const read = ++target.read;

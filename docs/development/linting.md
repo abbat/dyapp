@@ -340,6 +340,8 @@ used by the shipped UI: names, argument tuples and result DTOs, including binary
 responses and both dynamic page/cache command paths. Unknown command names fail type checking.
 Literal command names retain argument checking instead of widening to a generic string when
 arguments are invalid.
+Controller helpers include JSDoc for DTO inputs, callbacks, DOM elements and optional arguments.
+Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n

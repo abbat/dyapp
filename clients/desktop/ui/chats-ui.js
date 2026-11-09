@@ -1,15 +1,12 @@
+import { chatRow as buildChatRow } from './chat-row.js';
 import { byId as domById, all as domAll, eventDetail } from './dom.js';
 import { chatTime, chatLinkHosts } from './formatting.js';
 import { updateComposer } from './chat-composer.js';
-import { statusMessage, who, peerLabel, showArea } from './app.js';
+import { statusMessage, peerLabel, showArea } from './app.js';
 import { controller as chatMessageController } from './chat-message.js';
 import { controller as chatPhotosController } from './chat-photos.js';
 import { chatState } from './chat-state.js';
-import {
-  showForwardDialog,
-  profileCardText,
-  controller as chatsShareController,
-} from './chats-share.js';
+import { showForwardDialog, controller as chatsShareController } from './chats-share.js';
 import {
   chatInput,
   chatSend,
@@ -51,13 +48,13 @@ import { viewed, withPlaces, resultCard } from './search.js';
 import { controller as stickerMessagesController } from './sticker-messages.js';
 import { controller as stickerPickerController } from './sticker-picker.js';
 import { controller as stickerRequestsController } from './sticker-requests.js';
-import { controller as stickersController } from './stickers.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
 
 // Chats: local projection, requests, text, clearing and Liked you.
 // Liked you: peers whose like this profile has not answered, fetched again on each visit.
 
+/** @param {string} key */
 const chatsMessage = (key, detail = '') =>
   statusMessage(domById('chats-status', HTMLParagraphElement), 'chats-open-network', key, detail);
 
@@ -67,6 +64,7 @@ let newDevicePeer = null;
 let chatSending = false;
 let chatBlocking = false;
 let chatsRequest = 0;
+/** @type {import('./chat-state.js').ChatRow[]} */
 let visibleChatRows = [];
 let chatOpenRequest = 0;
 
@@ -241,70 +239,12 @@ domById('chat-clear', HTMLButtonElement).addEventListener('click', () => {
   clearDialog.showModal();
   clearCancel.focus();
 });
-const chatContentPreview = (message) => {
-  if (message.sticker) return stickersController.stickerMessageText(message.sticker);
-  if (message.photo) return strings['chats.photo'];
-  if (message.sharedPeer) return profileCardText(message.sharedPeer);
-  return message.text || '';
-};
-const chatPreview = (message) => {
-  if (!message) return strings['chats.noMessages'];
-  if (message.deleted) return strings['chats.deleted'];
-  const prefix = message.forwarded ? `${strings['chats.forwarded']} · ` : '';
-  return `${prefix}${chatContentPreview(message)}`;
-};
-const chatRow = (row) => {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'list-button';
-  button.dataset.peerId = row.peerId;
-  const [avatar] = who(button, row.peerId, '', '');
-  const content = document.createElement('span');
-  content.className = 'grow';
-  const name = document.createElement('b');
-  name.textContent = peerLabel(name, row.peerId);
-  content.append(name);
-  if (row.state === 'requestReceived') {
-    const marker = document.createElement('span');
-    marker.className = 'badge';
-    marker.textContent = strings['chats.state.requestReceived'];
-    content.append(document.createTextNode(' '), marker);
-  }
-  if (row.activeRecently) {
-    const active = document.createElement('span');
-    active.className = 'caption';
-    active.textContent = strings['chats.active'];
-    content.append(document.createTextNode(' '), active);
-  }
-  if (row.muted) {
-    const muted = document.createElement('span');
-    muted.className = 'caption';
-    muted.textContent = strings['chats.muted'];
-    content.append(document.createTextNode(' '), muted);
-  }
-  const preview = document.createElement('span');
-  preview.className = 'caption ellipsis';
-  preview.textContent = chatPreview(row.lastMessage);
-  content.append(document.createElement('br'), preview);
-  const meta = document.createElement('span');
-  meta.className = 'meta';
-  const time = document.createElement('span');
-  time.className = 'caption';
-  time.textContent = chatTime(row.lastMessage);
-  meta.append(time);
-  if (row.unreadCount) {
-    const unread = document.createElement('span');
-    unread.className = 'badge';
-    unread.textContent = String(row.unreadCount);
-    unread.setAttribute('aria-label', `${strings['chats.unread']}: ${row.unreadCount}`);
-    meta.append(document.createElement('br'), unread);
-  }
-  button.append(avatar, content, meta);
-  button.addEventListener('click', () => {
+/** @param {import('./chat-state.js').ChatRow} row */
+const chatRow = (row) =>
+  buildChatRow(row, () => {
     controller.chatOpened = openChat(row.peerId);
   });
-  return button;
-};
+/** @param {import('./chat-state.js').ChatRow[]} rows */
 const renderChatRows = (rows, call = invoke) => {
   visibleChatRows = rows;
   addKnownPeers(rows);
@@ -332,6 +272,7 @@ const showNewDevice = (peerId) => {
   newDeviceNotice.hidden = peerId === null;
 };
 // A failed read keeps what is shown; the next mail pass asks again.
+/** @param {import('./ipc.js').Invoke} call */
 const linkedDevice = async (call) => {
   try {
     return (await call('linked_device')) === true;
@@ -339,6 +280,7 @@ const linkedDevice = async (call) => {
     return false;
   }
 };
+/** @param {import('./ipc.js').Invoke} call */
 const newDeviceFlag = async (peerId, call) => {
   try {
     return await call('contact_new_device', { peerId });
@@ -410,6 +352,7 @@ document.addEventListener('dyapp:identity-change', () => {
   domById('chats-liked-count', HTMLSpanElement).textContent = '0';
 });
 // The next view or mail pass retries a receipt that did not go out.
+/** @param {import('./ipc.js').Invoke} call */
 const sendRead = async (peerId, call) => {
   try {
     await call('send_read_receipts', { peerId });
@@ -417,6 +360,7 @@ const sendRead = async (peerId, call) => {
     /* the page shows nothing for a background receipt */
   }
 };
+/** @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous */
 const resetChatSnapshot = (peerId, previous) => {
   if (newDevicePeer !== peerId) showNewDevice(null);
   chatPhotosController.chatPhotos.resetPeer(peerId);
@@ -428,6 +372,12 @@ const resetChatSnapshot = (peerId, previous) => {
     chatsMessage('chats.loading');
   }
 };
+/**
+ * @param {import('./chat-state.js').ChatHistory} history
+ * @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous
+ * @param {number} generation
+ * @param {import('./ipc.js').Invoke} call
+ */
 const renderOpenedChat = (peerId, history, previous, generation, call) => {
   const renderKey = JSON.stringify([
     generation,
@@ -612,6 +562,7 @@ clearConfirm.addEventListener('click', () => {
 });
 // One send of the open chat: holds the composer, tells a queued message from a failed one and
 // redraws. `sent` runs before the redraw; `failure` words an unstaged error.
+/** @param {() => void} sent @param {import('./ipc.js').Invoke} call */
 const sendInChat = async (send, sent, failure, call) => {
   const { peerId, messages } = chatState.activeChat;
   const generation = identityState.generation;
@@ -787,6 +738,7 @@ const deleteChatText = async (call = invoke) => {
 deleteConfirm.addEventListener('click', () => {
   controller.chatDeleted = deleteChatText();
 });
+/** @param {string} errorText */
 const showForwardFailure = (errorText) => {
   forwardCancel.disabled = false;
   forwardConfirm.disabled = false;
@@ -857,6 +809,7 @@ domById('chat-forward-form', HTMLFormElement).addEventListener('submit', (event)
     controller.profileShared = chatsShareController.shareProfile();
   else controller.chatForwarded = forwardChatText();
 });
+/** @param {string | null} receiveError @param {number} foundCount @param {number} rowCount */
 const showChatsStatus = (receiveError, foundCount, rowCount) => {
   if (receiveError === 'notConnected') return chatsMessage('chats.notConnected');
   if (receiveError) return chatsMessage('chats.receiveFailed', receiveError);

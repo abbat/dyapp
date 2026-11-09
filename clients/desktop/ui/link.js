@@ -24,6 +24,7 @@ const linkState = (status) => {
   linkNew.hidden = status !== 'expired';
   domById('link-status', HTMLParagraphElement).textContent = strings[`link.${status}`];
 };
+/** @param {string} status */
 const linkPage = (status) => {
   linkWait.hidden = false;
   linkDone.hidden = true;
@@ -37,6 +38,10 @@ const stopLink = (call = invoke) => {
 };
 
 // Finishing takes a catch-up pass. One that fails leaves the link pending, and the app keeps trying.
+/**
+ * @param {import('./identity-state.js').ReadyIdentity} state
+ * @param {import('./ipc.js').Invoke} call
+ */
 const finishLink = async (state, call) => {
   linkRun += 1;
   clearTimeout(linkTimer);
