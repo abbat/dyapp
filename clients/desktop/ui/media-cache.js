@@ -19,11 +19,10 @@ const cancel = domById('photo-keep-cancel', HTMLButtonElement);
 const confirm = domById('photo-keep-confirm', HTMLButtonElement);
 const mib = 1048576;
 /**
- * @typedef {{ generation: number, identityId: string | undefined, call: import('./ipc.js').Invoke,
+ * @typedef {{ generation: number, identityId: string, call: import('./ipc.js').Invoke,
  *   config: import('./ipc.js').MediaCache | null, busy: boolean }} CacheView
- * @typedef {{ enabled?: boolean, limitBytes?: number }} CacheValues
- * @typedef {{ target: CacheView, command: 'set_media_cache' | 'clear_media_cache',
- *   values: CacheValues, opener: Element | null }} CacheChange
+ * @typedef {{ enabled: boolean, limitBytes: number }} CacheValues
+ * @typedef {{ target: CacheView, values: CacheValues | undefined, opener: Element | null }} CacheChange
  */
 /** @type {CacheView | null} */
 let view = null;
@@ -33,10 +32,11 @@ let asked = null;
 const active = (target) => view === target && identityCurrent(target.generation);
 const render = () => {
   const known = view?.config;
-  enabled.disabled = !known || view.busy;
-  limit.disabled = !known || view.busy || !known.enabled;
-  clear.disabled = !known || view.busy || !known.usedBytes;
-  refresh.disabled = Boolean(view?.busy);
+  const busy = Boolean(view?.busy);
+  enabled.disabled = !known || busy;
+  limit.disabled = !known || busy || !known.enabled;
+  clear.disabled = !known || busy || !known.usedBytes;
+  refresh.disabled = busy;
   enabled.checked = Boolean(known?.enabled);
   enabled.setAttribute('aria-checked', String(enabled.checked));
   limit.value = known ? String(known.limitBytes / mib) : '';
@@ -63,10 +63,15 @@ const invalidate = () => {
 };
 const show = async (call = invoke) => {
   close();
+  const identity = identityState.current;
+  if (identity?.status !== 'ready') {
+    invalidate();
+    return;
+  }
   /** @type {CacheView} */
   const target = {
     generation: identityState.generation,
-    identityId: identityState.current?.peerId,
+    identityId: identity.peerId,
     call,
     config: null,
     busy: true,
@@ -88,18 +93,16 @@ const show = async (call = invoke) => {
     }
   }
 };
-/**
- * @param {'set_media_cache' | 'clear_media_cache'} command
- * @param {CacheView} target
- * @param {CacheValues} values
- */
-const apply = async (target, command, values) => {
+/** @param {CacheView} target @param {CacheValues} [values] */
+const apply = async (target, values) => {
   if (!active(target) || target.busy || !target.config) return;
   target.busy = true;
   render();
   status('saving');
   try {
-    const config = await target.call(command, { identityId: target.identityId, ...values });
+    const config = values
+      ? await target.call('set_media_cache', { identityId: target.identityId, ...values })
+      : await target.call('clear_media_cache', { identityId: target.identityId });
     if (!active(target)) return;
     target.config = config;
     status('');
@@ -115,30 +118,28 @@ const apply = async (target, command, values) => {
     }
   }
 };
-/** @param {'set_media_cache' | 'clear_media_cache'} command @param {CacheValues} [values] */
-const change = (command, values = {}) => {
+/** @param {CacheValues} [values] */
+const change = (values) => {
   const target = view;
   if (!target?.config || target.busy) return;
   const destructive =
-    command === 'clear_media_cache' ||
+    !values ||
     (target.config.enabled && (!values.enabled || values.limitBytes < target.config.limitBytes)) ||
     (target.config.usedBytes > 0 &&
       (!values.enabled || values.limitBytes < target.config.usedBytes));
   render();
   if (destructive) {
     domQuery(document, '#photo-keep-dialog p', HTMLParagraphElement).textContent =
-      strings[
-        command === 'clear_media_cache' ? 'photos.cache.clearWarning' : 'photos.keepEraseWarning'
-      ];
-    asked = { target, command, values, opener: document.activeElement };
+      strings[!values ? 'photos.cache.clearWarning' : 'photos.keepEraseWarning'];
+    asked = { target, values, opener: document.activeElement };
     dialog.hidden = false;
     dialog.showModal();
     cancel.focus();
-  } else controller.mediaCacheSaved = apply(target, command, values);
+  } else controller.mediaCacheSaved = apply(target, values);
 };
 enabled.addEventListener('change', () => {
   if (!view?.config || view.busy) return;
-  change('set_media_cache', { enabled: enabled.checked, limitBytes: view.config.limitBytes });
+  change({ enabled: enabled.checked, limitBytes: view.config.limitBytes });
 });
 limit.addEventListener('change', () => {
   if (!view?.config || view.busy) return;
@@ -147,9 +148,9 @@ limit.addEventListener('change', () => {
     status('invalid');
     return;
   }
-  change('set_media_cache', { enabled: view.config.enabled, limitBytes: bytes });
+  change({ enabled: view.config.enabled, limitBytes: bytes });
 });
-clear.addEventListener('click', () => change('clear_media_cache'));
+clear.addEventListener('click', () => change());
 refresh.addEventListener('click', () => {
   controller.mediaCacheShown = show();
 });
@@ -157,7 +158,8 @@ const dismiss = () => {
   const button = asked?.opener;
   close();
   render();
-  if (button?.isConnected && !button.disabled) button.focus();
+  if (button instanceof HTMLElement && button.isConnected && !button.matches(':disabled'))
+    button.focus();
 };
 cancel.addEventListener('click', dismiss);
 dialog.addEventListener('cancel', (event) => {
@@ -173,7 +175,7 @@ dialog.addEventListener('close', () => {
 confirm.addEventListener('click', () => {
   const pending = asked;
   close();
-  if (pending) controller.mediaCacheSaved = apply(pending.target, pending.command, pending.values);
+  if (pending) controller.mediaCacheSaved = apply(pending.target, pending.values);
 });
 document.addEventListener('dyapp:identity-change', invalidate);
 document.addEventListener('dyapp:area-change', invalidate);

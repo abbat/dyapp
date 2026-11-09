@@ -35,7 +35,10 @@ const renderFrame = (target, bytes, focused) => {
   target.button.hidden = true;
   target.status.textContent = '';
   target.loaded = true;
-  if (focused && [document.body, target.button].includes(document.activeElement)) {
+  if (
+    focused &&
+    [document.body, target.button].some((element) => element === document.activeElement)
+  ) {
     canvas.tabIndex = -1;
     canvas.focus();
   }
@@ -48,7 +51,10 @@ const finishLoad = (target, focused) => {
   target.busy = false;
   target.button.disabled = false;
   target.button.textContent = text('load');
-  if (focused && [document.body, target.button].includes(document.activeElement))
+  if (
+    focused &&
+    [document.body, target.button].some((element) => element === document.activeElement)
+  )
     target.button.focus();
 };
 /** @param {unknown} error */
@@ -105,6 +111,9 @@ const clear = () => {
  * @param {import('./ipc.js').Invoke} call
  */
 const bubble = (message, peerId, call) => {
+  const identity = identityState.current;
+  if (!message.sticker || identity?.status !== 'ready')
+    throw new Error('Sticker message requires an open identity and sticker');
   const root = document.createElement('div');
   root.className = 'sticker-body';
   const fallback = document.createElement('p');
@@ -129,7 +138,7 @@ const bubble = (message, peerId, call) => {
     call,
     epoch,
     generation: identityState.generation,
-    identityId: identityState.current.peerId,
+    identityId: identity.peerId,
     busy: false,
     loaded: false,
     selection: {

@@ -19,6 +19,17 @@
     )
       throw new Error('Invalid catalogue accepted or changed locale state');
   };
+  const checkInterpolation = (localization) => {
+    for (const [key, names] of [
+      ['stickers.message', ['emoji', 'name']],
+      ['profile.photoLabel', ['n', 'count']],
+    ]) {
+      for (const name of names) {
+        if (!localization.strings[key].includes(`{${name}}`))
+          throw new Error(`Catalogue changed interpolation token: ${key} ${name}`);
+      }
+    }
+  };
   const checkCanvas = (pixels) => {
     const getContext = HTMLCanvasElement.prototype.getContext;
     let rejected = false;
@@ -100,6 +111,32 @@
     )
       throw new Error('Peer thumbnail lost its hash or card ownership');
   };
+  const checkUnavailableMedia = async () => {
+    const { identityState } = await import(new URL('identity-state.js', document.baseURI).href);
+    const picker = await import(new URL('sticker-picker.js', document.baseURI).href);
+    const manager = await import(new URL('stickers.js', document.baseURI).href);
+    const cache = await import(new URL('media-cache.js', document.baseURI).href);
+    const before = identityState.current;
+    let calls = 0;
+    const call = async () => {
+      calls += 1;
+    };
+    try {
+      identityState.current = null;
+      await picker.controller.stickerPicker.open({ peerId: 'fixture-peer', call });
+      await manager.controller.stickerCollection.open(call);
+      await cache.controller.showMediaCache(call);
+      if (
+        calls ||
+        document.getElementById('sticker-picker').open ||
+        document.getElementById('sticker-manager').open ||
+        !document.getElementById('media-cache-enabled').disabled
+      )
+        throw new Error('Media operation accepted an unavailable identity');
+    } finally {
+      identityState.current = before;
+    }
+  };
   const checkChatRow = (build, strings) => {
     const message = {
       groupId: [],
@@ -149,11 +186,13 @@
     const pixels = await import(new URL('sticker-pixels.js', document.baseURI).href);
     for (const catalogue of [null, [], 'text', { invalid: 1 }])
       await checkCatalogue(localization, catalogue);
+    checkInterpolation(localization);
     checkCanvas(pixels);
     const photos = await import(new URL('chat-photos.js', document.baseURI).href);
     const bytes = await checkPhotoBytes(photos.drawPhoto);
     const peers = await import(new URL('peer-photos.js', document.baseURI).href);
     await checkPeerPhotos(peers.controller, bytes);
+    await checkUnavailableMedia();
     const rows = await import(new URL('chat-row.js', document.baseURI).href);
     checkChatRow(rows.chatRow, localization.strings);
   };

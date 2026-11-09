@@ -27,7 +27,8 @@ fail on a missing or wrong-kind element; optional selector lookups retain `null`
 selector lists remain valid. The helpers preserve static `NodeList` results and use JSDoc types
 without widening element contracts to `any`.
 Locale loading validates the catalogue object and string values before replacing the live locale
-state. Invalid catalogues leave that state intact. Sticker rendering rejects an unavailable
+state. Invalid catalogues leave that state intact. Pseudo-localization preserves interpolation
+tokens such as `{name}` and `{count}`. Sticker rendering rejects an unavailable
 canvas context explicitly.
 Startup still waits for `stringsShown`. Rust mail/revocation notifications dispatch the DOM events
 `dyapp:mail-updated` and `dyapp:device-revoked`; the entry module routes them to their controllers.

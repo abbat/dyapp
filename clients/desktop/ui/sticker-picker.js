@@ -22,8 +22,8 @@ const text = (key) => strings[`stickerPicker.${key}`];
  *   call: import('./ipc.js').Invoke, button: HTMLButtonElement, pages: number[],
  *   packPages: (number[] | null)[], read: number, busy: boolean, focus?: Element | null,
  *   pack?: Pick<import('./ipc.js').StickerPack, 'id' | 'name'> | null,
- *   phase?: 'page' | 'packs', after?: number, next?: number | null,
- *   packAfter?: number[] | null, packNext?: number[] | null }} PickerView
+ *   phase: 'page' | 'packs', after: number, next: number | null,
+ *   packAfter: number[] | null, packNext: number[] | null }} PickerView
  */
 /** @type {PickerView | null} */
 let view = null;
@@ -42,7 +42,9 @@ const notice = (key, error = false) => {
 const restorePickerFocus = (target) => {
   if ([document.body, dialog, target.focus].includes(document.activeElement)) {
     const focus =
-      target.focus?.isConnected && !target.focus.disabled
+      target.focus instanceof HTMLElement &&
+      target.focus.isConnected &&
+      !target.focus.matches(':disabled')
         ? target.focus
         : domById('sticker-picker-cancel', HTMLButtonElement);
     focus.focus();
@@ -74,6 +76,7 @@ const close = (restore = true) => {
 const entryButton = (target, entry) => {
   const packId = target.pack?.id || entry.packId;
   const name = target.pack?.name || entry.packName;
+  if (!packId || !name) throw new Error('Sticker picker entry requires its pack');
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn';
@@ -222,16 +225,23 @@ const send = async (target, packId, index) => {
 /** @param {PickerOptions} options */
 const open = ({ peerId, call = invoke, onSent }) => {
   close(false);
+  const identity = identityState.current;
+  if (identity?.status !== 'ready') return Promise.resolve();
   /** @type {PickerView} */
   const target = {
     peerId,
-    identityId: identityState.current.peerId,
+    identityId: identity.peerId,
     generation: identityState.generation,
     call,
     onSent,
     button: domById('chat-stickers', HTMLButtonElement),
     pages: [],
     packPages: [],
+    phase: 'packs',
+    after: 0,
+    next: null,
+    packAfter: null,
+    packNext: null,
     read: 0,
     busy: false,
   };
@@ -260,6 +270,7 @@ for (const direction of ['previous', 'next'])
     if (!active(target) || target.busy) return;
     let after;
     if (direction === 'next') {
+      if (target.next === null) return;
       target.pages.push(target.after);
       after = target.next;
     } else after = target.pages.pop();
@@ -271,6 +282,7 @@ for (const direction of ['previous', 'next'])
     if (!active(target) || target.busy) return;
     let after;
     if (direction === 'next') {
+      if (!target.packNext) return;
       target.packPages.push(target.packAfter);
       after = target.packNext;
     } else after = target.packPages.pop();

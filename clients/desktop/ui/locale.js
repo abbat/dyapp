@@ -17,8 +17,13 @@ const accents = {
   U: 'Ú',
 };
 /** @param {string} text */
-const pseudo = (text) =>
-  `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
+const pseudo = (text) => {
+  const translated = text
+    .split(/(\{[^{}]+\})/)
+    .map((part) => (part.startsWith('{') ? part : [...part].map((c) => accents[c] || c).join('')))
+    .join('');
+  return `[${translated}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
+};
 
 /** @type {string} */
 export let locale;

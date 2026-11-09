@@ -63,7 +63,7 @@
       );
       check(
         bubble.textContent.includes('<Cats> $&') && !bubble.querySelector('img'),
-        'Fallback interpreted peer markup',
+        `Fallback interpreted peer markup: ${JSON.stringify(bubble.textContent)}`,
       );
       bubble.querySelector('button').focus();
       bubble.querySelector('button').click();

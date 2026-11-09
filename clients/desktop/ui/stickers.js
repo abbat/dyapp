@@ -13,7 +13,7 @@ controller.stickerImported = undefined;
 // Each disclosure opening owns its reads, picker and import completion.
 const panel = domById('sticker-packs', HTMLDetailsElement);
 const manager = domById('sticker-manager', HTMLDialogElement);
-/** @typedef {{ generation: number, identityId: string | undefined, call: import('./ipc.js').Invoke,
+/** @typedef {{ generation: number, identityId: string, call: import('./ipc.js').Invoke,
  *   busy: boolean, next: number[] | null }} ManagerView */
 /** @type {Element | null} */
 let openedFrom = null;
@@ -60,7 +60,9 @@ const row = (entry, target) => {
   info.className = 'caption';
   info.textContent = entry.error
     ? text('unreadableHint')
-    : text('item').replace('{count}', entry.stickers).replace('{size}', sizeText(entry.bytes));
+    : text('item')
+        .replace('{count}', String(entry.stickers))
+        .replace('{size}', sizeText(entry.bytes));
   const id = document.createElement('code');
   id.textContent = ` @${hexId(entry.id).slice(0, 8)}`;
   const remove = document.createElement('button');
@@ -194,6 +196,11 @@ const close = () => {
   message('');
 };
 const open = (call = invoke) => {
+  const identity = identityState.current;
+  if (identity?.status !== 'ready') {
+    close();
+    return Promise.resolve();
+  }
   closeDialog();
   if (!manager.open) {
     openedFrom = document.activeElement;
@@ -204,7 +211,7 @@ const open = (call = invoke) => {
   /** @type {ManagerView} */
   const target = {
     generation: identityState.generation,
-    identityId: identityState.current?.peerId,
+    identityId: identity.peerId,
     call,
     busy: false,
     next: null,
@@ -278,16 +285,17 @@ domById('sticker-import', HTMLButtonElement).addEventListener('click', () => {
   input.value = '';
   domById('sticker-file', HTMLInputElement).replaceWith(input);
   input.addEventListener('change', () => {
-    const file = input.files[0];
+    const file = input.files?.[0];
     input.value = '';
-    controller.stickerImported = importFile(file, target);
+    if (file) controller.stickerImported = importFile(file, target);
   });
   input.click();
 });
 const dismiss = () => {
   const button = openedFrom;
   close();
-  if (button?.isConnected && !button.disabled) button.focus();
+  if (button instanceof HTMLElement && button.isConnected && !button.matches(':disabled'))
+    button.focus();
   document.dispatchEvent(new Event('dyapp:sticker-manager-close'));
 };
 domById('sticker-manager-cancel', HTMLButtonElement).addEventListener('click', dismiss);

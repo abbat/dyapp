@@ -12,7 +12,11 @@ controller.stickerRequestDelivered = undefined;
 
 // Read status only for visible received stickers; actions carry the observed local generation.
 /**
- * @typedef {Pick<import('./ipc.js').StickerPackStatus, 'state' | 'generation' | 'failure'>} PackStatus
+ * @typedef {Exclude<import('./ipc.js').StickerPackStatus['failure'], null>} PackFailure
+ * @typedef {{ generation: number[] | null } & (
+ *   { state: 'failed', failure: PackFailure } |
+ *   { state: Exclude<import('./ipc.js').StickerPackStatus['state'], 'failed'>,
+ *     failure: PackFailure | null })} PackStatus
  * @typedef {{ root: HTMLDivElement, caption: HTMLParagraphElement, error: HTMLParagraphElement,
  *   actions: HTMLDivElement, call: import('./ipc.js').Invoke, epoch: number, visible: boolean,
  *   busy: boolean, value: PackStatus | null, identityId: string, generation: number,
@@ -28,7 +32,7 @@ const active = (target) =>
   target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
 /** @param {RequestTarget} target */
 const args = (target) => ({ identityId: target.identityId, selection: target.selection });
-/** @param {import('./ipc.js').StickerPackStatus} value */
+/** @param {import('./ipc.js').StickerPackStatus} value @returns {PackStatus} */
 const checked = (value) => {
   if (!['new', 'saved', 'waiting', 'downloading', 'failed'].includes(value?.state))
     throw Error('Invalid pack status');
@@ -42,11 +46,15 @@ const checked = (value) => {
     throw Error('Invalid pack generation');
   if (['waiting', 'downloading'].includes(value.state) && token === null)
     throw Error('Missing pack generation');
-  if (
-    value.state === 'failed' &&
-    !['fetch', 'invalid', 'quota', 'storage', 'stickerMissing'].includes(value.failure)
-  )
-    throw Error('Invalid pack failure');
+  if (value.state === 'failed') {
+    const failure = value.failure;
+    if (
+      failure === null ||
+      !['fetch', 'invalid', 'quota', 'storage', 'stickerMissing'].includes(failure)
+    )
+      throw Error('Invalid pack failure');
+    return { state: value.state, generation: token, failure };
+  }
   return { state: value.state, generation: token, failure: value.failure };
 };
 /** @param {RequestTarget} target */
@@ -56,15 +64,17 @@ const focusHere = (target) =>
 const busy = (target, value) => {
   target.busy = value;
   target.root.setAttribute('aria-busy', String(value));
-  for (const button of target.actions.children) button.disabled = value;
+  for (const button of target.actions.querySelectorAll('button')) button.disabled = value;
 };
 /** @param {Element | null} focus @param {RequestTarget} target */
 const finish = (target, focus) => {
   if (!active(target)) return;
   busy(target, false);
-  if (focus && [document.body, focus].includes(document.activeElement)) {
+  if (focus && (document.activeElement === document.body || document.activeElement === focus)) {
     const next =
-      focus.isConnected && !focus.disabled ? focus : target.actions.querySelector('button');
+      focus instanceof HTMLElement && focus.isConnected && !focus.matches(':disabled')
+        ? focus
+        : target.actions.querySelector('button');
     next?.focus();
   }
 };
@@ -110,7 +120,10 @@ const render = (target, value) => {
   if (value.state === 'new') action('add', 'request');
   if (value.state === 'failed') failedActions(target, value, action);
   if (value.generation) action('stop', 'stopWaiting');
-  if (value.state === 'saved' || ['quota', 'storage', 'stickerMissing'].includes(value.failure))
+  if (
+    value.state === 'saved' ||
+    (value.failure !== null && ['quota', 'storage', 'stickerMissing'].includes(value.failure))
+  )
     add(target, 'manage', () => manage(target));
 };
 /** @param {RequestTarget} target */
@@ -155,8 +168,10 @@ const actionFailure = (error) => {
   return 'actionFailed';
 };
 /** @param {RequestTarget} target */
-const requestGeneration = (target) =>
-  target.value.generation ? [...target.value.generation] : null;
+const requestGeneration = (target) => {
+  const generation = target.value?.generation;
+  return generation ? [...generation] : null;
+};
 /** @param {import('./ipc.js').StickerPackAction['kind']} kind @param {RequestTarget} target */
 const change = async (target, kind) => {
   if (!active(target) || target.busy || !target.value) return;
@@ -205,7 +220,8 @@ const clear = () => {
 const controls = (message, peerId, call) => {
   const root = document.createElement('div');
   root.className = 'sticker-request';
-  if (message.author !== peerId) return root;
+  const identity = identityState.current;
+  if (message.author !== peerId || !message.sticker || identity?.status !== 'ready') return root;
   const caption = document.createElement('p');
   caption.className = 'caption';
   caption.setAttribute('role', 'status');
@@ -226,7 +242,7 @@ const controls = (message, peerId, call) => {
     visible: false,
     busy: false,
     value: null,
-    identityId: identityState.current.peerId,
+    identityId: identity.peerId,
     generation: identityState.generation,
     name: message.sticker.packName,
     selection: {
@@ -246,7 +262,8 @@ const refresh = (changed = 0, force = false) => {
     [...targets.values()]
       .filter(
         (target) =>
-          target.visible && (force || changed || !['new', 'saved'].includes(target.value?.state)),
+          target.visible &&
+          (force || changed || !target.value || !['new', 'saved'].includes(target.value.state)),
       )
       .map(read),
   );

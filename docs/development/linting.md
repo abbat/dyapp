@@ -337,7 +337,8 @@ Shared catalogue, identifier, peer-label, formatting, profile-control and sticke
 carry JSDoc contracts. Identity, profile and chat DTOs mirror the native serialized fields,
 including nullable values and discriminated states. `ipc.js` describes all 108 native commands
 used by the shipped UI: names, argument tuples and result DTOs, including binary photo/sticker
-responses and both dynamic page/cache command paths. Unknown command names fail type checking.
+responses, paginated sticker reads and explicit cache write/clear commands. Unknown command names
+fail type checking.
 Literal command names retain argument checking instead of widening to a generic string when
 arguments are invalid.
 Controller helpers include JSDoc for DTO inputs, callbacks, DOM elements and optional arguments.
@@ -351,6 +352,9 @@ failure cleanup and thumbnail ownership.
 Sticker action kinds reuse the native command's finite union. Sticker image/request targets,
 picker/manager openings and cache changes have explicit state contracts, including nullable and
 not-yet-loaded fields. Active-opening checks narrow the current manager/picker state.
+Picker, manager and cache reads require a ready identity before invoking native commands.
+Picker cursors are initialized explicitly; focus restoration validates HTML elements and disabled state.
+Validated failed pack statuses retain a non-null failure code in their discriminated contract.
 Settings collections accept generic item callbacks and retain typed deferred row builders: search
 and pagination preserve each source index while only the visible page creates DOM rows. Saved
 profile actions carry typed list/read context and button ownership. Chat sends and camera/profile
