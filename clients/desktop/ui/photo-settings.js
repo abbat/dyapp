@@ -26,9 +26,14 @@ const showPhotoMode = async (call = invoke) => {
 };
 domById('photo-mode', HTMLFormElement).addEventListener('change', (event) => {
   if (!(event.target instanceof HTMLInputElement)) return;
+  const mode = event.target.value;
+  if (mode !== 'byNetwork' && mode !== 'always' && mode !== 'onTap') {
+    photoModeError.hidden = false;
+    return;
+  }
   const generation = identityState.generation;
   const request = ++photoModeRequest;
-  controller.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
+  controller.photoModeSaved = invoke('set_auto_download_mode', { mode }).then(
     () => {
       if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = true;
     },

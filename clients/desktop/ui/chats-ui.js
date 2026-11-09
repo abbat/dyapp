@@ -905,11 +905,11 @@ controller.showChats = async (call = invoke) => {
 // The runtime reports each background pass: its changed-event count, or null after a failure,
 // which stays quiet because the next pass retries. A failure can follow a commit, such as a lost
 // ACK, so the list still follows the local projection, and with no mail a presence can expire.
-/** @param {number} changed */
+/** @param {number | null} changed */
 controller.mailUpdated = async (changed, call = invoke) => {
   const generation = identityState.generation;
   if (domById('chats-area', HTMLElement).hidden) return;
-  stickerRequestsController.stickerRequests?.refresh(changed);
+  stickerRequestsController.stickerRequests?.refresh(changed ?? 0);
   // Retry and signed receipts can change delivery status without a new visible chat event.
   if (
     chatState.activeChat &&

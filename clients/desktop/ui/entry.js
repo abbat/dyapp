@@ -33,8 +33,13 @@ import './profile-photos.js';
 import './peer-photos.js';
 import './network.js';
 
-document.addEventListener('dyapp:mail-updated', (event) => chats.mailUpdated(eventDetail(event)));
-document.addEventListener('dyapp:device-revoked', (event) =>
-  removal.deviceRevoked(eventDetail(event)),
-);
+document.addEventListener('dyapp:mail-updated', (event) => {
+  const value = eventDetail(event);
+  if (value === null || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0))
+    chats.mailUpdated(value);
+});
+document.addEventListener('dyapp:device-revoked', (event) => {
+  const value = eventDetail(event);
+  if (typeof value === 'string') removal.deviceRevoked(value);
+});
 stringsShown.then(() => installIdentifiers(strings));

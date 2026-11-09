@@ -100,7 +100,7 @@ controller.profileCard = (peerId, call) => {
 controller.shareProfile = async (call = invoke) => {
   const target = chatState.forwardTarget;
   const targetPeerId = forwardSelect.value;
-  if (!target || chatState.forwardBusy || forwardConfirm.disabled || !targetPeerId) return;
+  if (!target?.share || chatState.forwardBusy || forwardConfirm.disabled || !targetPeerId) return;
   chatState.forwardBusy = true;
   forwardCancel.disabled = true;
   forwardConfirm.disabled = true;

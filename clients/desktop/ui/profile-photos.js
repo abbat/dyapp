@@ -1,4 +1,4 @@
-import { all as domAll, byId as domById, find as domFind } from './dom.js';
+import { all as domAll, byId as domById, find as domFind, query as domQuery } from './dom.js';
 import { profileBusy, profileMessage, setProfileBusy } from './app.js';
 import { drawPhoto } from './chat-photos.js';
 import { preparePhoto } from './chats-photo-send.js';
@@ -28,6 +28,11 @@ const profilePhotoCancel = domById('photo-remove-cancel', HTMLButtonElement);
 let profilePhotoCount = 0;
 /** @type {(() => Promise<void>) | null} */
 let profilePhotoRemoval = null;
+const closePhotoRemoval = () => {
+  profilePhotoRemoval = null;
+  if (profilePhotoDialog.open) profilePhotoDialog.close();
+  profilePhotoDialog.hidden = true;
+};
 
 controller.limitProfilePhotos = () => {
   const full = profilePhotoCount >= MAX_PROFILE_PHOTOS;
@@ -91,17 +96,22 @@ const moveProfilePhoto = (from, to, name, call) =>
     call,
     () => {
       const tile = profilePhotoGrid.children[to];
-      (domFind(tile, `.${name}`, HTMLElement) || tile.querySelector('button')).focus();
+      (
+        domFind(tile, `.${name}`, HTMLElement) || domQuery(tile, 'button', HTMLButtonElement)
+      ).focus();
     },
   );
 /** @param {number} index @param {import('./ipc.js').Invoke} call */
 const askProfilePhotoRemoval = (index, call) => {
+  const generation = identityState.generation;
   profilePhotoRemoval = () =>
-    changeProfilePhotos(
-      () => call('remove_profile_photo', { index }),
-      call,
-      () => profilePhotoAdd.focus(),
-    );
+    identityCurrent(generation)
+      ? changeProfilePhotos(
+          () => call('remove_profile_photo', { index }),
+          call,
+          () => profilePhotoAdd.focus(),
+        )
+      : Promise.resolve();
   profilePhotoDialog.hidden = false;
   profilePhotoDialog.showModal();
   profilePhotoCancel.focus();
@@ -210,6 +220,7 @@ const showOwnAvatars = async (hash, call) => {
   await Promise.all([...domAll(document, '.avatar[data-own]', HTMLElement)].map(paintOwnAvatar));
 };
 document.addEventListener('dyapp:identity-change', () => {
+  closePhotoRemoval();
   ownPhotoRun += 1;
   ownPhoto = null;
 });
@@ -229,12 +240,15 @@ profilePhotoInput.addEventListener('change', () => {
   profilePhotoInput.value = '';
 });
 profilePhotoDialog.addEventListener('close', () => {
-  profilePhotoDialog.hidden = true;
+  if (!profilePhotoDialog.open) closePhotoRemoval();
 });
-profilePhotoCancel.addEventListener('click', () => profilePhotoDialog.close());
+profilePhotoCancel.addEventListener('click', closePhotoRemoval);
+profilePhotoDialog.addEventListener('cancel', closePhotoRemoval);
 domById('photo-remove-confirm', HTMLButtonElement).addEventListener('click', () => {
-  profilePhotoDialog.close();
-  controller.profilePhotoChanged = profilePhotoRemoval();
+  const remove = profilePhotoRemoval;
+  if (!profilePhotoDialog.open || !remove) return;
+  closePhotoRemoval();
+  controller.profilePhotoChanged = remove();
 });
 
 export { addProfilePhoto };

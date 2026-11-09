@@ -49,6 +49,9 @@ a bundler.
 A saved profile draft is separate from a published profile. Save validates the form, including
 any entered place against its suggestions; invalid input stays in the form and is not written
 to the Store.
+Photo removal retains its opening identity generation. Cancel or an identity change closes and
+invalidates the dialog; a confirmation requires that opening and is consumed before sending the
+command. An older queued close event cannot hide a newly opened removal dialog.
 Switching identities reloads that identity's saved draft. The current UI makes no promise to
 recover unsaved edits after a window reload, crash or process termination. The tests exercise
 unsaved field and invalid-place retention across section navigation, a normal restart after Save,

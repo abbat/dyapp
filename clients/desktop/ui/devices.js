@@ -130,10 +130,12 @@ const showDevices = async (call = invoke) => {
 // A repeat closes the mailbox again, which is harmless, and a draft another device moved on is
 // already replaced, so Retry is enough after any failure.
 const disconnectNow = async (call = invoke) => {
+  const device = disconnecting;
+  if (!device) return;
   const generation = identityState.generation;
   for (const button of disconnectButtons) button.disabled = true;
   try {
-    await call('revoke_device', { deviceKey: disconnecting.key });
+    await call('revoke_device', { deviceKey: device.key });
   } catch (_) {
     if (!identityCurrent(generation)) return;
     disconnectOffline(true);

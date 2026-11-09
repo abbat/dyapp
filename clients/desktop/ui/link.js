@@ -107,7 +107,9 @@ domById('link-cancel', HTMLButtonElement).addEventListener('click', () => {
   stopLink();
   show(identity, 'status.ready');
 });
-linkOpen.addEventListener('click', () => act(linkJoined));
+linkOpen.addEventListener('click', () => {
+  if (linkJoined) act(linkJoined);
+});
 copyFrom(domById('copy-link-code', HTMLButtonElement), domById('link-code', HTMLElement));
 
 export { linkJoined, linkRun, linkTimer, pollLink, startLink, stopLink };

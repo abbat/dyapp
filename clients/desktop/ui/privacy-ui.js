@@ -13,6 +13,7 @@ const privacyInputs = {
   presenceMatches: 'presence-matches',
   notifications: 'message-notifications',
 };
+const privacyKeys = /** @type {(keyof typeof privacyInputs)[]} */ (Object.keys(privacyInputs));
 const privacyError = domById('privacy-error', HTMLParagraphElement);
 const noticeContent = domById('notice-content', HTMLSelectElement);
 /** @param {boolean} failed */
@@ -28,8 +29,8 @@ controller.showPrivacy = async (call = invoke) => {
   try {
     const privacy = await call('privacy_settings');
     if (!identityCurrent(generation)) return;
-    for (const [key, id] of Object.entries(privacyInputs)) {
-      domById(id, HTMLInputElement).checked = privacy[key];
+    for (const key of privacyKeys) {
+      domById(privacyInputs[key], HTMLInputElement).checked = privacy[key];
     }
     domById('presence-nobody', HTMLInputElement).checked = !privacy.presenceMatches;
     noticeContent.value = privacy.noticeContent;
@@ -41,14 +42,19 @@ controller.showPrivacy = async (call = invoke) => {
 };
 const savePrivacy = (call = invoke) => {
   const generation = identityState.generation;
+  const content = noticeContent.value;
+  if (content !== 'fixed' && content !== 'name' && content !== 'text') {
+    privacyFailure(true);
+    return Promise.resolve();
+  }
+  /** @type {import('./ipc.js').Privacy} */
   const privacy = {
-    ...Object.fromEntries(
-      Object.entries(privacyInputs).map(([key, id]) => [
-        key,
-        domById(id, HTMLInputElement).checked,
-      ]),
-    ),
-    noticeContent: noticeContent.value,
+    sendViews: domById(privacyInputs.sendViews, HTMLInputElement).checked,
+    sendReadReceipts: domById(privacyInputs.sendReadReceipts, HTMLInputElement).checked,
+    sendTyping: domById(privacyInputs.sendTyping, HTMLInputElement).checked,
+    presenceMatches: domById(privacyInputs.presenceMatches, HTMLInputElement).checked,
+    notifications: domById(privacyInputs.notifications, HTMLInputElement).checked,
+    noticeContent: content,
   };
   return call('set_privacy', { privacy }).then(
     () => {

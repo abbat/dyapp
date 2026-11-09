@@ -137,6 +137,80 @@
       identityState.current = before;
     }
   };
+  const checkCurrentPhotoRemoval = async (controller, grid, call, writes) => {
+    const dialog = document.getElementById('photo-remove-dialog');
+    const confirm = document.getElementById('photo-remove-confirm');
+    controller.showProfilePhotos([[2]], call);
+    grid.querySelector('.remove').click();
+    document.getElementById('photo-remove-cancel').click();
+    confirm.click();
+    await controller.profilePhotoChanged;
+    if (writes()) throw new Error('Cancelled photo confirmation removed a photo');
+    grid.querySelector('.remove').click();
+    const { identityState } = await import(new URL('identity-state.js', document.baseURI).href);
+    identityState.generation += 1;
+    confirm.click();
+    await controller.profilePhotoChanged;
+    if (writes()) throw new Error('Photo confirmation ignored its opening generation');
+    grid.querySelector('.remove').click();
+    dialog.dispatchEvent(new Event('close'));
+    if (!dialog.open || dialog.hidden) throw new Error('Old close event hid a new photo dialog');
+    confirm.click();
+    confirm.click();
+    await controller.profilePhotoChanged;
+    if (writes() !== 1) throw new Error('Current photo confirmation did not remove exactly once');
+  };
+  const checkPhotoRemovalOwner = async () => {
+    const { identityState } = await import(new URL('identity-state.js', document.baseURI).href);
+    const app = await import(new URL('app.js', document.baseURI).href);
+    const { controller } = await import(new URL('profile-photos.js', document.baseURI).href);
+    const before = {
+      current: identityState.current,
+      generation: identityState.generation,
+      busy: app.profileBusy,
+    };
+    const grid = document.getElementById('profile-photos');
+    let writes = 0;
+    const call = async (command) => {
+      if (command === 'remove_profile_photo') writes += 1;
+      if (command === 'profile_photo') throw new Error('Fixture has no image bytes');
+      return { draft: { photos: [] } };
+    };
+    try {
+      identityState.current = {
+        status: 'ready',
+        peerId: 'a'.repeat(64),
+        mode: 'file',
+        slot: 'first',
+      };
+      identityState.generation += 1;
+      app.setProfileBusy(false);
+      controller.showProfilePhotos([[1]], call);
+      await Promise.all([
+        controller.ownAvatarsShown,
+        ...[...grid.children].map((tile) => tile.ready),
+      ]);
+      grid.querySelector('.remove').click();
+      identityState.current = {
+        status: 'ready',
+        peerId: 'b'.repeat(64),
+        mode: 'file',
+        slot: 'second',
+      };
+      identityState.generation += 1;
+      document.dispatchEvent(new Event('dyapp:identity-change'));
+      document.getElementById('photo-remove-confirm').click();
+      await controller.profilePhotoChanged;
+      if (writes) throw new Error('Stale photo confirmation changed another identity');
+      await checkCurrentPhotoRemoval(controller, grid, call, () => writes);
+    } finally {
+      document.getElementById('photo-remove-dialog').close();
+      controller.showProfilePhotos([], call);
+      app.setProfileBusy(before.busy);
+      identityState.current = before.current;
+      identityState.generation = before.generation;
+    }
+  };
   const checkChatRow = (build, strings) => {
     const message = {
       groupId: [],
@@ -193,6 +267,7 @@
     const peers = await import(new URL('peer-photos.js', document.baseURI).href);
     await checkPeerPhotos(peers.controller, bytes);
     await checkUnavailableMedia();
+    await checkPhotoRemovalOwner();
     const rows = await import(new URL('chat-row.js', document.baseURI).href);
     checkChatRow(rows.chatRow, localization.strings);
   };

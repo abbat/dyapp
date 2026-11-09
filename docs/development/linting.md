@@ -359,6 +359,8 @@ Settings collections accept generic item callbacks and retain typed deferred row
 and pagination preserve each source index while only the visible page creates DOM rows. Saved
 profile actions carry typed list/read context and button ownership. Chat sends and camera/profile
 helpers declare their callback and DTO contracts; finite network status codes type variadic summaries.
+Native mail/revocation event routing validates payload types. Privacy and photo preferences validate
+finite select/radio values before invoking their fully typed native commands.
 Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:

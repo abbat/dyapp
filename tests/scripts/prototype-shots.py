@@ -154,7 +154,7 @@ MEASURE = """JSON.stringify((() => {
 DESKTOP = [
     "wizard-identity", "wizard-network", "picker", "recovery",
     "profile", "profile-hidden", "profile-dark",
-    "publish-dialog", "publish-progress",
+    "publish-dialog", "photo-remove-dialog", "publish-progress",
     "network", "network-checking", "network-error",
     "search", "search-loading", "search-empty", "search-error",
     "profile-view", "profile-view-safety", "verify-dialog",

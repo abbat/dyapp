@@ -94,7 +94,7 @@ const showNetwork = async (call = invoke) => {
 };
 controller.showNetwork = showNetwork;
 
-/** @param {string} seed @param {import('./ipc.js').NetworkCheckRow | { status: string; }} row */
+/** @param {string} seed @param {import('./ipc.js').NetworkCheckRow | { status: 'checking', peerId?: never, reason?: never }} row */
 const rowItem = (seed, row) => {
   const entry = document.createElement('li');
   entry.dataset.status = row.status;
