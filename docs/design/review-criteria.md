@@ -37,6 +37,12 @@ These apply to every screen.
 | L1 | Proximity: the gap between a block and a neighbour from another group is at least the largest gap inside either group. In tokens, gaps inside a group are at most `--space-2` (8 px) and gaps between groups at least `--space-3` (12 px). | NN/g Gestalt proximity; KDE HIG metrics: related items 2 x smallSpacing, a label and its item 1 x, unrelated controls at least 3 x |
 | L2 | No touching: distinct sibling blocks (controls, text, notices) are never closer than `--space-2` (8 px). A label or legend may sit closer to its field. Gaps and margins use the `--space-*` tokens on the 4 px grid. | Fluent 2 layout: 4 px grid; Apple HIG Layout |
 
+Static presentation styles live in CSS. Repeated colours and font properties
+with the same semantic purpose use shared CSS custom properties; equal values
+with different purposes remain separate. One-off colour and font values need
+not be tokens. This maintainability convention does not add visual criteria
+to L2; its spacing-token requirement still applies.
+
 KDE also gives minimum sizes: a button 72 x 32 px, a line edit at least
 80 x 32, and a checkbox or radio button with its label at least 80 x 24.
 WCAG 2.2 SC 2.5.8 requires targets of at least 24 x 24 CSS px.
@@ -59,7 +65,7 @@ link, file name or path.
 |---|---|---|
 | D1 | A dialog title wraps to at most two lines. | Apple HIG Alerts |
 | D2 | The button that dismisses without acting is labelled "Cancel" ("Отмена"). | Apple HIG Alerts |
-| D3 | A view has one default button. | Apple HIG Alerts; GOV.UK button: avoid multiple default buttons on a page |
+| D3 | A dialog has exactly one default button; outside dialogs a view may have zero or one. | Project rule confirmed by the maintainer; GOV.UK button: avoid multiple default buttons on a page. Apple HIG Alerts permits no default for some alerts; this project rule is stricter. |
 | T1 | Text expansion: a control holds text 30% longer than the English for strings of 70 or more characters, and proportionally more for shorter ones. Check with the Android en-XA pseudolocale and with Russian at 440 px. | Adobe Spectrum, International design |
 | T2 | Text and controls meet WCAG 2.2 contrast (SC 1.4.3), and focus is visible (SC 2.4.13). | WCAG 2.2 |
 
@@ -71,6 +77,12 @@ link, file name or path.
   `[settings]` in `tests/scripts/baselines.toml`. A count above its budget
   fails. When a count falls, the check also fails until the budget is lowered
   to match.
+- **L2 spacing tokens and CSS ownership.** The web lint step checks static
+  styles live in CSS and gaps/margins use spacing tokens. Repeated colour/font
+  literals require shared tokens or a recorded difference in semantic purpose;
+  one-off colour/font literals remain allowed. See
+  [web lint](../development/linting.md#web-biomejsonc) for the check and its
+  shrink-only spacing budget. These static checks do not replace gap measurement.
 - **L2 and I1 by measurement.** When `tests/scripts/ui-test.sh prototype` (and
   `prototype-android`) takes screenshots, `tests/scripts/prototype-shots.py`
   also measures, for every state, language and width, the gap between

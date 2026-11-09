@@ -510,6 +510,17 @@ CSS class and ID names are compared with HTML attributes and JavaScript string/t
 the shipped UI and shared prototype. Exact runtime-built names need a reason in
 `tools/web-lint/runtime-selectors.json`; stale allowances fail. This detects unreferenced names,
 not whether a particular element-selector combination can match at runtime.
+The web stage also runs `tools/web-lint/check-css.mjs` and its regression fixtures.
+Static desktop/prototype styles belong in CSS, including SVG positioning. Nonzero
+literal gaps and margins fail L2; `--space-*` definitions must lie on the 4 px grid.
+Existing non-token spacing is recorded in `tools/web-lint/css-budget.json` with a
+reason; new findings and stale allowances fail. Repeated literal colour and font
+values require shared tokens when they have the same purpose. Different purposes
+may retain separate values: record the reason and exact declarations under
+`distinctSemantics` in that file. The check requires semantic review rather than
+assuming equal values mean equal purposes; a new occurrence invalidates that record.
+One-off colour/font literals, `currentColor` and `transparent` remain allowed.
+
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

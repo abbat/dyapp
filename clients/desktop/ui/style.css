@@ -21,12 +21,15 @@
   --space-5: 24px;
   --space-6: 32px;
   --radius: 8px;
+  --font-weight-normal: 400;
+  --font-weight-emphasis: 600;
+  --font-size-caption: 0.8125rem;
   --font: system-ui, "Segoe UI", Cantarell, "Noto Sans", "DejaVu Sans", sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", monospace;
-  --text-title: 600 1.5rem / 1.25 var(--font);
-  --text-heading: 600 1.0625rem / 1.35 var(--font);
-  --text-body: 400 0.9375rem / 1.5 var(--font);
-  --text-caption: 400 0.8125rem / 1.4 var(--font);
+  --text-title: var(--font-weight-emphasis) 1.5rem / 1.25 var(--font);
+  --text-heading: var(--font-weight-emphasis) 1.0625rem / 1.35 var(--font);
+  --text-body: var(--font-weight-normal) 0.9375rem / 1.5 var(--font);
+  --text-caption: var(--font-weight-normal) var(--font-size-caption) / 1.4 var(--font);
   --bg: #f6f6f4;
   --surface: #ffffff;
   --sidebar: #ececea;
@@ -41,6 +44,8 @@
   --ok: #1e7a3c;
   --warn: #8a5a00;
   --warn-soft: #fbefd4;
+  --scrim-overlay: #0007;
+  --safety-preview-background: var(--safety-preview-background);
   --focus-color: #1f5fbf66;
   --focus: 0 0 0 3px var(--focus-color);
   color-scheme: light;
@@ -188,7 +193,7 @@ button {
 label,
 legend {
   display: block;
-  font-weight: 600;
+  font-weight: var(--font-weight-emphasis);
   margin-bottom: var(--space-1);
 }
 fieldset {
@@ -235,11 +240,11 @@ textarea {
   display: flex;
   gap: var(--space-2);
   align-items: flex-start;
-  font-weight: 400;
+  font-weight: var(--font-weight-normal);
   margin-bottom: var(--space-2);
 }
 .choice input {
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 /* A native box is 13 px, so its pass depended on font metrics and on how near the next control was. */
 .choice input[type="checkbox"] {
@@ -339,7 +344,7 @@ details > summary {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--mono);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-caption);
 }
 #seed-rows details > summary {
   margin-bottom: var(--space-1);
@@ -461,7 +466,7 @@ details > summary {
   color: var(--accent);
   display: grid;
   place-items: center;
-  font-weight: 600;
+  font-weight: var(--font-weight-emphasis);
   flex: none;
   position: relative;
 }
@@ -485,7 +490,7 @@ details > summary {
   border-radius: 10px;
   min-width: 20px;
   padding: 0 6px;
-  font: 600 0.75rem / 20px var(--font);
+  font: var(--font-weight-emphasis) 0.75rem / 20px var(--font);
   text-align: center;
   flex: none;
 }
@@ -623,7 +628,7 @@ details > summary {
   margin-top: var(--space-3);
 }
 .safety-number {
-  font: 600 1.1rem / 1.7 var(--font);
+  font: var(--font-weight-emphasis) 1.1rem / 1.7 var(--font);
   letter-spacing: 0.04em;
   overflow-wrap: anywhere;
 }
@@ -640,7 +645,7 @@ details > summary {
   max-width: 480px;
   height: auto;
   margin: var(--space-3) auto;
-  background: #111;
+  background: var(--safety-preview-background);
   border-radius: var(--radius);
 }
 #view-safety-panel .actions + .caption {
@@ -914,7 +919,7 @@ details > summary {
 .nav[aria-current="page"] {
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-emphasis);
 }
 .nav .sub {
   display: block;
@@ -929,7 +934,7 @@ details > summary {
 .identity .avatar {
   width: 32px;
   height: 32px;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-caption);
 }
 .spacer {
   flex: 1;
@@ -1098,7 +1103,7 @@ details > summary {
 .modal-scrim {
   position: fixed;
   inset: 0;
-  background: #0007;
+  background: var(--scrim-overlay);
   display: grid;
   place-items: center;
   padding: var(--space-4);
@@ -1122,7 +1127,7 @@ dialog.modal {
   color: var(--text);
 }
 dialog.modal::backdrop {
-  background: #0007;
+  background: var(--scrim-overlay);
 }
 .confirm-id,
 .confirm-id dd {
@@ -1209,4 +1214,8 @@ select {
 .rows td.who {
   display: flex;
   text-align: left;
+}
+
+.symbol-definitions {
+  position: absolute;
 }

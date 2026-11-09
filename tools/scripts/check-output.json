@@ -7,6 +7,8 @@
   "typos": {"fix":"docs/development/linting.md#common-fixes","format":"lines","pattern":"^(?:error:|\\s*-->\\s)"},
   "taplo": {"fix":"docs/development/ci-base.md#quality--quality","format":"lines","pattern":"\\bERROR\\b|^error:"},
   "ruff-format": {"fix":"docs/development/linting.md#python","format":"lines","pattern":"^unformatted:|^\\s*--> |^[0-9]+ files? would be reformatted|^error:"},
+  "web-css": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"^clients/desktop/|^L2 spacing|^Remove stale CSS|^Repeated value"},
+  "web-css-fixtures": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"AssertionError|^Expected|^actual:|^expected:"},
   "web-translations": {"fix":"docs/development/linting.md#script-references","format":"python"},
   "web-unused": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"^Unused JavaScript|^Web unused-code|^Invalid or stale|^clients/desktop/|^\\{"},
   "typescript": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"^.+\\([0-9]+,[0-9]+\\): error TS[0-9]+:|^error TS[0-9]+:"},

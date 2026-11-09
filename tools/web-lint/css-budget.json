@@ -1,0 +1,6 @@
+{
+  "spacing": {
+    "clients/desktop/ui/style.css .progress::before margin-left:20%": "Existing proportional progress-bar animation; preserve appearance pending sketch review.",
+    "clients/desktop/ui/style.css .avatars .avatar+.avatar margin-left:-14px": "Existing overlapping avatar stack; preserve appearance pending sketch review."
+  }
+}
