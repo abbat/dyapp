@@ -1,5 +1,10 @@
 """Launch a real bundled Tauri app and check ordered UI flows."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Literal, cast, overload
+
 import importlib.util
 from concurrent.futures import ThreadPoolExecutor
 import contextlib
@@ -15,6 +20,10 @@ import tempfile
 import time
 
 
+if TYPE_CHECKING:
+    import desktop_contracts as dc
+
+
 native_path = Path(__file__).with_name("desktop_smoke_native.py")
 native_spec = importlib.util.spec_from_file_location(
     "desktop_smoke_native", native_path
@@ -22,8 +31,9 @@ native_spec = importlib.util.spec_from_file_location(
 assert native_spec is not None and native_spec.loader is not None, (
     "Python source loader is unavailable"
 )
-native = importlib.util.module_from_spec(native_spec)
-native_spec.loader.exec_module(native)
+_module = importlib.util.module_from_spec(native_spec)
+native_spec.loader.exec_module(_module)
+native = cast("dc.NativeSmoke", _module)
 display_diagnostics = native.display_diagnostics
 unlock_keyring = native.unlock_keyring
 run = native.run
@@ -39,26 +49,56 @@ start_smoke_node = native.start_smoke_node
 class DesktopSmoke:
     """Own smoke results and the shared application launcher."""
 
-    def __init__(self, executable) -> None:
+    def __init__(self, executable: str) -> None:
         self.executable = executable
         report_root = os.environ.get("RUNNER_TEMP")
         if not report_root:
             report_root = f"/reports/{os.environ['HOSTNAME']}"
         self.reports = Path(report_root)
         self.reports.mkdir(parents=True, exist_ok=True)
-        self.results = []
+        self.results: list[dc.CaseResult] = []
 
+    @overload
     def case(
         self,
-        name,
-        extra,
-        profile,
+        name: str,
+        extra: Sequence[str],
+        profile: str | Path,
+        broken: Literal[False] = False,
+        peer: Literal[True] = True,
+        timeout: int = 120,
+        launcher: Sequence[str] = (),
+        extra_env: Mapping[str, str] | None = None,
+    ) -> str:
+        """A passing identity case returns its required marker."""
+        ...
+
+    @overload
+    def case(
+        self,
+        name: str,
+        extra: Sequence[str],
+        profile: str | Path,
         broken: bool = False,
         peer: bool = True,
         timeout: int = 120,
-        launcher=(),
-        extra_env=None,
-    ):
+        launcher: Sequence[str] = (),
+        extra_env: Mapping[str, str] | None = None,
+    ) -> str | None:
+        """Failure and marker-free cases may have no peer marker."""
+        ...
+
+    def case(
+        self,
+        name: str,
+        extra: Sequence[str],
+        profile: str | Path,
+        broken: bool = False,
+        peer: bool = True,
+        timeout: int = 120,
+        launcher: Sequence[str] = (),
+        extra_env: Mapping[str, str] | None = None,
+    ) -> str | None:
         arguments = [*launcher, self.executable, "--ui-test", *extra]
         if not launcher:
             unlock_keyring()
@@ -78,7 +118,11 @@ class DesktopSmoke:
             )
         print(process.stdout, end="")
         print(process.stderr, end="", file=sys.stderr)
-        result = {"case": name, "exit": process.returncode, "passed": True}
+        result: dc.CaseResult = {
+            "case": name,
+            "exit": process.returncode,
+            "passed": True,
+        }
         if name.startswith("video-"):
             metrics = re.search(
                 r"^UI_SMOKE_METRICS:video:(?:360p|720p):(\{[^\n]{1,500}\})$",
@@ -91,7 +135,9 @@ class DesktopSmoke:
         self.results.append(result)
         return match.group(1) if match else None
 
-    def remove(self, name, profile, slot, first) -> None:
+    def remove(
+        self, name: str, profile: str | Path, slot: str, first: str
+    ) -> None:
         """Remove the opened identity; only its slot folder may go."""
         slots = Path(profile) / "profiles"
         kept = {s.name for s in slots.iterdir()} - {slot}
@@ -137,13 +183,15 @@ class DesktopSmoke:
             peer=False,
         )
 
-    def linked(self, owner, owner_id, seed, file) -> None:
+    def linked(
+        self, owner: str | Path, owner_id: str, seed: str, file: Sequence[str]
+    ) -> None:
         """A new client joins the identity of `owner` through the node, both
         list two devices, and a disconnect wipes the new client. It waits on
         a bus of its own: on a shared one the single-instance check would
         hand its launch to the running owner."""
-        with tempfile.TemporaryDirectory(dir=self.reports) as fresh:
-            fresh = Path(fresh)
+        with tempfile.TemporaryDirectory(dir=self.reports) as fresh_name:
+            fresh = Path(fresh_name)
             written = fresh / "link-code"
             with ThreadPoolExecutor(1) as pool:
                 joined = pool.submit(
@@ -206,7 +254,13 @@ class DesktopSmoke:
                     raise RuntimeError(f"second launch failed: {second}")
             first.result()
 
-    def sticker_packs(self, profile, mode, flags, peer_id) -> None:
+    def sticker_packs(
+        self,
+        profile: str | Path,
+        mode: str,
+        flags: Sequence[str],
+        peer_id: str,
+    ) -> None:
         for step in ("import", "restart"):
             reopened = self.case(
                 f"{mode}-sticker-{step}",
@@ -216,7 +270,7 @@ class DesktopSmoke:
             if reopened != peer_id:
                 raise RuntimeError("sticker smoke changed the active identity")
 
-    def mixed(self, profile, first) -> None:
+    def mixed(self, profile: str | Path, first: str) -> None:
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
         file = ["--ui-test-file"]
@@ -273,8 +327,8 @@ class DesktopSmoke:
         """An app-file copy cannot recover a credential in a fresh provider."""
         root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
-        with tempfile.TemporaryDirectory(dir=self.reports) as restored:
-            restored = Path(restored)
+        with tempfile.TemporaryDirectory(dir=self.reports) as restored_name:
+            restored = Path(restored_name)
             (restored / "profiles").mkdir()
             shutil.copytree(
                 root / "profiles" / slot, restored / "profiles" / slot
@@ -303,7 +357,7 @@ class DesktopSmoke:
                 },
             )
 
-    def legacy(self, profile, peer_id) -> None:
+    def legacy(self, profile: str | Path, peer_id: str) -> None:
         """Turn the file slot into a pre-slot root key and reopen it."""
         root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
@@ -398,7 +452,9 @@ class DesktopSmoke:
             raise RuntimeError("reopening a profile replaced the identity")
 
     @contextlib.contextmanager
-    def fake_tray(self, mode, profile, script: str = "fake-tray.py"):
+    def fake_tray(
+        self, mode: str, profile: str | Path, script: str = "fake-tray.py"
+    ) -> Iterator[None]:
         """A session bus host (`script`), or a click driver for the Windows
         notification area (windows-tray.py), for one case."""
         (Path(profile) / "hidden").unlink(missing_ok=True)
@@ -418,6 +474,9 @@ class DesktopSmoke:
             text=True,
         )
         try:
+            assert host.stdout is not None, (
+                "Tray host stdout pipe is unavailable"
+            )
             if host.stdout.readline().strip() != "ready":
                 raise RuntimeError(f"fake tray host did not start: {mode}")
             yield
@@ -425,7 +484,13 @@ class DesktopSmoke:
             host.terminate()
             host.wait(timeout=10)
 
-    def connect_identity(self, profile, file, seed, storage):
+    def connect_identity(
+        self,
+        profile: str | Path,
+        file: Sequence[str],
+        seed: str,
+        storage: Path,
+    ) -> str:
         peer_id = self.case("connect-create", file, profile)
         failed = self.case(
             "profile-publish-no-network",
@@ -460,7 +525,13 @@ class DesktopSmoke:
             raise RuntimeError("connecting replaced the identity")
         return peer_id
 
-    def active_network(self, profile, peer_id, file, storage):
+    def active_network(
+        self,
+        profile: str | Path,
+        peer_id: str,
+        file: Sequence[str],
+        storage: Path,
+    ) -> Path:
         # The next launch dials the active network on its own.
         self.case(
             "network-launch",
@@ -504,7 +575,14 @@ class DesktopSmoke:
         return folder
 
     def public_profile(
-        self, profile, peer_id, file, node, seed, env, storage
+        self,
+        profile: str | Path,
+        peer_id: str,
+        file: Sequence[str],
+        node: Path,
+        seed: str,
+        env: Mapping[str, str],
+        storage: Path,
     ) -> None:
         published = self.case(
             "profile-publish-retry",
@@ -548,7 +626,16 @@ class DesktopSmoke:
         )
         check_profile_readback(node, seed, peer_id, env, storage)
 
-    def peer_flows(self, profile, peer_id, file, node, seed, env, storage):
+    def peer_flows(
+        self,
+        profile: str | Path,
+        peer_id: str,
+        file: Sequence[str],
+        node: Path,
+        seed: str,
+        env: Mapping[str, str],
+        storage: Path,
+    ) -> tuple[Path, str]:
         # Keep the first identity's removal flow intact while both
         # published Peer IDs coexist on the loopback node.
         peer_root = Path(
@@ -685,13 +772,13 @@ class DesktopSmoke:
                 profile, peer_id, file, node, seed, env, storage
             )
             # A first run that connects on the wizard's network step.
-            with tempfile.TemporaryDirectory(dir=self.reports) as fresh:
+            with tempfile.TemporaryDirectory(dir=self.reports) as fresh_name:
                 self.case(
                     "wizard-connect",
                     [*file, f"--ui-test-step=wizard-connect:{seed}"],
-                    fresh,
+                    fresh_name,
                 )
-                fresh = Path(fresh)
+                fresh = Path(fresh_name)
                 picked = (fresh / "active-profile").read_text().strip()
                 if not (fresh / "profiles" / picked / "network").is_file():
                     raise RuntimeError("the wizard did not activate a network")
@@ -779,7 +866,7 @@ class DesktopSmoke:
                     peer=False,
                 )
 
-    def storage_modes(self, flows) -> None:
+    def storage_modes(self, flows: bool) -> None:
         for mode in ("system", "file"):
             with tempfile.TemporaryDirectory(dir=self.reports) as profile:
                 flags = ["--ui-test-file"] if mode == "file" else []
@@ -799,7 +886,7 @@ class DesktopSmoke:
                         profile, peer_id
                     )
 
-    def network_flows(self, flows) -> None:
+    def network_flows(self, flows: bool) -> None:
         if flows:
             with tempfile.TemporaryDirectory(dir=self.reports) as profile:
                 self.network(profile)

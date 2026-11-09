@@ -314,6 +314,13 @@ Policy and reproducibility helpers share work-item, lockfile and build-report re
 hit counts. Desktop inventory and benchmark observations use `tools/scripts/measurement_contracts.py`;
 HTML boolean attributes retain their possible missing values, and process pipes are checked before
 sampling. The deployment rehearsal consumes the shared network harness through a narrow protocol.
+Native desktop probes and launchers share `tools/scripts/desktop_contracts.py`; passing identity
+cases have required peer markers, while failure and marker-free cases may return none. GI callbacks
+use their D-Bus, asynchronous-result and accessibility types. `tools/scripts/webkit2_contracts.pyi`
+describes the consumed WebKit2 4.1 GTK3 API, including Cairo snapshots; the upstream PyGObject
+stubs currently provide the WebKit6 GTK4 API. The local view is used only while type checking.
+Windows-only icon/tray validators require mypy's `win32` platform; other tools and fixtures use
+`linux`. Both groups together cover every Python source and local stub without import suppressions.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

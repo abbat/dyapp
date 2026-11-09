@@ -4,6 +4,8 @@ the session bus, takes the app's tray item and clicks its menu (Open, Quit).
 quit: clicks Quit once the item is there; open: clicks Open once the app
 writes hidden to the config dir; vanish: exits once the app writes it."""
 
+from __future__ import annotations
+
 from pathlib import Path
 import sys
 
@@ -21,17 +23,24 @@ NODE = Gio.DBusNodeInfo.new_for_xml(f"""<node><interface name="{WATCHER}">
 mode, trigger = sys.argv[1], Path(sys.argv[2]) / "hidden"
 bus = Gio.bus_get_sync(Gio.BusType.SESSION)
 loop = GLib.MainLoop()
-items = []
+items: list[tuple[str, str]] = []
 
 
-def call(name, path, interface, method, args, reply=None):
+def call(
+    name: str,
+    path: str,
+    interface: str,
+    method: str,
+    args: GLib.Variant,
+    reply: str | None = None,
+) -> GLib.Variant:
     return bus.call_sync(
         name,
         path,
         interface,
         method,
         args,
-        reply and GLib.VariantType(reply),
+        None if reply is None else GLib.VariantType(reply),
         Gio.DBusCallFlags.NONE,
         5000,
         None,
@@ -83,7 +92,15 @@ def tick() -> "bool":
     return True
 
 
-def method(_bus, sender, _path, _interface, name, params, invocation) -> None:
+def method(
+    _bus: Gio.DBusConnection,
+    sender: str,
+    _path: str,
+    _interface: str,
+    name: str,
+    params: GLib.Variant,
+    invocation: Gio.DBusMethodInvocation,
+) -> None:
     if name == "RegisterStatusNotifierItem":
         service = params.unpack()[0]
         # appindicator registers an object path on its own connection.
@@ -95,7 +112,13 @@ def method(_bus, sender, _path, _interface, name, params, invocation) -> None:
     invocation.return_value(None)
 
 
-def get(_bus, _sender, _path, _interface, name):
+def get(
+    _bus: Gio.DBusConnection,
+    _sender: str,
+    _path: str,
+    _interface: str,
+    name: str,
+) -> GLib.Variant:
     return {
         "RegisteredStatusNotifierItems": GLib.Variant(
             "as", [name + path for name, path in items]

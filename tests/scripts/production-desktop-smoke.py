@@ -1,5 +1,10 @@
 """Check the Linux release UI through AT-SPI without injected commands."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
 import json
 import os
 from pathlib import Path
@@ -8,10 +13,13 @@ import subprocess
 import sys
 import time
 
+if TYPE_CHECKING:
+    from gi.repository import Atspi
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def labels():
+def labels() -> list[tuple[str, str]]:
     directory = ROOT / "clients/desktop/ui/i18n"
     result = []
     for path in sorted(directory.glob("*.json")):
@@ -22,7 +30,10 @@ def labels():
     return result
 
 
-def rendered_setup(nodes, expected):
+def rendered_setup(
+    nodes: Sequence[tuple[str, bool, bool, bool]],
+    expected: Sequence[tuple[str, str]],
+) -> bool:
     """Require visible setup text and an enabled button in the same locale."""
     headings = {name for name, showing, _, _ in nodes if showing}
     buttons = {
@@ -52,7 +63,9 @@ class Accessibility:
         if self.desktop is None:
             raise RuntimeError("AT-SPI desktop is unavailable")
 
-    def nodes(self, application):
+    def nodes(
+        self, application: Atspi.Accessible
+    ) -> list[tuple[str, bool, bool, bool, Atspi.Accessible]]:
         application.clear_cache()
         pending, result, count = [application], [], 0
         while pending:
@@ -80,7 +93,11 @@ class Accessibility:
             )
         return result
 
-    def setup_button(self, application, expected):
+    def setup_button(
+        self,
+        application: Atspi.Accessible,
+        expected: Sequence[tuple[str, str]],
+    ) -> Atspi.Accessible | None:
         nodes = self.nodes(application)
         if not rendered_setup([row[:4] for row in nodes], expected):
             return None
@@ -91,7 +108,9 @@ class Accessibility:
             if name in names and showing and enabled and button
         )
 
-    def ready(self, process_id, expected):
+    def ready(
+        self, process_id: int, expected: Sequence[tuple[str, str]]
+    ) -> Atspi.Accessible | None:
         for _ in range(100):
             if not self.context.pending():
                 break
@@ -111,7 +130,12 @@ class Accessibility:
         return None
 
 
-def wait_for_setup(process, accessibility, expected, timeout: int = 45):
+def wait_for_setup(
+    process: subprocess.Popen[bytes],
+    accessibility: Accessibility,
+    expected: Sequence[tuple[str, str]],
+    timeout: int = 45,
+) -> Atspi.Accessible:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -126,7 +150,11 @@ def wait_for_setup(process, accessibility, expected, timeout: int = 45):
 
 
 def launch(
-    executable, directory, accessibility, expected, timeout: int = 45
+    executable: Path,
+    directory: Path,
+    accessibility: Accessibility,
+    expected: Sequence[tuple[str, str]],
+    timeout: int = 45,
 ) -> None:
     env = dict(os.environ)
     for key in ("CONFIG", "CACHE", "DATA"):

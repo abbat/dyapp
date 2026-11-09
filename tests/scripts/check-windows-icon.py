@@ -15,7 +15,7 @@ RT_ICON, RT_GROUP_ICON = 3, 14
 LOAD_AS_DATA = 0x2 | 0x20  # LOAD_LIBRARY_AS_DATAFILE | AS_IMAGE_RESOURCE
 
 
-def ico_images(data):
+def ico_images(data: bytes) -> dict[int, bytes]:
     """{size: image bytes} of an ICO file; 0 in the directory means 256."""
     count = struct.unpack_from("<HHH", data)[2]
     images = {}
@@ -27,7 +27,7 @@ def ico_images(data):
     return images
 
 
-def exe_images(path):
+def exe_images(path: Path) -> dict[int, bytes]:
     """{size: image bytes} of the first RT_GROUP_ICON in the executable."""
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.LoadLibraryExW.restype = wintypes.HMODULE
@@ -65,7 +65,7 @@ def exe_images(path):
     if not module:
         raise ctypes.WinError(ctypes.get_last_error())
 
-    def resource(name, kind):
+    def resource(name: int, kind: int) -> bytes:
         found = kernel32.FindResourceW(module, name, kind)
         if not found:
             raise RuntimeError(f"resource {name} of type {kind} missing")
@@ -73,9 +73,14 @@ def exe_images(path):
         pointer = kernel32.LockResource(kernel32.LoadResource(module, found))
         return ctypes.string_at(pointer, size)
 
-    groups = []
+    groups: list[int] = []
 
-    def first(_module, _kind, name, _param):
+    def first(
+        _module: int | None,
+        _kind: int | None,
+        name: int,
+        _param: int | None,
+    ) -> bool:
         # The pointer stays valid while the module is loaded; False stops.
         groups.append(name)
         return False

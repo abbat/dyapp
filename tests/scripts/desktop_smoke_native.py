@@ -1,5 +1,10 @@
 """Native process, profile and media probes for desktop smoke."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
+
 import contextlib
 import json
 import os
@@ -12,6 +17,10 @@ import subprocess
 import sys
 import tempfile
 import time
+
+
+if TYPE_CHECKING:
+    import desktop_contracts as dc
 
 
 def display_diagnostics() -> "str":
@@ -92,7 +101,11 @@ def unlock_keyring() -> None:
     )
 
 
-def run(arguments, timeout: int = 60, env=None):
+def run(
+    arguments: Sequence[str | Path],
+    timeout: int = 60,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     # Output goes to files, not pipes: WebKit helpers inherit it, and
     # sandboxed ones (bwrap --new-session) escape killpg, so waiting for
     # pipe EOF could hang forever.
@@ -130,7 +143,7 @@ def run(arguments, timeout: int = 60, env=None):
     )
 
 
-def read_varint(data: "bytes", offset: "int"):
+def read_varint(data: "bytes", offset: "int") -> tuple[int, int]:
     """Read a protobuf varint from a signed profile record."""
     value = 0
     for shift in range(0, 70, 7):
@@ -164,8 +177,13 @@ def signed_profile_payload(record_hex: "str") -> "bytes":
 
 
 def check_profile_readback(
-    node, seed, peer_id, env, storage, hidden: bool = False
-):
+    node: Path,
+    seed: str,
+    peer_id: str,
+    env: Mapping[str, str],
+    storage: Path,
+    hidden: bool = False,
+) -> bytes:
     """Node's signed profile payload must equal the published local draft.
 
     Hidden, the node retains the ordinary record and the local draft advances.
@@ -206,7 +224,7 @@ def check_profile_readback(
     return payload
 
 
-def forge_search_signature(node_storage) -> None:
+def forge_search_signature(node_storage: Path) -> None:
     """Flips the last byte, the signature, of the one record in the node's
     search index (profiles-idx.db or a later generation of it)."""
     indexes = sorted(node_storage.glob("profiles-idx*.db"))
@@ -223,7 +241,7 @@ def forge_search_signature(node_storage) -> None:
         )
 
 
-def expire_sticker_media(node_storage, owner) -> None:
+def expire_sticker_media(node_storage: Path, owner: str) -> None:
     """Advance only this isolated sender's attachment deadlines, not clocks.
 
     Quarantine generated blob files to model completed expiry without waiting
@@ -261,7 +279,7 @@ def expire_sticker_media(node_storage, owner) -> None:
         raise RuntimeError("no individual sticker blob was quarantined")
 
 
-def video_smoke(case, reports) -> None:
+def video_smoke(case: dc.CaseRunner, reports: Path) -> None:
     """Linux-only raw Tauri channel and Canvas smoke.
 
     Runs separately from account flows.
@@ -276,7 +294,9 @@ def video_smoke(case, reports) -> None:
             )
 
 
-def start_smoke_node(node, env, seed, log):
+def start_smoke_node(
+    node: Path, env: Mapping[str, str], seed: str, log: Path
+) -> subprocess.Popen[bytes]:
     with log.open("a") as out:
         started = subprocess.Popen(
             [node], env=env, stdout=out, stderr=subprocess.STDOUT

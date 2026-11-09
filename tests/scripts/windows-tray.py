@@ -58,7 +58,7 @@ class NotifyIconIdentifier(ctypes.Structure):
     ]
 
 
-def log_menu_needs(tray) -> None:
+def log_menu_needs(tray: int) -> None:
     """tray-icon opens the menu only when it gets the cursor position and the
     icon's rectangle; logs both, trying the first icon ids."""
     point = wintypes.POINT()

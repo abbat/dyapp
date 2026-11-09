@@ -2,11 +2,18 @@
 the session bus, keeps each notice in notices.json of the config dir, and
 clicks the newest one once the app writes hidden there."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import json
 from pathlib import Path
 import sys
 
 from gi.repository import Gio, GLib
+
+if TYPE_CHECKING:
+    import desktop_contracts as dc
 
 NAME = "org.freedesktop.Notifications"
 PATH = "/org/freedesktop/Notifications"
@@ -24,11 +31,19 @@ NODE = Gio.DBusNodeInfo.new_for_xml(f"""<node><interface name="{NAME}">
 folder = Path(sys.argv[2])
 bus = Gio.bus_get_sync(Gio.BusType.SESSION)
 loop = GLib.MainLoop()
-notices = []
+notices: list[dc.Notice] = []
 owner = ""
 
 
-def method(_bus, sender, _path, _interface, _name, params, invocation) -> None:
+def method(
+    _bus: Gio.DBusConnection,
+    sender: str,
+    _path: str,
+    _interface: str,
+    _name: str,
+    params: GLib.Variant,
+    invocation: Gio.DBusMethodInvocation,
+) -> None:
     global owner  # pylint: disable=global-statement
     owner = sender
     _, replaces, _, summary, body, actions, _, _ = params.unpack()

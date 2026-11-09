@@ -11,18 +11,27 @@ neighbouring blocks and writes them to /shots/layout.json for
 check-layout.py.
 """
 
+from __future__ import annotations
+
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import sys
 import threading
 
+from typing import TYPE_CHECKING
+
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
 gi.require_version("JavaScriptCore", "4.1")
-from gi.repository import GLib, Gtk, WebKit2  # noqa: E402 -- versions set
+from gi.repository import Gio, GLib, Gtk  # noqa: E402 -- versions set
+
+if TYPE_CHECKING:
+    import webkit2_contracts as WebKit2
+else:
+    from gi.repository import WebKit2
 
 # Neighbouring visible blocks of one parent, stacked or side by side, closer
 # than 12 px: the raw input of the layout criteria in check-layout.py.
@@ -333,8 +342,8 @@ jobs = [
     for s in SCREENS
 ]
 total = len(jobs)
-failed = []
-layout = {}
+failed: list[str] = []
+layout: dict[str, object] = {}
 # A loopback origin lets the shared identifier ES module load normally.
 server = ThreadingHTTPServer(
     ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="/assets")
@@ -376,7 +385,7 @@ def snapshot() -> None:
     )
 
 
-def measured(_view, result) -> None:
+def measured(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
     try:
         layout[shot_name()] = json.loads(
             view.call_async_javascript_function_finish(result).to_string()
@@ -386,7 +395,7 @@ def measured(_view, result) -> None:
     snapshot()
 
 
-def saved(_view, result) -> None:
+def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
     name = f"{OUT}/{shot_name()}.png"
     jobs.pop(0)
     try:
@@ -396,23 +405,33 @@ def saved(_view, result) -> None:
     next_job()
 
 
-def loaded(_view, event) -> None:
+def loaded(_view: WebKit2.WebView, event: WebKit2.LoadEvent) -> None:
     if event == WebKit2.LoadEvent.FINISHED:
         view.call_async_javascript_function(
             READY_MEASURE, -1, None, None, None, None, measured
         )
 
 
-def load_failed(_view, _event, uri, error):
+def advance() -> bool:
+    next_job()
+    return False
+
+
+def load_failed(
+    _view: WebKit2.WebView,
+    _event: WebKit2.LoadEvent,
+    uri: str,
+    error: GLib.Error,
+) -> bool:
     failed.append(f"{uri}: {error.message}")
     jobs.pop(0)
-    GLib.idle_add(lambda: next_job() and False)
+    GLib.idle_add(advance)
     return True
 
 
 view.connect("load-changed", loaded)
 view.connect("load-failed", load_failed)
-GLib.idle_add(lambda: next_job() and False)
+GLib.idle_add(advance)
 Gtk.main()
 server.shutdown()
 server.server_close()
