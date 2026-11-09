@@ -21,12 +21,12 @@ TODAY = date(2026, 10, 19)
 
 
 class Flaky(unittest.TestCase):
-    def test_only_tests_passing_on_retry_are_flaky(self):
+    def test_only_tests_passing_on_retry_are_flaky(self) -> None:
         self.assertEqual(
             CHECK.flaky_tests(REPORT), ["core erred", "core retried"]
         )
 
-    def test_xcresult_tests_passing_on_repetition_are_flaky(self):
+    def test_xcresult_tests_passing_on_repetition_are_flaky(self) -> None:
         def case(name, result, *runs):
             return {
                 "nodeType": "Test Case",
@@ -75,7 +75,7 @@ class Flaky(unittest.TestCase):
             CHECK.xcresult_flaky(report), ["AppUITests testRetried()"]
         )
 
-    def test_android_failures_before_a_passing_rerun_are_flaky(self):
+    def test_android_failures_before_a_passing_rerun_are_flaky(self) -> None:
         output = (
             "com.dyapp.AppUITests:.E\nThere was 1 failure:\n"
             "1) launches(com.dyapp.AppUITests)\njava.lang.Error\n"
@@ -90,7 +90,7 @@ class Flaky(unittest.TestCase):
             ["android instrumentation"],
         )
 
-    def test_unlisted_and_expired_tests_fail(self):
+    def test_unlisted_and_expired_tests_fail(self) -> None:
         flaky = ["core erred", "core retried"]
         quarantine = {
             "core erred": date(2026, 10, 12),
@@ -115,7 +115,7 @@ class Flaky(unittest.TestCase):
         del quarantine["core old"]
         self.assertEqual(CHECK.flaky_errors(flaky, quarantine, TODAY), [])
 
-    def test_repository_quarantine_is_fresh(self):
+    def test_repository_quarantine_is_fresh(self) -> None:
         quarantine = CHECK.tomllib.loads(CHECK.BASELINES.read_text())["flaky"]
         self.assertEqual(CHECK.flaky_errors([], quarantine, date.today()), [])
 

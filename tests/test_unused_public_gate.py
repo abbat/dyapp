@@ -31,10 +31,10 @@ def complete():
 
 
 class UnusedPublicGateTest(unittest.TestCase):
-    def test_complete_clean_analysis_passes(self):
+    def test_complete_clean_analysis_passes(self) -> None:
         self.assertEqual(GATE.failures(complete(), 0), [])
 
-    def test_a_new_finding_fails_even_if_tool_exits_zero(self):
+    def test_a_new_finding_fails_even_if_tool_exits_zero(self) -> None:
         report = complete()
         report["summary"]["diagnostic_count"] = 1
         report["diagnostics"] = [
@@ -49,7 +49,7 @@ class UnusedPublicGateTest(unittest.TestCase):
             GATE.failures(report, 0),
         )
 
-    def test_stale_marker_fails(self):
+    def test_stale_marker_fails(self) -> None:
         report = complete()
         report["summary"]["diagnostic_count"] = 1
         report["diagnostics"] = [
@@ -60,10 +60,10 @@ class UnusedPublicGateTest(unittest.TestCase):
         ]
         self.assertTrue(GATE.failures(report, 1))
 
-    def test_tool_failure_cannot_be_reported_as_clean(self):
+    def test_tool_failure_cannot_be_reported_as_clean(self) -> None:
         self.assertTrue(GATE.failures(complete(), 101))
 
-    def test_missing_scope_is_rejected(self):
+    def test_missing_scope_is_rejected(self) -> None:
         incomplete = {
             "target": "",
             "includes_non_production_targets": False,
@@ -76,14 +76,14 @@ class UnusedPublicGateTest(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 GATE.failures(report, 0)
 
-    def test_missing_or_wrong_schema_is_rejected(self):
+    def test_missing_or_wrong_schema_is_rejected(self) -> None:
         for version in (None, 4, 6):
             report = complete()
             report["schema_version"] = version
             with self.subTest(version=version), self.assertRaises(ValueError):
                 GATE.failures(report, 0)
 
-    def test_truncated_diagnostics_are_rejected(self):
+    def test_truncated_diagnostics_are_rejected(self) -> None:
         report = complete()
         report["summary"]["diagnostic_count"] = 1
         with self.assertRaisesRegex(ValueError, "Incomplete"):

@@ -39,7 +39,9 @@ def fixture(path, kind, missing=None, wrong_machine=False, duplicate=False):
 
 
 class AndroidPackages(unittest.TestCase):
-    def test_both_formats_require_both_correct_native_architectures(self):
+    def test_both_formats_require_both_correct_native_architectures(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "package.zip"
             for kind in ("apk", "aab"):
@@ -63,7 +65,7 @@ class AndroidPackages(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "duplicate"):
                         CHECK.verify(path, kind)
 
-    def test_empty_or_absent_payload_and_invalid_zip_fail(self):
+    def test_empty_or_absent_payload_and_invalid_zip_fail(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "app.apk"
             with zipfile.ZipFile(path, "w") as archive:

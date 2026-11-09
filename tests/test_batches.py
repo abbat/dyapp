@@ -17,7 +17,7 @@ SPEC.loader.exec_module(CHECK)
 
 
 class Batches(unittest.TestCase):
-    def test_numstat_exclusions_and_unusual_names(self):
+    def test_numstat_exclusions_and_unusual_names(self) -> None:
         names = [
             "Cargo.lock",
             "clients/linux/Cargo.lock",
@@ -41,7 +41,7 @@ class Batches(unittest.TestCase):
         self.assertFalse(CHECK.excluded("src/lock.rs"))
         self.assertFalse(CHECK.excluded("docs/snapshots.md"))
 
-    def test_large_change_reason_in_final_metadata(self):
+    def test_large_change_reason_in_final_metadata(self) -> None:
         message = (
             "Change code\n\nDetails.\n\n"
             "Large-Change: Keep platform changes together\n\n"
@@ -63,12 +63,12 @@ class Batches(unittest.TestCase):
             "",
         )
 
-    def test_shallow_history_fails(self):
+    def test_shallow_history_fails(self) -> None:
         with patch.object(CHECK, "git", return_value=b"true\n"):
             with self.assertRaisesRegex(ValueError, "full-history"):
                 CHECK.inspect("base", "HEAD", 400)
 
-    def test_real_history_and_cli_failure(self):
+    def test_real_history_and_cli_failure(self) -> None:
         # Keep fixtures under the approved temp root; do not delete user files.
         Path("/tmp/ai").mkdir(exist_ok=True)
         repo = Path(tempfile.mkdtemp(prefix="batches-", dir="/tmp/ai"))

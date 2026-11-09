@@ -27,7 +27,9 @@ class DesktopRustFormatterTest(unittest.TestCase):
             check=False,
         )
 
-    def test_included_and_unreferenced_files_cannot_escape_formatting(self):
+    def test_included_and_unreferenced_files_cannot_escape_formatting(
+        self,
+    ) -> None:
         root, script = self.fixture()
         source = root / "clients/desktop"
         source.mkdir(parents=True)
@@ -60,7 +62,7 @@ class DesktopRustFormatterTest(unittest.TestCase):
             (source / "orphan.rs").read_text(), "fn orphan() {}\n"
         )
 
-    def test_empty_source_inventory_fails_closed(self):
+    def test_empty_source_inventory_fails_closed(self) -> None:
         _, script = self.fixture()
         result = self.run_formatter(script, "check")
         self.assertNotEqual(result.returncode, 0)

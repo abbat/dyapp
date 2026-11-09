@@ -38,7 +38,7 @@ def asset(name, digest=DIGEST, state="uploaded", size=42):
 
 
 class ReleaseCandidates(unittest.TestCase):
-    def test_server_only_release_has_no_client_claim(self):
+    def test_server_only_release_has_no_client_claim(self) -> None:
         actual = CANDIDATES.candidates(
             release(asset("dyappd_0.0.1_amd64.deb")), TAG, COMMIT
         )
@@ -46,7 +46,7 @@ class ReleaseCandidates(unittest.TestCase):
         self.assertNotIn("releases", actual)
         self.assertNotIn("targets", actual)
 
-    def test_exact_linux_and_windows_package_candidates(self):
+    def test_exact_linux_and_windows_package_candidates(self) -> None:
         actual = CANDIDATES.candidates(
             release(asset(WINDOWS), asset(LINUX)), TAG, COMMIT
         )
@@ -56,7 +56,7 @@ class ReleaseCandidates(unittest.TestCase):
         self.assertEqual(actual["packages"]["linux-x86_64"]["sha256"], DIGEST)
         self.assertEqual(actual["commit"], COMMIT)
 
-    def test_release_identity_and_state_must_match(self):
+    def test_release_identity_and_state_must_match(self) -> None:
         for change in ("tag_name", "draft", "prerelease", "published_at"):
             item = release(asset(LINUX))
             item[change] = {
@@ -71,7 +71,7 @@ class ReleaseCandidates(unittest.TestCase):
             with self.assertRaises(ValueError):
                 CANDIDATES.candidates(release(), tag, commit)
 
-    def test_bad_asset_metadata_is_rejected(self):
+    def test_bad_asset_metadata_is_rejected(self) -> None:
         variants = (
             asset(LINUX, state="starter"),
             asset(LINUX, digest="bad"),
@@ -87,7 +87,7 @@ class ReleaseCandidates(unittest.TestCase):
                 release(asset(LINUX), asset(LINUX)), TAG, COMMIT
             )
 
-    def test_duplicate_json_keys_are_rejected(self):
+    def test_duplicate_json_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate"):
             json.loads(
                 '{"tag_name":"v0.0.1","tag_name":"v0.0.1"}',

@@ -15,7 +15,9 @@ WAVE, MAN, LAPTOP, JOINER = "\U0001f44b", "\U0001f468", "\U0001f4bb", "\u200d"
 
 
 class Unicode(unittest.TestCase):
-    def test_format_and_private_use_characters_fail_with_file_and_line(self):
+    def test_format_and_private_use_characters_fail_with_file_and_line(
+        self,
+    ) -> None:
         self.assertEqual(
             CHECK.unicode_errors(
                 [],
@@ -32,7 +34,7 @@ class Unicode(unittest.TestCase):
             ],
         )
 
-    def test_cyrillic_cjk_and_emoji_pass(self):
+    def test_cyrillic_cjk_and_emoji_pass(self) -> None:
         self.assertEqual(
             CHECK.unicode_errors(
                 [],
@@ -49,7 +51,7 @@ class Unicode(unittest.TestCase):
             ["x.py:1: U+200D (Cf) character"],
         )
 
-    def test_swift_and_kotlin_sources_are_ascii(self):
+    def test_swift_and_kotlin_sources_are_ascii(self) -> None:
         self.assertEqual(
             CHECK.unicode_errors(
                 [],
@@ -65,7 +67,7 @@ class Unicode(unittest.TestCase):
             ],
         )
 
-    def test_non_ascii_path_fails(self):
+    def test_non_ascii_path_fails(self) -> None:
         lookalike = "docs/r\u0435adme.md"
         self.assertEqual(
             CHECK.unicode_errors(["docs/ok.md", lookalike], {}),

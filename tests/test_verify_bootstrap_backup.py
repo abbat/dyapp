@@ -20,7 +20,7 @@ VERIFY = load("verify_bootstrap", "verify-bootstrap-backup.py")
 
 
 class VerifyBootstrapBackup(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
@@ -52,7 +52,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         change(lines)
         manifest.write_text("".join(json.dumps(item) + "\n" for item in lines))
 
-    def test_valid_inline_with_wal_and_nested_data(self):
+    def test_valid_inline_with_wal_and_nested_data(self) -> None:
         (self.source / "profiles.db-wal").write_bytes(b"wal")
         (self.source / "media.db").write_bytes(b"media")
         data = self.source / "data/nested"
@@ -62,7 +62,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         peer, _ = VERIFY.verify(self.snapshot)
         self.assertEqual(peer, "peer-id")
 
-    def test_changed_missing_extra_and_symlink(self):
+    def test_changed_missing_extra_and_symlink(self) -> None:
         self.create()
         file = self.snapshot / "storage/profiles.db"
         file.write_bytes(b"altered!")
@@ -80,7 +80,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         with self.assertRaises(OSError):
             VERIFY.verify(self.snapshot)
 
-    def test_external_and_age_key_modes(self):
+    def test_external_and_age_key_modes(self) -> None:
         for mode in ("external", "age"):
             with self.subTest(mode=mode):
                 self.snapshot = self.source.parent / mode
@@ -90,13 +90,13 @@ class VerifyBootstrapBackup(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "recovery key"):
                     VERIFY.verify(self.snapshot)
 
-    def test_missing_empty_directory(self):
+    def test_missing_empty_directory(self) -> None:
         self.create()
         (self.snapshot / "recovery").rmdir()
         with self.assertRaisesRegex(ValueError, "missing directories"):
             VERIFY.verify(self.snapshot)
 
-    def test_oversized_and_wrongly_typed_header(self):
+    def test_oversized_and_wrongly_typed_header(self) -> None:
         self.create()
         manifest = self.snapshot / "manifest.jsonl"
         original = manifest.read_text()
@@ -108,7 +108,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "absent-store list"):
             VERIFY.verify(self.snapshot)
 
-    def test_malformed_duplicate_and_traversal(self):
+    def test_malformed_duplicate_and_traversal(self) -> None:
         self.create()
         manifest = self.snapshot / "manifest.jsonl"
         original = manifest.read_text()

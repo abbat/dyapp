@@ -15,7 +15,7 @@ CRATE = '[package]\nname = "x"\n\n[dependencies]\nserde = "1"\n'
 
 
 class Adr(unittest.TestCase):
-    def test_triggers(self):
+    def test_triggers(self) -> None:
         bumped = CRATE.replace('"1"', '"1.1"')
         added = (
             CRATE + 'own = { path = "../own" }\n'
@@ -54,7 +54,9 @@ class Adr(unittest.TestCase):
             CHECK.triggers("rust/x/src/db.rs", "", "", "+let size = 1;\n"), []
         )
 
-    def test_parser_exception_does_not_exempt_application_dependencies(self):
+    def test_parser_exception_does_not_exempt_application_dependencies(
+        self,
+    ) -> None:
         path = "tools/rust-functions/Cargo.toml"
         parser = (
             '[package]\nname = "dyapp-function-map"\n'
@@ -77,7 +79,7 @@ class Adr(unittest.TestCase):
             ["storage schema tools/rust-functions/src/main.rs"],
         )
 
-    def test_trailer(self):
+    def test_trailer(self) -> None:
         adr = "docs/decisions/0001-record-architecture-decisions.md"
         for message, error in [
             (f"x\n\nADR: {adr}", None),
@@ -95,7 +97,7 @@ class Adr(unittest.TestCase):
                 CHECK.trailer_error(message, "HEAD"), error, message
             )
 
-    def test_unpushed_commits_name_their_adr(self):
+    def test_unpushed_commits_name_their_adr(self) -> None:
         shas = subprocess.check_output(
             CHECK.GIT + ["rev-list", "--no-merges", CHECK.base() + "..HEAD"],
             cwd=ROOT,

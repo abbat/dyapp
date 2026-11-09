@@ -26,7 +26,7 @@ PROBE = load("probe_bootstrap_backup", "probe-bootstrap-backup.py")
 
 
 class ProbeBootstrapBackup(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
@@ -93,7 +93,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
             **options,
         )
 
-    def test_inline_and_external_use_snapshot_key(self):
+    def test_inline_and_external_use_snapshot_key(self) -> None:
         for mode in ("inline", "external"):
             with self.subTest(mode=mode):
                 self.snapshot = self.source.parent / mode
@@ -105,7 +105,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
                 manifest = self.snapshot / "manifest.jsonl"
                 self.assertEqual(manifest.read_bytes(), before)
 
-    def test_age_decrypts_snapshot_copy_and_requires_identity(self):
+    def test_age_decrypts_snapshot_copy_and_requires_identity(self) -> None:
         self.create("age")
         with self.assertRaisesRegex(ValueError, "age identity and binary"):
             self.probe()
@@ -117,7 +117,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "age decryption failed"):
             self.probe(age_identity=self.age_identity, age_binary=self.age)
 
-    def test_real_age_cli(self):
+    def test_real_age_cli(self) -> None:
         # Pinned age release from tools/docker/Dockerfile.dev and ci-setup.sh;
         # no skip, so a missing binary fails the check instead of hiding it.
         age = Path(shutil.which("age") or self.fail("age not on PATH"))
@@ -174,7 +174,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "age decryption failed"):
             self.probe(age_identity=identity, age_binary=age)
 
-    def test_wrong_key_and_corrupt_sqlite_fail(self):
+    def test_wrong_key_and_corrupt_sqlite_fail(self) -> None:
         self.source.joinpath("node.key").write_bytes(b"wrong")
         self.create("inline")
         with self.assertRaisesRegex(ValueError, "restored node key"):
@@ -186,7 +186,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         with self.assertRaises(sqlite3.DatabaseError):
             self.probe()
 
-    def test_wal_restore_preserves_data_and_source(self):
+    def test_wal_restore_preserves_data_and_source(self) -> None:
         db = sqlite3.connect(self.source / "profiles.db")
         self.addCleanup(db.close)
         db.execute("PRAGMA journal_mode=WAL")
@@ -225,7 +225,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
             {p.name: p.read_bytes() for p in store.iterdir() if p.is_file()},
         )
 
-    def test_missing_recovery_evidence_and_changed_byte_fail(self):
+    def test_missing_recovery_evidence_and_changed_byte_fail(self) -> None:
         with self.assertRaisesRegex(ValueError, "portable recovery key"):
             BACKUP.snapshot(self.source, self.snapshot, "age", None)
         self.assertFalse(self.snapshot.exists())

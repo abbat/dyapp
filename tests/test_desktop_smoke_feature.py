@@ -40,14 +40,16 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
         subprocess.run(args, check=True, capture_output=True, text=True)
         return binary
 
-    def test_feature_is_explicit_in_both_native_manifests(self):
+    def test_feature_is_explicit_in_both_native_manifests(self) -> None:
         for platform in ("linux", "windows"):
             manifest = ROOT / "clients" / platform / "Cargo.toml"
             features = tomllib.loads(manifest.read_text())["features"]
             self.assertEqual(features["ui-smoke"], [])
             self.assertNotIn("ui-smoke", features["default"])
 
-    def test_actual_module_gate_omits_script_bytes_without_feature(self):
+    def test_actual_module_gate_omits_script_bytes_without_feature(
+        self,
+    ) -> None:
         main = (ROOT / "clients/desktop/main.rs").read_text()
         gate = re.search(
             r'#\[cfg\(feature = "ui-smoke"\)\]\n'
@@ -99,7 +101,9 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
                 self.assertEqual(result, b"ordinary")
                 self.assertNotIn(b"ui_test_result", binary.read_bytes())
 
-    def test_actual_locale_query_ignores_smoke_flags_without_feature(self):
+    def test_actual_locale_query_ignores_smoke_flags_without_feature(
+        self,
+    ) -> None:
         main = (ROOT / "clients/desktop/main.rs").read_text()
         source = function(main, "locale_options") + "\n"
         source += '#[cfg(feature = "ui-smoke")]\n'

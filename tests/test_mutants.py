@@ -30,14 +30,14 @@ def shard(caught, timeout, missed, unviable=0):
 
 
 class Mutants(unittest.TestCase):
-    def test_score_sums_shards_and_counts_timeouts_as_caught(self):
+    def test_score_sums_shards_and_counts_timeouts_as_caught(self) -> None:
         percentage, counts = CHECK.score([shard(6, 1, 2, 5), shard(1, 0, 0)])
         self.assertEqual(percentage, 80.0)
         self.assertEqual(counts, {"caught": 7, "timeout": 1, "missed": 2})
         with self.assertRaises(ValueError):
             CHECK.score([shard(0, 0, 0, 3)])
 
-    def test_score_below_the_baseline_fails(self):
+    def test_score_below_the_baseline_fails(self) -> None:
         with self.assertRaisesRegex(ValueError, "80.0% < baseline 80.5%"):
             CHECK.check([shard(8, 0, 2)], 80.5)
         self.assertIn(
@@ -45,7 +45,7 @@ class Mutants(unittest.TestCase):
             CHECK.check([shard(8, 0, 2)], 79.5),
         )
 
-    def test_package_with_only_unviable_mutants_fails(self):
+    def test_package_with_only_unviable_mutants_fails(self) -> None:
         def outcome(package, summary):
             return {
                 "scenario": {"Mutant": {"package": package}},
@@ -65,7 +65,9 @@ class Mutants(unittest.TestCase):
         report["outcomes"][-1]["summary"] = "MissedMutant"
         self.assertIn("80.0%", CHECK.check([report], 70))
 
-    def test_missed_invariant_mutant_fails_regardless_of_the_score(self):
+    def test_missed_invariant_mutant_fails_regardless_of_the_score(
+        self,
+    ) -> None:
         def outcome(file, function, summary, line=1):
             return {
                 "scenario": {
@@ -97,7 +99,7 @@ class Mutants(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "match no mutant: d.rs"):
             CHECK.check([report], 50, scope | {"d.rs": ""})
 
-    def test_cli_reads_shards_and_the_repository_baseline(self):
+    def test_cli_reads_shards_and_the_repository_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "outcomes.json"
             report.write_text(json.dumps(shard(1, 0, 0)))
@@ -113,7 +115,7 @@ class Mutants(unittest.TestCase):
             "rust/bootstrap/src/media_repair.rs", result.stdout + result.stderr
         )
 
-    def test_mutants_attributes_need_a_reason(self):
+    def test_mutants_attributes_need_a_reason(self) -> None:
         text = (
             "#[mutants::skip]\nfn a() {}\n"
             "// Returning false would hang the loop.\n"

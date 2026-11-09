@@ -26,7 +26,7 @@ def bead(key, kind="epic", parent=None, status="open"):
 
 
 class Priorities(unittest.TestCase):
-    def test_proxy_scores_nested_leaves_and_overrides(self):
+    def test_proxy_scores_nested_leaves_and_overrides(self) -> None:
         data = [
             bead("a"),
             bead("b"),
@@ -49,7 +49,7 @@ class Priorities(unittest.TestCase):
         self.assertEqual(CHECK.proposal(data, NOW)["order"][0]["id"], "b")
         self.assertEqual(CHECK.proposal(data, NOW)["approval"], "pending")
 
-    def test_practices_first_overrides_cross_group_scores(self):
+    def test_practices_first_overrides_cross_group_scores(self) -> None:
         data = [bead("ordinary"), bead("practice-low"), bead("practice-high")]
         for item, score in zip(data, [100, 1, 5]):
             item["metadata"] = {
@@ -73,7 +73,7 @@ class Priorities(unittest.TestCase):
         changed["policy"] = "wsjf"
         self.assertIn("fingerprint", CHECK.check(changed, None, NOW)[0])
 
-    def test_legacy_proposal_fingerprint_still_validates(self):
+    def test_legacy_proposal_fingerprint_still_validates(self) -> None:
         document = CHECK.proposal([bead("a")], NOW)
         document.pop("policy")
         document["proposal_sha256"] = CHECK.fingerprint(document["order"])
@@ -81,7 +81,7 @@ class Priorities(unittest.TestCase):
             CHECK.check(document, None, NOW), ["Human approval is missing"]
         )
 
-    def test_invalid_rating_and_parent_cycle_fail(self):
+    def test_invalid_rating_and_parent_cycle_fail(self) -> None:
         for value in [0, -1, True, float("nan"), float("inf"), "1"]:
             with self.assertRaises(ValueError):
                 CHECK.positive(value)
@@ -89,7 +89,7 @@ class Priorities(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Cycle"):
             CHECK.proposal(data, NOW)
 
-    def test_expiration_and_approval_binding(self):
+    def test_expiration_and_approval_binding(self) -> None:
         document = CHECK.proposal([bead("a")], NOW)
         approval = {
             "approved_at": NOW,

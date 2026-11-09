@@ -24,11 +24,11 @@ class Lint(unittest.TestCase):
     def errors(self, message):
         return " ".join(CHECK.message_errors(message, ALLOWED))
 
-    def test_tracker_ids(self):
+    def test_tracker_ids(self) -> None:
         text = f"see {ID}, {CHILD} and dyapp-ffi, dyapp-p2p-net"
         self.assertEqual(CHECK.bead_ids(text, ALLOWED), [ID, CHILD])
 
-    def test_good_messages(self):
+    def test_good_messages(self) -> None:
         for subject in (
             "Add a check",
             "ci: Pin the image",
@@ -39,7 +39,7 @@ class Lint(unittest.TestCase):
         ):
             self.assertEqual(self.errors(subject + TRAILER), "", subject)
 
-    def test_bad_messages(self):
+    def test_bad_messages(self) -> None:
         cases = {
             "Added a check": "not imperative",
             "Adds a check": "not imperative",
@@ -57,7 +57,7 @@ class Lint(unittest.TestCase):
             "no blank line", self.errors("Add a check\nbody" + TRAILER)
         )
 
-    def test_commit_message_cli(self):
+    def test_commit_message_cli(self) -> None:
         Path("/tmp/ai").mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             path = Path(directory) / "message"
@@ -80,7 +80,7 @@ class Lint(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, expected, result.stderr)
 
-    def test_orphans(self):
+    def test_orphans(self) -> None:
         documents = {
             "docs/README.md": "[a](a/README.md)\n[x](https://x)\n",
             "docs/a/README.md": "[b](../b.md#top)\n",
@@ -92,7 +92,7 @@ class Lint(unittest.TestCase):
             CHECK.orphans(documents, files), ["docs/c.md", "docs/img.png"]
         )
 
-    def test_size_budgets(self):
+    def test_size_budgets(self) -> None:
         size = {"max_lines": 2, "files": {"big.rs": 3, "gone.rs": 5}}
         texts = {"big.rs": "\n" * 3, "a.py": "\n" * 2, "doc.md": "\n" * 9}
         self.assertEqual(

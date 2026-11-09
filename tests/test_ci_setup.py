@@ -56,7 +56,7 @@ class CiSetupTest(unittest.TestCase):
         commands = [json.loads(line) for line in log.read_text().splitlines()]
         return result, commands, exports
 
-    def test_build_profiles_request_only_build_prerequisites(self):
+    def test_build_profiles_request_only_build_prerequisites(self) -> None:
         channel = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())
         channel = channel["toolchain"]["channel"]
         unrelated = {
@@ -99,14 +99,14 @@ class CiSetupTest(unittest.TestCase):
                     exports.read_text(), f"RUSTUP_TOOLCHAIN={channel}\n"
                 )
 
-    def test_quality_profile_keeps_its_tool_downloads(self):
+    def test_quality_profile_keeps_its_tool_downloads(self) -> None:
         result, commands, _ = self.run_setup("rust")
         self.assertEqual(result.returncode, 94)
         self.assertIn("python3-flake8", commands[1])
         self.assertEqual(commands[2][:2], ["docker", "create"])
         self.assertTrue(commands[2][2].startswith("rhysd/actionlint@sha256:"))
 
-    def test_reproducibility_selects_both_build_profiles(self):
+    def test_reproducibility_selects_both_build_profiles(self) -> None:
         workflow = yaml.safe_load(
             (ROOT / ".github/workflows/reproducible.yml").read_text()
         )

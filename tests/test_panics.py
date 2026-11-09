@@ -32,7 +32,7 @@ def message(path="rust/ffi/src/lib.rs", package="ffi"):
 
 
 class PanicBudgets(unittest.TestCase):
-    def test_duplicates_dependencies_and_generated_code(self):
+    def test_duplicates_dependencies_and_generated_code(self) -> None:
         metadata = {
             "packages": [{"id": "ffi", "name": "dyapp-ffi"}],
             "workspace_members": ["ffi"],
@@ -51,7 +51,7 @@ class PanicBudgets(unittest.TestCase):
         self.assertEqual(excluded, {"dyapp-ffi": 1})
         self.assertIn("> 0", CHECK.errors(counts, {"dyapp-ffi": 0})[0])
 
-    def test_incomplete_or_failed_clippy_is_not_zero(self):
+    def test_incomplete_or_failed_clippy_is_not_zero(self) -> None:
         metadata = {
             "packages": [{"id": "ffi", "name": "dyapp-ffi"}],
             "workspace_members": ["ffi"],
@@ -61,7 +61,7 @@ class PanicBudgets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "successful Clippy"):
                 CHECK.count(metadata, rows)
 
-    def test_ratchet_and_ffi_zero(self):
+    def test_ratchet_and_ffi_zero(self) -> None:
         counts = {"dyapp-ffi": 0, "other": 2}
         self.assertEqual(CHECK.errors(counts, counts), [])
         budget = deepcopy(counts)

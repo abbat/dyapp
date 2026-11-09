@@ -29,15 +29,15 @@ class Coverage(unittest.TestCase):
             ],
         }
 
-    def test_exact_threshold_and_above_pass(self):
+    def test_exact_threshold_and_above_pass(self) -> None:
         self.assertEqual(GATE.validate(self.report(), 75), 75)
         self.assertGreater(GATE.validate(self.report(7501), 75), 75)
 
-    def test_below_threshold_fails_without_rounding(self):
+    def test_below_threshold_fails_without_rounding(self) -> None:
         with self.assertRaises(ValueError):
             GATE.validate(self.report(7499), 75)
 
-    def test_invalid_counts_fail(self):
+    def test_invalid_counts_fail(self) -> None:
         for covered, count in (
             (0, 0),
             (-1, 100),
@@ -49,7 +49,7 @@ class Coverage(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     GATE.validate(self.report(covered, count), 75)
 
-    def test_empty_partial_and_wrong_format_fail(self):
+    def test_empty_partial_and_wrong_format_fail(self) -> None:
         cases = [{}, {"type": "lcov"}, {"data": []}]
         for change in cases:
             report = copy.deepcopy(self.report()) if change else {}
@@ -62,7 +62,7 @@ class Coverage(unittest.TestCase):
             with self.subTest(files=files), self.assertRaises(ValueError):
                 GATE.validate(report, 75)
 
-    def test_diff_coverage(self):
+    def test_diff_coverage(self) -> None:
         diff = (
             "diff --git a/rust/a.rs b/rust/a.rs\n--- a/rust/a.rs\n"
             "+++ b/rust/a.rs\n@@ -1,0 +2,3 @@\n+x\n+y\n+z\n"

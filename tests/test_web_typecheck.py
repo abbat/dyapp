@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebTypecheckTest(unittest.TestCase):
-    def test_command_and_null_contracts(self):
+    def test_command_and_null_contracts(self) -> None:
         bridge = (ROOT / "clients/desktop/ui/ipc.js").as_posix()
         cases = (
             ("invoke('quit'); invoke('remove_profile_photo', {index: 0});", 0),

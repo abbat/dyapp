@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeOutput(unittest.TestCase):
-    def test_apple_cli_guards_keep_status_without_executing_native_tools(self):
+    def test_apple_cli_guards_keep_status_without_executing_native_tools(
+        self,
+    ) -> None:
         commands = [
             (
                 [sys.executable, "tests/scripts/apple-test-in-ci.py"],
@@ -46,7 +48,7 @@ class NativeOutput(unittest.TestCase):
                 self.assertIn("FIX: docs/", result.stdout)
                 self.assertIn(": raw captured output", result.stdout)
 
-    def test_export_keeps_distinct_evidence_and_rejects_empty(self):
+    def test_export_keeps_distinct_evidence_and_rejects_empty(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "ui_export", ROOT / "tests/scripts/export-ui-reports.py"
         )

@@ -17,7 +17,9 @@ MARKERS = ("TO" + "DO", "FIX" + "ME")
 
 
 class DebtMarkers(unittest.TestCase):
-    def test_every_source_extension_rejects_comments_and_literals(self):
+    def test_every_source_extension_rejects_comments_and_literals(
+        self,
+    ) -> None:
         for suffix in CHECK.DEBT_SOURCE:
             path = "nested/example" + suffix
             text = f"// {MARKERS[0]}: deferred\n'{MARKERS[1]}'\n"
@@ -39,7 +41,7 @@ class DebtMarkers(unittest.TestCase):
             [],
         )
 
-    def test_word_boundaries_and_all_findings_are_retained(self):
+    def test_word_boundaries_and_all_findings_are_retained(self) -> None:
         first, second = MARKERS
         self.assertEqual(
             CHECK.debt_errors(
@@ -63,7 +65,9 @@ class DebtMarkers(unittest.TestCase):
             ],
         )
 
-    def test_main_rejects_a_source_marker_before_unrelated_repo_checks(self):
+    def test_main_rejects_a_source_marker_before_unrelated_repo_checks(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             previous = Path.cwd()
             try:

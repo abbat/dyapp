@@ -21,7 +21,7 @@ PREFLIGHT = RESTORE.PREFLIGHT
 
 
 class RestoreBootstrap(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -91,7 +91,7 @@ class RestoreBootstrap(unittest.TestCase):
                 **options,
             )
 
-    def test_restores_snapshot_and_keeps_failed_store(self):
+    def test_restores_snapshot_and_keeps_failed_store(self) -> None:
         self.migrate()
         migrated = self.live()
         failed = self.run_restore()
@@ -112,7 +112,7 @@ class RestoreBootstrap(unittest.TestCase):
         self.addCleanup(os.close, fd)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-    def test_failed_migrated_update_is_rehearsed_end_to_end(self):
+    def test_failed_migrated_update_is_rehearsed_end_to_end(self) -> None:
         path = self.storage / "messages.db"
         with closing(sqlite3.connect(path)) as database, database:
             database.execute("INSERT INTO records VALUES (3)")
@@ -164,7 +164,7 @@ class RestoreBootstrap(unittest.TestCase):
             rows = database.execute("SELECT id FROM records ORDER BY id")
             self.assertEqual(rows.fetchall(), [(1,), (3,)])
 
-    def test_running_node_is_refused(self):
+    def test_running_node_is_refused(self) -> None:
         fd = os.open(self.storage / "dyappd.lock", os.O_RDWR | os.O_CREAT)
         self.addCleanup(os.close, fd)
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -183,15 +183,17 @@ class RestoreBootstrap(unittest.TestCase):
             ["dyappd", "snapshot", "storage"],
         )
 
-    def test_corrupt_snapshot_is_refused_before_live_data_changes(self):
+    def test_corrupt_snapshot_is_refused_before_live_data_changes(
+        self,
+    ) -> None:
         (self.snapshot / "storage/messages.db").write_bytes(b"corrupt")
         self.assert_refused_untouched("mismatch")
 
-    def test_other_nodes_snapshot_is_refused(self):
+    def test_other_nodes_snapshot_is_refused(self) -> None:
         (self.storage / "node.id").write_bytes(b"other-peer")
         self.assert_refused_untouched("another node")
 
-    def test_insufficient_space_is_refused(self):
+    def test_insufficient_space_is_refused(self) -> None:
         self.assert_refused_untouched(
             "not enough free space", free=lambda path: 0
         )

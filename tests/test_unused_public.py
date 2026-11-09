@@ -11,7 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class UnusedPublicToolTest(unittest.TestCase):
-    def test_cross_crate_uses_dead_items_and_exact_external_exports(self):
+    def test_cross_crate_uses_dead_items_and_exact_external_exports(
+        self,
+    ) -> None:
         root = ROOT / "build/tool-fixtures/unused-public" / str(time.time_ns())
         for directory in ("api/src", "app/src"):
             (root / directory).mkdir(parents=True)

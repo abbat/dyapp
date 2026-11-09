@@ -11,7 +11,7 @@ SCRIPT = ROOT / "tools/scripts/check-no-ui-smoke.py"
 
 
 class NoUiSmokeTest(unittest.TestCase):
-    def test_missing_empty_and_instrumented_artifacts_fail(self):
+    def test_missing_empty_and_instrumented_artifacts_fail(self) -> None:
         directory = ROOT / "build/tool-fixtures/no-ui-smoke"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)

@@ -40,7 +40,7 @@ def proof():
 
 
 class Quorum(unittest.TestCase):
-    def test_trigger_classification(self):
+    def test_trigger_classification(self) -> None:
         self.assertFalse(CHECK.needs_review([], False, False))
         self.assertTrue(CHECK.needs_review([], True, True))
         self.assertTrue(CHECK.needs_review(["checks: a.py"], False, False))
@@ -48,7 +48,7 @@ class Quorum(unittest.TestCase):
         self.assertTrue(CHECK.needs_review(["protocol: x.proto"], True, False))
         self.assertTrue(CHECK.needs_review(["checks: a.py"], True, True))
 
-    def test_proof_is_closed_and_bound_to_both_commits(self):
+    def test_proof_is_closed_and_bound_to_both_commits(self) -> None:
         quorum, members = proof()
         self.assertEqual(CHECK.proof_errors(quorum, members, BASE, HEAD), [])
         for key, value in [
@@ -61,7 +61,7 @@ class Quorum(unittest.TestCase):
             self.assertTrue(CHECK.proof_errors(changed, members, BASE, HEAD))
         self.assertTrue(CHECK.proof_errors(quorum, members, HEAD, HEAD))
 
-    def test_distinct_participants_and_withdrawal(self):
+    def test_distinct_participants_and_withdrawal(self) -> None:
         quorum, members = proof()
         members[1]["assignee"] = "model-a"
         self.assertTrue(CHECK.proof_errors(quorum, members, BASE, HEAD))
@@ -69,7 +69,9 @@ class Quorum(unittest.TestCase):
         members[1]["close_reason"] = "withdrawn: unavailable"
         self.assertTrue(CHECK.proof_errors(quorum, members, BASE, HEAD))
 
-    def test_cli_rejects_missing_quorum_and_passes_explicit_tightening(self):
+    def test_cli_rejects_missing_quorum_and_passes_explicit_tightening(
+        self,
+    ) -> None:
         policy = '[[trigger]]\nname="checks"\npaths=["scripts/*"]\n'
         diff = "diff --git a/scripts/a.py b/scripts/a.py\n@@ -0,0 +1 @@\n+x\n"
         for extra, expected in [([], True), (["--checks-tightening"], False)]:

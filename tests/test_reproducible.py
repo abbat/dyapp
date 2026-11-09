@@ -16,7 +16,7 @@ SPEC.loader.exec_module(CHECK)
 
 
 class Reproducibility(unittest.TestCase):
-    def test_different_empty_and_missing_outputs_fail(self):
+    def test_different_empty_and_missing_outputs_fail(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             first, second = [Path(directory) / x for x in ("a", "b")]
             first.write_bytes(b"executable")
@@ -28,7 +28,7 @@ class Reproducibility(unittest.TestCase):
             second.write_bytes(first.read_bytes())
             self.assertEqual(len(set(CHECK.compare([first, second]))), 1)
 
-    def test_no_git_host_metadata_and_failed_build_report(self):
+    def test_no_git_host_metadata_and_failed_build_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(CHECK, "output", return_value="rustc") as query:
                 with patch.object(
@@ -45,7 +45,9 @@ class Reproducibility(unittest.TestCase):
             self.assertEqual(report["builds"][0]["exit_code"], 7)
             self.assertIn("Build 1 failed", report["errors"][0])
 
-    def test_second_build_uses_a_fresh_directory_and_must_produce_output(self):
+    def test_second_build_uses_a_fresh_directory_and_must_produce_output(
+        self,
+    ) -> None:
         for produce_second in (False, True):
             with self.subTest(produce_second=produce_second):
                 with tempfile.TemporaryDirectory() as directory:

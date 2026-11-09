@@ -13,7 +13,7 @@ SPEC.loader.exec_module(CHECK)
 
 
 class Fuzz(unittest.TestCase):
-    def test_handlers_without_a_target_fail(self):
+    def test_handlers_without_a_target_fail(self) -> None:
         texts = {
             CHECK.HANDLERS[0]: (
                 "pub fn node(&self, peer: &Peer, request: NodeRequest)\n"
@@ -34,7 +34,7 @@ class Fuzz(unittest.TestCase):
             ],
         )
 
-    def test_repository_handlers_all_have_targets(self):
+    def test_repository_handlers_all_have_targets(self) -> None:
         targets = (ROOT / "tests/fuzz/fuzz_targets").glob("*.rs")
         names = [
             *CHECK.HANDLERS,

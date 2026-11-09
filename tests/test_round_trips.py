@@ -15,7 +15,7 @@ SERDE = "#[derive(Debug, Serialize, Deserialize)]\npub struct Stored {}\n"
 
 
 class RoundTrips(unittest.TestCase):
-    def test_untested_protobuf_and_serde_types_fail(self):
+    def test_untested_protobuf_and_serde_types_fail(self) -> None:
         texts = {
             "proto/a.proto": "message Tested {}\n  enum Missing { A = 0; }\n",
             "rust/x/src/deep/mod.rs": SERDE,
@@ -37,7 +37,7 @@ class RoundTrips(unittest.TestCase):
         )
         self.assertEqual(CHECK.round_trip_errors(texts), [])
 
-    def test_repository_types_all_have_properties(self):
+    def test_repository_types_all_have_properties(self) -> None:
         names = subprocess.check_output(
             ["git", "-c", "safe.directory=*", "ls-files", "proto", "rust"],
             cwd=ROOT,

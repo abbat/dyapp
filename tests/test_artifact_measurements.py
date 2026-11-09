@@ -15,7 +15,7 @@ SPEC.loader.exec_module(REPORT)
 
 
 class ArtifactMeasurements(unittest.TestCase):
-    def test_hash_covers_data_beyond_the_first_chunk(self):
+    def test_hash_covers_data_beyond_the_first_chunk(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / "large.exe"
             content = b"x" * (1024 * 1024) + b"tail"
@@ -25,7 +25,7 @@ class ArtifactMeasurements(unittest.TestCase):
                 result["sha256"], hashlib.sha256(content).hexdigest()
             )
 
-    def test_missing_empty_and_real_file(self):
+    def test_missing_empty_and_real_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / "app.exe"
             with self.assertRaises(ValueError):

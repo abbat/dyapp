@@ -14,7 +14,7 @@ PAGE, PROTOTYPE = next(iter(CHECK.SCREENS.items()))
 
 
 class Screens(unittest.TestCase):
-    def test_unknown_id_fails(self):
+    def test_unknown_id_fails(self) -> None:
         texts = {
             PAGE: "`nav-profile`, `wizard-identity` and `gone`, `gone`\n",
             PROTOTYPE: '<button id="nav-profile"></button>'
@@ -24,7 +24,7 @@ class Screens(unittest.TestCase):
             CHECK.screen_errors(texts), [f"{PAGE}: `gone` not in {PROTOTYPE}"]
         )
 
-    def test_repository_screens_match(self):
+    def test_repository_screens_match(self) -> None:
         texts = {
             name: (ROOT / name).read_text()
             for pair in CHECK.SCREENS.items()

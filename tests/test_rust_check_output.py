@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RustOutput(unittest.TestCase):
-    def test_real_failing_and_passing_test_binary(self):
+    def test_real_failing_and_passing_test_binary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "fixture.rs"
@@ -52,7 +52,7 @@ class RustOutput(unittest.TestCase):
             self.assertEqual(passed.stdout, "OK rust-test\n")
             self.assertEqual(len(list(root.glob("rust-test-*.log"))), 2)
 
-    def test_stage_dispatch_with_failing_child_and_raw_mode(self):
+    def test_stage_dispatch_with_failing_child_and_raw_mode(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             cargo = root / "cargo"
@@ -90,7 +90,7 @@ class RustOutput(unittest.TestCase):
             self.assertEqual(raw.returncode, 101)
             self.assertIn("passing progress", raw.stdout)
 
-    def test_nextest_failure_details(self):
+    def test_nextest_failure_details(self) -> None:
         output = (
             "    Starting 2 tests\\n        PASS [   0.001s] core ok\\n"
             "        FAIL [   0.002s] core bad\\n"

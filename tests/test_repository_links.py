@@ -26,7 +26,7 @@ class Links(unittest.TestCase):
         files = set(documents) | {"docs", "scripts/x.sh"}
         return CHECK.broken_links(documents, files.__contains__)
 
-    def test_resolving_links_pass(self):
+    def test_resolving_links_pass(self) -> None:
         self.assertEqual(
             self.check(
                 "[b](b.md) [s](../scripts/x.sh) [d](../docs/) "
@@ -38,7 +38,7 @@ class Links(unittest.TestCase):
             [],
         )
 
-    def test_missing_file_and_anchor_fail(self):
+    def test_missing_file_and_anchor_fail(self) -> None:
         self.assertEqual(
             self.check(
                 "[x](c.md)\n[y](b.md#setup-2)\n[z](#nowhere)\n"
@@ -53,7 +53,7 @@ class Links(unittest.TestCase):
             ],
         )
 
-    def test_check_output_map_links_and_schema(self):
+    def test_check_output_map_links_and_schema(self) -> None:
         documents = {"docs/b.md": TARGET}
         good = {
             "fixture": {
@@ -78,7 +78,7 @@ class Links(unittest.TestCase):
                 CHECK.output_map_errors(bad, documents, documents.__contains__)
             )
 
-    def test_code_is_not_checked(self):
+    def test_code_is_not_checked(self) -> None:
         self.assertEqual(
             self.check(
                 "```\n[x](c.md)\n```\n`[y](c.md)`\n~~~md\n[z](c.md)\n~~~\n"

@@ -15,7 +15,7 @@ APPLE = json.dumps({"strings": {"status.ready": {}}})
 
 
 class I18n(unittest.TestCase):
-    def test_literals_and_unknown_keys_fail(self):
+    def test_literals_and_unknown_keys_fail(self) -> None:
         texts = {
             CHECK.CATALOGUES["apple"]: APPLE,
             CHECK.CATALOGUES["desktop"]: '{"app.name": "DYApp"}',
@@ -59,7 +59,7 @@ class I18n(unittest.TestCase):
             ],
         )
 
-    def test_russian_catalogues_cover_current_keys(self):
+    def test_russian_catalogues_cover_current_keys(self) -> None:
         names = set(CHECK.CATALOGUES.values()) | set(CHECK.RUSSIAN.values())
         texts = {name: (ROOT / name).read_text() for name in names}
         self.assertEqual(CHECK.translation_errors(texts), [])
@@ -70,7 +70,7 @@ class I18n(unittest.TestCase):
         errors = CHECK.translation_errors(texts)
         self.assertIn("status.ready", " ".join(errors))
 
-    def test_repository_ui_strings_come_from_catalogues(self):
+    def test_repository_ui_strings_come_from_catalogues(self) -> None:
         names = [
             *CHECK.CATALOGUES.values(),
             "clients/android/app/src/main/kotlin/com/dyapp/MainActivity.kt",

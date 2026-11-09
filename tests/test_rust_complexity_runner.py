@@ -36,7 +36,7 @@ def budget():
 
 
 class ComplexityRunnerTest(unittest.TestCase):
-    def test_budget_schema_and_nesting_pair_are_strict(self):
+    def test_budget_schema_and_nesting_pair_are_strict(self) -> None:
         row = budget()
         self.assertEqual(
             RUNNER.budgets([row]),
@@ -54,7 +54,7 @@ class ComplexityRunnerTest(unittest.TestCase):
             with self.assertRaises((ValueError, TypeError)):
                 RUNNER.budgets(rows)
 
-    def test_paths_cannot_escape_or_use_platform_separators(self):
+    def test_paths_cannot_escape_or_use_platform_separators(self) -> None:
         for path in (
             "/outside.rs",
             "../outside.rs",
@@ -66,7 +66,7 @@ class ComplexityRunnerTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     RUNNER.budgets([dict(budget(), path=path)])
 
-    def test_budget_growth_is_compared_to_the_requested_commit(self):
+    def test_budget_growth_is_compared_to_the_requested_commit(self) -> None:
         path = ROOT / "tests/scripts/rust-complexity/workspace.json"
         old = [budget()]
         current = RUNNER.budgets([dict(budget(), metrics={"lines": 71})])
@@ -84,7 +84,9 @@ class ComplexityRunnerTest(unittest.TestCase):
                     "fixture-base^{commit}", run.call_args_list[0].args[0]
                 )
 
-    def test_threshold_guard_checks_untracked_sources_and_fails_closed(self):
+    def test_threshold_guard_checks_untracked_sources_and_fails_closed(
+        self,
+    ) -> None:
         directory = ROOT / "build/tool-fixtures/complexity-thresholds"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)
@@ -101,7 +103,7 @@ class ComplexityRunnerTest(unittest.TestCase):
             self.assertIn("--others", inventory.call_args.args[0])
             self.assertIn("--exclude-standard", inventory.call_args.args[0])
 
-    def test_source_outside_checkout_and_recent_edits_fail(self):
+    def test_source_outside_checkout_and_recent_edits_fail(self) -> None:
         directory = ROOT / "build/tool-fixtures/complexity-runner"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)
@@ -115,7 +117,7 @@ class ComplexityRunnerTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     RUNNER.sources(directory, started, [finding])
 
-    def test_parser_must_return_each_requested_source_once(self):
+    def test_parser_must_return_each_requested_source_once(self) -> None:
         directory = ROOT / "build/tool-fixtures/complexity-parser"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)

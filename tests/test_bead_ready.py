@@ -20,11 +20,11 @@ READY = {
 
 
 class BeadReady(unittest.TestCase):
-    def test_ready_bead_and_non_work_types_pass(self):
+    def test_ready_bead_and_non_work_types_pass(self) -> None:
         self.assertEqual(CHECK.errors(READY), [])
         self.assertEqual(CHECK.errors({"id": "x-2", "issue_type": "epic"}), [])
 
-    def test_each_missing_part_is_reported(self):
+    def test_each_missing_part_is_reported(self) -> None:
         bead = dict(
             READY,
             description="Docs: none\n",

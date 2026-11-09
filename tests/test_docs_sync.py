@@ -13,7 +13,7 @@ SPEC.loader.exec_module(SYNC)
 
 
 class DocsSync(unittest.TestCase):
-    def test_errors(self):
+    def test_errors(self) -> None:
         files = {
             "rust/bootstrap/src/config.rs": ["    pub max_peers: u32,"],
             "Makefile": ["ui-test-web:"],

@@ -27,7 +27,9 @@ def lint_sections(path):
 
 
 class PedanticPolicyTest(unittest.TestCase):
-    def test_actual_manifests_reject_new_findings_and_stale_expectations(self):
+    def test_actual_manifests_reject_new_findings_and_stale_expectations(
+        self,
+    ) -> None:
         directory = ROOT / "build/tool-fixtures/pedantic-policy"
         directory = directory / str(time.time_ns())
         prefix = "//! Standalone Cargo lint probe.\n"

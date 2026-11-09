@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class LinuxLintTests(unittest.TestCase):
-    def test_lint_only_and_failure(self):
+    def test_lint_only_and_failure(self) -> None:
         for status in (0, 37):
             with self.subTest(status=status):
                 directory = ROOT / "build/tool-fixtures/linux-lint"

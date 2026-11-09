@@ -17,7 +17,7 @@ NOW = datetime(2026, 10, 23, tzinfo=timezone.utc)
 
 
 class DependencyAge(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
@@ -51,7 +51,7 @@ class DependencyAge(unittest.TestCase):
     def errors(self, exceptions=None):
         return CHECK.errors([self.lock], [self.index], NOW, exceptions or {})
 
-    def test_age(self):
+    def test_age(self) -> None:
         self.publish("serde", "1.0.0", days=20)
         self.publish("ab", "0.1.0")
         self.assertEqual(self.errors(), [])
@@ -60,7 +60,7 @@ class DependencyAge(unittest.TestCase):
         self.assertIn("new 0.2.0", error)
         self.assertIn("younger than 14 days", error)
 
-    def test_exception(self):
+    def test_exception(self) -> None:
         self.publish("new", "0.2.0", days=3)
         self.assertEqual(
             self.errors(
@@ -71,7 +71,7 @@ class DependencyAge(unittest.TestCase):
         stale = self.errors({("new", "0.2.0"): ("2026-10-01", "")})
         self.assertEqual(len(stale), 2)
 
-    def test_missing_from_index_fails(self):
+    def test_missing_from_index_fails(self) -> None:
         self.lock.write_text(
             f'[[package]]\nname = "gone"\nversion = "1.0.0"'
             f'\nsource = "{CHECK.CRATES_IO}"\n\n'
@@ -81,7 +81,7 @@ class DependencyAge(unittest.TestCase):
         [error] = self.errors()
         self.assertIn("gone 1.0.0", error)
 
-    def test_index_path(self):
+    def test_index_path(self) -> None:
         self.assertEqual(
             [CHECK.index_path(name) for name in ("a", "ab", "abc", "Serde")],
             ["1/a", "2/ab", "3/a/abc", "se/rd/serde"],

@@ -21,20 +21,20 @@ with patch.dict(sys.modules, {"flow_metrics": FLOW}):
 
 
 class Collection(unittest.TestCase):
-    def test_pagination_must_be_complete(self):
+    def test_pagination_must_be_complete(self) -> None:
         page = [{"total_count": 2, "jobs": [{"id": 1}]}]
         with patch.object(CLI, "command", return_value=json.dumps(page)):
             with self.assertRaisesRegex(ValueError, "Incomplete"):
                 CLI.pages("endpoint", "jobs")
 
-    def test_remote_failure_is_retried_twice(self):
+    def test_remote_failure_is_retried_twice(self) -> None:
         failed = SimpleNamespace(returncode=1, stderr="unavailable")
         with patch.object(CLI.subprocess, "run", return_value=failed) as call:
             with self.assertRaisesRegex(RuntimeError, "unavailable"):
                 CLI.command("gh", "api", "endpoint")
             self.assertEqual(call.call_count, 3)
 
-    def test_annotations_and_adoption_date(self):
+    def test_annotations_and_adoption_date(self) -> None:
         fields = "abc\0date\0message\0Large-Change: Atomic\0\n"
         diff = (
             "+++ b/file.rs\n+#[mutants::skip]\n"
@@ -54,7 +54,7 @@ class Collection(unittest.TestCase):
                 CLI.adoption_dates(), [{"id": "A4", "adopted_at": "old"}]
             )
 
-    def test_cli_threshold_failure_and_empty_sample_success(self):
+    def test_cli_threshold_failure_and_empty_sample_success(self) -> None:
         data = snapshot()
         for count, expected in [(4, True), (0, False)]:
             data["beads"] = [
@@ -74,7 +74,7 @@ class Collection(unittest.TestCase):
                     result = json.loads(out.getvalue())
                     self.assertEqual(bool(result["errors"]), expected)
 
-    def test_cli_health_exit_codes(self):
+    def test_cli_health_exit_codes(self) -> None:
         data = {
             "schema": 1,
             "now": "2026-10-15T12:00:00Z",

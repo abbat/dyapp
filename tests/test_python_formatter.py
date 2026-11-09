@@ -27,7 +27,9 @@ def wheel(names: tuple[str, ...]) -> bytes:
 
 
 class PythonFormatter(unittest.TestCase):
-    def test_real_formatter_rejects_drift_and_accepts_canonical_input(self):
+    def test_real_formatter_rejects_drift_and_accepts_canonical_input(
+        self,
+    ) -> None:
         for source, expected in (("value=1\n", 1), ("value = 1\n", 0)):
             with self.subTest(source=source):
                 result = subprocess.run(
@@ -50,7 +52,7 @@ class PythonFormatter(unittest.TestCase):
                     result.returncode, expected, result.stdout + result.stderr
                 )
 
-    def test_checksum_failure_preserves_existing_binary(self):
+    def test_checksum_failure_preserves_existing_binary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "ruff"
             target.write_bytes(b"previous binary")
@@ -63,7 +65,7 @@ class PythonFormatter(unittest.TestCase):
                     INSTALLER.install(target)
             self.assertEqual(target.read_bytes(), b"previous binary")
 
-    def test_verified_wheel_requires_one_binary(self):
+    def test_verified_wheel_requires_one_binary(self) -> None:
         for names in ((), ("one/ruff", "two/ruff"), ("one/ruff",)):
             with self.subTest(names=names):
                 data = wheel(names)
@@ -77,7 +79,7 @@ class PythonFormatter(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, "one binary"):
                             INSTALLER.wheel_binary(data)
 
-    def test_download_size_is_bounded(self):
+    def test_download_size_is_bounded(self) -> None:
         with patch.object(INSTALLER, "MAX_BYTES", 4):
             with patch.object(
                 INSTALLER, "urlopen", return_value=io.BytesIO(b"12345")

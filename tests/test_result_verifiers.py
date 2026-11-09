@@ -18,7 +18,7 @@ SPEC.loader.exec_module(APPLE)
 
 
 class Reports(unittest.TestCase):
-    def test_apple_accepts_complete_inventory(self):
+    def test_apple_accepts_complete_inventory(self) -> None:
         self.assertEqual(APPLE.validate(self.apple_summary()), 3)
 
     @staticmethod
@@ -31,7 +31,7 @@ class Reports(unittest.TestCase):
             "result": "Passed",
         }
 
-    def test_apple_rejects_partial_failed_skipped_and_malformed(self):
+    def test_apple_rejects_partial_failed_skipped_and_malformed(self) -> None:
         cases = [
             {},
             {"totalTestCount": 0},
@@ -68,7 +68,7 @@ class Reports(unittest.TestCase):
                 check=False,
             )
 
-    def test_cli_defaults_raw_and_retained_logs(self):
+    def test_cli_defaults_raw_and_retained_logs(self) -> None:
         coverage = {
             "type": "llvm.coverage.json.export",
             "data": [
@@ -157,7 +157,7 @@ class Reports(unittest.TestCase):
                         3,
                     )
 
-    def test_junit_requires_nonempty_complete_success(self):
+    def test_junit_requires_nonempty_complete_success(self) -> None:
         good = '<testsuite tests="1" failures="0" errors="0" skipped="0"/>'
         self.assertEqual(
             self.run_validator(
@@ -182,7 +182,7 @@ class Reports(unittest.TestCase):
                     0,
                 )
 
-    def test_instrumentation_rejects_zero_exit_failure_output(self):
+    def test_instrumentation_rejects_zero_exit_failure_output(self) -> None:
         good = "OK (3 tests)\nINSTRUMENTATION_CODE: -1\n"
         pretty = "com.dyapp.AppUITests:...\nTime: 39.948\n\nOK (3 tests)\n"
         for report in (good, pretty):
@@ -211,7 +211,7 @@ class Reports(unittest.TestCase):
                     0,
                 )
 
-    def test_instrumentation_rerun_takes_a_lower_minimum(self):
+    def test_instrumentation_rerun_takes_a_lower_minimum(self) -> None:
         rerun = "OK (1 test)\nINSTRUMENTATION_CODE: -1\n"
         self.assertNotEqual(
             self.run_validator(

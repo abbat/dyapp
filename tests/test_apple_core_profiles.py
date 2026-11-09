@@ -44,7 +44,7 @@ elif tool == "xcodebuild":
 
 
 class AppleCoreProfiles(unittest.TestCase):
-    def test_release_device_and_default_simulator_command_plans(self):
+    def test_release_device_and_default_simulator_command_plans(self) -> None:
         cases = [
             ("ios-device", "release", 1),
             ("ios", "debug", 3),

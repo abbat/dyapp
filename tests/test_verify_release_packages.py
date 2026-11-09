@@ -65,7 +65,7 @@ def fake_runner(
 
 
 class VerifyReleasePackages(unittest.TestCase):
-    def test_verified_package_becomes_trusted_inventory(self):
+    def test_verified_package_becomes_trusted_inventory(self) -> None:
         run, calls = fake_runner()
         result = VERIFY.inventory(TAG, run)
         item = result["releases"][0]
@@ -91,7 +91,7 @@ class VerifyReleasePackages(unittest.TestCase):
             )
         self.assertIn("--deny-self-hosted-runners", verification)
 
-    def test_wrong_bytes_and_empty_attestation_fail(self):
+    def test_wrong_bytes_and_empty_attestation_fail(self) -> None:
         for kwargs in (
             {"payload": b"changed"},
             {"attestation": []},
@@ -101,13 +101,13 @@ class VerifyReleasePackages(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 VERIFY.inventory(TAG, run)
 
-    def test_tag_checkout_and_release_state_fail_closed(self):
+    def test_tag_checkout_and_release_state_fail_closed(self) -> None:
         for kwargs in ({"head": "b" * 40}, {"state": "starter"}):
             run, _ = fake_runner(**kwargs)
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 VERIFY.inventory(TAG, run)
 
-    def test_verifier_cli_failure_never_emits_inventory(self):
+    def test_verifier_cli_failure_never_emits_inventory(self) -> None:
         run, _ = fake_runner()
 
         def failed(args, timeout=120):

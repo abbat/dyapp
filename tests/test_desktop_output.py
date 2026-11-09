@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DesktopOutput(unittest.TestCase):
-    def test_ui_rejection_passes_and_only_failed_case_output_is_shown(self):
+    def test_ui_rejection_passes_and_only_failed_case_output_is_shown(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             app = root / "app"
@@ -72,7 +74,7 @@ class DesktopOutput(unittest.TestCase):
                     self.assertIn("passing-case-noise", retained)
                     self.assertIn("failed-case-detail", retained)
 
-    def test_rust_inventory_preserves_exit_101_and_assertion(self):
+    def test_rust_inventory_preserves_exit_101_and_assertion(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, binary = root / "fixture.rs", root / "fixture"
@@ -155,7 +157,7 @@ class DesktopOutput(unittest.TestCase):
             self.assertNotEqual(empty.returncode, 0)
             self.assertIn("No unit test binaries", empty.stdout)
 
-    def test_display_failure_keeps_diagnostics_without_secrets(self):
+    def test_display_failure_keeps_diagnostics_without_secrets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             app = root / "app"
@@ -200,7 +202,9 @@ class DesktopOutput(unittest.TestCase):
             self.assertIn("XAUTHORITY configured=True", logs)
             self.assertNotIn("secret-", logs)
 
-    def test_xvfb_startup_error_reaches_linux_runner_and_still_fails(self):
+    def test_xvfb_startup_error_reaches_linux_runner_and_still_fails(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             scripts = root / "tests/scripts"

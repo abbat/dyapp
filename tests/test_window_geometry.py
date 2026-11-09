@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WindowGeometryTest(unittest.TestCase):
-    def test_production_geometry_at_integer_boundaries(self):
+    def test_production_geometry_at_integer_boundaries(self) -> None:
         directory = ROOT / "build/tool-fixtures/window-geometry"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)

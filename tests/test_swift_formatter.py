@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SwiftFormatterTest(unittest.TestCase):
-    def test_strict_lint_rejects_unformatted_source(self):
+    def test_strict_lint_rejects_unformatted_source(self) -> None:
         for source, expected in (("let value=1\n", 1), ("let value = 1\n", 0)):
             with self.subTest(source=source):
                 with tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:

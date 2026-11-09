@@ -31,7 +31,7 @@ def gap(a, b, px, framed=True, identifier=False, label=False):
 
 
 class Layout(unittest.TestCase):
-    def test_rules_and_exceptions(self):
+    def test_rules_and_exceptions(self) -> None:
         layout = {
             "one-en-440": [
                 gap("div.actions", "p", 0),
@@ -50,7 +50,7 @@ class Layout(unittest.TestCase):
             },
         )
 
-    def test_new_findings_fail_and_fixed_ones_are_stale(self):
+    def test_new_findings_fail_and_fixed_ones_are_stale(self) -> None:
         found = {"L2 #s a | b": ["one (0 px)"]}
         self.assertEqual(LAYOUT.errors(found, ["L2 #s a | b"]), ([], []))
         self.assertEqual(
@@ -60,7 +60,7 @@ class Layout(unittest.TestCase):
 
 
 class Settings(unittest.TestCase):
-    def test_counts_must_match_budget(self):
+    def test_counts_must_match_budget(self) -> None:
         texts = {
             prototype: '<section id="other"><li></section>'
             '<section id="settings"><input type="checkbox">'

@@ -30,7 +30,7 @@ elif args[0]=='volume':
 
 
 class ShellOutput(unittest.TestCase):
-    def test_image_cleanup_failure_never_masks_primary_failure(self):
+    def test_image_cleanup_failure_never_masks_primary_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, code in [
@@ -65,7 +65,7 @@ class ShellOutput(unittest.TestCase):
                 else:
                     self.assertEqual(result.stdout, "OK image-test\n")
 
-    def test_ui_cli_errors_and_help_do_not_probe_kvm(self):
+    def test_ui_cli_errors_and_help_do_not_probe_kvm(self) -> None:
         for args, status in [
             (["--help"], 0),
             (["invalid"], 2),

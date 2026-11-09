@@ -70,7 +70,7 @@ def elf(e_type=3, interp=True, stack=6, relro=True, dynamic=(), names=()):
 
 
 class Hardening(unittest.TestCase):
-    def test_standalone_profile_and_output(self):
+    def test_standalone_profile_and_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "check.py"

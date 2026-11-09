@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ComplexityToolTest(unittest.TestCase):
-    def test_force_warn_exposes_a_function_with_an_expectation(self):
+    def test_force_warn_exposes_a_function_with_an_expectation(self) -> None:
         directory = ROOT / "build/tool-fixtures/complexity-force-warn"
         directory = directory / str(time.time_ns())
         (directory / "src").mkdir(parents=True)

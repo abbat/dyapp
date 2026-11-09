@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ExportChecks(unittest.TestCase):
-    def test_exports_keep_copy_arguments_and_reject_invalid_containers(self):
+    def test_exports_keep_copy_arguments_and_reject_invalid_containers(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / "docker"
@@ -103,7 +105,7 @@ class ExportChecks(unittest.TestCase):
             )
             self.assertTrue(json.loads(calls.read_text().splitlines()[0]))
 
-    def test_model_report_is_data_and_self_check_is_a_check(self):
+    def test_model_report_is_data_and_self_check_is_a_check(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
 
             def run(*args):

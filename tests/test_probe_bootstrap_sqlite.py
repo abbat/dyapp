@@ -23,7 +23,7 @@ PROBE = load("probe_bootstrap_sqlite", "probe-bootstrap-sqlite.py")
 
 
 class ProbeBootstrapSqlite(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
         root = self.scratch = Path(self.temp.name)
@@ -44,7 +44,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
     def snapshot_now(self):
         BACKUP.snapshot(self.source, self.snapshot, "inline", None)
 
-    def test_valid_databases_leave_snapshot_unchanged(self):
+    def test_valid_databases_leave_snapshot_unchanged(self) -> None:
         self.snapshot_now()
         before = {
             p.relative_to(self.snapshot): p.read_bytes()
@@ -61,7 +61,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
         }
         self.assertEqual(after, before)
 
-    def test_valid_wal_restores_from_copy(self):
+    def test_valid_wal_restores_from_copy(self) -> None:
         with closing(sqlite3.connect(self.source / "profiles.db")) as db, db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("INSERT INTO records DEFAULT VALUES")
@@ -70,7 +70,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
             self.assertTrue(wal.exists())
             self.assertEqual(PROBE.probe(self.snapshot, self.scratch)[2], 2)
 
-    def test_corrupt_database_and_hot_journal_fail(self):
+    def test_corrupt_database_and_hot_journal_fail(self) -> None:
         (self.source / "profiles.db").write_bytes(b"corrupt")
         self.snapshot_now()
         with self.assertRaises(sqlite3.DatabaseError):

@@ -93,7 +93,7 @@ class FuzzRunner(unittest.TestCase):
             calls = [json.loads(line) for line in lines]
             return result, calls
 
-    def test_default_and_selected_builds_preserve_limits(self):
+    def test_default_and_selected_builds_preserve_limits(self) -> None:
         for selected in [
             None,
             "sticker_webp",
@@ -127,7 +127,7 @@ class FuzzRunner(unittest.TestCase):
                         )
                     )
 
-    def test_discovery_failure_or_empty_selection_cannot_pass(self):
+    def test_discovery_failure_or_empty_selection_cannot_pass(self) -> None:
         for selected, fail, empty, status in [
             (None, True, False, 43),
             (None, False, True, 2),
@@ -140,7 +140,7 @@ class FuzzRunner(unittest.TestCase):
                 self.assertEqual(result.returncode, status, result.stderr)
                 self.assertFalse(any(row[0] == "run" for row in calls))
 
-    def test_selected_build_failure_stops_before_execution(self):
+    def test_selected_build_failure_stops_before_execution(self) -> None:
         result, calls = self.run_stage("sticker_webp", fail="sticker_webp")
         self.assertEqual(result.returncode, 42)
         self.assertFalse(any(row[0] == "run" for row in calls))

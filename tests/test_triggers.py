@@ -39,7 +39,7 @@ diff --git a/README.md b/README.md
 
 
 class Triggers(unittest.TestCase):
-    def test_diff(self):
+    def test_diff(self) -> None:
         self.assertEqual(
             CHECK.fired(TRIGGERS, CHECK.changes(DIFF)),
             [
@@ -49,7 +49,7 @@ class Triggers(unittest.TestCase):
             ],
         )
 
-    def test_path_and_line_rules(self):
+    def test_path_and_line_rules(self) -> None:
         files = {
             "rust/bootstrap/src/storage.rs": [
                 'conn.execute("CREATE TABLE IF NOT EXISTS `deny`")'
@@ -66,7 +66,7 @@ class Triggers(unittest.TestCase):
             ],
         )
 
-    def test_uncovered_glob(self):
+    def test_uncovered_glob(self) -> None:
         triggers = CHECK.load(
             '[[trigger]]\nname = "x"\npaths = ["clippy.toml", "src/*"]\n'
         )
@@ -74,7 +74,7 @@ class Triggers(unittest.TestCase):
             CHECK.uncovered(triggers, ["src/lib.rs"]), ["x: clippy.toml"]
         )
 
-    def test_list_covers_itself(self):
+    def test_list_covers_itself(self) -> None:
         self.assertIn(
             "checks: tests/scripts/triggers.toml",
             CHECK.fired(TRIGGERS, {"tests/scripts/triggers.toml": []}),

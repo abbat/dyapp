@@ -15,7 +15,7 @@ SPEC.loader.exec_module(CHECK)
 
 
 class Noqa(unittest.TestCase):
-    def test_needed_unused_and_malformed(self):
+    def test_needed_unused_and_malformed(self) -> None:
         sources = {
             "a.py": "import os  # noqa: F401 -- re-export\n"
             "import sys  # noqa: F401,E402 -- shim\n"
@@ -32,7 +32,7 @@ class Noqa(unittest.TestCase):
             ],
         )
 
-    def test_flake8_reports_suppressed_codes(self):
+    def test_flake8_reports_suppressed_codes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "m.py"
             path.write_text(

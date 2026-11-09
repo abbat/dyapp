@@ -62,21 +62,21 @@ class RustComplexityTest(unittest.TestCase):
             [finding], {"src/lib.rs": source}, {"src/lib.rs": entries}
         )
 
-    def test_new_function_cannot_replace_old_with_equal_total(self):
+    def test_new_function_cannot_replace_old_with_equal_total(self) -> None:
         old = {("src/lib.rs", "fn old"): {"lines": 80}}
         new = {("src/lib.rs", "fn new"): {"lines": 80}}
         errors = GATE.errors(new, old)
         self.assertEqual(len(errors), 2)
         self.assertTrue(any("80 > 0" in error for error in errors))
 
-    def test_improvements_require_a_smaller_recorded_budget(self):
+    def test_improvements_require_a_smaller_recorded_budget(self) -> None:
         key = ("src/lib.rs", "fn old")
         actual = {key: {"lines": 65}}
         self.assertTrue(GATE.errors(actual, {key: {"lines": 80}}))
         self.assertEqual(GATE.errors(actual, {key: {"lines": 65}}), [])
         self.assertTrue(GATE.errors(actual, {key: {"lines": 60}}))
 
-    def test_budget_edits_cannot_authorize_a_new_offender(self):
+    def test_budget_edits_cannot_authorize_a_new_offender(self) -> None:
         key = ("src/lib.rs", "fn old")
         old = {key: {"lines": 80}}
         self.assertEqual(GATE.growth_errors({key: {"lines": 65}}, old), [])
@@ -84,7 +84,7 @@ class RustComplexityTest(unittest.TestCase):
         new = {("src/lib.rs", "fn new"): {"lines": 80}}
         self.assertTrue(GATE.growth_errors(new, old))
 
-    def test_nested_regions_and_depth_are_both_bounded(self):
+    def test_nested_regions_and_depth_are_both_bounded(self) -> None:
         key = ("src/lib.rs", "fn old")
         budget = {key: {"nesting": 6, "nested_regions": 1}}
         for metric in ("nesting", "nested_regions"):
@@ -92,7 +92,9 @@ class RustComplexityTest(unittest.TestCase):
             current[key][metric] += 1
             self.assertTrue(GATE.errors(current, budget))
 
-    def test_anonymous_closure_cannot_borrow_parent_cognitive_budget(self):
+    def test_anonymous_closure_cannot_borrow_parent_cognitive_budget(
+        self,
+    ) -> None:
         source, entry, finding = fixture()
         closure = dict(
             entry, id="closure", kind="closure", start=[1, 3], end=[1, 6]
@@ -109,7 +111,7 @@ class RustComplexityTest(unittest.TestCase):
             {("src/lib.rs", "fn old"): {"nesting": 6, "nested_regions": 1}},
         )
 
-    def test_missing_ambiguous_and_outdated_spans_fail(self):
+    def test_missing_ambiguous_and_outdated_spans_fail(self) -> None:
         source, entry, finding = fixture()
         for entries in ([], [entry, entry]):
             with self.assertRaises(ValueError):
@@ -118,7 +120,9 @@ class RustComplexityTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside"):
             self.measure(source, [entry], finding)
 
-    def test_repeated_canonical_span_does_not_inflate_nesting_regions(self):
+    def test_repeated_canonical_span_does_not_inflate_nesting_regions(
+        self,
+    ) -> None:
         source, entry, finding = fixture()
         finding["code"] = "clippy::excessive_nesting"
         result = GATE.measure(
@@ -128,13 +132,13 @@ class RustComplexityTest(unittest.TestCase):
         )
         self.assertEqual(result[("src/lib.rs", "fn old")]["nested_regions"], 1)
 
-    def test_threshold_overrides_are_rejected(self):
+    def test_threshold_overrides_are_rejected(self) -> None:
         source, entry, finding = fixture()
         finding["message"] = "this function has too many lines (80/100)"
         with self.assertRaisesRegex(ValueError, "overridden"):
             self.measure(source, [entry], finding)
 
-    def test_complete_build_and_duplicate_messages(self):
+    def test_complete_build_and_duplicate_messages(self) -> None:
         _, _, finding = fixture()
         records = complete(finding)
         records.insert(2, copy.deepcopy(records[1]))
@@ -143,7 +147,7 @@ class RustComplexityTest(unittest.TestCase):
             1,
         )
 
-    def test_incomplete_failed_and_error_reports_fail(self):
+    def test_incomplete_failed_and_error_reports_fail(self) -> None:
         _, _, finding = fixture()
         records = complete(finding)
         cases = [records[:-1], records[1:]]

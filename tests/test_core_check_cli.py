@@ -30,7 +30,7 @@ class CoreCheckCLI(unittest.TestCase):
             capture_output=True,
         )
 
-    def test_batch_default_raw_json_and_failure(self):
+    def test_batch_default_raw_json_and_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             args = [
@@ -58,7 +58,7 @@ class CoreCheckCLI(unittest.TestCase):
             self.assertIn("FIX: docs/", bad.stdout)
             self.assertNotIn("Traceback", bad.stdout)
 
-    def test_trigger_diff_api_and_help_passthrough(self):
+    def test_trigger_diff_api_and_help_passthrough(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             normal = self.run_cli("triggers.py", [], root)
@@ -71,7 +71,7 @@ class CoreCheckCLI(unittest.TestCase):
             self.assertIn("usage:", help_result.stdout)
             self.assertNotIn("OK panics", help_result.stdout)
 
-    def test_imports_do_not_dispatch_or_print(self):
+    def test_imports_do_not_dispatch_or_print(self) -> None:
         for name in (
             "check-batches.py",
             "check-repository.py",

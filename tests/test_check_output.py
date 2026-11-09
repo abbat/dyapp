@@ -29,7 +29,7 @@ class CheckOutput(unittest.TestCase):
             check=False,
         )
 
-    def test_noisy_success_is_one_ok_line(self):
+    def test_noisy_success_is_one_ok_line(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_check(
                 directory,
@@ -40,7 +40,7 @@ class CheckOutput(unittest.TestCase):
             self.assertEqual(result.stdout, "OK flake8\n")
             self.assertEqual(result.stderr, "")
 
-    def test_actual_python_check_and_third_party_failures(self):
+    def test_actual_python_check_and_third_party_failures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             report = root / "TEST-empty.xml"
@@ -70,7 +70,7 @@ class CheckOutput(unittest.TestCase):
                 else:
                     self.assertIn("Empty JUnit inventory", result.stdout)
 
-    def test_json_failure_omits_passing_metadata(self):
+    def test_json_failure_omits_passing_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             payload = '{"errors":["broken fixture"],"passing":100}'
             command = f"print({payload!r}); exit(4)"
@@ -81,7 +81,7 @@ class CheckOutput(unittest.TestCase):
             self.assertIn("broken fixture", result.stdout)
             self.assertNotIn("passing", result.stdout)
 
-    def test_multiline_cargo_json_omits_passing_progress(self):
+    def test_multiline_cargo_json_omits_passing_progress(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             payload = (
                 '{"errors":["Checking fixture\\n'
@@ -97,7 +97,7 @@ class CheckOutput(unittest.TestCase):
             self.assertIn("src/main.rs:1:1", result.stdout)
             self.assertNotIn("Checking fixture", result.stdout)
 
-    def test_actual_actionlint_shellcheck_and_rust_diagnostics(self):
+    def test_actual_actionlint_shellcheck_and_rust_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             workflow = root / "fixture.yml"
@@ -140,7 +140,7 @@ class CheckOutput(unittest.TestCase):
                     self.assertIn(diagnostic, result.stdout)
                     self.assertNotIn("Checking output-fixture", result.stdout)
 
-    def test_large_unknown_failure_retains_raw_output(self):
+    def test_large_unknown_failure_retains_raw_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_check(
                 directory,
@@ -158,7 +158,7 @@ class CheckOutput(unittest.TestCase):
             self.assertIn("unknown cause", log.read_text())
             self.assertIn(str(log), result.stdout)
 
-    def test_missing_command_and_signal_remain_failures(self):
+    def test_missing_command_and_signal_remain_failures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             missing = self.run_check(
                 directory, "flake8", ["missing-check-fixture-command"]

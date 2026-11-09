@@ -34,7 +34,9 @@ def fixture(root):
 
 
 class WebUnusedTest(unittest.TestCase):
-    def test_real_checker_accepts_live_code_and_rejects_dead_code(self):
+    def test_real_checker_accepts_live_code_and_rejects_dead_code(
+        self,
+    ) -> None:
         cases = (
             ({}, 0, ""),
             (

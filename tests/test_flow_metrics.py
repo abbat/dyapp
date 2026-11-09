@@ -46,7 +46,7 @@ def snapshot():
 
 
 class Metrics(unittest.TestCase):
-    def test_empty_samples_are_unknown_and_exact_boundaries_pass(self):
+    def test_empty_samples_are_unknown_and_exact_boundaries_pass(self) -> None:
         data = snapshot()
         data["beads"] = [
             {
@@ -71,7 +71,7 @@ class Metrics(unittest.TestCase):
         self.assertIsNone(result["revert_percent"])
         self.assertIsNone(result["false_positive_share"])
 
-    def test_failed_case_wip_and_carry_in_red(self):
+    def test_failed_case_wip_and_carry_in_red(self) -> None:
         data = snapshot()
         data["beads"] = [
             {
@@ -93,7 +93,9 @@ class Metrics(unittest.TestCase):
         self.assertEqual(len(result["errors"]), 2)
         self.assertEqual(result["ci"]["current_red_hours"], 14 * 24)
 
-    def test_stale_green_does_not_clear_new_red_and_rerun_recovers(self):
+    def test_stale_green_does_not_clear_new_red_and_rerun_recovers(
+        self,
+    ) -> None:
         data = snapshot()
         data["runs"] += [
             run(
@@ -122,7 +124,7 @@ class Metrics(unittest.TestCase):
         self.assertEqual(result["time_to_green_hours_p50"], 24)
         self.assertEqual(result["red_commit_percent"], 50)
 
-    def test_weekly_cohort_hatches_reviews_and_job_minutes(self):
+    def test_weekly_cohort_hatches_reviews_and_job_minutes(self) -> None:
         data = snapshot()
         data["beads"] = [
             {
@@ -174,7 +176,7 @@ class Metrics(unittest.TestCase):
         with self.assertRaises(ValueError):
             FLOW.report(invalid)
 
-    def test_pending_or_cancelled_main_is_not_reported_green(self):
+    def test_pending_or_cancelled_main_is_not_reported_green(self) -> None:
         for conclusion, finished in [
             (None, None),
             ("cancelled", "2026-10-14T11:00:00Z"),
@@ -185,7 +187,7 @@ class Metrics(unittest.TestCase):
             )
             self.assertEqual(FLOW.report(data)["ci"]["main_state"], "unknown")
 
-    def test_daily_health_separates_24_hours_over_24_and_unknown(self):
+    def test_daily_health_separates_24_hours_over_24_and_unknown(self) -> None:
         cases = [
             ("success", "2026-10-15T11:00:00Z", "green", [], []),
             (
@@ -227,7 +229,7 @@ class Metrics(unittest.TestCase):
             )
         self.assertEqual(len(result["red_intervals"]), 0)
 
-    def test_postmortems_are_due_within_48_hours_of_a_trigger(self):
+    def test_postmortems_are_due_within_48_hours_of_a_trigger(self) -> None:
         data = snapshot()
         data["practices"] = [
             {"id": "A8", "adopted_at": "2026-10-09T00:00:00Z"}
@@ -281,7 +283,7 @@ class Metrics(unittest.TestCase):
         self.assertEqual(result["postmortems"][0]["bead"], "x-1")
         self.assertFalse(result["postmortems"][1]["late"])
 
-    def test_invalid_sources_fail(self):
+    def test_invalid_sources_fail(self) -> None:
         data = snapshot()
         data["runs"] = []
         with self.assertRaisesRegex(ValueError, "No canonical"):

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Auditable(unittest.TestCase):
-    def test_standalone_elf_inventory_and_output(self):
+    def test_standalone_elf_inventory_and_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "check.py"

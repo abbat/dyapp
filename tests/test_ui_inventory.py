@@ -20,7 +20,7 @@ def run():
 
 
 class Inventory(unittest.TestCase):
-    def test_lists_controls_and_is_stable(self):
+    def test_lists_controls_and_is_stable(self) -> None:
         out = run()
         self.assertEqual(out, run())
         self.assertIn(
@@ -30,7 +30,7 @@ class Inventory(unittest.TestCase):
         self.assertIn("| check-connection | button |", out)
         self.assertIn("## #settings", out)
 
-    def test_condition_heuristic(self):
+    def test_condition_heuristic(self) -> None:
         spec = importlib.util.spec_from_file_location("ui_inventory", SCRIPT)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

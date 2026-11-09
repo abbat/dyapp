@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FinalChecks(unittest.TestCase):
-    def test_summary_rejects_empty_missing_cancelled_and_skipped_jobs(self):
+    def test_summary_rejects_empty_missing_cancelled_and_skipped_jobs(
+        self,
+    ) -> None:
         good = {
             name: {"result": "success"}
             for name in ("core", "docker", "linux", "apple", "windows")
@@ -56,7 +58,9 @@ class FinalChecks(unittest.TestCase):
                     self.assertNotIn("'success'", result.stdout)
                     self.assertNotIn('"outputs"', result.stdout)
 
-    def test_isolation_default_raw_and_root_rejection_bind_to_map(self):
+    def test_isolation_default_raw_and_root_rejection_bind_to_map(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             status, control = root / "status", root / "docker.sock"
@@ -117,7 +121,7 @@ class FinalChecks(unittest.TestCase):
                 endpoint.bind(str(control))
                 self.assertEqual(run().returncode, 1)
 
-    def test_network_android_args_fail_before_setup(self):
+    def test_network_android_args_fail_before_setup(self) -> None:
         commands = [
             [
                 sys.executable,
@@ -141,7 +145,9 @@ class FinalChecks(unittest.TestCase):
                     "Usage:", result.stdout.replace("usage:", "Usage:")
                 )
 
-    def test_ascii_terminal_keeps_unicode_raw_evidence_and_child_status(self):
+    def test_ascii_terminal_keeps_unicode_raw_evidence_and_child_status(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             program = (
                 "import os; os.write(1, "
@@ -172,7 +178,7 @@ class FinalChecks(unittest.TestCase):
             self.assertEqual(len(logs), 1)
             self.assertIn(bytes([226, 152, 131]), logs[0].read_bytes())
 
-    def test_nested_frames_use_only_mapped_fix_and_keep_status(self):
+    def test_nested_frames_use_only_mapped_fix_and_keep_status(self) -> None:
         known = "docs/testing/docker.md#troubleshooting"
         unknown = "docs/missing.md#unknown"
         for fix in (known, unknown):
@@ -214,7 +220,7 @@ class FinalChecks(unittest.TestCase):
                 self.assertEqual(len(logs), 1)
                 self.assertIn(fix, logs[0].read_text())
 
-    def test_nested_keeps_every_inner_frame_but_not_later_output(self):
+    def test_nested_keeps_every_inner_frame_but_not_later_output(self) -> None:
         # The inner wrapper strips the FAIL header of the second frame.
         output = (
             "FAIL docker: first\n"
@@ -245,7 +251,9 @@ class FinalChecks(unittest.TestCase):
             self.assertIn("second-item", result.stdout)
             self.assertNotIn("cleanup progress", result.stdout)
 
-    def test_archived_gradle_failure_excludes_passing_tasks_and_try_help(self):
+    def test_archived_gradle_failure_excludes_passing_tasks_and_try_help(
+        self,
+    ) -> None:
         failure = (
             "> Task :app:compileReleaseKotlin UP-TO-DATE\n"
             "FAILURE: Build failed with an exception.\n\n* What went wrong:\n"

@@ -19,7 +19,7 @@ SPEC.loader.exec_module(PREFLIGHT)
 
 
 class PreflightBootstrapUpdate(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -67,7 +67,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
     def live(self):
         return {p.name: p.read_bytes() for p in self.source.iterdir()}
 
-    def test_stopped_node_passes_and_releases_lock(self):
+    def test_stopped_node_passes_and_releases_lock(self) -> None:
         before = self.live()
         self.assertEqual(self.run_preflight(), "peer-id")
         self.assertTrue((self.snapshot / "manifest.jsonl").exists())
@@ -78,7 +78,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         self.addCleanup(os.close, fd)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-    def test_running_node_fails_before_snapshot(self):
+    def test_running_node_fails_before_snapshot(self) -> None:
         fd = os.open(self.source / "dyappd.lock", os.O_RDWR | os.O_CREAT)
         self.addCleanup(os.close, fd)
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -86,7 +86,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
             self.run_preflight()
         self.assertFalse(self.snapshot.exists())
 
-    def test_insufficient_space_fails_before_snapshot(self):
+    def test_insufficient_space_fails_before_snapshot(self) -> None:
         sizes = []
 
         def free(path):
@@ -99,7 +99,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         # Destination, scratch and storage share one filesystem here.
         self.assertEqual(sizes, [self.root])
 
-    def test_missing_recovery_key_and_corrupt_store_fail(self):
+    def test_missing_recovery_key_and_corrupt_store_fail(self) -> None:
         (self.source / "node.key").unlink()
         with self.assertRaisesRegex(ValueError, "portable recovery key"):
             self.run_preflight("external")
@@ -109,7 +109,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         with self.assertRaises(sqlite3.DatabaseError):
             self.run_preflight()
 
-    def test_identity_mismatch_fails(self):
+    def test_identity_mismatch_fails(self) -> None:
         (self.source / "node.key").write_bytes(b"wrong")
         with self.assertRaisesRegex(ValueError, "restored node key"):
             self.run_preflight()

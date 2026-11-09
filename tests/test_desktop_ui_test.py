@@ -31,7 +31,7 @@ def area_calls(source):
 
 
 class NavigationTest(unittest.TestCase):
-    def test_smoke_targets_are_real_sidebar_destinations(self):
+    def test_smoke_targets_are_real_sidebar_destinations(self) -> None:
         navigation = Navigation()
         navigation.feed((UI / "ui/index.html").read_text())
         self.assertTrue(navigation.targets)
@@ -46,7 +46,7 @@ class NavigationTest(unittest.TestCase):
             with self.subTest(path=path, target=target):
                 self.assertIn(target, navigation.targets)
 
-    def test_calls_preserve_a_wrong_target_for_rejection(self):
+    def test_calls_preserve_a_wrong_target_for_rejection(self) -> None:
         self.assertEqual(
             area_calls(
                 "await openArea('chats'); await openArea('chats-area');"
@@ -72,14 +72,14 @@ class ModuleScripts(HTMLParser):
 
 
 class ModuleEntryTest(unittest.TestCase):
-    def test_shipped_page_loads_external_modules(self):
+    def test_shipped_page_loads_external_modules(self) -> None:
         page = ModuleScripts()
         page.feed((UI / "ui/index.html").read_text())
         self.assertTrue(page.external_modules())
         for script in page.scripts:
             self.assertTrue((UI / "ui" / script["src"]).is_file())
 
-    def test_classic_and_inline_scripts_are_rejected(self):
+    def test_classic_and_inline_scripts_are_rejected(self) -> None:
         for source in (
             '<script src="app.js"></script>',
             '<script type="module">run()</script>',
@@ -93,7 +93,7 @@ class ModuleEntryTest(unittest.TestCase):
 
 
 class SmokeInventoryTest(unittest.TestCase):
-    def test_all_smoke_scripts_are_registered_and_includes_exist(self):
+    def test_all_smoke_scripts_are_registered_and_includes_exist(self) -> None:
         directory = UI / "ui-tests"
         includes = re.findall(
             r'include_str!\("([^"]+)"\)', (directory / "mod.rs").read_text()
@@ -109,7 +109,7 @@ class SmokeInventoryTest(unittest.TestCase):
 
 
 class SmokeScopeTest(unittest.TestCase):
-    def test_concatenated_helpers_have_unique_top_level_bindings(self):
+    def test_concatenated_helpers_have_unique_top_level_bindings(self) -> None:
         directory = UI / "ui-tests"
         includes = re.findall(
             r'include_str!\("([^"]+)"\)', (directory / "mod.rs").read_text()

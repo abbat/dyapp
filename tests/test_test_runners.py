@@ -20,7 +20,7 @@ from capture import Capture  # noqa: E402 -- path set above
 
 
 class Captures(unittest.TestCase):
-    def test_keeps_head_and_tail_with_marker(self):
+    def test_keeps_head_and_tail_with_marker(self) -> None:
         captured = Capture(head=4, tail=4)
         for chunk in (b"ab", b"cdef", b"ghij"):
             captured.write(chunk)
@@ -34,7 +34,7 @@ class Captures(unittest.TestCase):
         self.assertEqual(small.getvalue(), b"abcdef")
         self.assertEqual(small.since(3), b"def")
 
-    def test_pipe_copies_child_output(self):
+    def test_pipe_copies_child_output(self) -> None:
         captured = Capture()
         output, drain = captured.pipe()
         subprocess.run(
@@ -78,7 +78,7 @@ class Runners(unittest.TestCase):
             )
             return result, log.read_text() if log.exists() else ""
 
-    def test_ui_all_requires_each_suite(self):
+    def test_ui_all_requires_each_suite(self) -> None:
         for service in (
             "android-build",
             "android-unit-test",
@@ -90,7 +90,7 @@ class Runners(unittest.TestCase):
                 self.assertEqual(result.returncode, 23)
                 self.assertNotIn("inventory passed", result.stdout)
 
-    def test_dev_failure_propagates(self):
+    def test_dev_failure_propagates(self) -> None:
         for command, service in (
             ("test", "dev"),
             ("quality", "quality"),
@@ -101,7 +101,7 @@ class Runners(unittest.TestCase):
                 result, _ = self.run_script("docker-test.sh", command, service)
                 self.assertEqual(result.returncode, 23)
 
-    def test_ui_success_runs_all_without_build_or_host_gui(self):
+    def test_ui_success_runs_all_without_build_or_host_gui(self) -> None:
         result, calls = self.run_script("ui-test.sh", "all")
         self.assertEqual(result.returncode, 0, result.stderr)
         runs = [line for line in calls.splitlines() if " run " in line]
@@ -119,7 +119,7 @@ class Runners(unittest.TestCase):
         self.assertNotRegex(calls, r"(^|\s)build(\s|$)")
         self.assertNotIn("linux-gui", calls)
 
-    def test_failure_prints_captured_output(self):
+    def test_failure_prints_captured_output(self) -> None:
         result, calls = self.run_script("docker-test.sh", "test")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "OK docker-tests\n")
@@ -143,7 +143,7 @@ class Runners(unittest.TestCase):
             1,
         )
 
-    def test_verbose_and_interactive_shells_stream_output(self):
+    def test_verbose_and_interactive_shells_stream_output(self) -> None:
         for script, command, verbose in (
             ("docker-test.sh", "test", "1"),
             ("docker-test.sh", "shell", "0"),
@@ -159,7 +159,9 @@ class Runners(unittest.TestCase):
                 self.assertNotIn("; log: ", result.stdout)
                 self.assertNotIn("--no-TTY", calls)
 
-    def test_cleanup_failure_and_interrupt_preserve_status_and_output(self):
+    def test_cleanup_failure_and_interrupt_preserve_status_and_output(
+        self,
+    ) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -199,7 +201,7 @@ class Runners(unittest.TestCase):
                 self.assertNotIn("\nrun\n", out.getvalue())
                 self.assertEqual(error.getvalue(), "")
 
-    def test_log_file_gets_a_full_copy(self):
+    def test_log_file_gets_a_full_copy(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -219,7 +221,9 @@ class Runners(unittest.TestCase):
             self.assertEqual(out.getvalue(), "OK stage\n")
             self.assertEqual(log.read_text(), "hello\n")
 
-    def test_nested_failure_keeps_details_without_cleanup_progress(self):
+    def test_nested_failure_keeps_details_without_cleanup_progress(
+        self,
+    ) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -245,7 +249,9 @@ class Runners(unittest.TestCase):
         self.assertNotIn("passing progress", out.getvalue())
         self.assertNotIn("cleanup progress", out.getvalue())
 
-    def test_unknown_large_failure_retains_full_log_and_signal_status(self):
+    def test_unknown_large_failure_retains_full_log_and_signal_status(
+        self,
+    ) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -282,7 +288,9 @@ class Runners(unittest.TestCase):
                 )
             self.assertIn("terminated by signal 15", out.getvalue())
 
-    def test_node_restarts_append_logs_and_verbose_inherits_streams(self):
+    def test_node_restarts_append_logs_and_verbose_inherits_streams(
+        self,
+    ) -> None:
         spec = importlib.util.spec_from_file_location(
             "network_test", ROOT / "tests/scripts/network-test.py"
         )
@@ -305,7 +313,7 @@ class Runners(unittest.TestCase):
         self.assertNotIn("stdout", invoke.call_args.kwargs)
         self.assertNotIn("stderr", invoke.call_args.kwargs)
 
-    def test_local_node_failure_prints_retained_diagnostics(self):
+    def test_local_node_failure_prints_retained_diagnostics(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "network_test", ROOT / "tests/scripts/network-test.py"
         )
@@ -335,7 +343,7 @@ class Runners(unittest.TestCase):
         process.terminate.assert_called_once()
         process.wait.assert_called_once()
 
-    def test_local_docker_runs_serialize(self):
+    def test_local_docker_runs_serialize(self) -> None:
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             docker = Path(directory) / "docker"
@@ -367,7 +375,7 @@ class Runners(unittest.TestCase):
                 log.read_text().splitlines(), ["start", "end"] * 4
             )
 
-    def test_bind_directories_come_from_the_compose_files(self):
+    def test_bind_directories_come_from_the_compose_files(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -393,7 +401,7 @@ class Runners(unittest.TestCase):
         self.assertIn(ROOT / "build/ux-research/current", made)
         self.assertNotIn(ROOT / "build/workspace", made)
 
-    def test_image_builds_have_cpu_quota_and_stop_on_failure(self):
+    def test_image_builds_have_cpu_quota_and_stop_on_failure(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -486,7 +494,7 @@ class Runners(unittest.TestCase):
                         call.kwargs["env"]["DOCKER_BUILDKIT"], "0"
                     )
 
-    def test_ci_cache_uses_buildkit_except_on_local_base_images(self):
+    def test_ci_cache_uses_buildkit_except_on_local_base_images(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
@@ -539,7 +547,7 @@ class Runners(unittest.TestCase):
         self.assertIn("--cache-from", pull)
         self.assertNotIn("--cache-to", pull)
 
-    def test_desktop_signed_profile_payload(self):
+    def test_desktop_signed_profile_payload(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
         )
@@ -560,7 +568,9 @@ class Runners(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid signed profile"):
             desktop.signed_profile_payload(record[:-1].hex())
 
-    def test_windows_ui_report_does_not_require_container_hostname(self):
+    def test_windows_ui_report_does_not_require_container_hostname(
+        self,
+    ) -> None:
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
         )
@@ -584,7 +594,7 @@ class Runners(unittest.TestCase):
             self.assertEqual(len(report), 9)
             self.assertTrue(all(case["passed"] for case in report))
 
-    def test_desktop_timeout_kills_helpers_holding_stdout(self):
+    def test_desktop_timeout_kills_helpers_holding_stdout(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
         )
@@ -598,7 +608,7 @@ class Runners(unittest.TestCase):
                 desktop.run(hang, timeout=1)
         self.assertLess(time.monotonic() - started, 15)
 
-    def test_unknown_command_is_failure(self):
+    def test_unknown_command_is_failure(self) -> None:
         for script in (
             "ui-test.sh",
             "docker-test.sh",

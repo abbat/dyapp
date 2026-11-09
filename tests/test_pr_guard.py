@@ -28,7 +28,7 @@ def lock(source=SOURCE):
 
 
 class PullRequestGuardTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         Path("/tmp/ai").mkdir(exist_ok=True)
         self.temp = tempfile.TemporaryDirectory(dir="/tmp/ai")
         self.addCleanup(self.temp.cleanup)
@@ -78,7 +78,7 @@ class PullRequestGuardTests(unittest.TestCase):
                 ok = guard.check(self.base, head, now=NOW)
         return ok, output.getvalue()
 
-    def test_diverged_base_does_not_count_base_changes(self):
+    def test_diverged_base_does_not_count_base_changes(self) -> None:
         self.git("checkout", "-b", "base-branch")
         self.write(".github/workflows/ci.yml", "on: push\n")
         current_base = self.commit()
@@ -90,7 +90,7 @@ class PullRequestGuardTests(unittest.TestCase):
             self.assertTrue(guard.check(current_base, head, now=NOW))
         self.assertIn("Changed paths: 1", output.getvalue())
 
-    def test_script_with_code_fails(self):
+    def test_script_with_code_fails(self) -> None:
         ok, _ = self.check(
             {
                 "tests/scripts/entry.sh": "exit 0\n",
@@ -99,7 +99,7 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         self.assertFalse(ok)
 
-    def test_infra_with_code_fails(self):
+    def test_infra_with_code_fails(self) -> None:
         ok, text = self.check(
             {
                 ".github/workflows/ci.yml": "on: push\n",
@@ -109,7 +109,7 @@ class PullRequestGuardTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("separate pull request", text)
 
-    def test_deps_with_code_passes(self):
+    def test_deps_with_code_passes(self) -> None:
         ok, _ = self.check(
             {
                 "Cargo.toml": "[workspace]\n",
@@ -118,7 +118,7 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         self.assertTrue(ok)
 
-    def test_infra_with_deps_fails(self):
+    def test_infra_with_deps_fails(self) -> None:
         ok, _ = self.check(
             {
                 ".github/dependabot.yml": "version: 2\n",
@@ -127,20 +127,20 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         self.assertFalse(ok)
 
-    def test_git_source_fails(self):
+    def test_git_source_fails(self) -> None:
         ok, text = self.check(
             {"Cargo.lock": lock("git+https://example.com/repo")}
         )
         self.assertFalse(ok)
         self.assertIn("non-crates.io source", text)
 
-    def test_old_lock_version_passes(self):
+    def test_old_lock_version_passes(self) -> None:
         old = NOW - dt.timedelta(days=30)
         ok, text = self.check({"Cargo.lock": lock()}, lambda *_: old)
         self.assertTrue(ok)
         self.assertIn("example 1.0.0", text)
 
-    def test_infra_only_passes(self):
+    def test_infra_only_passes(self) -> None:
         ok, _ = self.check(
             {
                 ".github/workflows/ci.yml": "on: push\n",
@@ -149,18 +149,18 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         self.assertTrue(ok)
 
-    def test_young_version_fails(self):
+    def test_young_version_fails(self) -> None:
         young = NOW - dt.timedelta(days=1)
         ok, text = self.check({"Cargo.lock": lock()}, lambda *_: young)
         self.assertFalse(ok)
         self.assertIn("younger than 14 days", text)
 
-    def test_unreachable_registry_fails(self):
+    def test_unreachable_registry_fails(self) -> None:
         ok, text = self.check({"Cargo.lock": lock()}, OSError("unreachable"))
         self.assertFalse(ok)
         self.assertIn("cannot verify age", text)
 
-    def test_guard_change_warns(self):
+    def test_guard_change_warns(self) -> None:
         ok, text = self.check({"tests/scripts/pr-guard.py": "changed\n"})
         self.assertTrue(ok)
         self.assertIn("changes the guard itself", text)

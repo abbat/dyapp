@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class VisibilityPolicyTest(unittest.TestCase):
-    def test_new_findings_and_stale_markers_fail_the_real_compiler(self):
+    def test_new_findings_and_stale_markers_fail_the_real_compiler(
+        self,
+    ) -> None:
         policy = tomllib.loads((ROOT / "Cargo.toml").read_text())
         lints = policy["workspace"]["lints"]["rust"]
         keys = ("unreachable_pub", "unfulfilled_lint_expectations")

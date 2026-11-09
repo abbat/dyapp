@@ -25,7 +25,9 @@ def directory():
 
 
 class ProductionSetupTest(unittest.TestCase):
-    def test_hidden_disabled_missing_and_mixed_locale_controls_fail(self):
+    def test_hidden_disabled_missing_and_mixed_locale_controls_fail(
+        self,
+    ) -> None:
         expected = [("Setup", "Create"), ("Начало", "Создать")]
         heading = ("Setup", True, True, False)
         button = ("Create", True, True, True)
@@ -43,7 +45,7 @@ class ProductionSetupTest(unittest.TestCase):
         for nodes in invalid:
             self.assertFalse(DRIVER.rendered_setup(nodes, expected), nodes)
 
-    def test_a_dead_process_or_timeout_never_passes(self):
+    def test_a_dead_process_or_timeout_never_passes(self) -> None:
         process, accessibility = Mock(), Mock()
         process.poll.return_value = 1
         with self.assertRaisesRegex(RuntimeError, "exited before"):
@@ -52,7 +54,9 @@ class ProductionSetupTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "did not expose"):
             DRIVER.wait_for_setup(process, accessibility, [], timeout=0)
 
-    def test_fresh_profile_and_normal_launch_do_not_use_test_flags(self):
+    def test_fresh_profile_and_normal_launch_do_not_use_test_flags(
+        self,
+    ) -> None:
         target = directory()
         process, accessibility, button = Mock(), Mock(), Mock()
         process.poll.return_value = 0
@@ -81,7 +85,9 @@ class ProductionSetupTest(unittest.TestCase):
     "Real AT-SPI/WebKit fixtures run in the package-test session",
 )
 class NativeProductionSetupTest(unittest.TestCase):
-    def test_real_webkit_rejects_broken_pages_and_closes_a_valid_page(self):
+    def test_real_webkit_rejects_broken_pages_and_closes_a_valid_page(
+        self,
+    ) -> None:
         accessibility = DRIVER.Accessibility()
         expected = DRIVER.labels()
         heading, button = expected[0]

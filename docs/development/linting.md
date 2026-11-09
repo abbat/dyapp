@@ -277,7 +277,9 @@ Output wrappers share `DiagnosticPolicy`, `CheckPolicy` and the narrow `CheckRun
 in `tools/scripts/check_dispatch.py`. Reuse those contracts when adding diagnostic formats or
 calling the dynamically loaded runner; a missing source loader fails before dispatch. Report
 readers describe their consumed fields with `TypedDict`; these annotations preserve, rather than
-replace, runtime validation of external reports. Project-wide strict type checking remains planned.
+replace, runtime validation of external reports. Unittest's no-value test/lifecycle contracts
+use `-> None`; fixture helpers retain their produced result types. Project-wide strict type
+checking remains planned.
 
 ## Swift (`.swiftlint.yml`)
 

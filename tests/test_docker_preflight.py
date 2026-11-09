@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Preflight(unittest.TestCase):
-    def test_invalid_config_service_and_options_keep_status_and_evidence(self):
+    def test_invalid_config_service_and_options_keep_status_and_evidence(
+        self,
+    ) -> None:
         cases = [
             (["build", "unknown"], '{"services": {}}', 0, 2, "Unknown"),
             (["build"], "invalid-json", 0, 1, "JSONDecodeError"),
@@ -72,7 +74,7 @@ class Preflight(unittest.TestCase):
                     after = calls.read_text() if calls.exists() else ""
                     self.assertEqual(before, after)
 
-    def test_missing_docker_executable_preserves_startup_failure(self):
+    def test_missing_docker_executable_preserves_startup_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / "docker"
@@ -99,7 +101,7 @@ class Preflight(unittest.TestCase):
             self.assertEqual(len(saved), 1)
             self.assertIn("Traceback", saved[0].read_text())
 
-    def test_unsupported_configuration_never_launches_a_build(self):
+    def test_unsupported_configuration_never_launches_a_build(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = {

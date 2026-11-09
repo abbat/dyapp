@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PythonComplexity(unittest.TestCase):
-    def test_configured_limit_accepts_ten_and_rejects_eleven(self):
+    def test_configured_limit_accepts_ten_and_rejects_eleven(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fixture.py"
             for branches, expected in ((9, 0), (10, 1)):

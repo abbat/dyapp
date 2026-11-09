@@ -16,7 +16,7 @@ SPEC.loader.exec_module(BACKUP)
 
 
 class BackupBootstrap(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -40,7 +40,7 @@ class BackupBootstrap(unittest.TestCase):
             .splitlines()
         ]
 
-    def test_inline_snapshot_contains_sorted_hashes_and_wal(self):
+    def test_inline_snapshot_contains_sorted_hashes_and_wal(self) -> None:
         (self.source / "profiles.db-wal").write_bytes(b"committed")
         (self.source / "profiles.db-shm").write_bytes(b"rebuildable")
         (self.source / "profiles-idx.db").write_bytes(b"rebuildable")
@@ -73,7 +73,9 @@ class BackupBootstrap(unittest.TestCase):
         key = self.destination / "storage/node.key"
         self.assertEqual(stat.S_IMODE(key.stat().st_mode), 0o600)
 
-    def test_age_mode_requires_portable_key_and_records_hot_journal(self):
+    def test_age_mode_requires_portable_key_and_records_hot_journal(
+        self,
+    ) -> None:
         (self.source / "node.key").unlink()
         with self.assertRaisesRegex(ValueError, "portable recovery key"):
             BACKUP.snapshot(self.source, self.destination, "age", None)
@@ -92,7 +94,9 @@ class BackupBootstrap(unittest.TestCase):
         self.assertIn("storage/deny.db-journal", names)
         self.assertFalse((self.destination / "storage/node.key").exists())
 
-    def test_symlink_unknown_and_nested_destination_fail_before_copy(self):
+    def test_symlink_unknown_and_nested_destination_fail_before_copy(
+        self,
+    ) -> None:
         (self.source / "node.id").unlink()
         (self.source / "node.id").symlink_to(self.root / "outside")
         with self.assertRaises(ValueError):

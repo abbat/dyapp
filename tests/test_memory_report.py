@@ -24,7 +24,7 @@ SPEC.loader.exec_module(NETWORK)
 
 
 class MemoryReports(unittest.TestCase):
-    def test_complete_success_and_failure_keep_all_node_samples(self):
+    def test_complete_success_and_failure_keep_all_node_samples(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "dyappd").write_bytes(b"measured release binary")
@@ -80,7 +80,7 @@ class MemoryReports(unittest.TestCase):
                 self.assertEqual(report["samples"][1]["elapsed_seconds"], 2)
                 self.assertEqual(report["measured_seconds"], 3)
 
-    def test_incomplete_observation_cannot_create_success_report(self):
+    def test_incomplete_observation_cannot_create_success_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(RuntimeError, "Incomplete"):
                 write_report([], 1, 300, 0.10, "/missing", directory)

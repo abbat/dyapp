@@ -37,7 +37,7 @@ def app_fixture(root, target):
 
 
 class ApplePackages(unittest.TestCase):
-    def test_layout_modes_and_internal_links(self):
+    def test_layout_modes_and_internal_links(self) -> None:
         for target in CHECK.PLATFORMS:
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -57,7 +57,7 @@ class ApplePackages(unittest.TestCase):
                     self.assertTrue(stat.S_ISLNK(link.external_attr >> 16))
                     self.assertEqual(archive.read(link), b"DYApp")
 
-    def test_rejects_simulator_and_executable_path_traversal(self):
+    def test_rejects_simulator_and_executable_path_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             app, _ = app_fixture(Path(directory), "ios")
             for platform, executable, cause in (
@@ -75,7 +75,9 @@ class ApplePackages(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, cause):
                     CHECK.executable(app, "ios")
 
-    def test_wrong_architecture_missing_binary_and_symlink_escape(self):
+    def test_wrong_architecture_missing_binary_and_symlink_escape(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             app, binary = app_fixture(root, "ios")

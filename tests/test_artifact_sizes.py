@@ -16,7 +16,7 @@ SPEC.loader.exec_module(CHECK)
 
 
 class ArtifactSizes(unittest.TestCase):
-    def test_real_file_boundary_and_explicit_exception(self):
+    def test_real_file_boundary_and_explicit_exception(self) -> None:
         entries = {
             "app": {
                 "bytes": 100,
@@ -42,7 +42,7 @@ class ArtifactSizes(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     CHECK.measure(name, artifact, entries, ["reviewed"])
 
-    def test_inventory_rejects_invalid_or_unmeasured_budgets(self):
+    def test_inventory_rejects_invalid_or_unmeasured_budgets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sizes.json"
             for record in (
@@ -63,7 +63,7 @@ class ArtifactSizes(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     CHECK.inventory(path)
 
-    def test_only_nonempty_trailers_inside_ancestor_range_count(self):
+    def test_only_nonempty_trailers_inside_ancestor_range_count(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
 

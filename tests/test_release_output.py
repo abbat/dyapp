@@ -47,7 +47,7 @@ class ReleaseOutput(unittest.TestCase):
             ),
         )
 
-    def test_cli_argparse_status_without_usage_noise(self):
+    def test_cli_argparse_status_without_usage_noise(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for script, name in CHECKS.items():
@@ -59,7 +59,9 @@ class ReleaseOutput(unittest.TestCase):
                 self.assertNotIn("usage:", result.stdout)
                 self.assertEqual(result.stderr, "")
 
-    def test_android_real_zip_reports_default_raw_and_missing_files(self):
+    def test_android_real_zip_reports_default_raw_and_missing_files(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             apk, aab, report = [
@@ -103,7 +105,7 @@ class ReleaseOutput(unittest.TestCase):
             self.assertEqual(bad.stdout.count("FAIL android-release:"), 1)
             self.assertEqual(len(json.loads(report.read_text())["errors"]), 2)
 
-    def test_native_apple_approval_requirement_is_not_bypassed(self):
+    def test_native_apple_approval_requirement_is_not_bypassed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for script, arguments in [

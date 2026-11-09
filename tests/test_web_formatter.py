@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebFormatterTest(unittest.TestCase):
-    def test_format_check_rejects_drift(self):
+    def test_format_check_rejects_drift(self) -> None:
         for source, expected in (("const x=1;\n", 1), ("const x = 1;\n", 0)):
             with self.subTest(source=source):
                 with tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:
@@ -34,7 +34,7 @@ class WebFormatterTest(unittest.TestCase):
 
 
 class WebComplexityTest(unittest.TestCase):
-    def test_configured_limits_reject_oversized_functions(self):
+    def test_configured_limits_reject_oversized_functions(self) -> None:
         fixtures = [
             (
                 "noExcessiveLinesPerFunction",

@@ -14,11 +14,11 @@ MANIFEST = "clients/android/app/src/main/AndroidManifest.xml"
 
 
 class Manifest(unittest.TestCase):
-    def test_tracked_manifest_passes(self):
+    def test_tracked_manifest_passes(self) -> None:
         text = (ROOT / MANIFEST).read_text()
         self.assertEqual(CHECK.manifest_errors(MANIFEST, text), [])
 
-    def test_backup_and_exported_service_fail(self):
+    def test_backup_and_exported_service_fail(self) -> None:
         text = (
             (ROOT / MANIFEST)
             .read_text()

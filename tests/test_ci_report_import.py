@@ -24,7 +24,7 @@ def job(name, conclusion, step="build"):
 
 
 class Import(unittest.TestCase):
-    def test_latest(self):
+    def test_latest(self) -> None:
         runs = [
             {"workflowName": "ci", "databaseId": 3, "status": "in_progress"},
             {"workflowName": "ci", "databaseId": 2, "status": "completed"},
@@ -33,7 +33,7 @@ class Import(unittest.TestCase):
         ]
         self.assertEqual(IMPORT.latest(runs), [2, 0])
 
-    def test_failures(self):
+    def test_failures(self) -> None:
         view = {
             "workflowName": "ci",
             "jobs": [
@@ -51,7 +51,7 @@ class Import(unittest.TestCase):
             [f[0] for f in IMPORT.failures(view)], ["ci:ci/required"]
         )
 
-    def test_excerpt(self):
+    def test_excerpt(self) -> None:
         log = "\n".join(
             f"{name}\tUNKNOWN STEP\t2026-10-14T20:03:54.1Z {text}"
             for name, text in [
@@ -70,7 +70,7 @@ class Import(unittest.TestCase):
         quiet = "core\ts\t2026-10-14T20:03:54Z done"
         self.assertEqual(IMPORT.excerpt(quiet, "core"), "done")
 
-    def test_action(self):
+    def test_action(self) -> None:
         bead = {
             "status": "open",
             "description": "Run 7 (push, x): u",

@@ -22,11 +22,11 @@ RESULT = {
 
 
 class Scorecard(unittest.TestCase):
-    def test_below_the_baseline_fails(self):
+    def test_below_the_baseline_fails(self) -> None:
         with self.assertRaisesRegex(ValueError, "6.2 < baseline 6.5"):
             CHECK.check(RESULT, 6.5)
 
-    def test_baseline_failure_names_weak_checks_and_advisories(self):
+    def test_baseline_failure_names_weak_checks_and_advisories(self) -> None:
         result = {
             "score": 7.0,
             "checks": [
@@ -55,7 +55,7 @@ class Scorecard(unittest.TestCase):
         self.assertIn("RUSTSEC-2026-0387", str(raised.exception))
         self.assertNotIn("Fuzzing", str(raised.exception))
 
-    def test_below_target_lists_weak_checks(self):
+    def test_below_target_lists_weak_checks(self) -> None:
         self.assertEqual(
             CHECK.check(RESULT, 5.5).splitlines(),
             [

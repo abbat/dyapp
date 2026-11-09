@@ -32,10 +32,10 @@ def errors(
 
 
 class AdvisoryIgnores(unittest.TestCase):
-    def test_clean(self):
+    def test_clean(self) -> None:
         self.assertEqual(errors(), [])
 
-    def test_format(self):
+    def test_format(self) -> None:
         self.assertEqual(
             errors(reason="no date"), ["deny.toml: A: no review date"]
         )
@@ -56,12 +56,12 @@ class AdvisoryIgnores(unittest.TestCase):
         )
         self.assertEqual(osv, ["osv: B: no review date"])
 
-    def test_audit_ids(self):
+    def test_audit_ids(self) -> None:
         self.assertIn(
             "['A', 'C']", errors(audit='[advisories]\nignore = ["C"]\n')[0]
         )
 
-    def test_expiry(self):
+    def test_expiry(self) -> None:
         past = "review by 2026-10-01 (issue #3)"
         self.assertEqual(errors(reason=past, until="2026-11-12"), [])
         found = errors(reason=past, until="2026-11-12", expiry=True)

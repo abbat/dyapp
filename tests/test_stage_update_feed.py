@@ -76,7 +76,7 @@ def missing():
 
 
 class StageUpdateFeed(unittest.TestCase):
-    def test_first_release_may_start_empty_feed(self):
+    def test_first_release_may_start_empty_feed(self) -> None:
         feed = STAGE.stage(
             "v0.0.1",
             Opener(missing()),
@@ -84,13 +84,13 @@ class StageUpdateFeed(unittest.TestCase):
         )
         self.assertEqual(feed["targets"]["linux-x86_64"]["tag"], "v0.0.1")
 
-    def test_server_only_release_preserves_prior_target(self):
+    def test_server_only_release_preserves_prior_target(self) -> None:
         prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
         response = Response(json.dumps(prior).encode())
         feed = STAGE.stage("v0.0.2", Opener(response), inventory_fn=inventory)
         self.assertEqual(feed, prior)
 
-    def test_prior_fetch_and_validation_fail_closed(self):
+    def test_prior_fetch_and_validation_fail_closed(self) -> None:
         prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
         failures = (
             Opener(missing()),
@@ -107,7 +107,7 @@ class StageUpdateFeed(unittest.TestCase):
             with self.subTest(opener=opener), self.assertRaises(ValueError):
                 STAGE.stage("v0.0.2", opener, inventory_fn=inventory)
 
-    def test_rollback_is_rejected(self):
+    def test_rollback_is_rejected(self) -> None:
         prior = STAGE.BUILD.build(inventory("v0.0.2", "linux-x86_64"))
         response = Response(json.dumps(prior).encode())
         with self.assertRaisesRegex(ValueError, "rollback"):
