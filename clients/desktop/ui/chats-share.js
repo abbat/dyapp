@@ -24,7 +24,7 @@ controller.sharedOpened = undefined;
 
 // Profile links in chats reuse the chat controller's Forward dialog through imports.
 // Forward and Share use one dialog; its title and button name the action.
-/** @param {string} action */
+/** @param {string} action @param {import('./chat-state.js').ChatRow[]} targets */
 const showForwardDialog = (action, targets) => {
   for (const [id, key] of [
     ['chat-forward-title', `chats.${action}Title`],
@@ -51,6 +51,7 @@ const showForwardDialog = (action, targets) => {
   else forwardCancel.focus();
 };
 // A profile is shared into an open chat, never a request, as an ordinary text.
+/** @param {string} peerId */
 const openShare = async (peerId, call = invoke) => {
   const generation = identityState.generation;
   const rows = await call('chat_rows').catch(() => []);

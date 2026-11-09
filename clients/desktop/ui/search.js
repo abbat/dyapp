@@ -170,6 +170,7 @@ const searchQuery = () => {
   const mutual = domById('search-mutual', HTMLInputElement);
   return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
+/** @param {import('./ipc.js').SearchFailure} failure */
 const failureText = (failure) => {
   const text = strings[`search.failure.${failure.kind}`];
   return failure.kind === 'rateLimited'
@@ -712,6 +713,7 @@ const scanSafetyCameraFrame = async (found, frame, current) => {
   showSafetyStatus(`view.safety.scan.${result}`);
   return true;
 };
+/** @param {HTMLVideoElement} preview @param {() => boolean} current */
 const safetyCameraScanner = (found, preview, current) => {
   const scan = async () => {
     if (!current() || !cameraState.stream) return;
@@ -734,7 +736,10 @@ const safetyCameraScanner = (found, preview, current) => {
   };
   return scan;
 };
-/** @param {HTMLVideoElement} preview @param {() => boolean} current */
+/**
+ * @param {HTMLVideoElement} preview @param {() => boolean} current
+ * @param {FoundWithPlace} found
+ */
 const startSafetyCamera = async (found, preview, current) => {
   let stream;
   try {
@@ -838,7 +843,7 @@ domById('view-block', HTMLButtonElement).addEventListener('click', () => {
   controller.blockDone = blockViewed();
 });
 const searchError = domById('search-error', HTMLDivElement);
-/** @param {string} key */
+/** @param {string} key @param {string} details */
 const showSearchError = (key, details) => {
   domById('search-error-text', HTMLParagraphElement).textContent = strings[key];
   domById('search-failures', HTMLPreElement).textContent = details;
@@ -865,7 +870,10 @@ const clearSearch = () => {
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
-/** @param {import('./ipc.js').SearchResults} result @param {import('./ipc.js').Invoke} call */
+/**
+ * @param {import('./ipc.js').SearchResults} result @param {import('./ipc.js').Invoke} call
+ * @param {FoundWithPlace[]} found
+ */
 const renderSearchResults = (result, found, call) => {
   showSearchFilters(result.offered);
   searchResults.replaceChildren(

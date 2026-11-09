@@ -52,6 +52,7 @@ controller.stickerRequestsUpdated = undefined;
       next?.focus();
     }
   };
+  /** @param {string} key */
   const add = (target, key, action) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -64,6 +65,7 @@ controller.stickerRequestsUpdated = undefined;
     target.actions.append(button);
   };
   const manage = (target) => stickersController.stickerCollection.open(target.call);
+  /** @param {(key: string, kind: import('./ipc.js').StickerPackAction['kind']) => void} action */
   const failedActions = (target, value, action) => {
     if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
     else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
@@ -80,7 +82,7 @@ controller.stickerRequestsUpdated = undefined;
     target.caption.textContent = text(
       value.state === 'failed' ? value.failure : value.state,
     ).replace('{name}', () => target.name);
-    /** @param {string} key @param {string} kind */
+    /** @param {string} key @param {import('./ipc.js').StickerPackAction['kind']} kind */
     const action = (key, kind) => add(target, key, () => change(target, kind));
     if (value.state === 'new') action('add', 'request');
     if (value.state === 'failed') failedActions(target, value, action);
@@ -127,6 +129,7 @@ controller.stickerRequestsUpdated = undefined;
   };
   const requestGeneration = (target) =>
     target.value.generation ? [...target.value.generation] : null;
+  /** @param {import('./ipc.js').StickerPackAction['kind']} kind */
   const change = async (target, kind) => {
     if (!active(target) || target.busy || !target.value) return;
     const focus = focusHere(target);

@@ -354,6 +354,7 @@ const nodeEnabled = domById('node-enabled', HTMLInputElement);
 const nodeDisk = domById('node-disk', HTMLInputElement);
 const nodeConnections = domById('node-connections', HTMLInputElement);
 const nodeSave = domById('node-save', HTMLButtonElement);
+/** @param {string} status @param {string | undefined} [detail] */
 const nodeStatus = (status, detail) => {
   const text = localeModule_strings[`node.${status}`];
   domById('node-status', HTMLParagraphElement).textContent = detail ? `${text} ${detail}` : text;
@@ -610,7 +611,7 @@ const publicFacts = (draft, place) => {
   return facts;
 };
 // The same fields as lines, or the empty notice.
-/** @param {string} place */
+/** @param {string} place @param {profileFieldsModule.ProfileDraft} draft */
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
   if (draft.name) fields.unshift(`${localeModule_strings['profile.name']}: ${draft.name}`);

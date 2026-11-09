@@ -22,6 +22,7 @@ controller.stickerImported = undefined;
   const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
   const active = (target) =>
     target && view === target && panel.open && identityCurrent(target.generation) && manager.open;
+  /** @param {string} key */
   const message = (key, error = false) => {
     domById('sticker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
     domById('sticker-status', HTMLParagraphElement).hidden = !key;
@@ -201,6 +202,7 @@ controller.stickerImported = undefined;
     domById('sticker-unknown', HTMLParagraphElement).hidden = true;
     return load(target);
   };
+  /** @param {File} file */
   const prepareImport = (file, target) => {
     if (!file || !active(target) || target.busy) return false;
     domById('sticker-details', HTMLDetailsElement).hidden = true;

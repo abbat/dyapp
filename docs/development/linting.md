@@ -343,6 +343,8 @@ arguments are invalid.
 Controller helpers include JSDoc for DTO inputs, callbacks, DOM elements and optional arguments.
 Open-profile views, note/favorite actions, dialog targets and timers describe their nullable state;
 controllers explicitly expose typed promises for asynchronous operation completion.
+Photo encoders, search results and sticker request callbacks retain their concrete input types;
+sticker action kinds reuse the native command's finite union.
 Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:

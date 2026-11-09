@@ -14,6 +14,7 @@ controller.stickerSent = undefined;
   /** @param {string} id */
   const el = (id) => domById(`sticker-picker-${id}`, HTMLElement);
   const dialog = domById('sticker-picker', HTMLDialogElement);
+  /** @param {string} key */
   const text = (key) => strings[`stickerPicker.${key}`];
   let view = null;
   let returnTo = null;

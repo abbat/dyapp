@@ -78,6 +78,7 @@ const addProfilePhoto = (file, call = invoke) =>
     call,
     () => profilePhotoAdd.focus(),
   );
+/** @param {number} from @param {number} to @param {string} name @param {import('./ipc.js').Invoke} call */
 const moveProfilePhoto = (from, to, name, call) =>
   changeProfilePhotos(
     () => call('move_profile_photo', { from, to }),
@@ -87,6 +88,7 @@ const moveProfilePhoto = (from, to, name, call) =>
       (domFind(tile, `.${name}`, HTMLElement) || tile.querySelector('button')).focus();
     },
   );
+/** @param {number} index @param {import('./ipc.js').Invoke} call */
 const askProfilePhotoRemoval = (index, call) => {
   profilePhotoRemoval = () =>
     changeProfilePhotos(
@@ -98,7 +100,7 @@ const askProfilePhotoRemoval = (index, call) => {
   profilePhotoDialog.showModal();
   profilePhotoCancel.focus();
 };
-/** @param {string} key */
+/** @param {string} key @param {number} index @param {number} count */
 const profilePhotoText = (key, index, count) =>
   strings[key].replace('{n}', index + 1).replace('{count}', count);
 /** @param {string} glyph @param {string} name @param {string} label @param {() => void} click */
@@ -132,7 +134,7 @@ const profilePhotoTile = (hash, index, count, call) => {
     main.textContent = strings['profile.photoMain'];
     tile.append(main);
   }
-  /** @param {string} name */
+  /** @param {string} name @param {number} to */
   const moved = (to, name) => () => {
     controller.profilePhotoChanged = moveProfilePhoto(index, to, name, call);
   };

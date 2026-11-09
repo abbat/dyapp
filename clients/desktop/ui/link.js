@@ -19,6 +19,7 @@ let linkTimer = 0;
 /** @type {import('./identity-state.js').ReadyIdentity | null} */
 let linkJoined = null;
 
+/** @param {string} status */
 const linkState = (status) => {
   linkShown.hidden = status === 'expired' || status === 'finishing';
   linkActions.hidden = status === 'finishing';

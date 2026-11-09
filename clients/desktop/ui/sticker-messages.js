@@ -17,6 +17,7 @@ controller.stickerImageLoaded = undefined;
   const text = (key) => strings[`stickerImage.${key}`];
   const active = (target) =>
     target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
+  /** @param {boolean} focused */
   const renderFrame = (target, bytes, focused) => {
     const canvas = stickerBinaryPixels(bytes, target.fallback.textContent);
     target.image.replaceChildren(canvas);
@@ -31,6 +32,7 @@ controller.stickerImageLoaded = undefined;
     observer.unobserve(target.root);
     pending.delete(target.root);
   };
+  /** @param {boolean} focused */
   const finishLoad = (target, focused) => {
     if (!active(target)) return;
     target.busy = false;

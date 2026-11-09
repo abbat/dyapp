@@ -23,7 +23,7 @@ const connectionStatus = domById('connection-status', HTMLButtonElement);
 // Only the latest launch connect or check may set the shell status.
 let connectionRun = 0;
 let checkGeneration = identityState.generation;
-/** @param {undefined | string} [name] */
+/** @param {undefined | string} [name] @param {string | undefined} state */
 const showConnection = (state, name) => {
   connectionStatus.dataset.state = state;
   for (const dot of domAll(document, '.connection-dot', HTMLElement)) {
@@ -94,6 +94,7 @@ const showNetwork = async (call = invoke) => {
 };
 controller.showNetwork = showNetwork;
 
+/** @param {string} seed @param {import('./ipc.js').NetworkCheckRow | { status: string; }} row */
 const rowItem = (seed, row) => {
   const entry = document.createElement('li');
   entry.dataset.status = row.status;
@@ -113,6 +114,7 @@ const rowItem = (seed, row) => {
 };
 
 // A row-level problem the user must correct outranks nodes that are merely down.
+/** @param {import('./ipc.js').NetworkCheckRow[]} rows */
 const summary = (rows) => {
   const has = (...codes) => rows.some((row) => codes.includes(row.status));
   if (has('connected')) return 'network.connected';

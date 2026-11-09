@@ -22,6 +22,7 @@ const PREVIEW_SIDES = [320, 160];
 const PREVIEW_QUALITIES = [0.8, 0.7, 0.6, 0.5, 0.4];
 const chatPhotoInput = domById('chat-photo-input', HTMLInputElement);
 
+/** @param {ImageBitmap} bitmap @param {number} side @param {number} quality */
 const encodePhoto = (bitmap, side, quality) =>
   new Promise((resolve) => {
     const canvas = document.createElement('canvas');
