@@ -332,103 +332,123 @@ pub(crate) fn canonical_interests(tags: &[String]) -> Result<Vec<String>, String
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, String> {
-    for (field, value) in [
-        (dyapp_profile::Gender::FIELD, draft.gender),
-        (dyapp_profile::Orientation::FIELD, draft.orientation),
-        (
-            dyapp_profile::RelationshipGoal::FIELD,
-            draft.relationship_goal,
-        ),
-        (dyapp_profile::RolePreference::FIELD, draft.role_preference),
-        (dyapp_profile::CareerAmbition::FIELD, draft.career_ambition),
-        (
-            dyapp_profile::FinancialPhilosophy::FIELD,
-            draft.financial_philosophy,
-        ),
-        (
-            dyapp_profile::EmploymentStatus::FIELD,
-            draft.employment_status,
-        ),
-        (dyapp_profile::FitnessLevel::FIELD, draft.fitness_level),
-        (dyapp_profile::Zodiac::FIELD, draft.zodiac),
-        (dyapp_profile::Smoking::FIELD, draft.smoking),
-        (dyapp_profile::Drinking::FIELD, draft.drinking),
-        (dyapp_profile::Tattoos::FIELD, draft.tattoos),
-        (dyapp_profile::MaritalStatus::FIELD, draft.marital_status),
-        (dyapp_profile::Pets::FIELD, draft.pets),
-    ] {
-        if !dyapp_profile::scale(field)
-            .expect("closed scale")
-            .knows(value)
-        {
-            return Err("invalid profile scale".into());
-        }
-    }
-    if !places::known(&draft.country, &draft.place) {
-        return Err("invalid place".into());
-    }
-    let name = draft.name.trim();
-    if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
-        return Err("invalidName".into());
-    }
-    if !dyapp_profile::valid_height(draft.height) {
-        return Err("invalidHeight".into());
-    }
-    let interests = canonical_interests(&draft.interests)?;
-    let about = draft.about.trim();
-    if !dyapp_profile::valid_about(about) {
-        return Err("invalidAbout".into());
-    }
-    let (seeking_genders, seeking_age_from, seeking_age_to) = if draft.not_looking {
-        (Vec::new(), None, None)
-    } else {
-        (
-            draft.seeking_genders,
-            draft.seeking_age_from,
-            draft.seeking_age_to,
-        )
-    };
-    let genders = dyapp_profile::scale(dyapp_profile::Gender::FIELD).expect("closed scale");
-    if !dyapp_profile::valid_seeking(&seeking_genders, seeking_age_from, seeking_age_to)
-        || !seeking_genders.iter().all(|&code| genders.knows(code))
-    {
-        return Err("invalid profile seeking".into());
-    }
+    let interests = draft.validate()?;
     let store = open(dir, identity)?;
-    let profile = Profile {
-        name: name.to_owned(),
-        gender: draft.gender,
-        orientation: draft.orientation,
-        relationship_goal: draft.relationship_goal,
-        role_preference: draft.role_preference,
-        career_ambition: draft.career_ambition,
-        financial_philosophy: draft.financial_philosophy,
-        employment_status: draft.employment_status,
-        fitness_level: draft.fitness_level,
-        zodiac: draft.zodiac,
-        birth_year: draft.birth_year,
-        birth_month: draft.birth_month,
-        birth_day: draft.birth_day,
-        height: draft.height,
-        about: about.to_owned(),
-        interests,
-        smoking: draft.smoking,
-        drinking: draft.drinking,
-        tattoos: draft.tattoos,
-        marital_status: draft.marital_status,
-        pets: draft.pets,
-        country: draft.country,
-        place: draft.place,
-        seeking_genders,
-        seeking_age_from,
-        seeking_age_to,
-        not_looking: draft.not_looking,
-        ..stored(&store)?
-    };
+    let profile = draft.into_profile(stored(&store)?, interests);
     store
         .save_profile_draft(&profile)
         .map_err(|e| e.to_string())?;
     view(&profile, today()?, Some(&store))
+}
+
+impl Draft {
+    fn scale_values(&self) -> [(u32, u32); 14] {
+        [
+            (dyapp_profile::Gender::FIELD, self.gender),
+            (dyapp_profile::Orientation::FIELD, self.orientation),
+            (
+                dyapp_profile::RelationshipGoal::FIELD,
+                self.relationship_goal,
+            ),
+            (dyapp_profile::RolePreference::FIELD, self.role_preference),
+            (dyapp_profile::CareerAmbition::FIELD, self.career_ambition),
+            (
+                dyapp_profile::FinancialPhilosophy::FIELD,
+                self.financial_philosophy,
+            ),
+            (
+                dyapp_profile::EmploymentStatus::FIELD,
+                self.employment_status,
+            ),
+            (dyapp_profile::FitnessLevel::FIELD, self.fitness_level),
+            (dyapp_profile::Zodiac::FIELD, self.zodiac),
+            (dyapp_profile::Smoking::FIELD, self.smoking),
+            (dyapp_profile::Drinking::FIELD, self.drinking),
+            (dyapp_profile::Tattoos::FIELD, self.tattoos),
+            (dyapp_profile::MaritalStatus::FIELD, self.marital_status),
+            (dyapp_profile::Pets::FIELD, self.pets),
+        ]
+    }
+
+    fn validate(&self) -> Result<Vec<String>, String> {
+        for (field, value) in self.scale_values() {
+            if !dyapp_profile::scale(field).is_some_and(|scale| scale.knows(value)) {
+                return Err("invalid profile scale".into());
+            }
+        }
+        if !places::known(&self.country, &self.place) {
+            return Err("invalid place".into());
+        }
+        let name = self.name.trim();
+        if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
+            return Err("invalidName".into());
+        }
+        if !dyapp_profile::valid_height(self.height) {
+            return Err("invalidHeight".into());
+        }
+        let interests = canonical_interests(&self.interests)?;
+        if !dyapp_profile::valid_about(self.about.trim()) {
+            return Err("invalidAbout".into());
+        }
+        let (genders, from, to) = if self.not_looking {
+            (&[][..], None, None)
+        } else {
+            (
+                self.seeking_genders.as_slice(),
+                self.seeking_age_from,
+                self.seeking_age_to,
+            )
+        };
+        if !dyapp_profile::valid_seeking(genders, from, to)
+            || !dyapp_profile::scale(dyapp_profile::Gender::FIELD)
+                .is_some_and(|scale| genders.iter().all(|&code| scale.knows(code)))
+        {
+            return Err("invalid profile seeking".into());
+        }
+        Ok(interests)
+    }
+
+    fn into_profile(self, base: Profile, interests: Vec<String>) -> Profile {
+        let (seeking_genders, seeking_age_from, seeking_age_to) = if self.not_looking {
+            (Vec::new(), None, None)
+        } else {
+            (
+                self.seeking_genders,
+                self.seeking_age_from,
+                self.seeking_age_to,
+            )
+        };
+        Profile {
+            name: self.name.trim().to_owned(),
+            gender: self.gender,
+            orientation: self.orientation,
+            relationship_goal: self.relationship_goal,
+            role_preference: self.role_preference,
+            career_ambition: self.career_ambition,
+            financial_philosophy: self.financial_philosophy,
+            employment_status: self.employment_status,
+            fitness_level: self.fitness_level,
+            zodiac: self.zodiac,
+            birth_year: self.birth_year,
+            birth_month: self.birth_month,
+            birth_day: self.birth_day,
+            height: self.height,
+            about: self.about.trim().to_owned(),
+            interests,
+            smoking: self.smoking,
+            drinking: self.drinking,
+            tattoos: self.tattoos,
+            marital_status: self.marital_status,
+            pets: self.pets,
+            country: self.country,
+            place: self.place,
+            seeking_genders,
+            seeking_age_from,
+            seeking_age_to,
+            not_looking: self.not_looking,
+            ..base
+        }
+    }
 }
 
 /// Checks the draft, then advances its proof of work of `bits`, saving after each step so a

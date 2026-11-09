@@ -49,6 +49,8 @@ a bundler.
 A saved profile draft is separate from a published profile. Save validates the form, including
 any entered place against its suggestions; invalid input stays in the form and is not written
 to the Store. Scale serialization rejects unknown field names and missing required scales.
+Native draft handling separates validation and normalized profile construction from the Store write;
+validation completes before opening the Store and preserves its field-error precedence.
 QR rendering and camera pixel conversion live in `contact-qr.js`; public profile summaries live
 in `profile-public.js`. Canvas unavailability follows the caller's existing error recovery.
 Photo removal retains its opening identity generation. Cancel or an identity change closes and

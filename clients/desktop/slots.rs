@@ -207,6 +207,12 @@ fn read_slot(id: String, dir: PathBuf) -> Slot {
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     let mut slots = Vec::new();
+    append_legacy(root, &mut slots);
+    append_profiles(root, &mut slots)?;
+    Ok(slots)
+}
+
+fn append_legacy(root: &Path, slots: &mut Vec<Slot>) {
     let legacy_mode = read_marker(&root.join("identity-storage"));
     let legacy_key = fs::symlink_metadata(root.join("identity.key")).is_ok();
     match legacy_mode {
@@ -232,8 +238,11 @@ pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
             state: State::Broken,
         }),
     }
+}
+
+fn append_profiles(root: &Path, slots: &mut Vec<Slot>) -> Result<(), String> {
     let entries = match fs::read_dir(root.join("profiles")) {
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(slots),
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
         entries => entries.map_err(|e| e.to_string())?,
     };
     let mut profiles = Vec::new();
@@ -256,7 +265,7 @@ pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     }
     profiles.sort_by(|a, b| a.id.cmp(&b.id));
     slots.extend(profiles);
-    Ok(slots)
+    Ok(())
 }
 
 fn entry_id(entry: &fs::DirEntry) -> Option<String> {

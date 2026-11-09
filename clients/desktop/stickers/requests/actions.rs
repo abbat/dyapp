@@ -3,7 +3,7 @@ use super::{
     chat, chats, owner_matches, status, IdentityState, PackDownloadJob, Selection, Status, Store,
 };
 use crate::profile;
-use dyapp_client::session::Session;
+use dyapp_client::{session::Session, store::messages::ChatSticker};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Deserialize)]
@@ -91,6 +91,16 @@ fn apply(
             _ => {}
         }
     }
+    stage_request(store, key, selection, &item, job.as_ref())
+}
+
+fn stage_request(
+    store: Store,
+    key: &[u8; 32],
+    selection: &Selection,
+    item: &ChatSticker,
+    job: Option<&PackDownloadJob>,
+) -> Result<(), String> {
     let own = profile::stored(&store)?;
     if own.version == 0 {
         return Err("unpublished".into());
@@ -105,7 +115,7 @@ fn apply(
     match job {
         Some(job) => {
             session
-                .stage_fresh_sticker_pack_request(&job, key)
+                .stage_fresh_sticker_pack_request(job, key)
                 .map_err(|e| e.to_string())?;
         }
         None => {
