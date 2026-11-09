@@ -1,10 +1,16 @@
 """Only downloaded bytes with pinned provenance become feed inventory."""
 
+import typing
+
+
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/verify-release-packages.py"
@@ -33,8 +39,11 @@ DIGEST = hashlib.sha256(BYTES).hexdigest()
 
 
 def fake_runner(
-    payload=BYTES, attestation=None, head=COMMIT, state: str = "uploaded"
-):
+    payload: "bytes" = BYTES,
+    attestation: "fc.JSONValue" = None,
+    head: "str" = COMMIT,
+    state: str = "uploaded",
+) -> "tuple[fc.ByteRunner, list[list[str]]]":
     release = {
         "tag_name": TAG,
         "draft": False,
@@ -51,9 +60,9 @@ def fake_runner(
     }
     if attestation is None:
         attestation = [{"verificationResult": {"statement": {}}}]
-    calls = []
+    calls: list[list[str]] = []
 
-    def run(args, timeout: int = 120):
+    def run(args: "list[str]", timeout: int = 120) -> "bytes":
         calls.append(args)
         if args[:2] == ["git", "rev-parse"]:
             return (head if args[2] == "HEAD" else COMMIT).encode()
@@ -98,17 +107,22 @@ class VerifyReleasePackages(unittest.TestCase):
         self.assertIn("--deny-self-hosted-runners", verification)
 
     def test_wrong_bytes_and_empty_attestation_fail(self) -> None:
-        for kwargs in (
+        cases: tuple[fc.RunnerOptions, ...] = (
             {"payload": b"changed"},
             {"attestation": []},
             {"attestation": [{"verificationResult": {}}]},
-        ):
+        )
+        for kwargs in cases:
             run, _ = fake_runner(**kwargs)
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 VERIFY.inventory(TAG, run)
 
     def test_tag_checkout_and_release_state_fail_closed(self) -> None:
-        for kwargs in ({"head": "b" * 40}, {"state": "starter"}):
+        cases: tuple[fc.RunnerOptions, ...] = (
+            {"head": "b" * 40},
+            {"state": "starter"},
+        )
+        for kwargs in cases:
             run, _ = fake_runner(**kwargs)
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 VERIFY.inventory(TAG, run)
@@ -116,7 +130,7 @@ class VerifyReleasePackages(unittest.TestCase):
     def test_verifier_cli_failure_never_emits_inventory(self) -> None:
         run, _ = fake_runner()
 
-        def failed(args, timeout: int = 120):
+        def failed(args: "list[str]", timeout: int = 120) -> "bytes":
             if args[:3] == ["gh", "attestation", "verify"]:
                 raise ValueError("verification command failed: gh")
             return run(args, timeout=timeout)

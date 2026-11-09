@@ -1,5 +1,8 @@
 """Update preflight snapshots and proves only a stopped node's storage."""
 
+import typing
+
+
 from contextlib import closing
 import fcntl
 import importlib.util
@@ -9,6 +12,9 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
@@ -54,17 +60,25 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         )
         self.dyappd.chmod(0o700)
 
-    def run_preflight(self, mode: str = "inline", recovery=None, **options):
+    def run_preflight(
+        self,
+        mode: str = "inline",
+        recovery: "Path | None" = None,
+        **options: "typing.Unpack[fc.StorageOptions]",
+    ) -> "str":
         with PREFLIGHT.stopped(self.source):
-            return PREFLIGHT.preflight(
-                self.source,
-                self.snapshot,
-                mode,
-                recovery,
-                self.dyappd,
-                0,
-                scratch=self.root,
-                **options,
+            return typing.cast(
+                "str",
+                PREFLIGHT.preflight(
+                    self.source,
+                    self.snapshot,
+                    mode,
+                    recovery,
+                    self.dyappd,
+                    0,
+                    scratch=self.root,
+                    **options,
+                ),
             )
 
     def live(self) -> "dict[str, bytes]":
@@ -92,9 +106,9 @@ class PreflightBootstrapUpdate(unittest.TestCase):
     def test_insufficient_space_fails_before_snapshot(self) -> None:
         sizes = []
 
-        def free(path):
+        def free(path: "Path") -> "int":
             sizes.append(path)
-            return PREFLIGHT.MARGIN
+            return typing.cast(int, PREFLIGHT.MARGIN)
 
         with self.assertRaisesRegex(ValueError, "not enough free space"):
             self.run_preflight(free=free)

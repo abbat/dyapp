@@ -1,9 +1,16 @@
 """The workspace API gate rejects findings and incomplete coverage."""
 
+import typing
+
+
 import copy
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -16,7 +23,7 @@ GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
 
 
-def complete():
+def complete() -> "fc.PublicReport":
     return {
         "schema_version": 5,
         "summary": {
@@ -74,8 +81,10 @@ class UnusedPublicGateTest(unittest.TestCase):
             "production": [],
         }
         for key, value in incomplete.items():
-            report = copy.deepcopy(complete())
-            report["summary"][key] = value
+            complete_report = copy.deepcopy(complete())
+            summary: dict[str, object] = dict(complete_report["summary"])
+            summary[key] = value
+            report: dict[str, object] = {**complete_report, "summary": summary}
             with self.subTest(key=key), self.assertRaises(ValueError):
                 GATE.failures(report, 0)
 

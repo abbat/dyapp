@@ -1,5 +1,7 @@
 """Observe the harness saving every node before a real gate failure."""
 
+import typing
+
 import hashlib
 import importlib.util
 import io
@@ -33,7 +35,14 @@ class MemoryReports(unittest.TestCase):
             (root / "dyappd").write_bytes(b"measured release binary")
             expected = hashlib.sha256(b"measured release binary").hexdigest()
 
-            def start(_bin, _storage, peers, processes, _env, flood) -> None:
+            def start(
+                _bin: "str",
+                _storage: "str | Path",
+                peers: "list[tuple[str, str]]",
+                processes: "list[object]",
+                _env: "typing.Mapping[str, str]",
+                flood: "bool",
+            ) -> None:
                 self.assertFalse(flood)
                 peers.extend([("tcp", "quic")] * 3)
                 processes.extend([object()] * 3)

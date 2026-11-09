@@ -1,9 +1,14 @@
+import typing
+
 import types
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
@@ -48,7 +53,10 @@ class VerifyBootstrapBackup(unittest.TestCase):
             recovery.write_bytes(b"portable")
         BACKUP.snapshot(self.source, self.snapshot, mode, recovery)
 
-    def change_manifest(self, change) -> None:
+    def change_manifest(
+        self,
+        change: "typing.Callable[[list[dict[str, fc.JSONValue]]], object]",
+    ) -> None:
         manifest = self.snapshot / "manifest.jsonl"
         lines = [
             json.loads(line) for line in manifest.read_text().splitlines()

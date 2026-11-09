@@ -1,5 +1,8 @@
 """Stopped-node snapshot writer rejects incomplete or unsafe input."""
 
+import typing
+
+
 import hashlib
 import importlib.util
 import json
@@ -7,6 +10,9 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/backup-bootstrap.py"
@@ -35,7 +41,7 @@ class BackupBootstrap(unittest.TestCase):
         }.items():
             (self.source / name).write_bytes(value)
 
-    def records(self):
+    def records(self) -> "list[fc.ManifestRecord]":
         return [
             json.loads(line)
             for line in (self.destination / "manifest.jsonl")
@@ -68,9 +74,9 @@ class BackupBootstrap(unittest.TestCase):
         self.assertNotIn("storage/profiles-idx.db", names)
         self.assertNotIn("storage/dyappd.lock", names)
         for record in files:
-            data = (self.destination / record["path"]).read_bytes()
-            self.assertEqual(record["size"], len(data))
-            digest = hashlib.sha256(data).hexdigest()
+            content = (self.destination / record["path"]).read_bytes()
+            self.assertEqual(record["size"], len(content))
+            digest = hashlib.sha256(content).hexdigest()
             self.assertEqual(record["sha256"], digest)
         self.assertEqual(stat.S_IMODE(self.destination.stat().st_mode), 0o700)
         key = self.destination / "storage/node.key"

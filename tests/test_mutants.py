@@ -1,5 +1,8 @@
 """B2 mutation score over cargo-mutants shards."""
 
+import typing
+
+
 import importlib.util
 import json
 from pathlib import Path
@@ -7,6 +10,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests/scripts/check-mutants.py"
@@ -26,7 +33,9 @@ REPOSITORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPOSITORY)
 
 
-def shard(caught: "int", timeout: "int", missed: "int", unviable: int = 0):
+def shard(
+    caught: "int", timeout: "int", missed: "int", unviable: int = 0
+) -> "fc.Shard":
     return {
         "caught": caught,
         "timeout": timeout,
@@ -52,19 +61,20 @@ class Mutants(unittest.TestCase):
         )
 
     def test_package_with_only_unviable_mutants_fails(self) -> None:
-        def outcome(package, summary):
+        def outcome(package: "str", summary: "str") -> "fc.Outcome":
             return {
                 "scenario": {"Mutant": {"package": package}},
                 "summary": summary,
             }
 
-        report = shard(8, 0, 2, 2) | {
+        report: "fc.Shard" = {
+            **shard(8, 0, 2, 2),
             "outcomes": [
                 {"scenario": "Baseline", "summary": "Success"},
                 outcome("a", "Unviable"),
                 outcome("a", "CaughtMutant"),
                 outcome("b", "Unviable"),
-            ]
+            ],
         }
         with self.assertRaisesRegex(ValueError, "Every mutant in b is"):
             CHECK.check([report], 70)
@@ -74,7 +84,9 @@ class Mutants(unittest.TestCase):
     def test_missed_invariant_mutant_fails_regardless_of_the_score(
         self,
     ) -> None:
-        def outcome(file, function, summary, line: int = 1):
+        def outcome(
+            file: "str", function: "str", summary: "str", line: int = 1
+        ) -> "fc.Outcome":
             return {
                 "scenario": {
                     "Mutant": {
@@ -88,13 +100,14 @@ class Mutants(unittest.TestCase):
             }
 
         scope = {"a.rs": "^verify$", "b.rs": ""}
-        report = shard(9, 1, 1) | {
+        report: "fc.Shard" = {
+            **shard(9, 1, 1),
             "outcomes": [
                 outcome("a.rs", "verify", "CaughtMutant"),
                 outcome("a.rs", "verify_more", "MissedMutant"),
                 outcome("b.rs", "any", "Timeout"),
                 outcome("c.rs", "verify", "MissedMutant"),
-            ]
+            ],
         }
         self.assertIn("90.9%", CHECK.check([report], 50, scope))
         report["outcomes"].append(outcome("b.rs", "any", "MissedMutant", 7))

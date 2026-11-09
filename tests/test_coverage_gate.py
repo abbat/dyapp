@@ -1,9 +1,16 @@
 """Coverage boundaries and incomplete reports, executed only in Docker."""
 
+import typing
+
+
 import copy
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -18,7 +25,9 @@ SPEC.loader.exec_module(GATE)
 
 class Coverage(unittest.TestCase):
     @staticmethod
-    def report(covered: int | str = 7500, count: int | str = 10000):
+    def report(
+        covered: int | str = 7500, count: int | str = 10000
+    ) -> "fc.CoverageReport":
         return {
             "type": "llvm.coverage.json.export",
             "data": [
@@ -53,17 +62,19 @@ class Coverage(unittest.TestCase):
                     GATE.validate(self.report(covered, count), 75)
 
     def test_empty_partial_and_wrong_format_fail(self) -> None:
-        cases = [{}, {"type": "lcov"}, {"data": []}]
+        cases: list[dict[str, object]] = [{}, {"type": "lcov"}, {"data": []}]
         for change in cases:
-            report = copy.deepcopy(self.report()) if change else {}
+            report: dict[str, object] = (
+                dict(copy.deepcopy(self.report())) if change else {}
+            )
             report.update(change)
             with self.subTest(change=change), self.assertRaises(ValueError):
                 GATE.validate(report, 75)
         for files in ([], self.report()["data"][0]["files"][:-1]):
-            report = self.report()
-            report["data"][0]["files"] = files
+            incomplete_report = self.report()
+            incomplete_report["data"][0]["files"] = files
             with self.subTest(files=files), self.assertRaises(ValueError):
-                GATE.validate(report, 75)
+                GATE.validate(incomplete_report, 75)
 
     def test_diff_coverage(self) -> None:
         diff = (

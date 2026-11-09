@@ -292,6 +292,9 @@ the docs checker consumes the dynamically loaded parser through a narrow protoco
 Scalar validators accept `object` until their existing runtime checks narrow the input.
 CLI helpers distinguish filesystem paths, byte/text buffers and numeric timeouts; test source
 loaders return `ModuleType`. GUI parser callbacks retain the standard HTML attribute types.
+`tests/fixture_contracts.py` describes fixture records, command callbacks and backup options.
+Fixture builders keep concrete output fields; negative controls use raw input views when they
+intentionally corrupt a record. Type-only imports keep those schemas out of test startup.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

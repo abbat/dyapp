@@ -1,9 +1,16 @@
 """Clippy panic budgets fail on growth, missing builds and hidden packages."""
 
+import typing
+
+
 from copy import deepcopy
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -16,7 +23,9 @@ CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
 
-def message(path: str = "rust/ffi/src/lib.rs", package: str = "ffi"):
+def message(
+    path: str = "rust/ffi/src/lib.rs", package: str = "ffi"
+) -> "fc.CompilerRecord":
     return {
         "reason": "compiler-message",
         "package_id": package,

@@ -11,6 +11,10 @@ import subprocess
 import tempfile
 import unittest
 
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
     "apple_results", ROOT / "tests/scripts/check-apple-results.py"
@@ -27,7 +31,7 @@ class Reports(unittest.TestCase):
         self.assertEqual(APPLE.validate(self.apple_summary()), 3)
 
     @staticmethod
-    def apple_summary():
+    def apple_summary() -> "fc.AppleSummary":
         return {
             "totalTestCount": 3,
             "passedTests": 3,
@@ -37,7 +41,7 @@ class Reports(unittest.TestCase):
         }
 
     def test_apple_rejects_partial_failed_skipped_and_malformed(self) -> None:
-        cases = [
+        cases: list[dict[str, object]] = [
             {},
             {"totalTestCount": 0},
             {"passedTests": 2},
@@ -48,7 +52,9 @@ class Reports(unittest.TestCase):
             {"totalTestCount": 2, "passedTests": 2},
         ]
         for change in cases:
-            data = copy.deepcopy(self.apple_summary()) if change else {}
+            data: dict[str, object] = (
+                dict(copy.deepcopy(self.apple_summary())) if change else {}
+            )
             data.update(change)
             with self.subTest(change=change), self.assertRaises(ValueError):
                 APPLE.validate(data)

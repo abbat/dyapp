@@ -1,5 +1,8 @@
 """Reject malformed budgets, stale source and incomplete parser output."""
 
+import typing
+
+
 import types
 
 import copy
@@ -11,6 +14,10 @@ import sys
 import time
 import unittest
 from unittest import mock
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,7 +39,7 @@ with mock.patch.dict(sys.modules, rust_complexity=POLICY):
     RUNNER = load("complexity_runner", "check-rust-complexity.py")
 
 
-def budget():
+def budget() -> "fc.Budget":
     return {
         "path": "rust/example.rs",
         "function": "fn retained",
@@ -47,14 +54,15 @@ class ComplexityRunnerTest(unittest.TestCase):
             RUNNER.budgets([row]),
             {("rust/example.rs", "fn retained"): {"lines": 70}},
         )
-        malformed = [None, {}, [row, row]]
+        malformed: list[object] = [None, {}, [row, row]]
         for value in (False, 0, -1, "70"):
             invalid = copy.deepcopy(row)
             invalid["metrics"]["lines"] = value
             malformed.append([invalid])
+        metrics: object
         for metrics in ({"unknown": 1}, {"nesting": 6}, [], {}):
-            invalid = dict(row, metrics=metrics)
-            malformed.append([invalid])
+            invalid_override = dict(row, metrics=metrics)
+            malformed.append([invalid_override])
         for rows in malformed:
             with self.assertRaises((ValueError, TypeError)):
                 RUNNER.budgets(rows)

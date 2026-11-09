@@ -1,9 +1,15 @@
 """GitHub release metadata alone yields untrusted package candidates."""
 
+import typing
+
+
 import importlib.util
 import json
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/release-candidates.py"
@@ -20,7 +26,7 @@ LINUX = "dyapp_0.0.1_amd64.deb"
 WINDOWS = "dyapp-0.0.1-x86_64-windows.zip"
 
 
-def release(*assets):
+def release(*assets: "fc.GitHubAsset") -> "fc.GitHubRelease":
     return {
         "tag_name": TAG,
         "draft": False,
@@ -36,7 +42,7 @@ def asset(
     digest: "str" = DIGEST,
     state: str = "uploaded",
     size: int = 42,
-):
+) -> "fc.GitHubAsset":
     return {
         "name": name,
         "digest": f"sha256:{digest}",
@@ -66,7 +72,7 @@ class ReleaseCandidates(unittest.TestCase):
 
     def test_release_identity_and_state_must_match(self) -> None:
         for change in ("tag_name", "draft", "prerelease", "published_at"):
-            item = release(asset(LINUX))
+            item: dict[str, object] = dict(release(asset(LINUX)))
             item[change] = {
                 "tag_name": "v0.0.2",
                 "draft": True,

@@ -35,7 +35,7 @@ class ProductionSetupTest(unittest.TestCase):
         heading = ("Setup", True, True, False)
         button = ("Create", True, True, True)
         self.assertTrue(DRIVER.rendered_setup([heading, button], expected))
-        invalid = (
+        invalid: tuple[list[tuple[str, bool, bool, bool]], ...] = (
             [],
             [heading],
             [button],

@@ -1,5 +1,8 @@
 """Fixture diffs for the pull request review guard."""
 
+import typing
+
+
 import contextlib
 import datetime as dt
 import importlib.util
@@ -10,6 +13,9 @@ import subprocess
 import tempfile
 import unittest
 import unittest.mock as mock
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 SCRIPT = Path(__file__).parent / "scripts/pr-guard.py"
 spec = importlib.util.spec_from_file_location("pr_guard", SCRIPT)
@@ -71,7 +77,11 @@ class PullRequestGuardTests(unittest.TestCase):
         self.git("commit", "-q", "-m", "fixture")
         return self.git("rev-parse", "HEAD")
 
-    def check(self, files, published=None):
+    def check(
+        self,
+        files: "typing.Mapping[str, str]",
+        published: "fc.PublicationLookup" = None,
+    ) -> "tuple[bool, str]":
         for path, content in files.items():
             self.write(path, content)
         head = self.commit()

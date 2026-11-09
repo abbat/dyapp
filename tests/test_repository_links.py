@@ -1,5 +1,7 @@
 """Markdown link checks of check-repository.py, executed only in Docker."""
 
+import typing
+
 import importlib.util
 from pathlib import Path
 import unittest
@@ -24,10 +26,12 @@ TARGET = """# Guide
 
 class Links(unittest.TestCase):
     @staticmethod
-    def check(text):
+    def check(text: "str") -> "list[str]":
         documents = {"docs/a.md": text, "docs/b.md": TARGET}
         files = set(documents) | {"docs", "scripts/x.sh"}
-        return CHECK.broken_links(documents, files.__contains__)
+        return typing.cast(
+            "list[str]", CHECK.broken_links(documents, files.__contains__)
+        )
 
     def test_resolving_links_pass(self) -> None:
         self.assertEqual(

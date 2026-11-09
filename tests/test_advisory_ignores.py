@@ -1,5 +1,7 @@
 """check-advisory-ignores.py: review dates on security advisory ignores."""
 
+import typing
+
 from datetime import date
 import importlib.util
 from pathlib import Path
@@ -26,11 +28,14 @@ def deny(reason: "str") -> "str":
 def errors(
     reason: str = "x; review by 2026-11-21 (issue #22)",
     until: str = "2026-11-21",
-    audit=AUDIT,
+    audit: "str" = AUDIT,
     expiry: bool = False,
-):
-    return CHECK.errors(
-        deny(reason), audit, {"osv": OSV.format(until)}, TODAY, expiry
+) -> "list[str]":
+    return typing.cast(
+        "list[str]",
+        CHECK.errors(
+            deny(reason), audit, {"osv": OSV.format(until)}, TODAY, expiry
+        ),
     )
 
 

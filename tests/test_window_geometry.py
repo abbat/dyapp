@@ -19,7 +19,8 @@ class WindowGeometryTest(unittest.TestCase):
         rectangle = re.search(
             r"pub struct Rect \{.*?^\}", source, flags=re.DOTALL | re.MULTILINE
         )
-        self.assertIsNotNone(rectangle)
+        if rectangle is None:
+            self.fail("Rect declaration is missing")
         module = ROOT / "clients/desktop/window/geometry.rs"
         harness = directory / "harness.rs"
         header = "#[derive(Clone, Copy, Debug, PartialEq)]\n"

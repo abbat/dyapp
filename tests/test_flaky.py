@@ -1,9 +1,16 @@
 """B5 flaky detection from JUnit reports and the quarantine deadline."""
 
+import typing
+
+
 from datetime import date
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -30,7 +37,7 @@ class Flaky(unittest.TestCase):
         )
 
     def test_xcresult_tests_passing_on_repetition_are_flaky(self) -> None:
-        def case(name, result, *runs):
+        def case(name: "str", result: "str", *runs: "str") -> "fc.TestNode":
             return {
                 "nodeType": "Test Case",
                 "name": name,

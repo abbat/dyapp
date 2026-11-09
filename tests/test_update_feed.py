@@ -1,9 +1,15 @@
 """Offline stable feed publication rejects unverified client availability."""
 
+import typing
+
+
 import importlib.util
 import json
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/build-update-feed.py"
@@ -17,7 +23,9 @@ COMMIT = "a" * 40
 DIGEST = "b" * 64
 
 
-def release(tag: str = "v0.0.1", targets=None):
+def release(
+    tag: str = "v0.0.1", targets: "dict[str, fc.TargetClaim] | None" = None
+) -> "fc.Release":
     return {
         "tag": tag,
         "commit": COMMIT,
@@ -30,7 +38,7 @@ def release(tag: str = "v0.0.1", targets=None):
     }
 
 
-def package(target, tag: str = "v0.0.1"):
+def package(target: "str", tag: str = "v0.0.1") -> "fc.Release":
     name = FEED.expected_package(target, tag)
     item = release(tag, {target: {"method": "package", "asset": name}})
     item["assets"] = [{"name": name, "state": "uploaded", "sha256": DIGEST}]
@@ -38,11 +46,11 @@ def package(target, tag: str = "v0.0.1"):
     return item
 
 
-def inventory(*releases):
+def inventory(*releases: "fc.Release") -> "fc.Inventory":
     return {"schema": 1, "releases": list(releases)}
 
 
-def previous(**targets):
+def previous(**targets: "fc.PreviousTarget") -> "fc.PreviousFeed":
     return {"schema": 1, "channel": "stable", "targets": targets}
 
 
@@ -65,7 +73,10 @@ class UpdateFeed(unittest.TestCase):
         self.assertEqual(actual["targets"]["linux-x86_64"]["tag"], "v0.0.10")
 
     def test_draft_and_prerelease_cannot_advertise_clients(self) -> None:
-        for state in ("draft", "prerelease"):
+        states: tuple[
+            typing.Literal["draft"], typing.Literal["prerelease"]
+        ] = ("draft", "prerelease")
+        for state in states:
             item = package("windows-x86_64")
             item[state] = True
             with self.subTest(state=state), self.assertRaises(ValueError):
@@ -113,15 +124,14 @@ class UpdateFeed(unittest.TestCase):
         prior = FEED.build(inventory(package("windows-x86_64", "v0.0.2")))
         with self.assertRaisesRegex(ValueError, "rollback"):
             FEED.build(inventory(package("windows-x86_64", "v0.0.1")), prior)
-        store_prior = previous(
-            **{
-                "windows-x86_64": {
-                    "version": "0.0.2",
-                    "tag": "v0.0.2",
-                    "method": "store",
-                }
+        store_targets: dict[str, fc.PreviousTarget] = {
+            "windows-x86_64": {
+                "version": "0.0.2",
+                "tag": "v0.0.2",
+                "method": "store",
             }
-        )
+        }
+        store_prior = previous(**store_targets)
         message = "changed without version bump"
         with self.assertRaisesRegex(ValueError, message):
             FEED.build(

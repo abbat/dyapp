@@ -8,6 +8,10 @@ import json
 from pathlib import Path
 import unittest
 from urllib.error import HTTPError
+from email.message import Message
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/stage-update-feed.py"
@@ -21,10 +25,10 @@ DIGEST = "b" * 64
 COMMIT = "a" * 40
 
 
-def inventory(tag: "str", platform: "str | None" = None):
-    assets = []
-    attestations = []
-    targets = {}
+def inventory(tag: "str", platform: "str | None" = None) -> "fc.Inventory":
+    assets: list["fc.Asset"] = []
+    attestations: list["fc.Attestation"] = []
+    targets: dict[str, "fc.TargetClaim"] = {}
     if platform:
         name = f"dyapp_{tag[1:]}_amd64.deb"
         assets.append({"name": name, "state": "uploaded", "sha256": DIGEST})
@@ -80,7 +84,7 @@ class Opener:
 
 
 def missing() -> "HTTPError":
-    return HTTPError(STAGE.FEED_URL, 404, "not found", {}, None)
+    return HTTPError(STAGE.FEED_URL, 404, "not found", Message(), None)
 
 
 class StageUpdateFeed(unittest.TestCase):

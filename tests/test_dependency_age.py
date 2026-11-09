@@ -1,11 +1,17 @@
 """No crates.io version younger than 14 days reaches a Cargo.lock."""
 
+import typing
+
+
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -53,8 +59,14 @@ class DependencyAge(unittest.TestCase):
                 f'\nsource = "{CHECK.CRATES_IO}"\n\n'
             )
 
-    def errors(self, exceptions=None):
-        return CHECK.errors([self.lock], [self.index], NOW, exceptions or {})
+    def errors(
+        self,
+        exceptions: "fc.ExceptionDates | None" = None,
+    ) -> "list[str]":
+        return typing.cast(
+            "list[str]",
+            CHECK.errors([self.lock], [self.index], NOW, exceptions or {}),
+        )
 
     def test_age(self) -> None:
         self.publish("serde", "1.0.0", days=20)

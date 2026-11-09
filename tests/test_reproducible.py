@@ -1,11 +1,18 @@
 """Reproducibility must reject changed bytes and cached or missing outputs."""
 
+import typing
+
+
 import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -56,7 +63,10 @@ class Reproducibility(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as directory:
                     seen = []
 
-                    def cargo(command, **kwargs):
+                    def cargo(
+                        command: "typing.Sequence[str]",
+                        **kwargs: "typing.Unpack[fc.ProcessOptions]",
+                    ) -> "SimpleNamespace":
                         env = kwargs["env"]
                         destination = Path(env["CARGO_TARGET_DIR"])
                         self.assertFalse(destination.exists())

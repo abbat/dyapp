@@ -1,9 +1,16 @@
 """Keep complexity budgets attached to the actual offending functions."""
 
+import typing
+
+
 import copy
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -16,16 +23,16 @@ GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
 
 
-def fixture():
+def fixture() -> "tuple[bytes, fc.FunctionEntry, fc.Finding]":
     source = b"fn old() { if true {} }"
-    entry = {
+    entry: "fc.FunctionEntry" = {
         "id": "fn old",
         "kind": "function",
         "start": [1, 0],
         "end": [1, len(source)],
         "nesting": 6,
     }
-    finding = {
+    finding: "fc.Finding" = {
         "code": "clippy::too_many_lines",
         "span": {
             "file_name": "src/lib.rs",
@@ -38,7 +45,7 @@ def fixture():
     return source, entry, finding
 
 
-def complete(finding):
+def complete(finding: "fc.Finding") -> "list[fc.CompilerRecord]":
     return [
         {
             "reason": "compiler-artifact",
@@ -60,9 +67,17 @@ def complete(finding):
 
 
 class RustComplexityTest(unittest.TestCase):
-    def measure(self, source, entries, finding):
-        return GATE.measure(
-            [finding], {"src/lib.rs": source}, {"src/lib.rs": entries}
+    def measure(
+        self,
+        source: "bytes",
+        entries: "typing.Sequence[fc.FunctionEntry]",
+        finding: "fc.Finding",
+    ) -> "dict[tuple[str, str], dict[str, int]]":
+        return typing.cast(
+            "dict[tuple[str, str], dict[str, int]]",
+            GATE.measure(
+                [finding], {"src/lib.rs": source}, {"src/lib.rs": entries}
+            ),
         )
 
     def test_new_function_cannot_replace_old_with_equal_total(self) -> None:
@@ -99,9 +114,13 @@ class RustComplexityTest(unittest.TestCase):
         self,
     ) -> None:
         source, entry, finding = fixture()
-        closure = dict(
-            entry, id="closure", kind="closure", start=[1, 3], end=[1, 6]
-        )
+        closure: "fc.FunctionEntry" = {
+            **entry,
+            "id": "closure",
+            "kind": "closure",
+            "start": [1, 3],
+            "end": [1, 6],
+        }
         finding["code"] = "clippy::cognitive_complexity"
         finding["message"] = (
             "the function has a cognitive complexity of (16/15)"

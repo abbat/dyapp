@@ -1,5 +1,8 @@
 """Runner regressions; execute this module inside the dev Docker service."""
 
+import typing
+
+
 import importlib.util
 import io
 import json
@@ -17,6 +20,9 @@ sys.path.insert(0, str(ROOT / "tools/scripts"))
 
 # This test imports the runner from the path added above.
 from capture import Capture  # noqa: E402 -- path set above
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 class Captures(unittest.TestCase):
@@ -55,7 +61,7 @@ class Runners(unittest.TestCase):
         command: "str",
         failing_service: str = "",
         verbose: str = "0",
-    ):
+    ) -> "tuple[subprocess.CompletedProcess[str], str]":
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             docker = Path(directory) / "docker"
@@ -183,7 +189,10 @@ class Runners(unittest.TestCase):
         ):
             with self.subTest(run_status=run_status):
 
-                def execute(command, **kwargs):
+                def execute(
+                    command: "typing.Sequence[str]",
+                    **kwargs: "typing.Unpack[fc.ProcessOptions]",
+                ) -> "subprocess.CompletedProcess[bytes]":
                     os.write(kwargs["stdout"], (command[0] + "\n").encode())
                     if command == ["run"] and run_status == 130:
                         raise KeyboardInterrupt
@@ -319,7 +328,10 @@ class Runners(unittest.TestCase):
         spec.loader.exec_module(network)
         environment = {"DYAPPD_STORAGE_DIR": "/storage/7071"}
 
-        def spawn(command, **kwargs) -> None:
+        def spawn(
+            command: "typing.Sequence[str]",
+            **kwargs: "typing.Unpack[fc.ProcessOptions]",
+        ) -> None:
             os.write(kwargs["stdout"], b"node output\n")
             self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
 
@@ -346,7 +358,10 @@ class Runners(unittest.TestCase):
 
         process = Mock()
 
-        def spawn(command, **kwargs):
+        def spawn(
+            command: "typing.Sequence[str]",
+            **kwargs: "typing.Unpack[fc.ProcessOptions]",
+        ) -> "Mock":
             os.write(kwargs["stdout"], b"node startup failed\n")
             return process
 
@@ -451,7 +466,10 @@ class Runners(unittest.TestCase):
             with self.subTest(status=status):
                 log = b"build log\n"
 
-                def execute(command, **kwargs):
+                def execute(
+                    command: "typing.Sequence[str]",
+                    **kwargs: "typing.Unpack[fc.ProcessOptions]",
+                ) -> "fc.ProcessResult":
                     if command[1] in ("compose", "image"):
                         return config
                     os.write(kwargs["stdout"], log)

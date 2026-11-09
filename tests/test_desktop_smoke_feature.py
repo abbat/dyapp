@@ -22,7 +22,9 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
         path.mkdir(parents=True)
         return path
 
-    def compile(self, directory, source, enabled):
+    def compile(
+        self, directory: "Path", source: "str", enabled: "bool"
+    ) -> "Path":
         path = directory / "probe.rs"
         path.write_text(source)
         binary = directory / "probe"
@@ -56,7 +58,8 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
             r'#\[path = "ui-tests/mod.rs"\]\nmod ui_smoke;',
             main,
         )
-        self.assertIsNotNone(gate)
+        if gate is None:
+            self.fail("UI smoke module declaration is missing")
         directory = self.directory("embedding")
         bundle = directory / "bundle.rs"
         source_dir = ROOT / "clients/desktop/ui-tests"

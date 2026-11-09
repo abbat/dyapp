@@ -1,5 +1,8 @@
 """Restore swaps a verified snapshot into a stopped node's storage."""
 
+import typing
+
+
 from contextlib import closing
 import fcntl
 import importlib.util
@@ -10,6 +13,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
@@ -83,15 +89,20 @@ class RestoreBootstrap(unittest.TestCase):
             database.execute("PRAGMA user_version = 99")
             database.execute("INSERT INTO records VALUES (2)")
 
-    def run_restore(self, **options):
+    def run_restore(
+        self, **options: "typing.Unpack[fc.StorageOptions]"
+    ) -> "Path":
         with PREFLIGHT.stopped(self.storage):
-            return RESTORE.restore(
-                self.snapshot,
-                self.storage,
-                self.dyappd,
-                0,
-                scratch=self.root,
-                **options,
+            return typing.cast(
+                "Path",
+                RESTORE.restore(
+                    self.snapshot,
+                    self.storage,
+                    self.dyappd,
+                    0,
+                    scratch=self.root,
+                    **options,
+                ),
             )
 
     def test_restores_snapshot_and_keeps_failed_store(self) -> None:
@@ -175,7 +186,9 @@ class RestoreBootstrap(unittest.TestCase):
             self.run_restore()
         self.assertEqual(self.live(), self.saved)
 
-    def assert_refused_untouched(self, pattern, **options) -> None:
+    def assert_refused_untouched(
+        self, pattern: "str", **options: "typing.Unpack[fc.StorageOptions]"
+    ) -> None:
         self.migrate()
         migrated = self.live()
         with self.assertRaisesRegex(ValueError, pattern):

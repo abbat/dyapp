@@ -37,7 +37,7 @@ class WebUnusedTest(unittest.TestCase):
     def test_real_checker_accepts_live_code_and_rejects_dead_code(
         self,
     ) -> None:
-        cases = (
+        cases: tuple[tuple[dict[str, str], int, str], ...] = (
             ({}, 0, ""),
             (
                 {"clients/desktop/ui/extra.js": "export const unused = 1;"},

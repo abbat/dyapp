@@ -15,8 +15,8 @@ TOP = re.compile(
 class Navigation(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
-        self.targets = set()
-        self.sections = set()
+        self.targets: set[str | None] = set()
+        self.sections: set[str | None] = set()
 
     def handle_starttag(
         self,
@@ -62,7 +62,7 @@ class NavigationTest(unittest.TestCase):
 class ModuleScripts(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
-        self.scripts = []
+        self.scripts: list[dict[str, str | None]] = []
 
     def handle_starttag(
         self, tag: "str", attrs: "list[tuple[str, str | None]]"
@@ -83,7 +83,10 @@ class ModuleEntryTest(unittest.TestCase):
         page.feed((UI / "ui/index.html").read_text())
         self.assertTrue(page.external_modules())
         for script in page.scripts:
-            self.assertTrue((UI / "ui" / script["src"]).is_file())
+            source = script["src"]
+            if source is None:
+                self.fail("Module script source is missing")
+            self.assertTrue((UI / "ui" / source).is_file())
 
     def test_classic_and_inline_scripts_are_rejected(self) -> None:
         for source in (

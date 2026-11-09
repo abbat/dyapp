@@ -27,7 +27,9 @@ if name == "sudo" and sys.argv[1] != "apt-get":
 
 
 class CiSetupTest(unittest.TestCase):
-    def run_setup(self, profile):
+    def run_setup(
+        self, profile: "str"
+    ) -> "tuple[subprocess.CompletedProcess[str], list[list[str]], Path]":
         directory = ROOT / "build/tool-fixtures/ci-setup"
         directory = directory / str(time.time_ns())
         binaries = directory / "bin"

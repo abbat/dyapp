@@ -1,5 +1,8 @@
 """Quorum proof binds the range and distinct closed participants."""
 
+import typing
+
+
 from copy import deepcopy
 import importlib.util
 import io
@@ -9,6 +12,10 @@ import unittest
 from unittest.mock import patch
 
 import test_triggers
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -23,14 +30,14 @@ with patch.dict(sys.modules, {"triggers": test_triggers.CHECK}):
 BASE, HEAD = "a" * 40, "b" * 40
 
 
-def proof():
-    quorum = {
+def proof() -> "tuple[fc.QuorumMember, list[fc.QuorumMember]]":
+    quorum: "fc.QuorumMember" = {
         "issue_type": "epic",
         "status": "closed",
         "labels": ["quorum"],
         "description": f"Snapshot: {HEAD}\nDiff base: {BASE}\n",
     }
-    members = [
+    members: list["fc.QuorumMember"] = [
         {
             "issue_type": "epic",
             "status": "closed",
@@ -59,7 +66,7 @@ class Quorum(unittest.TestCase):
             ("labels", []),
             ("description", f"Snapshot: {BASE}"),
         ]:
-            changed = deepcopy(quorum)
+            changed: dict[str, object] = dict(deepcopy(quorum))
             changed[key] = value
             self.assertTrue(CHECK.proof_errors(changed, members, BASE, HEAD))
         self.assertTrue(CHECK.proof_errors(quorum, members, HEAD, HEAD))

@@ -1,9 +1,16 @@
 """WSJF estimates stay reproducible and bound to approval."""
 
+import typing
+
+
 from copy import deepcopy
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -22,7 +29,7 @@ def bead(
     kind: str = "epic",
     parent: "str | None" = None,
     status: str = "open",
-):
+) -> "fc.WorkItem":
     return {
         "id": key,
         "title": key,

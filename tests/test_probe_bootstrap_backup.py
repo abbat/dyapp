@@ -1,5 +1,8 @@
 """Preflight passes the verified recovery key to dyappd on scratch data."""
 
+import typing
+
+
 import types
 
 from contextlib import closing
@@ -11,6 +14,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
 
 
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
@@ -89,13 +95,16 @@ class ProbeBootstrapBackup(unittest.TestCase):
             )
         BACKUP.snapshot(self.source, self.snapshot, mode, recovery)
 
-    def probe(self, **options):
-        return PROBE.probe(
-            self.snapshot,
-            self.dyappd,
-            0,
-            scratch=Path(self.temp.name),
-            **options,
+    def probe(self, **options: "typing.Unpack[fc.ProbeOptions]") -> "str":
+        return typing.cast(
+            "str",
+            PROBE.probe(
+                self.snapshot,
+                self.dyappd,
+                0,
+                scratch=Path(self.temp.name),
+                **options,
+            ),
         )
 
     def test_inline_and_external_use_snapshot_key(self) -> None:
@@ -144,7 +153,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         plain = root / "plain-key"
         plain.write_bytes(b"good-key")
 
-        def snapshot(name, tamper: bool = False) -> None:
+        def snapshot(name: "str", tamper: bool = False) -> None:
             encrypted = root / f"{name}.age"
             subprocess.run(
                 [

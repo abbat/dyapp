@@ -1,5 +1,8 @@
 """Small-batch parser and real Git-history regressions."""
 
+import typing
+
+
 import importlib.util
 import json
 from pathlib import Path
@@ -8,6 +11,10 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests/scripts/check-batches.py"
@@ -101,7 +108,9 @@ class Batches(unittest.TestCase):
         base = commit("", "Start")
         exact = commit("line\n" * 400, "Add exactly 400 lines")
 
-        def run(base: str, head: str = "HEAD"):
+        def run(
+            base: str, head: str = "HEAD"
+        ) -> "tuple[subprocess.CompletedProcess[str], fc.HistoryReport]":
             result = subprocess.run(
                 [
                     sys.executable,

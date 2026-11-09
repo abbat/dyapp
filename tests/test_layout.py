@@ -1,10 +1,17 @@
 """Prototype layout criteria: gap findings and the settings budgets."""
 
+import typing
+
+
 import types
 
 import importlib.util
 from pathlib import Path
 import unittest
+
+if typing.TYPE_CHECKING:
+    import fixture_contracts as fc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +37,7 @@ def gap(
     framed: bool = True,
     identifier: bool = False,
     label: bool = False,
-):
+) -> "fc.GapFixture":
     return {
         "scope": "#s",
         "a": a,
