@@ -28,19 +28,7 @@ internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
         onDismissRequest = cancel,
         modifier = Modifier.testTag("chat-rename-dialog"),
         title = { Text(stringResource(R.string.rename)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(form.renaming.value.orEmpty(), { form.renaming.value = it },
-                    Modifier.testTag("chat-rename-input"), label = { Text(stringResource(R.string.rename_label)) },
-                    singleLine = true, enabled = !form.busy)
-                Caption(stringResource(R.string.rename_hint))
-                form.renameError?.let { error ->
-                    Text(stringResource(error.text, error.details.orEmpty()),
-                        Modifier.testTag("chat-rename-error").semantics { liveRegion = LiveRegionMode.Polite },
-                        color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
+        text = { RenameFields(form) },
         confirmButton = {
             TextButton(onSave, Modifier.testTag("chat-rename-save"), enabled = !form.busy) {
                 Text(stringResource(R.string.rename_save))
@@ -50,6 +38,21 @@ internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
             TextButton(cancel, Modifier.testTag("chat-rename-cancel")) { Text(stringResource(R.string.remove_cancel)) }
         },
     )
+}
+
+@Composable
+private fun RenameFields(form: ChatForm) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(form.renaming.value.orEmpty(), { form.renaming.value = it },
+            Modifier.testTag("chat-rename-input"), label = { Text(stringResource(R.string.rename_label)) },
+            singleLine = true, enabled = !form.busy)
+        Caption(stringResource(R.string.rename_hint))
+        form.renameError?.let { error ->
+            Text(stringResource(error.text, error.details.orEmpty()),
+                Modifier.testTag("chat-rename-error").semantics { liveRegion = LiveRegionMode.Polite },
+                color = MaterialTheme.colorScheme.error)
+        }
+    }
 }
 
 /** Saves the typed name and closes the dialog, so every row and header reads it; a failure says why. */

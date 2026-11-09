@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -39,7 +38,6 @@ import uniffi.dyapp.ChatBlock
 import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRevocation
-import uniffi.dyapp.ChatState
 import uniffi.dyapp.ContactNameView
 
 /** What the chat's controls do: the screen wires them to the feed, tests count the calls. */
@@ -58,8 +56,6 @@ internal class ChatActions(
 /** Which confirmation the chat shows; saved, so a rotation keeps it open. */
 internal enum class ChatDialog { CLEAR, BLOCK }
 
-private const val CLEAR = "chat-clear"
-
 /** The chat's [ChatForm] with its saveable parts kept across recreation. */
 @Composable
 internal fun rememberChatForm(): ChatForm {
@@ -76,31 +72,13 @@ internal fun rememberChatForm(): ChatForm {
 @Composable
 internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, name: ContactNameView?, onMute: () -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val state = history?.state
     Box {
         IconButton({ open = true }, Modifier.testTag("chat-more"), enabled = !form.busy) {
             Icon(painterResource(R.drawable.ic_more), stringResource(R.string.chat_more))
         }
         DropdownMenu(open, { open = false }, Modifier.testTag("chat-menu")) {
-            // The input starts from the local name; a public name is the peer's own claim.
-            DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = {
-                open = false
-                form.renameError = null
-                form.renaming.value = name?.takeIf { it.verified == null }?.name.orEmpty()
-            }, Modifier.testTag("chat-rename"))
-            DropdownMenuItem(text = { Text(stringResource(R.string.chat_clear)) },
-                onClick = { open = false; form.dialog.value = ChatDialog.CLEAR }, Modifier.testTag(CLEAR))
-            // A request offers `request-block` on its notice instead, as the desktop does.
-            if (state != ChatState.REQUEST_RECEIVED) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.chat_block)) },
-                    onClick = { open = false; form.dialog.value = ChatDialog.BLOCK }, Modifier.testTag("chat-block"))
-            }
-            // As on desktop, a peer with no chat yet has nothing to mute.
-            if (history != null && state != ChatState.NONE) {
-                val label = if (history.muted) R.string.chat_unmute else R.string.chat_mute
-                DropdownMenuItem(text = { Text(stringResource(label)) },
-                    onClick = { open = false; onMute() }, Modifier.testTag("chat-mute"))
-            }
+            RenameMenuItem(form, name) { open = false }
+            ChatStateMenu(form, history, onMute) { open = false }
         }
     }
 }
@@ -108,14 +86,7 @@ internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, name: ContactNa
 /** The open confirmation: clearing is local only, and a block closes the chat; Unblock sits in Settings. */
 @Composable
 internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
-    val cancel = { form.dialog.value = null }
-    when (form.dialog.value) {
-        ChatDialog.CLEAR -> Confirm(CLEAR, R.string.clear_title, listOf(R.string.clear_text, R.string.clear_later),
-            R.string.clear_action, cancel) { cancel(); actions.onClear() }
-        ChatDialog.BLOCK -> Confirm("block", R.string.block_title, listOf(R.string.block_text), R.string.chat_block,
-            cancel) { cancel(); actions.onBlock() }
-        null -> Unit
-    }
+    ClearOrBlockConfirm(form, actions)
     if (form.renaming.value != null) RenameDialog(form, actions.onRename)
     if (form.deleting.value != null) {
         val cancelDelete = { form.deleting.value = null }
@@ -140,14 +111,7 @@ internal fun MessageMenu(
         bubble(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { open = true }) }
             .semantics { onLongClick(label) { open = true; true } })
         DropdownMenu(open, { open = false }, Modifier.testTag("msg-menu")) {
-            if (writable) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.chat_edit)) },
-                    onClick = { open = false; form.edit(message) }, Modifier.testTag("msg-edit"),
-                    enabled = !form.sending)
-            }
-            DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete)) },
-                onClick = { open = false; form.deleting.value = messageKey(message) }, Modifier.testTag("msg-delete"),
-                enabled = !form.busy)
+            MessageMenuItems(message, form, writable) { open = false }
         }
     }
 }

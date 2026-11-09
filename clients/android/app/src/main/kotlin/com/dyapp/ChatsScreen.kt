@@ -77,19 +77,7 @@ internal fun ChatsContent(
         ExpandableRow("chats-requests", R.string.chats_requests, R.string.chats_requests_text, requests.size,
             lists.requestsOpen) { lists.requestsOpen = !lists.requestsOpen }
         if (lists.requestsOpen) RequestList(requests, names, onOpen)
-        Text(stringResource(R.string.chats_conversations), Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleMedium)
-        if (conversations.isEmpty()) {
-            Text(stringResource(R.string.chats_empty), Modifier.padding(horizontal = 16.dp))
-        } else {
-            // Not lazy, as it scrolls with the lists above; all rows are in memory anyway.
-            Column(Modifier.testTag("chat-list")) {
-                for ((index, row) in conversations.withIndex()) {
-                    ChatListRow(row, names[row.peerId],
-                        Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) })
-                }
-            }
-        }
+        Conversations(conversations, names, onOpen)
         Caption(stringResource(R.string.chats_identity), Modifier.padding(16.dp))
     }
 }
@@ -127,26 +115,13 @@ private fun LikedList(liked: List<String>, fetch: Result<List<FoundProfile>>?, o
                     Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
             failure != null -> {
-                val status = profileLoadStatus(failure)
-                ErrorNotice(stringResource(status.text), "chats-liked-status", status.details.orEmpty(),
-                    "chats-liked-details", "copy-chats-liked-details")
+                LikedFailure(failure)
             }
             else -> {
                 LikedProfiles(liked, fetch.getOrDefault(emptyList()), open)
             }
         }
     }
-}
-
-// The fetch can be older than the IDs, so a peer who left the list leaves at once.
-@Composable
-private fun LikedProfiles(liked: List<String>, found: List<FoundProfile>, open: (FoundProfile) -> Unit) {
-    val shown = found.filter { it.peerId in liked }
-    FetchCardPhotos(shown)
-    for ((index, profile) in shown.withIndex()) {
-        SearchResultRow(profile, "liked-${index + 1}") { open(profile) }
-    }
-    if (shown.size < liked.size) Caption(stringResource(R.string.chats_liked_missing))
 }
 
 @Composable
@@ -163,7 +138,7 @@ private fun RequestList(requests: List<ChatRow>, names: Map<String, ContactNameV
 }
 
 @Composable
-private fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifier) {
+internal fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifier) {
     Row(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         Arrangement.spacedBy(12.dp),

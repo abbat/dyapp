@@ -77,16 +77,22 @@ internal fun BlockedCard(active: Opened.Ready) {
     val text = { id: Int -> context.getString(id) }
     LaunchedEffect(state) { state.refresh(active, list) }
     PeopleCard("blocked", state, texts) { peer, number ->
-        // Stacked: two long labels beside the Peer ID do not fit a 360 dp phone.
-        Column(horizontalAlignment = Alignment.End) {
-            TextButton({ scope.launch { state.retry(active, peer, text) } },
-                Modifier.testTag("retry-revocation-$number"), enabled = !state.busy) {
-                Text(stringResource(R.string.settings_blocked_retry))
-            }
-            TextButton({ scope.launch { state.refresh(active, list) { it.unblock(peer) } } },
-                Modifier.testTag("unblock-$number"), enabled = !state.busy) {
-                Text(stringResource(R.string.settings_unblock))
-            }
+        BlockedActions(number, state.busy,
+            { scope.launch { state.retry(active, peer, text) } },
+            { scope.launch { state.refresh(active, list) { it.unblock(peer) } } })
+
+    }
+}
+
+@Composable
+private fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unblock: () -> Unit) {
+    // Stacked: two long labels beside the Peer ID do not fit a 360 dp phone.
+    Column(horizontalAlignment = Alignment.End) {
+        TextButton(retry, Modifier.testTag("retry-revocation-$number"), enabled = !busy) {
+            Text(stringResource(R.string.settings_blocked_retry))
+        }
+        TextButton(unblock, Modifier.testTag("unblock-$number"), enabled = !busy) {
+            Text(stringResource(R.string.settings_unblock))
         }
     }
 }

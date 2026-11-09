@@ -26,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -38,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.FoundProfile
-import uniffi.dyapp.profileScales
 
 private const val STATUS_TAG = "view-status"
 private const val LOAD_TAG = "view-load"
@@ -232,11 +230,7 @@ private fun ProfileBody(load: ProfileLoad, onRetry: () -> Unit) {
             ProfileRetry(onRetry)
         }
         is ProfileLoad.Shown -> {
-            val scales = remember { profileScales() }
-            PeerGallery(load.found)
-            FormCard(Modifier.testTag("view-fields")) {
-                ProfileRows(load.found.draft.draft(), scales, LocalContext.current)
-            }
+            ShownProfile(load.found)
         }
     }
 }

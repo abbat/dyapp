@@ -15,23 +15,23 @@ import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.PublicProfileDraft
 
-class ProfileViewTests {
+abstract class ProfileViewFixture {
     @get:Rule
     val compose = createComposeRule()
 
-    private val form = ProfileForm()
-    private val likes = mutableListOf<Boolean>()
-    private val passes = mutableListOf<Boolean>()
-    private var blocks = 0
-    private var backs = 0
-    private var messages = 0
-    private var retries = 0
-    private val found = FoundProfile("peer-abcdef", PublicProfileDraft(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+    protected val form = ProfileForm()
+    protected val likes = mutableListOf<Boolean>()
+    protected val passes = mutableListOf<Boolean>()
+    protected var blocks = 0
+    protected var backs = 0
+    protected var messages = 0
+    protected var retries = 0
+    protected val found = FoundProfile("peer-abcdef", PublicProfileDraft(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
         birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""), emptyList(), emptyList(), 1uL)
 
-    private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
+    protected fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
-    private fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
+    protected fun show(load: ProfileLoad = ProfileLoad.Shown(found), own: Boolean = false) = compose.setContent {
         val actions = ProfileActions(R.string.view_back, { backs += 1 }, { messages += 1 })
         val onBlock = { blocks += 1 }
         ProfileViewContent("peer-abcdef", own, load, form, actions, { likes += it }, { passes += it }, onBlock) {
@@ -39,6 +39,9 @@ class ProfileViewTests {
         }
     }
 
+}
+
+class ProfileViewTests : ProfileViewFixture() {
     @Test
     fun aFoundProfileShowsItsFieldsAndTheFirstActions() {
         form.likes = ChatLikes(ours = false, matched = false, passed = false)
@@ -154,6 +157,9 @@ class ProfileViewTests {
         compose.runOnIdle { assertEquals(1, blocks) }
     }
 
+}
+
+class ProfileLoadTests : ProfileViewFixture() {
     @Test
     fun aProfileNotFetchedOffersARetry() {
         show(ProfileLoad.Missing)

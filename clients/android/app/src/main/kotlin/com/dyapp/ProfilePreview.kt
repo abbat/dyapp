@@ -61,10 +61,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
     val numbers = numberRows(saved)
     NameRow(draft.name, draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
         listOf(fields, places, numbers).all { it.isEmpty() })
-    for ((scale, choice) in fields) {
-        Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
-            label(context, "value.$scale.$choice")))
-    }
+    ScaleRows(fields, context)
     for ((key, name, value) in places) {
         Text(stringResource(R.string.profile_preview_row, stringResource(name), value),
             Modifier.testTag("preview-$key"))
@@ -77,6 +74,14 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
     }
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
+}
+
+@Composable
+private fun ScaleRows(fields: List<Pair<String, String>>, context: Context) {
+    for ((scale, choice) in fields) {
+        Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
+            label(context, "value.$scale.$choice")))
+    }
 }
 
 /** The public rows of [draft] under [title], with the disclosures. */

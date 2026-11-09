@@ -64,6 +64,16 @@ internal fun BirthDateFields(birth: BirthInputs) {
 }
 
 @Composable
+private fun BirthChoices(tag: String, last: Int, onPick: (String) -> Unit) {
+    DropdownMenuItem(text = { Text(NO_PART) }, onClick = { onPick("") },
+        modifier = Modifier.testTag("$tag-none"))
+    for (part in 1..last) {
+        DropdownMenuItem(text = { Text(part.toString()) }, onClick = { onPick("$part") },
+            modifier = Modifier.testTag("$tag-$part"))
+    }
+}
+
+@Composable
 @Suppress("LongParameterList") // Month and day differ in each of these.
 private fun RowScope.BirthSelect(name: Int, tag: String, value: String, last: Int, onPick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -76,11 +86,9 @@ private fun RowScope.BirthSelect(name: Int, tag: String, value: String, last: In
                 Text(value.ifEmpty { NO_PART })
             }
             DropdownMenu(expanded, { expanded = false }) {
-                DropdownMenuItem(text = { Text(NO_PART) }, onClick = { onPick(""); expanded = false },
-                    modifier = Modifier.testTag("$tag-none"))
-                for (part in 1..last) {
-                    DropdownMenuItem(text = { Text(part.toString()) }, onClick = { onPick("$part"); expanded = false },
-                        modifier = Modifier.testTag("$tag-$part"))
+                BirthChoices(tag, last) { part ->
+                    onPick(part)
+                    expanded = false
                 }
             }
         }

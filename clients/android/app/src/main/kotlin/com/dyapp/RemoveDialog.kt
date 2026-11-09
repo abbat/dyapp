@@ -74,15 +74,18 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
     AlertDialog(
         onDismissRequest = { if (!state.busy) onDismiss() },
         title = { Text(stringResource(R.string.remove_title), Modifier.testTag("remove-title")) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                RemoveSummary(target, peerId, copies, published != null)
-                RemoveChoice(state)
-            }
-        },
+        text = { state.RemoveText(target, peerId, copies, published != null) },
         confirmButton = { RemoveActions(state, proceed, remove) },
         dismissButton = { RemoveCancel(state, onDismiss) },
     )
+}
+
+@Composable
+private fun RemoveState.RemoveText(target: Opened, peerId: String?, copies: Boolean, published: Boolean) {
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RemoveSummary(target, peerId, copies, published)
+        RemoveChoice(this@RemoveText)
+    }
 }
 
 private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null && runCatching {

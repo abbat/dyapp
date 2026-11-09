@@ -67,6 +67,17 @@ internal fun PlacePicker(
     none: Int = R.string.profile_unset,
     screen: String = "profile",
 ) {
+    CountryPicker(inputs, none, screen)
+    if (!places) return
+    // A focused field can repeat its last text after a country change; only a real edit drops the pick.
+    OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
+        label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),
+        singleLine = true, modifier = Modifier.fillMaxWidth().testTag("$screen-place"))
+    if (inputs.unknown) PlaceSuggestions(inputs, placeLang())
+}
+
+@Composable
+private fun CountryPicker(inputs: PlaceInputs, none: Int, screen: String) {
     val locale = LocalConfiguration.current.locales[0]
     val countries = remember(locale) {
         placeCountries().map { it to countryName(it, locale) }.sortedBy { it.second }
@@ -79,21 +90,23 @@ internal fun PlacePicker(
                 Text(countries.firstOrNull { it.first == inputs.country }?.second ?: stringResource(none))
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text(stringResource(none)) },
-                    onClick = { inputs.pickCountry(""); expanded = false }, modifier = Modifier.testTag("country-none"))
-                for ((code, name) in countries) {
-                    DropdownMenuItem(text = { Text(name) }, onClick = { inputs.pickCountry(code); expanded = false },
-                        modifier = Modifier.testTag("country-$code"))
+                CountryChoices(countries, none) { code ->
+                    inputs.pickCountry(code)
+                    expanded = false
                 }
             }
         }
     }
-    if (!places) return
-    // A focused field can repeat its last text after a country change; only a real edit drops the pick.
-    OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
-        label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),
-        singleLine = true, modifier = Modifier.fillMaxWidth().testTag("$screen-place"))
-    if (inputs.unknown) PlaceSuggestions(inputs, placeLang())
+}
+
+@Composable
+private fun CountryChoices(countries: List<Pair<String, String>>, none: Int, onPick: (String) -> Unit) {
+    DropdownMenuItem(text = { Text(stringResource(none)) },
+        onClick = { onPick("") }, modifier = Modifier.testTag("country-none"))
+    for ((code, name) in countries) {
+        DropdownMenuItem(text = { Text(name) }, onClick = { onPick(code) },
+            modifier = Modifier.testTag("country-$code"))
+    }
 }
 
 @Composable

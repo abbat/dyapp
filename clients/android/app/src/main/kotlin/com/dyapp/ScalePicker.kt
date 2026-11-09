@@ -28,6 +28,17 @@ internal fun label(context: Context, key: String): String {
     return if (id == 0) key else stringResource(id)
 }
 
+@Composable
+private fun ScaleChoices(scale: ProfileScale, none: Int, tag: String, onSelect: (Int) -> Unit) {
+    val context = LocalContext.current
+    DropdownMenuItem(text = { Text(stringResource(none)) }, onClick = { onSelect(0) })
+    for (choice in scale.choices) {
+        DropdownMenuItem(text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
+            onClick = { onSelect(choice.code.toInt()) },
+            modifier = Modifier.testTag("$tag-${choice.code}"))
+    }
+}
+
 /** Picks one of the scale's choices or [none], shown with that label. */
 @Composable
 internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect: (Int) -> Unit) {
@@ -48,12 +59,9 @@ internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect
                 Text(title)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text(stringResource(none)) },
-                    onClick = { onSelect(0); expanded = false })
-                for (choice in scale.choices) {
-                    DropdownMenuItem(text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
-                        onClick = { onSelect(choice.code.toInt()); expanded = false },
-                        modifier = Modifier.testTag("$tag-${choice.code}"))
+                ScaleChoices(scale, none, tag) { code ->
+                    onSelect(code)
+                    expanded = false
                 }
             }
         }

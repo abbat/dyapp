@@ -135,9 +135,7 @@ private fun BasicsCard(
     name: MutableState<String>,
 ) = FormCard {
     CardTitle(R.string.profile_basics)
-    OutlinedTextField(name.value, { name.value = it }, Modifier.fillMaxWidth().testTag("profile-name"),
-        label = { Text(stringResource(R.string.profile_name)) },
-        supportingText = { Text(stringResource(R.string.profile_name_hint)) }, singleLine = true)
+    ProfileNameField(name)
     ScalePickers(scales, values)
     OutlinedTextField(birth.height, { birth.height = it }, Modifier.fillMaxWidth().testTag("profile-height"),
         label = { Text(stringResource(R.string.profile_height)) },

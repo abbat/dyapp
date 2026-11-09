@@ -2,12 +2,9 @@ package com.dyapp
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -22,7 +19,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -30,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,33 +92,18 @@ private fun ShellRoutes(
     feed: ChatFeed,
     search: SearchSession,
 ) {
-    var chatPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
-    var viewPeer by rememberSaveable(opened.slot.id) { mutableStateOf<String?>(null) }
-    // The result already verified; after a recreation only the Peer ID is left and the page fetches.
-    var viewFound by remember(opened.slot.id) { mutableStateOf<FoundProfile?>(null) }
-    val closeView = { viewPeer = null; viewFound = null }
-    val openFound = { found: FoundProfile -> viewFound = found; viewPeer = found.peerId }
-    val chat = chatPeer
-    val viewed = viewPeer
-    if (viewed != null) {
-        val backLabel = if (chat == null && section == StartTarget.SEARCH) R.string.view_back else R.string.lock_back
-        val toChats = { peer: String? ->
-            closeView()
-            chatPeer = peer
-            // Back from a chat always lands on Chats, as the prototype's back button says.
-            open(StartTarget.CHATS)
-        }
-        // A block leaves for Chats, whose note says the outcome, even when opened from a chat.
-        val actions = ProfileActions(backLabel, closeView, { toChats(viewed) }) { toChats(null) }
-        ProfileViewScreen(opened, viewed, viewFound, feed, actions) { toChats(it) }
+    val peers = rememberShellPeers(opened.slot.id)
+    val chat = peers.chat
+    if (peers.viewed != null) {
+        peers.Profile(opened, section, feed, open)
     } else if (chat != null) {
-        CompositionLocalProvider(LocalSharedProfile provides { peer -> viewFound = null; viewPeer = peer }) {
-            ChatScreen(opened, chat, feed, { viewPeer = chat }) { chatPeer = null }
+        CompositionLocalProvider(LocalSharedProfile provides { peer -> peers.found = null; peers.viewed = peer }) {
+            ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
         }
     } else {
-        val openChat = { peer: String -> feed.lists.blocked = null; chatPeer = peer }
-        ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, openFound) {
-            SearchScreen(search, { open(StartTarget.NETWORK) }, openFound)
+        val openChat = { peer: String -> feed.lists.blocked = null; peers.chat = peer }
+        ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, peers::show) {
+            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show)
         }
     }
 }
@@ -260,37 +240,6 @@ internal fun Avatar(peerId: String, photo: ImageBitmap? = null) {
             Image(photo, null, Modifier.fillMaxSize().testTag("avatar-photo"), contentScale = ContentScale.Crop)
         } else {
             Text(peerId.take(2), style = MaterialTheme.typography.labelMedium)
-        }
-    }
-}
-
-// The identities on this device: the active one, the others to switch to, and Add identity.
-@Composable
-private fun IdentityMenu(slots: Slots, active: Opened.Ready, act: (() -> Opened) -> Unit) {
-    val listed = remember(slots, active.slot.id) { RustBridge.show(slots) { Opened.Picker } }
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.settings_identities), style = MaterialTheme.typography.titleMedium)
-        listed.entries.forEachIndexed { index, entry ->
-            val (slot, label) = when (entry) {
-                is Opened.Ready -> entry.slot to entry.peerId
-                is Opened.Recovery -> entry.slot to (entry.peerId ?: reasonText(entry.reason))
-                else -> return@forEachIndexed
-            }
-            if (slot.id == active.slot.id) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(label, Modifier.weight(1f))
-                    Text(stringResource(R.string.settings_active), style = MaterialTheme.typography.labelMedium)
-                }
-            } else {
-                TextButton(onClick = { act { slots.setActive(slot.id); slots.open() } },
-                    Modifier.testTag("switch-to-${index + 1}")) { Text(label) }
-            }
-        }
-        TextButton(onClick = { act(slots::create) }, Modifier.testTag("add-identity-menu")) {
-            Text(stringResource(R.string.identity_add))
         }
     }
 }
