@@ -1,20 +1,23 @@
+import { locale, strings } from './locale.js';
+import { camel, countryName } from './profile-fields.js';
+
 // Profile form elements are built only after app.js validates the identity generation.
-window.profileForm = {
+export const profileForm = {
   scaleRow(scale, draft) {
     const label = document.createElement('label');
     const select = document.createElement('select');
     select.id = `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`;
     label.htmlFor = select.id;
-    label.textContent = window.strings[`profile.field.${scale.key}`];
+    label.textContent = strings[`profile.field.${scale.key}`];
     const unset = document.createElement('option');
     unset.value = '0';
-    unset.textContent = window.strings['profile.unset'];
+    unset.textContent = strings['profile.unset'];
     select.append(
       unset,
       ...scale.choices.map((choice) => {
         const option = document.createElement('option');
         option.value = String(choice.code);
-        option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+        option.textContent = strings[`profile.value.${scale.key}.${choice.key}`];
         return option;
       }),
     );
@@ -27,12 +30,12 @@ window.profileForm = {
   countryOptions(countries) {
     const unset = document.createElement('option');
     unset.value = '';
-    unset.textContent = window.strings['profile.unset'];
+    unset.textContent = strings['profile.unset'];
     return [
       unset,
       ...countries
         .map((code) => [code, countryName(code)])
-        .sort(([, a], [, b]) => a.localeCompare(b, window.locale))
+        .sort(([, a], [, b]) => a.localeCompare(b, locale))
         .map(([code, name]) => {
           const option = document.createElement('option');
           option.value = code;

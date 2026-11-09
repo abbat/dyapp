@@ -320,7 +320,7 @@ const chatRow = (row) => {
 };
 const renderChatRows = (rows, call = invoke) => {
   visibleChatRows = rows;
-  knownPeers = [...new Set([...knownPeers, ...rows.map((row) => row.peerId)])];
+  window.addKnownPeers(rows);
   const requests = rows.filter((row) => row.state === 'requestReceived');
   const conversations = rows.filter((row) => row.state !== 'requestReceived');
   chatRequests.replaceChildren(...requests.map(chatRow));
@@ -889,7 +889,7 @@ window.showChats = async (call = invoke) => {
   try {
     const found = await withPlaces(await call('liked_you'));
     if (!currentChats()) return;
-    knownPeers = [...new Set([...knownPeers, ...found.map((item) => item.peerId)])];
+    window.addKnownPeers(found);
     likedList.replaceChildren(
       ...found.map((item, index) => resultCard(item, `liked-${index + 1}`)),
     );

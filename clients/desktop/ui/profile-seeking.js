@@ -1,11 +1,15 @@
+import { strings } from './locale.js';
+import { checkRange, scaleFields } from './profile-fields.js';
+
+const profileForm = document.getElementById('profile');
+
 // Who this profile seeks: the form card and its public rows (docs/decisions/0043).
 const notLooking = document.getElementById('profile-not-looking');
 const seekingFields = document.getElementById('profile-seeking');
 const seekingAge = (bound) => document.getElementById(`profile-seeking-age-${bound}`);
 const seekingChoices = () => scaleFields.find((scale) => scale.key === 'gender')?.choices ?? [];
-const genderName = (choice) => window.strings[`profile.value.gender.${choice.key}`];
-// biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
-const seekingDraft = () => ({
+const genderName = (choice) => strings[`profile.value.gender.${choice.key}`];
+export const seekingDraft = () => ({
   seekingGenders: [...document.querySelectorAll('#profile-seeking-genders input:checked')].map(
     (box) => Number(box.value),
   ),
@@ -13,8 +17,7 @@ const seekingDraft = () => ({
   seekingAgeTo: Number(seekingAge('to').value) || null,
   notLooking: notLooking.checked,
 });
-// biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
-const showSeeking = (draft) => {
+export const showSeeking = (draft) => {
   document.getElementById('profile-seeking-genders').replaceChildren(
     ...seekingChoices().map((choice) => {
       const box = document.createElement('input');
@@ -35,26 +38,21 @@ const showSeeking = (draft) => {
   notLooking.checked = draft.notLooking;
   seekingFields.disabled = draft.notLooking;
 };
-// biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
-const seekingFacts = (draft) => {
-  if (draft.notLooking)
-    return [[window.strings['profile.notLooking'], window.strings['profile.notLookingOn']]];
+export const seekingFacts = (draft) => {
+  if (draft.notLooking) return [[strings['profile.notLooking'], strings['profile.notLookingOn']]];
   const genders = seekingChoices()
     .filter((choice) => draft.seekingGenders?.includes(choice.code))
     .map(genderName);
   return [
-    ...(genders.length ? [[window.strings['profile.seekingGenders'], genders.join(', ')]] : []),
+    ...(genders.length ? [[strings['profile.seekingGenders'], genders.join(', ')]] : []),
     ...(draft.seekingAgeFrom
-      ? [[window.strings['profile.seekingAgeFrom'], String(draft.seekingAgeFrom)]]
+      ? [[strings['profile.seekingAgeFrom'], String(draft.seekingAgeFrom)]]
       : []),
-    ...(draft.seekingAgeTo
-      ? [[window.strings['profile.seekingAgeTo'], String(draft.seekingAgeTo)]]
-      : []),
+    ...(draft.seekingAgeTo ? [[strings['profile.seekingAgeTo'], String(draft.seekingAgeTo)]] : []),
   ];
 };
 // A reversed age range is explained at its upper field; a disabled one is not checked.
-// biome-ignore lint/correctness/noUnusedVariables: read by app.js, which loads after this file
-const profileFormValid = () => {
+export const profileFormValid = () => {
   checkRange('profile-seeking-age-from', 'profile-seeking-age-to');
   return profileForm.reportValidity();
 };

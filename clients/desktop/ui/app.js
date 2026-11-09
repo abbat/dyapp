@@ -4,8 +4,21 @@ window.stringsShown = Promise.all([
   import('./locale.js'),
   import('./profile-interests.js'),
   import('./sticker-pixels.js'),
-]).then(async ([localization, interests, pixels]) => {
-  Object.assign(window, interests, pixels, await localization.loadLocale(invoke));
+  import('./profile-fields.js'),
+  import('./profile-form.js'),
+  import('./profile-seeking.js'),
+  import('./peer-labels.js'),
+]).then(async ([localization, interests, pixels, profileFields, form, seeking, peers]) => {
+  Object.assign(
+    window,
+    interests,
+    pixels,
+    form,
+    seeking,
+    peers,
+    { profileFields },
+    await localization.loadLocale(invoke),
+  );
 });
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
@@ -113,26 +126,6 @@ const act = async (pending, fresh = false) => {
   }
 };
 
-// A git-style short Peer ID: "@" and the last 6 characters, longer until no other known ID
-// shares the tail. It helps to recognize a peer and is no check; the full ID stays in the title.
-const shortPeerId = (id, known) => {
-  let length = Math.min(6, id.length);
-  while (
-    length < id.length &&
-    known.some((other) => other !== id && other.endsWith(id.slice(-length)))
-  ) {
-    length += 1;
-  }
-  return `@${id.slice(-length)}`;
-};
-window.shortPeerId = shortPeerId;
-// The local identities are the only known peers until contacts exist.
-let knownPeers = [];
-const knowPeers = (items) => {
-  knownPeers = items.filter((item) => item.peerId).map((item) => item.peerId);
-  return items;
-};
-window.shortPeer = (id) => shortPeerId(id, knownPeers);
 const peerLabel = (element, id) => {
   Object.assign(element.dataset, { peerId: id });
   element.title = id;
@@ -431,10 +424,8 @@ const profileHidden = document.getElementById('profile-hidden');
 const profileAttested = document.getElementById('profile-attested');
 const profileDisclosure = document.getElementById('profile-disclosure');
 const profileCancel = document.getElementById('profile-cancel');
-let scaleFields = [];
 let profileBusy = false;
 let profilePublished = false;
-const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
   return value === '' ? null : Number(value);
@@ -448,7 +439,6 @@ window.placeText = (country, id) =>
         lang: window.locale,
       }).then((place) => (place ? placeLabel(place) : id))
     : Promise.resolve('');
-const countryName = (code) => new Intl.DisplayNames([window.locale], { type: 'region' }).of(code);
 // The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
 // so typed text that is no suggestion fails validation instead of being saved or searched.
 // Editing the country clears the place.
@@ -503,8 +493,8 @@ const profilePlace = placePicker(
 const profileDraft = () => ({
   name: document.getElementById('profile-name').value,
   ...Object.fromEntries(
-    scaleFields.map((scale) => [
-      camel(scale.key),
+    window.profileFields.scaleFields.map((scale) => [
+      window.profileFields.camel(scale.key),
       Number(
         document.getElementById(`profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`)
           .value,
@@ -571,7 +561,7 @@ const showProfile = async (call = invoke) => {
   if (!identityCurrent(generation)) return;
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile(generation);
-  scaleFields = scales;
+  window.profileFields.setScaleFields(scales);
   const rows = scales.map((scale) => window.profileForm.scaleRow(scale, view.draft));
   const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
   document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
@@ -624,8 +614,10 @@ const showAge = (view) => {
 };
 // Labelled public fields of a draft as [label, value] pairs, with its place named as `place`.
 const publicFacts = (draft, place) => {
-  const facts = scaleFields.flatMap((scale) => {
-    const option = scale.choices.find((choice) => choice.code === draft[camel(scale.key)]);
+  const facts = window.profileFields.scaleFields.flatMap((scale) => {
+    const option = scale.choices.find(
+      (choice) => choice.code === draft[window.profileFields.camel(scale.key)],
+    );
     return option
       ? [
           [
@@ -635,7 +627,11 @@ const publicFacts = (draft, place) => {
         ]
       : [];
   });
-  if (draft.country) facts.push([window.strings['profile.country'], countryName(draft.country)]);
+  if (draft.country)
+    facts.push([
+      window.strings['profile.country'],
+      window.profileFields.countryName(draft.country),
+    ]);
   if (draft.place) facts.push([window.strings['profile.place'], place]);
   for (const part of ['Year', 'Month', 'Day']) {
     const value = draft[`birth${part}`];

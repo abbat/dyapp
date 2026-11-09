@@ -726,10 +726,14 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
   }
 };
 const checkModuleStartup = async () => {
-  const [localization, interests, pixels] = await Promise.all([
+  const [localization, interests, pixels, fields, form, seeking, peers] = await Promise.all([
     import(new URL('locale.js', document.baseURI).href),
     import(new URL('profile-interests.js', document.baseURI).href),
     import(new URL('sticker-pixels.js', document.baseURI).href),
+    import(new URL('profile-fields.js', document.baseURI).href),
+    import(new URL('profile-form.js', document.baseURI).href),
+    import(new URL('profile-seeking.js', document.baseURI).href),
+    import(new URL('peer-labels.js', document.baseURI).href),
   ]);
   if (
     localization.strings !== window.strings ||
@@ -738,7 +742,17 @@ const checkModuleStartup = async () => {
     interests.profileInterestTags !== window.profileInterestTags ||
     interests.showProfileInterests !== window.showProfileInterests ||
     pixels.stickerPixels !== window.stickerPixels ||
-    pixels.stickerBinaryPixels !== window.stickerBinaryPixels
+    pixels.stickerBinaryPixels !== window.stickerBinaryPixels ||
+    fields !== window.profileFields ||
+    form.profileForm !== window.profileForm ||
+    seeking.seekingDraft !== window.seekingDraft ||
+    seeking.showSeeking !== window.showSeeking ||
+    seeking.seekingFacts !== window.seekingFacts ||
+    seeking.profileFormValid !== window.profileFormValid ||
+    peers.shortPeerId !== window.shortPeerId ||
+    peers.shortPeer !== window.shortPeer ||
+    peers.knowPeers !== window.knowPeers ||
+    peers.addKnownPeers !== window.addKnownPeers
   )
     throw new Error('Desktop module startup bridge is inconsistent');
 };

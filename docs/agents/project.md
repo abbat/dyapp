@@ -73,8 +73,11 @@ A same-peer background read keeps the existing composer active until refreshed p
 disabling it first can blur a textarea during typing. A different-peer open follows closeChat's
 draft-clearing policy, including direct navigation after Forward.
 
-Profile form element builders live in `ui/profile-form.js`, loaded before `app.js`; they read
-locale and draft data only when the identity-guarded profile load calls them.
+Profile form element builders live in the ES module `ui/profile-form.js`, imported by `app.js`
+before startup completes. They import locale and field helpers explicitly and read draft data
+only when the identity-guarded profile load calls them. `ui/profile-fields.js` owns scale metadata;
+`ui/peer-labels.js` privately owns known peers. Add peers through its API instead of assigning
+controller globals.
 Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
 The classic scripts share lexical helpers; keep that order when moving controller code to
 stay below the per-file line limit, and retain the existing native smoke entry points.

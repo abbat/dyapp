@@ -16,8 +16,9 @@ Debian package sessions also run real WebKit counterexamples for missing/hidden 
 disabled buttons and mixed locales; native functional flows remain in feature-enabled CI.
 The clean package-test container provisions AT-SPI/WebKit introspection and xdotool.
 
-The desktop smoke dispatcher imports the locale, profile-interest and sticker-pixel modules
-and checks their APIs against the startup bridge before functional scenarios. Injected scripts
+The desktop smoke dispatcher imports the locale, profile form/field/seeking/interest,
+peer-label and sticker-pixel modules and checks their APIs against the startup bridge before
+functional scenarios. Injected scripts
 resolve module URLs against `document.baseURI`; they have no external script URL of their own.
 The remaining classic-controller migration is planned (see
 [desktop module boundaries](../architecture/ui-state-contract.md#desktop-module-boundaries)).

@@ -7,8 +7,11 @@ writes per identity; each platform decides when to submit an editor or composer 
 ## Desktop module boundaries
 
 `locale.js` owns catalogue loading and exports live `locale`, `pseudoLocale` and `strings`
-bindings. `profile-interests.js` imports that catalogue explicitly and owns the interests input;
-`sticker-pixels.js` exports the validated canvas builders without publishing page globals.
+bindings. The profile form, interests and seeking modules import their catalogue and helpers
+explicitly. `profile-fields.js` owns the current scale metadata and shared range validation;
+`peer-labels.js` privately owns the peers used to disambiguate short IDs. Chat and search add
+peers through `addKnownPeers`; reloading the identities replaces that set through `knowPeers`.
+`sticker-pixels.js` exports the validated canvas builders. These modules publish no page globals.
 The classic `app.js` controller imports these modules before its existing `stringsShown` startup
 barrier completes. It temporarily exposes their APIs to the remaining classic controllers and
 native smoke scripts. Converting those controllers and the smoke interface to ES modules is

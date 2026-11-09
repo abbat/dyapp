@@ -35,7 +35,7 @@ const showSearchFilters = (offered) => {
     [...scales.querySelectorAll('select')].map((select) => [select.id, select.value]),
   );
   scales.replaceChildren(
-    ...scaleFields
+    ...window.profileFields.scaleFields
       .filter((scale) => offered.includes(scale.field))
       .map((scale) => {
         const label = document.createElement('label');
@@ -143,7 +143,7 @@ const ageText = (draft) => {
   return passed === null ? `${years - 1}–${years}` : String(passed ? years : years - 1);
 };
 const genderText = (draft) => {
-  const scale = scaleFields.find((field) => field.key === 'gender');
+  const scale = window.profileFields.scaleFields.find((field) => field.key === 'gender');
   const option = scale?.choices.find((choice) => choice.code === draft.gender);
   return option ? window.strings[`profile.value.gender.${option.key}`] : '';
 };
@@ -788,15 +788,6 @@ const clearSearch = () => {
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
-// A reversed range is explained at its upper field before anything is sent.
-const checkRange = (from, to) => {
-  const [low, high] = [document.getElementById(from).value, document.getElementById(to).value];
-  document
-    .getElementById(to)
-    .setCustomValidity(
-      low && high && Number(low) > Number(high) ? window.strings['search.rangeReversed'] : '',
-    );
-};
 const renderSearchResults = (result, found, call) => {
   showSearchFilters(result.offered);
   searchResults.replaceChildren(
@@ -813,8 +804,8 @@ const renderSearchResults = (result, found, call) => {
   searchAgain.hidden = !found.length;
 };
 const runSearch = async (call = invoke) => {
-  checkRange('search-age-min', 'search-age-max');
-  checkRange('search-height-min', 'search-height-max');
+  window.profileFields.checkRange('search-age-min', 'search-age-max');
+  window.profileFields.checkRange('search-height-min', 'search-height-max');
   if (searchBusy || !searchForm.reportValidity()) return;
   const generation = identityGeneration;
   const query = searchQuery();
@@ -827,7 +818,7 @@ const runSearch = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     const found = await withPlaces(result.profiles);
     if (!identityCurrent(generation)) return;
-    knownPeers = [...new Set([...knownPeers, ...result.profiles.map((item) => item.peerId)])];
+    window.addKnownPeers(result.profiles);
     await loadPeerNames(
       found.map((item) => item.peerId),
       call,
