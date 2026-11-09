@@ -91,6 +91,16 @@ const downloadOriginal = async (message, peerId, call) => {
   }
 };
 // The placeholder always names the photo; a preview that cannot be decoded just leaves it alone.
+/**
+ * @typedef {HTMLSpanElement & {
+ *   canvas: HTMLCanvasElement,
+ *   kept: boolean,
+ *   ready?: Promise<void>,
+ *   showFetching?: () => void,
+ *   showResult?: (text: string, retry: boolean) => void,
+ *   fetchPhoto?: () => Promise<void>
+ * }} PhotoBox
+ */
 const createPhotoBubble = (photo) => {
   const box = document.createElement('span');
   box.className = 'chat-photo';
@@ -106,9 +116,9 @@ const createPhotoBubble = (photo) => {
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', strings['chats.photo']);
   box.append(canvas, caption, status);
-  box.canvas = canvas;
-  box.kept = photo.kept;
-  return { box, canvas, status };
+  /** @type {PhotoBox} */
+  const initialized = Object.assign(box, { canvas, kept: photo.kept });
+  return { box: initialized, canvas, status };
 };
 const photoBubble = (message, peerId, blurred, call) => {
   const { photo } = message;

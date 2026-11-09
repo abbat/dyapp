@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { chatState } from './chat-state.js';
 import { renderChatRows, visibleChatRows, openChat } from './chats-ui.js';
 import { identityState, identityCurrent } from './identity-state.js';
@@ -32,10 +33,10 @@ const loadPeerNames = async (peerIds, call) => {
 };
 document.addEventListener('dyapp:identity-change', () => peerNames.clear());
 
-const renameDialog = document.getElementById('chat-rename-dialog');
-const renameInput = document.getElementById('chat-rename-input');
-const renameError = document.getElementById('chat-rename-error');
-const renameSave = document.getElementById('chat-rename-save');
+const renameDialog = domById('chat-rename-dialog', HTMLDialogElement);
+const renameInput = domById('chat-rename-input', HTMLInputElement);
+const renameError = domById('chat-rename-error', HTMLParagraphElement);
+const renameSave = domById('chat-rename-save', HTMLButtonElement);
 let renameTarget = null;
 const closeRename = () => {
   if (renameDialog.open) renameDialog.close();
@@ -46,8 +47,8 @@ const closeRename = () => {
 renameDialog.addEventListener('close', () => {
   if (!renameDialog.open) closeRename();
 });
-document.getElementById('chat-rename-cancel').addEventListener('click', closeRename);
-document.getElementById('chat-rename').addEventListener('click', () => {
+domById('chat-rename-cancel', HTMLButtonElement).addEventListener('click', closeRename);
+domById('chat-rename', HTMLButtonElement).addEventListener('click', () => {
   if (!chatState.activeChat) return;
   const { peerId } = chatState.activeChat;
   const entry = peerNames.get(peerId);
@@ -82,7 +83,7 @@ const saveRename = async (call = invoke) => {
   renderChatRows(visibleChatRows);
   if (chatState.activeChat?.peerId === peerId) await openChat(peerId, call);
 };
-document.getElementById('chat-rename-form').addEventListener('submit', (event) => {
+domById('chat-rename-form', HTMLFormElement).addEventListener('submit', (event) => {
   event.preventDefault();
   controller.chatRenamed = saveRename();
 });

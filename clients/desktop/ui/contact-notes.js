@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -6,12 +7,12 @@ import { progress } from './ui-progress.js';
 export const controller = {};
 
 // Private drafts belong to one loaded profile and identity, never the public draft.
-const notePanel = document.getElementById('view-note');
-const noteText = document.getElementById('view-note-text');
-const noteSave = document.getElementById('view-note-save');
-const noteClear = document.getElementById('view-note-clear');
-const noteRetry = document.getElementById('view-note-retry');
-const noteStatus = document.getElementById('view-note-status');
+const notePanel = domById('view-note', HTMLDivElement);
+const noteText = domById('view-note-text', HTMLTextAreaElement);
+const noteSave = domById('view-note-save', HTMLButtonElement);
+const noteClear = domById('view-note-clear', HTMLButtonElement);
+const noteRetry = domById('view-note-retry', HTMLButtonElement);
+const noteStatus = domById('view-note-status', HTMLParagraphElement);
 let noteView = null;
 const noteCurrent = (target) =>
   noteView === target && viewed === target.view && identityCurrent(target.generation);

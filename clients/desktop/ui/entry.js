@@ -1,3 +1,4 @@
+import { eventDetail } from './dom.js';
 import { controller as chats } from './chats-ui.js';
 import { controller as removal } from './remove.js';
 import { installIdentifiers } from './identifiers.js';
@@ -32,6 +33,8 @@ import './profile-photos.js';
 import './peer-photos.js';
 import './network.js';
 
-document.addEventListener('dyapp:mail-updated', (event) => chats.mailUpdated(event.detail));
-document.addEventListener('dyapp:device-revoked', (event) => removal.deviceRevoked(event.detail));
+document.addEventListener('dyapp:mail-updated', (event) => chats.mailUpdated(eventDetail(event)));
+document.addEventListener('dyapp:device-revoked', (event) =>
+  removal.deviceRevoked(eventDetail(event)),
+);
 stringsShown.then(() => installIdentifiers(strings));

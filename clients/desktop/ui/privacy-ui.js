@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 export const controller = {};
@@ -10,14 +11,14 @@ const privacyInputs = {
   presenceMatches: 'presence-matches',
   notifications: 'message-notifications',
 };
-const privacyError = document.getElementById('privacy-error');
-const noticeContent = document.getElementById('notice-content');
+const privacyError = domById('privacy-error', HTMLParagraphElement);
+const noticeContent = domById('notice-content', HTMLSelectElement);
 const privacyFailure = (failed) => {
   privacyError.hidden = !failed;
-  document.getElementById('notifications-error').hidden = !failed;
+  domById('notifications-error', HTMLParagraphElement).hidden = !failed;
 };
 const showNoticeChoice = () => {
-  noticeContent.disabled = !document.getElementById('message-notifications').checked;
+  noticeContent.disabled = !domById('message-notifications', HTMLInputElement).checked;
 };
 controller.showPrivacy = async (call = invoke) => {
   const generation = identityState.generation;
@@ -25,9 +26,9 @@ controller.showPrivacy = async (call = invoke) => {
     const privacy = await call('privacy_settings');
     if (!identityCurrent(generation)) return;
     for (const [key, id] of Object.entries(privacyInputs)) {
-      document.getElementById(id).checked = privacy[key];
+      domById(id, HTMLInputElement).checked = privacy[key];
     }
-    document.getElementById('presence-nobody').checked = !privacy.presenceMatches;
+    domById('presence-nobody', HTMLInputElement).checked = !privacy.presenceMatches;
     noticeContent.value = privacy.noticeContent;
     showNoticeChoice();
     privacyFailure(false);
@@ -37,10 +38,15 @@ controller.showPrivacy = async (call = invoke) => {
 };
 const savePrivacy = (call = invoke) => {
   const generation = identityState.generation;
-  const privacy = Object.fromEntries(
-    Object.entries(privacyInputs).map(([key, id]) => [key, document.getElementById(id).checked]),
-  );
-  privacy.noticeContent = noticeContent.value;
+  const privacy = {
+    ...Object.fromEntries(
+      Object.entries(privacyInputs).map(([key, id]) => [
+        key,
+        domById(id, HTMLInputElement).checked,
+      ]),
+    ),
+    noticeContent: noticeContent.value,
+  };
   return call('set_privacy', { privacy }).then(
     () => {
       if (identityCurrent(generation)) privacyFailure(false);
@@ -51,7 +57,7 @@ const savePrivacy = (call = invoke) => {
   );
 };
 for (const id of ['privacy', 'notifications']) {
-  document.getElementById(id).addEventListener('change', () => {
+  domById(id, HTMLElement).addEventListener('change', () => {
     showNoticeChoice();
     controller.privacySaved = savePrivacy();
   });

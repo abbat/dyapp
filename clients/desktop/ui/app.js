@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById, query as domQuery } from './dom.js';
 import { controller as chatsUiController } from './chats-ui.js';
 import { copyFrom } from './clipboard.js';
 import { controller as devicesController } from './devices.js';
@@ -21,27 +22,27 @@ import { controller as settingsController } from './settings.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
 
-const ready = document.getElementById('app-ready');
-const setup = document.getElementById('setup');
-const identity = document.getElementById('identity');
-const systemChoice = document.getElementById('system-choice');
-const fileChoice = document.getElementById('file-choice');
-const createIdentity = document.getElementById('create-identity');
-const linkIdentity = document.getElementById('link-identity');
-const storageError = document.getElementById('storage-error');
-const bootActions = document.getElementById('boot-actions');
-const bootRetry = document.getElementById('boot-retry');
+const ready = domById('app-ready', HTMLParagraphElement);
+const setup = domById('setup', HTMLElement);
+const identity = domById('identity', HTMLDivElement);
+const systemChoice = domById('system-choice', HTMLInputElement);
+const fileChoice = domById('file-choice', HTMLInputElement);
+const createIdentity = domById('create-identity', HTMLButtonElement);
+const linkIdentity = domById('link-identity', HTMLButtonElement);
+const storageError = domById('storage-error', HTMLParagraphElement);
+const bootActions = domById('boot-actions', HTMLDivElement);
+const bootRetry = domById('boot-retry', HTMLButtonElement);
 
-const switchIdentity = document.getElementById('switch-identity');
+const switchIdentity = domById('switch-identity', HTMLButtonElement);
 
-const wizardNetwork = document.getElementById('wizard-network');
+const wizardNetwork = domById('wizard-network', HTMLElement);
 const sections = [
   setup,
   identity,
-  document.getElementById('picker'),
-  document.getElementById('recovery'),
+  domById('picker', HTMLElement),
+  domById('recovery', HTMLElement),
   wizardNetwork,
-  document.getElementById('link'),
+  domById('link', HTMLElement),
 ];
 // The opened identity or recovery state the remove dialog acts on.
 
@@ -49,7 +50,7 @@ const sections = [
 const show = (section, status) => {
   if (removeDialog.open) removeDialog.close();
   devicesController.closeDeviceDialogs?.();
-  document.getElementById('boot').hidden = Boolean(section);
+  domById('boot', HTMLElement).hidden = Boolean(section);
   for (const each of sections) each.hidden = each !== section;
   // Ready keeps identity actions in Settings; recovery has no other way out.
   switchIdentity.hidden = section !== sections[3];
@@ -60,7 +61,7 @@ const show = (section, status) => {
   );
   // Setup and the picker opened from an open identity can go back to it.
   for (const id of ['setup-cancel', 'picker-cancel'])
-    document.getElementById(id).hidden = !identityState.current;
+    domById(id, HTMLElement).hidden = !identityState.current;
   // An open identity links from Settings, with its network.
   linkIdentity.hidden = Boolean(identityState.current);
   storageError.hidden = true;
@@ -71,7 +72,7 @@ const show = (section, status) => {
 const showError = () => {
   show(null, 'status.error');
   switchIdentity.hidden = true;
-  document.getElementById('boot-loading').hidden = true;
+  domById('boot-loading', HTMLParagraphElement).hidden = true;
   storageError.textContent = localeModule_strings['storage.error'];
   storageError.hidden = false;
   bootActions.hidden = false;
@@ -164,21 +165,21 @@ controller.settingsIdentity = (item) => {
 const knownSize = (bytes) =>
   bytes === null ? localeModule_strings['usage.unavailable'] : sizeText(bytes);
 const usageText = (id, text) => {
-  document.getElementById(id).textContent = text;
+  domById(id, HTMLElement).textContent = text;
 };
 let usageTimer;
 controller.showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
   const generation = identityState.generation;
-  const card = document.getElementById('usage');
-  if (document.getElementById('settings').hidden) return;
+  const card = domById('usage', HTMLDivElement);
+  if (domById('settings', HTMLElement).hidden) return;
   try {
     const usage = await call('storage_usage');
     if (!identityCurrent(generation)) return;
     usageText('usage-identity-dir', usage.identityDir ?? localeModule_strings['usage.unavailable']);
     usageText('usage-messages', knownSize(usage.messages));
     usageText('usage-messages-path', usage.messagesPath);
-    document.getElementById('usage-node-row').hidden = usage.nodePath === null;
+    domById('usage-node-row', HTMLTableRowElement).hidden = usage.nodePath === null;
     const limited = usage.node !== null && usage.nodeLimit !== null;
     usageText(
       'usage-node',
@@ -189,10 +190,10 @@ controller.showUsage = async (call = invoke) => {
         : knownSize(usage.node),
     );
     usageText('usage-node-path', usage.nodePath ?? '');
-    const bar = document.getElementById('usage-node-bar');
+    const bar = domById('usage-node-bar', HTMLMeterElement);
     bar.hidden = !limited;
     if (limited) Object.assign(bar, { max: usage.nodeLimit, value: usage.node });
-    document.getElementById('usage-free-row').hidden = usage.free === null;
+    domById('usage-free-row', HTMLTableRowElement).hidden = usage.free === null;
     if (usage.free !== null) usageText('usage-free', sizeText(usage.free));
     card.hidden = false;
   } catch (_) {
@@ -208,8 +209,8 @@ const showStatus = async (call = invoke) => {
   clearTimeout(statusTimer);
   const generation = identityState.generation;
   const { strings } = localeModule;
-  const traffic = document.getElementById('status-traffic');
-  const messages = document.getElementById('status-messages');
+  const traffic = domById('status-traffic', HTMLSpanElement);
+  const messages = domById('status-messages', HTMLSpanElement);
   try {
     const status = await call('status');
     if (!identityCurrent(generation)) return;
@@ -233,8 +234,8 @@ const showStatus = async (call = invoke) => {
 };
 
 // Settings → Window: the tray icon and close-to-tray, usable only while a tray host is running.
-const trayShow = document.getElementById('tray-show');
-const trayClose = document.getElementById('tray-close');
+const trayShow = domById('tray-show', HTMLInputElement);
+const trayClose = domById('tray-close', HTMLInputElement);
 const setTray = async (prefs, call = invoke) => {
   const generation = identityState.generation;
   const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
@@ -246,7 +247,7 @@ const setTray = async (prefs, call = invoke) => {
   trayShow.disabled = !tray.available;
   trayClose.checked = tray.closeToTray;
   trayClose.disabled = !tray.available || !tray.show;
-  document.getElementById('tray-note').hidden = tray.available;
+  domById('tray-note', HTMLParagraphElement).hidden = tray.available;
   return tray;
 };
 const changeTray = () => setTray({ show: trayShow.checked, closeToTray: trayClose.checked });
@@ -260,14 +261,14 @@ const applyTheme = (theme) => {
   else delete document.documentElement.dataset.theme;
 };
 applyTheme(localStorage.getItem('theme'));
-for (const radio of document.querySelectorAll('input[name="theme"]')) {
+for (const radio of domAll(document, 'input[name="theme"]', HTMLInputElement)) {
   radio.checked = radio.value === (localStorage.getItem('theme') || 'system');
   radio.addEventListener('change', () => {
     localStorage.setItem('theme', radio.value);
     applyTheme(radio.value);
   });
 }
-const languageChoice = document.getElementById('language');
+const languageChoice = domById('language', HTMLSelectElement);
 languageChoice.value = localStorage.getItem('language') || 'system';
 languageChoice.addEventListener('change', () => {
   localStorage.setItem('language', languageChoice.value);
@@ -275,7 +276,7 @@ languageChoice.addEventListener('change', () => {
 });
 
 // The shell: one area at a time; below 640 px the sidebar slides in over a scrim.
-const menuOpen = document.getElementById('menu-open');
+const menuOpen = domById('menu-open', HTMLButtonElement);
 const setMenu = (open) => {
   if (open) document.documentElement.dataset.screen = 'menu';
   else delete document.documentElement.dataset.screen;
@@ -284,15 +285,15 @@ const setMenu = (open) => {
 menuOpen.addEventListener('click', () =>
   setMenu(document.documentElement.dataset.screen !== 'menu'),
 );
-document.getElementById('scrim').addEventListener('click', () => setMenu(false));
+domById('scrim', HTMLDivElement).addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenu(false);
   if (event.ctrlKey && event.key.toLowerCase() === 'q') invoke('quit');
 });
 const showArea = (area) => {
   document.dispatchEvent(new CustomEvent('dyapp:area-change', { detail: area }));
-  for (const button of document.querySelectorAll('#sidebar [data-area]')) {
-    document.getElementById(button.dataset.area).hidden = button.dataset.area !== area;
+  for (const button of domAll(document, '#sidebar [data-area]', HTMLButtonElement)) {
+    domById(button.dataset.area, HTMLElement).hidden = button.dataset.area !== area;
     if (button.dataset.area === area) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
@@ -302,24 +303,24 @@ const showArea = (area) => {
   if (area === 'settings') controller.settingsShown = settingsController.showSettings();
   if (area === 'chats-area') progress.chatsDone = chatsUiController.showChats();
 };
-for (const button of document.querySelectorAll('#sidebar [data-area]')) {
+for (const button of domAll(document, '#sidebar [data-area]', HTMLButtonElement)) {
   button.addEventListener('click', () => showArea(button.dataset.area));
 }
-const settingsCreate = document.getElementById('settings-create');
-const settingsSwitch = document.getElementById('settings-switch');
+const settingsCreate = domById('settings-create', HTMLButtonElement);
+const settingsSwitch = domById('settings-switch', HTMLButtonElement);
 settingsCreate.addEventListener('click', () => act(invoke('storage_options')));
 settingsSwitch.addEventListener('click', () => act({ status: 'picker' }));
 
 // The store and search node the app runs while open (ADR 0030); Windows builds have no node
 // commands, so the form stays hidden there.
-const nodeForm = document.getElementById('node');
-const nodeEnabled = document.getElementById('node-enabled');
-const nodeDisk = document.getElementById('node-disk');
-const nodeConnections = document.getElementById('node-connections');
-const nodeSave = document.getElementById('node-save');
+const nodeForm = domById('node', HTMLFormElement);
+const nodeEnabled = domById('node-enabled', HTMLInputElement);
+const nodeDisk = domById('node-disk', HTMLInputElement);
+const nodeConnections = domById('node-connections', HTMLInputElement);
+const nodeSave = domById('node-save', HTMLButtonElement);
 const nodeStatus = (status, detail) => {
   const text = localeModule_strings[`node.${status}`];
-  document.getElementById('node-status').textContent = detail ? `${text} ${detail}` : text;
+  domById('node-status', HTMLParagraphElement).textContent = detail ? `${text} ${detail}` : text;
   nodeForm.dataset.status = status;
 };
 const nodeResult = (result) => nodeStatus(result.status, result.peerId);
@@ -379,19 +380,19 @@ nodeForm.addEventListener('submit', (event) => {
 });
 
 // The Rust core supplies field numbers and choices; catalogues supply only visible names.
-const profileForm = document.getElementById('profile');
-const profileScales = document.getElementById('profile-scales');
-const profileStatus = document.getElementById('profile-status');
-const publishDialog = document.getElementById('publish-dialog');
-const publishConfirm = document.getElementById('profile-publish-confirm');
-const profileHidden = document.getElementById('profile-hidden');
-const profileAttested = document.getElementById('profile-attested');
-const profileDisclosure = document.getElementById('profile-disclosure');
-const profileCancel = document.getElementById('profile-cancel');
+const profileForm = domById('profile', HTMLFormElement);
+const profileScales = domById('profile-scales', HTMLDivElement);
+const profileStatus = domById('profile-status', HTMLParagraphElement);
+const publishDialog = domById('publish-dialog', HTMLDialogElement);
+const publishConfirm = domById('profile-publish-confirm', HTMLButtonElement);
+const profileHidden = domById('profile-hidden', HTMLInputElement);
+const profileAttested = domById('profile-attested', HTMLInputElement);
+const profileDisclosure = domById('profile-disclosure', HTMLInputElement);
+const profileCancel = domById('profile-cancel', HTMLButtonElement);
 let profileBusy = false;
 let profilePublished = false;
 const birthValue = (part) => {
-  const value = document.getElementById(`birth-${part}`).value;
+  const value = domById(`birth-${part}`, HTMLInputElement).value;
   return value === '' ? null : Number(value);
 };
 
@@ -399,30 +400,32 @@ const birthValue = (part) => {
 // so typed text that is no suggestion fails validation instead of being saved or searched.
 // Editing the country clears the place.
 
-const placeCountry = document.getElementById('profile-country');
-const placeInput = document.getElementById('profile-place');
+const placeCountry = domById('profile-country', HTMLSelectElement);
+const placeInput = domById('profile-place', HTMLInputElement);
 const profilePlace = placePicker(
   placeCountry,
   placeInput,
-  document.getElementById('profile-places'),
+  domById('profile-places', HTMLDataListElement),
   () => placeCountry.value,
 );
 const profileDraft = () => ({
-  name: document.getElementById('profile-name').value,
+  name: domById('profile-name', HTMLInputElement).value,
   ...Object.fromEntries(
     profileFieldsModule.scaleFields.map((scale) => [
       profileFieldsModule.camel(scale.key),
       Number(
-        document.getElementById(`profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`)
-          .value,
+        domById(
+          `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`,
+          HTMLSelectElement,
+        ).value,
       ),
     ]),
   ),
   birthYear: birthValue('year'),
   birthMonth: birthValue('month'),
   birthDay: birthValue('day'),
-  height: Number(document.getElementById('profile-height').value) || null,
-  about: document.getElementById('profile-about').value,
+  height: Number(domById('profile-height', HTMLInputElement).value) || null,
+  about: domById('profile-about', HTMLTextAreaElement).value,
   interests: profileInterestTags(),
   country: placeCountry.value,
   place: profilePlace.id(),
@@ -433,13 +436,13 @@ const statusMessage = (status, open, key, detail) => {
   status.textContent = `${localeModule_strings[key]}${detail ? ` ${detail}` : ''}`;
   const offline = key.endsWith('.notConnected');
   status.classList.toggle('error', offline);
-  document.getElementById(open).hidden = !offline;
+  domById(open, HTMLElement).hidden = !offline;
 };
 const profileMessage = (key, detail = '') =>
   statusMessage(profileStatus, 'profile-open-network', key, detail);
 // While the search window holds the published profile, say when it reaches search and send it
 // once the window ends. A due profile no node took waits for the next publish or app start.
-const searchWait = document.getElementById('profile-search-wait');
+const searchWait = domById('profile-search-wait', HTMLParagraphElement);
 let searchWaitTimer;
 const sendSearchProfile = (generation = identityState.generation, call = invoke) => {
   if (!identityCurrent(generation)) return Promise.resolve();
@@ -481,18 +484,18 @@ const showProfile = async (call = invoke) => {
   profileFieldsModule.setScaleFields(scales);
   const rows = scales.map((scale) => profileFormModule_profileForm.scaleRow(scale, view.draft));
   const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
-  document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
+  domById('profile-basics', HTMLDivElement).replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
   for (const part of ['year', 'month', 'day']) {
-    document.getElementById(`birth-${part}`).value =
+    domById(`birth-${part}`, HTMLInputElement).value =
       view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
   }
-  document.getElementById('profile-height').value = view.draft.height || '';
-  document.getElementById('profile-about').value = view.draft.about;
+  domById('profile-height', HTMLInputElement).value = view.draft.height || '';
+  domById('profile-about', HTMLTextAreaElement).value = view.draft.about;
   showProfileInterests(view.draft.interests);
   showSeeking(view.draft);
   placeCountry.replaceChildren(...profileFormModule_profileForm.countryOptions(countries));
-  document.getElementById('profile-name').value = view.draft.name;
+  domById('profile-name', HTMLInputElement).value = view.draft.name;
   placeCountry.value = view.draft.country;
   const place =
     view.draft.place &&
@@ -512,7 +515,7 @@ const showHidden = (view) => {
   profilePublished = Boolean(view.published);
   profileHidden.disabled = !profilePublished;
   profileHidden.checked = view.hidden;
-  document.getElementById('profile-hidden-notice').hidden = !view.hidden;
+  domById('profile-hidden-notice', HTMLParagraphElement).hidden = !view.hidden;
   if (view.hidden)
     profileMessage(
       view.searchMinutes == null ? 'profile.status.hidden' : 'profile.status.hidePending',
@@ -525,7 +528,7 @@ const showHidden = (view) => {
 };
 const showAge = (view) => {
   const [youngest, oldest] = view.ages || [];
-  document.getElementById('profile-age').textContent = view.ages
+  domById('profile-age', HTMLParagraphElement).textContent = view.ages
     ? `${localeModule_strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
     : localeModule_strings['profile.ageUnknown'];
 };
@@ -596,10 +599,10 @@ const saveProfile = async (call = invoke) => {
 };
 // The dialog lists exactly the public fields and asks both consents afresh each time.
 const openPublishDialog = (view) => {
-  document
-    .getElementById('profile-public-fields')
-    .replaceChildren(...listItems(publicFields(view.draft, placeInput.value)));
-  document.getElementById('profile-date-warning').hidden = !(
+  domById('profile-public-fields', HTMLUListElement).replaceChildren(
+    ...listItems(publicFields(view.draft, placeInput.value)),
+  );
+  domById('profile-date-warning', HTMLParagraphElement).hidden = !(
     view.draft.birthYear &&
     view.draft.birthMonth &&
     view.draft.birthDay
@@ -607,13 +610,13 @@ const openPublishDialog = (view) => {
   profileAttested.checked = false;
   profileDisclosure.checked = false;
   publishConfirm.disabled = true;
-  document.getElementById('publish-consents').hidden = false;
-  document.getElementById('publish-progress').hidden = true;
+  domById('publish-consents', HTMLDivElement).hidden = false;
+  domById('publish-progress', HTMLDivElement).hidden = true;
   publishDialog.hidden = false;
   publishDialog.showModal();
   profileCancel.focus();
 };
-const elapsed = document.getElementById('publish-elapsed');
+const elapsed = domById('publish-elapsed', HTMLParagraphElement);
 let elapsedTimer;
 const startElapsed = () => {
   const generation = identityState.generation;
@@ -632,7 +635,14 @@ const startElapsed = () => {
 };
 const setProfileBusy = (busy) => {
   profileBusy = busy;
-  for (const element of profileForm.querySelectorAll('input, select, textarea, button')) {
+  for (const element of domAll(
+    profileForm,
+    'input, select, textarea, button',
+    HTMLInputElement,
+    HTMLSelectElement,
+    HTMLTextAreaElement,
+    HTMLButtonElement,
+  )) {
     element.disabled = busy;
   }
   profilePhotosController.limitProfilePhotos();
@@ -688,7 +698,7 @@ const previewAndPublish = async (save = saveProfile) => {
     if (identityCurrent(generation)) setProfileBusy(false);
   }
 };
-document.getElementById('profile-publish').addEventListener('click', () => previewAndPublish());
+domById('profile-publish', HTMLButtonElement).addEventListener('click', () => previewAndPublish());
 for (const box of [profileAttested, profileDisclosure]) {
   box.addEventListener('change', () => {
     publishConfirm.disabled = !(profileAttested.checked && profileDisclosure.checked);
@@ -715,8 +725,8 @@ const confirmPublish = async (call = invoke) => {
   const generation = identityState.generation;
   setProfileBusy(true);
   publishConfirm.disabled = true;
-  document.getElementById('publish-consents').hidden = true;
-  document.getElementById('publish-progress').hidden = false;
+  domById('publish-consents', HTMLDivElement).hidden = true;
+  domById('publish-progress', HTMLDivElement).hidden = false;
   const timer = startElapsed();
   try {
     profileMessage('profile.solving');
@@ -768,16 +778,16 @@ profileHidden.addEventListener('change', () => {
 });
 
 async function renderReady(state, generation, fresh) {
-  document.getElementById('peer-id').textContent = state.peerId;
-  document.getElementById('file-backup').hidden = state.mode !== 'file';
-  document.getElementById('key-path').textContent = state.keyPath || '';
+  domById('peer-id', HTMLElement).textContent = state.peerId;
+  domById('file-backup', HTMLDivElement).hidden = state.mode !== 'file';
+  domById('key-path', HTMLElement).textContent = state.keyPath || '';
   const items = await invoke('list_identities');
   if (!identityCurrent(generation)) return state;
   knowPeers(items);
-  const sidebarIdentity = document.getElementById('sidebar-identity');
+  const sidebarIdentity = domById('sidebar-identity', HTMLDivElement);
   const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
   text.className = 'label';
-  text.lastChild.className = 'sub';
+  domQuery(text, ':scope > .caption', HTMLSpanElement).className = 'sub';
   sidebarIdentity.replaceChildren(avatar, text);
   await networkController.showNetwork();
   if (!identityCurrent(generation)) return state;
@@ -805,20 +815,20 @@ async function render(state, generation = identityState.generation, fresh = fals
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
     if (!identityCurrent(generation)) return state;
-    document.getElementById('identities').replaceChildren(...knowPeers(items).map(identityButton));
+    domById('identities', HTMLDivElement).replaceChildren(...knowPeers(items).map(identityButton));
     show(sections[2], 'status.pick');
     return state;
   }
   if (state.status === 'recovery') {
-    document.getElementById('recovery-reason').textContent = reasonText(state.reason);
+    domById('recovery-reason', HTMLParagraphElement).textContent = reasonText(state.reason);
     // The state code and the slot row, for a bug report.
-    document.getElementById('recovery-details').textContent = [
+    domById('recovery-details', HTMLPreElement).textContent = [
       state.reason,
       [state.slot, state.mode].filter(Boolean).join(' '),
     ].join('\n');
-    document.getElementById('recovery-more').open = false;
-    document.getElementById('recovery-peer').textContent = state.peerId || '';
-    document.getElementById('recovery-peer-row').hidden = !state.peerId;
+    domById('recovery-more', HTMLDetailsElement).open = false;
+    domById('recovery-peer', HTMLElement).textContent = state.peerId || '';
+    domById('recovery-peer-row', HTMLParagraphElement).hidden = !state.peerId;
     show(sections[3], 'status.recovery');
     return state;
   }
@@ -829,7 +839,7 @@ async function render(state, generation = identityState.generation, fresh = fals
   createIdentity.disabled = false;
   linkIdentity.disabled = false;
   (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
-  document.getElementById('system-reason').textContent = systemChoice.disabled
+  domById('system-reason', HTMLSpanElement).textContent = systemChoice.disabled
     ? localeModule_strings[state.systemReason]
     : '';
   show(setup, 'status.choose');
@@ -845,19 +855,19 @@ const create = (wizard) => {
 createIdentity.addEventListener('click', () => create(true));
 linkIdentity.addEventListener('click', () => create('link'));
 copyFrom(
-  document.getElementById('copy-recovery-details'),
-  document.getElementById('recovery-details'),
+  domById('copy-recovery-details', HTMLButtonElement),
+  domById('recovery-details', HTMLPreElement),
 );
 switchIdentity.addEventListener('click', () => act({ status: 'picker' }));
-document
-  .getElementById('add-identity')
-  .addEventListener('click', () => act(invoke('storage_options')));
-document.getElementById('retry').addEventListener('click', () => act(invoke('identity_state')));
+domById('add-identity', HTMLButtonElement).addEventListener('click', () =>
+  act(invoke('storage_options')),
+);
+domById('retry', HTMLButtonElement).addEventListener('click', () => act(invoke('identity_state')));
 // A failed switch or removal keeps the backend's selection, but stopped its node; rendering the
 // reread state restarts that node.
 bootRetry.addEventListener('click', () => {
   show(null, 'status.loading');
-  document.getElementById('boot-loading').hidden = false;
+  domById('boot-loading', HTMLParagraphElement).hidden = false;
   act(invoke('identity_state'));
 });
 

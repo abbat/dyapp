@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { who } from './app.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
@@ -58,5 +59,5 @@ controller.showPassed = async (call = invoke) => {
     (peer) => `${peer} ${peerNamesController.peerName(peer)}`,
     () => controller.showPassed(),
   );
-  document.getElementById('passed-none').hidden = peers.length > 0;
+  domById('passed-none', HTMLParagraphElement).hidden = peers.length > 0;
 };

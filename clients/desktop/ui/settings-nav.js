@@ -1,10 +1,11 @@
+import { all as domAll, byId as domById, find as domFind } from './dom.js';
 export const controller = {};
 
 // Keep category navigation local to Settings; backend availability owns inner cards.
 (() => {
-  const root = document.getElementById('settings-root');
-  const back = document.getElementById('settings-back');
-  const panes = [...document.querySelectorAll('[data-settings-pane]')];
+  const root = domById('settings-root', HTMLDivElement);
+  const back = domById('settings-back', HTMLButtonElement);
+  const panes = [...domAll(document, '[data-settings-pane]', HTMLDivElement)];
   const parent = {
     identities: 'account',
     devices: 'account',
@@ -24,7 +25,7 @@ export const controller = {};
       (name ? back : root.querySelector('button')).focus();
     }
   };
-  for (const button of document.querySelectorAll('[data-settings-open]')) {
+  for (const button of domAll(document, '[data-settings-open]', HTMLButtonElement)) {
     button.addEventListener('click', () => open(button.dataset.settingsOpen));
   }
   back.addEventListener('click', () => {
@@ -34,7 +35,7 @@ export const controller = {};
     const container = destination
       ? panes.find((pane) => pane.dataset.settingsPane === destination)
       : root;
-    container.querySelector(`[data-settings-open="${previous}"]`)?.focus();
+    domFind(container, `[data-settings-open="${previous}"]`, HTMLElement)?.focus();
     window.scrollTo(0, 0);
   });
   document.addEventListener('dyapp:identity-change', () => open(null, false));
@@ -48,7 +49,7 @@ export const controller = {};
     'tray-show',
     'tray-close',
   ]) {
-    const input = document.getElementById(id);
+    const input = domById(id, HTMLElement);
     input.setAttribute('role', 'switch');
     input.classList.add('switch');
   }

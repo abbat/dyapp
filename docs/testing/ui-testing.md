@@ -20,7 +20,9 @@ The desktop smoke runs in one async local scope. Its explicit `interface.js` imp
 controller modules and exposes live `appBindings` and `appApi` views; shared smoke helpers live
 in a local `smoke` object. No application or test APIs are published on the page global object.
 Injected imports resolve URLs against `document.baseURI`, since injected scripts have no external
-script URL. Functional scenarios use those same controller objects and live state bindings (see
+script URL. The shared DOM smoke calibrates required, optional and list lookups against valid controls,
+missing elements and wrong element kinds. Functional scenarios use those same controller
+objects and live state bindings (see
 [desktop module boundaries](../architecture/ui-state-contract.md#desktop-module-boundaries)).
 
 Shared desktop smoke scripts are concatenated in `clients/desktop/ui-tests/mod.rs` order.

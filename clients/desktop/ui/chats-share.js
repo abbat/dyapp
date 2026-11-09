@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { showArea } from './app.js';
 import { chatState } from './chat-state.js';
 import { closeForward, openChat } from './chats-ui.js';
@@ -24,7 +25,7 @@ const showForwardDialog = (action, targets) => {
     ['chat-forward-title', `chats.${action}Title`],
     ['chat-forward-confirm', `chats.${action}`],
   ]) {
-    const element = document.getElementById(id);
+    const element = domById(id, HTMLElement);
     element.dataset.i18n = key;
     element.textContent = strings[key];
   }
@@ -60,7 +61,7 @@ const openShare = async (peerId, call = invoke) => {
     rows.filter((row) => row.state === 'open' && row.peerId !== peerId),
   );
 };
-document.getElementById('view-share').addEventListener('click', () => {
+domById('view-share', HTMLButtonElement).addEventListener('click', () => {
   const found = viewed?.found;
   if (found) controller.shareOpened = openShare(found.peerId);
 });

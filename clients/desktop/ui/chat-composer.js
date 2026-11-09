@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { chatState } from './chat-state.js';
 import { openChat, chatSending, chatBlocking } from './chats-ui.js';
 import { chatInput, chatSend, chatComposeStatus } from './elements.js';
@@ -15,19 +16,20 @@ export const updateComposer = () => {
   chatInput.disabled = !writable;
   chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
   chatSend.hidden = !chatInput.value.trim();
-  const attach = document.getElementById('chat-attach');
+  const attach = domById('chat-attach', HTMLButtonElement);
   attach.hidden = false;
   attach.disabled = !writable || chatState.activeChat?.state !== 'open';
-  document.getElementById('chat-stickers').disabled = attach.disabled;
-  document.getElementById('chat-first-notice').hidden = !waiting;
-  document.getElementById('chat-closed-notice').hidden = !closed;
-  document.getElementById('chat-request-notice').hidden =
+  domById('chat-stickers', HTMLButtonElement).disabled = attach.disabled;
+  domById('chat-first-notice', HTMLParagraphElement).hidden = !waiting;
+  domById('chat-closed-notice', HTMLParagraphElement).hidden = !closed;
+  domById('chat-request-notice', HTMLDivElement).hidden =
     chatState.activeChat?.state !== 'requestReceived';
-  document.getElementById('chat-block').hidden = chatState.activeChat?.state === 'requestReceived';
+  domById('chat-block', HTMLButtonElement).hidden =
+    chatState.activeChat?.state === 'requestReceived';
   for (const id of ['chat-block', 'request-block', 'chat-clear', 'chat-mute']) {
-    document.getElementById(id).disabled = chatSending || chatBlocking;
+    domById(id, HTMLButtonElement).disabled = chatSending || chatBlocking;
   }
-  const mute = document.getElementById('chat-mute');
+  const mute = domById('chat-mute', HTMLButtonElement);
   mute.dataset.i18n = chatState.activeChat?.muted ? 'chats.unmute' : 'chats.mute';
   mute.textContent = strings[mute.dataset.i18n];
   if (bytes > 65536) chatComposeStatus.textContent = strings['chats.tooLong'];
@@ -41,9 +43,9 @@ chatInput.addEventListener('input', () => {
 chatInput.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
   event.preventDefault();
-  if (!chatSend.disabled) document.getElementById('chat-composer').requestSubmit();
+  if (!chatSend.disabled) domById('chat-composer', HTMLFormElement).requestSubmit();
 });
-document.getElementById('chat-stickers').addEventListener('click', () => {
+domById('chat-stickers', HTMLButtonElement).addEventListener('click', () => {
   if (chatInput.disabled || chatState.activeChat?.state !== 'open') return;
   const peerId = chatState.activeChat.peerId;
   const generation = identityState.generation;

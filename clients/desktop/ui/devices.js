@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -7,21 +8,21 @@ export const controller = {};
 
 // Settings > Devices: the devices of the open identity, the disconnect dialog and sending the
 // identity to a new device.
-const devicesCard = document.getElementById('devices');
-const devicesStatus = document.getElementById('devices-status');
-const disconnectDialog = document.getElementById('disconnect');
-const disconnectProblem = document.getElementById('disconnect-problem');
-const disconnectAction = document.getElementById('disconnect-action');
-const disconnectRetry = document.getElementById('disconnect-retry');
-const disconnectCancel = document.getElementById('disconnect-cancel');
+const devicesCard = domById('devices', HTMLDivElement);
+const devicesStatus = domById('devices-status', HTMLParagraphElement);
+const disconnectDialog = domById('disconnect', HTMLDialogElement);
+const disconnectProblem = domById('disconnect-problem', HTMLParagraphElement);
+const disconnectAction = domById('disconnect-action', HTMLButtonElement);
+const disconnectRetry = domById('disconnect-retry', HTMLButtonElement);
+const disconnectCancel = domById('disconnect-cancel', HTMLButtonElement);
 const disconnectButtons = [disconnectCancel, disconnectAction, disconnectRetry];
-const codeDialog = document.getElementById('device-code-dialog');
-const codeField = document.getElementById('device-code');
-const codeProblem = document.getElementById('device-code-problem');
-const codeInvalid = document.getElementById('device-code-invalid');
-const confirmDialog = document.getElementById('device-confirm-dialog');
-const confirmCancel = document.getElementById('device-confirm-cancel');
-const confirmAction = document.getElementById('device-confirm-action');
+const codeDialog = domById('device-code-dialog', HTMLDialogElement);
+const codeField = domById('device-code', HTMLTextAreaElement);
+const codeProblem = domById('device-code-problem', HTMLParagraphElement);
+const codeInvalid = domById('device-code-invalid', HTMLParagraphElement);
+const confirmDialog = domById('device-confirm-dialog', HTMLDialogElement);
+const confirmCancel = domById('device-confirm-cancel', HTMLButtonElement);
+const confirmAction = domById('device-confirm-action', HTMLButtonElement);
 let disconnecting = null;
 let disconnected = false;
 let devicesRead = 0;
@@ -46,7 +47,7 @@ const openDisconnect = (device) => {
   disconnecting = device;
   disconnected = false;
   devicesStatus.textContent = '';
-  document.getElementById('disconnect-device').textContent = deviceShort(device.key);
+  domById('disconnect-device', HTMLElement).textContent = deviceShort(device.key);
   disconnectOffline(false);
   disconnectDialog.hidden = false;
   disconnectDialog.showModal();
@@ -181,13 +182,15 @@ for (const dialog of [codeDialog, confirmDialog]) {
     dialog.hidden = true;
   });
 }
-document.getElementById('device-link').addEventListener('click', () => {
+domById('device-link', HTMLButtonElement).addEventListener('click', () => {
   codeField.value = '';
   devicesStatus.textContent = '';
   openCode();
 });
-document.getElementById('device-code-cancel').addEventListener('click', () => codeDialog.close());
-document.getElementById('device-code-next').addEventListener('click', () => {
+domById('device-code-cancel', HTMLButtonElement).addEventListener('click', () =>
+  codeDialog.close(),
+);
+domById('device-code-next', HTMLButtonElement).addEventListener('click', () => {
   controller.codeChecked = checkCode();
 });
 confirmCancel.addEventListener('click', () => confirmDialog.close());

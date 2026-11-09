@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { show, sections, who, modeText, showError, identity, act } from './app.js';
 import { copyFrom } from './clipboard.js';
 import { invoke } from './ipc.js';
@@ -6,12 +7,12 @@ import { drawContactQr } from './search.js';
 
 // The new computer's side of a link: the code, the wait for the record and the identity joined.
 // The backend holds the keys of the wait in memory, so leaving this page only has to cancel it.
-const linkWait = document.getElementById('link-wait');
-const linkShown = document.getElementById('link-shown');
-const linkActions = document.getElementById('link-actions');
-const linkNew = document.getElementById('link-new');
-const linkDone = document.getElementById('link-done');
-const linkOpen = document.getElementById('link-open');
+const linkWait = domById('link-wait', HTMLDivElement);
+const linkShown = domById('link-shown', HTMLDivElement);
+const linkActions = domById('link-actions', HTMLDivElement);
+const linkNew = domById('link-new', HTMLButtonElement);
+const linkDone = domById('link-done', HTMLDivElement);
+const linkOpen = domById('link-open', HTMLButtonElement);
 const linkMs = 3000;
 let linkRun = 0;
 let linkTimer = 0;
@@ -21,7 +22,7 @@ const linkState = (status) => {
   linkShown.hidden = status === 'expired' || status === 'finishing';
   linkActions.hidden = status === 'finishing';
   linkNew.hidden = status !== 'expired';
-  document.getElementById('link-status').textContent = strings[`link.${status}`];
+  domById('link-status', HTMLParagraphElement).textContent = strings[`link.${status}`];
 };
 const linkPage = (status) => {
   linkWait.hidden = false;
@@ -43,9 +44,9 @@ const finishLink = async (state, call) => {
   linkPage('finishing');
   await call('receive_mail').catch(() => {});
   const pending = await call('link_pending').catch(() => true);
-  const peer = document.getElementById('link-peer');
+  const peer = domById('link-peer', HTMLParagraphElement);
   peer.replaceChildren(...who(peer, state.peerId, '', modeText(state)));
-  document.getElementById('link-pending').hidden = !pending;
+  domById('link-pending', HTMLParagraphElement).hidden = !pending;
   linkWait.hidden = true;
   linkDone.hidden = false;
   linkOpen.focus();
@@ -77,8 +78,8 @@ const startLink = async (call = invoke) => {
   try {
     const { code, qr } = await call('start_link');
     if (run !== linkRun) return;
-    document.getElementById('link-code').textContent = code;
-    drawContactQr(qr, document.getElementById('link-qr'));
+    domById('link-code', HTMLElement).textContent = code;
+    drawContactQr(qr, domById('link-qr', HTMLCanvasElement));
     await pollLink(run, call);
   } catch (_) {
     if (run === linkRun) showError();
@@ -88,17 +89,17 @@ const startLink = async (call = invoke) => {
 document.addEventListener('dyapp:identity-change', () => {
   stopLink();
 });
-document.getElementById('device-join').addEventListener('click', () => {
+domById('device-join', HTMLButtonElement).addEventListener('click', () => {
   startLink();
 });
 linkNew.addEventListener('click', () => {
   startLink();
 });
-document.getElementById('link-cancel').addEventListener('click', () => {
+domById('link-cancel', HTMLButtonElement).addEventListener('click', () => {
   stopLink();
   show(identity, 'status.ready');
 });
 linkOpen.addEventListener('click', () => act(linkJoined));
-copyFrom(document.getElementById('copy-link-code'), document.getElementById('link-code'));
+copyFrom(domById('copy-link-code', HTMLButtonElement), domById('link-code', HTMLElement));
 
 export { linkJoined, linkRun, linkTimer, pollLink, startLink, stopLink };

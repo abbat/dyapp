@@ -1,3 +1,4 @@
+import { byId as domById, eventDetail } from './dom.js';
 import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -6,10 +7,10 @@ import { withPlaces, searchMain, openFound } from './search.js';
 export const controller = {};
 
 // The list reads local IDs and labels; only pressing a row fetches a verified profile.
-const savedPanel = document.getElementById('saved-profiles');
-const savedRows = document.getElementById('saved-profile-rows');
-const savedStatus = document.getElementById('saved-profile-status');
-const savedRefresh = document.getElementById('saved-profile-refresh');
+const savedPanel = domById('saved-profiles', HTMLDetailsElement);
+const savedRows = domById('saved-profile-rows', HTMLUListElement);
+const savedStatus = domById('saved-profile-status', HTMLParagraphElement);
+const savedRefresh = domById('saved-profile-refresh', HTMLButtonElement);
 let savedRun = 0;
 let savedSelection = 0;
 let savedCall = invoke;
@@ -25,7 +26,7 @@ const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
     savedCurrent(context) &&
     row.isConnected &&
     !searchMain.hidden &&
-    !document.getElementById('search-area').hidden
+    !domById('search-area', HTMLElement).hidden
   )
     openFound(found, open, context.call);
 };
@@ -110,7 +111,7 @@ controller.showSaved = async (call = savedCall) => {
   }
 };
 controller.refreshSaved = () => {
-  if (savedPanel.open && !searchMain.hidden && !document.getElementById('search-area').hidden) {
+  if (savedPanel.open && !searchMain.hidden && !domById('search-area', HTMLElement).hidden) {
     controller.savedShown = controller.showSaved();
   }
 };
@@ -137,5 +138,5 @@ document.addEventListener('dyapp:identity-change', () => {
   savedCall = invoke;
 });
 document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail !== 'search-area') closeSaved();
+  if (eventDetail(event) !== 'search-area') closeSaved();
 });

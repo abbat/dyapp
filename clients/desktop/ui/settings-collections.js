@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById, find as domFind } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { strings } from './locale.js';
 export const controller = {};
@@ -20,14 +21,14 @@ export const controller = {};
     const pages = Math.max(1, Math.ceil(items.length / 32));
     state.page = Math.min(state.page, pages - 1);
     const rows = items.slice(state.page * 32, (state.page + 1) * 32);
-    const remove = document.getElementById('settings-remove');
+    const remove = domById('settings-remove', HTMLButtonElement);
     if (state.name === 'identities' && remove) remove.hidden = true;
     state.list.replaceChildren(...rows.map(({ item, index }) => state.row(item, index)));
     state.previous.disabled = state.page === 0;
     state.next.disabled = state.page === pages - 1;
     state.status.textContent = pageStatus(state, items.length, pages);
-    for (const button of document.querySelectorAll(`[data-settings-open="${state.name}"]`)) {
-      let count = button.querySelector('.settings-count');
+    for (const button of domAll(document, `[data-settings-open="${state.name}"]`, HTMLElement)) {
+      let count = domFind(button, '.settings-count', HTMLElement);
       if (!count) {
         count = document.createElement('span');
         count.className = 'settings-count';
@@ -45,7 +46,7 @@ export const controller = {};
       .replace('{count}', count);
   };
   const create = (name) => {
-    const list = document.getElementById(ids[name]);
+    const list = domById(ids[name], HTMLElement);
     const field = document.createElement('div');
     field.className = 'field';
     const label = document.createElement('label');

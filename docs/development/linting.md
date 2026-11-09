@@ -330,6 +330,9 @@ used to scope classic scripts are excluded; nested functions remain checked. All
 also fit the 1000-line file limit without legacy size allowances. Shipped UI modules additionally
 reject undeclared variables, so cross-file dependencies require imports instead of page lexical
 globals. The module-entry regression test rejects classic and inline scripts in the shipped page.
+Desktop DOM lookup boundaries carry JSDoc types and validate actual element constructors rather
+than casting controls to broad element contracts. Native DOM smoke checks required/optional
+lookups, empty lists and rejection of missing or wrong-kind elements.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

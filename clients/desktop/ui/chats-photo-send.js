@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { fitCanvas } from './chat-photos.js';
 import { chatState } from './chat-state.js';
 import { chatSending, sendInChat } from './chats-ui.js';
@@ -17,7 +18,7 @@ const PHOTO_QUALITIES = [0.85];
 const MAX_PREVIEW_BYTES = 24 * 1024;
 const PREVIEW_SIDES = [320, 160];
 const PREVIEW_QUALITIES = [0.8, 0.7, 0.6, 0.5, 0.4];
-const chatPhotoInput = document.getElementById('chat-photo-input');
+const chatPhotoInput = domById('chat-photo-input', HTMLInputElement);
 
 const encodePhoto = (bitmap, side, quality) =>
   new Promise((resolve) => {
@@ -88,7 +89,7 @@ const sendChatPhoto = async (file, call = invoke) => {
     call,
   );
 };
-document.getElementById('chat-attach').addEventListener('click', () => chatPhotoInput.click());
+domById('chat-attach', HTMLButtonElement).addEventListener('click', () => chatPhotoInput.click());
 chatPhotoInput.addEventListener('change', () => {
   const [file] = chatPhotoInput.files;
   if (file) controller.chatPhotoSent = sendChatPhoto(file);

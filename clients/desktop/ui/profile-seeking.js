@@ -1,24 +1,25 @@
+import { all as domAll, byId as domById } from './dom.js';
 import { strings } from './locale.js';
 import { checkRange, scaleFields } from './profile-fields.js';
 
-const profileForm = document.getElementById('profile');
+const profileForm = domById('profile', HTMLFormElement);
 
 // Who this profile seeks: the form card and its public rows (docs/decisions/0043).
-const notLooking = document.getElementById('profile-not-looking');
-const seekingFields = document.getElementById('profile-seeking');
-const seekingAge = (bound) => document.getElementById(`profile-seeking-age-${bound}`);
+const notLooking = domById('profile-not-looking', HTMLInputElement);
+const seekingFields = domById('profile-seeking', HTMLFieldSetElement);
+
 const seekingChoices = () => scaleFields.find((scale) => scale.key === 'gender')?.choices ?? [];
 const genderName = (choice) => strings[`profile.value.gender.${choice.key}`];
 export const seekingDraft = () => ({
-  seekingGenders: [...document.querySelectorAll('#profile-seeking-genders input:checked')].map(
-    (box) => Number(box.value),
-  ),
-  seekingAgeFrom: Number(seekingAge('from').value) || null,
-  seekingAgeTo: Number(seekingAge('to').value) || null,
+  seekingGenders: [
+    ...domAll(document, '#profile-seeking-genders input:checked', HTMLInputElement),
+  ].map((box) => Number(box.value)),
+  seekingAgeFrom: Number(domById('profile-seeking-age-from', HTMLInputElement).value) || null,
+  seekingAgeTo: Number(domById('profile-seeking-age-to', HTMLInputElement).value) || null,
   notLooking: notLooking.checked,
 });
 export const showSeeking = (draft) => {
-  document.getElementById('profile-seeking-genders').replaceChildren(
+  domById('profile-seeking-genders', HTMLDivElement).replaceChildren(
     ...seekingChoices().map((choice) => {
       const box = document.createElement('input');
       box.id = `profile-seeking-gender-${choice.code}`;
@@ -33,8 +34,8 @@ export const showSeeking = (draft) => {
       return label;
     }),
   );
-  seekingAge('from').value = draft.seekingAgeFrom || '';
-  seekingAge('to').value = draft.seekingAgeTo || '';
+  domById('profile-seeking-age-from', HTMLInputElement).value = draft.seekingAgeFrom || '';
+  domById('profile-seeking-age-to', HTMLInputElement).value = draft.seekingAgeTo || '';
   notLooking.checked = draft.notLooking;
   seekingFields.disabled = draft.notLooking;
 };

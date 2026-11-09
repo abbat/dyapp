@@ -1,9 +1,10 @@
+import { all as domAll, byId as domById, eventDetail } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 export const controller = {};
 
 // Auto-download mode is independent of the originals cache budget.
-const photoModeError = document.getElementById('photo-mode-error');
+const photoModeError = domById('photo-mode-error', HTMLParagraphElement);
 let photoModeRequest = 0;
 const showPhotoMode = async (call = invoke) => {
   const generation = identityState.generation;
@@ -11,7 +12,7 @@ const showPhotoMode = async (call = invoke) => {
   try {
     const mode = await call('auto_download_mode');
     if (!identityCurrent(generation) || request !== photoModeRequest) return;
-    for (const input of document.querySelectorAll('input[name="photo-mode"]')) {
+    for (const input of domAll(document, 'input[name="photo-mode"]', HTMLInputElement)) {
       input.checked = input.value === mode;
     }
     photoModeError.hidden = true;
@@ -19,7 +20,8 @@ const showPhotoMode = async (call = invoke) => {
     if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = false;
   }
 };
-document.getElementById('photo-mode').addEventListener('change', (event) => {
+domById('photo-mode', HTMLFormElement).addEventListener('change', (event) => {
+  if (!(event.target instanceof HTMLInputElement)) return;
   const generation = identityState.generation;
   const request = ++photoModeRequest;
   controller.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
@@ -33,5 +35,5 @@ document.getElementById('photo-mode').addEventListener('change', (event) => {
   );
 });
 document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail === 'settings') controller.photoModeShown = showPhotoMode();
+  if (eventDetail(event) === 'settings') controller.photoModeShown = showPhotoMode();
 });

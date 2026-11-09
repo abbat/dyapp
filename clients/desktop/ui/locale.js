@@ -1,3 +1,4 @@
+import { all as domAll } from './dom.js';
 import { invoke } from './ipc.js';
 
 // Visible strings come from the matching i18n catalogue by data-i18n key.
@@ -40,15 +41,20 @@ export const loadLocale = async (invoke) => {
   strings = Object.fromEntries(
     Object.entries(catalogue).map(([key, text]) => [key, pseudoEnabled ? pseudo(text) : text]),
   );
-  for (const element of document.querySelectorAll('[data-i18n]')) {
+  for (const element of domAll(document, '[data-i18n]', HTMLElement)) {
     element.textContent = strings[element.dataset.i18n];
   }
   // Icon-only buttons in the rail still have a name and a tooltip.
-  for (const element of document.querySelectorAll('[data-i18n-label]')) {
+  for (const element of domAll(document, '[data-i18n-label]', HTMLElement)) {
     element.setAttribute('aria-label', strings[element.dataset.i18nLabel]);
     if (element.tagName === 'BUTTON') element.title = strings[element.dataset.i18nLabel];
   }
-  for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
+  for (const element of domAll(
+    document,
+    '[data-i18n-placeholder]',
+    HTMLInputElement,
+    HTMLTextAreaElement,
+  )) {
     element.placeholder = strings[element.dataset.i18nPlaceholder];
   }
   return { locale, pseudoLocale, strings };

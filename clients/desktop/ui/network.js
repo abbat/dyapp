@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById } from './dom.js';
 import { showArea, wizardNetwork, show, identity } from './app.js';
 import { copyFrom } from './clipboard.js';
 import { identityState, identityCurrent } from './identity-state.js';
@@ -9,30 +10,30 @@ export const controller = {};
 
 // The Network area and the shell's connection status use explicitly imported helpers.
 // Bootstrap settings of the open identity: draft rows and one bounded Check and connect.
-const network = document.getElementById('network');
-const seeds = document.getElementById('seeds');
-const networkName = document.getElementById('network-name');
-const checkButton = document.getElementById('check-connection');
-const cancelButton = document.getElementById('cancel-check');
-const seedRows = document.getElementById('seed-rows');
-const networkError = document.getElementById('network-error');
-const connectionStatus = document.getElementById('connection-status');
+const network = domById('network', HTMLFormElement);
+const seeds = domById('seeds', HTMLTextAreaElement);
+const networkName = domById('network-name', HTMLInputElement);
+const checkButton = domById('check-connection', HTMLButtonElement);
+const cancelButton = domById('cancel-check', HTMLButtonElement);
+const seedRows = domById('seed-rows', HTMLOListElement);
+const networkError = domById('network-error', HTMLDivElement);
+const connectionStatus = domById('connection-status', HTMLButtonElement);
 // Only the latest launch connect or check may set the shell status.
 let connectionRun = 0;
 let checkGeneration = identityState.generation;
 const showConnection = (state, name) => {
   connectionStatus.dataset.state = state;
-  for (const dot of document.querySelectorAll('.connection-dot')) {
+  for (const dot of domAll(document, '.connection-dot', HTMLElement)) {
     dot.classList.toggle('busy', state === 'connecting');
     dot.classList.toggle('off', state === 'offline');
   }
-  for (const label of document.querySelectorAll('.connection-label')) {
+  for (const label of domAll(document, '.connection-label', HTMLElement)) {
     label.textContent = strings[`connection.${state}`];
   }
   // The rail hides the label, so the title names the button there.
   connectionStatus.title = strings[`connection.${state}`];
   if (name !== undefined) {
-    document.getElementById('connection-network').textContent =
+    domById('connection-network', HTMLSpanElement).textContent =
       name || strings['network.name.public'];
   }
 };
@@ -55,7 +56,7 @@ const connectAtLaunch = async (call = invoke) => {
 };
 const networkStatus = (key, detail) => {
   const text = strings[key];
-  document.getElementById('network-status').textContent = detail ? `${text} ${detail}` : text;
+  domById('network-status', HTMLParagraphElement).textContent = detail ? `${text} ${detail}` : text;
 };
 const draft = () => ({
   seeds: seeds.value
@@ -118,8 +119,8 @@ const summary = (rows) => {
 
 // The collapsed details name the outcome code and every row, for the network operator.
 const showNetworkError = (code, lines = []) => {
-  document.getElementById('network-error-details').textContent = [code, ...lines].join('\n');
-  document.getElementById('network-error-more').open = false;
+  domById('network-error-details', HTMLPreElement).textContent = [code, ...lines].join('\n');
+  domById('network-error-more', HTMLDetailsElement).open = false;
   networkError.hidden = false;
 };
 
@@ -203,23 +204,23 @@ network.addEventListener('change', () => {
 });
 cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 // First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
-const peerCode = document.getElementById('peer-id');
+const peerCode = domById('peer-id', HTMLElement);
 const peerCard = peerCode.parentElement;
-const skipNetwork = document.getElementById('skip-network');
-const linkNetworkCancel = document.getElementById('link-network-cancel');
+const skipNetwork = domById('skip-network', HTMLButtonElement);
+const linkNetworkCancel = domById('link-network-cancel', HTMLButtonElement);
 // `on` is 'link' for the step of a link: that identity is about to go, so no Peer ID and no Skip.
 const wizardStep = (on) => {
   const linking = on === 'link';
-  (on ? document.getElementById('wizard-peer') : peerCard).append(peerCode);
-  (on ? document.getElementById('wizard-form') : document.getElementById('network-area')).append(
+  (on ? domById('wizard-peer', HTMLParagraphElement) : peerCard).append(peerCode);
+  (on ? domById('wizard-form', HTMLDivElement) : domById('network-area', HTMLElement)).append(
     network,
   );
   network.classList.toggle('card', !on);
   skipNetwork.hidden = !on || linking;
   linkNetworkCancel.hidden = !linking;
-  document.getElementById('wizard-peer').hidden = linking;
-  document.getElementById('wizard-step').hidden = linking;
-  document.getElementById('wizard-link-step').hidden = !linking;
+  domById('wizard-peer', HTMLParagraphElement).hidden = linking;
+  domById('wizard-step', HTMLDivElement).hidden = linking;
+  domById('wizard-link-step', HTMLDivElement).hidden = !linking;
 };
 const leaveWizard = () => {
   if (wizardNetwork.hidden) return;
@@ -228,10 +229,10 @@ const leaveWizard = () => {
 };
 skipNetwork.addEventListener('click', leaveWizard);
 linkNetworkCancel.addEventListener('click', leaveWizard);
-copyFrom(document.getElementById('copy-peer-id'), peerCode);
+copyFrom(domById('copy-peer-id', HTMLButtonElement), peerCode);
 copyFrom(
-  document.getElementById('copy-network-details'),
-  document.getElementById('network-error-details'),
+  domById('copy-network-details', HTMLButtonElement),
+  domById('network-error-details', HTMLPreElement),
 );
 
 export {

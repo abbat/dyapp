@@ -1,3 +1,4 @@
+import { byId as domById, all as domAll } from './dom.js';
 import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -8,22 +9,24 @@ export const controller = {};
 
 // Every opening and page read owns its callbacks; committed sends belong to the common outbox.
 (() => {
-  const el = (id) => document.getElementById(`sticker-picker-${id}`);
-  const dialog = document.getElementById('sticker-picker');
+  const el = (id) => domById(`sticker-picker-${id}`, HTMLElement);
+  const dialog = domById('sticker-picker', HTMLDialogElement);
   const text = (key) => strings[`stickerPicker.${key}`];
   let view = null;
   let returnTo = null;
   const active = (target) =>
     target && view === target && dialog.open && identityCurrent(target.generation);
   const notice = (key, error = false) => {
-    el('status').textContent = key ? text(key) : '';
-    el('status').hidden = !key;
-    el('status').classList.toggle('error', error);
+    domById('sticker-picker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
+    domById('sticker-picker-status', HTMLParagraphElement).hidden = !key;
+    domById('sticker-picker-status', HTMLParagraphElement).classList.toggle('error', error);
   };
   const restorePickerFocus = (target) => {
     if ([document.body, dialog, target.focus].includes(document.activeElement)) {
       const focus =
-        target.focus?.isConnected && !target.focus.disabled ? target.focus : el('cancel');
+        target.focus?.isConnected && !target.focus.disabled
+          ? target.focus
+          : domById('sticker-picker-cancel', HTMLButtonElement);
       focus.focus();
     }
   };
@@ -31,7 +34,8 @@ export const controller = {};
     if (value && !target.busy) target.focus = document.activeElement;
     target.busy = value;
     for (const button of dialog.querySelectorAll('button')) {
-      if (button !== el('cancel')) button.disabled = value || button.dataset.unavailable === 'true';
+      if (button !== domById('sticker-picker-cancel', HTMLButtonElement))
+        button.disabled = value || button.dataset.unavailable === 'true';
     }
     if (!value) restorePickerFocus(target);
   };
@@ -40,8 +44,8 @@ export const controller = {};
     view = null;
     if (dialog.open) dialog.close();
     dialog.hidden = true;
-    el('choices').replaceChildren();
-    el('grid').replaceChildren();
+    domById('sticker-picker-choices', HTMLElement).replaceChildren();
+    domById('sticker-picker-grid', HTMLDivElement).replaceChildren();
     if (restore && target?.button.isConnected && !target.button.disabled) target.button.focus();
   };
   const entryButton = (target, entry) => {
@@ -64,9 +68,15 @@ export const controller = {};
   const renderPage = (target, page, after) => {
     target.after = after;
     target.next = page.next;
-    el('previous').dataset.unavailable = String(!target.pages.length);
-    el('next').dataset.unavailable = String(page.next === null);
-    el('grid').replaceChildren(...page.entries.map((entry) => entryButton(target, entry)));
+    domById('sticker-picker-previous', HTMLButtonElement).dataset.unavailable = String(
+      !target.pages.length,
+    );
+    domById('sticker-picker-next', HTMLButtonElement).dataset.unavailable = String(
+      page.next === null,
+    );
+    domById('sticker-picker-grid', HTMLDivElement).replaceChildren(
+      ...page.entries.map((entry) => entryButton(target, entry)),
+    );
     notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
   };
   const pageCurrent = (target, read) => active(target) && target.read === read;
@@ -75,11 +85,11 @@ export const controller = {};
     target.phase = 'page';
     target.after = after;
     target.next = null;
-    el('next').dataset.unavailable = 'true';
+    domById('sticker-picker-next', HTMLButtonElement).dataset.unavailable = 'true';
     busy(target, true);
     notice('loading');
-    el('grid').replaceChildren();
-    el('retry').hidden = true;
+    domById('sticker-picker-grid', HTMLDivElement).replaceChildren();
+    domById('sticker-picker-retry', HTMLButtonElement).hidden = true;
     try {
       const page = await target.call(target.pack ? 'saved_sticker_page' : 'recent_sticker_page', {
         identityId: target.identityId,
@@ -91,7 +101,7 @@ export const controller = {};
     } catch {
       if (pageCurrent(target, read)) {
         notice('error', true);
-        el('retry').hidden = false;
+        domById('sticker-picker-retry', HTMLButtonElement).hidden = false;
       }
     } finally {
       if (pageCurrent(target, read)) busy(target, false);
@@ -100,7 +110,11 @@ export const controller = {};
   const choose = (target, pack) => {
     target.pack = pack;
     target.pages = [];
-    for (const button of el('choices').children)
+    for (const button of domAll(
+      domById('sticker-picker-choices', HTMLElement),
+      ':scope > *',
+      HTMLElement,
+    ))
       button.setAttribute(
         'aria-pressed',
         String(button.dataset.pack === (pack ? JSON.stringify(pack.id) : 'recent')),
@@ -124,7 +138,7 @@ export const controller = {};
         { name: text('recent'), id: null },
         ...page.entries.filter((entry) => !entry.error),
       ];
-      el('choices').replaceChildren(
+      domById('sticker-picker-choices', HTMLElement).replaceChildren(
         ...choices.map((pack) => {
           const button = document.createElement('button');
           button.type = 'button';
@@ -138,13 +152,17 @@ export const controller = {};
           return button;
         }),
       );
-      el('packs-previous').dataset.unavailable = String(!target.packPages.length);
-      el('packs-next').dataset.unavailable = String(!page.next);
+      domById('sticker-picker-packs-previous', HTMLButtonElement).dataset.unavailable = String(
+        !target.packPages.length,
+      );
+      domById('sticker-picker-packs-next', HTMLButtonElement).dataset.unavailable = String(
+        !page.next,
+      );
       await choose(target, null);
     } catch {
       if (active(target)) {
         notice('error', true);
-        el('retry').hidden = false;
+        domById('sticker-picker-retry', HTMLButtonElement).hidden = false;
         busy(target, false);
       }
     }
@@ -175,7 +193,7 @@ export const controller = {};
       generation: identityState.generation,
       call,
       onSent,
-      button: document.getElementById('chat-stickers'),
+      button: domById('chat-stickers', HTMLButtonElement),
       pages: [],
       packPages: [],
       read: 0,
@@ -184,10 +202,10 @@ export const controller = {};
     view = target;
     dialog.hidden = false;
     dialog.showModal();
-    el('cancel').focus();
+    domById('sticker-picker-cancel', HTMLButtonElement).focus();
     return packs(target);
   };
-  el('cancel').addEventListener('click', () => close());
+  domById('sticker-picker-cancel', HTMLButtonElement).addEventListener('click', () => close());
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     close();
@@ -195,7 +213,7 @@ export const controller = {};
   dialog.addEventListener('close', () => {
     if (!dialog.open) close();
   });
-  el('retry').addEventListener('click', () => {
+  domById('sticker-picker-retry', HTMLButtonElement).addEventListener('click', () => {
     if (active(view) && !view.busy)
       progress.stickersShown =
         view.phase === 'page' ? load(view, view.after) : packs(view, view.packAfter);
@@ -222,7 +240,7 @@ export const controller = {};
       } else after = target.packPages.pop();
       progress.stickersShown = packs(target, after);
     });
-  el('manage').addEventListener('click', () => {
+  domById('sticker-picker-manage', HTMLButtonElement).addEventListener('click', () => {
     if (!active(view) || view.busy) return;
     returnTo = view;
     close(false);

@@ -1,3 +1,4 @@
+import { byId as domById, find as domFind, query as domQuery } from './dom.js';
 import { drawPhoto } from './chat-photos.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -8,11 +9,12 @@ export const controller = {};
 // Other people's photos. Lists ask for thumbnails and the profile view for full images, through a
 // memory cache in the desktop core. Whatever fails leaves the letters, and the next view retries.
 const PEER_PHOTO_SIDE = 1600;
-const viewMain = document.querySelector('#view-photos .main');
-const viewThumbs = document.querySelector('#view-photos .thumbs');
-const viewLoad = document.getElementById('view-photo-load');
+const viewMain = domFind(document, '#view-photos .main', HTMLElement);
+const viewThumbs = domFind(document, '#view-photos .thumbs', HTMLElement);
+const viewLoad = domById('view-photo-load', HTMLButtonElement);
 let viewPhotoRun = 0;
-let loadViewPhoto = () => {};
+/** @type {() => boolean | undefined | Promise<boolean | undefined>} */
+let loadViewPhoto = () => undefined;
 
 const fetchPeerPhotos = async (hashes, full, call) => {
   try {
@@ -55,7 +57,7 @@ controller.showCardPhotos = async (found, cards, call = invoke) => {
   await Promise.all(
     wanted.map(async ([hash, card]) => {
       const canvas = await peerCanvas(hash, call);
-      if (canvas) card.querySelector('.avatar').append(canvas);
+      if (canvas) domQuery(card, '.avatar', HTMLElement).append(canvas);
     }),
   );
 };

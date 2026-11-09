@@ -1,3 +1,4 @@
+import { byId as domById, all as domAll, eventDetail } from './dom.js';
 import { chatTime, chatLinkHosts } from './formatting.js';
 import { updateComposer } from './chat-composer.js';
 import { statusMessage, who, peerLabel, showArea } from './app.js';
@@ -58,7 +59,7 @@ export const controller = {};
 // Liked you: peers whose like this profile has not answered, fetched again on each visit.
 
 const chatsMessage = (key, detail = '') =>
-  statusMessage(document.getElementById('chats-status'), 'chats-open-network', key, detail);
+  statusMessage(domById('chats-status', HTMLParagraphElement), 'chats-open-network', key, detail);
 
 let chatRenderKey = null;
 let chatRenderCall = null;
@@ -210,8 +211,8 @@ const closeClear = () => {
   if (clearDialog.open) clearDialog.close();
   clearDialog.hidden = true;
   clearTarget = null;
-  document.getElementById('chat-clear-name').textContent = '';
-  document.getElementById('chat-clear-peer').textContent = '';
+  domById('chat-clear-name', HTMLParagraphElement).textContent = '';
+  domById('chat-clear-peer', HTMLElement).textContent = '';
   clearBusy = false;
   clearCancel.disabled = false;
   clearConfirm.disabled = false;
@@ -223,17 +224,17 @@ clearDialog.addEventListener('cancel', (event) => {
   if (clearBusy) event.preventDefault();
 });
 clearCancel.addEventListener('click', closeClear);
-document.getElementById('chat-clear').addEventListener('click', () => {
+domById('chat-clear', HTMLButtonElement).addEventListener('click', () => {
   if (!chatState.activeChat) return;
   clearTarget = {
     peerId: chatState.activeChat.peerId,
     generation: identityState.generation,
     request: chatOpenRequest,
   };
-  document.getElementById('chat-clear-name').textContent = peerNamesController.peerName(
+  domById('chat-clear-name', HTMLParagraphElement).textContent = peerNamesController.peerName(
     chatState.activeChat.peerId,
   );
-  document.getElementById('chat-clear-peer').textContent = chatState.activeChat.peerId;
+  domById('chat-clear-peer', HTMLElement).textContent = chatState.activeChat.peerId;
   clearError.hidden = true;
   clearError.textContent = '';
   clearDialog.hidden = false;
@@ -310,9 +311,12 @@ const renderChatRows = (rows, call = invoke) => {
   const requests = rows.filter((row) => row.state === 'requestReceived');
   const conversations = rows.filter((row) => row.state !== 'requestReceived');
   chatRequests.replaceChildren(...requests.map(chatRow));
-  document.getElementById('chats-requests-count').textContent = String(requests.length);
+  domById('chats-requests-count', HTMLSpanElement).textContent = String(requests.length);
   chatList.replaceChildren(...conversations.map(chatRow));
-  const cards = [...chatRequests.children, ...chatList.children];
+  const cards = [
+    ...domAll(chatRequests, ':scope > *', HTMLElement),
+    ...domAll(chatList, ':scope > *', HTMLElement),
+  ];
   controller.chatPhotosShown = peerPhotosController.showCardPhotos(
     cards.map((card) => ({
       draft: { photos: [peerNamesController.peerPhoto(card.dataset.peerId)] },
@@ -347,7 +351,7 @@ const acknowledgeDevice = async (call = invoke) => {
   if (!peerId) return;
   const generation = identityState.generation;
   const shown = () => identityCurrent(generation) && newDevicePeer === peerId;
-  const acknowledge = document.getElementById('chat-new-device-ack');
+  const acknowledge = domById('chat-new-device-ack', HTMLButtonElement);
   acknowledge.disabled = true;
   try {
     await call('acknowledge_new_device', { peerId });
@@ -355,14 +359,16 @@ const acknowledgeDevice = async (call = invoke) => {
     showNewDevice(null);
     // Reopening supersedes a load that read the flag before the acknowledgement.
     await openChat(peerId, call);
-    (chatInput.disabled ? document.getElementById('chat-back') : chatInput).focus();
+    (chatInput.disabled ? domById('chat-back', HTMLButtonElement) : chatInput).focus();
   } catch (error) {
     if (shown()) chatsMessage('chats.newDevice.failed', String(error));
   } finally {
     acknowledge.disabled = false;
   }
 };
-document.getElementById('chat-new-device-ack').addEventListener('click', () => acknowledgeDevice());
+domById('chat-new-device-ack', HTMLButtonElement).addEventListener('click', () =>
+  acknowledgeDevice(),
+);
 const closeChat = () => {
   chatRenderKey = null;
   chatRenderCall = null;
@@ -386,9 +392,9 @@ const closeChat = () => {
   chatDetail.hidden = true;
   chatOverview.hidden = false;
 };
-document.getElementById('chat-back').addEventListener('click', closeChat);
+domById('chat-back', HTMLButtonElement).addEventListener('click', closeChat);
 document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail === 'chats-area') closeChat();
+  if (eventDetail(event) === 'chats-area') closeChat();
 });
 document.addEventListener('dyapp:identity-change', () => {
   chatsRequest += 1;
@@ -396,12 +402,12 @@ document.addEventListener('dyapp:identity-change', () => {
   clearedPeer = null;
   closeChat();
   chatRequests.replaceChildren();
-  document.getElementById('chats-requests-count').textContent = '0';
+  domById('chats-requests-count', HTMLSpanElement).textContent = '0';
   chatList.replaceChildren();
   chatMessages.replaceChildren();
-  document.getElementById('chat-cleared').hidden = true;
+  domById('chat-cleared', HTMLParagraphElement).hidden = true;
   likedList.replaceChildren();
-  document.getElementById('chats-liked-count').textContent = '0';
+  domById('chats-liked-count', HTMLSpanElement).textContent = '0';
 });
 // The next view or mail pass retries a receipt that did not go out.
 const sendRead = async (peerId, call) => {
@@ -445,17 +451,18 @@ const renderOpenedChat = (peerId, history, previous, generation, call) => {
   chatRenderCall = call;
   chatPhotosController.chatPhotos.fetchAllowed(peerId, call);
   const cleared = clearedPeer === peerId && !history.messages.length;
-  document.getElementById('chat-cleared').hidden = !cleared;
+  domById('chat-cleared', HTMLParagraphElement).hidden = !cleared;
   if (!history.messages.length && !cleared) chatMessages.textContent = strings['chats.noMessages'];
-  const peer = document.getElementById('chat-peer');
+  const peer = domById('chat-peer', HTMLHeadingElement);
   peer.textContent = peerLabel(peer, peerId);
-  document.getElementById('chat-state').textContent = strings[`chats.state.${history.state}`] || '';
-  document.getElementById('chat-presence').hidden = !history.activeRecently;
+  domById('chat-state', HTMLParagraphElement).textContent =
+    strings[`chats.state.${history.state}`] || '';
+  domById('chat-presence', HTMLParagraphElement).hidden = !history.activeRecently;
   chatState.activeChat = { peerId, ...history };
   if (history.state !== 'open') stickerPickerController.stickerPicker?.leave(null);
-  document.getElementById('chat-clear').hidden = history.state === 'none';
-  document.getElementById('chat-rename').hidden = history.state === 'none';
-  document.getElementById('chat-mute').hidden = history.state === 'none';
+  domById('chat-clear', HTMLButtonElement).hidden = history.state === 'none';
+  domById('chat-rename', HTMLButtonElement).hidden = history.state === 'none';
+  domById('chat-mute', HTMLButtonElement).hidden = history.state === 'none';
   updateComposer();
   chatOverview.hidden = true;
   chatDetail.hidden = false;
@@ -482,7 +489,7 @@ const openChat = async (peerId, call = invoke) => {
     if (newDevice !== null) showNewDevice(newDevice === true ? peerId : null);
     const linked = await linkedDevice(call);
     if (!currentChat()) return;
-    document.getElementById('chat-linked-notice').hidden = !linked;
+    domById('chat-linked-notice', HTMLParagraphElement).hidden = !linked;
     renderOpenedChat(peerId, history, previous, generation, call);
     // A mail pass behind a hidden window is not reading; visibilitychange re-runs this.
     if (history.state === 'none' || document.hidden) return;
@@ -496,7 +503,7 @@ const openChat = async (peerId, call = invoke) => {
     if (currentChat()) chatsMessage('chats.failed', String(error));
   }
 };
-document.getElementById('view-message').addEventListener('click', () => {
+domById('view-message', HTMLButtonElement).addEventListener('click', () => {
   const found = viewed?.found;
   if (!found) return;
   showArea('chats-area');
@@ -538,7 +545,7 @@ const blockChat = async (call = invoke) => {
   if (identityCurrent(generation) && listRequest === chatsRequest && rows) renderChatRows(rows);
 };
 for (const id of ['chat-block', 'request-block']) {
-  document.getElementById(id).addEventListener('click', () => {
+  domById(id, HTMLElement).addEventListener('click', () => {
     controller.chatBlocked = blockChat();
   });
 }
@@ -567,7 +574,7 @@ const muteChat = async (call = invoke) => {
   chatComposeStatus.textContent = '';
   updateComposer();
 };
-document.getElementById('chat-mute').addEventListener('click', () => {
+domById('chat-mute', HTMLButtonElement).addEventListener('click', () => {
   controller.chatMuted = muteChat();
 });
 const clearChat = async (call = invoke) => {
@@ -596,7 +603,7 @@ const clearChat = async (call = invoke) => {
   clearedPeer = target.peerId;
   chatInput.value = '';
   chatMessages.replaceChildren();
-  document.getElementById('chat-cleared').hidden = false;
+  domById('chat-cleared', HTMLParagraphElement).hidden = false;
   closeClear();
   await openChat(target.peerId, call);
 };
@@ -666,7 +673,7 @@ const sendChatText = async (call = invoke) => {
     call,
   );
 };
-document.getElementById('chat-composer').addEventListener('submit', (event) => {
+domById('chat-composer', HTMLFormElement).addEventListener('submit', (event) => {
   event.preventDefault();
   controller.chatSent = sendChatText();
 });
@@ -723,7 +730,7 @@ const editChatText = async (call = invoke) => {
     chatComposeStatus.textContent = strings[`chats.${result}`];
   }
 };
-document.getElementById('chat-edit-form').addEventListener('submit', (event) => {
+domById('chat-edit-form', HTMLFormElement).addEventListener('submit', (event) => {
   event.preventDefault();
   controller.chatEdited = editChatText();
 });
@@ -844,7 +851,7 @@ const forwardChatText = async (call = invoke) => {
     chatComposeStatus.textContent = strings[`chats.${result}`];
   }
 };
-document.getElementById('chat-forward-form').addEventListener('submit', (event) => {
+domById('chat-forward-form', HTMLFormElement).addEventListener('submit', (event) => {
   event.preventDefault();
   if (chatState.forwardTarget?.share)
     controller.profileShared = chatsShareController.shareProfile();
@@ -890,7 +897,7 @@ controller.showChats = async (call = invoke) => {
       ...found.map((item, index) => resultCard(item, `liked-${index + 1}`)),
     );
     peerPhotosController.showCardPhotos(found, [...likedList.children], call);
-    document.getElementById('chats-liked-count').textContent = String(found.length);
+    domById('chats-liked-count', HTMLSpanElement).textContent = String(found.length);
     showChatsStatus(receiveError, found.length, rows.length);
   } catch (error) {
     if (!currentChats()) return;
@@ -904,7 +911,7 @@ controller.showChats = async (call = invoke) => {
 // ACK, so the list still follows the local projection, and with no mail a presence can expire.
 controller.mailUpdated = async (changed, call = invoke) => {
   const generation = identityState.generation;
-  if (document.getElementById('chats-area').hidden) return;
+  if (domById('chats-area', HTMLElement).hidden) return;
   stickerRequestsController.stickerRequests?.refresh(changed);
   // Retry and signed receipts can change delivery status without a new visible chat event.
   if (

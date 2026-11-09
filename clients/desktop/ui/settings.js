@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { who, modeText, setTray, controller as appController } from './app.js';
 import { showDevices } from './devices.js';
 import { settingsRemove } from './elements.js';
@@ -34,7 +35,7 @@ const unblockPeer = async (peerId, button, call = invoke) => {
 const retryRevocation = async (peerId, retry, call = invoke) => {
   const generation = identityState.generation;
   retry.disabled = true;
-  const status = document.getElementById('blocked-revoke-status');
+  const status = domById('blocked-revoke-status', HTMLParagraphElement);
   try {
     const result = await call('block_peer', { peerId });
     if (identityCurrent(generation)) {
@@ -60,7 +61,7 @@ const showBlocked = async (call = invoke) => {
     if (!identityCurrent(generation) || read !== blockedRead) return;
     failed = true;
   }
-  document.getElementById('blocked-revoke-status').textContent = '';
+  domById('blocked-revoke-status', HTMLParagraphElement).textContent = '';
   settingsCollectionsController.renderSettingsRows(
     'blocked',
     failed ? null : peers,
@@ -96,14 +97,14 @@ const showBlocked = async (call = invoke) => {
     (peer) => `${peer} ${peerNamesController.peerName(peer)}`,
     () => showBlocked(),
   );
-  document.getElementById('blocked-none').hidden = peers.length > 0;
+  domById('blocked-none', HTMLParagraphElement).hidden = peers.length > 0;
 };
 
 const showSettingsIdentities = async (call = invoke) => {
   const generation = identityState.generation;
   const read = ++identitiesRead;
-  const list = document.getElementById('settings-identities');
-  const error = document.getElementById('settings-error');
+  const list = domById('settings-identities', HTMLTableSectionElement);
+  const error = domById('settings-error', HTMLParagraphElement);
   // Remove waits under the error until a row for the open identity takes it.
   settingsRemove.hidden = true;
   error.after(settingsRemove);

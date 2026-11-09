@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById, find as domFind } from './dom.js';
 import { profileBusy, profileMessage, setProfileBusy } from './app.js';
 import { drawPhoto } from './chat-photos.js';
 import { preparePhoto } from './chats-photo-send.js';
@@ -13,13 +14,13 @@ const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
 const PROFILE_PHOTO_QUALITIES = [0.85, 0.7, 0.55];
 const MAX_PROFILE_PHOTO_BYTES = 1024 * 1024;
 const PROFILE_TILE_SIDE = 320;
-const profilePhotoGrid = document.getElementById('profile-photos');
-const profilePhotoAdd = document.getElementById('profile-photo-add');
-const profilePhotoInput = document.getElementById('profile-photo-input');
-const profilePhotoHint = document.getElementById('profile-photo-hint');
-const profilePhotoLimit = document.getElementById('profile-photo-limit');
-const profilePhotoDialog = document.getElementById('photo-remove-dialog');
-const profilePhotoCancel = document.getElementById('photo-remove-cancel');
+const profilePhotoGrid = domById('profile-photos', HTMLDivElement);
+const profilePhotoAdd = domById('profile-photo-add', HTMLButtonElement);
+const profilePhotoInput = domById('profile-photo-input', HTMLInputElement);
+const profilePhotoHint = domById('profile-photo-hint', HTMLParagraphElement);
+const profilePhotoLimit = domById('profile-photo-limit', HTMLParagraphElement);
+const profilePhotoDialog = domById('photo-remove-dialog', HTMLDialogElement);
+const profilePhotoCancel = domById('photo-remove-cancel', HTMLButtonElement);
 let profilePhotoCount = 0;
 let profilePhotoRemoval = null;
 
@@ -77,7 +78,7 @@ const moveProfilePhoto = (from, to, name, call) =>
     call,
     () => {
       const tile = profilePhotoGrid.children[to];
-      (tile.querySelector(`.${name}`) || tile.querySelector('button')).focus();
+      (domFind(tile, `.${name}`, HTMLElement) || tile.querySelector('button')).focus();
     },
   );
 const askProfilePhotoRemoval = (index, call) => {
@@ -104,6 +105,7 @@ const profilePhotoTool = (glyph, name, label, click) => {
   return button;
 };
 const profilePhotoTile = (hash, index, count, call) => {
+  /** @type {HTMLElement & { ready?: Promise<void> }} */
   const tile = document.createElement('figure');
   tile.className = 'photo-tile';
   const canvas = document.createElement('canvas');
@@ -180,7 +182,7 @@ const showOwnAvatars = async (hash, call) => {
   const photo = hash ? await call('profile_photo', { hash }).catch(() => null) : null;
   if (run !== ownPhotoRun) return;
   ownPhoto = photo;
-  await Promise.all([...document.querySelectorAll('.avatar[data-own]')].map(paintOwnAvatar));
+  await Promise.all([...domAll(document, '.avatar[data-own]', HTMLElement)].map(paintOwnAvatar));
 };
 document.addEventListener('dyapp:identity-change', () => {
   ownPhotoRun += 1;
@@ -204,7 +206,7 @@ profilePhotoDialog.addEventListener('close', () => {
   profilePhotoDialog.hidden = true;
 });
 profilePhotoCancel.addEventListener('click', () => profilePhotoDialog.close());
-document.getElementById('photo-remove-confirm').addEventListener('click', () => {
+domById('photo-remove-confirm', HTMLButtonElement).addEventListener('click', () => {
   profilePhotoDialog.close();
   controller.profilePhotoChanged = profilePhotoRemoval();
 });

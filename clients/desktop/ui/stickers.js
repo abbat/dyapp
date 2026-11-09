@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { sizeText } from './formatting.js';
 import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
@@ -7,31 +8,32 @@ export const controller = {};
 
 // Each disclosure opening owns its reads, picker and import completion.
 (() => {
-  const el = (id) => document.getElementById(`sticker-${id}`);
-  const panel = document.getElementById('sticker-packs');
-  const manager = document.getElementById('sticker-manager');
+  const panel = domById('sticker-packs', HTMLDetailsElement);
+  const manager = domById('sticker-manager', HTMLDialogElement);
   let openedFrom = null;
   const text = (key) => strings[`stickers.${key}`];
   let view = null;
   let removing = null;
-  const dialog = el('remove-dialog');
+  const dialog = domById('sticker-remove-dialog', HTMLDialogElement);
   const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
   const active = (target) =>
     target && view === target && panel.open && identityCurrent(target.generation) && manager.open;
   const message = (key, error = false) => {
-    el('status').textContent = key ? text(key) : '';
-    el('status').hidden = !key;
-    el('status').classList.toggle('error', error);
+    domById('sticker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
+    domById('sticker-status', HTMLParagraphElement).hidden = !key;
+    domById('sticker-status', HTMLParagraphElement).classList.toggle('error', error);
   };
   const busy = (target, value) => {
     target.busy = value;
-    for (const id of ['import', 'refresh', 'next']) el(id).disabled = value;
-    for (const button of el('list').querySelectorAll('button')) button.disabled = value;
+    for (const id of ['sticker-import', 'sticker-refresh', 'sticker-next'])
+      domById(id, HTMLButtonElement).disabled = value;
+    for (const button of domById('sticker-list', HTMLUListElement).querySelectorAll('button'))
+      button.disabled = value;
   };
   const failure = (key, error) => {
     message(key, true);
-    el('details').hidden = false;
-    el('reason').textContent = String(error);
+    domById('sticker-details', HTMLDetailsElement).hidden = false;
+    domById('sticker-reason', HTMLParagraphElement).textContent = String(error);
   };
   const row = (entry, target) => {
     const item = document.createElement('li');
@@ -56,16 +58,16 @@ export const controller = {};
       if (!active(target) || target.busy || !remove.isConnected) return;
       closeDialog();
       removing = { target, id: [...entry.id], button: remove };
-      el('remove-name').textContent = name.textContent;
+      domById('sticker-remove-name', HTMLParagraphElement).textContent = name.textContent;
       const fullId = hexId(entry.id);
-      el('remove-id').replaceChildren(
+      domById('sticker-remove-id', HTMLElement).replaceChildren(
         fullId.slice(0, 32),
         document.createElement('br'),
         fullId.slice(32),
       );
       dialog.hidden = false;
       dialog.showModal();
-      el('remove-cancel').focus();
+      domById('sticker-remove-cancel', HTMLButtonElement).focus();
     });
     item.append(name, id, info, remove);
     return item;
@@ -73,15 +75,15 @@ export const controller = {};
   const showCollectionStatus = (page, notice) => {
     const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
     message('');
-    el('status').textContent =
+    domById('sticker-status', HTMLParagraphElement).textContent =
       `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
-    el('status').hidden = false;
+    domById('sticker-status', HTMLParagraphElement).hidden = false;
   };
   const load = async (target, after = null, notice = '') => {
-    const paging = document.activeElement === el('next');
+    const paging = document.activeElement === domById('sticker-next', HTMLButtonElement);
     busy(target, true);
     message('loading');
-    el('details').hidden = true;
+    domById('sticker-details', HTMLDetailsElement).hidden = true;
     let lastPage = false;
     try {
       const page = await target.call('saved_sticker_packs', {
@@ -91,16 +93,18 @@ export const controller = {};
       if (!active(target)) return;
       target.next = page.next;
       lastPage = !page.next;
-      el('list').replaceChildren(...page.entries.map((entry) => row(entry, target)));
-      el('next').hidden = !page.next;
-      el('unknown').hidden = !page.unrecognizedFiles;
+      domById('sticker-list', HTMLUListElement).replaceChildren(
+        ...page.entries.map((entry) => row(entry, target)),
+      );
+      domById('sticker-next', HTMLButtonElement).hidden = !page.next;
+      domById('sticker-unknown', HTMLParagraphElement).hidden = !page.unrecognizedFiles;
       showCollectionStatus(page, notice);
     } catch (error) {
       if (active(target)) failure('error', error);
     } finally {
       if (active(target)) {
         busy(target, false);
-        if (paging && lastPage) el('refresh').focus();
+        if (paging && lastPage) domById('sticker-refresh', HTMLButtonElement).focus();
       }
     }
   };
@@ -108,8 +112,8 @@ export const controller = {};
     removing = null;
     if (dialog.open) dialog.close();
     dialog.hidden = true;
-    el('remove-name').textContent = '';
-    el('remove-id').replaceChildren();
+    domById('sticker-remove-name', HTMLParagraphElement).textContent = '';
+    domById('sticker-remove-id', HTMLElement).replaceChildren();
   };
   dialog.addEventListener('close', () => {
     if (!dialog.open) closeDialog();
@@ -120,7 +124,7 @@ export const controller = {};
     if (selection && active(selection.target) && selection.button.isConnected)
       selection.button.focus();
   };
-  el('remove-cancel').addEventListener('click', cancelRemoval);
+  domById('sticker-remove-cancel', HTMLButtonElement).addEventListener('click', cancelRemoval);
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     cancelRemoval();
@@ -140,11 +144,11 @@ export const controller = {};
     } finally {
       if (active(target)) {
         busy(target, false);
-        el('refresh').focus();
+        domById('sticker-refresh', HTMLButtonElement).focus();
       }
     }
   };
-  el('remove-confirm').addEventListener('click', () => {
+  domById('sticker-remove-confirm', HTMLButtonElement).addEventListener('click', () => {
     const selection = removing;
     if (!dialog.open || !selection || !active(selection.target) || selection.target.busy) return;
     closeDialog();
@@ -160,13 +164,13 @@ export const controller = {};
     manager.hidden = true;
     openedFrom = null;
     panel.open = false;
-    el('file').value = '';
-    el('list').replaceChildren();
-    el('next').hidden = true;
-    el('unknown').hidden = true;
-    el('details').hidden = true;
-    el('details').open = false;
-    el('reason').textContent = '';
+    domById('sticker-file', HTMLInputElement).value = '';
+    domById('sticker-list', HTMLUListElement).replaceChildren();
+    domById('sticker-next', HTMLButtonElement).hidden = true;
+    domById('sticker-unknown', HTMLParagraphElement).hidden = true;
+    domById('sticker-details', HTMLDetailsElement).hidden = true;
+    domById('sticker-details', HTMLDetailsElement).open = false;
+    domById('sticker-reason', HTMLParagraphElement).textContent = '';
     message('');
   };
   const open = (call = invoke) => {
@@ -185,21 +189,21 @@ export const controller = {};
       next: null,
     };
     view = target;
-    el('list').replaceChildren();
-    el('next').hidden = true;
-    el('unknown').hidden = true;
+    domById('sticker-list', HTMLUListElement).replaceChildren();
+    domById('sticker-next', HTMLButtonElement).hidden = true;
+    domById('sticker-unknown', HTMLParagraphElement).hidden = true;
     return load(target);
   };
   const prepareImport = (file, target) => {
     if (!file || !active(target) || target.busy) return false;
-    el('details').hidden = true;
+    domById('sticker-details', HTMLDetailsElement).hidden = true;
     if (file.size > 8 * 1024 * 1024) {
       message('tooLarge', true);
       return false;
     }
     busy(target, true);
     message('importing');
-    el('details').hidden = true;
+    domById('sticker-details', HTMLDetailsElement).hidden = true;
     return true;
   };
   const showImportFailure = (target, error) => {
@@ -234,19 +238,21 @@ export const controller = {};
       if (!view) progress.stickersShown = open();
     } else close();
   });
-  el('refresh').addEventListener('click', () => {
+  domById('sticker-refresh', HTMLButtonElement).addEventListener('click', () => {
     if (active(view) && !view.busy) progress.stickersShown = load(view);
   });
-  el('next').addEventListener('click', () => {
+  domById('sticker-next', HTMLButtonElement).addEventListener('click', () => {
     if (active(view) && !view.busy && view.next) progress.stickersShown = load(view, view.next);
   });
-  el('import').addEventListener('click', () => {
+  domById('sticker-import', HTMLButtonElement).addEventListener('click', () => {
     if (!active(view) || view.busy) return;
     const target = view;
     // The chooser owns this element; its late change must never inherit another opening's owner.
-    const input = el('file').cloneNode();
+    const input = /** @type {HTMLInputElement} */ (
+      domById('sticker-file', HTMLInputElement).cloneNode()
+    );
     input.value = '';
-    el('file').replaceWith(input);
+    domById('sticker-file', HTMLInputElement).replaceWith(input);
     input.addEventListener('change', () => {
       const file = input.files[0];
       input.value = '';
@@ -260,7 +266,7 @@ export const controller = {};
     if (button?.isConnected && !button.disabled) button.focus();
     document.dispatchEvent(new Event('dyapp:sticker-manager-close'));
   };
-  document.getElementById('sticker-manager-cancel').addEventListener('click', dismiss);
+  domById('sticker-manager-cancel', HTMLButtonElement).addEventListener('click', dismiss);
   manager.addEventListener('cancel', (event) => {
     event.preventDefault();
     dismiss();

@@ -16,6 +16,10 @@ The page loads one native ES-module entry, `entry.js`. Controllers import their 
 bindings and controller APIs explicitly; page globals and classic-script order are not used.
 `identity-state.js` owns the selected identity and generation, `chat-state.js` owns shared chat
 state, and independent clipboard, place and DOM modules avoid eager controller cycles.
+`dom.js` checks the kind of elements returned by typed lookups. Required ID/selector lookups
+fail on a missing or wrong-kind element; optional selector lookups retain `null`, and empty
+selector lists remain valid. The helpers preserve static `NodeList` results and use JSDoc types
+without widening element contracts to `any`.
 Startup still waits for `stringsShown`. Rust mail/revocation notifications dispatch the DOM events
 `dyapp:mail-updated` and `dyapp:device-revoked`; the entry module routes them to their controllers.
 Native smoke has its own local interface and async scope, included only with `ui-smoke`.

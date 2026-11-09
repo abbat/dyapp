@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById, query as domQuery } from './dom.js';
 import { who, modeText, reasonText, showError, show, identity, sections, act } from './app.js';
 import { removeDialog, removeIdentity, settingsRemove } from './elements.js';
 import { identityState, identityCurrent } from './identity-state.js';
@@ -7,13 +8,13 @@ export const controller = {};
 export const removalState = { published: false };
 
 // Removal actions use explicit identity state, dialog elements and navigation imports.
-const removeConfirm = document.getElementById('remove-confirm');
-const removeAction = document.getElementById('remove-action');
+const removeConfirm = domById('remove-confirm', HTMLInputElement);
+const removeAction = domById('remove-action', HTMLButtonElement);
 // Second confirmation: Remove stays disabled until the checkbox is ticked.
-const removeAsk = document.getElementById('remove-ask');
-const removeOffline = document.getElementById('remove-offline');
-const removeRetry = document.getElementById('remove-retry');
-const removeAnyway = document.getElementById('remove-anyway');
+const removeAsk = domById('remove-ask', HTMLDivElement);
+const removeOffline = domById('remove-offline', HTMLDivElement);
+const removeRetry = domById('remove-retry', HTMLButtonElement);
+const removeAnyway = domById('remove-anyway', HTMLButtonElement);
 
 const showRemove = async (call = invoke) => {
   const generation = identityState.generation;
@@ -25,31 +26,31 @@ const showRemove = async (call = invoke) => {
     items.some(
       (item) => item.slot !== state.slot && item.status === 'ready' && item.peerId === state.peerId,
     );
-  const whoRow = document.getElementById('remove-who');
+  const whoRow = domById('remove-who', HTMLParagraphElement);
   whoRow.replaceChildren(...who(whoRow, state.peerId, state.reason, modeText(state)));
-  const peer = document.getElementById('remove-peer');
+  const peer = domById('remove-peer', HTMLElement);
   peer.textContent = state.peerId || reasonText(state.reason);
   peer.parentElement.hidden = !state.peerId;
-  const path = document.getElementById('remove-path');
+  const path = domById('remove-path', HTMLParagraphElement);
   path.hidden = !state.keyPath;
-  path.querySelector('code').textContent = state.keyPath || '';
-  document.getElementById('remove-copies').textContent = !state.peerId
+  domQuery(path, 'code', HTMLElement).textContent = state.keyPath || '';
+  domById('remove-copies', HTMLParagraphElement).textContent = !state.peerId
     ? ''
     : strings[copies ? 'remove.otherCopy' : 'remove.lastCopy'];
   // A missing key or another copy means nothing irreplaceable is lost.
-  document.getElementById('remove-warning').hidden = !state.peerId || copies;
+  domById('remove-warning', HTMLParagraphElement).hidden = !state.peerId || copies;
   // A published profile is withdrawn from search before the key goes.
   const view = state.status === 'ready' && (await call('load_profile').catch(() => null));
   if (!identityCurrent(generation)) return;
   removalState.published = Boolean(view?.published);
-  document.getElementById('remove-text').hidden = !removalState.published;
+  domById('remove-text', HTMLParagraphElement).hidden = !removalState.published;
   removeAsk.hidden = false;
   removeOffline.hidden = true;
   removeConfirm.checked = false;
   removeAction.disabled = true;
   removeDialog.hidden = false;
   removeDialog.showModal();
-  document.getElementById('remove-cancel').focus();
+  domById('remove-cancel', HTMLButtonElement).focus();
 };
 // A queued close from the previous opening must not hide a newly reopened modal.
 removeDialog.addEventListener('close', () => {
@@ -64,13 +65,11 @@ for (const button of [removeIdentity, settingsRemove]) {
   });
 }
 for (const id of ['setup-cancel', 'picker-cancel']) {
-  document
-    .getElementById(id)
-    .addEventListener('click', () =>
-      identityState.current.status === 'ready'
-        ? show(identity, 'status.ready')
-        : show(sections[3], 'status.recovery'),
-    );
+  domById(id, HTMLElement).addEventListener('click', () =>
+    identityState.current.status === 'ready'
+      ? show(identity, 'status.ready')
+      : show(sections[3], 'status.recovery'),
+  );
 }
 removeConfirm.addEventListener('change', () => {
   removeAction.disabled = !removeConfirm.checked;
@@ -81,22 +80,22 @@ const removeNow = () => {
   identityState.current = null;
   return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));
 };
-const revokedDialog = document.getElementById('revoked');
+const revokedDialog = domById('revoked', HTMLDialogElement);
 revokedDialog.addEventListener('close', () => {
   revokedDialog.hidden = true;
 });
-document.getElementById('revoked-ok').addEventListener('click', () => revokedDialog.close());
+domById('revoked-ok', HTMLButtonElement).addEventListener('click', () => revokedDialog.close());
 // The runtime found the device of `slot` revoked. Nothing is asked: the owner already decided on
 // another device, and the profile stays theirs, so there is no tombstone either. A failed removal
 // shows the error screen; a pass tries again once the identity opens.
 controller.deviceRevoked = async (slot, remove = removeNow) => {
   if (identityState.current?.slot !== slot) return;
-  for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+  for (const dialog of domAll(document, 'dialog[open]', HTMLDialogElement)) dialog.close();
   const state = await remove();
   if (state?.status === 'error') return;
   revokedDialog.hidden = false;
   revokedDialog.showModal();
-  document.getElementById('revoked-ok').focus();
+  domById('revoked-ok', HTMLButtonElement).focus();
 };
 // The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
 const withdrawThenRemove = async (call = invoke, remove = removeNow) => {
@@ -110,7 +109,7 @@ const withdrawThenRemove = async (call = invoke, remove = removeNow) => {
       removeOffline.hidden = false;
       removeRetry.disabled = false;
       removeAnyway.disabled = false;
-      document.getElementById('remove-cancel-offline').focus();
+      domById('remove-cancel-offline', HTMLButtonElement).focus();
       return null;
     }
   }
@@ -131,7 +130,7 @@ removeAnyway.addEventListener('click', () => {
   controller.removeDone = removeNow();
 });
 for (const id of ['remove-cancel', 'remove-cancel-offline']) {
-  document.getElementById(id).addEventListener('click', () => removeDialog.close());
+  domById(id, HTMLElement).addEventListener('click', () => removeDialog.close());
 }
 
 export {

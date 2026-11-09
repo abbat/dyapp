@@ -1,3 +1,4 @@
+import { all as domAll, byId as domById, eventDetail } from './dom.js';
 import { statusMessage, who, peerLabel, publicFacts, showArea } from './app.js';
 import { copyFrom, controller as clipboardController } from './clipboard.js';
 import { controller as contactNotesController } from './contact-notes.js';
@@ -18,18 +19,18 @@ export const cameraState = { stream: null };
 // The Search area imports its identity, navigation, place and status helpers.
 // A verified sample from the active network's search nodes. The query stays in the form, and
 // filters appear only for fields every reached node offers and the client re-checks.
-const searchForm = document.getElementById('search');
-const searchRetry = document.getElementById('search-retry');
-const searchAgain = document.getElementById('search-again');
-const searchResults = document.getElementById('search-results');
+const searchForm = domById('search', HTMLFormElement);
+const searchRetry = domById('search-retry', HTMLButtonElement);
+const searchAgain = domById('search-again', HTMLButtonElement);
+const searchResults = domById('search-results', HTMLDivElement);
 const COUNTRY_FIELD = 4;
 const PLACE_FIELD = 20;
-const searchCountry = document.getElementById('search-country');
+const searchCountry = domById('search-country', HTMLInputElement);
 const searchCountryCode = () => searchCountry.value.trim().toUpperCase();
 const searchPlace = placePicker(
   searchCountry,
-  document.getElementById('search-place'),
-  document.getElementById('search-places'),
+  domById('search-place', HTMLInputElement),
+  domById('search-places', HTMLDataListElement),
   searchCountryCode,
 );
 const BIRTH_AGE_FIELD = 1001;
@@ -38,15 +39,15 @@ const SEEKING_GENDERS_FIELD = 53;
 const SEEKING_AGE_FIELD = 54;
 let searchBusy = false;
 const searchMessage = (key, detail = '') =>
-  statusMessage(document.getElementById('search-status'), 'search-open-network', key, detail);
+  statusMessage(domById('search-status', HTMLParagraphElement), 'search-open-network', key, detail);
 // Hidden filters are disabled, so they neither block validation nor reach the query.
 const showFilter = (element, shown) => {
   element.hidden = !shown;
-  for (const input of element.querySelectorAll('input, select'))
+  for (const input of domAll(element, 'input, select', HTMLInputElement, HTMLSelectElement))
     input.disabled = !shown || searchBusy;
 };
 const showSearchFilters = (offered) => {
-  const scales = document.getElementById('search-scales');
+  const scales = domById('search-scales', HTMLDivElement);
   const kept = new Map(
     [...scales.querySelectorAll('select')].map((select) => [select.id, select.value]),
   );
@@ -79,24 +80,24 @@ const showSearchFilters = (offered) => {
         return row;
       }),
   );
-  showFilter(document.getElementById('search-age'), offered.includes(BIRTH_AGE_FIELD));
-  showFilter(document.getElementById('search-height'), offered.includes(HEIGHT_FIELD));
-  showFilter(document.getElementById('search-interest-row'), offered.includes(19));
-  showFilter(document.getElementById('search-country-row'), offered.includes(COUNTRY_FIELD));
+  showFilter(domById('search-age', HTMLDivElement), offered.includes(BIRTH_AGE_FIELD));
+  showFilter(domById('search-height', HTMLDivElement), offered.includes(HEIGHT_FIELD));
+  showFilter(domById('search-interest-row', HTMLDivElement), offered.includes(19));
+  showFilter(domById('search-country-row', HTMLDivElement), offered.includes(COUNTRY_FIELD));
   showFilter(
-    document.getElementById('search-place-row'),
+    domById('search-place-row', HTMLDivElement),
     offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD),
   );
   showFilter(scales, true);
   showFilter(
-    document.getElementById('search-mutual-row'),
+    domById('search-mutual-row', HTMLDivElement),
     offered.includes(SEEKING_GENDERS_FIELD) && offered.includes(SEEKING_AGE_FIELD),
   );
-  document.getElementById('search-filters').hidden = !offered.length;
+  domById('search-filters', HTMLDivElement).hidden = !offered.length;
 };
 const searchEmployer = () => {
-  const company = document.getElementById('search-company').value.trim();
-  const kind = company ? document.getElementById('search-employer').value : 'any';
+  const company = domById('search-company', HTMLInputElement).value.trim();
+  const kind = company ? domById('search-employer', HTMLSelectElement).value : 'any';
   if (kind === 'same') return { kind, company };
   if (kind === 'exclude') {
     const companies = company
@@ -108,9 +109,14 @@ const searchEmployer = () => {
   return { kind: 'any' };
 };
 const searchQuery = () => {
-  const filled = (id) =>
-    !document.getElementById(id).disabled && document.getElementById(id).value.trim();
-  const conditions = [...document.querySelectorAll('#search-scales select:enabled')]
+  const filled = (id) => {
+    const input = domById(id, HTMLElement);
+    if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement))
+      throw new Error('Expected a search input or select');
+    return input.disabled ? '' : input.value.trim();
+  };
+  /** @type {Array<{ field: number, op: 'eq' | 'range', ints?: number[], strings?: string[] }>} */
+  const conditions = [...domAll(document, '#search-scales select:enabled', HTMLSelectElement)]
     .filter((select) => select.value !== '0')
     .map((select) => ({
       field: Number(select.dataset.field),
@@ -133,7 +139,7 @@ const searchQuery = () => {
       ints: [Number(from || 50), Number(to || 272)],
     });
   const employer = searchEmployer();
-  const mutual = document.getElementById('search-mutual');
+  const mutual = domById('search-mutual', HTMLInputElement);
   return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
 const failureText = (failure) => {
@@ -177,8 +183,8 @@ const resultCard = (found, id) => {
   button.addEventListener('click', () => openFound(found, button));
   return button;
 };
-const searchMain = document.getElementById('search-main');
-const profileView = document.getElementById('profile-view');
+const searchMain = domById('search-main', HTMLDivElement);
+const profileView = domById('profile-view', HTMLDivElement);
 const withPlaces = (profiles) =>
   Promise.all(
     profiles.map(async (profile) => ({
@@ -186,13 +192,13 @@ const withPlaces = (profiles) =>
       place: await placesController.placeText(profile.draft.country, profile.draft.place),
     })),
   );
-const viewStatus = document.getElementById('view-status');
+const viewStatus = domById('view-status', HTMLParagraphElement);
 const showLikes = (likes) => {
-  document.getElementById('view-like').hidden = likes.ours || likes.passed;
-  document.getElementById('view-unlike').hidden = !likes.ours;
-  document.getElementById('view-match').hidden = !likes.matched;
-  document.getElementById('view-pass').hidden = likes.ours || likes.passed;
-  document.getElementById('view-unpass').hidden = !likes.passed;
+  domById('view-like', HTMLButtonElement).hidden = likes.ours || likes.passed;
+  domById('view-unlike', HTMLButtonElement).hidden = !likes.ours;
+  domById('view-match', HTMLParagraphElement).hidden = !likes.matched;
+  domById('view-pass', HTMLButtonElement).hidden = likes.ours || likes.passed;
+  domById('view-unpass', HTMLButtonElement).hidden = !likes.passed;
 };
 let viewed = null;
 let safetyScanToken = 0;
@@ -200,7 +206,7 @@ let safetyScanToken = 0;
 let cameraTimer = null;
 let cameraPending = false;
 const showSafetyStatus = (key) => {
-  const status = document.getElementById('view-safety-scan-status');
+  const status = domById('view-safety-scan-status', HTMLParagraphElement);
   status.textContent = strings[key];
   status.hidden = false;
 };
@@ -213,34 +219,36 @@ const stopSafetyCamera = () => {
     track.stop();
   });
   cameraState.stream = null;
-  const preview = document.getElementById('view-safety-preview');
+  const preview = domById('view-safety-preview', HTMLVideoElement);
   preview.srcObject = null;
   preview.hidden = true;
-  const button = document.getElementById('view-safety-camera');
+  const button = domById('view-safety-camera', HTMLButtonElement);
   button.textContent = strings['view.safety.camera.start'];
 };
 document.addEventListener('dyapp:identity-change', stopSafetyCamera);
 document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail !== 'search-area') stopSafetyCamera();
+  if (eventDetail(event) !== 'search-area') stopSafetyCamera();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopSafetyCamera();
 });
 const showVerified = (verified) => {
-  document.getElementById('view-verified').hidden = !verified;
-  const state = document.getElementById('view-safety-state');
+  domById('view-verified', HTMLParagraphElement).hidden = !verified;
+  const state = domById('view-safety-state', HTMLParagraphElement);
   state.dataset.i18n = verified ? 'view.safety.verified' : 'view.safety.unverified';
   state.textContent = strings[state.dataset.i18n];
-  document.getElementById('view-confirm').hidden = verified;
-  document.getElementById('view-unverify').hidden = !verified;
+  domById('view-confirm', HTMLButtonElement).hidden = verified;
+  domById('view-unverify', HTMLButtonElement).hidden = !verified;
 };
 const showFound = (found) => {
   const short = shortPeer(found.peerId);
-  peerLabel(document.getElementById('view-peer'), found.peerId);
-  document.getElementById('view-peer').textContent = short;
-  document.getElementById('view-title').textContent = peerNamesController.peerName(found.peerId);
-  document.getElementById('view-summary').textContent = summaryText(found);
-  document.getElementById('view-fields').replaceChildren(
+  peerLabel(domById('view-peer', HTMLElement), found.peerId);
+  domById('view-peer', HTMLElement).textContent = short;
+  domById('view-title', HTMLHeadingElement).textContent = peerNamesController.peerName(
+    found.peerId,
+  );
+  domById('view-summary', HTMLParagraphElement).textContent = summaryText(found);
+  domById('view-fields', HTMLDListElement).replaceChildren(
     ...publicFacts(found.draft, found.place).flatMap(([label, value]) => {
       const term = document.createElement('dt');
       const detail = document.createElement('dd');
@@ -257,20 +265,20 @@ const openFound = (found, card, call = invoke) => {
   const target = { found, card, actionStarted: false };
   viewed = target;
   for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass'])
-    document.getElementById(id).disabled = false;
-  document.getElementById('view-message').disabled = false;
-  document.getElementById('view-safety-image').value = '';
-  document.getElementById('view-safety-scan-status').hidden = true;
+    domById(id, HTMLButtonElement).disabled = false;
+  domById('view-message', HTMLButtonElement).disabled = false;
+  domById('view-safety-image', HTMLInputElement).value = '';
+  domById('view-safety-scan-status', HTMLParagraphElement).hidden = true;
   if (!card.closest('#search-area')) showArea('search-area');
   viewStatus.textContent = '';
-  document.getElementById('view-safety-panel').hidden = true;
-  document.getElementById('view-safety-number').textContent = '';
-  const qr = document.getElementById('view-safety-qr');
+  domById('view-safety-panel', HTMLDivElement).hidden = true;
+  domById('view-safety-number', HTMLParagraphElement).textContent = '';
+  const qr = domById('view-safety-qr', HTMLCanvasElement);
   qr.width = 0;
   qr.height = 0;
-  document.getElementById('view-safety').setAttribute('aria-expanded', 'false');
-  document.getElementById('view-confirm').disabled = false;
-  document.getElementById('view-unverify').disabled = false;
+  domById('view-safety', HTMLButtonElement).setAttribute('aria-expanded', 'false');
+  domById('view-confirm', HTMLButtonElement).disabled = false;
+  domById('view-unverify', HTMLButtonElement).disabled = false;
   showVerified(false);
   call('contact_verified', { peerId: found.peerId }).then(
     (verified) => {
@@ -292,19 +300,19 @@ const openFound = (found, card, call = invoke) => {
   controller.peerPhotosShown = peerPhotosController.showFoundPhotos(found, call);
   searchMain.hidden = true;
   profileView.hidden = false;
-  document.getElementById('view-back').focus();
+  domById('view-back', HTMLButtonElement).focus();
 };
 const closeFound = () => {
   stopSafetyCamera();
   favoritesController.clearFavorite();
   contactNotesController.clearContactNote();
-  document.getElementById('view-message').disabled = true;
+  domById('view-message', HTMLButtonElement).disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;
   if (viewed?.card.isConnected && !viewed.card.hidden) viewed.card.focus();
   viewed = null;
 };
-document.getElementById('view-back').addEventListener('click', () => {
+domById('view-back', HTMLButtonElement).addEventListener('click', () => {
   const { card } = viewed;
   const area = card.closest('section')?.id;
   closeFound();
@@ -326,7 +334,7 @@ const sendLike = async (liked, call = invoke) => {
   target.actionBusy = true;
   target.actionStarted = true;
   const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) =>
-    document.getElementById(id),
+    domById(id, HTMLButtonElement),
   );
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = strings['view.sending'];
@@ -355,20 +363,20 @@ const sendLike = async (liked, call = invoke) => {
     if (currentView()) for (const button of buttons) button.disabled = false;
   }
 };
-document.getElementById('view-like').addEventListener('click', () => {
+domById('view-like', HTMLButtonElement).addEventListener('click', () => {
   controller.likeDone = sendLike(true);
 });
-const unlikeDialog = document.getElementById('unlike-dialog');
-document.getElementById('view-unlike').addEventListener('click', () => {
+const unlikeDialog = domById('unlike-dialog', HTMLDialogElement);
+domById('view-unlike', HTMLButtonElement).addEventListener('click', () => {
   unlikeDialog.hidden = false;
   unlikeDialog.showModal();
-  document.getElementById('unlike-cancel').focus();
+  domById('unlike-cancel', HTMLButtonElement).focus();
 });
 unlikeDialog.addEventListener('close', () => {
   unlikeDialog.hidden = true;
 });
-document.getElementById('unlike-cancel').addEventListener('click', () => unlikeDialog.close());
-document.getElementById('unlike-confirm').addEventListener('click', () => {
+domById('unlike-cancel', HTMLButtonElement).addEventListener('click', () => unlikeDialog.close());
+domById('unlike-confirm', HTMLButtonElement).addEventListener('click', () => {
   unlikeDialog.close();
   controller.likeDone = sendLike(false);
 });
@@ -382,7 +390,7 @@ const sendPass = async (passed, call = invoke) => {
   target.actionBusy = true;
   target.actionStarted = true;
   const buttons = ['view-like', 'view-unlike', 'view-pass', 'view-unpass'].map((id) =>
-    document.getElementById(id),
+    domById(id, HTMLButtonElement),
   );
   for (const button of buttons) button.disabled = true;
   viewStatus.textContent = strings['view.pass.saving'];
@@ -392,8 +400,8 @@ const sendPass = async (passed, call = invoke) => {
     showLikes(likes);
     card.hidden = passed;
     if (card.closest('#chats-liked-list')) {
-      document.getElementById('chats-liked-count').textContent = String(
-        document.querySelectorAll('#chats-liked-list [data-peer-id]:not([hidden])').length,
+      domById('chats-liked-count', HTMLSpanElement).textContent = String(
+        domAll(document, '#chats-liked-list [data-peer-id]:not([hidden])', HTMLElement).length,
       );
     }
     viewStatus.textContent = strings[passed ? 'view.passed' : 'view.unpassed'];
@@ -408,18 +416,18 @@ for (const [id, passed] of [
   ['view-pass', true],
   ['view-unpass', false],
 ]) {
-  document.getElementById(id).addEventListener('click', () => {
+  domById(String(id), HTMLButtonElement).addEventListener('click', () => {
     controller.passDone = sendPass(passed);
   });
 }
 copyFrom(
-  document.getElementById('copy-view-peer'),
-  document.getElementById('view-peer'),
+  domById('copy-view-peer', HTMLButtonElement),
+  domById('view-peer', HTMLElement),
   () => viewed.found.peerId,
 );
 const copySafety = (call = invoke) => {
-  const button = document.getElementById('copy-safety-number');
-  const source = document.getElementById('view-safety-number');
+  const button = domById('copy-safety-number', HTMLButtonElement);
+  const source = domById('view-safety-number', HTMLParagraphElement);
   const found = viewed?.found;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
@@ -445,10 +453,13 @@ const copySafety = (call = invoke) => {
     },
   );
 };
-document.getElementById('copy-safety-number').addEventListener('click', () => {
+domById('copy-safety-number', HTMLButtonElement).addEventListener('click', () => {
   controller.safetyCopied = copySafety();
 });
-const drawContactQr = ({ size, modules }, canvas = document.getElementById('view-safety-qr')) => {
+const drawContactQr = (
+  { size, modules },
+  canvas = domById('view-safety-qr', HTMLCanvasElement),
+) => {
   if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
     throw new Error('invalid contact QR matrix');
   }
@@ -469,8 +480,8 @@ const loadSafety = (call = invoke) => {
   const { found } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
-  const button = document.getElementById('view-safety');
-  const panel = document.getElementById('view-safety-panel');
+  const button = domById('view-safety', HTMLButtonElement);
+  const panel = domById('view-safety-panel', HTMLDivElement);
   if (!panel.hidden) {
     stopSafetyCamera();
     panel.hidden = true;
@@ -485,7 +496,9 @@ const loadSafety = (call = invoke) => {
     .then(([number, matrix]) => {
       if (!currentView()) return;
       drawContactQr(matrix);
-      document.getElementById('view-safety-number').textContent = number.match(/.{5}/g).join(' ');
+      domById('view-safety-number', HTMLParagraphElement).textContent = number
+        .match(/.{5}/g)
+        .join(' ');
       panel.hidden = false;
       button.setAttribute('aria-expanded', 'true');
     })
@@ -496,7 +509,7 @@ const loadSafety = (call = invoke) => {
       if (currentView()) button.disabled = false;
     });
 };
-document.getElementById('view-safety').addEventListener('click', () => {
+domById('view-safety', HTMLButtonElement).addEventListener('click', () => {
   controller.safetyDone = loadSafety();
 });
 // Only this path writes the mark; the answer is the signed profile the mark was made from.
@@ -504,7 +517,7 @@ const confirmContact = (call = invoke) => {
   const { found, card } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
-  const button = document.getElementById('view-confirm');
+  const button = domById('view-confirm', HTMLButtonElement);
   button.disabled = true;
   showSafetyStatus('view.safety.confirm.checking');
   return call('confirm_contact', { peerId: found.peerId }).then(
@@ -513,7 +526,7 @@ const confirmContact = (call = invoke) => {
       button.disabled = false;
       showVerified(true);
       showSafetyStatus('view.safety.confirm.done');
-      document.getElementById('view-unverify').focus();
+      domById('view-unverify', HTMLButtonElement).focus();
       const [placed] = await withPlaces([fresh]).catch(() => [{ ...fresh, place: found.place }]);
       await loadPeerNames([found.peerId], call);
       if (!currentView()) return;
@@ -535,7 +548,7 @@ const removeMark = (call = invoke) => {
   const { found, card } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
-  const button = document.getElementById('view-unverify');
+  const button = domById('view-unverify', HTMLButtonElement);
   button.disabled = true;
   return call('unverify_contact', { peerId: found.peerId }).then(
     async () => {
@@ -543,7 +556,7 @@ const removeMark = (call = invoke) => {
       button.disabled = false;
       showVerified(false);
       showSafetyStatus('view.safety.confirm.removed');
-      document.getElementById('view-confirm').focus();
+      domById('view-confirm', HTMLButtonElement).focus();
       await loadPeerNames([found.peerId], call);
       if (!currentView()) return;
       showFound(found);
@@ -558,11 +571,11 @@ const removeMark = (call = invoke) => {
     },
   );
 };
-const verifyDialog = document.getElementById('verify-dialog');
-document.getElementById('view-confirm').addEventListener('click', () => {
+const verifyDialog = domById('verify-dialog', HTMLDialogElement);
+domById('view-confirm', HTMLButtonElement).addEventListener('click', () => {
   verifyDialog.hidden = false;
   verifyDialog.showModal();
-  document.getElementById('verify-cancel').focus();
+  domById('verify-cancel', HTMLButtonElement).focus();
 });
 verifyDialog.addEventListener('close', () => {
   verifyDialog.hidden = true;
@@ -570,12 +583,12 @@ verifyDialog.addEventListener('close', () => {
 document.addEventListener('dyapp:identity-change', () => {
   if (verifyDialog.open) verifyDialog.close();
 });
-document.getElementById('verify-cancel').addEventListener('click', () => verifyDialog.close());
-document.getElementById('verify-confirm').addEventListener('click', () => {
+domById('verify-cancel', HTMLButtonElement).addEventListener('click', () => verifyDialog.close());
+domById('verify-confirm', HTMLButtonElement).addEventListener('click', () => {
   verifyDialog.close();
   controller.confirmDone = confirmContact();
 });
-document.getElementById('view-unverify').addEventListener('click', () => {
+domById('view-unverify', HTMLButtonElement).addEventListener('click', () => {
   controller.confirmDone = removeMark();
 });
 const grayscaleFrame = (context, width, height) => {
@@ -592,7 +605,7 @@ const grayscaleFrame = (context, width, height) => {
 controller.scanQrFile = async (file) => {
   const found = viewed?.found;
   const generation = identityState.generation;
-  const panel = document.getElementById('view-safety-panel');
+  const panel = domById('view-safety-panel', HTMLDivElement);
   const token = ++safetyScanToken;
   const current = () =>
     identityCurrent(generation) &&
@@ -712,7 +725,7 @@ const startSafetyCamera = async (found, preview, current) => {
     showSafetyStatus(`view.safety.camera.${kind}`);
   }
 };
-document.getElementById('view-safety-camera').addEventListener('click', () => {
+domById('view-safety-camera', HTMLButtonElement).addEventListener('click', () => {
   if (cameraPending || cameraState.stream) {
     stopSafetyCamera();
     showSafetyStatus('view.safety.camera.stopped');
@@ -720,7 +733,7 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
   }
   const found = viewed?.found;
   const generation = identityState.generation;
-  const panel = document.getElementById('view-safety-panel');
+  const panel = domById('view-safety-panel', HTMLDivElement);
   if (!found || panel.hidden) return;
   if (!navigator.mediaDevices?.getUserMedia) {
     showSafetyStatus('view.safety.camera.unsupported');
@@ -732,20 +745,21 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
     token === safetyScanToken &&
     viewed?.found === found &&
     !panel.hidden &&
-    !document.getElementById('search-area').hidden &&
+    !domById('search-area', HTMLElement).hidden &&
     !document.hidden;
-  const button = document.getElementById('view-safety-camera');
-  const preview = document.getElementById('view-safety-preview');
+  const button = domById('view-safety-camera', HTMLButtonElement);
+  const preview = domById('view-safety-preview', HTMLVideoElement);
   cameraPending = true;
   button.textContent = strings['view.safety.camera.stop'];
   showSafetyStatus('view.safety.camera.starting');
   controller.cameraDone = startSafetyCamera(found, preview, current);
 });
-document.getElementById('view-safety-select').addEventListener('click', () => {
-  document.getElementById('view-safety-image').click();
+domById('view-safety-select', HTMLButtonElement).addEventListener('click', () => {
+  domById('view-safety-image', HTMLInputElement).click();
 });
-document.getElementById('view-safety-image').addEventListener('change', (event) => {
-  const input = event.currentTarget;
+const safetyImageInput = domById('view-safety-image', HTMLInputElement);
+safetyImageInput.addEventListener('change', () => {
+  const input = safetyImageInput;
   const file = input.files?.[0];
   input.value = '';
   if (file) controller.scanQrDone = controller.scanQrFile(file);
@@ -767,39 +781,39 @@ const blockViewed = async (call = invoke) => {
   const savedRow = card.closest('#saved-profile-rows li');
   (savedRow || card).remove();
   if (wasLiked)
-    document.getElementById('chats-liked-count').textContent = String(
-      document.getElementById('chats-liked-list').children.length,
+    domById('chats-liked-count', HTMLSpanElement).textContent = String(
+      domById('chats-liked-list', HTMLDivElement).children.length,
     );
   closeFound();
   if (savedRow) savedProfilesController.refreshSaved();
   return searchMessage(`search.blocked.${result.revocation}`);
 };
-document.getElementById('view-block').addEventListener('click', () => {
+domById('view-block', HTMLButtonElement).addEventListener('click', () => {
   controller.blockDone = blockViewed();
 });
-const searchError = document.getElementById('search-error');
+const searchError = domById('search-error', HTMLDivElement);
 const showSearchError = (key, details) => {
-  document.getElementById('search-error-text').textContent = strings[key];
-  document.getElementById('search-failures').textContent = details;
+  domById('search-error-text', HTMLParagraphElement).textContent = strings[key];
+  domById('search-failures', HTMLPreElement).textContent = details;
   searchError.hidden = false;
 };
 copyFrom(
-  document.getElementById('copy-search-details'),
-  document.getElementById('search-failures'),
+  domById('copy-search-details', HTMLButtonElement),
+  domById('search-failures', HTMLPreElement),
 );
 // Loading blocks repeated requests, not navigation.
 const setSearchBusy = (busy) => {
   searchBusy = busy;
-  document.getElementById('search-loading').hidden = !busy;
+  domById('search-loading', HTMLDivElement).hidden = !busy;
   for (const button of searchForm.querySelectorAll('button')) button.disabled = busy;
-  for (const input of searchForm.querySelectorAll('input, select')) {
+  for (const input of domAll(searchForm, 'input, select', HTMLInputElement, HTMLSelectElement)) {
     const hidden = input.closest('[hidden]');
     input.disabled = busy || Boolean(hidden && searchForm.contains(hidden));
   }
 };
 const clearSearch = () => {
   searchError.hidden = true;
-  document.getElementById('search-empty').hidden = true;
+  domById('search-empty', HTMLDivElement).hidden = true;
   searchResults.replaceChildren();
   searchAgain.hidden = true;
 };
@@ -815,7 +829,7 @@ const renderSearchResults = (result, found, call) => {
     showSearchError('search.partialError', result.failures.map(failureText).join('\n'));
   } else if (!found.length) searchMessage('search.empty');
   else searchMessage('search.results', count);
-  document.getElementById('search-empty').hidden = found.length > 0;
+  domById('search-empty', HTMLDivElement).hidden = found.length > 0;
   searchAgain.hidden = !found.length;
 };
 const runSearch = async (call = invoke) => {
@@ -871,7 +885,7 @@ searchForm.addEventListener('submit', (event) => {
   controller.searchDone = runSearch();
 });
 for (const id of ['profile-open-network', 'search-open-network', 'chats-open-network']) {
-  document.getElementById(id).addEventListener('click', () => showArea('network-area'));
+  domById(id, HTMLElement).addEventListener('click', () => showArea('network-area'));
 }
 for (const button of [searchRetry, searchAgain]) {
   button.addEventListener('click', () => {

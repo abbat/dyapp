@@ -1,3 +1,4 @@
+import { byId as domById } from './dom.js';
 import { locale, strings } from './locale.js';
 
 export let scaleFields = [];
@@ -9,10 +10,8 @@ export const countryName = (code) => new Intl.DisplayNames([locale], { type: 're
 
 // A reversed range is explained at its upper field before anything is sent.
 export const checkRange = (from, to) => {
-  const [low, high] = [document.getElementById(from).value, document.getElementById(to).value];
-  document
-    .getElementById(to)
-    .setCustomValidity(
-      low && high && Number(low) > Number(high) ? strings['search.rangeReversed'] : '',
-    );
+  const [low, high] = [domById(from, HTMLInputElement).value, domById(to, HTMLInputElement).value];
+  domById(to, HTMLInputElement).setCustomValidity(
+    low && high && Number(low) > Number(high) ? strings['search.rangeReversed'] : '',
+  );
 };

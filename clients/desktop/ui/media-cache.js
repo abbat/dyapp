@@ -1,3 +1,4 @@
+import { byId as domById, query as domQuery, eventDetail } from './dom.js';
 import { sizeText } from './formatting.js';
 import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
@@ -6,14 +7,13 @@ export const controller = {};
 
 // Byte budgets survive toggling off; uncertain writes require fresh readback.
 (() => {
-  const el = (name) => document.getElementById(`media-cache-${name}`);
-  const enabled = el('enabled'),
-    limit = el('limit'),
-    clear = el('clear'),
-    refresh = el('refresh');
-  const dialog = document.getElementById('photo-keep-dialog');
-  const cancel = document.getElementById('photo-keep-cancel');
-  const confirm = document.getElementById('photo-keep-confirm');
+  const enabled = domById('media-cache-enabled', HTMLInputElement),
+    limit = domById('media-cache-limit', HTMLInputElement),
+    clear = domById('media-cache-clear', HTMLButtonElement),
+    refresh = domById('media-cache-refresh', HTMLButtonElement);
+  const dialog = domById('photo-keep-dialog', HTMLDialogElement);
+  const cancel = domById('photo-keep-cancel', HTMLButtonElement);
+  const confirm = domById('photo-keep-confirm', HTMLButtonElement);
   const mib = 1048576;
   let view = null,
     asked = null;
@@ -27,10 +27,14 @@ export const controller = {};
     enabled.checked = Boolean(known?.enabled);
     enabled.setAttribute('aria-checked', String(enabled.checked));
     limit.value = known ? String(known.limitBytes / mib) : '';
-    el('used').textContent = known ? sizeText(known.usedBytes) : strings['usage.unavailable'];
+    domById('media-cache-used', HTMLSpanElement).textContent = known
+      ? sizeText(known.usedBytes)
+      : strings['usage.unavailable'];
   };
   const status = (key) => {
-    el('status').textContent = key ? strings[`photos.cache.${key}`] : '';
+    domById('media-cache-status', HTMLParagraphElement).textContent = key
+      ? strings[`photos.cache.${key}`]
+      : '';
   };
   const close = () => {
     asked = null;
@@ -102,7 +106,7 @@ export const controller = {};
         (!values.enabled || values.limitBytes < target.config.usedBytes));
     render();
     if (destructive) {
-      document.querySelector('#photo-keep-dialog p').textContent =
+      domQuery(document, '#photo-keep-dialog p', HTMLParagraphElement).textContent =
         strings[
           command === 'clear_media_cache' ? 'photos.cache.clearWarning' : 'photos.keepEraseWarning'
         ];
@@ -155,7 +159,7 @@ export const controller = {};
   document.addEventListener('dyapp:identity-change', invalidate);
   document.addEventListener('dyapp:area-change', invalidate);
   document.addEventListener('dyapp:settings-pane', (event) => {
-    if (event.detail === 'photos') controller.mediaCacheShown = show();
+    if (eventDetail(event) === 'photos') controller.mediaCacheShown = show();
     else invalidate();
   });
   controller.showMediaCache = show;
