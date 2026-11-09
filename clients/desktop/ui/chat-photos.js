@@ -8,13 +8,17 @@ const PREVIEW_SIDE = 240;
 const ORIGINAL_SIDE = 480;
 const MAX_KEPT_ORIGINALS = 16;
 // Decrypted originals of the open chat, so a redraw keeps them. Memory only, dropped on leaving it.
+/** @type {Map<string, import('./ipc.js').BinaryResponse>} */
 const photoOriginals = new Map();
 /** @type {string | null} */
 let photoOriginalsPeer = null;
 // The bubble drawn last for each photo of the open chat, the fetches running and the automatic
 // tries already made.
+/** @type {Map<string, PhotoBox>} */
 const photoBoxes = new Map();
+/** @type {Set<string>} */
 const photoFetches = new Set();
+/** @type {Set<string>} */
 const photoAutoTried = new Set();
 let photoAutoRunning = false;
 const forgetPhotos = () => {
@@ -40,10 +44,16 @@ const fitCanvas = (canvas, width, height, side) => {
  * @param {string} mime
  */
 const drawPhoto = async (canvas, bytes, mime, side) => {
-  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
-  if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
+  const data = Array.isArray(bytes) ? new Uint8Array(bytes) : bytes;
+  const bitmap = await createImageBitmap(new Blob([data], { type: mime }));
+  try {
+    if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Photo canvas unavailable');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  } finally {
+    bitmap.close();
+  }
 };
 /** @param {import('./chat-state.js').ChatPhoto} photo */
 const photoCaption = (photo) => {
@@ -51,7 +61,7 @@ const photoCaption = (photo) => {
   if (photo.kept) return parts.join(' · ');
   if (photo.hoursLeft === 0) parts.push(strings['chats.photoExpired']);
   else if (photo.hoursLeft) {
-    parts.push(strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
+    parts.push(strings['chats.photoExpires'].replace('{hours}', String(photo.hoursLeft)));
   }
   return parts.join(' · ');
 };
@@ -74,6 +84,14 @@ const photoButton = (key, name, click) => {
   button.addEventListener('click', click);
   return button;
 };
+/** @param {string} key @param {import('./ipc.js').BinaryResponse} bytes */
+const rememberOriginal = (key, bytes) => {
+  if (photoOriginals.size >= MAX_KEPT_ORIGINALS) {
+    const oldest = photoOriginals.keys().next();
+    if (!oldest.done) photoOriginals.delete(oldest.value);
+  }
+  photoOriginals.set(key, bytes);
+};
 // A mail pass redraws the chat under a running fetch, so results go to the bubble of that moment.
 /**
  * @param {import('./chat-state.js').ChatMessage} message
@@ -84,11 +102,13 @@ const downloadOriginal = async (message, peerId, call) => {
   const generation = identityState.generation;
   const key = photoKey(message);
   if (photoFetches.has(key) || photoOriginals.has(key)) return;
-  const { mime } = message.photo;
+  const photo = message.photo;
+  if (!photo) return;
+  const { mime } = photo;
   const latest = () =>
     identityCurrent(generation) && photoOriginalsPeer === peerId ? photoBoxes.get(key) : null;
   photoFetches.add(key);
-  latest()?.showFetching();
+  latest()?.showFetching?.();
   try {
     const bytes = await call('chat_photo_original', {
       peerId,
@@ -98,16 +118,13 @@ const downloadOriginal = async (message, peerId, call) => {
     const box = latest();
     if (!box) return;
     await drawPhoto(box.canvas, bytes, mime, ORIGINAL_SIDE);
-    if (photoOriginals.size >= MAX_KEPT_ORIGINALS) {
-      photoOriginals.delete(photoOriginals.keys().next().value);
-    }
-    photoOriginals.set(key, bytes);
+    rememberOriginal(key, bytes);
     box.canvas.hidden = false;
-    box.showResult('', false);
+    box.showResult?.('', false);
   } catch (error) {
     // A rejected decode is not a string: the bytes passed the checks but the page cannot show them.
     const code = typeof error === 'string' ? error : 'corrupted';
-    latest()?.showResult(photoError(code), code !== 'notFound' && code !== 'corrupted');
+    latest()?.showResult?.(photoError(code), code !== 'notFound' && code !== 'corrupted');
   } finally {
     photoFetches.delete(key);
   }
@@ -151,6 +168,7 @@ const createPhotoBubble = (photo) => {
  */
 const photoBubble = (message, peerId, blurred, call) => {
   const { photo } = message;
+  if (!photo) throw new Error('Photo bubble requires a photo');
   const key = photoKey(message);
   const { box, canvas, status } = createPhotoBubble(photo);
   photoBoxes.set(key, box);
@@ -173,7 +191,7 @@ const photoBubble = (message, peerId, blurred, call) => {
   const offerDownload = () => {
     if ((photo.hoursLeft === 0 && !photo.kept) || photoOriginals.has(key)) return;
     box.append(download);
-    if (photoFetches.has(key)) box.showFetching();
+    if (photoFetches.has(key)) box.showFetching?.();
     else box.fetchPhoto = fetchPhoto;
   };
   const show = photoButton('chats.photoShow', 'photo-show', () => {
@@ -218,7 +236,7 @@ const fetchAllowedPhotos = async (peerId, call) => {
     for (const [key, box] of waiting().filter(([, item]) => allowed || item.kept)) {
       if (photoOriginalsPeer !== peerId) return;
       photoAutoTried.add(key);
-      await box.fetchPhoto();
+      await box.fetchPhoto?.();
     }
   } finally {
     photoAutoRunning = false;

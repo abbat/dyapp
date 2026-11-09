@@ -1,4 +1,4 @@
-import { byId as domById, find as domFind, query as domQuery } from './dom.js';
+import { byId as domById, query as domQuery } from './dom.js';
 import { drawPhoto } from './chat-photos.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -13,8 +13,8 @@ controller.peerPhotoLoaded = undefined;
 // Other people's photos. Lists ask for thumbnails and the profile view for full images, through a
 // memory cache in the desktop core. Whatever fails leaves the letters, and the next view retries.
 const PEER_PHOTO_SIDE = 1600;
-const viewMain = domFind(document, '#view-photos .main', HTMLElement);
-const viewThumbs = domFind(document, '#view-photos .thumbs', HTMLElement);
+const viewMain = domQuery(document, '#view-photos .main', HTMLElement);
+const viewThumbs = domQuery(document, '#view-photos .thumbs', HTMLElement);
 const viewLoad = domById('view-photo-load', HTMLButtonElement);
 let viewPhotoRun = 0;
 /** @type {() => boolean | undefined | Promise<boolean | undefined>} */
@@ -48,23 +48,23 @@ const peerPhotoAuto = async (call) => {
 };
 /** @param {number} index @param {number} count */
 const peerPhotoLabel = (index, count) =>
-  strings['profile.photoLabel'].replace('{n}', index + 1).replace('{count}', count);
+  strings['profile.photoLabel'].replace('{n}', String(index + 1)).replace('{count}', String(count));
 
 // ponytail: the liked list redraws on each mail pass with news, so a missing thumbnail connects
 // again then; remember misses here if that shows up in traffic.
 /** @param {import('./ipc.js').FoundProfile[]} found @param {HTMLElement[]} cards */
 controller.showCardPhotos = async (found, cards, call = invoke) => {
   const wanted = found
-    .map((item, index) => [item.draft.photos?.[0], cards[index]])
-    .filter(([hash]) => hash?.length);
+    .map((item, index) => ({ hash: item.draft.photos?.[0] ?? [], card: cards[index] }))
+    .filter(({ hash }) => hash.length);
   if (!wanted.length) return;
   await fetchPeerPhotos(
-    wanted.map(([hash]) => hash),
+    wanted.map(({ hash }) => hash),
     false,
     call,
   );
   await Promise.all(
-    wanted.map(async ([hash, card]) => {
+    wanted.map(async ({ hash, card }) => {
       const canvas = await peerCanvas(hash, call);
       if (canvas) domQuery(card, '.avatar', HTMLElement).append(canvas);
     }),
@@ -131,7 +131,7 @@ controller.showFoundPhotos = async (found, call = invoke) => {
   const originals = found.fullPhotos ?? [];
   const count = thumbnails.length;
   /** @param {HTMLCanvasElement | null} canvas @param {number | undefined} [index] */
-  const showMain = (canvas, index) => {
+  const showMain = (canvas, index = 0) => {
     if (canvas) {
       viewMain.replaceChildren(canvas);
       viewMain.setAttribute('role', 'img');

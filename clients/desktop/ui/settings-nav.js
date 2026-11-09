@@ -1,17 +1,20 @@
-import { all as domAll, byId as domById, find as domFind } from './dom.js';
+import { all as domAll, byId as domById, find as domFind, query as domQuery } from './dom.js';
 export const controller = {};
 
 // Keep category navigation local to Settings; backend availability owns inner cards.
 const root = domById('settings-root', HTMLDivElement);
 const back = domById('settings-back', HTMLButtonElement);
 const panes = [...domAll(document, '[data-settings-pane]', HTMLDivElement)];
+/** @type {Record<string, string | undefined>} */
 const parent = {
   identities: 'account',
   devices: 'account',
   blocked: 'privacy',
   passed: 'privacy',
 };
+/** @type {string | null} */
 let selected = null;
+/** @param {string | null} [name] */
 const open = (name = null, focus = true) => {
   if (name && !panes.some((pane) => pane.dataset.settingsPane === name)) return;
   selected = name;
@@ -21,7 +24,7 @@ const open = (name = null, focus = true) => {
   document.dispatchEvent(new CustomEvent('dyapp:settings-pane', { detail: name }));
   if (focus) {
     window.scrollTo(0, 0);
-    (name ? back : root.querySelector('button')).focus();
+    (name ? back : domQuery(root, 'button', HTMLButtonElement)).focus();
   }
 };
 for (const button of domAll(document, '[data-settings-open]', HTMLButtonElement)) {
@@ -29,11 +32,12 @@ for (const button of domAll(document, '[data-settings-open]', HTMLButtonElement)
 }
 back.addEventListener('click', () => {
   const previous = selected;
-  const destination = parent[previous] || null;
+  const destination = previous ? parent[previous] || null : null;
   open(destination, false);
   const container = destination
     ? panes.find((pane) => pane.dataset.settingsPane === destination)
     : root;
+  if (!container) throw new Error('Settings parent pane is missing');
   domFind(container, `[data-settings-open="${previous}"]`, HTMLElement)?.focus();
   window.scrollTo(0, 0);
 });

@@ -20,7 +20,7 @@ function appendMessageBody(item, message, peerId, history, call) {
   const sticker = message.sticker && !message.deleted;
   const label = document.createElement('b');
   label.textContent =
-    message.author === identityState.current.peerId
+    message.author === identityState.current?.peerId
       ? strings['chats.you']
       : peerNamesController.peerName(peerId);
   const body = document.createElement('span');
@@ -58,7 +58,7 @@ function messageContent(message, peerId, history, call, body) {
     return photoBubble(
       message,
       peerId,
-      message.author !== identityState.current.peerId && history.state !== 'open',
+      message.author !== identityState.current?.peerId && history.state !== 'open',
       call,
     );
   }
@@ -83,7 +83,7 @@ function appendMessageMetadata(item, message) {
     item.append(host);
   }
   const status = message.read ? 'read' : message.delivery;
-  if (message.author === identityState.current.peerId && status) {
+  if (message.author === identityState.current?.peerId && status) {
     const delivery = document.createElement('span');
     delivery.className = 'caption';
     delivery.textContent = ` · ${strings[`chats.delivery.${status}`] || ''}`;
@@ -106,7 +106,7 @@ function appendMessageActions(item, message, history) {
   const { openEdit, openDelete, openForward } = chatsUiController.chatMessageHelpers;
   const sticker = message.sticker && !message.deleted;
   if (
-    message.author === identityState.current.peerId &&
+    message.author === identityState.current?.peerId &&
     !message.deleted &&
     !message.photo &&
     !message.sticker &&
@@ -124,7 +124,7 @@ function appendMessageActions(item, message, history) {
     remove.addEventListener('click', () => openDelete(message));
     item.append(document.createTextNode(' '), edit, document.createTextNode(' '), remove);
   }
-  if (sticker && message.author === identityState.current.peerId && history.state !== 'closed') {
+  if (sticker && message.author === identityState.current?.peerId && history.state !== 'closed') {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn quiet';
@@ -148,7 +148,7 @@ function appendMessageActions(item, message, history) {
  */
 function appendMessageTime(item, message) {
   const time = chatTime(message);
-  if (time) {
+  if (time && message.sentAtMs !== null) {
     const stamp = document.createElement('time');
     stamp.className = 'caption';
     stamp.dateTime = new Date(message.sentAtMs).toISOString();
@@ -164,10 +164,11 @@ function appendMessageTime(item, message) {
  * @param {import('./ipc.js').Invoke} call
  */
 controller.chatMessage = (message, peerId, history, call) => {
+  if (!identityState.current) throw new Error('Message row requires an open identity');
   const sticker = message.sticker && !message.deleted;
   const item = document.createElement(sticker ? 'div' : 'p');
   item.className = sticker ? 'sticker-message' : 'msg';
-  if (message.author === identityState.current.peerId) item.classList.add('out');
+  if (message.author === identityState.current?.peerId) item.classList.add('out');
   if (message.deleted) item.classList.add('deleted');
   appendMessageBody(item, message, peerId, history, call);
   appendMessageMetadata(item, message);

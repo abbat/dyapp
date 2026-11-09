@@ -28,6 +28,7 @@ const encodePhoto = (bitmap, side, quality) =>
     const canvas = document.createElement('canvas');
     fitCanvas(canvas, bitmap.width, bitmap.height, side);
     const context = canvas.getContext('2d');
+    if (!context) throw new Error('Photo canvas unavailable');
     context.fillStyle = '#fff';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
@@ -89,7 +90,7 @@ const photoSendError = (code) => {
     corrupted: 'chats.photoUnsupported',
     notConnected: 'chats.notConnected',
     peerUnavailable: 'chats.peerUnavailable',
-  }[code];
+  }[String(code)];
   return key ? strings[key] : `${strings['chats.sendFailed']} ${code}`;
 };
 /** @param {File} file */
@@ -104,7 +105,7 @@ const sendChatPhoto = async (file, call = invoke) => {
 };
 domById('chat-attach', HTMLButtonElement).addEventListener('click', () => chatPhotoInput.click());
 chatPhotoInput.addEventListener('change', () => {
-  const [file] = chatPhotoInput.files;
+  const [file] = chatPhotoInput.files ?? [];
   if (file) controller.chatPhotoSent = sendChatPhoto(file);
   chatPhotoInput.value = '';
 });

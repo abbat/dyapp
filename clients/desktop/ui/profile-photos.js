@@ -42,7 +42,7 @@ const profilePhotoFailure = (error) => {
     unsupported: 'profile.photoUnsupported',
     corrupted: 'profile.photoUnsupported',
     photoRefused: 'profile.photoRefused',
-  }[error];
+  }[String(error)];
   if (key) profileMessage(key);
   else profileMessage('profile.failed', String(error));
 };
@@ -108,7 +108,7 @@ const askProfilePhotoRemoval = (index, call) => {
 };
 /** @param {string} key @param {number} index @param {number} count */
 const profilePhotoText = (key, index, count) =>
-  strings[key].replace('{n}', index + 1).replace('{count}', count);
+  strings[key].replace('{n}', String(index + 1)).replace('{count}', String(count));
 /** @param {string} glyph @param {string} name @param {string} label @param {() => void} click */
 const profilePhotoTool = (glyph, name, label, click) => {
   const button = document.createElement('button');
@@ -224,7 +224,7 @@ controller.showProfilePhotos = (hashes = [], call = invoke) => {
 };
 profilePhotoAdd.addEventListener('click', () => profilePhotoInput.click());
 profilePhotoInput.addEventListener('change', () => {
-  const [file] = profilePhotoInput.files;
+  const [file] = profilePhotoInput.files ?? [];
   if (file) controller.profilePhotoChanged = addProfilePhoto(file);
   profilePhotoInput.value = '';
 });
