@@ -86,9 +86,15 @@ private fun GenderRow(choice: ProfileChoice, seeking: SeekingInputs) {
 
 @Composable
 private fun SeekingAge(age: MutableState<String>, name: Int, tag: String, enabled: Boolean) {
-    OutlinedTextField(age.value, { age.value = it }, Modifier.fillMaxWidth().testTag(tag), enabled = enabled,
+    OutlinedTextField(
+        age.value,
+        { age.value = it },
+        Modifier.fillMaxWidth().testTag(tag),
+        enabled = enabled,
         label = { Text(stringResource(name)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true
+    )
 }
 
 /** The switch, then the choices it disables; they stay visible so that turning it off restores them before a save. */

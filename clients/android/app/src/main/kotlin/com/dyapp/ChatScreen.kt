@@ -170,11 +170,17 @@ private fun ChatBackBar(peer: String, name: ContactNameView?, actions: ChatActio
         IconButton(onClick = actions.onBack, Modifier.testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.nav_chats))
         }
-        Row(Modifier.weight(1f).testTag("chat-profile").clickable(onClick = actions.onProfile),
-            Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f).testTag("chat-profile").clickable(onClick = actions.onProfile),
+            Arrangement.spacedBy(8.dp),
+            Alignment.CenterVertically
+        ) {
             PeerAvatar(peer, name)
-            Text(contactLabel(peer, name), Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleMedium)
+            Text(
+                contactLabel(peer, name),
+                Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium
+            )
         }
         menu()
     }
@@ -188,12 +194,17 @@ private fun ChatStateNotice(state: ChatState?, form: ChatForm) {
         ChatState.NONE, ChatState.REQUEST_SENT ->
             Caption(stringResource(R.string.chat_first_notice), modifier.testTag("chat-first-notice"))
         ChatState.REQUEST_RECEIVED -> Surface(
-            modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.tertiaryContainer
+            modifier.fillMaxWidth(),
+            RoundedCornerShape(12.dp),
+            MaterialTheme.colorScheme.tertiaryContainer
         ) {
             Column(Modifier.padding(12.dp).testTag("chat-request-notice"), Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.chat_request_notice))
-                OutlinedButton({ form.dialog.value = ChatDialog.BLOCK }, Modifier.testTag("request-block"),
-                    enabled = !form.busy) { Text(stringResource(R.string.chat_block)) }
+                OutlinedButton(
+                    { form.dialog.value = ChatDialog.BLOCK },
+                    Modifier.testTag("request-block"),
+                    enabled = !form.busy
+                ) { Text(stringResource(R.string.chat_block)) }
             }
         }
         ChatState.CLOSED ->
@@ -261,8 +272,13 @@ private fun ChatStatusLine(form: ChatForm) {
         form.sending -> Caption(stringResource(R.string.chat_sending), line)
         status == null -> Unit
         status.details == null -> Caption(stringResource(status.text), line)
-        else -> ErrorNotice(stringResource(status.text), STATUS_TAG, status.details, "chat-details",
-            "copy-chat-details")
+        else -> ErrorNotice(
+            stringResource(status.text),
+            STATUS_TAG,
+            status.details,
+            "chat-details",
+            "copy-chat-details"
+        )
     }
 }
 

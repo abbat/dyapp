@@ -71,8 +71,13 @@ internal class ChatFeed(private val opened: Opened.Ready) {
 
     /** The core supplies order; never merge photos by wall time in Kotlin. */
     fun thread(peer: String) = RustBridge.withChats(opened) {
-        ChatThreadSnapshot(it.chatHistory(peer), it.chatItems(peer),
-            { photo -> photoOriginal(peer, photo) }, { photoAuto(peer) }, { photo -> sendPhoto(peer, photo) })
+        ChatThreadSnapshot(
+            it.chatHistory(peer),
+            it.chatItems(peer),
+            { photo -> photoOriginal(peer, photo) },
+            { photoAuto(peer) },
+            { photo -> sendPhoto(peer, photo) }
+        )
     }.also { markRead(peer) }
 
     fun photoOriginal(peer: String, photo: uniffi.dyapp.ChatPhoto) = RustBridge.withChats(opened) {
@@ -88,8 +93,10 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         val status = RustBridge.withChats(opened) { chats ->
             val before = chats.chatPhotos(peer).map(::photoKey).toSet()
             val error = runCatching {
-                chats.sendChatPhoto(peer, photo.full, photo.thumbnail,
-                    dimensions.outWidth.toUInt(), dimensions.outHeight.toUInt())
+                chats.sendChatPhoto(
+                    peer, photo.full, photo.thumbnail,
+                    dimensions.outWidth.toUInt(), dimensions.outHeight.toUInt()
+                )
             }.exceptionOrNull() ?: return@withChats null
             val staged = chats.chatPhotos(peer).any { it.author == opened.peerId && photoKey(it) !in before }
             photoSendStatus(error, staged)

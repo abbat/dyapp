@@ -40,8 +40,10 @@ internal fun ChatPhotoPicker(enabled: Boolean) {
             }
         }
     }
-    TextButton({ picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) },
-        enabled = enabled && !state.busy) { Text(androidx.compose.ui.res.stringResource(R.string.chat_photo_attach)) }
+    TextButton(
+        { picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) },
+        enabled = enabled && !state.busy
+    ) { Text(androidx.compose.ui.res.stringResource(R.string.chat_photo_attach)) }
     ChatPhotoDraftDialog(state, send, enabled)
 }
 
@@ -77,7 +79,10 @@ private fun ChatPhotoDraftDialog(state: ChatPhotoDraft, send: (PreparedPhoto) ->
         text = { ChatPhotoConfirmation(state) },
         confirmButton = {
             TextButton({
-                if (!state.busy) { state.busy = true; scope.launch { state.send(send) } }
+                if (!state.busy) {
+                    state.busy = true
+                    scope.launch { state.send(send) }
+                }
             }, enabled = enabled && !state.busy) {
                 Text(androidx.compose.ui.res.stringResource(R.string.chat_send))
             }

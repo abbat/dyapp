@@ -45,7 +45,10 @@ private fun redPng(): ByteArray {
 internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     // The cache, not noBackupFilesDir: the app would list a folder there as a broken identity.
     private val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "peer-$name")
-        .apply { deleteRecursively(); mkdirs() }
+        .apply {
+            deleteRecursively()
+            mkdirs()
+        }
     private val path = dir.absolutePath
     private val alias = "dyapp-test-peer:$name"
     private val key = IdentityKey.generate()
@@ -56,11 +59,15 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     init {
         setTestNodeIdPowBits(8u)
         setTestProfilePowBits(4u)
-        saveProfileDraft(path, key, PublicProfileDraft(
-            gender = 1u, orientation = 0u, relationshipGoal = 0u, rolePreference = 0u, careerAmbition = 0u,
-            financialPhilosophy = 0u, employmentStatus = 0u, fitnessLevel = 0u, zodiac = 0u,
-            birthYear = 1990u, birthMonth = 1u, birthDay = 1u, country = "", place = "",
-        ))
+        saveProfileDraft(
+            path,
+            key,
+            PublicProfileDraft(
+                gender = 1u, orientation = 0u, relationshipGoal = 0u, rolePreference = 0u, careerAmbition = 0u,
+                financialPhilosophy = 0u, employmentStatus = 0u, fitnessLevel = 0u, zodiac = 0u,
+                birthYear = 1990u, birthMonth = 1u, birthDay = 1u, country = "", place = "",
+            )
+        )
         activateLocalNode()
         ProfileSolve(path, key).use { solve -> generateSequence { solve.runStep(true) }.first { it.solved } }
         if (photo) {

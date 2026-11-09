@@ -43,7 +43,12 @@ internal fun EmployerFilterFields(filter: EmployerFilter) {
         Text(stringResource(R.string.search_employer))
         EmployerKind.entries.forEach { ChoiceRow(it.tag, it.label, filter.kind == it) { filter.kind = it } }
     }
-    OutlinedTextField(filter.company, { filter.company = it }, Modifier.fillMaxWidth().testTag("search-company"),
-        label = { Text(stringResource(R.string.search_company)) }, singleLine = true)
+    OutlinedTextField(
+        filter.company,
+        { filter.company = it },
+        Modifier.fillMaxWidth().testTag("search-company"),
+        label = { Text(stringResource(R.string.search_company)) },
+        singleLine = true
+    )
     Caption(stringResource(R.string.search_employer_notice), Modifier.testTag("search-employer-notice"))
 }

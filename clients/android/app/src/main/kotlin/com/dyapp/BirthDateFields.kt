@@ -51,9 +51,13 @@ internal fun BirthDateFields(birth: BirthInputs) {
         val year = stringResource(R.string.profile_birth_part_year)
         Column(Modifier.weight(YEAR_WEIGHT), Arrangement.spacedBy(4.dp)) {
             Caption(year)
-            OutlinedTextField(birth.year, { birth.year = it }, singleLine = true,
+            OutlinedTextField(
+                birth.year,
+                { birth.year = it },
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().testTag("birth-year").semantics { contentDescription = year })
+                modifier = Modifier.fillMaxWidth().testTag("birth-year").semantics { contentDescription = year }
+            )
         }
         BirthSelect(R.string.profile_birth_part_month, "birth-month", birth.month, LAST_MONTH) { birth.month = it }
         BirthSelect(R.string.profile_birth_part_day, "birth-day", birth.day, LAST_DAY) { birth.day = it }
@@ -65,11 +69,17 @@ internal fun BirthDateFields(birth: BirthInputs) {
 
 @Composable
 private fun BirthChoices(tag: String, last: Int, onPick: (String) -> Unit) {
-    DropdownMenuItem(text = { Text(NO_PART) }, onClick = { onPick("") },
-        modifier = Modifier.testTag("$tag-none"))
+    DropdownMenuItem(
+        text = { Text(NO_PART) },
+        onClick = { onPick("") },
+        modifier = Modifier.testTag("$tag-none")
+    )
     for (part in 1..last) {
-        DropdownMenuItem(text = { Text(part.toString()) }, onClick = { onPick("$part") },
-            modifier = Modifier.testTag("$tag-$part"))
+        DropdownMenuItem(
+            text = { Text(part.toString()) },
+            onClick = { onPick("$part") },
+            modifier = Modifier.testTag("$tag-$part")
+        )
     }
 }
 
@@ -81,8 +91,12 @@ private fun RowScope.BirthSelect(name: Int, tag: String, value: String, last: In
         Caption(stringResource(name))
         Box {
             // As tall as the year field beside it.
-            OutlinedButton({ expanded = true }, Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(tag),
-                shape = MaterialTheme.shapes.extraSmall, contentPadding = PaddingValues(horizontal = 8.dp)) {
+            OutlinedButton(
+                { expanded = true },
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(tag),
+                shape = MaterialTheme.shapes.extraSmall,
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
                 Text(value.ifEmpty { NO_PART })
             }
             DropdownMenu(expanded, { expanded = false }) {

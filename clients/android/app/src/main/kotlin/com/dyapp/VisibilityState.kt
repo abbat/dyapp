@@ -85,11 +85,17 @@ internal fun HideCard(opened: Opened.Ready, state: VisibilityState, unsaved: Boo
 @Composable
 private fun VisibilityNotices(state: VisibilityState) {
     if (state.hidden) {
-        Text(stringResource(R.string.profile_hidden_notice), Modifier.testTag("profile-hidden-notice")
-            .semantics { liveRegion = LiveRegionMode.Polite })
+        Text(
+            stringResource(R.string.profile_hidden_notice),
+            Modifier.testTag("profile-hidden-notice")
+                .semantics { liveRegion = LiveRegionMode.Polite }
+        )
     }
     state.failure?.let {
-        Text(stringResource(it), Modifier.testTag("profile-hide-error")
-            .semantics { liveRegion = LiveRegionMode.Polite })
+        Text(
+            stringResource(it),
+            Modifier.testTag("profile-hide-error")
+                .semantics { liveRegion = LiveRegionMode.Polite }
+        )
     }
 }

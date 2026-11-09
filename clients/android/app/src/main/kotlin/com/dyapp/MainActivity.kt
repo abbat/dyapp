@@ -54,7 +54,10 @@ class MainActivity : ComponentActivity() {
         else -> LockMode.OFF
     }
     private val verify = { biometric: Boolean, then: () -> Unit ->
-        confirmDeviceCredential(biometric) { checked = then; refreshLock() }
+        confirmDeviceCredential(biometric) {
+            checked = then
+            refreshLock()
+        }
     }
     private val skipLock = {
         // A failed write only means the choice is offered again next launch.
@@ -97,7 +100,10 @@ class MainActivity : ComponentActivity() {
                 when {
                     locked && biometric -> BiometricUnlockScreen(device.secure) { verify(true) {} }
                     locked -> UnlockScreen(device.secure, attempt) {
-                        verify(false) { recovered = true; settings = true }
+                        verify(false) {
+                            recovered = true
+                            settings = true
+                        }
                     }
                     lock == StoredLock.NEW -> SetupScreen(device, skipLock) { setPin(null, it) == PinAttempt.UNLOCKED }
                     settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
@@ -240,7 +246,8 @@ internal fun MainScreen(
 // Removal refuses the legacy slot and damaged or unreadable ones.
 internal fun removable(opened: Opened) = when (opened) {
     is Opened.Ready -> opened.slot.id != Slots.LEGACY
-    is Opened.Recovery -> opened.slot.id != Slots.LEGACY &&
-        opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
+    is Opened.Recovery ->
+        opened.slot.id != Slots.LEGACY &&
+            opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
     else -> false
 }

@@ -23,7 +23,10 @@ import kotlinx.coroutines.withContext
 /** `chat-rename-dialog`: the name only this device shows for the peer; an empty one removes it. */
 @Composable
 internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
-    val cancel = { form.renaming.value = null; form.renameError = null }
+    val cancel = {
+        form.renaming.value = null
+        form.renameError = null
+    }
     AlertDialog(
         onDismissRequest = cancel,
         modifier = Modifier.testTag("chat-rename-dialog"),
@@ -43,14 +46,21 @@ internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
 @Composable
 private fun RenameFields(form: ChatForm) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(form.renaming.value.orEmpty(), { form.renaming.value = it },
-            Modifier.testTag("chat-rename-input"), label = { Text(stringResource(R.string.rename_label)) },
-            singleLine = true, enabled = !form.busy)
+        OutlinedTextField(
+            form.renaming.value.orEmpty(),
+            { form.renaming.value = it },
+            Modifier.testTag("chat-rename-input"),
+            label = { Text(stringResource(R.string.rename_label)) },
+            singleLine = true,
+            enabled = !form.busy
+        )
         Caption(stringResource(R.string.rename_hint))
         form.renameError?.let { error ->
-            Text(stringResource(error.text, error.details.orEmpty()),
+            Text(
+                stringResource(error.text, error.details.orEmpty()),
                 Modifier.testTag("chat-rename-error").semantics { liveRegion = LiveRegionMode.Polite },
-                color = MaterialTheme.colorScheme.error)
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

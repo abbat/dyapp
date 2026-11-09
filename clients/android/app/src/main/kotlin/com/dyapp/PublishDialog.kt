@@ -24,8 +24,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlin.reflect.KMutableProperty0
 import uniffi.dyapp.ProfileScale
+import kotlin.reflect.KMutableProperty0
 
 private fun blockText(block: String) = when (block) {
     "notAttested" -> R.string.profile_publish_blocked_not_attested
@@ -74,8 +74,11 @@ internal fun PublishDialog(
         title = { Text(stringResource(R.string.publish_title)) },
         text = { PublishDialogBody(state, draft, scales, eligibility) },
         confirmButton = {
-            TextButton(onClick = publish, Modifier.testTag("profile-publish-confirm"),
-                enabled = draft.isSuccess && !state.running && eligibility == R.string.profile_eligible) {
+            TextButton(
+                onClick = publish,
+                Modifier.testTag("profile-publish-confirm"),
+                enabled = draft.isSuccess && !state.running && eligibility == R.string.profile_eligible
+            ) {
                 Text(stringResource(state.failure?.second ?: R.string.publish_confirm))
             }
         },
@@ -92,8 +95,10 @@ private fun PublishDialogBody(
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.testTag("profile-public-fields")) {
-            draft.fold({ ProfilePreview(it, scales, LocalContext.current, R.string.publish_intro) },
-                { Text(stringResource(R.string.profile_read_failed)) })
+            draft.fold(
+                { ProfilePreview(it, scales, LocalContext.current, R.string.publish_intro) },
+                { Text(stringResource(R.string.profile_read_failed)) }
+            )
         }
         if (state.running) {
             PublishProgress(state)
@@ -103,8 +108,11 @@ private fun PublishDialogBody(
             Text(stringResource(eligibility), Modifier.testTag(ELIGIBILITY_TAG))
         }
         state.failure?.let { (text, _) ->
-            Text(stringResource(text), Modifier.testTag("profile-publish-error")
-                .semantics { liveRegion = LiveRegionMode.Polite })
+            Text(
+                stringResource(text),
+                Modifier.testTag("profile-publish-error")
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+            )
         }
     }
 }
@@ -129,8 +137,10 @@ private fun PublishProgress(state: PublishState) {
     Text(stringResource(R.string.publish_working), Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     LinearProgressIndicator(Modifier.fillMaxWidth())
     if (state.nonce > 0uL) {
-        Text(stringResource(R.string.profile_proof_nonce, "${state.nonce}"),
-            Modifier.testTag("profile-proof-progress"))
+        Text(
+            stringResource(R.string.profile_proof_nonce, "${state.nonce}"),
+            Modifier.testTag("profile-proof-progress")
+        )
     }
     if (state.publishing) {
         Text(stringResource(R.string.profile_publishing), Modifier.testTag("profile-publish-status"))

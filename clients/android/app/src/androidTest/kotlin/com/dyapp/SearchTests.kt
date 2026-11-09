@@ -12,8 +12,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
-import org.junit.rules.RuleChain
 import org.junit.Test
+import org.junit.rules.RuleChain
 import uniffi.dyapp.profileScales
 
 class SearchTests {
@@ -75,9 +75,11 @@ class SearchTests {
         val count = generateSequence(1) { it + 1 }
             .takeWhile { compose.onAllNodes(hasTestTag("result-$it")).fetchSemanticsNodes().isNotEmpty() }
             .count()
-        val expected = listOf(string(R.string.search_empty),
+        val expected = listOf(
+            string(R.string.search_empty),
             compose.activity.getString(R.string.search_results, count),
-            compose.activity.getString(R.string.search_partial, count))
+            compose.activity.getString(R.string.search_partial, count)
+        )
         val failures = compose.textsIn("search-failures")
         check(status in expected) { "status $status, failures $failures" }
         // The local node serves the search role by default.

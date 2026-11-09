@@ -12,14 +12,29 @@ import uniffi.dyapp.ChatState
 /** Clear, block and mute actions available for the current chat state. */
 @Composable
 internal fun ChatStateMenu(form: ChatForm, history: ChatHistory?, onMute: () -> Unit, dismiss: () -> Unit) {
-    DropdownMenuItem(text = { Text(stringResource(R.string.chat_clear)) },
-        onClick = { dismiss(); form.dialog.value = ChatDialog.CLEAR }, Modifier.testTag("chat-clear"))
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.chat_clear)) },
+        onClick = {
+            dismiss()
+            form.dialog.value = ChatDialog.CLEAR
+        },
+        Modifier.testTag("chat-clear")
+    )
     // A request offers `request-block` on its notice instead, as the desktop does.
     if (history?.state != ChatState.REQUEST_RECEIVED) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.chat_block)) },
-            onClick = { dismiss(); form.dialog.value = ChatDialog.BLOCK }, Modifier.testTag("chat-block"))
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_block)) },
+            onClick = {
+                dismiss()
+                form.dialog.value = ChatDialog.BLOCK
+            },
+            Modifier.testTag("chat-block")
+        )
     }
-    MuteMenuItem(history) { dismiss(); onMute() }
+    MuteMenuItem(history) {
+        dismiss()
+        onMute()
+    }
 }
 
 @Composable
@@ -27,7 +42,10 @@ private fun MuteMenuItem(history: ChatHistory?, onMute: () -> Unit) {
     // As on desktop, a peer with no chat yet has nothing to mute.
     if (history != null && history.state != ChatState.NONE) {
         val label = if (history.muted) R.string.chat_unmute else R.string.chat_mute
-        DropdownMenuItem(text = { Text(stringResource(label)) },
-            onClick = onMute, Modifier.testTag("chat-mute"))
+        DropdownMenuItem(
+            text = { Text(stringResource(label)) },
+            onClick = onMute,
+            Modifier.testTag("chat-mute")
+        )
     }
 }

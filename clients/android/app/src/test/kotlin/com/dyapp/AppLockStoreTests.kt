@@ -1,14 +1,14 @@
 package com.dyapp
 
-import java.io.File
-import java.nio.file.Files
-import java.security.MessageDigest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.KeyStore
+import java.io.File
+import java.nio.file.Files
+import java.security.MessageDigest
 
 private class FakeAppLockKey : KeyStore {
     override fun wrap(secret: ByteArray): ByteArray = secret.map { (it.toInt() xor 0x5a).toByte() }.toByteArray()

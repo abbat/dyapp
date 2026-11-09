@@ -19,8 +19,8 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import org.junit.Rule
-import org.junit.rules.RuleChain
 import org.junit.Test
+import org.junit.rules.RuleChain
 import uniffi.dyapp.setTestProfilePowBits
 
 private const val PUBLISH_WAIT_MS = 30_000L

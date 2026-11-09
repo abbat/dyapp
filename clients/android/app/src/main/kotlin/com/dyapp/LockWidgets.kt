@@ -55,8 +55,10 @@ internal fun PinField(state: MutableState<String>, label: Int, tag: String, enab
 
 @Composable
 internal fun ErrorText(id: Int) = Text(
-    stringResource(id), Modifier.testTag("lock-error"),
-    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall
+    stringResource(id),
+    Modifier.testTag("lock-error"),
+    color = MaterialTheme.colorScheme.error,
+    style = MaterialTheme.typography.bodySmall
 )
 
 @Composable

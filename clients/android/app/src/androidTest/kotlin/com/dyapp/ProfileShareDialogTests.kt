@@ -33,7 +33,10 @@ class ProfileShareDialogTests {
         show()
         compose.onNodeWithText(string(R.string.profile_share_empty)).assertExists()
         compose.onNodeWithText(string(R.string.search_cancel)).performClick()
-        compose.runOnIdle { assertFalse(form.shown); assertEquals(emptyList<String>(), sent) }
+        compose.runOnIdle {
+            assertFalse(form.shown)
+            assertEquals(emptyList<String>(), sent)
+        }
     }
 
     @Test
@@ -50,7 +53,10 @@ class ProfileShareDialogTests {
         compose.onNodeWithTag("profile-share-$peer").assertDoesNotExist()
         compose.onNodeWithText(string(R.string.chat_queued)).assertExists()
         compose.onNodeWithText(string(R.string.view_message)).performClick()
-        compose.runOnIdle { assertEquals(listOf(peer), opened); assertFalse(form.shown) }
+        compose.runOnIdle {
+            assertEquals(listOf(peer), opened)
+            assertFalse(form.shown)
+        }
     }
 
     @Test

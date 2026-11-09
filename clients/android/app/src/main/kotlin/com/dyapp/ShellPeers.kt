@@ -11,7 +11,9 @@ import uniffi.dyapp.FoundProfile
 
 /** The chat and profile navigation retained for one identity. */
 internal class ShellPeers(
-    chat: MutableState<String?>, viewed: MutableState<String?>, found: MutableState<FoundProfile?>,
+    chat: MutableState<String?>,
+    viewed: MutableState<String?>,
+    found: MutableState<FoundProfile?>,
 ) {
     var chat by chat
     var viewed by viewed
@@ -41,7 +43,10 @@ internal fun rememberShellPeers(identity: String): ShellPeers {
 /** The viewed profile, including return-to-chat and block navigation. */
 @Composable
 internal fun ShellPeers.Profile(
-    opened: Opened.Ready, section: StartTarget?, feed: ChatFeed, open: (StartTarget?) -> Unit,
+    opened: Opened.Ready,
+    section: StartTarget?,
+    feed: ChatFeed,
+    open: (StartTarget?) -> Unit,
 ) {
     val peers = this
     val viewed = peers.viewed ?: return

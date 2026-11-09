@@ -132,7 +132,8 @@ private fun LockBackBar(onBack: (() -> Unit)?) {
             Icon(painterResource(R.drawable.ic_back), stringResource(R.string.lock_back))
         }
         Text(
-            stringResource(R.string.lock_settings), Modifier.semantics { heading() },
+            stringResource(R.string.lock_settings),
+            Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleLarge
         )
     }
@@ -141,7 +142,8 @@ private fun LockBackBar(onBack: (() -> Unit)?) {
 @Composable
 private fun LockSettingsStatus(mode: LockMode, deviceSecure: Boolean, gated: Boolean) {
     Text(
-        stringResource(lockModeText(mode)), Modifier.testTag("lock-mode"),
+        stringResource(lockModeText(mode)),
+        Modifier.testTag("lock-mode"),
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     if (mode != LockMode.BIOMETRIC && deviceSecure) Caption(stringResource(R.string.lock_recovery))

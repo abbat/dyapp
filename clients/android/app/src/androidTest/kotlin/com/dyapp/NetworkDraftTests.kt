@@ -17,8 +17,8 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
-import org.junit.rules.RuleChain
 import org.junit.Test
+import org.junit.rules.RuleChain
 import uniffi.dyapp.setTestNodeIdPowBits
 import uniffi.dyapp.setTestProfilePowBits
 
@@ -52,9 +52,15 @@ internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false, but
         if (checkShows(R.string.network_connected, R.string.network_active)) return@repeat
         onNodeWithTag(button).performScrollTo().performClick()
         waitUntil(CHECK_WAIT_MS) {
-            checkShows(R.string.network_connected, R.string.network_active, R.string.network_activation_failed,
-                R.string.network_unreachable, R.string.network_check_failed,
-                R.string.network_invalid_address, R.string.network_wrong)
+            checkShows(
+                R.string.network_connected,
+                R.string.network_active,
+                R.string.network_activation_failed,
+                R.string.network_unreachable,
+                R.string.network_check_failed,
+                R.string.network_invalid_address,
+                R.string.network_wrong
+            )
         }
     }
 }

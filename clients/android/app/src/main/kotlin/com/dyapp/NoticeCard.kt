@@ -156,7 +156,9 @@ private fun NoticeCardContent(
         val checked = state.on == true
         Row(
             Modifier.fillMaxWidth().testTag("message-notifications").toggleable(
-                checked, enabled = state.on != null, role = Role.Switch,
+                checked,
+                enabled = state.on != null,
+                role = Role.Switch,
                 onValueChange = { save(it, state.content) }
             ),
             verticalAlignment = Alignment.CenterVertically,

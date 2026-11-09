@@ -55,28 +55,36 @@ internal fun PageTitle(id: Int, modifier: Modifier = Modifier) =
 
 @Composable
 internal fun Caption(text: String, modifier: Modifier = Modifier) = Text(
-    text, modifier,
-    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
+    text,
+    modifier,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    style = MaterialTheme.typography.bodySmall
 )
 
 /** A group of fields on a scrolling screen. */
 @Composable
 internal fun FormCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) = Surface(
-    modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.surfaceContainer
+    modifier.fillMaxWidth(),
+    RoundedCornerShape(12.dp),
+    MaterialTheme.colorScheme.surfaceContainer
 ) {
     Column(Modifier.padding(16.dp), Arrangement.spacedBy(12.dp), content = content)
 }
 
 @Composable
 internal fun CardTitle(id: Int) = Text(
-    stringResource(id), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium
+    stringResource(id),
+    Modifier.semantics { heading() },
+    style = MaterialTheme.typography.titleMedium
 )
 
 /** A failure on its screen: the reason, with the technical [details] to copy behind a toggle. */
 @Composable
 @Suppress("LongParameterList") // Every screen tags its own status, details and copy button.
 internal fun ErrorNotice(text: String, textTag: String, details: String, detailsTag: String, copyTag: String) = Surface(
-    Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), MaterialTheme.colorScheme.errorContainer
+    Modifier.fillMaxWidth(),
+    RoundedCornerShape(12.dp),
+    MaterialTheme.colorScheme.errorContainer
 ) {
     Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
         Text(text, Modifier.testTag(textTag).semantics { liveRegion = LiveRegionMode.Polite })

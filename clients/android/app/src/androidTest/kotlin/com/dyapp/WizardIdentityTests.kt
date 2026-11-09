@@ -6,9 +6,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
 class WizardIdentityTests {
     @get:Rule

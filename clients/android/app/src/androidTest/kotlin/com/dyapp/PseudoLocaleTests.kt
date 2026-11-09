@@ -12,9 +12,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.Locale
 import org.junit.Rule
 import org.junit.Test
+import java.util.Locale
 
 /** Practice D1: the start screen in the en-XA pseudo-locale (accented, about 30% longer). */
 class PseudoLocaleTests {

@@ -5,11 +5,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.ChatPhoto
+import java.util.concurrent.atomic.AtomicInteger
 
 class ChatPhotoTests {
     @get:Rule
@@ -28,7 +28,10 @@ class ChatPhotoTests {
     private fun show(stranger: Boolean, automatic: Boolean) = compose.setContent {
         CompositionLocalProvider(
             LocalChatPhotoAuto provides { automatic },
-            LocalChatPhotoLoader provides { calls.incrementAndGet(); error("notFound") },
+            LocalChatPhotoLoader provides {
+                calls.incrementAndGet()
+                error("notFound")
+            },
         ) { ChatPhotoBubble(photo, stranger) }
     }
 
@@ -42,8 +45,11 @@ class ChatPhotoTests {
         compose.runOnIdle { assertEquals(0, calls.get()) }
         compose.onNodeWithText(string(R.string.chat_photo_download)).performClick()
         compose.waitUntil(CHECK_WAIT_MS) { calls.get() == 1 }
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(
-            androidx.compose.ui.test.hasText(string(R.string.chat_photo_gone))) }
+        compose.waitUntil(CHECK_WAIT_MS) {
+            compose.shown(
+                androidx.compose.ui.test.hasText(string(R.string.chat_photo_gone))
+            )
+        }
     }
 
     @Test

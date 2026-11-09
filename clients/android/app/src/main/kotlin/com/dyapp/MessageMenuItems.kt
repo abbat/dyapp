@@ -12,11 +12,23 @@ import uniffi.dyapp.ChatMessage
 @Composable
 internal fun MessageMenuItems(message: ChatMessage, form: ChatForm, writable: Boolean, dismiss: () -> Unit) {
     if (writable) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.chat_edit)) },
-            onClick = { dismiss(); form.edit(message) }, Modifier.testTag("msg-edit"),
-            enabled = !form.sending)
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_edit)) },
+            onClick = {
+                dismiss()
+                form.edit(message)
+            },
+            Modifier.testTag("msg-edit"),
+            enabled = !form.sending
+        )
     }
-    DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete)) },
-        onClick = { dismiss(); form.deleting.value = messageKey(message) }, Modifier.testTag("msg-delete"),
-        enabled = !form.busy)
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.chat_delete)) },
+        onClick = {
+            dismiss()
+            form.deleting.value = messageKey(message)
+        },
+        Modifier.testTag("msg-delete"),
+        enabled = !form.busy
+    )
 }

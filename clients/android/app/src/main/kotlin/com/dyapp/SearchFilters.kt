@@ -165,7 +165,17 @@ private fun MoreFilters(filters: SearchFilters) {
     TextButton(
         onClick = { open = !open },
         Modifier.fillMaxWidth().testTag("search-more").semantics {
-            if (open) collapse { open = false; true } else expand { open = true; true }
+            if (open) {
+                collapse {
+                    open = false
+                    true
+                }
+            } else {
+                expand {
+                    open = true
+                    true
+                }
+            }
         }
     ) {
         Text(stringResource(R.string.search_more), Modifier.weight(1f))
@@ -180,6 +190,12 @@ private fun MoreFilters(filters: SearchFilters) {
 
 @Composable
 private fun AgeField(value: String, label: Int, modifier: Modifier, onChange: (String) -> Unit) {
-    OutlinedTextField(value, onChange, modifier, label = { Text(stringResource(label)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+    OutlinedTextField(
+        value,
+        onChange,
+        modifier,
+        label = { Text(stringResource(label)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true
+    )
 }

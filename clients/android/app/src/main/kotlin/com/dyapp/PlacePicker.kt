@@ -70,9 +70,19 @@ internal fun PlacePicker(
     CountryPicker(inputs, none, screen)
     if (!places) return
     // A focused field can repeat its last text after a country change; only a real edit drops the pick.
-    OutlinedTextField(inputs.text, { if (it != inputs.text) { inputs.text = it; inputs.place = null } },
-        label = { Text(stringResource(R.string.profile_place)) }, enabled = inputs.country.isNotEmpty(),
-        singleLine = true, modifier = Modifier.fillMaxWidth().testTag("$screen-place"))
+    OutlinedTextField(
+        inputs.text,
+        {
+            if (it != inputs.text) {
+                inputs.text = it
+                inputs.place = null
+            }
+        },
+        label = { Text(stringResource(R.string.profile_place)) },
+        enabled = inputs.country.isNotEmpty(),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("$screen-place")
+    )
     if (inputs.unknown) PlaceSuggestions(inputs, placeLang())
 }
 
@@ -101,11 +111,17 @@ private fun CountryPicker(inputs: PlaceInputs, none: Int, screen: String) {
 
 @Composable
 private fun CountryChoices(countries: List<Pair<String, String>>, none: Int, onPick: (String) -> Unit) {
-    DropdownMenuItem(text = { Text(stringResource(none)) },
-        onClick = { onPick("") }, modifier = Modifier.testTag("country-none"))
+    DropdownMenuItem(
+        text = { Text(stringResource(none)) },
+        onClick = { onPick("") },
+        modifier = Modifier.testTag("country-none")
+    )
     for ((code, name) in countries) {
-        DropdownMenuItem(text = { Text(name) }, onClick = { onPick(code) },
-            modifier = Modifier.testTag("country-$code"))
+        DropdownMenuItem(
+            text = { Text(name) },
+            onClick = { onPick(code) },
+            modifier = Modifier.testTag("country-$code")
+        )
     }
 }
 
@@ -113,7 +129,12 @@ private fun CountryChoices(countries: List<Pair<String, String>>, none: Int, onP
 private fun PlaceSuggestions(inputs: PlaceInputs, lang: String) {
     val found = remember(inputs.country, inputs.text, lang) { searchPlaces(inputs.country, inputs.text, lang, 5u) }
     for (place in found) {
-        TextButton(onClick = { inputs.place = place.id.toInt(); inputs.text = placeLabel(place) },
-            modifier = Modifier.testTag("place-${place.id}")) { Text(placeLabel(place)) }
+        TextButton(
+            onClick = {
+                inputs.place = place.id.toInt()
+                inputs.text = placeLabel(place)
+            },
+            modifier = Modifier.testTag("place-${place.id}")
+        ) { Text(placeLabel(place)) }
     }
 }

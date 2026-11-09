@@ -7,8 +7,8 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
-import kotlin.concurrent.thread
 import uniffi.dyapp.ChatNotice
+import kotlin.concurrent.thread
 
 internal const val MAIL_JOB_ID = 1
 

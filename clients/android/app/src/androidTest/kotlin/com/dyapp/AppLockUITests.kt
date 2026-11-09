@@ -18,8 +18,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
-import org.junit.rules.RuleChain
 import org.junit.Test
+import org.junit.rules.RuleChain
 
 /** Creates the first identity if this test is the first on a clean device. */
 internal fun ComposeTestRule.passIdentityStep() {

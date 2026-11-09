@@ -1,5 +1,8 @@
 package com.dyapp
 
+import uniffi.dyapp.KeyStore
+import uniffi.dyapp.hashAppPin
+import uniffi.dyapp.verifyAppPin
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -8,9 +11,6 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import uniffi.dyapp.KeyStore
-import uniffi.dyapp.hashAppPin
-import uniffi.dyapp.verifyAppPin
 
 /** PIN work is supplied by the shared Rust FFI; JVM tests use a deterministic fake. */
 interface AppPinVerifier {
@@ -161,8 +161,12 @@ class AppLockStore(private val root: File, private val keys: KeyStore, private v
             it.write(wrapped)
             it.fd.sync()
         }
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING)
+        Files.move(
+            temp.toPath(),
+            file.toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING
+        )
         FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
     }
 

@@ -22,8 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -67,7 +67,12 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
     val published = remember(slot.id) { (target as? Opened.Ready)?.takeIf { loadVisibility(it).version > 0uL } }
     val state = remember(slot.id) { RemoveState() }
     val scope = rememberCoroutineScope()
-    val remove: () -> Unit = { act { slots.remove(slot.id, peerId); Opened.Picker } }
+    val remove: () -> Unit = {
+        act {
+            slots.remove(slot.id, peerId)
+            Opened.Picker
+        }
+    }
     val proceed: () -> Unit = {
         if (published == null) remove() else scope.launch { state.withdrawThen(published, remove) }
     }
@@ -107,8 +112,11 @@ private fun RemoveCancel(state: RemoveState, onDismiss: () -> Unit) {
 @Composable
 private fun RemoveChoice(state: RemoveState) {
     if (state.offline) {
-        Text(stringResource(R.string.remove_offline), Modifier.testTag("remove-offline")
-            .semantics { liveRegion = LiveRegionMode.Polite })
+        Text(
+            stringResource(R.string.remove_offline),
+            Modifier.testTag("remove-offline")
+                .semantics { liveRegion = LiveRegionMode.Polite }
+        )
     } else {
         Row(
             Modifier.toggleable(state.confirmed, role = Role.Checkbox) { state.confirmed = it }

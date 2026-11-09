@@ -26,8 +26,16 @@ abstract class ProfileViewFixture {
     protected var backs = 0
     protected var messages = 0
     protected var retries = 0
-    protected val found = FoundProfile("peer-abcdef", PublicProfileDraft(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-        birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""), emptyList(), emptyList(), 1uL)
+    protected val found = FoundProfile(
+        "peer-abcdef",
+        PublicProfileDraft(
+            0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+            birthYear = null, birthMonth = null, birthDay = null, country = "", place = ""
+        ),
+        emptyList(),
+        emptyList(),
+        1uL
+    )
 
     protected fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
@@ -38,7 +46,6 @@ abstract class ProfileViewFixture {
             retries += 1
         }
     }
-
 }
 
 class ProfileViewTests : ProfileViewFixture() {
@@ -156,7 +163,6 @@ class ProfileViewTests : ProfileViewFixture() {
         compose.onNodeWithTag("block-confirm").performClick()
         compose.runOnIdle { assertEquals(1, blocks) }
     }
-
 }
 
 class ProfileLoadTests : ProfileViewFixture() {

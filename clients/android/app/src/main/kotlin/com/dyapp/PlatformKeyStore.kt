@@ -2,6 +2,9 @@ package com.dyapp
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import uniffi.dyapp.IdentityKey
+import uniffi.dyapp.KeyStore
+import uniffi.dyapp.WrapException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
@@ -9,9 +12,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import uniffi.dyapp.IdentityKey
-import uniffi.dyapp.KeyStore
-import uniffi.dyapp.WrapException
 
 /**
  * The core's `KeyStore` over the non-exportable AES-256-GCM key [alias] in the Android Keystore,

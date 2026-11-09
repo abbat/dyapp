@@ -68,8 +68,10 @@ internal fun ProfileViewScreen(
     val onLike = { liked: Boolean -> scope.sendLike(form, feed, peer, liked) }
     val onPass = { passed: Boolean -> scope.sendPass(form, feed, peer, passed) }
     val onBlock = { scope.sendBlock(form, feed, peer, actions.blocked) }
-    ProfileViewContent(peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock,
-        share = { ProfileShareButton(peer, feed, onShared) }) { attempt += 1 }
+    ProfileViewContent(
+        peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock,
+        share = { ProfileShareButton(peer, feed, onShared) }
+    ) { attempt += 1 }
 }
 
 /** The page as shown; the own profile has nothing to like or to write to. */
@@ -200,12 +202,19 @@ private fun LikeStatusLine(form: ProfileForm) {
     val info = form.info
     when {
         form.sending -> {
-            Caption(stringResource(R.string.view_sending),
-                Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite })
+            Caption(
+                stringResource(R.string.view_sending),
+                Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite }
+            )
         }
         status != null -> {
-            ErrorNotice(stringResource(status.text), STATUS_TAG, status.details.orEmpty(),
-                "view-details", "copy-view-details")
+            ErrorNotice(
+                stringResource(status.text),
+                STATUS_TAG,
+                status.details.orEmpty(),
+                "view-details",
+                "copy-view-details"
+            )
         }
         info != null -> {
             Caption(stringResource(info), Modifier.testTag(STATUS_TAG).semantics { liveRegion = LiveRegionMode.Polite })
@@ -217,16 +226,23 @@ private fun LikeStatusLine(form: ProfileForm) {
 private fun ProfileBody(load: ProfileLoad, onRetry: () -> Unit) {
     when (load) {
         ProfileLoad.Loading -> {
-            Caption(stringResource(R.string.view_loading),
-                Modifier.testTag(LOAD_TAG).semantics { liveRegion = LiveRegionMode.Polite })
+            Caption(
+                stringResource(R.string.view_loading),
+                Modifier.testTag(LOAD_TAG).semantics { liveRegion = LiveRegionMode.Polite }
+            )
         }
         ProfileLoad.Missing -> {
             Caption(stringResource(R.string.view_not_found), Modifier.testTag(LOAD_TAG))
             ProfileRetry(onRetry)
         }
         is ProfileLoad.Failed -> {
-            ErrorNotice(stringResource(load.status.text), LOAD_TAG, load.status.details.orEmpty(),
-                "view-load-details", "copy-view-load-details")
+            ErrorNotice(
+                stringResource(load.status.text),
+                LOAD_TAG,
+                load.status.details.orEmpty(),
+                "view-load-details",
+                "copy-view-load-details"
+            )
             ProfileRetry(onRetry)
         }
         is ProfileLoad.Shown -> {

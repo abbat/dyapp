@@ -42,7 +42,10 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
     LaunchedEffect(opened.slot.id) { loadDraft(opened, state) }
     DisposableEffect(state.checker) {
         val checker = state.checker
-        onDispose { checker?.cancel(); checker?.close() }
+        onDispose {
+            checker?.cancel()
+            checker?.close()
+        }
     }
     val actions = draftActions(opened, state, scope, activateOnConnect = onBack == null)
     if (onBack != null) WizardNetworkPage(opened, state, onBack, actions) else NetworkSection(opened, state, actions)
@@ -98,8 +101,11 @@ private fun NetworkSectionForm(state: NetworkDraftState, actions: DraftActions) 
             Text(stringResource(R.string.network_cancel))
         }
     }
-    Button(onClick = actions.check, Modifier.fillMaxWidth().testTag("check-and-connect"),
-        state.editable && state.checker != null) {
+    Button(
+        onClick = actions.check,
+        Modifier.fillMaxWidth().testTag("check-and-connect"),
+        state.editable && state.checker != null
+    ) {
         Text(stringResource(R.string.network_check_and_connect))
     }
 }
@@ -109,8 +115,11 @@ private fun NetworkSectionForm(state: NetworkDraftState, actions: DraftActions) 
 private fun SectionCheckStatus(state: NetworkDraftState) {
     val status = state.checkStatus ?: return
     val calm = setOf(
-        R.string.network_checking, R.string.network_activating, R.string.network_connected,
-        R.string.network_active, R.string.network_cancelled,
+        R.string.network_checking,
+        R.string.network_activating,
+        R.string.network_connected,
+        R.string.network_active,
+        R.string.network_cancelled,
     )
     if (status in calm) {
         Caption(
@@ -119,8 +128,11 @@ private fun SectionCheckStatus(state: NetworkDraftState) {
         )
     } else {
         ErrorNotice(
-            stringResource(status), CHECK_STATUS_TAG,
-            state.checkError ?: rowDetails(state.checkRows), "network-error-details", "copy-network-details"
+            stringResource(status),
+            CHECK_STATUS_TAG,
+            state.checkError ?: rowDetails(state.checkRows),
+            "network-error-details",
+            "copy-network-details"
         )
     }
 }
@@ -171,15 +183,27 @@ private fun WizardCheckActions(state: NetworkDraftState, actions: DraftActions) 
 
 @Composable
 private fun NetworkDraftFields(state: NetworkDraftState, wizard: Boolean) {
-    OutlinedTextField(state.name, { state.editName(it); state.status = DraftStatus.EDITING },
+    OutlinedTextField(
+        state.name,
+        {
+            state.editName(it)
+            state.status = DraftStatus.EDITING
+        },
         enabled = state.editable,
         label = { Text(stringResource(R.string.network_name)) },
         placeholder = { Text(stringResource(R.string.network_name_public)) },
         supportingText = { Text(stringResource(R.string.network_name_hint)) },
-        modifier = Modifier.fillMaxWidth().testTag(if (wizard) "network-name" else "network-name-field"))
-    OutlinedTextField(state.seeds, { state.editSeeds(it); state.status = DraftStatus.EDITING },
+        modifier = Modifier.fillMaxWidth().testTag(if (wizard) "network-name" else "network-name-field")
+    )
+    OutlinedTextField(
+        state.seeds,
+        {
+            state.editSeeds(it)
+            state.status = DraftStatus.EDITING
+        },
         enabled = state.editable,
         label = { Text(stringResource(R.string.network_seeds)) },
         supportingText = { Text(stringResource(R.string.network_seeds_hint)) },
-        modifier = Modifier.fillMaxWidth().testTag(if (wizard) "seeds" else "network-seeds"))
+        modifier = Modifier.fillMaxWidth().testTag(if (wizard) "seeds" else "network-seeds")
+    )
 }

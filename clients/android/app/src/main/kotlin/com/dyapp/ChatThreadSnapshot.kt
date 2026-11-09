@@ -15,10 +15,16 @@ internal class ChatThreadSnapshot(
 
 @androidx.compose.runtime.Composable
 @Suppress("LongParameterList") // Snapshot, identity and existing stateless chat controls.
-internal fun MediaChatContent(snapshot: ChatThreadSnapshot?, peer: String, me: String,
-    form: ChatForm, actions: ChatActions) {
+internal fun MediaChatContent(
+    snapshot: ChatThreadSnapshot?,
+    peer: String,
+    me: String,
+    form: ChatForm,
+    actions: ChatActions
+) {
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalChatItems provides snapshot?.items, LocalChatPhotoLoader provides snapshot?.loadPhoto,
+        LocalChatItems provides snapshot?.items,
+        LocalChatPhotoLoader provides snapshot?.loadPhoto,
         LocalChatPhotoAuto provides snapshot?.autoPhoto,
         LocalChatPhotoSender provides snapshot?.sendPhoto,
     ) {

@@ -11,12 +11,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.RuleChain
+import uniffi.dyapp.profileScales
 import java.time.LocalDate
 import java.time.ZoneOffset
-import org.junit.Rule
-import org.junit.rules.RuleChain
-import org.junit.Test
-import uniffi.dyapp.profileScales
 
 class ProfileDraftTests {
     val compose = createAndroidComposeRule<MainActivity>()
@@ -129,8 +129,11 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         openPublish()
         val lang = compose.activity.resources.configuration.locales[0].language
-        val berlin = compose.activity.getString(R.string.profile_preview_row, string(R.string.profile_place),
-            placeText("DE", berlinId, lang))
+        val berlin = compose.activity.getString(
+            R.string.profile_preview_row,
+            string(R.string.profile_place),
+            placeText("DE", berlinId, lang)
+        )
         compose.onNodeWithTag("preview-place").performScrollTo().assertTextEquals(berlin)
         compose.onNodeWithTag("preview-country").assertExists()
         closePublish()

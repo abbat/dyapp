@@ -1,10 +1,10 @@
 package com.dyapp
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,9 +39,12 @@ internal fun ChatPhotoBubble(photo: ChatPhoto, stranger: Boolean) {
         val shown = state.image ?: preview
         shown?.let {
             val ratio = state.image?.let { full -> full.width.toFloat() / full.height } ?: photoAspect(photo)
-            Image(it, stringResource(R.string.chat_photo),
+            Image(
+                it,
+                stringResource(R.string.chat_photo),
                 Modifier.fillMaxWidth().heightIn(max = 320.dp).aspectRatio(ratio)
-                    .then(if (concealed) Modifier.blur(24.dp) else Modifier))
+                    .then(if (concealed) Modifier.blur(24.dp) else Modifier)
+            )
         }
         ChatPhotoExpiry(photo, state.image != null)
         ChatPhotoControls(photo, state, concealed)

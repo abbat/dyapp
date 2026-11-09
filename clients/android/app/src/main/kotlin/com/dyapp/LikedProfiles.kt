@@ -8,8 +8,13 @@ import uniffi.dyapp.FoundProfile
 @Composable
 internal fun LikedFailure(failure: Throwable) {
     val status = profileLoadStatus(failure)
-    ErrorNotice(stringResource(status.text), "chats-liked-status", status.details.orEmpty(),
-        "chats-liked-details", "copy-chats-liked-details")
+    ErrorNotice(
+        stringResource(status.text),
+        "chats-liked-status",
+        status.details.orEmpty(),
+        "chats-liked-details",
+        "copy-chats-liked-details"
+    )
 }
 
 /** The fetch can be older than the IDs, so a peer who left the list leaves at once. */

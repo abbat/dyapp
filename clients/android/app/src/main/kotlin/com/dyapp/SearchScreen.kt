@@ -67,8 +67,10 @@ private fun failureText(failure: ProfileSearchFailure) = when (failure) {
     is ProfileSearchFailure.NoNodes -> stringResource(R.string.search_failure_no_nodes)
     is ProfileSearchFailure.Unavailable -> stringResource(R.string.search_failure_unavailable)
     is ProfileSearchFailure.Timeout -> stringResource(R.string.search_failure_timeout)
-    is ProfileSearchFailure.RateLimited -> stringResource(R.string.search_failure_rate_limited,
-        ((failure.retryAfterMs + MS_PER_SECOND - 1uL) / MS_PER_SECOND).toString())
+    is ProfileSearchFailure.RateLimited -> stringResource(
+        R.string.search_failure_rate_limited,
+        ((failure.retryAfterMs + MS_PER_SECOND - 1uL) / MS_PER_SECOND).toString()
+    )
     is ProfileSearchFailure.Puzzle -> stringResource(R.string.search_failure_puzzle)
     is ProfileSearchFailure.Invalid -> stringResource(R.string.search_failure_invalid)
 }
@@ -88,8 +90,11 @@ private fun SearchFailures(result: ProfileSearchResult) {
 private fun SearchLoading(cancel: () -> Unit) {
     Caption(stringResource(R.string.search_loading), STATUS.semantics { liveRegion = LiveRegionMode.Polite })
     repeat(2) {
-        Surface(Modifier.fillMaxWidth().height(72.dp), RoundedCornerShape(12.dp),
-            MaterialTheme.colorScheme.surfaceContainer) {}
+        Surface(
+            Modifier.fillMaxWidth().height(72.dp),
+            RoundedCornerShape(12.dp),
+            MaterialTheme.colorScheme.surfaceContainer
+        ) {}
     }
     OutlinedButton(onClick = cancel, modifier = Modifier.fillMaxWidth().testTag("search-cancel")) {
         Text(stringResource(R.string.search_cancel))
@@ -118,10 +123,15 @@ private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwor
 private fun SearchEmpty(result: ProfileSearchResult) {
     Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp), Alignment.CenterHorizontally) {
         Icon(painterResource(R.drawable.ic_nav_search), null)
-        Text(stringResource(R.string.search_empty), STATUS.semantics {
-            heading()
-            liveRegion = LiveRegionMode.Polite
-        }, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(
+            stringResource(R.string.search_empty),
+            STATUS.semantics {
+                heading()
+                liveRegion = LiveRegionMode.Polite
+            },
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
         Caption(stringResource(R.string.search_empty_text))
         SearchFailures(result)
     }
@@ -132,8 +142,10 @@ private fun SearchEmpty(result: ProfileSearchResult) {
 private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfile: (FoundProfile) -> Unit) {
     val count = result.profiles.size
     Column(Modifier.testTag("search-results"), Arrangement.spacedBy(12.dp)) {
-        Caption(stringResource(if (result.partial) R.string.search_partial else R.string.search_results, count),
-            STATUS.semantics { liveRegion = LiveRegionMode.Polite })
+        Caption(
+            stringResource(if (result.partial) R.string.search_partial else R.string.search_results, count),
+            STATUS.semantics { liveRegion = LiveRegionMode.Polite }
+        )
         SearchFailures(result)
         FetchCardPhotos(result.profiles)
         for ((index, found) in result.profiles.withIndex()) {
@@ -213,8 +225,11 @@ internal fun SearchScreen(search: SearchSession, openNetwork: () -> Unit, openPr
         Caption(stringResource(R.string.search_sample))
         FormCard {
             SearchFilterFields(search.filters)
-            Button(onClick = search::run, enabled = state != SearchState.Loading,
-                modifier = Modifier.fillMaxWidth().testTag("run-search")) {
+            Button(
+                onClick = search::run,
+                enabled = state != SearchState.Loading,
+                modifier = Modifier.fillMaxWidth().testTag("run-search")
+            ) {
                 Text(stringResource(R.string.search_run))
             }
         }

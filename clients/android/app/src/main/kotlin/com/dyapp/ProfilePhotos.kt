@@ -75,7 +75,11 @@ private class PhotosState(val opened: Opened.Ready) {
         status = R.string.profile_photo_working.takeIf { done != null }
         scope.launch {
             withContext(Dispatchers.IO) { runCatching { thumbnails(opened, change()) } }
-                .fold({ photos = it; status = done; photoEdits += 1 }, { status = photoError(it) })
+                .fold({
+                    photos = it
+                    status = done
+                    photoEdits += 1
+                }, { status = photoError(it) })
             busy = false
         }
     }
@@ -154,7 +158,8 @@ private fun PhotoTiles(state: PhotosState, scope: CoroutineScope) {
 
 @Composable
 private fun PhotoTile(state: PhotosState, scope: CoroutineScope, index: Int, photo: ImageBitmap?) = Column(
-    Modifier.testTag("profile-photo-$index"), horizontalAlignment = Alignment.CenterHorizontally
+    Modifier.testTag("profile-photo-$index"),
+    horizontalAlignment = Alignment.CenterHorizontally
 ) {
     val count = state.photos.size
     val label = stringResource(R.string.profile_photo_label, index + 1, count)

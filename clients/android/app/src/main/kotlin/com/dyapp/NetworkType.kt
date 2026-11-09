@@ -36,15 +36,18 @@ internal object NetworkType {
         val manager = context.getSystemService(ConnectivityManager::class.java)
         report(isMetered(manager.getNetworkCapabilities(manager.activeNetwork)?.capabilities))
         // Initial read and callbacks run on the main thread, so a stale read cannot overwrite a callback.
-        manager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                report(isMetered(capabilities.capabilities))
-            }
+        manager.registerDefaultNetworkCallback(
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                    report(isMetered(capabilities.capabilities))
+                }
 
-            override fun onLost(network: Network) {
-                report(true)
-            }
-        }, Handler(Looper.getMainLooper()))
+                override fun onLost(network: Network) {
+                    report(true)
+                }
+            },
+            Handler(Looper.getMainLooper())
+        )
     }
 }
 

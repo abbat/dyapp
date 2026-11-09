@@ -37,16 +37,21 @@ private fun fieldRows(scales: List<ProfileScale>, saved: Map<String, Int>) = sca
     scale.choices.firstOrNull { it.code.toInt() == saved[scale.key] }?.let { scale.key to it.key }
 }
 
-private fun numberRows(saved: Map<String, Int>) = listOf(HEIGHT to R.string.profile_height,
+private fun numberRows(saved: Map<String, Int>) = listOf(
+    HEIGHT to R.string.profile_height,
     BIRTH_YEAR to R.string.profile_birth_year,
-    BIRTH_MONTH to R.string.profile_birth_month, BIRTH_DAY to R.string.profile_birth_day)
+    BIRTH_MONTH to R.string.profile_birth_month,
+    BIRTH_DAY to R.string.profile_birth_day
+)
     .mapNotNull { (key, name) -> saved[key]?.let { name to it } }
 
 @Composable
 private fun NameRow(name: String, nothingElse: Boolean) {
     if (name.isNotEmpty()) {
-        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), name),
-            Modifier.testTag("preview-name"))
+        Text(
+            stringResource(R.string.profile_preview_row, stringResource(R.string.profile_name_row), name),
+            Modifier.testTag("preview-name")
+        )
     } else if (nothingElse) {
         Text(stringResource(R.string.profile_preview_empty))
     }
@@ -59,18 +64,25 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
     val numbers = numberRows(saved)
-    NameRow(draft.name, draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
-        listOf(fields, places, numbers).all { it.isEmpty() })
+    NameRow(
+        draft.name,
+        draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
+            listOf(fields, places, numbers).all { it.isEmpty() }
+    )
     ScaleRows(fields, context)
     for ((key, name, value) in places) {
-        Text(stringResource(R.string.profile_preview_row, stringResource(name), value),
-            Modifier.testTag("preview-$key"))
+        Text(
+            stringResource(R.string.profile_preview_row, stringResource(name), value),
+            Modifier.testTag("preview-$key")
+        )
     }
     for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
     SeekingRows(draft.seeking, scales, context)
     if (draft.about.isNotEmpty()) {
-        Text(stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
-            Modifier.testTag("preview-about"))
+        Text(
+            stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
+            Modifier.testTag("preview-about")
+        )
     }
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
@@ -79,8 +91,13 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
 @Composable
 private fun ScaleRows(fields: List<Pair<String, String>>, context: Context) {
     for ((scale, choice) in fields) {
-        Text(stringResource(R.string.profile_preview_row, label(context, "field.$scale"),
-            label(context, "value.$scale.$choice")))
+        Text(
+            stringResource(
+                R.string.profile_preview_row,
+                label(context, "field.$scale"),
+                label(context, "value.$scale.$choice")
+            )
+        )
     }
 }
 

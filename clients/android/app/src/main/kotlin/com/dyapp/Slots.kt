@@ -88,8 +88,10 @@ enum class SlotState(
 ) {
     /** Creation was interrupted or is still in progress. */
     PENDING("pending\n"),
+
     /** The wrapped identity was written and reopened successfully. */
     READY("ready\n"),
+
     /** Confirmed removal began but may need recovery. */
     DELETING("deleting\n"),
 
@@ -108,10 +110,13 @@ class Slot(
 ) {
     /** Wrapped identity key file in [dir]. */
     val keyFile get() = File(dir, IDENTITY_KEY_FILE)
+
     /** Wrapped device mailbox key in [dir], made on the first chat use. */
     val deviceKeyFile get() = File(dir, DEVICE_KEY_FILE)
+
     /** Wrapped MLS state key in [dir], made on the first chat use. */
     val chatStateKeyFile get() = File(dir, CHAT_STATE_KEY_FILE)
+
     /** Keystore alias that wraps this slot's key. */
     val alias get() = if (id == Slots.LEGACY) "dyapp-identity-wrap" else "dyapp-identity-wrap:$id"
 }

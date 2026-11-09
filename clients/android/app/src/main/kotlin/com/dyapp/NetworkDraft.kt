@@ -31,15 +31,27 @@ internal class NetworkDraftState {
         get() = status !in setOf(DraftStatus.LOADING, DraftStatus.SAVING, DraftStatus.READ_FAILED) &&
             checkStatus !in setOf(R.string.network_checking, R.string.network_activating)
 
-    fun editSeeds(value: String) { seeds = value; clearCheck() }
-    fun editName(value: String) { name = value; clearCheck() }
-    private fun clearCheck() { checkStatus = null; checkRows = emptyList(); checkError = null }
+    fun editSeeds(value: String) {
+        seeds = value
+        clearCheck()
+    }
+    fun editName(value: String) {
+        name = value
+        clearCheck()
+    }
+    private fun clearCheck() {
+        checkStatus = null
+        checkRows = emptyList()
+        checkError = null
+    }
 }
 
 /** What the network form's buttons do. */
 internal class DraftActions(
-    val check: () -> Unit, val cancel: () -> Unit,
-    val activate: () -> Unit, val save: () -> Unit
+    val check: () -> Unit,
+    val cancel: () -> Unit,
+    val activate: () -> Unit,
+    val save: () -> Unit
 )
 
 /** Fills [state] from the saved draft, or else from the active network. */

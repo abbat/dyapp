@@ -83,12 +83,15 @@ class ChatScreenTests {
 
     @Test
     fun anOpenChatShowsLaterTextsAndTheirDelivery() {
-        show(ChatState.OPEN, listOf(
-            message("me", "one", ChatDelivery.NODE_ACCEPTED),
-            message("peer-abcdef", "two"),
-            message("me", "three", ChatDelivery.DEVICE_RECEIVED),
-            message("me", "five", ChatDelivery.DEVICE_RECEIVED).copy(read = true),
-        ))
+        show(
+            ChatState.OPEN,
+            listOf(
+                message("me", "one", ChatDelivery.NODE_ACCEPTED),
+                message("peer-abcdef", "two"),
+                message("me", "three", ChatDelivery.DEVICE_RECEIVED),
+                message("me", "five", ChatDelivery.DEVICE_RECEIVED).copy(read = true),
+            )
+        )
         compose.onNodeWithText(string(R.string.chat_read)).assertExists()
         compose.onNodeWithTag("chat-first-notice").assertDoesNotExist()
         compose.onNodeWithTag("chat-request-notice", useUnmergedTree = true).assertDoesNotExist()

@@ -18,8 +18,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
-import org.junit.rules.RuleChain
 import org.junit.Test
+import org.junit.rules.RuleChain
 import uniffi.dyapp.ChatNotice
 
 class IdentitySettingsTests {
@@ -99,6 +99,7 @@ class IdentitySettingsTests {
         compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
         val switch = compose.onNodeWithTag("message-notifications").performScrollTo()
+
         // Until the store is read the switch shows off and disabled, so off alone is no proof of a load.
         fun waitFor(on: Boolean) = compose.waitUntil(5_000) {
             runCatching { (if (on) switch.assertIsOn() else switch.assertIsOff()).assertIsEnabled() }.isSuccess

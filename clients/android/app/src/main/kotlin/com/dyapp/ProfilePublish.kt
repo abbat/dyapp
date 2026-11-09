@@ -161,8 +161,10 @@ internal fun PublishSection(
         }
     }
     if (unsaved) {
-        Text(stringResource(R.string.profile_save_changes_before_publish),
-            Modifier.testTag(ELIGIBILITY_TAG))
+        Text(
+            stringResource(R.string.profile_save_changes_before_publish),
+            Modifier.testTag(ELIGIBILITY_TAG)
+        )
     }
     if (state.open) {
         PublishDialog(state, scales, { loadDraft(opened, scales) }) {
@@ -170,8 +172,10 @@ internal fun PublishSection(
         }
     }
     state.published?.let { published ->
-        Text(stringResource(R.string.profile_published_version, "${published.version}"),
-            Modifier.testTag("profile-published-readback"))
+        Text(
+            stringResource(R.string.profile_published_version, "${published.version}"),
+            Modifier.testTag("profile-published-readback")
+        )
         ProfilePreview(published.draft.draft(), scales, LocalContext.current, R.string.profile_published)
     }
 }

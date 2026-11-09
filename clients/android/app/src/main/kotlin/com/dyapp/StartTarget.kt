@@ -80,8 +80,11 @@ internal fun StartColumn(shown: Shown, slots: Slots, act: (() -> Opened) -> Unit
 @Composable
 private fun RecoveryDetails(opened: Opened.Recovery) {
     ErrorNotice(
-        reasonText(opened.reason), "recovery-reason",
-        listOfNotNull(opened.reason, opened.peerId).joinToString("\n"), "recovery-details", "copy-recovery-details"
+        reasonText(opened.reason),
+        "recovery-reason",
+        listOfNotNull(opened.reason, opened.peerId).joinToString("\n"),
+        "recovery-details",
+        "copy-recovery-details"
     )
     opened.peerId?.let {
         Caption(stringResource(R.string.storage_peer_id))
@@ -99,7 +102,10 @@ private fun PickerList(entries: List<Opened>, slots: Slots, act: (() -> Opened) 
                 is Opened.Recovery -> Triple(entry.slot, entry.peerId, reasonText(entry.reason))
                 else -> continue
             }
-            val select = { slots.setActive(slot.id); slots.open() }
+            val select = {
+                slots.setActive(slot.id)
+                slots.open()
+            }
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { act(select) }.testTag("pick-${index + 1}"),
                 Arrangement.spacedBy(16.dp),

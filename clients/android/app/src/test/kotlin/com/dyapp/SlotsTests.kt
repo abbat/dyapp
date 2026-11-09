@@ -1,12 +1,12 @@
 package com.dyapp
 
-import java.io.File
-import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 /** Wrapping keys in a map; a blob "unwraps" to its Peer ID only under the alias that made it. */
 private class FakeKeys : SlotKeys {

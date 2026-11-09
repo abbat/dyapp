@@ -6,7 +6,10 @@ import uniffi.dyapp.SearchEmployer
 
 class EmployerFilterTests {
     private fun employer(kind: EmployerKind, company: String) =
-        EmployerFilter().apply { this.kind = kind; this.company = company }.employer()
+        EmployerFilter().apply {
+            this.kind = kind
+            this.company = company
+        }.employer()
 
     @Test
     fun aBlankCompanyOrAnyLeavesEveryEmployer() {

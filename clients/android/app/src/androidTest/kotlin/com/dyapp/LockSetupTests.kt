@@ -13,11 +13,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
+import java.io.File
 
 /** Sets or clears the first-launch Skip marker before the activity starts. */
 fun lockChoice(skipped: Boolean) = object : ExternalResource() {
@@ -55,7 +55,12 @@ class SetupScreenTests {
     @Test
     fun mismatchClearsInputAndMatchingPinEnrollsOnce() {
         val enrolled = mutableListOf<String>()
-        compose.setContent { SetupScreen(DeviceLock(true), {}) { enrolled += it; true } }
+        compose.setContent {
+            SetupScreen(DeviceLock(true), {}) {
+                enrolled += it
+                true
+            }
+        }
         compose.onNodeWithTag("pin-set").performTextInput("123456")
         compose.onNodeWithTag("pin-repeat").performTextInput("123457")
         compose.onNodeWithTag("lock-set").performClick()

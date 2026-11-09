@@ -97,11 +97,19 @@ private fun ShellRoutes(
     if (peers.viewed != null) {
         peers.Profile(opened, section, feed, open)
     } else if (chat != null) {
-        CompositionLocalProvider(LocalSharedProfile provides { peer -> peers.found = null; peers.viewed = peer }) {
+        CompositionLocalProvider(
+            LocalSharedProfile provides { peer ->
+                peers.found = null
+                peers.viewed = peer
+            }
+        ) {
             ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
         }
     } else {
-        val openChat = { peer: String -> feed.lists.blocked = null; peers.chat = peer }
+        val openChat = { peer: String ->
+            feed.lists.blocked = null
+            peers.chat = peer
+        }
         ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, peers::show) {
             SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show)
         }
@@ -139,7 +147,10 @@ private fun ShellFrame(
     }
     if (switcher) {
         ModalBottomSheet(onDismissRequest = { switcher = false }, Modifier.testTag("identity-menu")) {
-            IdentityMenu(slots, opened) { action -> switcher = false; act(action) }
+            IdentityMenu(slots, opened) { action ->
+                switcher = false
+                act(action)
+            }
         }
     }
 }
@@ -152,8 +163,10 @@ private fun ShellTopBar(opened: Opened.Ready, current: Section, open: (StartTarg
         actions = {
             ConnectionStatus(opened, current.target) { open(StartTarget.NETWORK) }
             val identities = stringResource(R.string.settings_identities)
-            IconButton(onClick = onSwitch,
-                Modifier.testTag("identity-switcher").semantics { contentDescription = identities }) {
+            IconButton(
+                onClick = onSwitch,
+                Modifier.testTag("identity-switcher").semantics { contentDescription = identities }
+            ) {
                 Avatar(opened.peerId, rememberOwnPhoto(opened))
             }
         },
@@ -203,8 +216,11 @@ private fun SectionContent(
                 Text(stringResource(R.string.storage_peer_id), style = MaterialTheme.typography.labelMedium)
                 Text(opened.peerId, Modifier.testTag("peer-id"))
                 // The OS gives the app no chance to warn before these erase the key.
-                Text(stringResource(R.string.storage_os_loss), Modifier.testTag("os-loss"),
-                    style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(R.string.storage_os_loss),
+                    Modifier.testTag("os-loss"),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             ProfileDraftScreen(opened)
         }
@@ -220,8 +236,11 @@ private fun ConnectionStatus(opened: Opened.Ready, section: StartTarget, onClick
         }
     }
     val public = stringResource(R.string.settings_network_public)
-    AssistChip(onClick = onClick, modifier = Modifier.testTag("connection-status"),
-        label = { Text(name?.ifEmpty { public } ?: stringResource(R.string.status_no_network)) })
+    AssistChip(
+        onClick = onClick,
+        modifier = Modifier.testTag("connection-status"),
+        label = { Text(name?.ifEmpty { public } ?: stringResource(R.string.status_no_network)) }
+    )
 }
 
 private const val SHORT_PEER_ID = 6

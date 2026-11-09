@@ -27,8 +27,11 @@ class MessageMenuTests {
     private val own = message("me", "one")
 
     private fun show(state: ChatState = ChatState.OPEN) = compose.setContent {
-        val messages = listOf(own, message("peer-abcdef", "two").copy(id = byteArrayOf(2)),
-            message("me", "gone").copy(id = byteArrayOf(3), deleted = true))
+        val messages = listOf(
+            own,
+            message("peer-abcdef", "two").copy(id = byteArrayOf(2)),
+            message("me", "gone").copy(id = byteArrayOf(3), deleted = true)
+        )
         val actions = ChatActions({ sends += 1 }, {}, {}, {}, {}, { deletes += 1 })
         ChatContent("peer-abcdef", "me", ChatHistory(state, messages, false), form, actions)
     }
@@ -61,7 +64,10 @@ class MessageMenuTests {
         compose.runOnIdle { assertEquals(1, sends) }
         compose.onNodeWithTag("chat-edit-cancel").performClick()
         compose.onNodeWithTag("chat-editing").assertDoesNotExist()
-        compose.runOnIdle { assertEquals("typed", form.draft.value); assertNull(form.editing.value) }
+        compose.runOnIdle {
+            assertEquals("typed", form.draft.value)
+            assertNull(form.editing.value)
+        }
     }
 
     @Test
@@ -75,7 +81,10 @@ class MessageMenuTests {
         press("one")
         compose.onNodeWithTag("msg-delete").performClick()
         compose.onNodeWithTag("delete-confirm").performClick()
-        compose.runOnIdle { assertEquals(1, deletes); assertNull(form.deleting.value) }
+        compose.runOnIdle {
+            assertEquals(1, deletes)
+            assertNull(form.deleting.value)
+        }
     }
 
     @Test

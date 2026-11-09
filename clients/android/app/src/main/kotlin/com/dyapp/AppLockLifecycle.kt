@@ -21,9 +21,13 @@ internal fun Activity.confirmDeviceCredential(biometric: Boolean, onSuccess: () 
         .setTitle(getString(R.string.lock_device_credential_title))
         .setAllowedAuthenticators(allowed)
         .build()
-        .authenticate(CancellationSignal(), mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
-        })
+        .authenticate(
+            CancellationSignal(),
+            mainExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+            }
+        )
 }
 
 /** Whether strong biometrics can be offered; only enrolled ones unlock the app. */
@@ -60,8 +64,13 @@ class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
 
     /** Whether a PIN protects the current app session. */
     val isPinEnabled: Boolean get() = enabled
+
     /** Current lock state after applying any elapsed deadline. */
-    val isLocked: Boolean get() { refresh(); return locked }
+    val isLocked: Boolean get() {
+        refresh()
+        return locked
+    }
+
     /** Whether the app-switcher snapshot must hide private content. */
     val snapshotObscured: Boolean get() = backgroundAt != null
 
@@ -126,6 +135,7 @@ class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
     companion object {
         /** Time a backgrounded app may remain unlocked. */
         const val BACKGROUND_GRACE_MS = 60_000L
+
         /** Maximum unlocked foreground idle time. */
         const val FOREGROUND_IDLE_MS = 5 * 60_000L
     }

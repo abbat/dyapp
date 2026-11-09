@@ -10,11 +10,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.core.view.WindowCompat
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.Locale
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
+import java.util.Locale
 
 private const val RELAUNCH_MILLIS = 10_000L
 

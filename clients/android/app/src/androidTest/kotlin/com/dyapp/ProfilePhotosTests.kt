@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import java.io.ByteArrayOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Rule
@@ -21,6 +20,7 @@ import org.junit.rules.RuleChain
 import uniffi.dyapp.addProfilePhoto
 import uniffi.dyapp.profilePhotos
 import uniffi.dyapp.removeProfilePhoto
+import java.io.ByteArrayOutputStream
 
 class ProfilePhotosTests {
     val compose = createAndroidComposeRule<MainActivity>()

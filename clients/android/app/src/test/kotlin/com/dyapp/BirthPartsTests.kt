@@ -19,7 +19,9 @@ class BirthPartsTests {
         assertNull(parseBirthParts("0", "", ""))
         assertNull(parseBirthParts("", "13", ""))
         assertNull(parseBirthParts("", "2", "not a day"))
-        assertEquals(mapOf("birth_year" to 2024, "birth_month" to 2, "birth_day" to 29),
-            parseBirthParts("2024", "2", "29"))
+        assertEquals(
+            mapOf("birth_year" to 2024, "birth_month" to 2, "birth_day" to 29),
+            parseBirthParts("2024", "2", "29")
+        )
     }
 }

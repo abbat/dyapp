@@ -28,22 +28,28 @@ class ChatsScreenTests {
 
     private fun row(peer: String, state: ChatState) = ChatRow(peer, state, null, 0uL, false)
 
-    private fun found(peer: String) = FoundProfile(peer, PublicProfileDraft(
-        gender = 0u,
-        orientation = 0u,
-        relationshipGoal = 0u,
-        rolePreference = 0u,
-        careerAmbition = 0u,
-        financialPhilosophy = 0u,
-        employmentStatus = 0u,
-        fitnessLevel = 0u,
-        zodiac = 0u,
-        birthYear = null,
-        birthMonth = null,
-        birthDay = null,
-        country = "",
-        place = "",
-    ), emptyList(), emptyList(), 1uL)
+    private fun found(peer: String) = FoundProfile(
+        peer,
+        PublicProfileDraft(
+            gender = 0u,
+            orientation = 0u,
+            relationshipGoal = 0u,
+            rolePreference = 0u,
+            careerAmbition = 0u,
+            financialPhilosophy = 0u,
+            employmentStatus = 0u,
+            fitnessLevel = 0u,
+            zodiac = 0u,
+            birthYear = null,
+            birthMonth = null,
+            birthDay = null,
+            country = "",
+            place = "",
+        ),
+        emptyList(),
+        emptyList(),
+        1uL
+    )
 
     private fun show(rows: List<ChatRow> = emptyList(), liked: List<String> = emptyList()) = compose.setContent {
         ChatsContent(rows, liked, lists, { opened += it }) { profiles += it.peerId }

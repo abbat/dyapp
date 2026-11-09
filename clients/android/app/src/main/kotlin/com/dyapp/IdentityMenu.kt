@@ -43,8 +43,15 @@ internal fun IdentityMenu(slots: Slots, active: Opened.Ready, act: (() -> Opened
             if (slot.id == active.slot.id) {
                 ActiveIdentity(label)
             } else {
-                TextButton(onClick = { act { slots.setActive(slot.id); slots.open() } },
-                    Modifier.testTag("switch-to-${index + 1}")) { Text(label) }
+                TextButton(
+                    onClick = {
+                        act {
+                            slots.setActive(slot.id)
+                            slots.open()
+                        }
+                    },
+                    Modifier.testTag("switch-to-${index + 1}")
+                ) { Text(label) }
             }
         }
         TextButton(onClick = { act(slots::create) }, Modifier.testTag("add-identity-menu")) {

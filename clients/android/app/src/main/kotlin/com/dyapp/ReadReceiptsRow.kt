@@ -56,7 +56,10 @@ internal fun ReadReceiptsRow(active: Opened.Ready) {
 private fun ReadReceiptsSwitch(on: Boolean?, failed: Boolean, save: (Boolean) -> Unit) = Column {
     Row(
         Modifier.fillMaxWidth().testTag("send-read-receipts").toggleable(
-            on == true, enabled = on != null, role = Role.Switch, onValueChange = save
+            on == true,
+            enabled = on != null,
+            role = Role.Switch,
+            onValueChange = save
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {

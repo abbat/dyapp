@@ -83,8 +83,15 @@ private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthIn
         place.unknown -> R.string.profile_place_unknown
         seeking == null -> R.string.profile_seeking_invalid
         else -> runCatching {
-            saveDraft(opened, edited.copy(values = kept + parts + picked + tall, country = place.country,
-                about = birth.about, seeking = seeking))
+            saveDraft(
+                opened,
+                edited.copy(
+                    values = kept + parts + picked + tall,
+                    country = place.country,
+                    about = birth.about,
+                    seeking = seeking
+                )
+            )
         }.fold({
             birth.seeking.clearIfNotLooking()
             R.string.profile_saved
@@ -137,12 +144,22 @@ private fun BasicsCard(
     CardTitle(R.string.profile_basics)
     ProfileNameField(name)
     ScalePickers(scales, values)
-    OutlinedTextField(birth.height, { birth.height = it }, Modifier.fillMaxWidth().testTag("profile-height"),
+    OutlinedTextField(
+        birth.height,
+        { birth.height = it },
+        Modifier.fillMaxWidth().testTag("profile-height"),
         label = { Text(stringResource(R.string.profile_height)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
-    OutlinedTextField(birth.about, { birth.about = it }, Modifier.fillMaxWidth().testTag("profile-about"),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true
+    )
+    OutlinedTextField(
+        birth.about,
+        { birth.about = it },
+        Modifier.fillMaxWidth().testTag("profile-about"),
         label = { Text(stringResource(R.string.profile_about)) },
-        supportingText = { Text(stringResource(R.string.profile_about_hint)) }, minLines = ABOUT_LINES)
+        supportingText = { Text(stringResource(R.string.profile_about_hint)) },
+        minLines = ABOUT_LINES
+    )
     CardTitle(R.string.profile_birth)
     BirthDateFields(birth)
     SeekingFields(scales, birth.seeking)
@@ -168,7 +185,17 @@ private fun MoreScales(scales: List<ProfileScale>, values: MutableMap<String, In
         TextButton(
             onClick = { open = !open },
             Modifier.fillMaxWidth().testTag("profile-more").semantics {
-                if (open) collapse { open = false; true } else expand { open = true; true }
+                if (open) {
+                    collapse {
+                        open = false
+                        true
+                    }
+                } else {
+                    expand {
+                        open = true
+                        true
+                    }
+                }
             }
         ) {
             Text(stringResource(R.string.profile_more), Modifier.weight(1f))
@@ -179,8 +206,10 @@ private fun MoreScales(scales: List<ProfileScale>, values: MutableMap<String, In
 }
 
 private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInputs) =
-    listOf(values.toMap(), birth.year, birth.month, birth.day, birth.height, birth.about, place.country, place.place,
-        place.text, birth.seeking.tracked)
+    listOf(
+        values.toMap(), birth.year, birth.month, birth.day, birth.height, birth.about, place.country, place.place,
+        place.text, birth.seeking.tracked
+    )
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable

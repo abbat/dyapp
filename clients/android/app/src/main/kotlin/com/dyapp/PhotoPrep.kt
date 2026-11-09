@@ -6,11 +6,11 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
+import uniffi.dyapp.makePreview
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
-import uniffi.dyapp.makePreview
 
 private const val MAX_PICKED_BYTES = 64 * 1024 * 1024
 private const val MAX_PIXELS = 64_000_000L

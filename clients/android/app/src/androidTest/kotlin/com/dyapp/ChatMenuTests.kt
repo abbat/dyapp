@@ -28,8 +28,15 @@ class ChatMenuTests {
 
     private fun show(state: ChatState, messages: List<ChatMessage> = emptyList(), muted: Boolean = false) =
         compose.setContent {
-            val actions = ChatActions({}, {}, {}, { clears += 1 }, { blocks += 1 }, onMute = { mutes += 1 },
-                onRename = { renames += 1 })
+            val actions = ChatActions(
+                {},
+                {},
+                {},
+                { clears += 1 },
+                { blocks += 1 },
+                onMute = { mutes += 1 },
+                onRename = { renames += 1 }
+            )
             ChatContent("peer-abcdef", "me", ChatHistory(state, messages, muted), form, actions)
         }
 
@@ -38,7 +45,8 @@ class ChatMenuTests {
         show(ChatState.OPEN, muted = true)
         compose.onNodeWithTag("chat-more").performClick()
         compose.onNodeWithTag("chat-mute").assertTextEquals(
-            InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.chat_unmute)).performClick()
+            InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.chat_unmute)
+        ).performClick()
         compose.runOnIdle { assertEquals(1, mutes) }
     }
 
@@ -60,7 +68,10 @@ class ChatMenuTests {
         compose.onNodeWithTag("chat-more").performClick()
         compose.onNodeWithTag("chat-clear").performClick()
         compose.onNodeWithTag("chat-clear-confirm").performClick()
-        compose.runOnIdle { assertEquals(1, clears); form.cleared = true }
+        compose.runOnIdle {
+            assertEquals(1, clears)
+            form.cleared = true
+        }
         compose.onNodeWithTag("chat-cleared-note").assertExists()
     }
 

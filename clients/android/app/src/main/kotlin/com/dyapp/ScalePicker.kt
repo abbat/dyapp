@@ -33,9 +33,11 @@ private fun ScaleChoices(scale: ProfileScale, none: Int, tag: String, onSelect: 
     val context = LocalContext.current
     DropdownMenuItem(text = { Text(stringResource(none)) }, onClick = { onSelect(0) })
     for (choice in scale.choices) {
-        DropdownMenuItem(text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
+        DropdownMenuItem(
+            text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
             onClick = { onSelect(choice.code.toInt()) },
-            modifier = Modifier.testTag("$tag-${choice.code}"))
+            modifier = Modifier.testTag("$tag-${choice.code}")
+        )
     }
 }
 

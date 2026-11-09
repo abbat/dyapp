@@ -40,7 +40,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,6 +48,7 @@ import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.checkPreview
 import uniffi.dyapp.peerPhotoAuto
+import java.nio.ByteBuffer
 
 private const val FULL_SIDE = 2048
 
@@ -187,7 +187,10 @@ private fun GalleryThumbnails(found: FoundProfile, state: GalleryState) {
         found.photos.forEachIndexed { index, hash ->
             val label = stringResource(R.string.profile_photo_label, index + 1, count)
             Surface(
-                onClick = { state.chosen = index; state.failed = false },
+                onClick = {
+                    state.chosen = index
+                    state.failed = false
+                },
                 modifier = Modifier.testTag("view-photo-$index").semantics {
                     contentDescription = label
                     selected = index == state.chosen
@@ -228,7 +231,9 @@ private fun LoadFullPhoto(photos: PeerPhotos, full: ByteArray, state: GallerySta
         enabled = !state.loading,
     ) { Text(stringResource(if (state.loading) R.string.view_photo_loading else R.string.view_photo_load)) }
     if (state.failed) {
-        Caption(stringResource(R.string.view_photo_failed),
-            Modifier.testTag("view-photo-status").semantics { liveRegion = LiveRegionMode.Polite })
+        Caption(
+            stringResource(R.string.view_photo_failed),
+            Modifier.testTag("view-photo-status").semantics { liveRegion = LiveRegionMode.Polite }
+        )
     }
 }

@@ -108,8 +108,15 @@ internal fun MessageMenu(
     var open by remember { mutableStateOf(false) }
     val label = stringResource(R.string.msg_menu)
     Box {
-        bubble(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { open = true }) }
-            .semantics { onLongClick(label) { open = true; true } })
+        bubble(
+            Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { open = true }) }
+                .semantics {
+                    onLongClick(label) {
+                        open = true
+                        true
+                    }
+                }
+        )
         DropdownMenu(open, { open = false }, Modifier.testTag("msg-menu")) {
             MessageMenuItems(message, form, writable) { open = false }
         }
@@ -131,7 +138,12 @@ internal fun EditingLine(form: ChatForm) {
 @Composable
 @Suppress("LongParameterList") // The dialogs differ in each of these.
 internal fun Confirm(
-    tag: String, title: Int, texts: List<Int>, action: Int, onCancel: () -> Unit, onConfirm: () -> Unit,
+    tag: String,
+    title: Int,
+    texts: List<Int>,
+    action: Int,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onCancel,
@@ -156,7 +168,10 @@ internal fun CoroutineScope.clearChat(form: ChatForm, feed: ChatFeed, peer: Stri
     form.busy = true
     launch {
         withContext(Dispatchers.IO) { feed.clear(peer) }
-            .onSuccess { form.cleared = true; form.status = null }
+            .onSuccess {
+                form.cleared = true
+                form.status = null
+            }
             .onFailure { form.status = ChatStatus(R.string.chat_clear_failed, it.toString()) }
         form.busy = false
     }

@@ -69,7 +69,10 @@ internal fun ProfileShareDialog(
         text = { ProfileShareChoices(form, targets, send) },
         confirmButton = {
             form.sentTo?.let { target ->
-                TextButton({ form.shown = false; openChat(target) }) { Text(stringResource(R.string.view_message)) }
+                TextButton({
+                    form.shown = false
+                    openChat(target)
+                }) { Text(stringResource(R.string.view_message)) }
             }
         },
         dismissButton = {

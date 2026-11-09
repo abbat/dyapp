@@ -74,8 +74,13 @@ internal fun ChatsContent(
             lists.likedOpen = !lists.likedOpen
         }
         if (lists.likedOpen) LikedList(liked, lists.likedProfiles, onProfile)
-        ExpandableRow("chats-requests", R.string.chats_requests, R.string.chats_requests_text, requests.size,
-            lists.requestsOpen) { lists.requestsOpen = !lists.requestsOpen }
+        ExpandableRow(
+            "chats-requests",
+            R.string.chats_requests,
+            R.string.chats_requests_text,
+            requests.size,
+            lists.requestsOpen
+        ) { lists.requestsOpen = !lists.requestsOpen }
         if (lists.requestsOpen) RequestList(requests, names, onOpen)
         Conversations(conversations, names, onOpen)
         Caption(stringResource(R.string.chats_identity), Modifier.padding(16.dp))
@@ -87,7 +92,19 @@ internal fun ChatsContent(
 private fun ExpandableRow(tag: String, title: Int, text: Int, count: Int, open: Boolean, toggle: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().testTag(tag).clickable(role = Role.Button, onClick = toggle)
-            .semantics { if (open) collapse { toggle(); true } else expand { toggle(); true } }
+            .semantics {
+                if (open) {
+                    collapse {
+                        toggle()
+                        true
+                    }
+                } else {
+                    expand {
+                        toggle()
+                        true
+                    }
+                }
+            }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         Arrangement.spacedBy(12.dp),
         Alignment.CenterVertically,
@@ -103,16 +120,20 @@ private fun ExpandableRow(tag: String, title: Int, text: Int, count: Int, open: 
 // Closing and opening the list fetches again, so a failure needs no retry button of its own.
 @Composable
 private fun LikedList(liked: List<String>, fetch: Result<List<FoundProfile>>?, open: (FoundProfile) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("chats-liked-list"),
-        Arrangement.spacedBy(12.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("chats-liked-list"),
+        Arrangement.spacedBy(12.dp)
+    ) {
         val failure = fetch?.exceptionOrNull()
         when {
             liked.isEmpty() -> {
                 Caption(stringResource(R.string.chats_none))
             }
             fetch == null -> {
-                Caption(stringResource(R.string.view_loading),
-                    Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                Caption(
+                    stringResource(R.string.view_loading),
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                )
             }
             failure != null -> {
                 LikedFailure(failure)
@@ -131,8 +152,11 @@ private fun RequestList(requests: List<ChatRow>, names: Map<String, ContactNameV
             Caption(stringResource(R.string.chats_no_requests), Modifier.padding(horizontal = 16.dp))
         }
         for ((index, row) in requests.withIndex()) {
-            ChatListRow(row, names[row.peerId],
-                Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) })
+            ChatListRow(
+                row,
+                names[row.peerId],
+                Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) }
+            )
         }
     }
 }
@@ -147,8 +171,12 @@ internal fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifie
         PeerAvatar(row.peerId, name)
         Column(Modifier.weight(1f)) {
             Text(contactLabel(row.peerId, name), style = MaterialTheme.typography.titleSmall)
-            Text(chatPreview(row.lastMessage), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium)
+            Text(
+                chatPreview(row.lastMessage),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             chatTime(row.lastMessage?.sentAtMs)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
