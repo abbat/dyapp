@@ -14,6 +14,8 @@ peers through `addKnownPeers`; reloading the identities replaces that set throug
 `sticker-pixels.js` exports the validated canvas builders. These modules publish no page globals.
 The page loads one native ES-module entry, `entry.js`. Controllers import their helpers, live
 bindings and controller APIs explicitly; page globals and classic-script order are not used.
+Controller definitions live directly in module scope: additional immediately invoked wrappers
+are unnecessary and hide controller property assignments from JavaScript type inference.
 `identity-state.js` owns the selected identity and generation, `chat-state.js` owns shared chat
 state, and independent clipboard, place and DOM modules avoid eager controller cycles.
 Their JSDoc DTOs distinguish ready/recovery identity state, chat history/messages and text-forward
