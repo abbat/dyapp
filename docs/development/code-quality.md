@@ -199,8 +199,13 @@ list fires `checks` itself.
 
 `.pre-commit-config.yaml` defines fast local hooks:
 
-- `pre-commit` stage: `check-fast-precommit.py` checks staged whitespace and that Rust integration-test subprocesses using `.env_clear()` forward `LLVM_PROFILE_FILE` for coverage. It reads staged blobs, not unstaged edits.
+- `pre-commit` stage: `check-fast-precommit.py` checks staged whitespace, Python syntax/complexity and that Rust integration-test subprocesses using `.env_clear()` forward `LLVM_PROFILE_FILE` for coverage. All checks read index versions, preserving partial commits.
 - `commit-msg` stage: `check-repository.py --message-file` checks the proposed message, and `check-batches.py --staged --message-file` checks the staged line count and any `Large-Change` reason before a commit exists.
+
+Staged `.py` and `.pyi` blobs are copied under ignored `build/pre-commit/` and checked in one
+Docker invocation with McCabe limit 10 and syntax checks. Suppressions and directory exclusions
+are disabled for this gate. The existing `dyapp:dev-prepared` image runs offline with image pulls
+disabled; `make prepare` provisions it. Commits without staged Python run the host checks.
 
 Install with `pre-commit install --hook-type pre-commit --hook-type commit-msg` when
 `core.hooksPath` is unset. In the maintainer checkout, `core.hooksPath` points to

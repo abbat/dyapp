@@ -262,7 +262,9 @@ bash tests/scripts/rust-check.sh python-check  # provisioned native CI runner
 `.venv`, `venv`, `build`, `dist`, …). McCabe complexity (`C901`) is limited to 10 for every
 Python function, including test helpers; there are no complexity baselines or suppressions.
 `make lint-python` checks Ruff formatting, flake8, strict mypy and exact `noqa` reasons in Docker; quality, CI and
-`make quick-check` share that stage. A real-tool fixture checks the complexity-10 boundary.
+`make quick-check` share that stage. The fast pre-commit hook checks staged Python syntax and
+complexity 10 in one offline Docker batch, using index blobs under `build/pre-commit/`. Real-tool
+fixtures check the 10/11 boundary, partial staging, syntax failures and suppression rejection.
 Ruff 0.17.2 is provisioned from the same SHA-256-verified wheel in Docker and native CI.
 `.ruff.toml` fixes 79 columns, double quotes and Python 3.11-compatible syntax, preserving
 host-side script compatibility. `make fmt-python` formats all Python in `tests/` and `tools/`
