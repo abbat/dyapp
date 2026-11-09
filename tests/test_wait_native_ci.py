@@ -3,6 +3,10 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ci_contracts import Job, JobPage, RunPage
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/wait-native-ci.py"
@@ -16,7 +20,7 @@ SPEC.loader.exec_module(WAIT)
 
 def job(
     name: str, conclusion: str | None = "success", status: str = "completed"
-) -> dict[str, str | None]:
+) -> "Job":
     return {"name": name, "conclusion": conclusion, "status": status}
 
 
@@ -54,9 +58,9 @@ class Verdict(unittest.TestCase):
 
 class TagRuns(unittest.TestCase):
     def test_asks_only_for_the_tag_and_its_commit(self) -> None:
-        asked = []
+        asked: list[str] = []
 
-        def fetch(path):
+        def fetch(path: str) -> "RunPage | JobPage":
             asked.append(path)
             if "/workflows/" in path:
                 return {"workflow_runs": [{"id": 7}]}

@@ -6,6 +6,7 @@ With arguments (e.g. `origin/main...HEAD`, `--cached`) also prints
 `trigger: path` for every trigger the `git diff` fires.
 """
 
+from collections.abc import Mapping, Sequence
 from fnmatch import fnmatchcase
 from pathlib import Path
 import re
@@ -15,9 +16,10 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
 LIST = ROOT / "tests/scripts/triggers.toml"
+Trigger = tuple[str, Sequence[str], re.Pattern[str] | None]
 
 
-def load(text):
+def load(text: str) -> list[Trigger]:
     """Triggers as (name, globs, compiled line regex or None)."""
     return [
         (
@@ -29,7 +31,7 @@ def load(text):
     ]
 
 
-def uncovered(triggers, files):
+def uncovered(triggers: Sequence[Trigger], files: Sequence[str]) -> list[str]:
     """Globs that match no tracked file."""
     return [
         f"{name}: {glob}"
@@ -39,9 +41,11 @@ def uncovered(triggers, files):
     ]
 
 
-def changes(diff):
+def changes(diff: str) -> dict[str, list[str]]:
     """{path: changed lines} from `git diff --unified=0 --no-renames`."""
-    files, current, header = {}, [], True
+    files: dict[str, list[str]] = {}
+    current: list[str] = []
+    header = True
     for line in diff.splitlines():
         if line.startswith("diff --git a/"):
             # Without renames the line is `a/PATH b/PATH`.
@@ -55,10 +59,17 @@ def changes(diff):
     return files
 
 
-def fired(triggers, files):
+def fired(
+    triggers: Sequence[Trigger], files: Mapping[str, Sequence[str]]
+) -> list[str]:
     """Sorted `trigger: path` lines for the changed files."""
 
-    def fires(globs, regex, path, lines):
+    def fires(
+        globs: Sequence[str],
+        regex: re.Pattern[str] | None,
+        path: str,
+        lines: Sequence[str],
+    ) -> bool:
         if not any(fnmatchcase(path, glob) for glob in globs):
             return False
         return regex is None or any(map(regex.search, lines))
@@ -73,7 +84,7 @@ def fired(triggers, files):
     )
 
 
-def main(args) -> None:
+def main(args: Sequence[str]) -> None:
     triggers = load(LIST.read_text())
     git = [
         "git",

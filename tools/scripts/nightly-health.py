@@ -9,10 +9,24 @@ Needs `gh` with GH_TOKEN and GITHUB_REPOSITORY.
     nightly-health.py --self-check
 """
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 import json
 import os
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Literal, cast
+
+if TYPE_CHECKING:
+    from ci_contracts import (
+        Issue,
+        Job,
+        JobPage,
+        RunOutcome,
+        ScheduledRun,
+        ScheduledRunPage,
+    )
 
 LABEL = "nightly-failure"
 FAILED = {"failure", "timed_out", "startup_failure"}
@@ -46,11 +60,11 @@ CHECKLISTS = {
 }
 
 
-def title(workflow):
+def title(workflow: str) -> str:
     return f"nightly: {workflow} failing"
 
 
-def streak(runs, run_id):
+def streak(runs: Sequence[RunOutcome], run_id: int) -> int:
     """Failed scheduled runs in a row, newest first, from run_id back."""
     count, seen = 0, False
     for run in runs:
@@ -63,7 +77,7 @@ def streak(runs, run_id):
     return count
 
 
-def failures(jobs):
+def failures(jobs: Sequence[Job]) -> list[str]:
     """Failed jobs, each with its failed steps."""
     lines = []
     for job in jobs:
@@ -79,7 +93,7 @@ def failures(jobs):
     return lines
 
 
-def report(run, jobs, count):
+def report(run: ScheduledRun, jobs: Sequence[Job], count: int) -> str:
     # Job and step names are data from the run; they are quoted, not run.
     names = "\n".join(failures(jobs)) or "- (no failed job reported)"
     return (
@@ -90,7 +104,7 @@ def report(run, jobs, count):
     )
 
 
-def body(workflow, text):
+def body(workflow: str, text: str) -> str:
     command, where = CHECKLISTS.get(
         workflow, ("see the workflow file", "the run log")
     )
@@ -104,7 +118,9 @@ def body(workflow, text):
     )
 
 
-def plan(conclusion, issue):
+def plan(
+    conclusion: str | None, issue: int | None
+) -> Literal["open", "comment", "close"] | None:
     """What to do with the issue: open, comment, close or nothing."""
     if conclusion in FAILED:
         return "comment" if issue else "open"
@@ -117,18 +133,21 @@ def gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 
-def api(path):
+def api(path: str) -> ScheduledRun | ScheduledRunPage | JobPage:
     repo = os.environ["GITHUB_REPOSITORY"]
-    return json.loads(gh("api", f"repos/{repo}/{path}"))
+    result: ScheduledRun | ScheduledRunPage | JobPage = json.loads(
+        gh("api", f"repos/{repo}/{path}")
+    )
+    return result
 
 
-def main(run_id) -> None:
-    run = api(f"actions/runs/{run_id}")
+def main(run_id: str) -> None:
+    run = cast("ScheduledRun", api(f"actions/runs/{run_id}"))
     if run["event"] != "schedule":
         print(f"run {run_id} is a {run['event']} run, not scheduled")
         return
     name = title(run["name"])
-    issues = json.loads(
+    issues: list[Issue] = json.loads(
         gh(
             "issue",
             "list",
@@ -155,11 +174,16 @@ def main(run_id) -> None:
         )
     if action not in ("open", "comment"):
         return
-    runs = api(
-        f"actions/workflows/{run['workflow_id']}/runs"
-        "?event=schedule&status=completed&per_page=50"
+    runs = cast(
+        "ScheduledRunPage",
+        api(
+            f"actions/workflows/{run['workflow_id']}/runs"
+            "?event=schedule&status=completed&per_page=50"
+        ),
     )
-    jobs = api(f"actions/runs/{run_id}/jobs?per_page=100")["jobs"]
+    jobs = cast("JobPage", api(f"actions/runs/{run_id}/jobs?per_page=100"))[
+        "jobs"
+    ]
     text = report(run, jobs, streak(runs["workflow_runs"], run["id"]))
     if action == "comment":
         gh("issue", "comment", str(issue), "--body", text)
@@ -187,7 +211,7 @@ def main(run_id) -> None:
 
 
 def self_check() -> None:
-    runs = [
+    runs: list[RunOutcome] = [
         {"id": 5, "conclusion": "failure"},
         {"id": 4, "conclusion": "timed_out"},
         {"id": 3, "conclusion": "cancelled"},
@@ -198,7 +222,7 @@ def self_check() -> None:
     assert streak(runs, 5) == 3
     assert streak(runs, 4) == 2
     assert streak(runs, 1) == 0
-    jobs = [
+    jobs: list[Job] = [
         {"name": "a", "conclusion": "success", "steps": []},
         {
             "name": "b",

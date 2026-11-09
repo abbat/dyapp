@@ -34,7 +34,7 @@ def main() -> int:
         paths = git(
             "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"
         ).split(b"\0")
-        failures = []
+        failures: list[str] = []
         for raw_path in filter(None, paths):
             path = raw_path.decode("utf-8", "surrogateescape")
             parts = path.split("/")

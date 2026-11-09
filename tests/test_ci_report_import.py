@@ -3,6 +3,10 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ci_contracts import FailureState, FailureView, ListedRun, ReportedJob
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -15,7 +19,9 @@ IMPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(IMPORT)
 
 
-def job(name, conclusion, step: str = "build"):
+def job(
+    name: str, conclusion: str | None, step: str = "build"
+) -> "ReportedJob":
     return {
         "name": name,
         "conclusion": conclusion,
@@ -28,7 +34,7 @@ def job(name, conclusion, step: str = "build"):
 
 class Import(unittest.TestCase):
     def test_latest(self) -> None:
-        runs = [
+        runs: list["ListedRun"] = [
             {"workflowName": "ci", "databaseId": 3, "status": "in_progress"},
             {"workflowName": "ci", "databaseId": 2, "status": "completed"},
             {"workflowName": "ci", "databaseId": 1, "status": "completed"},
@@ -37,7 +43,7 @@ class Import(unittest.TestCase):
         self.assertEqual(IMPORT.latest(runs), [2, 0])
 
     def test_failures(self) -> None:
-        view = {
+        view: "FailureView" = {
             "workflowName": "ci",
             "jobs": [
                 job("core", "failure", "deny"),
@@ -74,7 +80,7 @@ class Import(unittest.TestCase):
         self.assertEqual(IMPORT.excerpt(quiet, "core"), "done")
 
     def test_action(self) -> None:
-        bead = {
+        bead: "FailureState" = {
             "status": "open",
             "description": "Run 7 (push, x): u",
             "notes": "",
@@ -82,7 +88,7 @@ class Import(unittest.TestCase):
         self.assertEqual(IMPORT.action([], 7), "create")
         self.assertEqual(IMPORT.action([bead], 7), "skip")
         self.assertEqual(IMPORT.action([bead], 8), "note")
-        bead.update(status="closed", notes="Run 8 (push, y): u")
+        bead.update({"status": "closed", "notes": "Run 8 (push, y): u"})
         self.assertEqual(IMPORT.action([bead], 8), "skip")
         self.assertEqual(IMPORT.action([bead], 9), "reopen")
 

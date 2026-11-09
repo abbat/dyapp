@@ -9,10 +9,23 @@ One bead per failing job, keyed by the external ref `ci:<workflow>/<job>`.
 A repeated failure appends a note (once per run) and reopens a closed bead.
 """
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 import json
 import re
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from ci_contracts import (
+        FailureState,
+        FailureView,
+        ListedRun,
+        RunView,
+        TrackedFailure,
+    )
 
 BRANCH = "main"
 ERROR = re.compile(r"error|fail|panicked|denied|warning: unused", re.I)
@@ -34,16 +47,16 @@ def run(*args: str) -> str:
     return subprocess.check_output(args, text=True)
 
 
-def latest(runs):
+def latest(runs: Sequence[ListedRun]) -> list[int]:
     """Ids of the newest completed run per workflow (runs newest first)."""
-    seen = {}
+    seen: dict[str, int] = {}
     for item in runs:
         if item["status"] == "completed":
             seen.setdefault(item["workflowName"], item["databaseId"])
     return list(seen.values())
 
 
-def failures(view):
+def failures(view: FailureView) -> list[tuple[str, str, str, str]]:
     """(ref, title, job, step) for each failed job of a `gh run view`."""
     failed = [
         job
@@ -64,7 +77,7 @@ def failures(view):
     return result
 
 
-def excerpt(log, job):
+def excerpt(log: str, job: str) -> str:
     """Error lines of one job's failed log, or its tail when none match."""
     # The step column of `--log-failed` reads "UNKNOWN STEP", so filter by job.
     lines = [
@@ -80,7 +93,7 @@ def excerpt(log, job):
     )
 
 
-def report(view, step, text):
+def report(view: RunView, step: str, text: str) -> str:
     return (
         f"Run {view['databaseId']} ({view['event']}, "
         f"{view['headSha'][:12]}): {view['url']}\nFailed step: {step}\n"
@@ -89,7 +102,9 @@ def report(view, step, text):
     )
 
 
-def action(existing, run_id):
+def action(
+    existing: Sequence[FailureState], run_id: int | str
+) -> Literal["create", "skip", "reopen", "note"]:
     """What to do with a failure given the beads that share its ref."""
     if not existing:
         return "create"
@@ -99,9 +114,9 @@ def action(existing, run_id):
     return "reopen" if bead["status"] == "closed" else "note"
 
 
-def main(args) -> None:
+def main(args: Sequence[str]) -> None:
     dry = "--dry-run" in args
-    ids = [a for a in args if a.isdigit()]
+    ids: Sequence[int | str] = [a for a in args if a.isdigit()]
     if not ids:
         ids = latest(
             json.loads(
@@ -119,7 +134,7 @@ def main(args) -> None:
             )
         )
     for run_id in ids:
-        view = json.loads(
+        view: RunView = json.loads(
             run(
                 "gh",
                 "run",
@@ -136,7 +151,7 @@ def main(args) -> None:
             else ""
         )
         for ref, title, job, step in found:
-            existing = json.loads(
+            existing: list[TrackedFailure] = json.loads(
                 run("bd", "list", "--external-ref", ref, "--all", "--json")
             )
             todo = action(existing, view["databaseId"])

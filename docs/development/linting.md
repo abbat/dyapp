@@ -286,6 +286,9 @@ without a produced value declare `-> None`, including command and fixture helper
 CLI test helpers declare subprocess result types and string argument sequences; binary process
 output remains bytes until decoded. Fixture input types include deliberately malformed values
 used by negative tests, including absent job conclusions and invalid coverage counts.
+`tools/scripts/ci_contracts.py` shares API/CLI run, job, step and tracked-failure shapes
+between CI helpers and fixtures. Trigger rules use a common name/glob/regex contract;
+the docs checker consumes the dynamically loaded parser through a narrow protocol.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

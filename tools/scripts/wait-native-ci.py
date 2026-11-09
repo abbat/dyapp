@@ -7,10 +7,17 @@ release does not take scarce macOS runners to repeat them. The job's time limit
 bounds the wait, as a run can queue for hours.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
 import json
 import subprocess
 import sys
 import time
+from typing import TYPE_CHECKING, Literal, cast
+
+if TYPE_CHECKING:
+    from ci_contracts import Job, JobPage, RunPage
 
 
 REPO = "abbat/dyapp"
@@ -18,7 +25,9 @@ REQUIRED = {"native - macos", "native - ios"}
 POLL_SECONDS = 60
 
 
-def verdict(runs):
+def verdict(
+    runs: Sequence[Sequence[Job]],
+) -> Literal["passed", "waiting", "failed"]:
     """One job list per run. A rerun shows as jobs not yet completed."""
     waiting = not runs
     for jobs in runs:
@@ -32,28 +41,35 @@ def verdict(runs):
     return "waiting" if waiting else "failed"
 
 
-def api(path):
-    return json.loads(
+def api(path: str) -> RunPage | JobPage:
+    result: RunPage | JobPage = json.loads(
         subprocess.run(
             ["gh", "api", path], check=True, capture_output=True, timeout=60
         ).stdout
     )
+    return result
 
 
-def tag_runs(tag, commit, fetch=api):
-    listed = fetch(
-        f"repos/{REPO}/actions/workflows/ci.yml/runs"
-        f"?event=push&head_sha={commit}&branch={tag}"
+def tag_runs(
+    tag: str, commit: str, fetch: Callable[[str], RunPage | JobPage] = api
+) -> list[list[Job]]:
+    listed = cast(
+        "RunPage",
+        fetch(
+            f"repos/{REPO}/actions/workflows/ci.yml/runs"
+            f"?event=push&head_sha={commit}&branch={tag}"
+        ),
     )
     return [
-        fetch(f"repos/{REPO}/actions/runs/{run['id']}/jobs?per_page=100")[
-            "jobs"
-        ]
+        cast(
+            "JobPage",
+            fetch(f"repos/{REPO}/actions/runs/{run['id']}/jobs?per_page=100"),
+        )["jobs"]
         for run in listed["workflow_runs"]
     ]
 
 
-def main():
+def main() -> int:
     if len(sys.argv) != 3:
         print(__doc__, file=sys.stderr)
         return 2

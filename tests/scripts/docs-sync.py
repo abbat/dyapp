@@ -7,12 +7,32 @@ public interface line (RULES) but no file under docs/, unless its message
 has a `Docs-Unchanged: <reason>` trailer for a heuristic false positive.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
 import importlib.util
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Protocol, cast
+
+if TYPE_CHECKING:
+    from triggers import Trigger
+
+
+class TriggerAPI(Protocol):
+    def fired(
+        self, triggers: Sequence[Trigger], files: Mapping[str, Sequence[str]]
+    ) -> list[str]:
+        """Return triggered rule/path pairs."""
+        ...
+
+    def changes(self, diff: str) -> dict[str, list[str]]:
+        """Parse changed source lines."""
+        ...
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
@@ -21,10 +41,11 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-TRIGGERS = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(TRIGGERS)
+TRIGGERS_MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(TRIGGERS_MODULE)
+TRIGGERS = cast(TriggerAPI, TRIGGERS_MODULE)
 # (interface, globs, changed-line regex), the shape of triggers.load().
-RULES = [
+RULES: list[Trigger] = [
     # Config keys; dyappd derives its --section.key flags from them.
     (
         "config key or CLI flag",
@@ -47,7 +68,7 @@ RULES = [
 TRAILER = re.compile(r"^Docs-Unchanged: \S", re.M)
 
 
-def errors(files, message):
+def errors(files: Mapping[str, Sequence[str]], message: str) -> list[str]:
     """Interfaces a commit changes without docs/, or [] when it is fine."""
     if TRAILER.search(message) or any(p.startswith("docs/") for p in files):
         return []
