@@ -268,6 +268,26 @@ pub(crate) mod tests {
         dir.to_str().unwrap().into()
     }
 
+    async fn serve_node(sender: std::sync::mpsc::Sender<(u16, String)>) {
+        let options = SwarmOptions {
+            mode: Mode::Auto,
+            ..SwarmOptions::default()
+        };
+        let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
+        let peer = swarm.local_peer_id().to_string();
+        swarm
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        loop {
+            let SwarmEvent::NewListenAddr { address, .. } = swarm.select_next_some().await else {
+                continue;
+            };
+            if let Some(Protocol::Tcp(port)) = address.iter().nth(1) {
+                sender.send((port, peer.clone())).unwrap();
+            }
+        }
+    }
+
     /// A public-network node on a background thread; returns its TCP port and peer ID.
     pub(crate) fn node() -> (u16, String) {
         let (sender, receiver) = std::sync::mpsc::channel();
@@ -276,27 +296,7 @@ pub(crate) mod tests {
                 .enable_all()
                 .build()
                 .unwrap();
-            runtime.block_on(async {
-                let options = SwarmOptions {
-                    mode: Mode::Auto,
-                    ..SwarmOptions::default()
-                };
-                let mut swarm =
-                    build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
-                let peer = swarm.local_peer_id().to_string();
-                swarm
-                    .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-                    .unwrap();
-                loop {
-                    if let SwarmEvent::NewListenAddr { address, .. } =
-                        swarm.select_next_some().await
-                    {
-                        if let Some(Protocol::Tcp(port)) = address.iter().nth(1) {
-                            sender.send((port, peer.clone())).unwrap();
-                        }
-                    }
-                }
-            });
+            runtime.block_on(serve_node(sender));
         });
         receiver.recv().unwrap()
     }

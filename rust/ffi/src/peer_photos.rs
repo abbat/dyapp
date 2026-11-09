@@ -99,6 +99,33 @@ pub(crate) async fn reachable(network: &Network) -> Result<Vec<Node>, CoreError>
     Ok(nodes)
 }
 
+impl ProfileSearcher {
+    async fn fetch_photo(
+        &self,
+        nodes: &mut [Node],
+        hash: &[u8; 32],
+        full: bool,
+    ) -> Result<(), CoreError> {
+        for node in nodes {
+            // `get_media` checks the hash, so another node cannot do better after a refusal here.
+            let Ok(bytes) = node.get_media(hash).await else {
+                continue;
+            };
+            self.cache_photo(hash, bytes, full)?;
+            break;
+        }
+        Ok(())
+    }
+
+    fn cache_photo(&self, hash: &[u8; 32], bytes: Vec<u8>, full: bool) -> Result<(), CoreError> {
+        if acceptable(&bytes, full) {
+            let mut photos = self.photos.lock().map_err(failed)?;
+            photos.put(hash.to_vec(), bytes, full);
+        }
+        Ok(())
+    }
+}
+
 #[uniffi::export]
 impl ProfileSearcher {
     /// Loads the photos the cache lacks over one set of connections, so a page of cards costs one
@@ -134,18 +161,7 @@ impl ProfileSearcher {
                     return Err(failed("notConnected"));
                 }
                 for hash in &wanted {
-                    for node in &mut nodes {
-                        // `get_media` checks the hash, so another node cannot do better after a
-                        // refusal here.
-                        let Ok(bytes) = node.get_media(hash).await else {
-                            continue;
-                        };
-                        if acceptable(&bytes, full) {
-                            let mut photos = self.photos.lock().map_err(failed)?;
-                            photos.put(hash.to_vec(), bytes, full);
-                        }
-                        break;
-                    }
+                    self.fetch_photo(&mut nodes, hash, full).await?;
                 }
                 Ok(())
             })

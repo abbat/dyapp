@@ -133,6 +133,23 @@ impl PublicProfileDraft {
         {
             return Err(CoreError::Failed("invalidSeeking".into()));
         }
+        self.validate_scales()?;
+        let birth = Profile {
+            birth_year: self.birth_year,
+            birth_month: self.birth_month,
+            birth_day: self.birth_day,
+            ..Profile::default()
+        };
+        if !birth.valid_birth_parts() {
+            return Err(CoreError::Failed("invalid birth date".into()));
+        }
+        if !dyapp_client::places::known(&self.country, &self.place) {
+            return Err(CoreError::Failed("invalid place".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_scales(&self) -> Result<(), CoreError> {
         for (field, value) in [
             (dyapp_profile::Gender::FIELD, self.gender),
             (dyapp_profile::Orientation::FIELD, self.orientation),
@@ -163,18 +180,6 @@ impl PublicProfileDraft {
             if !scale.knows(value) {
                 return Err(CoreError::Failed("invalid profile scale".into()));
             }
-        }
-        let birth = Profile {
-            birth_year: self.birth_year,
-            birth_month: self.birth_month,
-            birth_day: self.birth_day,
-            ..Profile::default()
-        };
-        if !birth.valid_birth_parts() {
-            return Err(CoreError::Failed("invalid birth date".into()));
-        }
-        if !dyapp_client::places::known(&self.country, &self.place) {
-            return Err(CoreError::Failed("invalid place".into()));
         }
         Ok(())
     }

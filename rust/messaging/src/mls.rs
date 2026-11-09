@@ -366,6 +366,19 @@ impl Device {
         Ok((Group { group }, welcome.to_bytes().map_err(mls)?))
     }
 
+    fn restore_key_packages(
+        &self,
+        held: &[(KeyPackageRef, KeyPackageBundle)],
+    ) -> Result<(), Error> {
+        for (hash_ref, bundle) in held {
+            self.provider
+                .storage()
+                .write_key_package(hash_ref, bundle)
+                .map_err(mls)?;
+        }
+        Ok(())
+    }
+
     fn verify_key_package(
         &self,
         bytes: &[u8],
@@ -427,9 +440,7 @@ impl Device {
         for member in staged.members() {
             if let Err(error) = verify_member(&member.credential, &member.signature_key, profiles) {
                 if matches!(error, Error::UnknownOwner(_)) {
-                    for (hash_ref, bundle) in &held {
-                        storage.write_key_package(hash_ref, bundle).map_err(mls)?;
-                    }
+                    self.restore_key_packages(&held)?;
                 }
                 return Err(error);
             }
@@ -469,6 +480,13 @@ impl std::fmt::Debug for Received {
 /// One MLS group: a chat between the devices of its members.
 pub struct Group {
     group: MlsGroup,
+}
+
+fn protocol_message(message: &[u8]) -> Result<ProtocolMessage, Error> {
+    MlsMessageIn::tls_deserialize_exact(message)
+        .map_err(mls)?
+        .try_into_protocol_message()
+        .map_err(|_| Error::Unexpected)
 }
 
 impl Group {
@@ -676,10 +694,7 @@ impl Group {
         message: &[u8],
         profiles: &[VerifiedProfile],
     ) -> Result<Received, Error> {
-        let message = MlsMessageIn::tls_deserialize_exact(message)
-            .map_err(mls)?
-            .try_into_protocol_message()
-            .map_err(|_| Error::Unexpected)?;
+        let message = protocol_message(message)?;
         let processed = self
             .group
             .process_message(&device.provider, message)

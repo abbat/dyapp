@@ -37,6 +37,15 @@ impl ChatBlock {
     }
 }
 
+fn utc_day() -> Result<u32, CoreError> {
+    let today = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(failed)?
+        .as_secs()
+        / 86_400;
+    u32::try_from(today).map_err(failed)
+}
+
 fn code(code: &str) -> CoreError {
     CoreError::Failed(code.into())
 }
@@ -210,12 +219,7 @@ impl ChatSession {
                 {
                     return Ok(ChatBlock::pending(error));
                 }
-                let today = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(failed)?
-                    .as_secs()
-                    / 86_400;
-                let today = u32::try_from(today).map_err(failed)?;
+                let today = utc_day()?;
                 match session.store().revoke_issued(&peer_id, today) {
                     Ok(keys) if keys.is_empty() => {
                         return Ok(ChatBlock {

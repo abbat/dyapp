@@ -433,21 +433,7 @@ impl ChatSession {
                     &self.seal_key,
                 )
                 .await?;
-                // A failed refill stays due for the next call.
-                if session
-                    .store()
-                    .token_refill_due(now.as_secs())
-                    .map_err(failed)?
-                    && session
-                        .refill(std::slice::from_mut(&mut node), &self.seal_key)
-                        .await
-                        .is_ok()
-                {
-                    session
-                        .store()
-                        .token_refill_sent(now.as_secs())
-                        .map_err(failed)?;
-                }
+                refill_if_due(session, &mut node, now.as_secs(), &self.seal_key).await?;
                 // Best effort like the refill, as on the desktop: once the first publish made a
                 // last-resort package it rotates or repeats, and the photo hold renews daily.
                 if matches!(session.store().last_resort(), Ok(Some(_))) {
@@ -471,6 +457,24 @@ impl ChatSession {
             })
         })
     }
+}
+
+async fn refill_if_due(
+    session: &mut Session,
+    node: &mut Node,
+    now: u64,
+    seal_key: &[u8; 32],
+) -> Result<(), CoreError> {
+    // A failed refill stays due for the next call.
+    if session.store().token_refill_due(now).map_err(failed)?
+        && session
+            .refill(std::slice::from_mut(node), seal_key)
+            .await
+            .is_ok()
+    {
+        session.store().token_refill_sent(now).map_err(failed)?;
+    }
+    Ok(())
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<ChatLikes, CoreError> {

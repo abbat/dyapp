@@ -212,6 +212,8 @@ separately so they cannot inherit a named function's cognitive-complexity budget
 are measured too; fixture and assertion helpers retain each scenario's original coverage and order.
 Profile validation and its boundary tests have no complexity allowances; validation preserves
 field, text, photo and device error precedence through separate private checks.
+FFI network/photo work and MLS validation use private helpers; these keep generated native
+interfaces unchanged and preserve mailbox refill and failed-Welcome key-package restoration.
 Parse failures are errors. Workspace quality and `make lint-linux` enforce 15 cognitive complexity,
 50 code lines and 5 nesting levels with exact existing-function budgets. The tested
 `tests/scripts/rust_complexity.py` comparison layer rejects incomplete reports, unknown

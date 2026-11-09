@@ -104,14 +104,7 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
             .get(at..at + 2 + len)
             .ok_or_else(|| failed("truncated JPEG segment"))?;
         let body = &segment[4..];
-        let keep = match marker {
-            0xE0 => body.starts_with(b"JFIF\0"),
-            0xE2 => body.starts_with(b"ICC_PROFILE\0"),
-            0xEE => body.starts_with(b"Adobe"),
-            0xE1..=0xEF | 0xFE => false,
-            _ => true,
-        };
-        if keep {
+        if keep_jpeg_segment(marker, body) {
             out.extend_from_slice(segment);
         }
         at += segment.len();
@@ -128,6 +121,16 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
             }
             out.extend_from_slice(&bytes[start..at]);
         }
+    }
+}
+
+fn keep_jpeg_segment(marker: u8, body: &[u8]) -> bool {
+    match marker {
+        0xE0 => body.starts_with(b"JFIF\0"),
+        0xE2 => body.starts_with(b"ICC_PROFILE\0"),
+        0xEE => body.starts_with(b"Adobe"),
+        0xE1..=0xEF | 0xFE => false,
+        _ => true,
     }
 }
 

@@ -88,30 +88,13 @@ fn two_devices_exchange_messages_across_a_restart() {
     let mut expected = vec![alice.peer_id(), bob.peer_id()];
     expected.sort();
     assert_eq!(members, expected);
-    let secret = bob_group
-        .export_secret(bob_device.clone(), "call".to_string(), vec![], 16)
-        .unwrap();
-    assert_eq!(secret.len(), 16);
-    assert_eq!(
-        secret,
-        created
-            .group
-            .export_secret(alice_device.clone(), "call".to_string(), vec![], 16)
-            .unwrap()
-    );
+    check_exported_secret(&bob_group, &bob_device, &created.group, &alice_device);
     assert!(bob_group
         .remove_revoked(bob_device, profiles.clone())
         .unwrap()
         .is_none());
 
-    // A bad profile, a wrong-sized key and a different state key all fail.
-    assert!(created
-        .group
-        .remove_revoked(alice_device, vec![vec![1, 2, 3]])
-        .is_err());
-    assert!(MlsDevice::open(store.clone(), vec![0; 31], sealed.clone()).is_err());
-    let other = device().1.wrap_state_key(store.clone()).unwrap();
-    assert!(MlsDevice::open(store, other, sealed).is_err());
+    check_invalid_state(&created.group, alice_device, store, sealed);
 }
 
 // The certificate a one-device profile lists.
@@ -127,4 +110,37 @@ fn received_debug_shows_no_text_or_sender() {
         plaintext: b"secret".to_vec(),
     };
     assert_eq!(format!("{received:?}"), "Message { .. }");
+}
+
+fn check_exported_secret(
+    bob_group: &MlsGroup,
+    bob_device: &Arc<MlsDevice>,
+    alice_group: &MlsGroup,
+    alice_device: &Arc<MlsDevice>,
+) {
+    let secret = bob_group
+        .export_secret(bob_device.clone(), "call".to_string(), vec![], 16)
+        .unwrap();
+    assert_eq!(secret.len(), 16);
+    assert_eq!(
+        secret,
+        alice_group
+            .export_secret(alice_device.clone(), "call".to_string(), vec![], 16)
+            .unwrap()
+    );
+}
+
+fn check_invalid_state(
+    group: &MlsGroup,
+    alice_device: Arc<MlsDevice>,
+    store: Arc<dyn KeyStore>,
+    sealed: Vec<u8>,
+) {
+    // A bad profile, a wrong-sized key and a different state key all fail.
+    assert!(group
+        .remove_revoked(alice_device, vec![vec![1, 2, 3]])
+        .is_err());
+    assert!(MlsDevice::open(store.clone(), vec![0; 31], sealed.clone()).is_err());
+    let other = device().1.wrap_state_key(store.clone()).unwrap();
+    assert!(MlsDevice::open(store, other, sealed).is_err());
 }

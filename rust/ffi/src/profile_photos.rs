@@ -214,12 +214,15 @@ mod tests {
             err(remove_profile_photo(dir.clone(), key.clone(), 9)),
             "photoRefused"
         );
+        check_retained_photo(&dir, &key, &moved[0]);
+        std::fs::remove_dir_all(path).unwrap();
+    }
+    fn check_retained_photo(dir: &str, key: &Arc<IdentityKey>, moved: &[u8]) {
         // A removed blob stays until a publish, and an unknown hash is not found.
-        assert!(profile_photo(dir.clone(), key.clone(), moved[0].clone()).is_ok());
+        assert!(profile_photo(dir.to_owned(), key.clone(), moved.to_vec()).is_ok());
         assert_eq!(
-            err(profile_photo(dir.clone(), key.clone(), vec![0; 32])),
+            err(profile_photo(dir.to_owned(), key.clone(), vec![0; 32])),
             "notFound"
         );
-        std::fs::remove_dir_all(path).unwrap();
     }
 }

@@ -397,22 +397,9 @@ fn revoked_device_is_refused_and_removed() {
         .unwrap();
     let mut phone_group = bob_phone.join(&welcome, &both).unwrap();
     let mut laptop_group = bob_laptop.join(&welcome, &both).unwrap();
-    assert_eq!(
-        alice_group.remove_revoked(&alice_device, &both).unwrap(),
-        None
-    );
-    assert_eq!(alice_group.remove_turn(&alice_device, &both).unwrap(), None);
+    check_current_devices_stay(&mut alice_group, &alice_device, &both);
 
-    // A member whose owner has no profile here stays: an empty cache says nothing about it.
-    let unknown = [profile(&alice, &[&alice_device])];
-    assert_eq!(
-        alice_group.remove_turn(&alice_device, &unknown).unwrap(),
-        None
-    );
-    assert_eq!(
-        alice_group.remove_revoked(&alice_device, &unknown).unwrap(),
-        None
-    );
+    check_unknown_owner_keeps_devices(&mut alice_group, &alice, &alice_device);
 
     // Bob loses the laptop and publishes a profile without it.
     let revoked = [
@@ -475,30 +462,11 @@ fn a_linked_device_joins_a_group_after_its_contact_sees_the_new_profile() {
         p.alice_group.missing_devices(&linked[0]).unwrap(),
         [] as [std::vec::Vec<u8>; 0]
     );
-    // Decrypting the refused commit spends its secret, so the retry starts from the seal.
-    let sealed_bob = p.bob_device.seal(&[3; 32]).unwrap();
-    let epoch = p.bob_group.epoch();
-    assert!(matches!(
-        p.bob_group.process(&p.bob_device, &commit, &p.profiles),
-        Err(Error::Revoked(owner)) if owner == linked[0].peer_id
-    ));
-    assert_eq!(p.bob_group.epoch(), epoch);
-    let bob_device = Device::open(&sealed_bob, &[3; 32]).unwrap();
-    let mut bob_group = Group::load(&bob_device, p.bob_group.id()).unwrap().unwrap();
-    assert_eq!(
-        bob_group.process(&bob_device, &commit, &linked).unwrap(),
-        Received::Commit
-    );
+    let (bob_device, mut bob_group) = accept_linked_commit(&mut p, &commit, &linked);
 
     let mut laptop_group = laptop.join(&welcome, &linked).unwrap();
     assert_eq!(laptop_group.members().unwrap().len(), 3);
-    let (first, second) = if laptop.device_key().unwrap() < p.alice_device.device_key().unwrap() {
-        (&laptop, &p.alice_device)
-    } else {
-        (&p.alice_device, &laptop)
-    };
-    assert_eq!(laptop_group.add_turn(first, &linked[0]).unwrap(), 0);
-    assert_eq!(laptop_group.add_turn(second, &linked[0]).unwrap(), 1);
+    check_linked_device_turns(&laptop_group, &laptop, &p.alice_device, &linked[0]);
     let sealed = bob_group.encrypt(&bob_device, b"both").unwrap();
     for (group, device) in [
         (&mut p.alice_group, &p.alice_device),
@@ -664,22 +632,7 @@ fn current_provider_opens_saved_mls_state_fixture() {
         Ok(Received::Message { plaintext, .. }) if plaintext == b"fixture continuity"
     ));
 
-    // Inspect the stored package without joining: its 30-day validity will expire,
-    // but storage compatibility must remain testable after that date.
-    let reference = KeyPackageRef::tls_deserialize_exact(&reference).unwrap();
-    let stored: Option<KeyPackageBundle> = bob_device
-        .provider
-        .storage()
-        .key_package(&reference)
-        .unwrap();
-    assert_eq!(
-        stored
-            .unwrap()
-            .key_package()
-            .tls_serialize_detached()
-            .unwrap(),
-        unused
-    );
+    check_stored_package(&bob_device, &reference, &unused);
 }
 
 #[test]
@@ -724,4 +677,90 @@ fn exported_secret_matches_across_members() {
             .export_secret(&p.bob_device, "dyapp/test", b"other", 32)
             .unwrap()
     );
+}
+
+fn check_unknown_owner_keeps_devices(
+    alice_group: &mut Group,
+    alice: &Identity,
+    alice_device: &Device,
+) {
+    // A member whose owner has no profile here stays: an empty cache says nothing about it.
+    let unknown = [profile(alice, &[alice_device])];
+    assert_eq!(
+        alice_group.remove_turn(alice_device, &unknown).unwrap(),
+        None
+    );
+    assert_eq!(
+        alice_group.remove_revoked(alice_device, &unknown).unwrap(),
+        None
+    );
+}
+
+fn check_linked_device_turns(
+    laptop_group: &Group,
+    laptop: &Device,
+    alice_device: &Device,
+    linked: &VerifiedProfile,
+) {
+    let (first, second) = if laptop.device_key().unwrap() < alice_device.device_key().unwrap() {
+        (laptop, alice_device)
+    } else {
+        (alice_device, laptop)
+    };
+    assert_eq!(laptop_group.add_turn(first, linked).unwrap(), 0);
+    assert_eq!(laptop_group.add_turn(second, linked).unwrap(), 1);
+}
+
+fn check_stored_package(bob_device: &Device, reference: &[u8], unused: &[u8]) {
+    // Inspect the stored package without joining: its 30-day validity will expire,
+    // but storage compatibility must remain testable after that date.
+    let reference = KeyPackageRef::tls_deserialize_exact(reference).unwrap();
+    let stored: Option<KeyPackageBundle> = bob_device
+        .provider
+        .storage()
+        .key_package(&reference)
+        .unwrap();
+    assert_eq!(
+        stored
+            .unwrap()
+            .key_package()
+            .tls_serialize_detached()
+            .unwrap(),
+        unused
+    );
+}
+
+fn check_current_devices_stay(
+    alice_group: &mut Group,
+    alice_device: &Device,
+    both: &[VerifiedProfile],
+) {
+    assert_eq!(
+        alice_group.remove_revoked(alice_device, both).unwrap(),
+        None
+    );
+    assert_eq!(alice_group.remove_turn(alice_device, both).unwrap(), None);
+}
+
+fn accept_linked_commit(
+    p: &mut Pair,
+    commit: &[u8],
+    linked: &[VerifiedProfile],
+) -> (Device, Group) {
+    // Decrypting the refused commit spends its secret, so the retry starts from the seal.
+    let sealed_bob = p.bob_device.seal(&[3; 32]).unwrap();
+    let epoch = p.bob_group.epoch();
+    assert!(matches!(
+        p.bob_group.process(&p.bob_device, commit, &p.profiles),
+        Err(Error::Revoked(owner)) if owner == linked[0].peer_id
+    ));
+    assert_eq!(p.bob_group.epoch(), epoch);
+    let bob_device = Device::open(&sealed_bob, &[3; 32]).unwrap();
+    let mut bob_group = Group::load(&bob_device, p.bob_group.id()).unwrap().unwrap();
+    assert_eq!(
+        bob_group.process(&bob_device, commit, linked).unwrap(),
+        Received::Commit
+    );
+
+    (bob_device, bob_group)
 }
