@@ -294,3 +294,23 @@ fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
     );
     crate::storage::assert_indexed(&lock(&media.db).unwrap(), KEEPS_AFTER);
 }
+
+#[test]
+fn only_a_missing_file_reads_as_absent() {
+    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let media = MediaStore::open(&dir).unwrap();
+    let hash = [4u8; 32];
+    media.cache(&hash, &[4; 50], 100).unwrap();
+    std::fs::remove_file(media.cache.join(hex(&hash))).unwrap();
+    assert_eq!(media.cached(&hash, 200).unwrap(), None);
+    assert_eq!(media.usage().unwrap().0, 0, "stale metadata dropped");
+
+    media.cache(&hash, &[4; 50], 100).unwrap();
+    std::fs::remove_file(media.cache.join(hex(&hash))).unwrap();
+    std::fs::create_dir(media.cache.join(hex(&hash))).unwrap();
+    assert!(media.cached(&hash, 200).is_err());
+
+    std::fs::create_dir_all(media.path(&hash)).unwrap();
+    assert!(media.get(&hash).is_err());
+    assert_eq!(media.get(&[5u8; 32]).unwrap(), None);
+}

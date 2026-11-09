@@ -5,9 +5,8 @@ database and `.beads/` are local and not part of the repository; public work is 
 Issues.
 
 The installed binary is the reference: run `bd <command> --help` before using an unfamiliar
-command, and `bd prime` for session context. The agent skill is
-`.agents/skills/beads/SKILL.md` (Codex, local and not in the repository), shared with Claude
-Code through the symlink `.claude/skills/beads` (`/beads`).
+command, and `bd prime` for session context. This page and `bd prime` are all an agent needs; a
+local beads skill or plugin is optional and not part of the repository, so do not look for one.
 
 ## Rules
 

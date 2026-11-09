@@ -314,12 +314,14 @@ mod platform {
     const SERVICE: &str = "com.dyapp.identity";
 
     #[derive(Debug, PartialEq, Eq)]
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub enum Unavailable {
         CredentialManagerUnavailable,
         AccessDenied,
     }
 
     impl Unavailable {
+        #[expect(unreachable_pub, reason = "Retained module API visibility")]
         pub fn key(&self) -> &'static str {
             match self {
                 Self::CredentialManagerUnavailable => "storage.system.unavailable",
@@ -337,6 +339,7 @@ mod platform {
         )
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn probe() -> Result<(), Unavailable> {
         let entry = entry("capability-probe").map_err(map_probe_error)?;
         entry.set_secret(b"probe").map_err(map_probe_error)?;
@@ -362,6 +365,7 @@ mod platform {
         }
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn load_slot(user: &str) -> Result<Option<Identity>, String> {
         let entry = entry(user).map_err(|e| e.to_string())?;
         let secret = match entry.get_secret() {
@@ -376,6 +380,7 @@ mod platform {
         Ok(Some(Identity::from_secret(bytes)))
     }
 
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn save_slot(user: &str, identity: &Identity) -> Result<(), String> {
         let entry = entry(user).map_err(|e| e.to_string())?;
         match entry.get_secret() {
@@ -393,6 +398,7 @@ mod platform {
     }
 
     /// Deletes the slot's credential; an absent credential is already deleted.
+    #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn delete_slot(user: &str) -> Result<(), String> {
         match entry(user).map_err(|e| e.to_string())?.delete_credential() {
             Ok(()) | Err(Error::NoEntry) => Ok(()),
