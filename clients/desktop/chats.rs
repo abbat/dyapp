@@ -736,14 +736,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
-        use super::view::ChatRowView;
+    fn match_fixture_peers(dir: &Path, alice: &Identity, bob: &Identity) {
         use dyapp_client::interactions::Interaction;
-        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
-        let alice_id = alice.peer_id();
-        let bob_id = bob.peer_id();
-        let mut store = open(&dir, &alice).unwrap();
+        let (alice_id, bob_id) = (alice.peer_id(), bob.peer_id());
+        let mut store = open(dir, alice).unwrap();
         for (sender, target, device, event_id, wall_ms) in [
             (&alice_id, &bob_id, [1; 32], [1; 16], 1_000),
             (&bob_id, &alice_id, [2; 32], [2; 16], 2_000),
@@ -761,13 +757,25 @@ mod tests {
                 )
                 .unwrap();
         }
-        drop(store);
-        assert_eq!(chat_rows(&dir, &alice).unwrap().len(), 1);
-        let row = &chat_rows(&dir, &alice).unwrap()[0];
-        assert_eq!(row.peer_id, bob_id);
+    }
+
+    fn assert_empty_open_row(row: &view::ChatRowView, peer: &str) {
+        assert_eq!(row.peer_id, peer);
         assert_eq!(row.state, view::ChatState::Open);
         assert_eq!(row.last_message, None);
         assert_eq!(row.unread_count, 0);
+    }
+
+    #[test]
+    fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
+        use super::view::ChatRowView;
+        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
+        let alice_id = alice.peer_id();
+        let bob_id = bob.peer_id();
+        match_fixture_peers(&dir, &alice, &bob);
+        assert_eq!(chat_rows(&dir, &alice).unwrap().len(), 1);
+        let row = &chat_rows(&dir, &alice).unwrap()[0];
+        assert_empty_open_row(row, &bob_id);
         let history = chat_history(&dir, &alice, &bob_id).unwrap();
         assert_eq!(history.messages, Vec::<view::MessageView>::new());
         assert!(chat_rows(&dir, &bob).is_err());

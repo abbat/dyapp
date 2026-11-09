@@ -427,16 +427,7 @@ mod tests {
             name: "second".into(),
         };
         network::save(&dir, Settings::Active, &first).unwrap();
-        let verified = |owner: &Identity| {
-            dyapp_profile::verify(
-                &dyapp_profile::Profile {
-                    version: 1,
-                    ..dyapp_profile::Profile::default()
-                }
-                .sign(owner),
-            )
-            .unwrap()
-        };
+        let verified = verified_fixture_profile;
         let prior_profile = verified(&Identity::generate());
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
         let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
@@ -471,12 +462,32 @@ mod tests {
             .unwrap()
             .accept_if_current(new_epoch, verified(&Identity::generate())));
         assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
+        assert_reactivation_keeps_profiles(&state, &checks, &dir, second);
+    }
+
+    fn verified_fixture_profile(owner: &Identity) -> dyapp_profile::VerifiedProfile {
+        dyapp_profile::verify(
+            &dyapp_profile::Profile {
+                version: 1,
+                ..dyapp_profile::Profile::default()
+            }
+            .sign(owner),
+        )
+        .unwrap()
+    }
+
+    fn assert_reactivation_keeps_profiles(
+        state: &SearchState,
+        checks: &crate::network::NetworkState,
+        dir: &Path,
+        second: Network,
+    ) {
         // Re-activating the same settings consumes the check but keeps valid profiles.
         let epoch = state.0.lock().unwrap().epoch();
         checks
-            .remember_connected(checks.check_epoch().unwrap(), dir.clone(), second)
+            .remember_connected(checks.check_epoch().unwrap(), dir.to_path_buf(), second)
             .unwrap();
-        state.activate_network(&checks, &dir).unwrap();
+        state.activate_network(checks, dir).unwrap();
         let cached = state.0.lock().unwrap();
         assert_eq!(cached.epoch(), epoch);
         assert_eq!(cached.snapshot().1.all().len(), 1);

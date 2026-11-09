@@ -95,11 +95,15 @@ mod tests {
         );
         assert!(read(&dir, &owner, "bad").is_err());
         assert!(read(&dir, &owner, &owner.peer_id()).is_err());
+        reject_self_note(&dir, &owner).await;
+    }
+
+    async fn reject_self_note(dir: &Path, owner: &Identity) {
         assert_eq!(
             own::change_peer(
-                &dir,
-                &dir,
-                &owner,
+                dir,
+                dir,
+                owner,
                 &owner.peer_id(),
                 PeerChange::Note("self".into())
             )

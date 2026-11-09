@@ -18,30 +18,37 @@ fn picker_pages_are_bounded_and_contain_only_labels_and_resized_pixels() {
     assert!(thumbnail(&pack, 9).is_err());
     let json = serde_json::to_value(first).unwrap();
     for (index, entry) in json["entries"].as_array().unwrap().iter().enumerate() {
-        assert_eq!(entry["index"], index);
-        let mut fields: Vec<_> = entry
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        fields.sort_unstable();
-        assert_eq!(fields, ["emoji", "frame", "index"]);
-        let frame = &entry["frame"];
-        let mut fields: Vec<_> = frame
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        fields.sort_unstable();
-        assert_eq!(fields, ["height", "pixels", "width"]);
-        let width = frame["width"].as_u64().unwrap();
-        let height = frame["height"].as_u64().unwrap();
-        assert!((1..=96).contains(&width) && (1..=96).contains(&height));
-        assert_eq!(
-            frame["pixels"].as_array().unwrap().len() as u64,
-            width * height * 4
-        );
+        assert_serialized_entry(index, entry);
     }
+}
+
+fn assert_serialized_entry(index: usize, entry: &serde_json::Value) {
+    assert_eq!(entry["index"], index);
+    let mut fields: Vec<_> = entry
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    fields.sort_unstable();
+    assert_eq!(fields, ["emoji", "frame", "index"]);
+    assert_frame(&entry["frame"]);
+}
+
+fn assert_frame(frame: &serde_json::Value) {
+    let mut fields: Vec<_> = frame
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    fields.sort_unstable();
+    assert_eq!(fields, ["height", "pixels", "width"]);
+    let width = frame["width"].as_u64().unwrap();
+    let height = frame["height"].as_u64().unwrap();
+    assert!((1..=96).contains(&width) && (1..=96).contains(&height));
+    assert_eq!(
+        frame["pixels"].as_array().unwrap().len() as u64,
+        width * height * 4
+    );
 }

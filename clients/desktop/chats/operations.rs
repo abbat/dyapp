@@ -164,13 +164,11 @@ mod tests {
     use super::*;
     use dyapp_client::store::messages::{CurrentMessage, MessageKey};
 
-    #[test]
-    fn stickers_are_delete_only_and_require_the_exact_own_key() {
-        let own = Identity::generate().peer_id();
-        let message = dyapp_client::store::messages::ChatSticker {
+    fn sticker_fixture(own: &str) -> dyapp_client::store::messages::ChatSticker {
+        dyapp_client::store::messages::ChatSticker {
             key: MessageKey {
                 group: vec![4],
-                author: own.clone(),
+                author: own.to_owned(),
                 id: [2; 16],
             },
             sticker: dyapp_client::chat::sticker::Sticker {
@@ -184,7 +182,13 @@ mod tests {
             },
             unread: false,
             delivery: None,
-        };
+        }
+    }
+
+    #[test]
+    fn stickers_are_delete_only_and_require_the_exact_own_key() {
+        let own = Identity::generate().peer_id();
+        let message = sticker_fixture(&own);
         assert!(item_matches(
             ChatItem::Sticker(message.clone()),
             &own,

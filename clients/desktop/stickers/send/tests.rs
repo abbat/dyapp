@@ -1,7 +1,14 @@
 use super::*;
 
-#[tokio::test]
-async fn invalid_saved_entry_or_closed_chat_never_opens_mls_or_stages_a_message() {
+struct SavedPack {
+    root: std::path::PathBuf,
+    slot: crate::slots::Slot,
+    identity: Identity,
+    sessions: chats::Sessions,
+    pack_id: [u8; 32],
+}
+
+fn saved_pack() -> SavedPack {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build")
         .join(format!(
@@ -19,6 +26,24 @@ async fn invalid_saved_entry_or_closed_chat_never_opens_mls_or_stages_a_message(
         &super::super::native_tests::archive_count(1),
     )
     .unwrap();
+    SavedPack {
+        root,
+        slot,
+        identity,
+        sessions,
+        pack_id,
+    }
+}
+
+#[tokio::test]
+async fn invalid_saved_entry_or_closed_chat_never_opens_mls_or_stages_a_message() {
+    let SavedPack {
+        root,
+        slot,
+        identity,
+        sessions,
+        pack_id,
+    } = saved_pack();
     let peer_id = Identity::generate().peer_id();
     let device = Identity::generate();
     let cache = Mutex::new(ProfileCache::default());

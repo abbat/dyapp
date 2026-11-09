@@ -1,15 +1,6 @@
 [
-  {"path":"clients/desktop/chats.rs","function":"mod tests # [cfg (test)]::fn chat_reads_are_identity_bound_and_hide_blocked_peers ","metrics":{"cognitive":20,"lines":56}},
-  {"path":"clients/desktop/chats/operations.rs","function":"mod tests # [cfg (test)]::fn stickers_are_delete_only_and_require_the_exact_own_key ","metrics":{"lines":54}},
   {"path":"clients/desktop/chats/receive.rs","function":"fn receive ","metrics":{"cognitive":29,"lines":104}},
-  {"path":"clients/desktop/contact_notes.rs","function":"mod tests # [cfg (test)]::fn offline_notes_are_private_bounded_and_identity_scoped ","metrics":{"lines":51}},
   {"path":"clients/desktop/main.rs","function":"fn main ","metrics":{"lines":183}},
   {"path":"clients/desktop/notify.rs","function":"fn around_pass ","metrics":{"nesting":6,"nested_regions":2}},
-  {"path":"clients/desktop/search.rs","function":"mod tests # [cfg (test)]::fn activation_rejects_a_paused_previous_network_profile_result ","metrics":{"lines":64}},
-  {"path":"clients/desktop/slots.rs","function":"mod tests # [cfg (test)]::fn open_and_create_never_replace_a_key ","metrics":{"lines":57}},
-  {"path":"clients/desktop/slots.rs","function":"mod tests # [cfg (test)]::fn remove_erases_only_the_confirmed_key ","metrics":{"lines":59}},
-  {"path":"clients/desktop/stickers/chat.rs","function":"fn original ","metrics":{"lines":55}},
-  {"path":"clients/desktop/stickers/picker/recents/tests.rs","function":"fn recent_pages_preserve_labels_and_bound_pixels_and_pack_reads ","metrics":{"cognitive":17}},
-  {"path":"clients/desktop/stickers/picker/tests.rs","function":"fn picker_pages_are_bounded_and_contain_only_labels_and_resized_pixels ","metrics":{"cognitive":16}},
-  {"path":"clients/desktop/stickers/send/tests.rs","function":"fn invalid_saved_entry_or_closed_chat_never_opens_mls_or_stages_a_message ","metrics":{"lines":59}}
+  {"path":"clients/desktop/stickers/chat.rs","function":"fn original ","metrics":{"lines":55}}
 ]

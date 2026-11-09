@@ -594,6 +594,31 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    type FakeKeys = std::cell::RefCell<std::collections::HashMap<String, [u8; 32]>>;
+
+    fn load_fake_key(keys: &FakeKeys, slot: &Slot) -> Option<Identity> {
+        keys.borrow()
+            .get(&slot.system_name())
+            .map(Identity::from_secret)
+    }
+
+    fn listed_state(root: &Path, id: &str) -> Option<State> {
+        list(root)
+            .unwrap()
+            .into_iter()
+            .find(|slot| slot.id == id)
+            .map(|slot| slot.state)
+    }
+
+    fn describe_opened(opened: &Opened) -> String {
+        match opened {
+            Opened::Setup => "setup".to_owned(),
+            Opened::Ready(slot, identity) => format!("ready {} {}", slot.id, identity.peer_id()),
+            Opened::Picker => "picker".to_owned(),
+            Opened::Recovery(slot, reason, peer) => format!("{reason} {} {peer:?}", slot.id),
+        }
+    }
+
     #[test]
     fn open_and_create_never_replace_a_key() {
         use std::cell::RefCell;
@@ -605,19 +630,8 @@ mod tests {
                 .insert(slot.system_name(), *identity.secret());
             Ok::<_, String>(())
         };
-        let load = |slot: &Slot| {
-            Ok::<_, String>(
-                keys.borrow()
-                    .get(&slot.system_name())
-                    .map(Identity::from_secret),
-            )
-        };
-        let state = |root: &Path| match open(root, &load).unwrap() {
-            Opened::Setup => "setup".to_owned(),
-            Opened::Ready(slot, identity) => format!("ready {} {}", slot.id, identity.peer_id()),
-            Opened::Picker => "picker".to_owned(),
-            Opened::Recovery(slot, reason, peer) => format!("{reason} {} {peer:?}", slot.id),
-        };
+        let load = |slot: &Slot| Ok::<_, String>(load_fake_key(&keys, slot));
+        let state = |root: &Path| describe_opened(&open(root, &load).unwrap());
         assert_eq!(state(&root), "setup");
         let (first, alice) = create(&root, "system", &save, &load).unwrap();
         assert_eq!(
@@ -772,13 +786,7 @@ mod tests {
                 .insert(slot.system_name(), *identity.secret());
             Ok::<_, String>(())
         };
-        let load = |slot: &Slot| {
-            Ok::<_, String>(
-                keys.borrow()
-                    .get(&slot.system_name())
-                    .map(Identity::from_secret),
-            )
-        };
+        let load = |slot: &Slot| Ok::<_, String>(load_fake_key(&keys, slot));
         let working = Cell::new(false);
         let erase = |slot: &Slot| {
             if working.get() {
@@ -786,13 +794,7 @@ mod tests {
             }
             Ok::<_, String>(())
         };
-        let state = |id: &str| {
-            list(&root)
-                .unwrap()
-                .into_iter()
-                .find(|s| s.id == id)
-                .map(|s| s.state)
-        };
+        let state = |id: &str| listed_state(&root, id);
         let (first, alice) = create(&root, "system", &save, &load).unwrap();
         let (second, bob) = create(&root, "file", &save, &load).unwrap();
         let (alice, bob) = (alice.peer_id(), bob.peer_id());

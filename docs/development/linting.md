@@ -206,9 +206,10 @@ Run locally: `make quality` (all checks) or `make fmt` (format check only; it do
 `tools/rust-functions` is a pinned, standalone syn parser. Quality runs its tests and Clippy;
 format checks include it. It maps current source spans to module/impl/function identities and
 measures block nesting, including inline module and impl scopes. Anonymous closures are marked
-separately so they cannot inherit a named function's cognitive-complexity budget. Parse failures
-are errors. Workspace quality and `make lint-linux` enforce 15 cognitive complexity, 50 code
-lines and 5 nesting levels with exact existing-function budgets. The tested
+separately so they cannot inherit a named function's cognitive-complexity budget. Test functions
+are measured too; fixture and assertion helpers retain each scenario's original coverage and order.
+Parse failures are errors. Workspace quality and `make lint-linux` enforce 15 cognitive complexity,
+50 code lines and 5 nesting levels with exact existing-function budgets. The tested
 `tests/scripts/rust_complexity.py` comparison layer rejects incomplete reports, unknown
 functions, stale source spans, anonymous cognitive-complexity findings and metrics above budgets.
 It requires improvements to lower their recorded budgets, and checks both maximum nesting and

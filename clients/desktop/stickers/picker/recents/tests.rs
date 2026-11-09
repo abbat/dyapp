@@ -33,15 +33,7 @@ fn recent_pages_preserve_labels_and_bound_pixels_and_pack_reads() {
     assert_eq!(first.entries.len(), 8);
     assert_eq!(first.next, Some(8));
     for (index, entry) in first.entries.iter().enumerate() {
-        assert_eq!(entry.sticker.index, index);
-        assert_eq!(entry.sticker.emoji, recent[index].emoji);
-        assert_eq!(entry.pack_name, "Animals");
-        assert!((1..=96).contains(&entry.sticker.frame.width));
-        assert!((1..=96).contains(&entry.sticker.frame.height));
-        assert_eq!(
-            entry.sticker.frame.pixels.len(),
-            (entry.sticker.frame.width * entry.sticker.frame.height * 4) as usize
-        );
+        assert_recent_entry(index, entry, &recent[index]);
     }
     let json = serde_json::to_value(&first.entries[0]).unwrap();
     let mut keys: Vec<_> = json
@@ -61,6 +53,18 @@ fn recent_pages_preserve_labels_and_bound_pixels_and_pack_reads() {
         .entries
         .is_empty());
     assert!(page(&recent, recent.len() + 1, load, || false).is_err());
+}
+
+fn assert_recent_entry(index: usize, entry: &Entry, recent: &RecentSticker) {
+    assert_eq!(entry.sticker.index, index);
+    assert_eq!(entry.sticker.emoji, recent.emoji);
+    assert_eq!(entry.pack_name, "Animals");
+    assert!((1..=96).contains(&entry.sticker.frame.width));
+    assert!((1..=96).contains(&entry.sticker.frame.height));
+    assert_eq!(
+        entry.sticker.frame.pixels.len(),
+        (entry.sticker.frame.width * entry.sticker.frame.height * 4) as usize
+    );
 }
 
 #[test]
