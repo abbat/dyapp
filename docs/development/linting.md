@@ -29,7 +29,7 @@ dev Docker container without compiling code. Protobuf lint/format and Python lin
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
 |----------|------|--------|-----------------------------------|----------|--------|
 | Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`); Cargo `[lints]` for [unsafe](code-quality.md#unsafe-policy), docs and suppression policy | yes | `codeql.yml` (clippy, see below) | enforced |
-| Python | flake8; Ruff format 0.17.2 | `.flake8`, `.ruff.toml` | yes, on `tools tests` | `python-lint.yml`: shared Python stage | enforced |
+| Python | flake8; Ruff format 0.17.2; mypy 2.4.0 | `.flake8`, `.ruff.toml`, `.mypy.ini` | yes, on `tools tests` | `python-lint.yml`: shared Python stage | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
 | GitHub Actions security | zizmor (offline audits) | `.github/zizmor.yml` | yes | — | enforced |
 | Shell | ShellCheck on `tests/scripts/*.sh`, `tools/scripts/*.sh`, `tools/build-scripts/*.sh` | none (defaults) | yes | — | enforced |
@@ -261,13 +261,13 @@ bash tests/scripts/rust-check.sh python-check  # provisioned native CI runner
 `.flake8`: `max-line-length = 79`, empty `ignore`, standard excludes (`.git`, `__pycache__`,
 `.venv`, `venv`, `build`, `dist`, …). McCabe complexity (`C901`) is limited to 10 for every
 Python function, including test helpers; there are no complexity baselines or suppressions.
-`make lint-python` checks Ruff formatting, runs flake8 and validates exact `noqa` reasons in Docker; quality, CI and
+`make lint-python` checks Ruff formatting, flake8, strict mypy and exact `noqa` reasons in Docker; quality, CI and
 `make quick-check` share that stage. A real-tool fixture checks the complexity-10 boundary.
 Ruff 0.17.2 is provisioned from the same SHA-256-verified wheel in Docker and native CI.
 `.ruff.toml` fixes 79 columns, double quotes and Python 3.11-compatible syntax, preserving
 host-side script compatibility. `make fmt-python` formats all Python in `tests/` and `tools/`
 through a writable Docker mount. The shared Python stage checks that same complete inventory
-without writing or compiling code. flake8 remains the lint tool:
+without changing source or compiling the application. flake8 remains the lint tool:
 Ruff's lint rules do not reproduce every existing flake8 check. Only `E203` (slice spacing) and
 `W503` (operator placement) are excluded because they conflict with Ruff formatting; complexity
 and unused-code checks remain enabled. The formatter fixture rejects drift and accepts canonical
@@ -321,7 +321,21 @@ describes the consumed WebKit2 4.1 GTK3 API, including Cairo snapshots; the upst
 stubs currently provide the WebKit6 GTK4 API. The local view is used only while type checking.
 Windows-only icon/tray validators require mypy's `win32` platform; other tools and fixtures use
 `linux`. Both groups together cover every Python source and local stub without import suppressions.
-Project-wide strict type checking remains planned.
+`check-python-types.py` enforces `.mypy.ini` and target Python 3.11 across the complete source and
+local-stub inventory. It runs both platform groups even after a failure and writes caches only to
+`build/python-types/`. `MYPYPATH` is cleared so local search-path overrides cannot change the gate.
+Docker and native CI install the same mypy 2.4.0 and library/stub versions from the SHA-256 lock in
+`tools/python-types/requirements.json`; supported execution ABIs are CPython 3.11, 3.12 and 3.13 on
+Linux x86-64. The stdlib-only installer verifies all downloads and archive paths before writing
+the isolated library directory, preserves the GI license, and selects GTK3/Gdk3/Soup3 wrappers
+without executing upstream build code or installing runtime GI libraries. Pillow supplies its own
+types; PyGObject and PyYAML use pinned stub packages.
+
+The default library directory is `/opt/dyapp-python-types`; `DYAPP_PYTHON_TYPES` selects an alternate
+managed location, as in standalone Python CI. The gate checks the installed ABI and lock digest;
+a stale installation fails with `make prepare` as the repair command. Fixtures exercise checksum,
+archive traversal, size, API-version and stale-lock failures, and prove that real Linux and Windows
+type regressions both fail the same gate.
 
 ## Swift (`.swiftlint.yml`)
 

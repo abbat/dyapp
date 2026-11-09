@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - '**.py'
+      - '**.pyi'
+      - '.mypy.ini'
+      - 'tools/python-types/**'
       - '.flake8'
       - '.ruff.toml'
       - 'tests/scripts/rust-check.sh'
@@ -36,6 +39,12 @@ jobs:
 
       - name: install pinned formatter
         run: python3 -B tools/build-scripts/install-ruff.py "$pythonLocation/bin/ruff"
+
+      - name: install pinned type checker
+        run: |
+          python_types="$RUNNER_TEMP/dyapp-python-types"
+          python3 -B tools/build-scripts/install-mypy.py "$python_types"
+          echo "DYAPP_PYTHON_TYPES=$python_types" >> "$GITHUB_ENV"
 
       - name: run
         run: bash tests/scripts/rust-check.sh python-check

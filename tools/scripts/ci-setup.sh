@@ -48,6 +48,7 @@ if [[ $1 == rust ]]; then
     docker rm "$container" > /dev/null
     # Same pinned wheel and checksum as Docker; no pip or Python environment changes.
     sudo python3 -B tools/build-scripts/install-ruff.py /usr/local/bin/ruff
+    sudo python3 -B tools/build-scripts/install-mypy.py /opt/dyapp-python-types
     # typos 1.50.3, taplo 0.10.0, cargo-shear 1.14.0, SwiftLint 0.65.1, detekt 1.23.8, zizmor 1.30.1, age 1.3.2,
     # Biome 2.6.3, rumdl 0.3.1, hadolint 2.15.1 and buf 1.75.0 release binaries, the same checksums as
     # tools/docker/Dockerfile.dev. detekt runs on the runner's Java.

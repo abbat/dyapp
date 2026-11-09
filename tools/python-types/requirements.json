@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "platform": "linux-x86_64",
+  "abis": [
+    "cp311",
+    "cp312",
+    "cp313"
+  ],
+  "gi_versions": {
+    "Gdk": "3",
+    "GdkWin32": "3",
+    "GdkMacos": "4",
+    "GIRepository": "2",
+    "Gtk": "3",
+    "GtkSource": "4",
+    "JavaScriptCore": "6",
+    "Soup": "3",
+    "WebKit": "6"
+  },
+  "artifacts": [
+    {
+      "project": "ast-serialize",
+      "version": "0.13.1",
+      "abi": "any",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/c5/fa/da311559dd3dae9af5825cf21660775a929b970f72e3786af3f2cd667944/ast_serialize-0.13.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "sha256": "9f99786e0d62082a5b121b3437f3167562133711df22128de1e9886f57f0b226"
+    },
+    {
+      "project": "librt",
+      "version": "0.16.0",
+      "abi": "cp311",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/a0/e4/15a8d62b2bc12935080ec7277e2e0b9b233047781eb784a51d3e25af669a/librt-0.16.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "94aed6a8308818b91677957d1bd03188869cd7aeb23c5dba7912a6c0402f7602"
+    },
+    {
+      "project": "librt",
+      "version": "0.16.0",
+      "abi": "cp312",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/ad/f7/7ce72cbf19d0addd05090b339152fd0548a02562c2866a603e6e3b3da2df/librt-0.16.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "36e53948e99bbe3ffea257124cfcae1cfb01831555c9a9c903c9f9a72db7fd07"
+    },
+    {
+      "project": "librt",
+      "version": "0.16.0",
+      "abi": "cp313",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/a9/59/16c409c56f708eda2db9a0553662845d45e3871c77d70a240dae3f3bdc56/librt-0.16.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "17bac7f7a16b328fff77e440287693eb017abde913595b5827ebccbc21ecd8a6"
+    },
+    {
+      "project": "mypy",
+      "version": "2.4.0",
+      "abi": "cp311",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/05/af/b4978a5566cb829ca563dc08e3ad8d944f116078786ad54ba3dff2bcb64d/mypy-2.4.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "a96b07a49b7b1d025ce59c1b3acbcf24bead9a83da4523c4a6bde1bb94e7a0e1"
+    },
+    {
+      "project": "mypy",
+      "version": "2.4.0",
+      "abi": "cp312",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/f3/9e/bcc9af755425ad17790bf11d73c2ea7592914cf309ee1340997670f9d57a/mypy-2.4.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "29eb0b9427a6b11b992e452f6cceb8af724f4dceb47e779d0b35e405e996ea5e"
+    },
+    {
+      "project": "mypy",
+      "version": "2.4.0",
+      "abi": "cp313",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/d5/c4/484275efc935c0003e55e4e8a33e4b8e99528ee956c12256ece4708f903f/mypy-2.4.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "6be721bd4bd57576193653b75b4af3461c9d0bf7dd8b528f782e9be210dc75bb"
+    },
+    {
+      "project": "mypy_extensions",
+      "version": "1.1.0",
+      "abi": "any",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl",
+      "sha256": "1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505"
+    },
+    {
+      "project": "pathspec",
+      "version": "1.1.1",
+      "abi": "any",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl",
+      "sha256": "a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"
+    },
+    {
+      "project": "Pillow",
+      "version": "13.0.0",
+      "abi": "cp311",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/36/46/f509b74787f40ce0627501089d630b2c741b63b244c1f40b640b3b01e181/pillow-13.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "a625df9a2a5597fa5e5266e01aefc82604bb85d291e3547981e863560d75da6c"
+    },
+    {
+      "project": "Pillow",
+      "version": "13.0.0",
+      "abi": "cp312",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/e6/99/fdf65cc539e266ab93546c261bdf98411fe165c6e4e13f9dbf597097192b/pillow-13.0.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "42d63be3af4f9b951b199b0a9d23365d37ab14687e6d77b74940432c8515c4ca"
+    },
+    {
+      "project": "Pillow",
+      "version": "13.0.0",
+      "abi": "cp313",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/ef/fe/f5cdaa2d1c4086e757430f368c271a58ee29cfe7378e7ae7b9d964015c25/pillow-13.0.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "5f56499c1a74d2b862beb0c33b8016f99d095858455df9d21583bbbc1c15b582"
+    },
+    {
+      "project": "PyGObject-stubs",
+      "version": "2.20.0",
+      "abi": "any",
+      "kind": "gi-stubs",
+      "url": "https://files.pythonhosted.org/packages/5b/13/20718103f5e697c5b6b4d91fd32f0a4e3f4f6e3c4990ffe4d5c3bf5ec598/pygobject_stubs-2.20.0.tar.gz",
+      "sha256": "fd61ebf27a893e3b162e0dfb84d80de92ef33f8fdf144298e178239934bce8df"
+    },
+    {
+      "project": "types-PyYAML",
+      "version": "6.0.12.20260906",
+      "abi": "any",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/15/c0/fc0644b7ddcfb969e95845837143cb5173ddd6e06ee4ba5fc493cd9329b7/types_pyyaml-6.0.12.20260906-py3-none-any.whl",
+      "sha256": "bca893ff0d51df5c9053137d5d0e6ccd36e939a196356f1d5c16372422f5137b"
+    },
+    {
+      "project": "typing_extensions",
+      "version": "4.16.0",
+      "abi": "any",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    }
+  ]
+}

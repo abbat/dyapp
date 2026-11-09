@@ -82,6 +82,7 @@ step() {
         python-check)
             check ruff-format ruff format --check --no-cache tests tools
             check flake8 python3 -m flake8 tests tools
+            check mypy python3 -B tools/scripts/check-python-types.py
             check noqa python3 -B tests/scripts/check-noqa.py tests tools
             ;;
         proto-check)

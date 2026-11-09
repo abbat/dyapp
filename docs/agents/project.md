@@ -137,7 +137,7 @@ pulls anything).
 | fmt check | `make fmt` | root workspace and native desktop crates; `make fmt-write` applies formatting in Docker |
 | Fast static checks | `make quick-check` | Rust formatting, Biome lint/format, SwiftLint/swift-format, Protobuf lint/format and Python lint in Docker; no compilation |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
-| Python lint only | `make lint-python` | Ruff format check, flake8 with complexity 10 and exact `noqa` validation in Docker |
+| Python lint only | `make lint-python` | Ruff format check, flake8 with complexity 10, strict mypy for every source/local stub and exact `noqa` validation in Docker |
 | Python formatting | `make fmt-python` | pinned Ruff writes all Python under `tests/` and `tools/` in Docker |
 | Android lint only (seconds) | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, both run; nothing compiles, so after a UniFFI record gains a field grep its constructors in `src/test` and `src/androidTest` too |
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |

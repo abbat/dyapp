@@ -149,6 +149,8 @@ All jobs run directly on the runner, without Docker. Every check is a step of
 
 - installs the apt packages that mirror `tools/docker/Dockerfile.dev`: build tools, clang,
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
+- installs Ruff 0.17.2 and isolated mypy 2.4.0 libraries/stubs through the shared checksum-verified
+  Python installers, using `tools/python-types/requirements.json` for the runner's Python ABI;
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `tools/docker/Dockerfile.dev` uses;
 - downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1,
@@ -211,7 +213,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Protobuf lint | `buf lint proto`; rules in `proto/buf.yaml` ([linting](linting.md#protobuf-protobufyaml)) |
 | Shell lint | `shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh` |
 | Python tests | `python3 -m unittest discover -s tests` |
-| Python lint | `flake8 scripts tools tests` |
+| Python lint | `rust-check.sh python-check`: Ruff format, flake8, strict mypy for every source/local stub, and exact `noqa` validation |
 | Swift lint and format | SwiftLint strict plus `tests/scripts/swift-format.sh lint` (pinned official formatter container on CI) |
 | Kotlin lint | detekt CLI: `--config detekt.yml --input clients/android --build-upon-default-config` |
 | Format | Cargo fmt for workspace, native and tool manifests; `desktop-rust-format.py check` explicitly checks the shared desktop Rust reached through `include!` |
