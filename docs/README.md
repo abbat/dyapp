@@ -111,4 +111,4 @@ short and point here.
 | `AGENTS.md` | AI agents |
 | `LICENSE` | Git hosting, package metadata |
 | `.github/SECURITY.md` | GitHub security policy and private report guidance |
-| `.agents/skills/beads/SKILL.md` | Agent skill discovery (Codex; Claude Code via the `.claude/skills/beads` symlink) |
+| `.agents/skills/*/SKILL.md` | Agent skill discovery (Codex; Claude Code via the `.claude/skills/*` symlinks) |
