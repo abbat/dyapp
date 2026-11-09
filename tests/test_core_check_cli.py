@@ -1,5 +1,6 @@
 """Core concise CLI defaults preserve explicit data APIs."""
 
+from collections.abc import Sequence
 from contextlib import redirect_stdout, redirect_stderr
 import importlib.util
 import io
@@ -15,7 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CoreCheckCLI(unittest.TestCase):
-    def run_cli(self, name, arguments, directory):
+    def run_cli(
+        self, name: str, arguments: Sequence[str], directory: Path
+    ) -> subprocess.CompletedProcess[str]:
         environment = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(directory))
         return subprocess.run(
             [

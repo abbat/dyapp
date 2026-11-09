@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/scripts/ui-inventory.py"
 
 
-def run():
+def run() -> str:
     return subprocess.run(
         [sys.executable, "-B", str(SCRIPT)],
         check=True,

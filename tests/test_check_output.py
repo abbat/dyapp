@@ -1,5 +1,6 @@
 """Quiet check output preserves failures and full raw evidence."""
 
+from collections.abc import Sequence
 from pathlib import Path
 import signal
 import subprocess
@@ -11,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CheckOutput(unittest.TestCase):
-    def run_check(self, directory, name, command):
+    def run_check(
+        self, directory: str | Path, name: str, command: Sequence[str]
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 sys.executable,

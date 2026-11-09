@@ -92,7 +92,7 @@ def unlock_keyring() -> None:
     )
 
 
-def run(arguments, timeout=60, env=None):
+def run(arguments, timeout: int = 60, env=None):
     # Output goes to files, not pipes: WebKit helpers inherit it, and
     # sandboxed ones (bwrap --new-session) escape killpg, so waiting for
     # pipe EOF could hang forever.
@@ -163,7 +163,9 @@ def signed_profile_payload(record_hex):
     return fields[2]
 
 
-def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
+def check_profile_readback(
+    node, seed, peer_id, env, storage, hidden: bool = False
+):
     """Node's signed profile payload must equal the published local draft.
 
     Hidden, the node retains the ordinary record and the local draft advances.

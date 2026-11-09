@@ -85,7 +85,7 @@ def start_node(bin_dir, environment):
         os.close(output)
 
 
-def dyappd(bin_dir, env, *args):
+def dyappd(bin_dir, env, *args) -> str:
     """Run a dyappd subcommand on a node's storage; its standard output."""
     return subprocess.run(
         [f"{bin_dir}/dyappd", *args],
@@ -97,7 +97,7 @@ def dyappd(bin_dir, env, *args):
 
 
 def start(
-    bin_dir, storage, peers, processes, environments, flood=True
+    bin_dir, storage, peers, processes, environments, flood: bool = True
 ) -> None:
     """Start three loopback nodes, appending to the lists the caller stops.
 
@@ -785,7 +785,7 @@ def profile_roundtrip(client, tcp, quic):
 
 
 def suite(
-    peers, client, churn=None, relay=False, reports=None, storage=None
+    peers, client, churn=None, relay: bool = False, reports=None, storage=None
 ) -> None:
     cases = []
     for index, (tcp, quic) in enumerate(peers):

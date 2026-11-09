@@ -130,7 +130,7 @@ def commits(since):
     return result
 
 
-def collect(now, ledger, full=True):
+def collect(now, ledger, full: bool = True):
     if git("rev-parse", "--is-shallow-repository").strip() != "false":
         raise ValueError("Full Git history is required")
     since = (instant(now) - timedelta(days=7)).isoformat()

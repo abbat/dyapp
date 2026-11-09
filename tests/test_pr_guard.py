@@ -43,7 +43,7 @@ class PullRequestGuardTests(unittest.TestCase):
         self.write("README.md", "fixture\n")
         self.base = self.commit()
 
-    def git(self, *args):
+    def git(self, *args: str) -> str:
         result = subprocess.run(
             [
                 "git",
@@ -61,7 +61,7 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         return result.stdout.strip()
 
-    def write(self, path, content="changed\n") -> None:
+    def write(self, path: str, content: str = "changed\n") -> None:
         file = self.root / path
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content)

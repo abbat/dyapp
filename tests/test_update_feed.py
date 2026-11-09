@@ -17,7 +17,7 @@ COMMIT = "a" * 40
 DIGEST = "b" * 64
 
 
-def release(tag="v0.0.1", targets=None):
+def release(tag: str = "v0.0.1", targets=None):
     return {
         "tag": tag,
         "commit": COMMIT,
@@ -30,7 +30,7 @@ def release(tag="v0.0.1", targets=None):
     }
 
 
-def package(target, tag="v0.0.1"):
+def package(target, tag: str = "v0.0.1"):
     name = FEED.expected_package(target, tag)
     item = release(tag, {target: {"method": "package", "asset": name}})
     item["assets"] = [{"name": name, "state": "uploaded", "sha256": DIGEST}]

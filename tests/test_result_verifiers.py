@@ -51,7 +51,7 @@ class Reports(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 APPLE.validate(data)
 
-    def run_validator(self, script, contents, junit=False, extra=()):
+    def run_validator(self, script, contents, junit: bool = False, extra=()):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             filename = "TEST-app.xml" if junit else "report.txt"

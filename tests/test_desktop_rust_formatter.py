@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DesktopRustFormatterTest(unittest.TestCase):
-    def fixture(self):
+    def fixture(self) -> tuple[Path, Path]:
         root = ROOT / "build/tool-fixtures/desktop-rustfmt"
         root = root / str(time.time_ns())
         script = root / "tests/scripts/desktop-rust-format.py"
@@ -19,7 +19,9 @@ class DesktopRustFormatterTest(unittest.TestCase):
         shutil.copyfile(ROOT / "tests/scripts/desktop-rust-format.py", script)
         return root, script
 
-    def run_formatter(self, script, mode):
+    def run_formatter(
+        self, script: Path, mode: str
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, "-B", str(script), mode],
             capture_output=True,

@@ -26,7 +26,9 @@ class Auditable(unittest.TestCase):
             )
             env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs"))
 
-            def run(binary, raw=False):
+            def run(
+                binary: Path, raw: bool = False
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.run(
                     [
                         sys.executable,
@@ -41,7 +43,7 @@ class Auditable(unittest.TestCase):
                     check=False,
                 )
 
-            def binary(name, packages):
+            def binary(name: str, packages: list[dict[str, str]]) -> Path:
                 section = root / "section"
                 section.write_bytes(
                     zlib.compress(json.dumps({"packages": packages}).encode())

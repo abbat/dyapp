@@ -16,7 +16,7 @@ FLOW = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FLOW)
 
 
-def run(sha, created, finished, conclusion, attempt=1):
+def run(sha, created, finished, conclusion, attempt: int = 1):
     return {
         "head_sha": sha,
         "created_at": created,

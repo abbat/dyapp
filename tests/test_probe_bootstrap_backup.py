@@ -142,7 +142,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         plain = root / "plain-key"
         plain.write_bytes(b"good-key")
 
-        def snapshot(name, tamper=False) -> None:
+        def snapshot(name, tamper: bool = False) -> None:
             encrypted = root / f"{name}.age"
             subprocess.run(
                 [

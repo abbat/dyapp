@@ -33,7 +33,7 @@ DIGEST = hashlib.sha256(BYTES).hexdigest()
 
 
 def fake_runner(
-    payload=BYTES, attestation=None, head=COMMIT, state="uploaded"
+    payload=BYTES, attestation=None, head=COMMIT, state: str = "uploaded"
 ):
     release = {
         "tag_name": TAG,
@@ -53,7 +53,7 @@ def fake_runner(
         attestation = [{"verificationResult": {"statement": {}}}]
     calls = []
 
-    def run(args, timeout=120):
+    def run(args, timeout: int = 120):
         calls.append(args)
         if args[:2] == ["git", "rev-parse"]:
             return (head if args[2] == "HEAD" else COMMIT).encode()
@@ -116,7 +116,7 @@ class VerifyReleasePackages(unittest.TestCase):
     def test_verifier_cli_failure_never_emits_inventory(self) -> None:
         run, _ = fake_runner()
 
-        def failed(args, timeout=120):
+        def failed(args, timeout: int = 120):
             if args[:3] == ["gh", "attestation", "verify"]:
                 raise ValueError("verification command failed: gh")
             return run(args, timeout=timeout)

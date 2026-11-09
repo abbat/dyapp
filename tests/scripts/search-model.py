@@ -288,7 +288,7 @@ def puzzle_rates(p):
 def self_check(p) -> None:
     places = zipf(p["places"], p["top_place"])
 
-    def near(a, b, tol=0.01):
+    def near(a, b, tol: float = 0.01):
         return abs(a - b) <= tol * abs(b)
 
     assert abs(sum(places) - 1) < 1e-9

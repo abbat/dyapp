@@ -39,7 +39,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         }.items():
             (self.source / name).write_bytes(data)
 
-    def create(self, mode="inline") -> None:
+    def create(self, mode: str = "inline") -> None:
         recovery = None
         if mode != "inline":
             (self.source / "node.key").unlink(missing_ok=True)

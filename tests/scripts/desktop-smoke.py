@@ -53,9 +53,9 @@ class DesktopSmoke:
         name,
         extra,
         profile,
-        broken=False,
-        peer=True,
-        timeout=120,
+        broken: bool = False,
+        peer: bool = True,
+        timeout: int = 120,
         launcher=(),
         extra_env=None,
     ):
@@ -398,7 +398,7 @@ class DesktopSmoke:
             raise RuntimeError("reopening a profile replaced the identity")
 
     @contextlib.contextmanager
-    def fake_tray(self, mode, profile, script="fake-tray.py"):
+    def fake_tray(self, mode, profile, script: str = "fake-tray.py"):
         """A session bus host (`script`), or a click driver for the Windows
         notification area (windows-tray.py), for one case."""
         (Path(profile) / "hidden").unlink(missing_ok=True)
@@ -879,7 +879,7 @@ class DesktopSmoke:
         print(f"{len(self.results)} desktop UI cases passed")
 
 
-def smoke(executable, flows=True) -> None:
+def smoke(executable, flows: bool = True) -> None:
     """Only fixture apps skip stateful identity/network flows."""
     DesktopSmoke(executable).exercise(flows)
 

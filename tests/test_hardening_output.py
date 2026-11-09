@@ -1,5 +1,6 @@
 """Exercise the release hardening checker with synthetic ELF headers."""
 
+from collections.abc import Iterable, Mapping
 import json
 import os
 from pathlib import Path
@@ -8,9 +9,21 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from typing import TypedDict, Unpack
 
 ROOT = Path(__file__).resolve().parents[1]
-GOOD = {
+
+
+class ElfOptions(TypedDict, total=False):
+    e_type: int
+    interp: bool
+    stack: int | None
+    relro: bool
+    dynamic: Mapping[int, int] | Iterable[tuple[int, int]]
+    names: Iterable[bytes]
+
+
+GOOD: ElfOptions = {
     "e_type": 3,
     "interp": True,
     "stack": 6,
@@ -20,7 +33,14 @@ GOOD = {
 }
 
 
-def elf(e_type=3, interp=True, stack=6, relro=True, dynamic=(), names=()):
+def elf(
+    e_type: int = 3,
+    interp: bool = True,
+    stack: int | None = 6,
+    relro: bool = True,
+    dynamic: Mapping[int, int] | Iterable[tuple[int, int]] = (),
+    names: Iterable[bytes] = (),
+) -> bytes:
     """ELF64 headers, string table and dynamic section in one PT_LOAD."""
     strtab = b"\x00" + b"".join(name + b"\x00" for name in names)
     phnum = 3 + interp + (stack is not None) + relro
@@ -51,7 +71,9 @@ def elf(e_type=3, interp=True, stack=6, relro=True, dynamic=(), names=()):
         )
     )
 
-    def segment(kind, flags=4, offset=0, filesz=0):
+    def segment(
+        kind: int, flags: int = 4, offset: int = 0, filesz: int = 0
+    ) -> bytes:
         return struct.pack(
             "<IIQQQQQQ", kind, flags, offset, offset, offset, filesz, filesz, 8
         )
@@ -79,7 +101,9 @@ class Hardening(unittest.TestCase):
             )
             env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs"))
 
-            def run(binary, raw=False):
+            def run(
+                binary: Path, raw: bool = False
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.run(
                     [
                         sys.executable,
@@ -93,23 +117,25 @@ class Hardening(unittest.TestCase):
                     check=False,
                 )
 
-            def fixture(name, **change):
+            def fixture(name: str, **change: Unpack[ElfOptions]) -> Path:
                 path = root / name
-                path.write_bytes(elf(**{**GOOD, **change}))
+                options: ElfOptions = {**GOOD, **change}
+                path.write_bytes(elf(**options))
                 return path
 
-            for name, change in [
+            variants: list[tuple[str, ElfOptions]] = [
                 ("flags", {}),
                 ("now-flag-1", {"dynamic": {0x6FFFFFFB: 1}}),
                 ("bind-now", {"dynamic": {24: 0}}),
-            ]:
+            ]
+            for name, change in variants:
                 result = run(fixture(name, **change))
                 self.assertEqual(result.stdout, "OK hardening\n", name)
                 self.assertEqual(result.returncode, 0, name)
             policy = json.loads(
                 (ROOT / "tools/scripts/check-output.json").read_text()
             )
-            bad = {
+            bad: dict[str, tuple[ElfOptions, str]] = {
                 "exec": ({"e_type": 2}, "not a PIE"),
                 "no-interp": ({"interp": False}, "not a PIE"),
                 "exec-stack": ({"stack": 7}, "executable stack"),

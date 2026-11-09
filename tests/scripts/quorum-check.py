@@ -11,11 +11,11 @@ import triggers
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def command(*args):
+def command(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True)
 
 
-def git(*args):
+def git(*args: str) -> str:
     return command("git", "-c", f"safe.directory={ROOT}", *args)
 
 

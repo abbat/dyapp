@@ -21,7 +21,14 @@ LAYOUT = load("check_layout", "tests/scripts/check-layout.py")
 REPOSITORY = load("repository_settings", "tests/scripts/check-repository.py")
 
 
-def gap(a, b, px, framed=True, identifier=False, label=False):
+def gap(
+    a,
+    b,
+    px,
+    framed: bool = True,
+    identifier: bool = False,
+    label: bool = False,
+):
     return {
         "scope": "#s",
         "a": a,

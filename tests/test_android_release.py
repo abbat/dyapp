@@ -19,10 +19,14 @@ SPEC.loader.exec_module(CHECK)
 
 
 def fixture(
-    path, kind, missing=None, wrong_machine=False, duplicate=False
+    path: Path,
+    kind: str,
+    missing: str | None = None,
+    wrong_machine: bool = False,
+    duplicate: bool = False,
 ) -> None:
     prefix = "" if kind == "apk" else "base/"
-    names = {
+    names: dict[str, bytes | bytearray] = {
         "AndroidManifest.xml"
         if kind == "apk"
         else "base/manifest/AndroidManifest.xml": b"manifest",

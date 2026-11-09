@@ -134,7 +134,7 @@ HANDLER = re.compile(
 SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
 
 
-def prose(text, code=False):
+def prose(text, code: bool = False):
     """Lines outside fenced code blocks; inline code dropped unless code."""
     fence = None
     for number, line in enumerate(text.splitlines(), 1):
@@ -255,7 +255,7 @@ def bead_ids(text, allowed):
     return [m for m in BEAD.findall(text) if m not in allowed]
 
 
-def message_errors(message, allowed, bot=False):
+def message_errors(message, allowed, bot: bool = False):
     """Chris Beams' rules that a script can check, plus agent attribution.
 
     Bots (Dependabot) need no Co-Authored-By trailer.

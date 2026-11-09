@@ -54,7 +54,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         )
         self.dyappd.chmod(0o700)
 
-    def run_preflight(self, mode="inline", recovery=None, **options):
+    def run_preflight(self, mode: str = "inline", recovery=None, **options):
         with PREFLIGHT.stopped(self.source):
             return PREFLIGHT.preflight(
                 self.source,

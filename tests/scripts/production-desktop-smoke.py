@@ -111,7 +111,7 @@ class Accessibility:
         return None
 
 
-def wait_for_setup(process, accessibility, expected, timeout=45):
+def wait_for_setup(process, accessibility, expected, timeout: int = 45):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -125,7 +125,9 @@ def wait_for_setup(process, accessibility, expected, timeout=45):
     )
 
 
-def launch(executable, directory, accessibility, expected, timeout=45) -> None:
+def launch(
+    executable, directory, accessibility, expected, timeout: int = 45
+) -> None:
     env = dict(os.environ)
     for key in ("CONFIG", "CACHE", "DATA"):
         path = directory / key.lower()

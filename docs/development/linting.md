@@ -283,6 +283,9 @@ sources assert that their import spec and source loader exist before constructin
 Docker execution helpers use typed stream handles and Compose build/service contracts; artifact
 size readers describe their measured fields separately from collected error lists. Functions
 without a produced value declare `-> None`, including command and fixture helpers.
+CLI test helpers declare subprocess result types and string argument sequences; binary process
+output remains bytes until decoded. Fixture input types include deliberately malformed values
+used by negative tests, including absent job conclusions and invalid coverage counts.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

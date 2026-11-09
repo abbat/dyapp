@@ -340,7 +340,7 @@ def measure_cell(db, q, n):
     }
 
 
-def qps(path, country, seconds=5, threads=2):
+def qps(path, country, seconds: int = 5, threads: int = 2):
     done, stop = [0] * threads, time.monotonic() + seconds
 
     def work(k) -> None:

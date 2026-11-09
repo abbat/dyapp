@@ -1,5 +1,6 @@
 """Exporter payload and failure controls without Docker or SDK preparation."""
 
+from collections.abc import Sequence
 import json
 import os
 from pathlib import Path
@@ -48,7 +49,9 @@ class ExportChecks(unittest.TestCase):
                 DYAPP_CHECK_LOG_DIR=str(root / "logs"),
             )
 
-            def run(script, args, mode="good"):
+            def run(
+                script: str, args: Sequence[str], mode: str = "good"
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.run(
                     [
                         sys.executable,
@@ -108,7 +111,7 @@ class ExportChecks(unittest.TestCase):
     def test_model_report_is_data_and_self_check_is_a_check(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
 
-            def run(*args):
+            def run(*args: str) -> subprocess.CompletedProcess[str]:
                 return subprocess.run(
                     [
                         sys.executable,

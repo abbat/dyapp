@@ -76,7 +76,7 @@ class Batches(unittest.TestCase):
         Path("/tmp/ai").mkdir(exist_ok=True)
         repo = Path(tempfile.mkdtemp(prefix="batches-", dir="/tmp/ai"))
 
-        def git(*args):
+        def git(*args: str) -> bytes:
             return subprocess.check_output(
                 [
                     "git",
@@ -89,7 +89,7 @@ class Batches(unittest.TestCase):
                 cwd=repo,
             )
 
-        def commit(text, message):
+        def commit(text: str, message: str) -> str:
             (repo / "code.txt").write_text(text)
             git("add", "code.txt")
             git("commit", "-qm", message)
@@ -101,7 +101,7 @@ class Batches(unittest.TestCase):
         base = commit("", "Start")
         exact = commit("line\n" * 400, "Add exactly 400 lines")
 
-        def run(base, head="HEAD"):
+        def run(base: str, head: str = "HEAD"):
             result = subprocess.run(
                 [
                     sys.executable,

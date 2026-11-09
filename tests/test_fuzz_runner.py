@@ -45,7 +45,11 @@ with (root / "calls.jsonl").open("a") as stream:
 
 class FuzzRunner(unittest.TestCase):
     def run_stage(
-        self, selected=None, fail=None, fail_list=False, empty_list=False
+        self,
+        selected=None,
+        fail=None,
+        fail_list: bool = False,
+        empty_list: bool = False,
     ):
         build = ROOT / "build"
         build.mkdir(exist_ok=True)

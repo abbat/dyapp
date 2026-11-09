@@ -24,10 +24,10 @@ def deny(reason):
 
 
 def errors(
-    reason="x; review by 2026-11-21 (issue #22)",
-    until="2026-11-21",
+    reason: str = "x; review by 2026-11-21 (issue #22)",
+    until: str = "2026-11-21",
     audit=AUDIT,
-    expiry=False,
+    expiry: bool = False,
 ):
     return CHECK.errors(
         deny(reason), audit, {"osv": OSV.format(until)}, TODAY, expiry

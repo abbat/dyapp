@@ -1,5 +1,6 @@
 """Release frontends keep reports and reject invalid inputs concisely."""
 
+from collections.abc import Sequence
 import json
 import os
 from pathlib import Path
@@ -22,7 +23,9 @@ CHECKS = {
 
 
 class ReleaseOutput(unittest.TestCase):
-    def run_check(self, root, script, arguments):
+    def run_check(
+        self, root: Path, script: str, arguments: Sequence[str]
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 sys.executable,

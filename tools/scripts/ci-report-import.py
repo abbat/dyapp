@@ -30,7 +30,7 @@ EXCERPT = 30
 AGGREGATE = {"required"}
 
 
-def run(*args):
+def run(*args: str) -> str:
     return subprocess.check_output(args, text=True)
 
 

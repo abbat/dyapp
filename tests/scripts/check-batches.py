@@ -10,7 +10,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def git(*args):
+def git(*args: str) -> bytes:
     return subprocess.check_output(
         ["git", "-c", f"safe.directory={Path.cwd()}", *args]
     )
@@ -91,6 +91,7 @@ def inspect(base, head, limit):
         ]
     )
     commits, errors = [], []
+    sha: str | bytes
     for sha in git("rev-list", "--no-merges", f"{base}..{head}").split():
         sha = sha.decode("ascii")
         lines = changed_lines(

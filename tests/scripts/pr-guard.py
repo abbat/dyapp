@@ -36,7 +36,7 @@ INFRA_FILES = {
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
-def git(*args):
+def git(*args: str) -> bytes:
     result = subprocess.run(["git", *args], capture_output=True, check=False)
     if result.returncode:
         raise ValueError(result.stderr.decode(errors="replace").strip())

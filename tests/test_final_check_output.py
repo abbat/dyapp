@@ -1,5 +1,6 @@
 """Negative controls for CI inventory, isolation and Gradle diagnostics."""
 
+from collections.abc import Sequence
 import json
 import os
 import socket
@@ -79,7 +80,9 @@ class FinalChecks(unittest.TestCase):
             )
             identity.chmod(0o755)
 
-            def run(uid="1000", args=()):
+            def run(
+                uid: str = "1000", args: Sequence[str] = ()
+            ) -> subprocess.CompletedProcess[str]:
                 return subprocess.run(
                     ["bash", str(script), *args],
                     capture_output=True,
@@ -91,7 +94,7 @@ class FinalChecks(unittest.TestCase):
                     ),
                 )
 
-            def facts(capabilities=0, privileges=1) -> None:
+            def facts(capabilities: int = 0, privileges: int = 1) -> None:
                 status.write_text(
                     f"CapEff:\t{capabilities:016x}\n"
                     f"NoNewPrivs:\t{privileges}\n"

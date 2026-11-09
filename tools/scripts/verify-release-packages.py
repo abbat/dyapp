@@ -27,7 +27,7 @@ REPO = "abbat/dyapp"
 SIGNER = "abbat/dyapp/.github/workflows/release.yml"
 
 
-def command(args, timeout=120):
+def command(args, timeout: int = 120):
     try:
         return subprocess.run(
             args, check=True, capture_output=True, timeout=timeout

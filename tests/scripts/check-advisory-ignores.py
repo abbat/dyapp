@@ -58,7 +58,7 @@ def osv_dates(text):
     ]
 
 
-def errors(deny, audit, osvs, today, expiry=False):
+def errors(deny, audit, osvs, today, expiry: bool = False):
     """deny and audit are file texts; osvs maps a path to its text."""
     entries = deny_dates(deny)
     found = dated("deny.toml", entries, today, expiry)

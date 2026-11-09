@@ -18,7 +18,7 @@ SPEC.loader.exec_module(GATE)
 
 class Coverage(unittest.TestCase):
     @staticmethod
-    def report(covered=7500, count=10000):
+    def report(covered: int | str = 7500, count: int | str = 10000):
         return {
             "type": "llvm.coverage.json.export",
             "data": [

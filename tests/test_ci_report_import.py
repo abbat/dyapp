@@ -15,7 +15,7 @@ IMPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(IMPORT)
 
 
-def job(name, conclusion, step="build"):
+def job(name, conclusion, step: str = "build"):
     return {
         "name": name,
         "conclusion": conclusion,

@@ -113,7 +113,7 @@ def plan(conclusion, issue):
     return None
 
 
-def gh(*args):
+def gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 

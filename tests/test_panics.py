@@ -16,7 +16,7 @@ CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
 
-def message(path="rust/ffi/src/lib.rs", package="ffi"):
+def message(path: str = "rust/ffi/src/lib.rs", package: str = "ffi"):
     return {
         "reason": "compiler-message",
         "package_id": package,

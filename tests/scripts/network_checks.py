@@ -182,7 +182,7 @@ def error_code(attrs):
     return (code[2] & 7) * 100 + code[3] if code else 0
 
 
-def replica_holders(client, entry, key, count=5):
+def replica_holders(client, entry, key, count: int = 5):
     return [
         call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
         for i in range(count)

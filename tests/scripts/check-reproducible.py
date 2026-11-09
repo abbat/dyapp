@@ -34,7 +34,7 @@ def compare(paths):
     return hashes
 
 
-def output(*args):
+def output(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 

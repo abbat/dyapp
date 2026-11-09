@@ -26,7 +26,7 @@ REPOSITORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPOSITORY)
 
 
-def shard(caught, timeout, missed, unviable=0):
+def shard(caught, timeout, missed, unviable: int = 0):
     return {
         "caught": caught,
         "timeout": timeout,
@@ -74,7 +74,7 @@ class Mutants(unittest.TestCase):
     def test_missed_invariant_mutant_fails_regardless_of_the_score(
         self,
     ) -> None:
-        def outcome(file, function, summary, line=1):
+        def outcome(file, function, summary, line: int = 1):
             return {
                 "scenario": {
                     "Mutant": {

@@ -14,7 +14,9 @@ WAIT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(WAIT)
 
 
-def job(name, conclusion="success", status="completed"):
+def job(
+    name: str, conclusion: str | None = "success", status: str = "completed"
+) -> dict[str, str | None]:
     return {"name": name, "conclusion": conclusion, "status": status}
 
 

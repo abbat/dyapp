@@ -23,7 +23,7 @@ def fingerprint(order, policy=None):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def proposal(beads, now, practices_first=False):
+def proposal(beads, now, practices_first: bool = False):
     active = {b["id"]: b for b in beads if b["status"] != "closed"}
     children = {}
     for bead in beads:
