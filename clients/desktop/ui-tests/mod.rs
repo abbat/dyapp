@@ -1,4 +1,6 @@
 //! Shared native smoke script order, kept separate from application command registration.
+use tauri::webview::PageLoadEvent;
+
 pub(crate) fn scripts() -> String {
     [
         include_str!("common.js"),
@@ -50,4 +52,35 @@ pub(crate) fn scripts() -> String {
         include_str!("main.js"),
     ]
     .join("\n")
+}
+
+/// Enable the isolated native smoke runner before the application is built.
+pub(crate) fn attach(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    let test_mode = std::env::args().any(|arg| arg == "--ui-test");
+    // The isolated loopback smoke uses a cheap node ID and profile proof on both ends.
+    if test_mode && std::env::var_os("DYAPP_TEST_CONFIG_DIR").is_some() {
+        dyapp_p2p_net::set_id_pow_bits(8);
+        dyapp_profile::set_required_pow_bits(4);
+    }
+    let break_ui = std::env::args().any(|arg| arg == "--break-ui");
+    // axe-core for the UI test's accessibility audit; a set but unreadable path fails the run.
+    let axe = std::env::var_os("DYAPP_AXE")
+        .filter(|_| test_mode)
+        .map(|path| {
+            std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("axe-core {}: {e}", path.to_string_lossy()))
+        });
+    builder.on_page_load(move |webview, payload| {
+        if test_mode && payload.event() == PageLoadEvent::Finished {
+            if break_ui {
+                webview
+                    .eval("document.querySelector('#profile-area h1').style.display = 'none'")
+                    .expect("inject UI failure");
+            }
+            if let Some(axe) = &axe {
+                webview.eval(axe.as_str()).expect("load axe-core");
+            }
+            webview.eval(scripts()).expect("start UI test");
+        }
+    })
 }

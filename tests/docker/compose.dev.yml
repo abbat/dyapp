@@ -89,8 +89,9 @@ services:
     security_opt: [no-new-privileges:true]
     volumes:
       - ../../build/deb:/deb:ro
-      - ../../tests/scripts:/tests/scripts:ro
+      - ../../tests:/tests:ro
       - ../../tools/scripts:/tools/scripts:ro
+      - ../../clients/desktop/ui/i18n:/clients/desktop/ui/i18n:ro
     command: [bash, /tests/scripts/client-deb-test.sh]
     profiles: [deb]
   # The same clean Debian 12 for the manual tarball installation.

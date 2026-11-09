@@ -119,6 +119,7 @@ pub fn link_pending(state: tauri::State<'_, IdentityState>) -> Result<bool, Stri
     Ok(pending.is_some())
 }
 
+#[cfg(feature = "ui-smoke")]
 /// UI test only: hands the code to the smoke, which types it into the other client.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]

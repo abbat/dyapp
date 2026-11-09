@@ -54,7 +54,9 @@ the fast staged checks, see [code-quality.md](code-quality.md#git-hooks).
 
 ## Rust
 
-Native Linux CI runs Clippy on every target before building and testing the desktop crate.
+Native Linux CI runs Clippy on every target and feature before building and testing the desktop
+crate, including the opt-in `ui-smoke` code. Ordinary packages omit that feature; their external
+release smoke checks and hook-byte rejection are described in [UI testing](../testing/ui-testing.md).
 `make lint-linux` runs that Clippy check alone in the Linux test container; it requires the
 Linux images prepared with Clippy and rustfmt 1.99.0. The command may compile dependencies
 on a cold cache. Tauri's generated capability schemas use a separate bind mount from

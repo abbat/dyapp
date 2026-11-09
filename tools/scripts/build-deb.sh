@@ -61,6 +61,7 @@ root=build/client-root
 rm -rf "$root" build/shlibs
 install -D -s -m 0755 build/client/release/dyapp-linux "$root/usr/bin/dyapp"
 python3 -B tools/scripts/check-hardening.py "$root/usr/bin/dyapp"
+python3 -B tools/scripts/check-no-ui-smoke.py "$root/usr/bin/dyapp"
 install -D -m 0644 packaging/linux/dyapp.desktop "$root/usr/share/applications/dyapp.desktop"
 install -D -m 0644 packaging/linux/io.github.abbat.dyapp.metainfo.xml \
     "$root/usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml"

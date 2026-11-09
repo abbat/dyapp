@@ -30,8 +30,8 @@ python3 -B "$root/tests/scripts/check-rust-complexity.py" --scope linux
 if [[ ${1:-} == --lint ]]; then
     exit 0
 fi
-cargo build --manifest-path "$manifest" --locked
-if ! cargo test --manifest-path "$manifest" --locked --no-run --message-format=json > "$units"; then
+cargo build --manifest-path "$manifest" --features ui-smoke --locked
+if ! cargo test --manifest-path "$manifest" --features ui-smoke --locked --no-run --message-format=json > "$units"; then
     python3 -B "$root/tests/scripts/cargo-errors.py" "$units" >&2
     exit 1
 fi

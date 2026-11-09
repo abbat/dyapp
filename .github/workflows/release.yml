@@ -138,6 +138,7 @@ jobs:
         with:
           toolchain: '1.99.0'
       - name: build and smoke portable ZIP
+        id: portable
         shell: pwsh
         run: |
           if ($env:GITHUB_EVENT_NAME -eq 'push') {
@@ -152,8 +153,13 @@ jobs:
           $exe = Get-ChildItem $env:RUNNER_TEMP/portable/*/dyapp.exe
           python tests/scripts/check-windows-icon.py $exe.FullName clients/windows/icons/icon.ico
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tests/scripts/desktop-smoke.py $exe.FullName
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (@($exe).Count -ne 1) { throw 'Expected exactly one portable executable' }
+          "executable=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+      - name: production UI smoke
+        uses: ./.github/actions/production-windows-smoke
+        timeout-minutes: 2
+        with:
+          executable: ${{ steps.portable.outputs.executable }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-release-zip

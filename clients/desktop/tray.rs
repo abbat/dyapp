@@ -10,6 +10,7 @@
 )]
 pub(crate) fn quit(app: tauri::AppHandle) {
     // The UI smoke ends its window steps here, so this exit is its pass.
+    #[cfg(feature = "ui-smoke")]
     if std::env::args().any(|arg| arg == "--ui-test") {
         println!("UI_SMOKE_PASS:");
     }

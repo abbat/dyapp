@@ -3,7 +3,7 @@
   {"path":"clients/desktop/chats/operations.rs","function":"mod tests # [cfg (test)]::fn stickers_are_delete_only_and_require_the_exact_own_key ","metrics":{"lines":54}},
   {"path":"clients/desktop/chats/receive.rs","function":"fn receive ","metrics":{"cognitive":29,"lines":104}},
   {"path":"clients/desktop/contact_notes.rs","function":"mod tests # [cfg (test)]::fn offline_notes_are_private_bounded_and_identity_scoped ","metrics":{"lines":51}},
-  {"path":"clients/desktop/main.rs","function":"fn main ","metrics":{"lines":198}},
+  {"path":"clients/desktop/main.rs","function":"fn main ","metrics":{"lines":183}},
   {"path":"clients/desktop/notify.rs","function":"fn around_pass ","metrics":{"nesting":6,"nested_regions":2}},
   {"path":"clients/desktop/profile.rs","function":"fn save ","metrics":{"lines":97}},
   {"path":"clients/desktop/search.rs","function":"mod tests # [cfg (test)]::fn activation_rejects_a_paused_previous_network_profile_result ","metrics":{"lines":64}},

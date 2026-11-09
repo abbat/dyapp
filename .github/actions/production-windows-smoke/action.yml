@@ -1,0 +1,80 @@
+name: Production Windows UI smoke
+description: Check an uninstrumented desktop artifact through Windows UI Automation
+inputs:
+  executable:
+    description: Path to the extracted production executable
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: reject injected hooks
+      shell: pwsh
+      env:
+        DYAPP_RELEASE_EXE: ${{ inputs.executable }}
+      run: |
+        python tools/scripts/check-no-ui-smoke.py "$env:DYAPP_RELEASE_EXE"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    - name: render and close production UI
+      shell: powershell
+      env:
+        DYAPP_RELEASE_EXE: ${{ inputs.executable }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        Add-Type -AssemblyName UIAutomationClient
+        Add-Type -AssemblyName UIAutomationTypes
+        $labels = Get-ChildItem clients/desktop/ui/i18n/*.json | ForEach-Object {
+          $catalogue = Get-Content -Raw -Encoding UTF8 $_.FullName | ConvertFrom-Json
+          @{ heading = $catalogue.'setup.title'; button = $catalogue.'setup.create' }
+        }
+        if (-not $labels) { throw 'Missing production smoke locale catalogues' }
+        function Find-Setup($window, $expectedLabels) {
+          foreach ($locale in $expectedLabels) {
+            $headingCondition = [System.Windows.Automation.PropertyCondition]::new(
+              [System.Windows.Automation.AutomationElement]::NameProperty, [string]$locale.heading)
+            $buttonCondition = [System.Windows.Automation.AndCondition]::new(
+              [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, [string]$locale.button),
+              [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Button))
+            $heading = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $headingCondition)
+            $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+            if ($heading -and $button -and -not $heading.Current.IsOffscreen -and
+                -not $button.Current.IsOffscreen -and $button.Current.IsEnabled) { return $true }
+          }
+          return $false
+        }
+        $profileDir = Join-Path $env:RUNNER_TEMP ('production-desktop-' + [guid]::NewGuid())
+        $env:APPDATA = Join-Path $profileDir 'roaming'
+        $env:LOCALAPPDATA = Join-Path $profileDir 'local'
+        New-Item -ItemType Directory -Force $env:APPDATA, $env:LOCALAPPDATA | Out-Null
+        $appProcess = Start-Process -FilePath (Resolve-Path $env:DYAPP_RELEASE_EXE) -PassThru
+        try {
+          $deadline = [DateTime]::UtcNow.AddSeconds(45)
+          $ready = $false
+          while ([DateTime]::UtcNow -lt $deadline) {
+            $appProcess.Refresh()
+            if ($appProcess.HasExited) { throw 'Production app exited before rendering setup' }
+            if ($appProcess.MainWindowHandle -ne [IntPtr]::Zero) {
+              try {
+                $window = [System.Windows.Automation.AutomationElement]::FromHandle($appProcess.MainWindowHandle)
+                if ($window.Current.ProcessId -eq $appProcess.Id -and (Find-Setup $window $labels)) {
+                  $ready = $true
+                  break
+                }
+              } catch [System.Windows.Automation.ElementNotAvailableException] {
+                # The native window can replace its provider while starting.
+              }
+            }
+            Start-Sleep -Milliseconds 100
+          }
+          if (-not $ready) { throw 'Production app did not expose a rendered setup heading and button' }
+          $missingLabels = @(@{ heading = 'Missing smoke heading'; button = 'Missing smoke button' })
+          if (Find-Setup $window $missingLabels) { throw 'Accessibility check accepted absent controls' }
+          if (-not $appProcess.CloseMainWindow()) { throw 'Could not close production window' }
+          if (-not $appProcess.WaitForExit(15000)) { throw 'Production app did not exit after Close' }
+          if ($appProcess.ExitCode -ne 0) { throw 'Production app exited with an error' }
+          Write-Output 'Production desktop rendered setup and closed without injected hooks'
+        } finally {
+          if (-not $appProcess.HasExited) { $appProcess.Kill(); $appProcess.WaitForExit() }
+        }

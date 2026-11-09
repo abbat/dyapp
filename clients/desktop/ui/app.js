@@ -17,37 +17,35 @@ const accents = {
 const pseudo = (text) =>
   `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
 
-window.stringsShown = Promise.all([invoke('pseudo_locale'), invoke('ui_test_russian')]).then(
-  async ([pseudoLocale, testRussian]) => {
-    const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
-      .split(/[-_]/)[0]
-      .toLowerCase();
-    // Settings → Language overrides the system unless a test or the pseudo-locale sets it.
-    const chosen = localStorage.getItem('language');
-    const wanted = chosen === 'en' || chosen === 'ru' ? chosen : systemLanguage;
-    const language = !pseudoLocale && (testRussian || wanted === 'ru') ? 'ru' : 'en';
-    const response = await fetch(`i18n/${language}.json`);
-    if (!response.ok) throw new Error('Translation catalogue unavailable');
-    const catalogue = await response.json();
-    window.locale = language;
-    window.pseudoLocale = pseudoLocale;
-    document.documentElement.lang = language;
-    window.strings = Object.fromEntries(
-      Object.entries(catalogue).map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]),
-    );
-    for (const element of document.querySelectorAll('[data-i18n]')) {
-      element.textContent = window.strings[element.dataset.i18n];
-    }
-    // Icon-only buttons in the rail still have a name and a tooltip.
-    for (const element of document.querySelectorAll('[data-i18n-label]')) {
-      element.setAttribute('aria-label', window.strings[element.dataset.i18nLabel]);
-      if (element.tagName === 'BUTTON') element.title = window.strings[element.dataset.i18nLabel];
-    }
-    for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
-      element.placeholder = window.strings[element.dataset.i18nPlaceholder];
-    }
-  },
-);
+window.stringsShown = invoke('locale_options').then(async ([pseudoLocale, testRussian]) => {
+  const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
+    .split(/[-_]/)[0]
+    .toLowerCase();
+  // Settings → Language overrides the system unless a test or the pseudo-locale sets it.
+  const chosen = localStorage.getItem('language');
+  const wanted = chosen === 'en' || chosen === 'ru' ? chosen : systemLanguage;
+  const language = !pseudoLocale && (testRussian || wanted === 'ru') ? 'ru' : 'en';
+  const response = await fetch(`i18n/${language}.json`);
+  if (!response.ok) throw new Error('Translation catalogue unavailable');
+  const catalogue = await response.json();
+  window.locale = language;
+  window.pseudoLocale = pseudoLocale;
+  document.documentElement.lang = language;
+  window.strings = Object.fromEntries(
+    Object.entries(catalogue).map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]),
+  );
+  for (const element of document.querySelectorAll('[data-i18n]')) {
+    element.textContent = window.strings[element.dataset.i18n];
+  }
+  // Icon-only buttons in the rail still have a name and a tooltip.
+  for (const element of document.querySelectorAll('[data-i18n-label]')) {
+    element.setAttribute('aria-label', window.strings[element.dataset.i18nLabel]);
+    if (element.tagName === 'BUTTON') element.title = window.strings[element.dataset.i18nLabel];
+  }
+  for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
+    element.placeholder = window.strings[element.dataset.i18nPlaceholder];
+  }
+});
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
 const identity = document.getElementById('identity');

@@ -8,7 +8,6 @@ use dyapp_identity::Identity;
 use network::{Draft, NetworkState};
 use profile::ProfileState;
 use slots::{Opened, Slot};
-use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
 mod chat_photos;
@@ -24,6 +23,7 @@ mod hex;
 mod identity_gate;
 mod identity_runtime;
 mod stickers;
+#[cfg(feature = "ui-smoke")]
 #[path = "ui-tests/mod.rs"]
 mod ui_smoke;
 use identity_runtime::{describe, respond, IdentityState};
@@ -61,12 +61,13 @@ mod system_store;
 mod tray;
 #[path = "usage.rs"]
 mod usage;
-#[cfg(all(target_os = "linux", debug_assertions))]
+#[cfg(all(feature = "ui-smoke", target_os = "linux", debug_assertions))]
 mod video_frames;
 #[path = "window.rs"]
 mod window;
 
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    #[cfg(feature = "ui-smoke")]
     if std::env::args().any(|arg| arg == "--ui-test") {
         if let Some(path) = std::env::var_os("DYAPP_TEST_CONFIG_DIR") {
             return Ok(PathBuf::from(path));
@@ -585,18 +586,24 @@ async fn search_profiles(
     .map_err(|e| e.to_string())?
 }
 
-/// Whether the page shows pseudo-localized strings (`--pseudo-locale`, practice D1).
+/// Locale flags: pseudo-localization (`--pseudo-locale`), then the smoke-only Russian override.
 #[tauri::command]
-fn pseudo_locale() -> bool {
-    std::env::args().any(|arg| arg == "--pseudo-locale")
+fn locale_options() -> [bool; 2] {
+    let pseudo = std::env::args().any(|arg| arg == "--pseudo-locale");
+    #[cfg(feature = "ui-smoke")]
+    let russian = ui_test_russian();
+    #[cfg(not(feature = "ui-smoke"))]
+    let russian = false;
+    [pseudo, russian]
 }
 
-#[tauri::command]
+#[cfg(feature = "ui-smoke")]
 fn ui_test_russian() -> bool {
     std::env::args().any(|arg| arg == "--ui-test")
         && std::env::args().any(|arg| arg == "--ui-test-ru")
 }
 
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 fn ui_test_mode() -> String {
     if std::env::args().any(|arg| arg == "--ui-test-file") {
@@ -606,12 +613,14 @@ fn ui_test_mode() -> String {
     }
 }
 
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 fn ui_test_existing() -> bool {
     std::env::args().any(|arg| arg == "--ui-test-existing")
 }
 
 /// UI test flow: add, pick, recovery, remove, network, network-restart, or connect:<seed>.
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 fn ui_test_step() -> String {
     std::env::args()
@@ -621,6 +630,7 @@ fn ui_test_step() -> String {
 
 /// UI test screenshot at narrow and wide widths, then restores size. Existing files are kept;
 /// failed or empty captures fail the test when `DYAPP_UI_SHOTS=<dir>` is set.
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
     // A trace of the screens reached, so a timed-out suite shows where it stopped.
@@ -664,6 +674,7 @@ async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String>
     failure.map_or(Ok(()), Err)
 }
 
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
@@ -712,6 +723,7 @@ async fn set_tray(
 /// UI test only: closes the window (to the tray) or hides it, expects it off screen, writes `hidden`
 /// to the test config dir for the smoke (a fake tray host or a second launch), then waits for the
 /// window to come back.
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 async fn ui_test_hide(
     app: tauri::AppHandle,
@@ -738,6 +750,7 @@ async fn ui_test_hide(
 
 /// UI test only: moves and resizes the window when `set` is given, then returns its bounds and
 /// the primary display's, in physical pixels.
+#[cfg(feature = "ui-smoke")]
 #[tauri::command]
 async fn ui_test_window(
     window: tauri::Window,
@@ -780,20 +793,6 @@ async fn ui_test_window(
 }
 
 fn main() {
-    let test_mode = std::env::args().any(|arg| arg == "--ui-test");
-    // The isolated loopback smoke uses a cheap node ID and profile proof on both ends.
-    if test_mode && std::env::var_os("DYAPP_TEST_CONFIG_DIR").is_some() {
-        dyapp_p2p_net::set_id_pow_bits(8);
-        dyapp_profile::set_required_pow_bits(4);
-    }
-    let break_ui = std::env::args().any(|arg| arg == "--break-ui");
-    // axe-core for the UI test's accessibility audit; a set but unreadable path fails the run.
-    let axe = std::env::var_os("DYAPP_AXE")
-        .filter(|_| test_mode)
-        .map(|path| {
-            std::fs::read_to_string(&path)
-                .unwrap_or_else(|e| panic!("axe-core {}: {e}", path.to_string_lossy()))
-        });
     // A second launch shows the running window and exits.
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -802,7 +801,7 @@ fn main() {
     let builder = builder
         .on_permission_request(safety::camera_permission)
         .manage(node::NodeState::default());
-    builder
+    let builder = builder
         .manage(IdentityState::new())
         .manage(NetworkState::default())
         .manage(ProfileState::default())
@@ -880,6 +879,7 @@ fn main() {
             link::poll_link,
             link::link_pending,
             link::linked_device,
+            #[cfg(feature = "ui-smoke")]
             link::ui_test_link_code,
             chats::own::check_link_code,
             chats::own::list_devices,
@@ -945,33 +945,29 @@ fn main() {
             node_usage_commands::node_status,
             node_usage_commands::storage_usage,
             node_usage_commands::status,
-            pseudo_locale,
-            ui_test_russian,
+            locale_options,
+            #[cfg(feature = "ui-smoke")]
             ui_test_mode,
+            #[cfg(feature = "ui-smoke")]
             ui_test_existing,
+            #[cfg(feature = "ui-smoke")]
             ui_test_step,
+            #[cfg(feature = "ui-smoke")]
             ui_test_shot,
+            #[cfg(feature = "ui-smoke")]
             ui_test_window,
+            #[cfg(feature = "ui-smoke")]
             ui_test_hide,
+            #[cfg(feature = "ui-smoke")]
             ui_test_result,
-            #[cfg(all(target_os = "linux", debug_assertions))]
+            #[cfg(all(feature = "ui-smoke", target_os = "linux", debug_assertions))]
             video_frames::ui_test_video_frames,
             set_tray,
             tray::quit
-        ])
-        .on_page_load(move |webview, payload| {
-            if test_mode && payload.event() == PageLoadEvent::Finished {
-                if break_ui {
-                    webview
-                        .eval("document.querySelector('#profile-area h1').style.display = 'none'")
-                        .expect("inject UI failure");
-                }
-                if let Some(axe) = &axe {
-                    webview.eval(axe.as_str()).expect("load axe-core");
-                }
-                webview.eval(ui_smoke::scripts()).expect("start UI test");
-            }
-        })
+        ]);
+    #[cfg(feature = "ui-smoke")]
+    let builder = ui_smoke::attach(builder);
+    builder
         .build(tauri::generate_context!())
         .expect("launch DYApp")
         .run(|app, event| {

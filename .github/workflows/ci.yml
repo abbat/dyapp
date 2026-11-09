@@ -183,10 +183,10 @@ jobs:
       - name: build and unit tests
         shell: pwsh
         run: |
-          python tools/scripts/run-check.py --log-dir build/platform-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --locked
+          python tools/scripts/run-check.py --log-dir build/platform-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --features ui-smoke --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:DYAPP_TEST_CREDENTIAL_MANAGER = '1'
-          python tools/scripts/run-check.py --log-dir build/platform-check-output rust-test -- cargo test --manifest-path clients/windows/Cargo.toml --locked
+          python tools/scripts/run-check.py --log-dir build/platform-check-output rust-test -- cargo test --manifest-path clients/windows/Cargo.toml --features ui-smoke --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: smoke
         shell: pwsh

@@ -6,12 +6,13 @@ trap 'printf "client-deb-test failed at line %s\n" "$LINENO" >&2' ERR
 if [[ ${1:-} == --session ]]; then
     printf 'dyapp-ci-test-keyring' | gnome-keyring-daemon --unlock --components=secrets >/dev/null
     script_dir=$(cd "$(dirname "$0")" && pwd)
-    exec python3 "$script_dir/desktop-smoke.py" "$2"
+    DYAPP_NATIVE_ACCESSIBILITY=1 python3 "$script_dir/../test_production_smoke_accessibility.py"
+    exec python3 "$script_dir/production-desktop-smoke.py" "$2"
 fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends /deb/dyapp_*.deb xvfb xauth dbus-x11 gnome-keyring python3 \
-    python3-gi libayatana-appindicator3-1 \
+    python3-gi gir1.2-atspi-2.0 at-spi2-core gir1.2-webkit2-4.1 xdotool libayatana-appindicator3-1 \
     >/dev/null
 test -f /usr/share/applications/dyapp.desktop
 test -f /usr/share/metainfo/io.github.abbat.dyapp.metainfo.xml

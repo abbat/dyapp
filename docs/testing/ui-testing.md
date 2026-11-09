@@ -1,5 +1,21 @@
 # UI Testing: Practical Guide
 
+Linux and Windows injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.
+`linux-test.sh` and native Windows CI enable it explicitly; ordinary builds and release packages
+leave it off. The feature includes script embedding, test-only IPC, isolated config paths,
+reduced proof-of-work settings, video fixtures and screenshot/failure injection. The production
+`locale_options` query returns pseudo-localization and a feature-only Russian override together;
+ordinary builds ignore test flags. macOS uses its separate Swift test configuration.
+
+Release packages are checked externally: `production-desktop-smoke.py` uses Linux AT-SPI,
+and the shared `production-windows-smoke` action uses Windows UI Automation. A fresh profile
+must expose a visible setup heading and an enabled Create identity button from the same locale.
+Linux focuses the button and quits with Ctrl+Q; Windows closes the native window. Both require
+clean process exit. The artifact check rejects missing, empty or smoke-instrumented binaries.
+Debian package sessions also run real WebKit counterexamples for missing/hidden headings,
+disabled buttons and mixed locales; native functional flows remain in feature-enabled CI.
+The clean package-test container provisions AT-SPI/WebKit introspection and xdotool.
+
 Shared desktop smoke scripts are concatenated in `clients/desktop/ui-tests/mod.rs` order.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
@@ -519,7 +535,7 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   container runs as the host user (`DYAPP_UID`/`DYAPP_GID`, set by `docker-local.py`), mounts
   the checkout read-only at `/app` and builds into `build/linux` at `/app/build`, without network. `ui-test.sh` never builds images; only a changed
   Dockerfile or `Cargo.lock` needs `make prepare` (or `bash tests/scripts/ui-test.sh prepare`).
-- **`linux`** → `linux-test.sh`, after the container isolation check. The script builds the app,
+- **`linux`** → `linux-test.sh`, after the container isolation check. With `--features ui-smoke`, it builds the app,
   the test-binary inventory `build/unit-build.json` and `dyappd` (a no-op when current), which
   is also how CI's **native - linux** runs it.
   Under `xvfb-run` + `dbus-run-session`, it unlocks a test GNOME Keyring, runs the
