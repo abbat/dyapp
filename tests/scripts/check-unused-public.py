@@ -1,15 +1,21 @@
 """Gate workspace-unused public APIs while retaining explicitly marked code."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from quality_contracts import PublicLocation, PublicReport
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def failures(report, status):
+def failures(report: PublicReport, status: int) -> list[str]:
     if report.get("schema_version") != 5:
         raise ValueError("Unsupported or missing Hawk report schema")
     summary = report["summary"]
@@ -38,7 +44,7 @@ def failures(report, status):
     errors = []
     for diagnostic in diagnostics:
         identity = diagnostic.get("identity", {})
-        location = diagnostic.get("location") or {}
+        location: PublicLocation = diagnostic.get("location") or {}
         errors.append(
             f"{location.get('file', 'hawk.toml')}:"
             f"{location.get('line', 1)}: {diagnostic['code']}: "

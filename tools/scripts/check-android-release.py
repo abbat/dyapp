@@ -1,15 +1,21 @@
 """Check unsigned Android Release APK/AAB structure and native ABI payloads."""
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
 from pathlib import Path
 import zipfile
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
 
 ABIS = {"arm64-v8a": 183, "x86_64": 62}
 
 
-def verify(path, kind):
+def verify(path: Path, kind: str) -> qc.AndroidArtifact:
     prefix = "" if kind == "apk" else "base/"
     manifest = (
         "AndroidManifest.xml"
@@ -51,13 +57,13 @@ def verify(path, kind):
     }
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apk", required=True, type=Path)
     parser.add_argument("--aab", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args()
-    report = {
+    report: qc.AndroidReport = {
         "expected_profile": "release",
         "signing": "not-checked",
         "artifacts": {},

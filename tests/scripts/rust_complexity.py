@@ -1,7 +1,14 @@
 """Validate complete Clippy reports and enforce exact per-function limits."""
 
+from __future__ import annotations
+
 from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
 
 LINTS = {
     "clippy::too_many_lines": "lines",
@@ -10,7 +17,9 @@ LINTS = {
 }
 
 
-def diagnostics(metadata, records):
+def diagnostics(
+    metadata: qc.WorkspaceMembers, records: Sequence[qc.CompilerRecord]
+) -> list[qc.ComplexityFinding]:
     """Check compilation completeness and retain workspace diagnostics."""
     members = set(metadata["workspace_members"])
     artifacts = {
@@ -28,7 +37,7 @@ def diagnostics(metadata, records):
         raise ValueError("Missing compiled workspace members")
     if len(finished) != 1 or finished[0].get("success") is not True:
         raise ValueError("Missing unique successful Clippy completion")
-    result = {}
+    result: dict[qc.DiagnosticKey, qc.ComplexityFinding] = {}
     for record in records:
         if record.get("reason") != "compiler-message":
             continue
@@ -36,14 +45,23 @@ def diagnostics(metadata, records):
         if message["level"] == "error":
             raise ValueError("Clippy error: " + message["message"])
         code = (message.get("code") or {}).get("code")
-        if record["package_id"] not in members or code not in LINTS:
+        if (
+            record["package_id"] not in members
+            or code is None
+            or code not in LINTS
+        ):
             continue
         spans = [span for span in message["spans"] if span["is_primary"]]
         if len(spans) != 1:
             raise ValueError("Expected one primary complexity span")
         span = spans[0]
-        key = (code, span["file_name"], span["byte_start"], span["byte_end"])
-        key += (message["message"],)
+        key = (
+            code,
+            span["file_name"],
+            span["byte_start"],
+            span["byte_end"],
+            message["message"],
+        )
         result[key] = {
             "code": code,
             "span": span,
@@ -52,7 +70,7 @@ def diagnostics(metadata, records):
     return list(result.values())
 
 
-def offsets(source):
+def offsets(source: bytes) -> list[int]:
     """Translate proc-macro byte columns using the exact UTF-8 source."""
     result = [0]
     for line in source.splitlines(keepends=True):
@@ -60,8 +78,10 @@ def offsets(source):
     return result
 
 
-def bounds(entry, lines, size):
-    def byte(position):
+def bounds(
+    entry: qc.ParserFunction, lines: Sequence[int], size: int
+) -> tuple[int, int]:
+    def byte(position: Sequence[int]) -> int:
         row, column = position
         if row < 1 or row >= len(lines) or column < 0:
             raise ValueError("Invalid parser source position")
@@ -76,7 +96,11 @@ def bounds(entry, lines, size):
     return start, end
 
 
-def enclosing(finding, source, entries):
+def enclosing(
+    finding: qc.ComplexityFinding,
+    source: bytes,
+    entries: Sequence[qc.ParserFunction],
+) -> qc.ParserFunction:
     span = finding["span"]
     start, end = span["byte_start"], span["byte_end"]
     if not 0 <= start < end <= len(source):
@@ -97,7 +121,9 @@ def enclosing(finding, source, entries):
     return candidates[0][3]
 
 
-def identity(entry, entries):
+def identity(
+    entry: qc.ParserFunction, entries: Sequence[qc.ParserFunction]
+) -> str:
     if entry["kind"] != "function":
         raise ValueError("New complex anonymous closure")
     name = entry["id"]
@@ -111,7 +137,9 @@ def identity(entry, entries):
     return name
 
 
-def metric_value(finding, entry, metric):
+def metric_value(
+    finding: qc.ComplexityFinding, entry: qc.ParserFunction, metric: str
+) -> int:
     if metric == "nesting":
         return entry["nesting"]
     match = re.search(r"\((\d+)/(\d+)\)$", finding["message"])
@@ -121,9 +149,15 @@ def metric_value(finding, entry, metric):
     return int(match[1])
 
 
-def measure(findings, sources, functions):
+def measure(
+    findings: Iterable[qc.ComplexityFinding],
+    sources: Mapping[str, bytes],
+    functions: Mapping[str, Sequence[qc.ParserFunction]],
+) -> qc.Measurements:
     """Associate each finding with its innermost named function."""
-    measured, regions, seen = {}, Counter(), set()
+    measured: qc.Measurements = {}
+    regions: Counter[qc.FunctionKey] = Counter()
+    seen: set[qc.DiagnosticKey] = set()
     for finding in findings:
         span = finding["span"]
         path = span["file_name"]
@@ -151,7 +185,7 @@ def measure(findings, sources, functions):
     return measured
 
 
-def growth_errors(current, previous):
+def growth_errors(current: qc.MetricMap, previous: qc.MetricMap) -> list[str]:
     """A committed allowance can shrink, but cannot grow or change owners."""
     result = []
     for key, values in current.items():
@@ -164,7 +198,7 @@ def growth_errors(current, previous):
     return result
 
 
-def errors(measured, budgets):
+def errors(measured: qc.MetricMap, budgets: qc.MetricMap) -> list[str]:
     """Require explicit budget shrinkage and reject all new offenders."""
     result = []
     for key in sorted(measured.keys() | budgets.keys()):

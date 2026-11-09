@@ -1,6 +1,10 @@
 """Run strict Clippy with exact legacy function complexity budgets."""
 
+from __future__ import annotations
+
 import argparse
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, cast
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -10,6 +14,9 @@ import time
 import tomllib
 
 import rust_complexity as policy
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
 
 ROOT = Path(__file__).resolve().parents[2]
 SCOPES = {
@@ -24,13 +31,14 @@ THRESHOLDS = {
 }
 
 
-def row_key(row):
+def row_key(row: object) -> qc.FunctionKey:
     fields = {"path", "function", "metrics"}
     if not isinstance(row, dict) or set(row) != fields:
         raise ValueError("Invalid complexity budget row")
     key = row["path"], row["function"]
     if not all(isinstance(value, str) and value.strip() for value in key):
         raise ValueError("Invalid function identity")
+    key = cast("qc.FunctionKey", key)
     path = PurePosixPath(key[0])
     invalid = [
         path.is_absolute(),
@@ -44,7 +52,7 @@ def row_key(row):
     return key
 
 
-def row_metrics(values):
+def row_metrics(values: object) -> dict[str, int]:
     allowed = {"lines", "cognitive", "nesting", "nested_regions"}
     if not isinstance(values, dict) or not values:
         raise ValueError("Expected nonempty function metrics")
@@ -54,13 +62,13 @@ def row_metrics(values):
         raise ValueError("Metrics must be positive integers")
     if ("nesting" in values) != ("nested_regions" in values):
         raise ValueError("Nesting needs both depth and region count")
-    return values
+    return cast("dict[str, int]", values)
 
 
-def budgets(rows):
+def budgets(rows: object) -> qc.Measurements:
     if not isinstance(rows, list):
         raise ValueError("Expected a list of complexity budgets")
-    result = {}
+    result: qc.Measurements = {}
     for row in rows:
         key = row_key(row)
         if key in result:
@@ -69,7 +77,7 @@ def budgets(rows):
     return result
 
 
-def budget_changes(path, current):
+def budget_changes(path: Path, current: qc.MetricMap) -> list[str]:
     base = os.environ.get("COMPLEXITY_BASE") or "origin/main"
     if set(base) == {"0"}:
         base = "origin/main"
@@ -96,7 +104,7 @@ def budget_changes(path, current):
     return policy.growth_errors(current, budgets(json.loads(old)))
 
 
-def check_thresholds(directory) -> None:
+def check_thresholds(directory: Path) -> None:
     git = ["git", "-c", f"safe.directory={ROOT}"]
     raw = subprocess.check_output(
         [
@@ -132,7 +140,9 @@ def check_thresholds(directory) -> None:
         raise ValueError(f"Invalid Rust lint configuration; see {log}")
 
 
-def clippy(scope, directory):
+def clippy(
+    scope: str, directory: Path
+) -> tuple[Path, int, list[qc.ComplexityFinding]]:
     manifest = ROOT / SCOPES[scope]
     config = directory / "clippy"
     config.mkdir()
@@ -187,7 +197,9 @@ def clippy(scope, directory):
     return manifest.parent, started, findings
 
 
-def sources(cwd, started, findings):
+def sources(
+    cwd: Path, started: int, findings: Sequence[qc.ComplexityFinding]
+) -> dict[str, bytes]:
     result = {}
     for finding in findings:
         span = finding["span"]
@@ -202,7 +214,11 @@ def sources(cwd, started, findings):
     return result
 
 
-def measure(findings, contents, directory):
+def measure(
+    findings: Sequence[qc.ComplexityFinding],
+    contents: Mapping[str, bytes],
+    directory: Path,
+) -> qc.Measurements:
     if not contents:
         return {}
     command = [
@@ -239,13 +255,13 @@ def measure(findings, contents, directory):
     return policy.measure(findings, contents, functions)
 
 
-def main():
+def main() -> bool:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scope", choices=SCOPES, default="workspace")
     args = parser.parse_args()
     directory = ROOT / "build/complexity" / args.scope / str(time.time_ns())
     directory.mkdir(parents=True)
-    report = {"scope": args.scope, "errors": []}
+    report: qc.ComplexityReport = {"scope": args.scope, "errors": []}
     try:
         path = ROOT / "tests/scripts/rust-complexity" / (args.scope + ".json")
         allowed = budgets(json.loads(path.read_text()))
@@ -269,8 +285,8 @@ def main():
         report["errors"].append(str(error))
     destination = directory / "report.json"
     destination.write_text(json.dumps(report, indent=2) + "\n")
-    for error in report["errors"]:
-        print("error: Rust complexity: " + error, file=sys.stderr)
+    for message in report["errors"]:
+        print("error: Rust complexity: " + message, file=sys.stderr)
     print("Complexity report: " + str(destination))
     return bool(report["errors"])
 

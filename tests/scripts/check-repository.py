@@ -1,5 +1,15 @@
 """Nonmutating equivalents of basic repository hooks, run inside Docker."""
 
+from __future__ import annotations
+
+from collections.abc import (
+    Callable,
+    Container,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+)
 from html.parser import HTMLParser
 import json
 from pathlib import Path, PurePosixPath
@@ -13,6 +23,12 @@ from xml.etree import ElementTree
 from urllib.parse import unquote
 
 import yaml
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from quality_contracts import SizePolicy
+
+TextMap = Mapping[str, str]
 
 HEADING = re.compile(r"#{1,6}\s+(.*?)\s*#*\s*$")
 HTML_ANCHOR = re.compile(r"""<a\s+(?:id|name)=["']([^"']+)["']""")
@@ -134,7 +150,7 @@ HANDLER = re.compile(
 SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
 
 
-def prose(text, code: bool = False):
+def prose(text: str, code: bool = False) -> Iterator[tuple[int, str]]:
     """Lines outside fenced code blocks; inline code dropped unless code."""
     fence = None
     for number, line in enumerate(text.splitlines(), 1):
@@ -149,9 +165,10 @@ def prose(text, code: bool = False):
             yield number, line if code else re.sub(r"(`+).*?\1", "", line)
 
 
-def anchors(text):
+def anchors(text: str) -> set[str]:
     """GitHub heading slugs (duplicates get -1, -2, ...) and HTML ids."""
-    found, seen = set(), {}
+    found: set[str] = set()
+    seen: dict[str, int] = {}
     for _, line in prose(text, code=True):
         found.update(HTML_ANCHOR.findall(line))
         heading = HEADING.match(line)
@@ -165,7 +182,9 @@ def anchors(text):
     return found
 
 
-def broken_links(documents, exists):
+def broken_links(
+    documents: TextMap, exists: Callable[[str], bool]
+) -> list[str]:
     """Relative links in Markdown documents that miss a file or anchor.
 
     documents maps repository paths of .md files to their text; exists tells
@@ -184,7 +203,9 @@ def broken_links(documents, exists):
     return errors
 
 
-def output_map_errors(entries, documents, exists):
+def output_map_errors(
+    entries: object, documents: TextMap, exists: Callable[[str], bool]
+) -> list[str]:
     """Validate check formats and their repository documentation anchors."""
     if not isinstance(entries, dict) or not entries:
         return ["Check output map must be a nonempty object"]
@@ -222,7 +243,7 @@ def output_map_errors(entries, documents, exists):
     return errors + broken_links(synthetic, exists)
 
 
-def links(name, text):
+def links(name: str, text: str) -> Iterator[tuple[int, str, str, str]]:
     """(line, target, repository path, anchor) of relative links."""
     for number, line in prose(text):
         for target in INLINE_LINK.findall(line) + REFERENCE.findall(line):
@@ -236,7 +257,9 @@ def links(name, text):
             yield number, target, resolved, anchor
 
 
-def orphans(documents, files, index=INDEX):
+def orphans(
+    documents: TextMap, files: Iterable[str], index: str = INDEX
+) -> list[str]:
     """Files under docs/ that no link chain from the index reaches."""
     seen, queue = {index}, [index]
     while queue:
@@ -250,12 +273,14 @@ def orphans(documents, files, index=INDEX):
     ]
 
 
-def bead_ids(text, allowed):
+def bead_ids(text: str, allowed: Container[str]) -> list[str]:
     """Tracker IDs in text that are not allowed crate names."""
     return [m for m in BEAD.findall(text) if m not in allowed]
 
 
-def message_errors(message, allowed, bot: bool = False):
+def message_errors(
+    message: str, allowed: Container[str], bot: bool = False
+) -> list[str]:
     """Chris Beams' rules that a script can check, plus agent attribution.
 
     Bots (Dependabot) need no Co-Authored-By trailer.
@@ -281,7 +306,7 @@ def message_errors(message, allowed, bot: bool = False):
     return errors
 
 
-def commit_errors(allowed):
+def commit_errors(allowed: Container[str]) -> list[str]:
     """Message rule violations in commits after BASELINE."""
     git = ["git", "-c", "safe.directory=/workspace"]
     # A shallow clone without the baseline cannot run the check: fail.
@@ -307,7 +332,7 @@ def commit_errors(allowed):
     return errors
 
 
-def message_file_errors(path):
+def message_file_errors(path: str | Path) -> list[str]:
     """Apply the history check to a proposed commit before Git records it."""
     names = subprocess.check_output(
         ["git", "ls-files", "--", "*Cargo.toml"], text=True
@@ -320,7 +345,7 @@ def message_file_errors(path):
     return message_errors(Path(path).read_text(), allowed)
 
 
-def size_errors(texts, size):
+def size_errors(texts: TextMap, size: SizePolicy) -> list[str]:
     """Source files over size["max_lines"] must match size["files"]."""
     limit, budgets = size["max_lines"], size.get("files", {})
     errors = []
@@ -341,7 +366,7 @@ def size_errors(texts, size):
     return errors
 
 
-def debt_errors(texts):
+def debt_errors(texts: TextMap) -> list[str]:
     """Debt markers in source, including comments and string literals."""
     return [
         f"{name}:{number}: {match.group()} debt marker"
@@ -352,7 +377,7 @@ def debt_errors(texts):
     ]
 
 
-def unicode_errors(names, texts):
+def unicode_errors(names: Iterable[str], texts: TextMap) -> list[str]:
     """Format (Cf: bidi, zero-width) and private-use (Co) characters, and
     non-ASCII paths: Trojan Source and lookalike file names."""
     errors = [
@@ -389,7 +414,7 @@ def unicode_errors(names, texts):
     return errors
 
 
-def manifest_errors(name, text):
+def manifest_errors(name: str, text: str) -> list[str]:
     """Android: no backup or device transfer, and nothing exported but the
     launcher activity."""
     android = "{http://schemas.android.com/apk/res/android}"
@@ -413,7 +438,7 @@ def manifest_errors(name, text):
     return errors
 
 
-def round_trip_errors(texts):
+def round_trip_errors(texts: TextMap) -> list[str]:
     """Wire and storage types without a property in PROPERTIES."""
     tested = set(PROPERTY.findall(texts.get(PROPERTIES, "")))
     types = []
@@ -445,7 +470,8 @@ class _Visible(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__()
-        self.skip, self.found = 0, []
+        self.skip = 0
+        self.found: list[str] = []
 
     def handle_starttag(
         self, tag: "str", attrs: "list[tuple[str, str | None]]"
@@ -460,7 +486,7 @@ class _Visible(HTMLParser):
             self.found.append(data.strip())
 
 
-def i18n_errors(texts):
+def i18n_errors(texts: TextMap) -> list[str]:
     """UI string literals and keys missing from their catalogue."""
     errors = []
     apple = json.loads(texts.get(CATALOGUES["apple"], "{}")).get("strings", {})
@@ -498,7 +524,7 @@ def i18n_errors(texts):
     return errors
 
 
-def translation_errors(texts):
+def translation_errors(texts: TextMap) -> list[str]:
     """Require Russian values for every source catalogue key."""
     errors = [
         f"{path}: missing Russian catalogue"
@@ -510,9 +536,11 @@ def translation_errors(texts):
     english = ElementTree.fromstring(texts[CATALOGUES["android"]])
     russian = ElementTree.fromstring(texts[RUSSIAN["android"]])
 
-    def resources(root):
+    def resources(
+        root: ElementTree.Element,
+    ) -> dict[tuple[str, str], ElementTree.Element]:
         return {
-            (item.tag, item.get("name")): item
+            (item.tag, cast(str, item.get("name"))): item
             for item in root
             if item.get("name")
         }
@@ -524,8 +552,10 @@ def translation_errors(texts):
         empty = item is not None and not "".join(item.itertext()).strip()
         if missing or empty:
             errors.append(f"{RUSSIAN['android']}: missing or extra {key}")
-        elif item.tag == "plurals" and any(
-            not "".join(value.itertext()).strip() for value in item
+        elif (
+            item is not None
+            and item.tag == "plurals"
+            and any(not "".join(value.itertext()).strip() for value in item)
         ):
             errors.append(f"{RUSSIAN['android']}: empty plural form {key}")
     apple = json.loads(texts[CATALOGUES["apple"]]).get("strings", {})
@@ -533,18 +563,21 @@ def translation_errors(texts):
         unit = (
             entry.get("localizations", {}).get("ru", {}).get("stringUnit", {})
         )
-        translated = unit.get("state") == "translated"
-        if not translated or not unit.get("value", "").strip():
+        is_translated = unit.get("state") == "translated"
+        if not is_translated or not unit.get("value", "").strip():
             errors.append(f"{CATALOGUES['apple']}: no Russian value for {key}")
-    english = json.loads(texts[CATALOGUES["desktop"]])
-    russian = json.loads(texts[RUSSIAN["desktop"]])
-    for key in sorted(english.keys() | russian.keys()):
-        if key not in english or not russian.get(key, "").strip():
+    english_catalogue = json.loads(texts[CATALOGUES["desktop"]])
+    russian_catalogue = json.loads(texts[RUSSIAN["desktop"]])
+    for key in sorted(english_catalogue.keys() | russian_catalogue.keys()):
+        if (
+            key not in english_catalogue
+            or not russian_catalogue.get(key, "").strip()
+        ):
             errors.append(f"{RUSSIAN['desktop']}: missing or extra {key}")
     return errors
 
 
-def screen_errors(texts):
+def screen_errors(texts: TextMap) -> list[str]:
     """Screen-page IDs and states missing from the matching prototype."""
     errors = []
     for page, prototype in SCREENS.items():
@@ -569,7 +602,9 @@ SETTINGS_COUNTS = {
 }
 
 
-def settings_errors(texts, budgets):
+def settings_errors(
+    texts: TextMap, budgets: Mapping[str, Mapping[str, int]]
+) -> list[str]:
     """Criteria S5 and S2 (docs/design/review-criteria.md) as a ratchet: the
     prototype settings sections may only lose checkboxes and list rows."""
     errors = []
@@ -589,7 +624,7 @@ def settings_errors(texts, budgets):
     return errors
 
 
-def fuzz_errors(texts):
+def fuzz_errors(texts: TextMap) -> list[str]:
     """Network request handlers that no fuzz target calls."""
     targets = "".join(
         text
@@ -604,7 +639,7 @@ def fuzz_errors(texts):
     ]
 
 
-def skip_errors(texts):
+def skip_errors(texts: TextMap) -> list[str]:
     """Practice B2: a mutants attribute needs a // reason on it or above."""
     errors = []
     for name, text in sorted(texts.items()):
@@ -623,7 +658,7 @@ def skip_errors(texts):
     return errors
 
 
-def validate_text_lines(name, path, text) -> None:
+def validate_text_lines(name: str, path: Path, text: str) -> None:
     for number, line in enumerate(text.splitlines(), 1):
         if line.startswith(("<<<<<<< ", ">>>>>>> ")):
             raise ValueError(f"Merge conflict: {name}:{number}")
@@ -632,7 +667,7 @@ def validate_text_lines(name, path, text) -> None:
             raise ValueError(f"Trailing whitespace: {name}:{number}")
 
 
-def repository_text(path, name):
+def repository_text(path: Path, name: str) -> str | None:
     data = path.read_bytes()
     if len(data) > 500 * 1024:
         raise ValueError(f"Repository file exceeds 500KiB: {name}")
@@ -648,7 +683,9 @@ def repository_text(path, name):
     return text
 
 
-def repository_type(name, path, text, documents) -> None:
+def repository_type(
+    name: str, path: Path, text: str, documents: MutableMapping[str, str]
+) -> None:
     if path.suffix == ".json":
         json.loads(text)
     elif path.suffix in (".yaml", ".yml"):
@@ -670,10 +707,12 @@ def repository_type(name, path, text, documents) -> None:
             raise ValueError(f"No unsafe lint policy: {name}")
 
 
-def repository_sources(names):
-    folded = {}
-    documents = {}
-    texts = {}
+def repository_sources(
+    names: Iterable[str],
+) -> tuple[dict[str, str], dict[str, str], dict[str, str], int]:
+    folded: dict[str, str] = {}
+    documents: dict[str, str] = {}
+    texts: dict[str, str] = {}
     checked = 0
     for name in names:
         path = Path(name)
@@ -694,7 +733,7 @@ def repository_sources(names):
     return folded, documents, texts, checked
 
 
-def validate_sources(names, texts):
+def validate_sources(names: Iterable[str], texts: TextMap) -> set[str]:
     errors = debt_errors(texts)
     if errors:
         raise ValueError("Source debt markers:\n" + "\n".join(errors))
@@ -744,7 +783,12 @@ def validate_clients(texts: "dict[str, str]") -> None:
         raise ValueError("Mutation skips:\n" + "\n".join(errors))
 
 
-def validate_documentation(documents, folded, texts, allowed):
+def validate_documentation(
+    documents: TextMap,
+    folded: TextMap,
+    texts: TextMap,
+    allowed: Container[str],
+) -> SizePolicy:
     errors = commit_errors(allowed)
     if errors:
         raise ValueError("Commit messages:\n" + "\n".join(errors))
@@ -765,14 +809,19 @@ def validate_documentation(documents, folded, texts, allowed):
     if lines > AGENTS_LINES:
         raise ValueError(f"AGENTS.md has {lines} > {AGENTS_LINES} lines")
     baselines = tomllib.loads(texts["tests/scripts/baselines.toml"])
-    size = baselines["size"]
-    errors = "\n".join(size_errors(texts, size))
-    if errors:
-        raise ValueError(f"Size budgets ([size] in baselines.toml):\n{errors}")
-    errors = "\n".join(settings_errors(texts, baselines["settings"]))
-    if errors:
+    size: SizePolicy = baselines["size"]
+    size_errors_text = "\n".join(size_errors(texts, size))
+    if size_errors_text:
         raise ValueError(
-            f"Settings budgets ([settings] in baselines.toml):\n{errors}"
+            f"Size budgets ([size] in baselines.toml):\n{size_errors_text}"
+        )
+    settings_errors_text = "\n".join(
+        settings_errors(texts, baselines["settings"])
+    )
+    if settings_errors_text:
+        raise ValueError(
+            "Settings budgets ([settings] in baselines.toml):\n"
+            f"{settings_errors_text}"
         )
     return size
 

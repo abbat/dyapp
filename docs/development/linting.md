@@ -295,6 +295,10 @@ loaders return `ModuleType`. GUI parser callbacks retain the standard HTML attri
 `tests/fixture_contracts.py` describes fixture records, command callbacks and backup options.
 Fixture builders keep concrete output fields; negative controls use raw input views when they
 intentionally corrupt a record. Type-only imports keep those schemas out of test startup.
+`tools/scripts/quality_contracts.py` describes compiler spans, measured complexity, panic
+reports, release artifacts, priority proposals and advisory records. Repository validators retain
+concrete text-map, XML resource and size-policy inputs; raw budget validators narrow external
+values before returning typed measurements. These schemas are imported only while type checking.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

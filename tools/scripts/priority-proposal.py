@@ -1,5 +1,8 @@
 """A11: propose WSJF order locally; never change bead priorities."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 import argparse
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -7,6 +10,10 @@ import json
 import math
 from pathlib import Path
 import subprocess
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
 
 
 def positive(value: "object") -> "int | float":
@@ -17,19 +24,21 @@ def positive(value: "object") -> "int | float":
     return value
 
 
-def fingerprint(order, policy=None):
+def fingerprint(order: list[qc.RankedItem], policy: str | None = None) -> str:
     payload = order if policy is None else {"policy": policy, "order": order}
     text = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def proposal(beads, now, practices_first: bool = False):
+def proposal(
+    beads: Sequence[qc.WorkItem], now: str, practices_first: bool = False
+) -> qc.Proposal:
     active = {b["id"]: b for b in beads if b["status"] != "closed"}
-    children = {}
+    children: dict[str | None, list[qc.WorkItem]] = {}
     for bead in beads:
         children.setdefault(bead.get("parent"), []).append(bead)
 
-    def leaves(key, visiting):
+    def leaves(key: str, visiting: set[str]) -> int:
         if key in visiting:
             raise ValueError("Cycle in bead parents")
         nested = children.get(key, [])
@@ -37,12 +46,13 @@ def proposal(beads, now, practices_first: bool = False):
             return int(key in active)
         return sum(leaves(b["id"], visiting | {key}) for b in nested)
 
-    ranked = []
+    ranked: list[qc.RankedItem] = []
     for bead in active.values():
         if bead["issue_type"] != "epic" or "quorum" in bead.get("labels", []):
             continue
         rating = (bead.get("metadata") or {}).get("wsjf")
         delay: int | float
+        size: int | float
         if rating is None:
             delay = max(1, 5 - int(bead["priority"]))
             size = max(1, leaves(bead["id"], set()))
@@ -83,7 +93,9 @@ def proposal(beads, now, practices_first: bool = False):
     }
 
 
-def check(document, approval, now):
+def check(
+    document: qc.Proposal, approval: qc.Approval | None, now: str
+) -> list[str]:
     generated = datetime.fromisoformat(document["generated_at"])
     current = datetime.fromisoformat(now)
     if generated.tzinfo is None or current.tzinfo is None:
@@ -122,7 +134,7 @@ def main() -> "bool":
     now = datetime.now(timezone.utc).isoformat()
     try:
         if args.proposal:
-            document = json.loads(args.proposal.read_text())
+            document: qc.Proposal = json.loads(args.proposal.read_text())
         else:
             text = (
                 args.input.read_text()
@@ -144,13 +156,14 @@ def main() -> "bool":
         if args.practices_first:
             if document.get("policy") != "practices-first":
                 raise ValueError("Saved proposal is not Practices-first")
-        approval = (
+        approval: qc.Approval | None = (
             json.loads(args.approval.read_text()) if args.approval else None
         )
         errors = check(document, approval, now) if args.check else []
         document["errors"] = errors
         if args.check and not document["errors"]:
             document["approval"] = "approved"
+        output: qc.Proposal | qc.ErrorReport = document
     except (
         ValueError,
         KeyError,
@@ -158,13 +171,13 @@ def main() -> "bool":
         OSError,
         subprocess.CalledProcessError,
     ) as error:
-        document = {"errors": [str(error)]}
-    text = json.dumps(document, indent=2) + "\n"
+        output = {"errors": [str(error)]}
+    text = json.dumps(output, indent=2) + "\n"
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(text)
     print(text, end="")
-    return bool(document["errors"])
+    return bool(output["errors"])
 
 
 if __name__ == "__main__":

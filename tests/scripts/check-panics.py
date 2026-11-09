@@ -1,25 +1,35 @@
 """Ratchet panic lints (B8)."""
 
+from __future__ import annotations
+
 import argparse
+from collections.abc import Iterable, Mapping
 from collections import Counter
 import json
 from pathlib import Path
 import subprocess
 import tomllib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
 
 ROOT = Path(__file__).resolve().parents[2]
 LINTS = ("clippy::unwrap_used", "clippy::expect_used", "clippy::panic")
 
 
-def count(metadata, messages):
+def count(
+    metadata: qc.CargoMetadata, messages: Iterable[qc.CompilerRecord]
+) -> tuple[dict[str, int], list[qc.PanicLocation], dict[str, int]]:
     packages = {
         p["id"]: p["name"]
         for p in metadata["packages"]
         if p["id"] in metadata["workspace_members"]
     }
     counts = Counter(dict.fromkeys(packages.values(), 0))
-    seen, locations = set(), []
-    excluded = Counter()
+    seen: set[tuple[str, str, tuple[tuple[str, int, int], ...]]] = set()
+    locations: list[qc.PanicLocation] = []
+    excluded: Counter[str] = Counter()
     finished = False
     target = Path(metadata["target_directory"]).resolve()
     for item in messages:
@@ -27,8 +37,9 @@ def count(metadata, messages):
             finished = item["success"]
         message = item.get("message", {})
         code = (message.get("code") or {}).get("code")
-        name = packages.get(item.get("package_id"))
-        if not name or code not in LINTS:
+        package_id = item.get("package_id")
+        name = packages.get(package_id) if package_id is not None else None
+        if not name or code is None or code not in LINTS:
             continue
         spans = []
         for span in message["spans"]:
@@ -60,7 +71,7 @@ def count(metadata, messages):
     return dict(counts), locations, dict(excluded)
 
 
-def errors(counts, budgets):
+def errors(counts: Mapping[str, int], budgets: Mapping[str, int]) -> list[str]:
     result = []
     if budgets.get("dyapp-ffi") != 0:
         result.append("FFI panic budget must stay zero")
@@ -76,14 +87,14 @@ def errors(counts, budgets):
     return result
 
 
-def main():
+def main() -> bool:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     args.report = args.report or Path("build") / "panics.json"
-    result = {"errors": []}
+    result: qc.PanicReport = {"errors": []}
     try:
-        metadata = json.loads(
+        metadata: qc.CargoMetadata = json.loads(
             subprocess.check_output(
                 [
                     "cargo",

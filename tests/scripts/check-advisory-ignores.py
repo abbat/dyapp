@@ -8,6 +8,7 @@ as time passes; `--expiry`, run by the scheduled security workflow, also
 fails on a date that has passed or is less than 14 days away.
 """
 
+from collections.abc import Iterable, Mapping
 from datetime import date, timedelta
 from pathlib import Path
 import re
@@ -20,7 +21,12 @@ MAX_AHEAD, WARN = timedelta(days=90), timedelta(days=14)
 MARKER = re.compile(r"review by (\d{4}-\d{2}-\d{2}) \(issue #\d+\)$")
 
 
-def dated(path, entries, today, expiry):
+def dated(
+    path: str,
+    entries: Iterable[tuple[str, date | None]],
+    today: date,
+    expiry: bool,
+) -> list[str]:
     """Errors for (id, date or None) pairs read from one file."""
     errors = []
     for vuln, day in entries:
@@ -39,7 +45,7 @@ def dated(path, entries, today, expiry):
     return errors
 
 
-def deny_dates(text):
+def deny_dates(text: str) -> list[tuple[str, date | None]]:
     entries = []
     for row in tomllib.loads(text)["advisories"].get("ignore", []):
         found = MARKER.search(row.get("reason", ""))
@@ -51,14 +57,20 @@ def deny_dates(text):
     return entries
 
 
-def osv_dates(text):
+def osv_dates(text: str) -> list[tuple[str, date | None]]:
     return [
         (row["id"], row.get("ignoreUntil"))
         for row in tomllib.loads(text).get("IgnoredVulns", [])
     ]
 
 
-def errors(deny, audit, osvs, today, expiry: bool = False):
+def errors(
+    deny: str,
+    audit: str,
+    osvs: Mapping[str, str],
+    today: date,
+    expiry: bool = False,
+) -> list[str]:
     """deny and audit are file texts; osvs maps a path to its text."""
     entries = deny_dates(deny)
     found = dated("deny.toml", entries, today, expiry)

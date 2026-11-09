@@ -1,5 +1,6 @@
 """Verify Apple bundle structure and archive unsigned CI Release packages."""
 
+from collections.abc import Iterable
 import argparse
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ PLATFORMS = {
 }
 
 
-def executable(app, target):
+def executable(app: Path, target: str) -> Path:
     if app.is_symlink() or not app.is_dir() or app.name != "DYApp.app":
         raise ValueError("Expected a real DYApp.app directory")
     content = app if target == "ios" else app / "Contents"
@@ -36,7 +37,9 @@ def executable(app, target):
     return binary
 
 
-def package(app, target, destination, architectures) -> None:
+def package(
+    app: Path, target: str, destination: Path, architectures: Iterable[str]
+) -> None:
     executable(app, target)
     if set(architectures) != PLATFORMS[target][1]:
         raise ValueError(f"{target}: incorrect executable architectures")
