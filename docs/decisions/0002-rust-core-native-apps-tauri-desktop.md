@@ -28,7 +28,9 @@ desktop client on Linux, Windows and macOS.
 The macOS client is a third thin crate over `clients/desktop`, like `clients/linux` and
 `clients/windows`. It replaces the SwiftUI macOS app before v0.0.1. Platform code in the shared
 source is selected by `target_os`; `cfg(unix)` stays only for code that is the same on Linux and
-macOS (file modes, `statvfs`). iOS and Android stay native.
+macOS (file modes, `statvfs`). D-Bus notifications, tray-host discovery, Linux
+single-instance signaling, NetworkManager metering and WebKitGTK camera permissions
+compile only on Linux; other desktops use their platform paths. iOS and Android stay native.
 
 The Rust FFI decodes incoming previews with `jpeg-decoder` 0.3.2 while `image` remains the encoder
 and resizer. The decoder is bounded to 1 MiB; only RGB and grayscale output is accepted after

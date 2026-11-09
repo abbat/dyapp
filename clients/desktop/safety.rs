@@ -13,7 +13,7 @@ use dyapp_identity::Identity;
 use dyapp_profile::VerifiedProfile;
 use qrcodegen::{QrCode, QrCodeEcc};
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 #[expect(
     clippy::needless_pass_by_value,

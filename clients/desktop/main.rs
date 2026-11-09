@@ -932,10 +932,10 @@ fn main() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tray::one_instance());
+    #[cfg(target_os = "linux")]
+    let builder = builder.on_permission_request(safety::camera_permission);
     #[cfg(unix)]
-    let builder = builder
-        .on_permission_request(safety::camera_permission)
-        .manage(node::NodeState::default());
+    let builder = builder.manage(node::NodeState::default());
     let builder = builder
         .manage(IdentityState::new())
         .manage(NetworkState::default())

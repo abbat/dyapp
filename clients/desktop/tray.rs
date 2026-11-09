@@ -73,7 +73,7 @@ pub struct Tray {
 
 const FILE: &str = "tray.json";
 const ID: &str = "main";
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
 
 impl Tray {
@@ -200,7 +200,7 @@ fn available(app: &AppHandle, now: bool) {
 }
 
 /// The appindicator library the tray loads at run time; without it tray-icon panics.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn library() -> bool {
     std::process::Command::new("/sbin/ldconfig")
         .arg("-p")
@@ -214,7 +214,7 @@ fn library() -> bool {
 }
 
 /// Follows the `StatusNotifierItem` host on the session bus, checking every two seconds.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     if !library() {
@@ -243,15 +243,15 @@ pub fn watch(app: AppHandle) {
 }
 
 /// Windows always has a notification area.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 const INSTANCE: &str = "com.dyapp.SingleInstance";
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 const INSTANCE_PATH: &str = "/com/dyapp/SingleInstance";
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 struct Instance(AppHandle);
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[zbus::interface(name = "com.dyapp.SingleInstance")]
 impl Instance {
     fn show(&self) {
@@ -263,7 +263,7 @@ impl Instance {
 /// Without a session bus every launch goes on. tauri-plugin-single-instance does the same on
 /// zbus 5, whose retired crates stay out of this lockfile. A plugin hook, as the window must not
 /// open first.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::<tauri::Wry>::new("single-instance")
@@ -295,13 +295,13 @@ pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri_plugin_single_instance::init(|app, _, _| show(app))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     available(&app, true);

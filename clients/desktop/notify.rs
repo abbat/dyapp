@@ -3,7 +3,7 @@
 //! settings can add the sender's name and the message.
 
 use std::path::Path;
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use dyapp_client::store::{ChatRow, Conversation, NoticeContent};
@@ -156,19 +156,19 @@ fn deliver(app: &AppHandle, name: &str, body: Preview) {
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 const SERVER: &str = "org.freedesktop.Notifications";
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 const PATH: &str = "/org/freedesktop/Notifications";
 /// The notice's own connection: a server can tie a notice to it, and send it the click alone.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 static BUS: std::sync::OnceLock<zbus::Connection> = std::sync::OnceLock::new();
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 static LAST: AtomicU32 = AtomicU32::new(0);
 
 /// Opens the connection for notices and shows the window when the last one is clicked. A desktop
 /// without a session bus shows neither.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
@@ -198,11 +198,11 @@ pub fn watch(app: AppHandle) {
     });
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(_app: AppHandle) {}
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 type Notify<'a> = (
     &'a str,
     u32,
@@ -216,7 +216,7 @@ type Notify<'a> = (
 
 /// The `Notify` arguments: application, replaced notice, icon, summary, body, actions, hints and
 /// the server's own timeout.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn notice<'a>(
     summary: &'a str,
     body: &'a str,
@@ -229,7 +229,7 @@ fn notice<'a>(
 
 /// Best effort, as a desktop may have no notification server. A new notice replaces the last one,
 /// and a click on it runs the `default` action.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn send(summary: &str, body: &str, open: &str) {
     let Some(bus) = BUS.get() else { return };
     let shown = tauri::async_runtime::block_on(async {
@@ -247,7 +247,7 @@ fn send(summary: &str, body: &str, open: &str) {
 }
 
 // ponytail: Windows shows no notice yet; add the toast API when that client ships.
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 fn send(_summary: &str, _body: &str, _open: &str) {}
 
 #[cfg(test)]
@@ -415,7 +415,7 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn a_notice_offers_the_click_and_no_hints() {
         let actions = ["default", "Open"];

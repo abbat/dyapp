@@ -133,7 +133,7 @@ pub(crate) async fn chat_photo_original(
 
 /// `NetworkManager`'s connection is known or guessed unmetered. Anything else, a missing service
 /// included, counts as metered.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub(crate) async fn metered() -> bool {
     const MANAGER: &str = "org.freedesktop.NetworkManager";
     let state = async {
@@ -155,7 +155,7 @@ pub(crate) async fn metered() -> bool {
 }
 
 /// No source of this yet: an unknown network counts as metered.
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 pub(crate) async fn metered() -> bool {
     true
 }
