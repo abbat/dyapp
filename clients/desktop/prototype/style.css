@@ -1,3 +1,7 @@
+html[data-text-scale="200"] {
+  font-size: 200%;
+}
+
 /* Sample profile photos; the app has no photos yet. */
 :root {
   --sample-qr-light: white;

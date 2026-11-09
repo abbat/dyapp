@@ -4,7 +4,8 @@ Control IDs and states for every screen of the Linux and Windows shell in
 [ADR 0033](../decisions/0033-desktop-navigation-shell.md). The implementation and its UI tests use
 these IDs; IDs already in the current client keep their meaning. The static prototype in
 `clients/desktop/prototype/` is the layout reference: it shows every state with the shipped
-stylesheet `clients/desktop/ui/style.css`, is not shipped itself and has no logic. `make ui-prototype` saves every state in English and
+stylesheet `clients/desktop/ui/style.css` and is not shipped itself. It models
+keyboard navigation and dialog opening/dismissal, without backend actions. `make ui-prototype` saves every state in English and
 Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width>.png`
 ([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). The client already has the
 shell with the Profile, Search, Chats, Network and Settings areas and both first-run steps.
@@ -499,7 +500,8 @@ has its own `sticker-manager` screen in `stickers-*` states. The prototype compo
 `chat-stickers` opens `sticker-picker-ready`, with `sticker-picker-empty`,
 `sticker-picker-recent`, `sticker-picker-loading`, `sticker-picker-error` and
 `sticker-picker-sending` variants. The picker has pack-choice buttons, eight labelled image
-buttons, paging, Cancel and Manage packs. Its `sticker-picker-manage` opens the collection.
+buttons, paging, Cancel and Manage packs. This selection dialog has no default button:
+choosing a sticker is the main action; Manage packs is secondary. Its `sticker-picker-manage` opens the collection.
 The shipped button opens the picker too. Pack choices page at 32 records and image/recents
 pages contain at most eight safe thumbnails. Pack navigation has Previous packs/More packs;
 the image navigation has Previous/Next. Closing invalidates callbacks, returns composer focus
@@ -564,13 +566,15 @@ nodes' profile lifetime and offers Retry or Remove anyway.
 | I understand this key cannot be recovered | `remove-confirm` | Required |
 | Cancel | `remove-cancel` | Left, focused; `remove-cancel-offline` when offline |
 | Remove identity | `remove-action` | Right |
-| Retry | `remove-retry` | Offline only |
+| Retry | `remove-retry` | Offline only; default action |
 | Remove anyway | `remove-anyway` | Offline only |
 
 `revoked-dialog` appears over the next state, the picker or the wizard, when a catch-up found that
 another device of the owner revoked this one. The identity is already gone: the node refused the
 mailbox and the owner's newest profile dropped this device. It asks nothing, because the owner
 decided on the other device, and says why the identity left this computer.
+This unsolicited dialog has no opener: Escape closes it and focuses the heading
+of the next screen (picker or wizard). Other dialogs restore their opener.
 
 | Control | ID | Notes |
 | --- | --- | --- |

@@ -8,6 +8,9 @@ import types
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+import subprocess
+import json
 
 if typing.TYPE_CHECKING:
     import fixture_contracts as fc
@@ -27,6 +30,7 @@ def load(name: "str", path: "str") -> "types.ModuleType":
 
 
 LAYOUT = load("check_layout", "tests/scripts/check-layout.py")
+UI_CRITERIA = load("check_ui_criteria", "tests/scripts/check-ui-criteria.py")
 REPOSITORY = load("repository_settings", "tests/scripts/check-repository.py")
 
 
@@ -76,6 +80,61 @@ class Layout(unittest.TestCase):
             LAYOUT.errors(found, ["I1 #s c | d"]),
             (["L2 #s a | b: one (0 px)"], ["I1 #s c | d"]),
         )
+
+
+class UiCriteria(unittest.TestCase):
+    def test_new_stale_and_non_budgetable_findings(self) -> None:
+        key = "profile-en-440 axe:color-contrast #label"
+        self.assertEqual(UI_CRITERIA.errors({key: "contrast"}, [key]), [])
+        self.assertTrue(UI_CRITERIA.errors({key: "contrast"}, []))
+        self.assertTrue(UI_CRITERIA.errors({}, [key]))
+        dialog = "profile-en-440 D3 #dialog"
+        self.assertTrue(UI_CRITERIA.errors({dialog: "two defaults"}, [dialog]))
+        keyboard = "profile-en-440 keyboard #button"
+        self.assertTrue(UI_CRITERIA.errors({keyboard: "trapped"}, [keyboard]))
+
+    def test_history_prevents_reintroduced_and_new_entries(self) -> None:
+        responses = [
+            subprocess.CompletedProcess([], 0, "false\n"),
+            subprocess.CompletedProcess([], 0, "latest\ninitial\n"),
+            subprocess.CompletedProcess(
+                [], 0, json.dumps({"findings": ["a"]})
+            ),
+            subprocess.CompletedProcess(
+                [], 0, json.dumps({"findings": ["a", "removed"]})
+            ),
+        ]
+        with patch.object(
+            UI_CRITERIA.subprocess, "run", side_effect=responses
+        ):
+            self.assertEqual(
+                UI_CRITERIA.baseline_growth(["a", "removed", "new"]),
+                [
+                    "UI baseline may only shrink: new",
+                    "UI baseline may only shrink: removed",
+                ],
+            )
+
+    def test_shallow_history_cannot_reset_baseline(self) -> None:
+        result = subprocess.CompletedProcess([], 0, "true\n")
+        with patch.object(UI_CRITERIA.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(ValueError, "Full git history"):
+                UI_CRITERIA.baseline_growth([])
+
+    def test_variants_are_independent(self) -> None:
+        finding = {
+            "rule": "T1:clipping",
+            "element": "#label",
+            "detail": "clipped",
+        }
+        found = UI_CRITERIA.findings(
+            {
+                "profile-en-440": [finding],
+                "profile-dark-ru-320-text200": [finding],
+            }
+        )
+        self.assertEqual(len(found), 2)
+        self.assertEqual(len(UI_CRITERIA.errors(found, list(found)[:1])), 1)
 
 
 class Settings(unittest.TestCase):

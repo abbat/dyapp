@@ -632,8 +632,12 @@ const linkWipedStep = async () => {
     await invokeTest('receive_mail').catch(() => {});
     return shown('revoked');
   }, 'wipe');
+  const dismissed = closed(appBindings.revokedDialog);
   document.getElementById('revoked-ok').click();
+  await dismissed;
   await waitFor('setup');
+  if (document.activeElement !== document.querySelector('#setup h1'))
+    throw new Error('Revocation notice did not focus the next screen heading');
 };
 // Returns the peer id the smoke compares, empty for a client that lost its identity.
 const linkStep = async (step, mode, state) => {

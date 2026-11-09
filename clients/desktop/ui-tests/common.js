@@ -43,41 +43,6 @@ const frames = () =>
   new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
-// axe-core 4.14 marks target-size disabled by default, so every checkpoint enables it.
-const targetSize = {
-  runOnly: { type: 'rule', values: ['target-size'] },
-  rules: { 'target-size': { enabled: true } },
-};
-const checkTargetSizeFixture = async () => {
-  const fixture = document.createElement('div');
-  fixture.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;display:flex';
-  for (const id of ['a', 'b']) {
-    const button = document.createElement('button');
-    button.id = `target-size-fixture-${id}`;
-    button.textContent = id;
-    button.style.cssText =
-      'box-sizing:border-box;width:12px;height:12px;min-width:0;min-height:0;padding:0;margin:0;border:0';
-    fixture.append(button);
-  }
-  document.body.append(fixture);
-  try {
-    await frames();
-    const result = await window.axe.run(document, targetSize);
-    if (
-      !result.violations.some(
-        (violation) =>
-          violation.id === 'target-size' &&
-          violation.nodes.some((node) =>
-            node.target.some((target) => target.includes('target-size-fixture-')),
-          ),
-      )
-    ) {
-      throw new Error('axe target-size did not report the undersized fixture');
-    }
-  } finally {
-    fixture.remove();
-  }
-};
 // With axe-core loaded (DYAPP_AXE), checks the current screen: WCAG 2.x A/AA (labels and
 // contrast included) in the light and dark themes, tab order following the DOM, a visible focus
 // ring on every focusable control and no horizontal overflow at 440 px.
@@ -87,27 +52,16 @@ const audit = (() => {
   const auditThemes = async (problems) => {
     const root = document.documentElement;
     const theme = root.dataset.theme;
-    const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
     try {
       for (const mode of ['light', 'dark']) {
         root.dataset.theme = mode;
         await frames();
-        const result = await window.axe.run(document, { runOnly: { type: 'tag', values: tags } });
-        for (const v of result.violations) problems.push(`${mode} ${v.id} ${v.nodes[0].target}`);
+        for (const finding of await smoke.accessibility())
+          problems.push(`${mode} ${finding.rule} ${finding.element}: ${finding.detail}`);
       }
     } finally {
       if (theme) root.dataset.theme = theme;
       else delete root.dataset.theme;
-    }
-  };
-  const auditTargetSize = async (name, problems) => {
-    if (name === 'search-results') await checkTargetSizeFixture();
-    const sized = await window.axe.run(document, targetSize);
-    for (const violation of sized.violations) {
-      problems.push(`target-size ${violation.nodes[0].target}`);
-    }
-    for (const review of sized.incomplete) {
-      problems.push(`target-size needs review ${review.nodes[0].target}`);
     }
   };
   const auditTabOrder = (problems) => {
@@ -159,11 +113,14 @@ const audit = (() => {
     window.scrollTo(scrollLeft, scrollTop);
     if (overflow > 0) problems.push(`overflow ${overflow}px at 440: ${wide}`);
   };
+  let calibrated = false;
   return async (name) => {
-    if (!window.axe) return;
+    if (!calibrated) {
+      await smoke.accessibilitySelfCheck();
+      calibrated = true;
+    }
     const problems = [];
     await auditThemes(problems);
-    await auditTargetSize(name, problems);
     const [scrollLeft, scrollTop] = auditKeyboard(problems);
     await auditViewport(problems, scrollLeft, scrollTop);
     if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);

@@ -51,6 +51,10 @@ The check waits for fonts, retains narrow/wide wrapping assertions and rejects h
 
 Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
 including the shared identifier ES module. No external network access is needed.
+The required `desktop - prototypes` CI job runs the same desktop command and
+archives JSON measurements. D1-D3 are checked at each screenshot, including
+negative fixtures for long titles, wrong Cancel keys and duplicate/missing defaults.
+Selection dialogs may have no default; other dialogs must declare exactly one.
 They wait for `document.fonts.ready` and two animation frames, with a
 30-second failure deadline, before measuring layout. The desktop composer check changes
 text through input events and compares the field's current bounds and focus as Send
@@ -607,34 +611,55 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `search-empty`, `search-error`, `chat-new-device`, `statusbar`, `tray-none`, `tray` (where
   the test flow reaches them). The in-progress network check and the publish puzzle finish
   too quickly to capture.
-- **Accessibility audit.** `linux-test.sh` sets `DYAPP_AXE` to `/opt/axe-core/axe.min.js`
-  (axe-core 4.14.0, checksum-pinned in `Dockerfile.linux-test` and `ci-setup.sh linux`), and the
-  test-mode app injects it before the smoke; a set but unreadable path fails the launch. Before
-  every screenshot checkpoint, with or without `DYAPP_UI_SHOTS`, the shared audit helper runs axe with the
-  WCAG 2.0–2.2 A and AA tags in the light and the dark theme (labels and contrast included),
-  rejects a positive `tabindex` (tab order follows the DOM), focuses every visible control and
-  requires a focus ring (`box-shadow` or `outline`), and resizes the window to 440 px through
-  `ui_test_window` to reject horizontal overflow. Any finding fails the case with the rule, theme
-  and first element. The `target-size` rule in axe-core 4.14 is disabled by default even though
-  it has the WCAG 2.2 AA tag. The audit enables it explicitly at every checkpoint, treats a
-  needs-review result as a finding, and checks at `search-results` that two deliberately undersized
-  adjacent buttons are reported.
+- **Accessibility audit.** Linux and Windows CI supply checksum-pinned axe-core 4.14.0
+  through `DYAPP_AXE`; a missing, unreadable or wrong-version engine fails. Before every
+  named smoke screenshot checkpoint, including runs without `DYAPP_UI_SHOTS`, the shared
+  `criteria-axe.js` audit enables every WCAG 2.0–2.2 A/AA tagged rule explicitly, including
+  disabled-by-default `target-size`. It runs in light and dark themes and reports every
+  affected element. Contrast/target-size results requiring review also fail. At the first
+  checkpoint it verifies that low-contrast text and adjacent undersized buttons are rejected.
+  The existing native checks also reject positive `tabindex`, missing focus rings and
+  horizontal overflow at 440 px. Mobile native accessibility audits remain deferred.
 
 ### Desktop prototype screenshots
 
-`ui-test.sh prototype` (`make ui-prototype`) empties `build/ux-research/prototype/` and runs the
-light `dyapp:prototype` image (Debian 12, WebKitGTK 4.1, Xvfb; no Rust build, also built by
-`prepare`; the script and the prototype are mounted, so editing them needs no rebuild).
-`prototype-shots.py` loads the static `clients/desktop/prototype/index.html` read-only
-for each screen of [Desktop screens](../design/desktop-screens.md) in English and Russian, at 440
-and 1280 px wide (800 px high), and saves the full page as `<screen>-<lang>-<width>.png`. It exits
-non-zero when any page fails to load or save. Pass `desktop` and optional screen names after the
-script path to capture only named states; use a fresh `/shots` mount under `build/` when preserving
-existing screenshots. The prototype has no logic, so this checks layout and wording only; the
-maintainer reviews the files by eye. Each page also records the gaps between neighbouring visible
-blocks in `layout.json` next to the screenshots, and `check-layout.py` then fails on a new finding
-of criteria L2 or I1 of [UI review criteria](../design/review-criteria.md) against the `[layout]`
-baseline in `tests/scripts/baselines.toml`.
+`ui-test.sh prototype` (`make ui-prototype`) uses the lightweight `dyapp:prototype` image
+(Debian 12, WebKitGTK 4.1, Xvfb and pinned axe-core; no Rust build). Assets and Python helpers
+are mounted, so code edits do not need an image rebuild. Every desktop state is captured in
+English/Russian, light/dark, at 320/440/1280 px and normal/200% root text size. An additional
+`en-XA` pass at 440 px uses the Spectrum text-expansion bands, with the frozen 70+ character
+boundary at 130% of the original length. Captures are 800 px high and save the full page.
+
+Normal light filenames remain `<screen>-<lang>-<width>.png`; variant suffixes are `--dark`
+and `--text200` before the language. Double hyphens prevent a dark variant of `profile`
+from overwriting the distinct `profile-dark` state. Duplicate names fail before any work.
+The script accepts `desktop` followed by optional state names. Use a fresh `/shots` mount
+under `build/` to preserve prior captures. `DYAPP_PROTOTYPE_THEME` (`light`/`dark`),
+`DYAPP_PROTOTYPE_TEXT_SCALE` (`100`/`200`) and `DYAPP_PROTOTYPE_LANGUAGE` (`en`/`ru`)
+select a matrix slice; each defaults to `all`. The English slice includes `en-XA`.
+
+Each capture writes axe, clipping and dialog findings to `criteria.json`; missing measurements
+fail. Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.json`.
+New findings and stale entries fail. The baseline is intersected with every committed version,
+so it only shrinks, including manual CI runs; full Git history is required. Dialog and keyboard
+failures cannot be budgeted. `check-ui-criteria.py` validates each slice against its expected
+shots and the complete matrix. The existing L2/I1 measurement stays in the frozen normal-text
+English/Russian 440/1280 light matrix and is checked through `layout.json` and `[layout]`.
+
+The frozen matrix also walks real GDK Tab/Shift+Tab events in DOM order and uses arrow keys
+for every native radio-group member. Rendered focused/unfocused pixels must meet WCAG 2.4.13:
+3:1 contrast over at least a two-CSS-pixel perimeter area. Entirely obscured focus fails
+SC 2.4.11. Escape closes dialogs and restores the declared opener; unsolicited revocation
+focuses the next screen heading. Counterexamples prove failures for traps, invisible focus
+and ignored Escape, in addition to axe, dialog and clipping fixtures. A focus-area failure
+also saves the last compared frames as `keyboard-focus-before.png` and
+`keyboard-focus-after.png` beside the captures. The prototype models
+these keyboard/dialog transitions without backend actions. D1's two-line limit stays in the
+frozen matrix; stress variants check clipping and accessibility instead.
+
+The required CI prototype matrix splits theme, text scale and language across eight jobs.
+Each publishes `desktop-prototype-criteria-*` measurements and screenshots for seven days;
+any failed job fails the `required` summary.
 
 ### Android prototype screenshots
 

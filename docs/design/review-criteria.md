@@ -63,11 +63,19 @@ link, file name or path.
 
 | ID | Criterion | Source |
 |---|---|---|
-| D1 | A dialog title wraps to at most two lines. | Apple HIG Alerts |
+| D1 | A dialog title wraps to at most two lines in the frozen matrix: English/Russian at 440/1280 px and normal text size. Stress variants check clipping and accessibility without imposing this line limit. | Apple HIG Alerts |
 | D2 | The button that dismisses without acting is labelled "Cancel" ("Отмена"). | Apple HIG Alerts |
-| D3 | A dialog has exactly one default button; outside dialogs a view may have zero or one. | Project rule confirmed by the maintainer; GOV.UK button: avoid multiple default buttons on a page. Apple HIG Alerts permits no default for some alerts; this project rule is stricter. |
+| D3 | A dialog has exactly one default button, except a selection dialog may have zero or one. Outside dialogs a view may have zero or one. Initial focus on Cancel does not make it the default. | Project rule confirmed by the maintainer; GOV.UK button: avoid multiple default buttons on a page. Apple HIG Alerts permits no default for some alerts; this project rule is stricter. |
 | T1 | Text expansion: a control holds text 30% longer than the English for strings of 70 or more characters, and proportionally more for shorter ones. Check with the Android en-XA pseudolocale and with Russian at 440 px. | Adobe Spectrum, International design |
 | T2 | Text and controls meet WCAG 2.2 contrast (SC 1.4.3), and focus is visible (SC 2.4.13). | WCAG 2.2 |
+
+## Fixing a screen
+
+The [zero-baseline rule for changed files](../development/practices.md#rules-shared-by-all-practices)
+also applies to UI work: fix every baseline violation in the affected screens
+across checked languages, widths, themes and text sizes, and remove resolved
+accessibility/reflow and layout entries in the same change. Do not invent new
+UI rules; ask the maintainer when a criterion needs clarification.
 
 ## What is automated
 
@@ -96,10 +104,33 @@ link, file name or path.
   the list. Some listed findings are false positives of the measure, such as
   list rows that touch on purpose or a dot beside its text: mark them with a
   comment.
-- **By hand.** S1, S3, S4, S6, S7, S8, L1, I2-I4, D1-D3 and T1-T2 need judgement
-  and are checked during review. axe-core can cover target size (SC 2.5.8) and
-  contrast (SC 1.4.3), but its WCAG 2.2 rules are off by default and must be
-  enabled explicitly. It does not run yet.
+- **D1-D3 on desktop prototypes.** D1 measures titles in the frozen English/Russian
+  440/1280 px normal-text matrix. Every capture checks the translated Cancel key
+  and default-button count. `.primary` or `data-default` marks a default; `.focus`
+  is only an initial-focus hint. Selection dialogs declare `data-dialog-kind="choice"`
+  and may have no default. Three-line titles, incorrect Cancel keys and missing/duplicate
+  defaults are exercised as failing counterexamples.
+- **T1 reflow and text expansion.** Every state runs in light/dark themes, normal/200%
+  text and 320/440/1280 px, in English/Russian. Desktop `en-XA` at 440 px applies the
+  Spectrum expansion bands (total lengths of 300/200/180/160/140/130%, with the frozen
+  70+ boundary at 130%). Text clipping without a scroll container and horizontal page
+  scrolling are measured; new findings fail and fixed ones must leave the shrink-only
+  `desktop-ui-baseline.json` budget.
+- **T2 and target size.** Pinned axe-core 4.14.0 explicitly enables all WCAG 2.0–2.2
+  A/AA tagged rules on every desktop prototype capture and native smoke screenshot
+  checkpoint, including disabled-by-default SC 2.5.8. Contrast and target-size findings
+  requiring review are recorded too. Low-contrast text and adjacent undersized buttons
+  calibrate the audit. Prototype accessibility uses the same shrink-only UI baseline;
+  native smoke findings fail directly.
+- **Keyboard focus.** Every prototype state in the frozen matrix receives real GDK
+  Tab/Shift+Tab events; native radio groups use Tab to enter/leave and arrow keys within.
+  Focused/unfocused rendered pixels check SC 2.4.13's 3:1 contrast and two-CSS-pixel
+  perimeter area; SC 2.4.11 rejects entirely obscured focus. Escape restores the opener,
+  except unsolicited revocation focuses the next screen heading. Traps, missing focus
+  indicators and ignored Escape are tested counterexamples. These failures cannot be
+  budgeted. See [UI testing](../testing/ui-testing.md#desktop-prototype-screenshots).
+- **By hand.** S1, S3, S4, S6, S7, S8, L1 and I2-I4 still need reviewer judgement.
+  Native mobile accessibility audits remain deferred.
 
 ## Gaps
 

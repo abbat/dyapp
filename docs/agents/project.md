@@ -241,6 +241,10 @@ tag for recovery and do not remove caches or images without confirmation.
 
 ## Rules for agents
 
+- Every changed file must reach zero baseline: fix all violations attributed to
+  it and remove the resolved entries in the same commit. See the
+  [shared practice rule](../development/practices.md#rules-shared-by-all-practices).
+
 Bash checks that discover work must capture discovery in a separate assignment and reject an
 empty selection before iteration. `for item in $(discover)` can exit successfully after failed
 discovery and run nothing; regression tests must cover discovery errors and empty work sets.

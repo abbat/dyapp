@@ -110,9 +110,18 @@ class SmokeInventoryTest(unittest.TestCase):
         self.assertTrue(includes)
         for name in includes:
             self.assertTrue((directory / name).is_file(), name)
+        prototype_helpers = {
+            "criteria.js": "prototype-shots.py",
+            "criteria-text.js": "prototype-shots.py",
+            "prototype-keyboard.js": "prototype_keyboard.py",
+        }
+        scripts = UI.parents[1] / "tests/scripts"
+        for name, consumer in prototype_helpers.items():
+            self.assertIn(name, (scripts / consumer).read_text())
         self.assertEqual(
             set(directory.glob("*.js")),
-            {directory / name for name in includes if "/" not in name},
+            {directory / name for name in includes if "/" not in name}
+            | {directory / name for name in prototype_helpers},
         )
         self.assertFalse(list(UI.glob("ui-test*.js")))
 

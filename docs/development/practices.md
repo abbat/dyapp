@@ -34,6 +34,11 @@ Lifecycle stages: intake, design, implement, verify, release, learn.
 
 ## Rules shared by all practices
 
+- **Changed files reach zero baseline.** Whenever a file is changed, eliminate all
+  baseline violations attributed to that file, not only those introduced by the
+  change. Remove its resolved baseline entries in the same commit. This applies
+  to every language and check; retaining or adding allowances does not satisfy
+  the rule.
 - Beads are internal: bead IDs never appear in docs, code, comments or commit messages (A3).
   External references go to GitHub Issues, `docs/` paths and ADRs. Postmortems (A8) stay in beads;
   only conclusions reach docs or ADRs.
@@ -155,7 +160,7 @@ and [encryption.md](../security/encryption.md) are the starting point.
 | id | Practice and rule | Stage | Standard | Metric, threshold | Tool | Auto | U/F/C | Wave |
 |---|---|---|---|---|---|---|---|---|
 | D1 (adopted) | **i18n from day one.** Every visible string lives in resources (`strings.xml`, `.xcstrings`, a JSON catalogue for desktop) with ICU plurals; UI literals are banned; UI tests also run on a pseudo-locale (Android `en-XA`, Xcode double-length) | implement | Unicode CLDR, ICU MessageFormat | 0 literals, pseudo-locale green | [`check-repository.py`](../testing/ui-testing.md#localized-strings) (Compose, SwiftUI and HTML literals) | auto | 3/3/1 | W1 |
-| D2 | **Accessibility.** UI tests run XCUITest `performAccessibilityAudit()`, Compose `enableAccessibilityChecks()` and axe-core in the Tauri webview | verify | WCAG 2.2 AA | 0 violations | native audits + axe-core | auto | 3/3/1 | W1 |
+| D2 (desktop slice adopted; native mobile deferred) | **Accessibility.** Desktop prototypes and UI smoke run pinned axe-core with WCAG 2.2 AA rules; prototype findings use a shrink-only baseline ([UI testing](../testing/ui-testing.md#desktop-prototype-screenshots)). Planned native mobile audits run XCUITest `performAccessibilityAudit()`, and Compose `enableAccessibilityChecks()` | verify | WCAG 2.2 AA | no new desktop violations; native mobile target: 0 | native audits + axe-core | auto | 3/3/1 | W1 |
 | D3 | **UX review checklist.** Every screen change gets a UX bead: screenshots on every platform (light, dark, large font), the platform HIG checklist and a Nielsen heuristics report; a human approves | design | Apple HIG, Material 3, Nielsen's 10 heuristics | 100% of changed screens have an approved UX bead | bead template + D4 screenshots | human-gate | 3/2/1 | W1 |
 | D4 | **Screenshot tests.** A screenshot that differs from its committed reference fails; the agent attaches the diff to the D3 bead locally | verify | snapshot testing | 0 unreviewed changes | Roborazzi, swift-snapshot-testing, Playwright | auto | 2/3/2 | W2 |
 | D5 (adopted) | **Size budgets.** APK/AAB, IPA, desktop and `dyappd` binaries ratchet; growth > 5% needs `Size-Increase: <reason>` | verify | Android vitals, Apple app size guidance | ≤ +5% without a reason | CI script | auto | 2/3/1 | W1 |

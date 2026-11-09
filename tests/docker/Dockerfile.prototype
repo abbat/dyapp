@@ -2,6 +2,12 @@
 # prototype; no Rust build.
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        xvfb xauth python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 fonts-dejavu-core \
+        curl xvfb xauth python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
-COPY tests/scripts/prototype-shots.py /app/prototype-shots.py
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Same pinned archive and checksum as the native desktop smoke images.
+RUN curl -fsSL -o /tmp/axe.tgz https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz \
+    && echo '2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af  /tmp/axe.tgz' | sha256sum -c - \
+    && mkdir -p /opt/axe-core \
+    && tar -xzf /tmp/axe.tgz -C /opt/axe-core --strip-components=1 package/axe.min.js
+COPY tests/scripts/prototype-shots.py tests/scripts/prototype_keyboard.py tests/scripts/prototype_keyboard_fixtures.py tests/scripts/focus_pixels.py /app/

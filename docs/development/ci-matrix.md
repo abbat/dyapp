@@ -1,6 +1,6 @@
 # CI Matrix and Workflow Inventory
 
-> **Status:** derived from `.github/workflows/*.yml` on 2026-10-07. Nothing here was run for this
+> **Status:** derived from `.github/workflows/*.yml` on 2026-11-09. Nothing here was run for this
 > document; "Expected" notes come from reading the YAML and scripts, not from CI logs.
 > Branch protection lives in GitHub settings, not in the repository, so **which checks are
 > required for merge is unknown** (see [Required checks](#required-checks)).
@@ -20,17 +20,22 @@ steps skip on cancel, so a long burst of pushes reuses the older cache until one
 ci.yml ("ci")
   ├─ core     ──▶ ci-base.yml ──▶ quality, build
   ├─ docker   (android)
+  ├─ prototype (desktop criteria in WebKit)
   ├─ linux
   ├─ apple    (matrix: ios, macos)
   ├─ windows
-  └─ summary  needs [core, docker, linux, apple, windows], if: always()
+  └─ summary  needs [core, docker, prototype, linux, apple, windows], if: always()
 ```
 
 `ci-base.yml` is `workflow_call` only. Rust-core jobs are documented in [ci-base.md](ci-base.md).
 
 ## ci.yml jobs
 
-Only **docker - android** still runs in Docker; `core` and **native - linux** run directly on the
+**desktop - prototypes** runs the WebKit screenshot/criteria harness in Docker and
+splits light/dark, normal/200% text and EN/RU into eight jobs. Each publishes
+measurements and screenshots as `desktop-prototype-criteria-<theme>-<scale>-<language>`
+for seven days; a violation fails
+`required`. **docker - android** also runs in Docker; `core` and **native - linux** run directly on the
 runner (see [ci-base.md](ci-base.md#jobs)). The Docker job first deletes the
 runner's preinstalled .NET, Android SDK, GHC and tool cache (step `free disk`): with the buildx
 layer cache, each image exists twice, in the buildx builder and, after `--load`, in Docker. Only
@@ -42,6 +47,7 @@ cache past its 10 GB limit.
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
+| `prototype` → **desktop - prototypes (...)** | ubuntu-24.04 | Eight WebKitGTK Docker jobs run pinned axe-core, dialog and clipping checks at 320/440/1280 px. The normal light EN/RU slices also check real keyboard navigation and focus pixels in the frozen 440/1280 matrix; English includes en-XA captures. Full Git history enforces the shrink-only UI budget. | `desktop-prototype-criteria-*` (JSON, screenshots and check logs; seven days) | Required by summary |
 | `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `tests/docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `clients/linux/` with `--features ui-smoke` and writes `build/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
 | `docker` → **docker - android** | ubuntu-24.04 | build the `dyapp:android-tools` toolchain image (service `android-build`, BuildKit GHA layer cache); restore the Gradle and cargo dependency downloads in `build/android-build` (`actions/cache`, keyed by `Cargo.lock` and the Gradle files, saved on a miss); `ui-test.sh android` (service `android-build` compiles the debug `rust/ffi` for x86_64 only, generates Android-aware Kotlin bindings, builds the APKs from the checkout and runs strict `:app:lintDebug`; then `:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD in `build/android-avd` on disk because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `tests/docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | `android-check-output` (check logs, test evidence and full Android Lint reports) | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | Rust 1.99.0 with the platform's Apple targets, rust-cache, `build-apple-core.sh <platform>` (Swift bindings + XCFramework in `build/apple`); downloads XcodeGen 2.46.0 and checks its SHA-256, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), builds a loopback `dyappd` fixture, then XCTest/XCUITest (iOS on first available iPhone simulator, signed ad hoc so the app may use the Keychain) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
@@ -65,7 +71,7 @@ The apps are shells that call one core function at most:
 
 So a green matrix means "the shells build and their own tests pass". It does **not** mean an
 APK/AAB, `.app` or installer containing the Rust core was built, signed or tested. No job
-produces release artifacts, and there is no web job. See [build.md](build.md) and
+produces release artifacts or a standalone browser client release. See [build.md](build.md) and
 [ffi-bindings.md](ffi-bindings.md) for the missing pieces.
 
 ## Other workflows

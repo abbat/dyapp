@@ -514,7 +514,10 @@ The web stage also runs `tools/web-lint/check-css.mjs` and its regression fixtur
 Static desktop/prototype styles belong in CSS, including SVG positioning. Nonzero
 literal gaps and margins fail L2; `--space-*` definitions must lie on the 4 px grid.
 Existing non-token spacing is recorded in `tools/web-lint/css-budget.json` with a
-reason; new findings and stale allowances fail. Repeated literal colour and font
+reason; new findings and stale allowances fail. Its spacing budget is intersected
+with all committed versions, so removed allowances cannot return; full Git history
+is required. Literal pixel definitions and zero are supported; computed spacing
+definitions need checker support before they can be verified. Repeated literal colour and font
 values require shared tokens when they have the same purpose. Different purposes
 may retain separate values: record the reason and exact declarations under
 `distinctSemantics` in that file. The check requires semantic review rather than

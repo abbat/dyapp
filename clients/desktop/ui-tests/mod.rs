@@ -3,6 +3,7 @@ use tauri::webview::PageLoadEvent;
 
 const SCRIPTS: &[&str] = &[
     include_str!("interface.js"),
+    include_str!("criteria-axe.js"),
     include_str!("common.js"),
     include_str!("dom.js"),
     include_str!("foundation.js"),

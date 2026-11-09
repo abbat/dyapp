@@ -87,6 +87,40 @@ jobs:
             build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
+  prototype:
+    name: desktop - prototypes (${{ matrix.theme }}, text${{ matrix.text-scale }}, ${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [light, dark]
+        text-scale: [100, 200]
+        language: [en, ru]
+    env:
+      DYAPP_PROTOTYPE_THEME: ${{ matrix.theme }}
+      DYAPP_PROTOTYPE_TEXT_SCALE: ${{ matrix.text-scale }}
+      DYAPP_PROTOTYPE_LANGUAGE: ${{ matrix.language }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # verify that the UI baseline only shrinks
+      - name: prepare WebKit
+        run: docker build -t dyapp:prototype -f tests/docker/Dockerfile.prototype .
+      - name: check desktop criteria
+        run: bash tests/scripts/ui-test.sh prototype
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: desktop-prototype-criteria-${{ matrix.theme }}-${{ matrix.text-scale }}-${{ matrix.language }}
+          retention-days: 7
+          compression-level: 0
+          path: |
+            build/ux-research/prototype/
+            build/platform-check-output/
+          if-no-files-found: error
+
   linux:
     name: native - linux
     runs-on: ubuntu-24.04
@@ -178,6 +212,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: prepare axe-core
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'axe.tgz'
+          $directory = Join-Path $env:RUNNER_TEMP 'axe-core'
+          Invoke-WebRequest 'https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne '2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af') { throw 'axe-core checksum mismatch' }
+          New-Item -ItemType Directory -Force $directory | Out-Null
+          tar -xzf $archive -C $directory --strip-components=1 package/axe.min.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "DYAPP_AXE=$directory/axe.min.js" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: '1.99.0'
@@ -208,7 +253,7 @@ jobs:
   summary:
     name: required
     runs-on: ubuntu-24.04
-    needs: [core, docker, linux, apple, windows]
+    needs: [core, docker, prototype, linux, apple, windows]
     if: always()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

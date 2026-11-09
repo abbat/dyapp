@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 
 const require = createRequire(
   path.join(process.env.DYAPP_WEB_TOOLS ?? '/opt/web-lint', 'package.json'),
@@ -15,6 +16,28 @@ const repeated = new Map();
 const budget = JSON.parse(
   fs.readFileSync(path.join(root, 'tools/web-lint/css-budget.json'), 'utf8'),
 );
+
+function git(...args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(result.stderr);
+  return result.stdout.trim();
+}
+
+function checkBudgetHistory() {
+  if (git('rev-parse', '--is-shallow-repository') !== 'false')
+    throw new Error('Full Git history is required for the CSS spacing budget');
+  const name = 'tools/web-lint/css-budget.json';
+  const allowed = new Set(Object.keys(budget.spacing));
+  for (const revision of git('log', '--format=%H', '--diff-filter=AM', '--', name)
+    .split(/\r?\n/)
+    .filter(Boolean)) {
+    const previous = JSON.parse(git('show', `${revision}:${name}`)).spacing;
+    for (const key of allowed) if (!Object.hasOwn(previous, key)) allowed.delete(key);
+  }
+  for (const key of Object.keys(budget.spacing))
+    if (!allowed.has(key)) problems.push(`L2 spacing baseline may only shrink: ${key}`);
+}
 
 function files(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -39,7 +62,12 @@ function checkHtml(source, name) {
 function checkSpaceToken(node, name) {
   if (!node.property.startsWith('--space-')) return;
   const value = css.generate(node.value).trim();
-  if (!/^\d+(?:\.\d+)?px$/.test(value) || Number.parseFloat(value) % 4 !== 0) {
+  if (value === '0') return;
+  if (!/^\d+(?:\.\d+)?px$/.test(value)) {
+    problems.push(
+      `${name}:${node.loc.start.line}: computed spacing token needs checker support: ${node.property}`,
+    );
+  } else if (Number.parseFloat(value) % 4 !== 0) {
     problems.push(`${name}:${node.loc.start.line}: spacing token is outside the 4px grid`);
   }
 }
@@ -85,7 +113,19 @@ function checkCss(source, name) {
     visit: 'Declaration',
     enter(node) {
       checkSpaceToken(node, name);
-      if (node.property.startsWith('--')) return;
+      if (node.property.startsWith('--')) {
+        css.walk(node.value, (part) => {
+          if (
+            part.type === 'Function' &&
+            part.name === 'var' &&
+            part.children.first?.name === node.property
+          )
+            problems.push(
+              `${name}:${node.loc.start.line}: CSS token self-reference: ${node.property}`,
+            );
+        });
+        return;
+      }
       const selector = this.rule?.prelude ? css.generate(this.rule.prelude) : '@';
       const value = css.generate(node.value);
       const key = `${name} ${selector} ${node.property}:${value}`;
@@ -96,7 +136,7 @@ function checkCss(source, name) {
       if (
         /^font(?:-.+)?$/.test(node.property) &&
         !/^(inherit|initial|unset|normal)$/.test(value) &&
-        !value.includes('var(')
+        !/^var\(--[^,)]+\)$/.test(value)
       ) {
         repeat(`${node.property}:${value}`, key);
       }
@@ -111,6 +151,7 @@ for (const directory of directories) {
     if (filename.endsWith('.css')) checkCss(fs.readFileSync(filename, 'utf8'), name);
   }
 }
+checkBudgetHistory();
 for (const finding of spacing) {
   if (!Object.hasOwn(budget.spacing, finding))
     problems.push(`L2 spacing token required: ${finding}`);

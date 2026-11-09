@@ -86,7 +86,15 @@ const removeNow = () => {
 };
 const revokedDialog = domById('revoked', HTMLDialogElement);
 revokedDialog.addEventListener('close', () => {
+  if (revokedDialog.open) return;
   revokedDialog.hidden = true;
+  const heading = Array.from(domAll(document, 'main h1', HTMLHeadingElement)).find(
+    (node) => node.getClientRects().length > 0 && getComputedStyle(node).visibility === 'visible',
+  );
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus();
+  }
 });
 domById('revoked-ok', HTMLButtonElement).addEventListener('click', () => revokedDialog.close());
 // The runtime found the device of `slot` revoked. Nothing is asked: the owner already decided on

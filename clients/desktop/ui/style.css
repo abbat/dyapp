@@ -45,8 +45,8 @@
   --warn: #8a5a00;
   --warn-soft: #fbefd4;
   --scrim-overlay: #0007;
-  --safety-preview-background: var(--safety-preview-background);
-  --focus-color: #1f5fbf66;
+  --safety-preview-background: #111;
+  --focus-color: #1f5fbf;
   --focus: 0 0 0 3px var(--focus-color);
   color-scheme: light;
 }
@@ -60,6 +60,7 @@
     --text: #ecece8;
     --muted: #a8a8a2;
     --accent: #7fb0f5;
+    --focus-color: #7fb0f5;
     --accent-text: #0d1a2e;
     --accent-soft: #23344d;
     --danger: #f2a39c;
@@ -79,6 +80,7 @@
   --text: #ecece8;
   --muted: #a8a8a2;
   --accent: #7fb0f5;
+  --focus-color: #7fb0f5;
   --accent-text: #0d1a2e;
   --accent-soft: #23344d;
   --danger: #f2a39c;
@@ -169,14 +171,20 @@ button {
   opacity: 0.5;
   cursor: default;
 }
+/* Keep focus paint inside the viewport when native keyboard scrolling reveals a control. */
+:where(button, input, select, textarea, summary, a[href], [tabindex]) {
+  scroll-margin-block: var(--space-2);
+}
 /* WebKit drops box-shadow on native selects, radios and checkboxes, so they get an outline. */
 :focus-visible,
 .focus {
-  outline: none;
+  outline: 3px solid var(--focus-color);
+  outline-offset: -3px;
   box-shadow: var(--focus);
 }
 :is(select, input[type="radio"], input[type="checkbox"]):focus {
   outline: 3px solid var(--focus-color);
+  outline-offset: 0;
 }
 .actions {
   display: flex;
@@ -1008,6 +1016,9 @@ details > summary {
     display: flex;
     flex-direction: column;
   }
+  html {
+    scroll-padding-top: calc(2 * var(--space-6));
+  }
   .topbar {
     display: flex;
     align-items: center;
@@ -1017,6 +1028,7 @@ details > summary {
     border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
+    z-index: 6;
   }
   .topbar .title {
     font: var(--text-heading);
@@ -1029,6 +1041,7 @@ details > summary {
     z-index: 10;
     align-items: stretch;
     transform: translateX(-100%);
+    visibility: hidden;
     padding: var(--space-3);
   }
   .sidebar .label,
@@ -1049,6 +1062,7 @@ details > summary {
   }
   [data-screen="menu"] .sidebar {
     transform: none;
+    visibility: visible;
   }
   [data-screen="menu"] .scrim {
     display: block;

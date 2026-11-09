@@ -126,8 +126,14 @@ services:
       - ../../build/ux-research/prototype:/shots
       # Mounted so a changed screen list needs no image rebuild.
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
+      - ../../tests/scripts/prototype_keyboard.py:/app/prototype_keyboard.py:ro
+      - ../../tests/scripts/prototype_keyboard_fixtures.py:/app/prototype_keyboard_fixtures.py:ro
+      - ../../tests/scripts/focus_pixels.py:/app/focus_pixels.py:ro
     environment:
       HOME: /home/appuser
+      DYAPP_PROTOTYPE_THEME: ${DYAPP_PROTOTYPE_THEME:-all}
+      DYAPP_PROTOTYPE_TEXT_SCALE: ${DYAPP_PROTOTYPE_TEXT_SCALE:-all}
+      DYAPP_PROTOTYPE_LANGUAGE: ${DYAPP_PROTOTYPE_LANGUAGE:-all}
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py]
 
   # The Android prototype loads the desktop strings through ../../desktop, so both are mounted.

@@ -13,6 +13,23 @@ fs.writeFileSync(
   path.join(root, 'tools/web-lint/css-budget.json'),
   JSON.stringify({ spacing: {} }),
 );
+const git = (...args) => {
+  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+};
+git('init', '--quiet');
+git('add', 'tools/web-lint/css-budget.json');
+git(
+  '-c',
+  'user.name=Fixture',
+  '-c',
+  'user.email=fixture@example.invalid',
+  'commit',
+  '--quiet',
+  '--no-gpg-sign',
+  '-m',
+  'Seed fixture budget',
+);
 const style = path.join(root, 'clients/desktop/ui/style.css');
 const page = path.join(root, 'clients/desktop/prototype/index.html');
 const check = (css, html = '<main>Fixture</main>') => {
@@ -64,4 +81,23 @@ assert.equal(
   1,
 );
 assert.match(check('.a { font-size: 14px; }').stderr, /Remove stale CSS semantic distinction/);
+fs.writeFileSync(
+  path.join(root, 'tools/web-lint/css-budget.json'),
+  JSON.stringify({ spacing: {} }),
+);
+assert.match(check(':root { --color: var(--color); }').stderr, /CSS token self-reference/);
+assert.equal(check(':root { --anchor: --anchor; --space-zero: 0; }').status, 0);
+assert.match(
+  check('.a { font: 600 14px var(--font); } .b { font: 600 14px var(--font); }').stderr,
+  /Repeated value/,
+);
+fs.writeFileSync(
+  path.join(root, 'tools/web-lint/css-budget.json'),
+  JSON.stringify({
+    spacing: { 'clients/desktop/ui/style.css .a margin:7px': 'Fixture new allowance' },
+  }),
+);
+const growth = check('.a { margin: 7px; }');
+assert.equal(growth.status, 1);
+assert.match(growth.stderr, /L2 spacing baseline may only shrink/);
 console.log('Desktop CSS regression fixtures passed');

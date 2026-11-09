@@ -736,7 +736,7 @@
       <p class="notice warn" role="alert" data-i18n="remove.offline"></p>
       <div class="actions">
         <button id="remove-cancel-offline" class="btn" type="button" data-i18n="remove.cancel"></button>
-        <button id="remove-retry" class="btn" type="button" data-i18n="recovery.retry"></button>
+        <button id="remove-retry" class="btn primary" type="button" data-i18n="recovery.retry"></button>
         <button id="remove-anyway" class="btn danger" type="button" data-i18n="remove.anyway"></button>
       </div>
     </div>
@@ -902,7 +902,7 @@
       <button id="sticker-remove-confirm" class="btn danger" type="button" data-i18n="stickers.removeConfirm"></button>
     </div>
   </dialog>
-  <dialog id="sticker-picker" class="modal sticker-picker" aria-labelledby="sticker-picker-title" hidden>
+  <dialog id="sticker-picker" class="modal sticker-picker" data-dialog-kind="choice" aria-labelledby="sticker-picker-title" hidden>
     <h2 id="sticker-picker-title" data-i18n="stickers.title"></h2>
     <nav id="sticker-picker-choices" class="sticker-choices" data-i18n-label="stickerPicker.packs"></nav>
     <div class="actions sticker-pagination">
