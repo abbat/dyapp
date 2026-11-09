@@ -237,6 +237,12 @@ does not. Disconnected cycles fail even when their scripts refer to each other.
 Exact manual entry points may be declared with reasons in
 `tests/scripts/repository_unused.py`; empty, missing and stale entries fail. The list is empty.
 
+The repository check also rejects unused Apple catalogue keys. Literal references come from
+shipped iOS/macOS Swift sources, excluding comments and tests. Dynamic profile labels and options
+come from the actual shared Rust scale registry; publication reasons come from the native
+publication contract. Removing a dynamic lookup removes those references. Unknown metadata
+formats fail the check; no prefix wildcard keeps arbitrary new catalogue keys alive.
+
 ## Python
 
 ```bash

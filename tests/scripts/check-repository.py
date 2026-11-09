@@ -492,6 +492,7 @@ def skip_errors(texts):
 
 def main():
     from repository_unused import script_reference_errors
+    from repository_translations import unused_apple_errors
 
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
@@ -568,6 +569,7 @@ def main():
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
     errors = i18n_errors(texts) + translation_errors(texts)
+    errors.extend(unused_apple_errors(texts))
     if errors:
         raise ValueError("UI strings (practice D1):\n" + "\n".join(errors))
     errors = screen_errors(texts)
