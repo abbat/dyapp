@@ -107,6 +107,28 @@ fn retain(
     }
     Ok(frame_bytes(frame))
 }
+fn saved_frame(
+    store: &Store,
+    dir: &Path,
+    identity: &Identity,
+    selection: &Selection,
+    item: &ChatSticker,
+    key: &[u8; 32],
+) -> Option<Result<Vec<u8>, String>> {
+    let pack = store
+        .saved_sticker_pack(key, &item.sticker.pack_id)
+        .ok()??;
+    let index = pack
+        .stickers()
+        .iter()
+        .position(|entry| entry.sha256 == item.sticker.sha256)?;
+    Some(
+        pack.sticker_bytes(index)
+            .ok_or_else(|| "corrupted".to_owned())
+            .and_then(|bytes| retain(dir, identity, selection, item, key, bytes)),
+    )
+}
+
 async fn original(
     root: &Path,
     dir: &Path,
@@ -132,15 +154,8 @@ async fn original(
     {
         return retain(dir, identity, selection, &item, &key, &bytes);
     }
-    if let Ok(Some(pack)) = store.saved_sticker_pack(&key, &item.sticker.pack_id) {
-        if let Some(index) = pack
-            .stickers()
-            .iter()
-            .position(|entry| entry.sha256 == item.sticker.sha256)
-        {
-            let bytes = pack.sticker_bytes(index).ok_or("corrupted")?;
-            return retain(dir, identity, selection, &item, &key, bytes);
-        }
+    if let Some(frame) = saved_frame(&store, dir, identity, selection, &item, &key) {
+        return frame;
     }
     let descriptor = item.sticker.download().ok_or("notFound")?;
     if !manual {

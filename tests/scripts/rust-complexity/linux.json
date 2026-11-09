@@ -1,6 +1,1 @@
-[
-  {"path":"clients/desktop/chats/receive.rs","function":"fn receive ","metrics":{"cognitive":29,"lines":104}},
-  {"path":"clients/desktop/main.rs","function":"fn main ","metrics":{"lines":183}},
-  {"path":"clients/desktop/notify.rs","function":"fn around_pass ","metrics":{"nesting":6,"nested_regions":2}},
-  {"path":"clients/desktop/stickers/chat.rs","function":"fn original ","metrics":{"lines":55}}
-]
+[]

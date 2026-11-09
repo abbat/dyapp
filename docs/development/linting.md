@@ -88,8 +88,10 @@ serialized message/privacy DTOs retain checked expectations for independent flag
 fields stay unchanged. Private thumbnail frame naming is distinct from the `pixels` field.
 A shared encoder produces identical lowercase hex without per-byte formatting allocations;
 its test covers all byte values and leading zeros.
-Linux denies the complete `pedantic` group; the three function-complexity rules retain the exact
-legacy budgets described below. Large awaited futures use `Box::pin` at measured call boundaries,
+Linux denies the complete `pedantic` group and has no function-complexity baseline exceptions.
+Startup keeps its IPC registry in a private function pointer, separate from lifecycle setup.
+Mailbox paging and profile refresh share per-pass state; notification focus and tray reads
+remain on the detached delivery thread. Large awaited futures use `Box::pin` at measured call boundaries,
 including tests, preserving awaited results and cancellation while moving their storage to the heap.
 Windows also denies `large_futures`; its full pedantic qualification remains planned pending native
 Windows verification. All expectations are checked by `unfulfilled_lint_expectations`.

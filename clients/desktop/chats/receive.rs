@@ -37,12 +37,8 @@ pub async fn receive(
 ) -> Result<usize, String> {
     Box::pin(finish_link(root, dir, identity, device_key)).await?;
     let store = open(dir, identity)?;
-    let own = profile::stored(&store)?;
-    let own = match own.version {
-        0 => None,
-        _ => Some(dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?),
-    };
-    let (epoch, mut cached) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let own = published_profile(&store, identity)?;
+    let (epoch, cached) = cache.lock().map_err(|e| e.to_string())?.snapshot();
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
@@ -54,51 +50,15 @@ pub async fn receive(
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
     own::retry_outbox(&mut session, &mut node, &seal_key).await?;
-    let mut changed = 0;
-    for _ in 0..RECEIVE_PAGES {
-        if stop() {
-            break;
-        }
-        let mut from_head = false;
-        let mut profiles = cached.all().to_vec();
-        profiles.extend(own.clone());
-        let page = session
-            .receive_page(
-                std::slice::from_mut(&mut node),
-                device_key,
-                &profiles,
-                &seal_key,
-            )
-            .await;
-        let (events, more) = match page {
-            Ok(page) => page,
-            Err(error) => return Err(own::pass_error(&session, &mut node, error).await),
-        };
-        for event in events {
-            match event {
-                Event::UnknownOwner(peer) => {
-                    if let Ok(verified) = node.get_profile(&peer).await {
-                        let newer = cached
-                            .get(&peer)
-                            .is_none_or(|held| held.profile.version < verified.profile.version);
-                        cache
-                            .lock()
-                            .map_err(|e| e.to_string())?
-                            .accept_if_current(epoch, verified.clone());
-                        from_head |= cached.accept(verified).is_ok() && newer;
-                    }
-                }
-                Event::Gap(_) | Event::Refused(_) => {}
-                _ => changed += 1,
-            }
-        }
-        if !session
-            .next_page(more, from_head)
-            .map_err(|e| e.to_string())?
-        {
-            break;
-        }
-    }
+    let mut pass = MailPass {
+        cache,
+        epoch,
+        cached,
+        own,
+    };
+    let mut changed = pass
+        .pages(&mut session, &mut node, device_key, &seal_key, &stop)
+        .await?;
     if !stop() {
         let nodes = std::slice::from_mut(&mut node);
         session
@@ -121,26 +81,144 @@ pub async fn receive(
     // Best effort like the package above; it tries again the next day.
     let now = dyapp_client::now();
     let _ = dyapp_client::publish::refresh_photos(session.store(), &mut node, identity, now).await;
-    // A stale copy from a node must not bring back a device the owner dropped.
-    if let Ok(newest) = node.get_profile(&identity.peer_id()).await {
-        let _ = session.own_device_revoked(&newest.profile);
-        if own.is_none_or(|own| own.profile.version <= newest.profile.version) {
-            let _ = cached.accept(newest.clone());
-            own::refresh_contact(cache, epoch, session.store(), &mut node, &mut cached, now).await;
-            let profiles = cached.all().to_vec();
-            let nodes = std::slice::from_mut(&mut node);
-            let _ = session
-                .join_own_devices(nodes, &newest, now, &seal_key)
+    pass.refresh_own(&mut session, &mut node, identity, &seal_key, now)
+        .await;
+    Ok(changed)
+}
+
+fn published_profile(
+    store: &dyapp_client::store::Store,
+    identity: &Identity,
+) -> Result<Option<dyapp_profile::VerifiedProfile>, String> {
+    let own = profile::stored(store)?;
+    match own.version {
+        0 => Ok(None),
+        _ => dyapp_profile::verify(&own.sign(identity))
+            .map(Some)
+            .map_err(|e| e.to_string()),
+    }
+}
+
+struct MailPass<'a> {
+    cache: &'a Mutex<ProfileCache>,
+    epoch: u64,
+    cached: dyapp_client::profiles::Profiles,
+    own: Option<dyapp_profile::VerifiedProfile>,
+}
+
+impl MailPass<'_> {
+    async fn fetch_owner(
+        &mut self,
+        peer: &str,
+        node: &mut dyapp_client::Node,
+    ) -> Result<bool, String> {
+        let Ok(verified) = node.get_profile(peer).await else {
+            return Ok(false);
+        };
+        let newer = self
+            .cached
+            .get(peer)
+            .is_none_or(|held| held.profile.version < verified.profile.version);
+        self.cache
+            .lock()
+            .map_err(|e| e.to_string())?
+            .accept_if_current(self.epoch, verified.clone());
+        Ok(self.cached.accept(verified).is_ok() && newer)
+    }
+
+    async fn events(
+        &mut self,
+        events: Vec<Event>,
+        node: &mut dyapp_client::Node,
+    ) -> Result<(usize, bool), String> {
+        let mut changed = 0;
+        let mut from_head = false;
+        for event in events {
+            match event {
+                Event::UnknownOwner(peer) => from_head |= self.fetch_owner(&peer, node).await?,
+                Event::Gap(_) | Event::Refused(_) => {}
+                _ => changed += 1,
+            }
+        }
+        Ok((changed, from_head))
+    }
+
+    async fn pages(
+        &mut self,
+        session: &mut Session,
+        node: &mut dyapp_client::Node,
+        device_key: &Identity,
+        seal_key: &[u8; 32],
+        stop: &impl Fn() -> bool,
+    ) -> Result<usize, String> {
+        let mut changed = 0;
+        for _ in 0..RECEIVE_PAGES {
+            if stop() {
+                break;
+            }
+            let mut from_head = false;
+            let mut profiles = self.cached.all().to_vec();
+            profiles.extend(self.own.clone());
+            let page = session
+                .receive_page(std::slice::from_mut(node), device_key, &profiles, seal_key)
                 .await;
-            let _ = session
-                .add_own_devices(nodes, &newest, &profiles, now, &seal_key)
+            let (events, more) = match page {
+                Ok(page) => page,
+                Err(error) => return Err(own::pass_error(session, node, error).await),
+            };
+            let (count, retry) = self.events(events, node).await?;
+            changed += count;
+            from_head |= retry;
+            if !session
+                .next_page(more, from_head)
+                .map_err(|e| e.to_string())?
+            {
+                break;
+            }
+        }
+        Ok(changed)
+    }
+
+    async fn refresh_own(
+        &mut self,
+        session: &mut Session,
+        node: &mut dyapp_client::Node,
+        identity: &Identity,
+        seal_key: &[u8; 32],
+        now: u64,
+    ) {
+        // A stale copy from a node must not bring back a device the owner dropped.
+        if let Ok(newest) = node.get_profile(&identity.peer_id()).await {
+            let _ = session.own_device_revoked(&newest.profile);
+            if self
+                .own
+                .as_ref()
+                .is_none_or(|own| own.profile.version <= newest.profile.version)
+            {
+                let _ = self.cached.accept(newest.clone());
+                own::refresh_contact(
+                    self.cache,
+                    self.epoch,
+                    session.store(),
+                    node,
+                    &mut self.cached,
+                    now,
+                )
                 .await;
-            let _ = session
-                .remove_dropped_devices(nodes, &profiles, now, &seal_key)
-                .await;
+                let profiles = self.cached.all().to_vec();
+                let nodes = std::slice::from_mut(node);
+                let _ = session
+                    .join_own_devices(nodes, &newest, now, seal_key)
+                    .await;
+                let _ = session
+                    .add_own_devices(nodes, &newest, &profiles, now, seal_key)
+                    .await;
+                let _ = session
+                    .remove_dropped_devices(nodes, &profiles, now, seal_key)
+                    .await;
+            }
         }
     }
-    Ok(changed)
 }
 
 async fn refill_if_due(

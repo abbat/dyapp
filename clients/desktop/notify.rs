@@ -140,17 +140,20 @@ pub(crate) fn around_pass<T>(
     let result = pass();
     if let Some((name, body)) = due(app, dir, identity, before, waiting(dir, identity)) {
         let app = app.clone();
-        std::thread::spawn(move || {
-            let window = app.get_webview_window("main");
-            if !window.is_some_and(|window| window.is_focused().unwrap_or(false)) {
-                if let Some((open, fixed, sticker)) = crate::tray::notice_labels(&app) {
-                    let body = body.render(&sticker);
-                    send(if name.is_empty() { &fixed } else { &name }, &body, &open);
-                }
-            }
-        });
+        std::thread::spawn(move || deliver(&app, &name, body));
     }
     result
+}
+
+fn deliver(app: &AppHandle, name: &str, body: Preview) {
+    let window = app.get_webview_window("main");
+    if window.is_some_and(|window| window.is_focused().unwrap_or(false)) {
+        return;
+    }
+    if let Some((open, fixed, sticker)) = crate::tray::notice_labels(app) {
+        let body = body.render(&sticker);
+        send(if name.is_empty() { &fixed } else { name }, &body, &open);
+    }
 }
 
 #[cfg(unix)]
