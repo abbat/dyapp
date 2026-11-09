@@ -17,8 +17,9 @@ bindings and controller APIs explicitly; page globals and classic-script order a
 `identity-state.js` owns the selected identity and generation, `chat-state.js` owns shared chat
 state, and independent clipboard, place and DOM modules avoid eager controller cycles.
 Their JSDoc DTOs distinguish ready/recovery identity state, chat history/messages and text-forward
-versus profile-share targets. The native bridge associates described command names with their
-argument tuples and result DTOs; undescribed command results remain `unknown`.
+versus profile-share targets. The native bridge associates every shipped command name with its
+argument tuple and result DTO; unknown command names and invalid literal-command arguments are
+rejected by the type contract.
 `dom.js` checks the kind of elements returned by typed lookups. Required ID/selector lookups
 fail on a missing or wrong-kind element; optional selector lookups retain `null`, and empty
 selector lists remain valid. The helpers preserve static `NodeList` results and use JSDoc types

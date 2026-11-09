@@ -335,10 +335,11 @@ than casting controls to broad element contracts. Native DOM smoke checks requir
 lookups, empty lists and rejection of missing or wrong-kind elements.
 Shared catalogue, identifier, peer-label, formatting, profile-control and sticker-frame helpers
 carry JSDoc contracts. Identity, profile and chat DTOs mirror the native serialized fields,
-including nullable values and discriminated states. `ipc.js` describes arguments and results for
-identity, tray, profile, place and basic chat commands; other command results stay `unknown`
-until their contracts are added. Literal command names retain argument checking instead of
-widening to a generic string when arguments are invalid.
+including nullable values and discriminated states. `ipc.js` describes all 108 native commands
+used by the shipped UI: names, argument tuples and result DTOs, including binary photo/sticker
+responses and both dynamic page/cache command paths. Unknown command names fail type checking.
+Literal command names retain argument checking instead of widening to a generic string when
+arguments are invalid.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
