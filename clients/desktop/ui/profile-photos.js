@@ -35,6 +35,7 @@ controller.limitProfilePhotos = () => {
   profilePhotoHint.hidden = full;
   profilePhotoLimit.hidden = !full;
 };
+/** @param {unknown} error */
 const profilePhotoFailure = (error) => {
   const key = {
     tooLarge: 'profile.photoTooLarge',
@@ -195,11 +196,12 @@ const paintOwnAvatar = async (avatar) => {
   avatar.querySelector('canvas')?.remove();
   if (photo && drawn) avatar.append(canvas);
 };
+/** @param {HTMLElement} avatar */
 controller.ownAvatar = (avatar) => {
   avatar.dataset.own = 'true';
   paintOwnAvatar(avatar);
 };
-/** @param {import('./ipc.js').Invoke} call */
+/** @param {import('./ipc.js').Invoke} call @param {number[] | undefined} hash */
 const showOwnAvatars = async (hash, call) => {
   const run = ++ownPhotoRun;
   const photo = hash ? await call('profile_photo', { hash }).catch(() => null) : null;
@@ -211,6 +213,7 @@ document.addEventListener('dyapp:identity-change', () => {
   ownPhotoRun += 1;
   ownPhoto = null;
 });
+/** @param {number[][]} [hashes] */
 controller.showProfilePhotos = (hashes = [], call = invoke) => {
   controller.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;

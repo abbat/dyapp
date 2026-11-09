@@ -171,6 +171,9 @@ const identityButton = (item) => {
 
 // Remove applies to the open identity only, so it sits in that row.
 
+/**
+ * @param {import('./identity-state.js').ReadyIdentity | import('./identity-state.js').RecoveryIdentity} item
+ */
 controller.settingsIdentity = (item) => {
   const row = document.createElement('tr');
   const name = document.createElement('td');
@@ -326,6 +329,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') setMenu(false);
   if (event.ctrlKey && event.key.toLowerCase() === 'q') invoke('quit');
 });
+/** @param {string} area */
 const showArea = (area) => {
   document.dispatchEvent(new CustomEvent('dyapp:area-change', { detail: area }));
   for (const button of domAll(document, '#sidebar [data-area]', HTMLButtonElement)) {
@@ -472,13 +476,17 @@ const profileDraft = () => ({
   ...seekingDraft(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
-/** @param {HTMLParagraphElement} status @param {string} open @param {string} detail */
+/**
+ * @param {HTMLParagraphElement} status @param {string} open @param {string} detail
+ * @param {string} key
+ */
 const statusMessage = (status, open, key, detail) => {
   status.textContent = `${localeModule_strings[key]}${detail ? ` ${detail}` : ''}`;
   const offline = key.endsWith('.notConnected');
   status.classList.toggle('error', offline);
   domById(open, HTMLElement).hidden = !offline;
 };
+/** @param {string} key */
 const profileMessage = (key, detail = '') =>
   statusMessage(profileStatus, 'profile-open-network', key, detail);
 // While the search window holds the published profile, say when it reaches search and send it
@@ -579,6 +587,7 @@ const showAge = (view) => {
     : localeModule_strings['profile.ageUnknown'];
 };
 // Labelled public fields of a draft as [label, value] pairs, with its place named as `place`.
+/** @param {import('./profile-fields.js').ProfileDraft} draft @param {string} place */
 const publicFacts = (draft, place) => {
   const facts = profileFieldsModule.scaleFields.flatMap((scale) => {
     const option = scale.choices.find(
@@ -703,6 +712,7 @@ const setProfileBusy = (busy) => {
   removeIdentity.disabled = busy;
   for (const button of [settingsCreate, settingsSwitch, settingsRemove]) button.disabled = busy;
 };
+/** @param {unknown} error */
 const profileFailure = (error) => {
   const code = String(error);
   if (code === 'cancelled') return profileMessage('profile.cancelled');

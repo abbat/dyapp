@@ -116,6 +116,7 @@ const rowItem = (seed, row) => {
 // A row-level problem the user must correct outranks nodes that are merely down.
 /** @param {import('./ipc.js').NetworkCheckRow[]} rows */
 const summary = (rows) => {
+  /** @param {...import('./ipc.js').NetworkCheckRow['status']} codes */
   const has = (...codes) => rows.some((row) => codes.includes(row.status));
   if (has('connected')) return 'network.connected';
   if (has('invalidAddress', 'invalidPeerId', 'duplicate')) return 'network.invalidAddress';
@@ -124,7 +125,7 @@ const summary = (rows) => {
 };
 
 // The collapsed details name the outcome code and every row, for the network operator.
-/** @param {string} code */
+/** @param {string} code @param {string[]} [lines] */
 const showNetworkError = (code, lines = []) => {
   domById('network-error-details', HTMLPreElement).textContent = [code, ...lines].join('\n');
   domById('network-error-more', HTMLDetailsElement).open = false;

@@ -137,6 +137,7 @@ editInput.addEventListener('input', () => {
   editError.textContent = '';
   updateEdit();
 });
+/** @param {import('./chat-state.js').ChatMessage} message */
 const openEdit = (message) => {
   if (
     !chatState.activeChat?.messages.includes(message) ||
@@ -179,6 +180,7 @@ deleteDialog.addEventListener('cancel', (event) => {
   if (deleteBusy) event.preventDefault();
 });
 deleteCancel.addEventListener('click', closeDelete);
+/** @param {import('./chat-state.js').ChatMessage} message */
 const openDelete = (message) => {
   if (
     !chatState.activeChat?.messages.includes(message) ||
@@ -218,6 +220,7 @@ forwardDialog.addEventListener('cancel', (event) => {
 });
 forwardCancel.addEventListener('click', closeForward);
 // showForwardDialog is in chats-share.js.
+/** @param {import('./chat-state.js').ChatMessage} message */
 const openForward = (message) => {
   if (!chatState.activeChat?.messages.includes(message) || message.deleted || !message.text) return;
   chatState.forwardTarget = {
@@ -298,6 +301,7 @@ const renderChatRows = (rows, call = invoke) => {
   if (!requests.length) chatRequests.textContent = strings['chats.noRequests'];
   if (!conversations.length) chatList.textContent = strings['chats.noConversations'];
 };
+/** @param {string | null} peerId */
 const showNewDevice = (peerId) => {
   newDevicePeer = peerId;
   newDeviceNotice.hidden = peerId === null;
@@ -311,7 +315,7 @@ const linkedDevice = async (call) => {
     return false;
   }
 };
-/** @param {import('./ipc.js').Invoke} call */
+/** @param {import('./ipc.js').Invoke} call @param {string} peerId */
 const newDeviceFlag = async (peerId, call) => {
   try {
     return await call('contact_new_device', { peerId });
@@ -383,7 +387,7 @@ document.addEventListener('dyapp:identity-change', () => {
   domById('chats-liked-count', HTMLSpanElement).textContent = '0';
 });
 // The next view or mail pass retries a receipt that did not go out.
-/** @param {import('./ipc.js').Invoke} call */
+/** @param {import('./ipc.js').Invoke} call @param {string} peerId */
 const sendRead = async (peerId, call) => {
   try {
     await call('send_read_receipts', { peerId });
@@ -391,7 +395,10 @@ const sendRead = async (peerId, call) => {
     /* the page shows nothing for a background receipt */
   }
 };
-/** @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous */
+/**
+ * @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous
+ * @param {string} peerId
+ */
 const resetChatSnapshot = (peerId, previous) => {
   if (newDevicePeer !== peerId) showNewDevice(null);
   chatPhotosController.chatPhotos.resetPeer(peerId);
@@ -404,10 +411,8 @@ const resetChatSnapshot = (peerId, previous) => {
   }
 };
 /**
- * @param {import('./chat-state.js').ChatHistory} history
- * @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous
- * @param {number} generation
- * @param {import('./ipc.js').Invoke} call
+ * @param {import('./chat-state.js').ChatHistory} history @param {(import('./chat-state.js').ChatHistory & { peerId: string; }) | null} previous @param {number} generation @param {import('./ipc.js').Invoke} call
+ * @param {string} peerId
  */
 const renderOpenedChat = (peerId, history, previous, generation, call) => {
   const renderKey = JSON.stringify([
@@ -449,6 +454,7 @@ const renderOpenedChat = (peerId, history, previous, generation, call) => {
   chatDetail.hidden = false;
   chatsMessage('chats.ready');
 };
+/** @param {string} peerId */
 const openChat = async (peerId, call = invoke) => {
   const previous = chatState.activeChat;
   stickerPickerController.stickerPicker?.leave(peerId);
@@ -593,9 +599,15 @@ clearConfirm.addEventListener('click', () => {
 });
 // One send of the open chat: holds the composer, tells a queued message from a failed one and
 // redraws. `sent` runs before the redraw; `failure` words an unstaged error.
-/** @param {() => void} sent @param {import('./ipc.js').Invoke} call */
+/**
+ * @param {() => void} sent @param {import('./ipc.js').Invoke} call
+ * @param {(peerId: string) => Promise<unknown>} send
+ * @param {(error: string) => string} failure
+ */
 const sendInChat = async (send, sent, failure, call) => {
-  const { peerId, messages } = chatState.activeChat;
+  const chat = chatState.activeChat;
+  if (!chat) return;
+  const { peerId, messages } = chat;
   const generation = identityState.generation;
   const request = chatOpenRequest;
   const currentSend = () =>
@@ -893,6 +905,7 @@ controller.showChats = async (call = invoke) => {
 // The runtime reports each background pass: its changed-event count, or null after a failure,
 // which stays quiet because the next pass retries. A failure can follow a commit, such as a lost
 // ACK, so the list still follows the local projection, and with no mail a presence can expire.
+/** @param {number} changed */
 controller.mailUpdated = async (changed, call = invoke) => {
   const generation = identityState.generation;
   if (domById('chats-area', HTMLElement).hidden) return;

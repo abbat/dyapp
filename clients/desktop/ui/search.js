@@ -67,12 +67,13 @@ let searchBusy = false;
 const searchMessage = (key, detail = '') =>
   statusMessage(domById('search-status', HTMLParagraphElement), 'search-open-network', key, detail);
 // Hidden filters are disabled, so they neither block validation nor reach the query.
-/** @param {HTMLDivElement} element */
+/** @param {HTMLDivElement} element @param {boolean} shown */
 const showFilter = (element, shown) => {
   element.hidden = !shown;
   for (const input of domAll(element, 'input, select', HTMLInputElement, HTMLSelectElement))
     input.disabled = !shown || searchBusy;
 };
+/** @param {number[]} offered */
 const showSearchFilters = (offered) => {
   const scales = domById('search-scales', HTMLDivElement);
   const kept = new Map(
@@ -178,6 +179,7 @@ const failureText = (failure) => {
     : text;
 };
 // Age in years from public birth fields today, a range while the birthday may be ahead.
+/** @param {import('./profile-fields.js').ProfileDraft} draft */
 const ageText = (draft) => {
   if (draft.birthYear === null) return '';
   const now = new Date();
@@ -193,11 +195,13 @@ const ageText = (draft) => {
           : draft.birthDay <= day;
   return passed === null ? `${years - 1}–${years}` : String(passed ? years : years - 1);
 };
+/** @param {import('./profile-fields.js').ProfileDraft} draft */
 const genderText = (draft) => {
   const scale = profileFieldsModule.scaleFields.find((field) => field.key === 'gender');
   const option = scale?.choices.find((choice) => choice.code === draft.gender);
   return option ? strings[`profile.value.gender.${option.key}`] : '';
 };
+/** @param {FoundWithPlace} found */
 const summaryText = (found) =>
   [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
@@ -281,6 +285,7 @@ const showVerified = (verified) => {
   domById('view-confirm', HTMLButtonElement).hidden = verified;
   domById('view-unverify', HTMLButtonElement).hidden = !verified;
 };
+/** @param {FoundWithPlace} found */
 const showFound = (found) => {
   const short = shortPeer(found.peerId);
   peerLabel(domById('view-peer', HTMLElement), found.peerId);
@@ -503,6 +508,7 @@ const copySafety = (call = invoke) => {
 domById('copy-safety-number', HTMLButtonElement).addEventListener('click', () => {
   controller.safetyCopied = copySafety();
 });
+/** @param {import('./ipc.js').QrMatrix} matrix */
 const drawContactQr = (
   { size, modules },
   canvas = domById('view-safety-qr', HTMLCanvasElement),
@@ -650,6 +656,7 @@ const grayscaleFrame = (context, width, height) => {
   return pixels;
 };
 // The UI smoke passes a PNG made from the rendered canvas through this same file path.
+/** @param {File} file */
 controller.scanQrFile = async (file) => {
   const found = viewed?.found;
   const generation = identityState.generation;
@@ -709,7 +716,10 @@ const safetyCameraFrame = (preview) => {
   context.drawImage(preview, 0, 0, width, height);
   return { width, height, pixels: grayscaleFrame(context, width, height) };
 };
-/** @param {() => boolean} current @param {FoundWithPlace} found */
+/**
+ * @param {() => boolean} current @param {FoundWithPlace} found
+ * @param {{ width: number, height: number, pixels: number[] }} frame
+ */
 const scanSafetyCameraFrame = async (found, frame, current) => {
   const result = await invoke('scan_contact_qr', { peerId: found.peerId, ...frame });
   if (!current()) return true;

@@ -90,6 +90,7 @@ domById('revoked-ok', HTMLButtonElement).addEventListener('click', () => revoked
 // The runtime found the device of `slot` revoked. Nothing is asked: the owner already decided on
 // another device, and the profile stays theirs, so there is no tombstone either. A failed removal
 // shows the error screen; a pass tries again once the identity opens.
+/** @param {string} slot */
 controller.deviceRevoked = async (slot, remove = removeNow) => {
   if (identityState.current?.slot !== slot) return;
   for (const dialog of domAll(document, 'dialog[open]', HTMLDialogElement)) dialog.close();

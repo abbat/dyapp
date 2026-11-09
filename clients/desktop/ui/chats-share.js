@@ -71,9 +71,10 @@ domById('view-share', HTMLButtonElement).addEventListener('click', () => {
   const found = viewed?.found;
   if (found) controller.shareOpened = openShare(found.peerId);
 });
+/** @param {string} peerId */
 const profileCardText = (peerId) => `${strings['chats.profileCard']} ${shortPeer(peerId)}`;
 // Nothing about the shared peer is fetched until the card is pressed, and then only verified.
-/** @param {HTMLButtonElement} card */
+/** @param {HTMLButtonElement} card @param {string} peerId */
 const openShared = async (peerId, card, call = invoke) => {
   const generation = identityState.generation;
   try {
@@ -84,6 +85,7 @@ const openShared = async (peerId, card, call = invoke) => {
       chatComposeStatus.textContent = `${strings['chats.profileFailed']} ${String(error)}`;
   }
 };
+/** @param {string} peerId @param {import('./ipc.js').Invoke} call */
 controller.profileCard = (peerId, call) => {
   const card = document.createElement('button');
   card.type = 'button';

@@ -46,6 +46,14 @@
       'Picker Cancel did not restore composer focus',
     );
   };
+  const checkEmptySend = async () => {
+    appBindings.activeChat = null;
+    const { sendInChat } = await import(new URL('chats-ui.js', document.baseURI).href);
+    const unexpected = () => {
+      throw new Error('Send without an open chat reached an operation');
+    };
+    await sendInChat(unexpected, unexpected, unexpected, unexpected);
+  };
   smoke.checkChatComposer = async () => {
     await openArea('chats-area');
     const form = document.getElementById('chat-composer');
@@ -68,6 +76,7 @@
     };
     form.addEventListener('submit', intercept, true);
     try {
+      await checkEmptySend();
       appBindings.activeChat = { peerId: appBindings.current.peerId, state: 'open', muted: false };
       appBindings.chatDetail.hidden = false;
       appBindings.chatOverview.hidden = true;

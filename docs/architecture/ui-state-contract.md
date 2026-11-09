@@ -56,9 +56,9 @@ See the [Linux UI smoke](../testing/ui-testing.md#linux).
 
 ## Chat composer
 
-The Linux Chats composer is planned. No message-draft survival guarantee is implemented yet.
-Its contract must be set when the Chats UI and per-identity draft storage are added; a receipt or
-outbox write is not a substitute for a visible unsent draft.
+The desktop composer keeps unsent text during a refresh of the same chat. Closing the chat or
+opening a different peer clears that text. The draft is not persisted across a page reload or
+process restart. A send without an open chat returns before invoking send or completion callbacks.
 
 ## Open design question
 

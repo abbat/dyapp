@@ -350,7 +350,8 @@ picker/manager openings and cache changes have explicit state contracts, includi
 not-yet-loaded fields. Active-opening checks narrow the current manager/picker state.
 Settings collections accept generic item callbacks and retain typed deferred row builders: search
 and pagination preserve each source index while only the visible page creates DOM rows. Saved
-profile actions carry typed list/read context and button ownership.
+profile actions carry typed list/read context and button ownership. Chat sends and camera/profile
+helpers declare their callback and DTO contracts; finite network status codes type variadic summaries.
 Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:

@@ -89,6 +89,9 @@ const thumbButton = (canvas, index, count, letters) => {
 };
 
 // Returns undefined when another choice takes over, otherwise whether the full image is showing.
+/** @param {{ thumbnails: number[][], originals: number[][], buttons: HTMLButtonElement[],
+ *   showMain: (canvas: HTMLCanvasElement | null, index?: number) => void,
+ *   auto: boolean, call: import('./ipc.js').Invoke }} options */
 const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call }) => {
   /** @param {boolean} load @param {number} index */
   const choose = async (index, load) => {

@@ -60,6 +60,7 @@ const finishLink = async (state, call) => {
 };
 
 // A record ends the wait even after Cancel: by then the backend has already opened its identity.
+/** @param {number} run */
 const pollLink = async (run, call = invoke) => {
   let state = null;
   let status = 'waiting';

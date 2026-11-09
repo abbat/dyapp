@@ -296,6 +296,7 @@ document.addEventListener('dyapp:area-change', invalidate);
 controller.stickerPicker = {
   open,
   close: invalidate,
+  /** @param {string} peerId */
   leave: (peerId) => {
     if ((view && view.peerId !== peerId) || (returnTo && returnTo.peerId !== peerId)) invalidate();
   },

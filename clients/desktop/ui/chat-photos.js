@@ -227,6 +227,7 @@ const fetchAllowedPhotos = async (peerId, call) => {
 controller.chatPhotos = {
   photoBubble,
   fetchAllowed: fetchAllowedPhotos,
+  /** @param {string | null} peerId */
   resetPeer(peerId, clear = false) {
     if (clear || photoOriginalsPeer !== peerId) forgetPhotos();
     photoOriginalsPeer = peerId;

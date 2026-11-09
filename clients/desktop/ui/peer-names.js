@@ -13,6 +13,7 @@ controller.chatRenamed = undefined;
 // local one. A public name is the peer's own claim, so it always shows its mark and short Peer ID.
 /** @type {Map<string, import('./ipc.js').PeerName>} */
 const peerNames = new Map();
+/** @param {string} id */
 controller.peerName = (id) => {
   const short = shortPeer(id);
   const entry = peerNames.get(id);
@@ -21,9 +22,10 @@ controller.peerName = (id) => {
   const mark = strings[entry.verified ? 'peer.verified' : 'peer.unverified'];
   return `${entry.name} · ${mark} · ${short}`;
 };
+/** @param {string} id */
 controller.peerPhoto = (id) => peerNames.get(id)?.photo;
 // A failed read keeps the last names: every peer still shows at least its short Peer ID.
-/** @param {import('./ipc.js').Invoke} call */
+/** @param {import('./ipc.js').Invoke} call @param {string[]} peerIds */
 const loadPeerNames = async (peerIds, call) => {
   if (!peerIds.length) return;
   const generation = identityState.generation;
