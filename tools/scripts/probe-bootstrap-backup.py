@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Prove a stopped-node snapshot's SQLite stores and recovered node key."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
 import argparse
 import importlib.util
 import os
@@ -10,16 +14,22 @@ import subprocess
 import tempfile
 
 
+if TYPE_CHECKING:
+    import backup_contracts as bc
+
 SCRIPT = Path(__file__).with_name("probe-bootstrap-sqlite.py")
 SPEC = importlib.util.spec_from_file_location("probe_bootstrap_sqlite", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-SQLITE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(SQLITE)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+SQLITE = cast("bc.SQLiteModule", _module)
 
 
-def decrypt_age(encrypted, identity, output, age_binary) -> None:
+def decrypt_age(
+    encrypted: Path, identity: Path, output: Path, age_binary: Path
+) -> None:
     if identity.is_symlink():
         raise ValueError("age identity must not be a symlink")
     info = identity.stat()
@@ -53,13 +63,13 @@ def decrypt_age(encrypted, identity, output, age_binary) -> None:
 
 
 def probe(
-    snapshot,
-    dyappd,
-    id_pow_bits,
-    age_identity=None,
-    age_binary=None,
-    scratch=None,
-):
+    snapshot: Path,
+    dyappd: Path,
+    id_pow_bits: int,
+    age_identity: Path | None = None,
+    age_binary: Path | None = None,
+    scratch: Path | None = None,
+) -> str:
     if not 0 <= id_pow_bits <= 32:
         raise ValueError("ID proof-of-work difficulty must be 0..32")
     header, records, _ = SQLITE.probe(snapshot, scratch)
@@ -76,6 +86,7 @@ def probe(
         for name in ("storage/node.id", "storage/network"):
             SQLITE.copy_verified_file(root, scratch, records[name])
         if mode == "age":
+            assert age_identity is not None and age_binary is not None
             source = "recovery/node.key.age"
             if records[source]["size"] > 65536:
                 raise ValueError("encrypted key exceeds size limit")

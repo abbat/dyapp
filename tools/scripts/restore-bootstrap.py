@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Replace a stopped node's storage with a verified pre-update snapshot."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, cast
+
 import argparse
 import importlib.util
 import json
@@ -13,33 +18,37 @@ import tempfile
 import time
 
 
+if TYPE_CHECKING:
+    import backup_contracts as bc
+
 SCRIPT = Path(__file__).with_name("preflight-bootstrap-update.py")
 SPEC = importlib.util.spec_from_file_location("preflight_update", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-PREFLIGHT = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(PREFLIGHT)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+PREFLIGHT = cast("bc.PreflightModule", _module)
 PROBE = PREFLIGHT.PROBE
 SQLITE = PROBE.SQLITE
 
 
-def storage_records(snapshot):
+def storage_records(snapshot: Path) -> tuple[bc.Header, list[bc.FileRecord]]:
     with (snapshot / "manifest.jsonl").open("rb") as manifest:
-        header = json.loads(manifest.readline())
-        records = [json.loads(line) for line in manifest]
+        header: bc.Header = json.loads(manifest.readline())
+        records: list[bc.FileRecord] = [json.loads(line) for line in manifest]
     return header, [
         record for record in records if record["path"].startswith("storage/")
     ]
 
 
-def own(path, owner) -> None:
+def own(path: Path, owner: os.stat_result) -> None:
     info = path.lstat()
     if (info.st_uid, info.st_gid) != (owner.st_uid, owner.st_gid):
         os.chown(path, owner.st_uid, owner.st_gid, follow_symlinks=False)
 
 
-def sync(path: "Path") -> None:
+def sync(path: "Path | str") -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(fd)
@@ -47,7 +56,13 @@ def sync(path: "Path") -> None:
         os.close(fd)
 
 
-def stage(snapshot, staging, header, records, owner) -> None:
+def stage(
+    snapshot: Path,
+    staging: Path,
+    header: bc.Header,
+    records: Iterable[bc.FileRecord],
+    owner: os.stat_result,
+) -> None:
     """Copy and re-hash the snapshot's storage into `staging/storage`."""
     staging.mkdir(mode=0o700)
     (staging / "storage").mkdir(mode=0o700)
@@ -64,15 +79,15 @@ def stage(snapshot, staging, header, records, owner) -> None:
 
 
 def restore(
-    snapshot,
-    storage,
-    dyappd,
-    id_pow_bits,
-    age_identity=None,
-    age_binary=None,
-    scratch=None,
-    free=PREFLIGHT.available,
-):
+    snapshot: Path,
+    storage: Path,
+    dyappd: Path,
+    id_pow_bits: int,
+    age_identity: Path | None = None,
+    age_binary: Path | None = None,
+    scratch: Path | None = None,
+    free: bc.FreeSpace = PREFLIGHT.available,
+) -> Path:
     """Run inside `stopped(storage)`; returns the moved-aside storage path."""
     if storage.is_symlink() or snapshot.is_symlink():
         raise ValueError("storage and snapshot must not be symlinks")

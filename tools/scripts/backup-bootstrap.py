@@ -5,6 +5,11 @@ This writer does not prove a backup is restorable. The independent verifier and
 automatic-update gate are separate checkpoints. Never point it at a live node.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING
+
 import argparse
 import hashlib
 import json
@@ -13,6 +18,9 @@ from pathlib import Path
 import re
 import stat
 
+
+if TYPE_CHECKING:
+    import backup_contracts as bc
 
 REQUIRED = {"node.id", "network", "profiles.db", "messages.db"}
 OPTIONAL = {"media.db", "deny.db", "data"}
@@ -25,14 +33,14 @@ MAX_RECORD = 4096
 MAX_PATH = 1024
 
 
-def regular_file(path):
+def regular_file(path: Path) -> os.stat_result:
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         raise ValueError(f"not a private regular file: {path}")
     return info
 
 
-def storage_entries(source):
+def storage_entries(source: Path) -> dict[str, Path]:
     root = {}
     for item in source.iterdir():
         name = item.name
@@ -57,7 +65,9 @@ def storage_entries(source):
     return root
 
 
-def storage_files(source, root):
+def storage_files(
+    source: Path, root: Mapping[str, Path]
+) -> list[tuple[str, Path]]:
     result = [
         (f"storage/{name}", item)
         for name, item in root.items()
@@ -84,7 +94,9 @@ def storage_files(source, root):
     return result
 
 
-def paths(source, key_mode):
+def paths(
+    source: Path, key_mode: str
+) -> tuple[list[tuple[str, Path]], list[str]]:
     root = storage_entries(source)
     missing = REQUIRED - root.keys()
     if missing:
@@ -104,7 +116,7 @@ def paths(source, key_mode):
     return result, sorted(OPTIONAL - root.keys())
 
 
-def copy_file(source: "Path", target: "Path"):
+def copy_file(source: "Path", target: "Path") -> bc.CopiedFile:
     fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         before = os.fstat(fd)
@@ -138,12 +150,14 @@ def copy_file(source: "Path", target: "Path"):
         os.close(fd)
 
 
-def write_manifest(destination, header, files) -> None:
+def write_manifest(
+    destination: Path, header: bc.Header, files: Iterable[tuple[str, Path]]
+) -> None:
     pending = destination / "manifest.pending"
     total = 0
     with pending.open("x", encoding="utf-8") as output:
 
-        def write_record(record) -> None:
+        def write_record(record: bc.Header | bc.FileRecord) -> None:
             nonlocal total
             line = (
                 json.dumps(
@@ -168,14 +182,20 @@ def write_manifest(destination, header, files) -> None:
                 raise ValueError("path exceeds size limit")
             target = destination / relative
             record = copy_file(original, target)
-            record["path"] = relative
-            write_record(record)
+            entry: bc.FileRecord = {
+                "path": relative,
+                "size": record["size"],
+                "sha256": record["sha256"],
+            }
+            write_record(entry)
         output.flush()
         os.fsync(output.fileno())
     os.replace(pending, destination / "manifest.jsonl")
 
 
-def snapshot_paths(source, destination, key_mode, recovery_key):
+def snapshot_paths(
+    source: Path, destination: Path, key_mode: str, recovery_key: Path | None
+) -> tuple[Path, Path]:
     if source.is_symlink():
         raise ValueError("source must not be a symlink")
     source = source.resolve(strict=True)
@@ -195,7 +215,9 @@ def snapshot_paths(source, destination, key_mode, recovery_key):
     return source, destination
 
 
-def snapshot(source, destination, key_mode, recovery_key) -> None:
+def snapshot(
+    source: Path, destination: Path, key_mode: str, recovery_key: Path | None
+) -> None:
     source, destination = snapshot_paths(
         source, destination, key_mode, recovery_key
     )
@@ -222,7 +244,7 @@ def snapshot(source, destination, key_mode, recovery_key) -> None:
     (destination / "recovery").mkdir(mode=0o700)
     if "data" not in absent:
         (destination / "storage/data").mkdir(mode=0o700)
-    header = {
+    header: bc.Header = {
         "schema": 1,
         "peer_id": peer_id,
         "network": network,

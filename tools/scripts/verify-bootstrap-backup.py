@@ -5,6 +5,11 @@ This verifies bytes and paths, not SQLite recovery or the node key. Those
 probes are separate checkpoints. It never opens a live storage directory.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, cast
+
 import argparse
 import hashlib
 import importlib.util
@@ -15,13 +20,17 @@ import re
 import stat
 
 
+if TYPE_CHECKING:
+    import backup_contracts as bc
+
 SCRIPT = Path(__file__).with_name("backup-bootstrap.py")
 SPEC = importlib.util.spec_from_file_location("backup_bootstrap", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-BACKUP = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(BACKUP)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+BACKUP = cast("bc.BackupModule", _module)
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 HEADER_FIELDS = {
     "schema",
@@ -34,7 +43,7 @@ HEADER_FIELDS = {
 FILE_FIELDS = {"path", "size", "sha256"}
 
 
-def unique_object(pairs):
+def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result = {}
     for key, value in pairs:
         if key in result:
@@ -62,7 +71,7 @@ def open_beneath(root: "Path", relative: "str") -> "int":
         os.close(directory)
 
 
-def read_marker(root, name, limit):
+def read_marker(root: Path, name: str, limit: int) -> str:
     fd = open_beneath(root, f"storage/{name}")
     try:
         value = os.read(fd, limit + 1)
@@ -73,7 +82,7 @@ def read_marker(root, name, limit):
         os.close(fd)
 
 
-def check_file(root, record) -> None:
+def check_file(root: Path, record: bc.FileRecord) -> None:
     fd = open_beneath(root, record["path"])
     try:
         before = os.fstat(fd)
@@ -101,7 +110,7 @@ def check_file(root, record) -> None:
         os.close(fd)
 
 
-def storage_path(parts, key_mode):
+def storage_path(parts: tuple[str, ...], key_mode: str) -> tuple[str, ...]:
     if len(parts) >= 3 and parts[1] == "data":
         return parts
     if len(parts) != 2:
@@ -119,7 +128,7 @@ def storage_path(parts, key_mode):
     raise ValueError("unknown storage path")
 
 
-def validate_path(value, key_mode):
+def validate_path(value: object, key_mode: str) -> tuple[str, ...]:
     if not isinstance(value, str) or not value:
         raise ValueError("invalid manifest path")
     if len(value.encode("utf-8")) > BACKUP.MAX_PATH:
@@ -146,7 +155,7 @@ def validate_path(value, key_mode):
     return parts
 
 
-def header_inventory(value) -> None:
+def header_inventory(value: Mapping[str, object]) -> None:
     absent = value["absent"]
     if not isinstance(absent, list) or any(
         not isinstance(item, str) for item in absent
@@ -158,7 +167,7 @@ def header_inventory(value) -> None:
         raise ValueError("invalid hot-journal flag")
 
 
-def header_record(value):
+def header_record(value: object) -> bc.Header:
     if not isinstance(value, dict) or set(value) != HEADER_FIELDS:
         raise ValueError("invalid backup header")
     if type(value["schema"]) is not int or value["schema"] != 1:
@@ -178,20 +187,22 @@ def header_record(value):
     ):
         raise ValueError("invalid key mode")
     header_inventory(value)
-    return value
+    return cast("bc.Header", value)
 
 
-def file_record(value, previous, key_mode):
+def file_record(
+    value: Mapping[str, object], previous: str, key_mode: str
+) -> tuple[str, ...]:
     path = value["path"]
     parts = validate_path(path, key_mode)
+    path = cast(str, path)
     if path <= previous:
         raise ValueError("manifest paths are not sorted and unique")
     size = value["size"]
     if type(size) is not int or not 0 <= size <= 2**63 - 1:
         raise ValueError("invalid file size")
-    if not isinstance(value["sha256"], str) or not DIGEST.fullmatch(
-        value["sha256"]
-    ):
+    digest = value["sha256"]
+    if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
         raise ValueError("invalid file digest")
     return parts
 
@@ -199,30 +210,31 @@ def file_record(value, previous, key_mode):
 class ManifestFiles:
     """Accumulate checked records without reopening the manifest."""
 
-    def __init__(self, root, header) -> None:
+    def __init__(self, root: Path, header: bc.Header) -> None:
         self.root = root
         self.header = header
         self.key_mode = self.header["key_mode"]
         self.expected_dirs = {"storage", "recovery"}
         if "data" not in self.header["absent"]:
             self.expected_dirs.add("storage/data")
-        self.seen = set()
-        self.sidecars = set()
+        self.seen: set[str] = set()
+        self.sidecars: set[str] = set()
         self.previous = ""
         self.count = 0
         self.hot_journal = False
         self.recovery_key_seen = False
-        self.sqlite_records = []
-        self.key_records = {}
+        self.sqlite_records: list[bc.FileRecord] = []
+        self.key_records: dict[str, bc.FileRecord] = {}
 
-    def check(self, value) -> None:
+    def check(self, value: object) -> None:
         if not isinstance(value, dict) or set(value) != FILE_FIELDS:
             raise ValueError("invalid file record")
         path = value["path"]
         parts = file_record(value, self.previous, self.key_mode)
         if self.count >= BACKUP.MAX_FILES:
             raise ValueError("too many manifest files")
-        check_file(self.root, value)
+        checked = cast("bc.FileRecord", value)
+        check_file(self.root, checked)
         self.count += 1
         self.previous = path
         if path in {
@@ -232,17 +244,19 @@ class ManifestFiles:
             "recovery/node.key",
             "recovery/node.key.age",
         }:
-            self.key_records[path] = value
+            self.key_records[path] = checked
         if parts[0] == "recovery":
             self.recovery_key_seen = True
-        self.storage_record(parts, value)
+        self.storage_record(parts, checked)
         for parent in PurePosixPath(path).parents:
             if parent == PurePosixPath("."):
                 break
             self.expected_dirs.add(parent.as_posix())
         self.hot_journal |= path.endswith(".db-journal")
 
-    def storage_record(self, parts, value) -> None:
+    def storage_record(
+        self, parts: tuple[str, ...], value: bc.FileRecord
+    ) -> None:
         if parts[0] == "storage" and len(parts) == 2:
             self.seen.add(parts[1])
             is_wal = any(parts[1] == f"{db}-wal" for db in BACKUP.DATABASES)
@@ -279,7 +293,7 @@ class ManifestFiles:
             raise ValueError("network differs from manifest")
 
 
-def parse_and_hash(root):
+def parse_and_hash(root: Path) -> bc.Inventory:
     fd = open_beneath(root, "manifest.jsonl")
     try:
         metadata = os.fstat(fd)
@@ -293,7 +307,7 @@ def parse_and_hash(root):
             raise ValueError("unsafe or oversized manifest")
         with os.fdopen(fd, "rb", closefd=False) as stream:
 
-            def record():
+            def record() -> object:
                 line = stream.readline(BACKUP.MAX_RECORD + 1)
                 if any(
                     (
@@ -323,7 +337,7 @@ def parse_and_hash(root):
     )
 
 
-def inventory_files(directory, parent, files):
+def inventory_files(directory: str, parent: Path, files: Iterable[str]) -> int:
     found = 0
     for name in files:
         relative = (parent / name).as_posix()
@@ -339,8 +353,10 @@ def inventory_files(directory, parent, files):
     return found
 
 
-def check_inventory(root, expected_count, expected_dirs) -> None:
-    def fail_walk(error) -> None:
+def check_inventory(
+    root: Path, expected_count: int, expected_dirs: set[str]
+) -> None:
+    def fail_walk(error: OSError) -> None:
         raise error
 
     found = 0
@@ -367,7 +383,7 @@ def check_inventory(root, expected_count, expected_dirs) -> None:
         raise ValueError("backup has missing directories")
 
 
-def verify(snapshot):
+def verify(snapshot: Path) -> tuple[str, int]:
     if snapshot.is_symlink():
         raise ValueError("snapshot must not be a symlink")
     root = snapshot.resolve(strict=True)

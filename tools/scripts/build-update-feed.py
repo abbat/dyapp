@@ -6,11 +6,19 @@ The inventory is trusted CI input; it checks internal consistency,
 not GitHub attestations or store listings. It writes nothing on failure.
 """
 
+from __future__ import annotations
+
+from collections.abc import Container, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, cast
+
 import json
 from pathlib import Path
 import re
 import sys
 
+
+if TYPE_CHECKING:
+    import release_contracts as rc
 
 TARGETS = {
     "linux-x86_64",
@@ -26,7 +34,7 @@ COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 MAX_COMPONENT = 2**31 - 1
 
 
-def unique_object(pairs):
+def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result = {}
     for key, value in pairs:
         if key in result:
@@ -35,11 +43,12 @@ def unique_object(pairs):
     return result
 
 
-def read_json(path, limit):
+def read_json(path: str | Path, limit: int) -> object:
     data = Path(path).read_bytes()
     if len(data) > limit:
         raise ValueError("input exceeds size limit")
-    return json.loads(data, object_pairs_hook=unique_object)
+    value: object = json.loads(data, object_pairs_hook=unique_object)
+    return value
 
 
 def version(tag: "object") -> "tuple[int, ...]":
@@ -54,13 +63,14 @@ def version(tag: "object") -> "tuple[int, ...]":
     return parts
 
 
-def fields(value, expected) -> None:
+def fields(value: object, expected: Iterable[str]) -> None:
     if not isinstance(value, dict) or set(value) != set(expected):
         raise ValueError("invalid inventory fields")
 
 
-def prior_targets(prior):
+def prior_targets(prior: object) -> dict[str, rc.FeedTarget]:
     fields(prior, ("schema", "channel", "targets"))
+    prior = cast("rc.Feed", prior)
     if type(prior["schema"]) is not int or prior["schema"] != 1:
         raise ValueError("invalid prior schema")
     if prior["channel"] != "stable" or not isinstance(prior["targets"], dict):
@@ -82,7 +92,7 @@ def prior_targets(prior):
     return result
 
 
-def expected_package(target, tag):
+def expected_package(target: str, tag: str) -> str | None:
     release = tag[1:]
     return {
         "linux-x86_64": f"dyapp_{release}_amd64.deb",
@@ -90,7 +100,7 @@ def expected_package(target, tag):
     }.get(target)
 
 
-def validated_assets(release):
+def validated_assets(release: rc.Release) -> dict[str, tuple[str, str]]:
     if not isinstance(release["assets"], list) or len(release["assets"]) > 100:
         raise ValueError("invalid asset inventory")
     assets = {}
@@ -107,7 +117,9 @@ def validated_assets(release):
     return assets
 
 
-def validated_attestations(release, assets):
+def validated_attestations(
+    release: rc.Release, assets: Mapping[str, tuple[str, str]]
+) -> set[tuple[str, str]]:
     if not isinstance(release["attestations"], list):
         raise ValueError("invalid attestation inventory")
     if len(release["attestations"]) > 100:
@@ -126,7 +138,7 @@ def validated_attestations(release, assets):
     return attestations
 
 
-def validated_source_builds(release):
+def validated_source_builds(release: rc.Release) -> set[tuple[str, str]]:
     if not isinstance(release["source_builds"], list):
         raise ValueError("invalid source build inventory")
     if len(release["source_builds"]) > 5:
@@ -146,8 +158,14 @@ def validated_source_builds(release):
 
 
 def verified_claim(
-    target, claim, tag, commit, assets, attestations, source_builds
-):
+    target: str,
+    claim: object,
+    tag: str,
+    commit: str,
+    assets: Mapping[str, tuple[str, str]],
+    attestations: Container[tuple[str, str]],
+    source_builds: Container[tuple[str, str]],
+) -> rc.FeedTarget:
     if target not in TARGETS or not isinstance(claim, dict):
         raise ValueError("unknown client target")
     method = claim.get("method")
@@ -173,7 +191,7 @@ def verified_claim(
     return {"version": tag[1:], "tag": tag, "method": method}
 
 
-def validated_release(release):
+def validated_release(release: object) -> dict[str, rc.FeedTarget]:
     fields(
         release,
         (
@@ -187,6 +205,7 @@ def validated_release(release):
             "targets",
         ),
     )
+    release = cast("rc.Release", release)
     tag = release["tag"]
     version(tag)
     commit = release["commit"]
@@ -212,7 +231,10 @@ def validated_release(release):
     return result
 
 
-def merge_target_claims(ordered, targets) -> None:
+def merge_target_claims(
+    ordered: Sequence[tuple[tuple[int, ...], dict[str, rc.FeedTarget]]],
+    targets: dict[str, rc.FeedTarget],
+) -> None:
     for _, claims in sorted(ordered):
         for target, entry in claims.items():
             previous = targets.get(target)
@@ -227,8 +249,9 @@ def merge_target_claims(ordered, targets) -> None:
             targets[target] = entry
 
 
-def build(inventory, prior=None):
+def build(inventory: object, prior: object = None) -> rc.Feed:
     fields(inventory, ("schema", "releases"))
+    inventory = cast("rc.Inventory", inventory)
     if type(inventory["schema"]) is not int or inventory["schema"] != 1:
         raise ValueError("invalid inventory schema")
     releases = inventory["releases"]

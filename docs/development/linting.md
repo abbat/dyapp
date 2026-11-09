@@ -303,6 +303,12 @@ Network scenario helpers share CLI reply, peer, flood-count and RSS observation 
 `tools/scripts/network_contracts.py`; flood calls return status counts separately from command
 reply fields. Search model and SQLite measurement helpers share numeric parameters, capacity
 rows, benchmark cells and partial-run records in `tools/scripts/search_contracts.py`.
+Backup helpers share validated manifest headers, file records and narrow loader interfaces in
+`tools/scripts/backup_contracts.py`. Raw manifest values keep their existing validation before
+becoming checked records; copied filesystem paths are distinct from serialized relative paths.
+Release helpers share feed targets, candidate packages, inventory records and injected command/HTTP
+interfaces in `tools/scripts/release_contracts.py`; validation, download limits and trust checks
+remain in their existing owners.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

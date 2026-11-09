@@ -5,6 +5,11 @@ Usage: verify-release-packages.py TAG > inventory.json
 Run from the checked-out release tag with gh authentication.
 """
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, cast
+
 import hashlib
 import importlib.util
 import json
@@ -14,6 +19,9 @@ import sys
 import tempfile
 
 
+if TYPE_CHECKING:
+    import release_contracts as rc
+
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "release_candidates", ROOT / "tools/scripts/release-candidates.py"
@@ -21,13 +29,14 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-CANDIDATES = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(CANDIDATES)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+CANDIDATES = cast("rc.CandidateModule", _module)
 REPO = "abbat/dyapp"
 SIGNER = "abbat/dyapp/.github/workflows/release.yml"
 
 
-def command(args, timeout: int = 120):
+def command(args: Sequence[str], timeout: int = 120) -> bytes:
     try:
         return subprocess.run(
             args, check=True, capture_output=True, timeout=timeout
@@ -40,10 +49,10 @@ def command(args, timeout: int = 120):
         raise ValueError(f"verification command failed: {args[0]}") from error
 
 
-def release_commit(tag, run=command):
+def release_commit(tag: str, run: rc.CommandRunner = command) -> str:
     CANDIDATES.stable_tag(tag)
-    commit = run(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"])
-    commit = commit.decode("ascii").strip()
+    raw_commit = run(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"])
+    commit = raw_commit.decode("ascii").strip()
     head = run(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
     if commit != head:
         raise ValueError("checkout does not match release tag")
@@ -52,7 +61,7 @@ def release_commit(tag, run=command):
     return commit
 
 
-def digest_file(path):
+def digest_file(path: Path) -> str:
     sha = hashlib.sha256()
     with path.open("rb") as source:
         for block in iter(lambda: source.read(1024 * 1024), b""):
@@ -60,7 +69,13 @@ def digest_file(path):
     return sha.hexdigest()
 
 
-def verify_package(package, tag, commit, directory, run=command) -> None:
+def verify_package(
+    package: rc.Package,
+    tag: str,
+    commit: str,
+    directory: Path,
+    run: rc.CommandRunner = command,
+) -> None:
     name = package["name"]
     run(
         [
@@ -110,7 +125,7 @@ def verify_package(package, tag, commit, directory, run=command) -> None:
         raise ValueError("no verified package attestation")
 
 
-def inventory(tag, run=command):
+def inventory(tag: str, run: rc.CommandRunner = command) -> rc.Inventory:
     commit = release_commit(tag, run)
     response = run(
         [
@@ -123,14 +138,14 @@ def inventory(tag, run=command):
         raise ValueError("release response exceeds size limit")
     release = json.loads(response, object_pairs_hook=CANDIDATES.unique_object)
     found = CANDIDATES.candidates(release, tag, commit)
-    assets = []
-    attestations = []
-    targets = {}
+    assets: list[rc.Asset] = []
+    attestations: list[rc.Attestation] = []
+    targets: dict[str, rc.Claim] = {}
     with tempfile.TemporaryDirectory(prefix="dyapp-release-") as temporary:
         directory = Path(temporary)
         for target, package in sorted(found["packages"].items()):
             verify_package(package, tag, commit, directory, run)
-            asset = {
+            asset: rc.Asset = {
                 "name": package["name"],
                 "state": "uploaded",
                 "sha256": package["sha256"],

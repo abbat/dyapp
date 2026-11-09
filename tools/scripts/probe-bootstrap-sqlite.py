@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Check stopped-node SQLite stores on a disposable restored copy."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
 import argparse
 from contextlib import closing
 import importlib.util
@@ -12,16 +16,22 @@ import tempfile
 import time
 
 
+if TYPE_CHECKING:
+    import backup_contracts as bc
+
 SCRIPT = Path(__file__).with_name("verify-bootstrap-backup.py")
 SPEC = importlib.util.spec_from_file_location("verify_bootstrap", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-VERIFY = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(VERIFY)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+VERIFY = cast("bc.VerifierModule", _module)
 
 
-def copy_verified_file(snapshot, scratch, record) -> None:
+def copy_verified_file(
+    snapshot: Path, scratch: Path, record: bc.FileRecord
+) -> None:
     source = VERIFY.open_beneath(snapshot, record["path"])
     target = scratch / record["path"]
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -33,7 +43,7 @@ def copy_verified_file(snapshot, scratch, record) -> None:
     VERIFY.check_file(scratch, record)
 
 
-def check_database(path) -> None:
+def check_database(path: Path) -> None:
     deadline = time.monotonic() + 120
     with closing(sqlite3.connect(path)) as database:
         database.set_progress_handler(
@@ -44,7 +54,7 @@ def check_database(path) -> None:
             raise ValueError(f"SQLite integrity check failed: {path.name}")
 
 
-def probe(snapshot, scratch=None):
+def probe(snapshot: Path, scratch: Path | None = None) -> bc.SQLiteResult:
     if snapshot.is_symlink():
         raise ValueError("snapshot must not be a symlink")
     root = snapshot.resolve(strict=True)

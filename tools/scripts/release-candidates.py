@@ -5,11 +5,19 @@ Usage: release-candidates.py RELEASE.json TAG COMMIT
 Input is the REST get-by-tag response. Output is unverified.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
+
 import json
 from pathlib import Path
 import re
 import sys
 
+
+if TYPE_CHECKING:
+    import release_contracts as rc
 
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -17,7 +25,7 @@ DIGEST = re.compile(r"sha256:([0-9a-f]{64})\Z")
 MAX_BYTES = 1024 * 1024
 
 
-def unique_object(pairs):
+def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result = {}
     for key, value in pairs:
         if key in result:
@@ -34,7 +42,7 @@ def stable_tag(tag: "object") -> None:
         raise ValueError("invalid tag")
 
 
-def release_assets(release, tag, commit):
+def release_assets(release: object, tag: str, commit: str) -> list[object]:
     stable_tag(tag)
     if not isinstance(commit, str) or not SHA.fullmatch(commit):
         raise ValueError("invalid commit")
@@ -54,7 +62,7 @@ def release_assets(release, tag, commit):
     return assets
 
 
-def package_metadata(asset, name):
+def package_metadata(asset: Mapping[str, object], name: str) -> rc.Package:
     digest = asset.get("digest")
     size = asset.get("size")
     if asset.get("state") != "uploaded":
@@ -70,7 +78,7 @@ def package_metadata(asset, name):
     }
 
 
-def candidates(release, tag, commit):
+def candidates(release: object, tag: str, commit: str) -> rc.Candidates:
     assets = release_assets(release, tag, commit)
     version = tag[1:]
     expected = {

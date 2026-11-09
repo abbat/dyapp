@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Snapshot and prove a stopped node's storage before a package update."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, cast
+
 import argparse
 from contextlib import contextmanager
 import fcntl
@@ -13,13 +18,17 @@ import subprocess
 import tempfile
 
 
+if TYPE_CHECKING:
+    import backup_contracts as bc
+
 SCRIPT = Path(__file__).with_name("probe-bootstrap-backup.py")
 SPEC = importlib.util.spec_from_file_location("probe_bootstrap_backup", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None, (
     "Python source loader is unavailable"
 )
-PROBE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(PROBE)
+_module = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(_module)
+PROBE = cast("bc.ProbeModule", _module)
 BACKUP = PROBE.SQLITE.VERIFY.BACKUP
 MARGIN = 64 * 1024 * 1024
 
@@ -29,7 +38,7 @@ def available(path: "Path") -> "int":
 
 
 @contextmanager
-def stopped(source):
+def stopped(source: Path) -> Iterator[None]:
     """Hold `dyappd.lock` so dyappd cannot start until the block ends."""
     path = source / "dyappd.lock"
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -48,7 +57,12 @@ def stopped(source):
 
 
 def check_space(
-    source, destination, key_mode, recovery_key, scratch, free=available
+    source: Path,
+    destination: Path,
+    key_mode: str,
+    recovery_key: Path | None,
+    scratch: Path,
+    free: bc.FreeSpace = available,
 ) -> None:
     files, _ = BACKUP.paths(source, key_mode)
     sizes = {name: item.stat().st_size for name, item in files}
@@ -66,7 +80,7 @@ def check_space(
         (source, migration),
     ]
     # Paths on one filesystem share its free space.
-    totals = {}
+    totals: dict[int, tuple[Path, int]] = {}
     for path, size in need:
         first, sum_ = totals.get(path.stat().st_dev, (path, 0))
         totals[path.stat().st_dev] = (first, sum_ + size)
@@ -78,17 +92,17 @@ def check_space(
 
 
 def preflight(
-    source,
-    destination,
-    key_mode,
-    recovery_key,
-    dyappd,
-    id_pow_bits,
-    age_identity=None,
-    age_binary=None,
-    scratch=None,
-    free=available,
-):
+    source: Path,
+    destination: Path,
+    key_mode: str,
+    recovery_key: Path | None,
+    dyappd: Path,
+    id_pow_bits: int,
+    age_identity: Path | None = None,
+    age_binary: Path | None = None,
+    scratch: Path | None = None,
+    free: bc.FreeSpace = available,
+) -> str:
     """Run inside `stopped(source)`; leaves live storage untouched."""
     scratch = Path(scratch or tempfile.gettempdir())
     check_space(source, destination, key_mode, recovery_key, scratch, free)

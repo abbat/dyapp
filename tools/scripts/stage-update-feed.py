@@ -5,6 +5,11 @@ Usage: stage-update-feed.py TAG > stable.json
 Requires a checked-out tag and gh authentication. Does not deploy Pages.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from email.message import Message
+
 import types
 import typing
 
@@ -15,6 +20,9 @@ import sys
 import urllib.error
 import urllib.request
 
+
+if typing.TYPE_CHECKING:
+    import release_contracts as rc
 
 ROOT = Path(__file__).resolve().parents[2]
 FEED_URL = "https://abbat.github.io/dyapp/updates/v1/stable.json"
@@ -31,9 +39,15 @@ def load_module(name: "str", script: "str") -> "types.ModuleType":
     return module
 
 
-BUILD = load_module("build_update_feed", "tools/scripts/build-update-feed.py")
-VERIFY = load_module(
-    "verify_release_packages", "tools/scripts/verify-release-packages.py"
+BUILD = typing.cast(
+    "rc.FeedModule",
+    load_module("build_update_feed", "tools/scripts/build-update-feed.py"),
+)
+VERIFY = typing.cast(
+    "rc.InventoryModule",
+    load_module(
+        "verify_release_packages", "tools/scripts/verify-release-packages.py"
+    ),
 )
 
 
@@ -44,13 +58,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         response: "typing.IO[bytes]",
         code: "int",
         message: "str",
-        headers,
+        headers: Message,
         url: "str",
     ) -> None:
         return None
 
 
-def prior_feed(tag, opener=None):
+def prior_feed(tag: str, opener: rc.Opener | None = None) -> object:
     if opener is None:
         opener = urllib.request.build_opener(NoRedirect())
     request = urllib.request.Request(
@@ -67,10 +81,15 @@ def prior_feed(tag, opener=None):
         raise ValueError("prior feed unavailable") from error
     if len(data) > MAX_PRIOR_BYTES:
         raise ValueError("prior feed exceeds size limit")
-    return json.loads(data, object_pairs_hook=BUILD.unique_object)
+    value: object = json.loads(data, object_pairs_hook=BUILD.unique_object)
+    return value
 
 
-def stage(tag, opener=None, inventory_fn=VERIFY.inventory):
+def stage(
+    tag: str,
+    opener: rc.Opener | None = None,
+    inventory_fn: Callable[[str], rc.Inventory] = VERIFY.inventory,
+) -> rc.Feed:
     inventory = inventory_fn(tag)
     previous = prior_feed(tag, opener)
     return BUILD.build(inventory, previous)
