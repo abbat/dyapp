@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.core.graphics.createBitmap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Rule
@@ -37,7 +38,7 @@ class ProfilePhotosTests {
 
     // A picked PNG with transparency, so the preparation flattens it as well.
     private fun png(color: Int): ByteArray {
-        val bitmap = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        val bitmap = createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
         return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
     }
 

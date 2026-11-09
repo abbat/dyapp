@@ -1,6 +1,5 @@
 package com.dyapp
 
-import android.content.Context
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -59,7 +58,7 @@ private fun NameRow(name: String, nothingElse: Boolean) {
 
 /** The public rows of [draft]: name, scales, place, height, birth parts, who it seeks, about, the possible age. */
 @Composable
-internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, context: Context) {
+internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>) {
     val saved = draft.values
     val places = placeRows(draft, LocalConfiguration.current.locales[0], placeLang())
     val fields = fieldRows(scales, saved)
@@ -69,7 +68,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
         draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
             listOf(fields, places, numbers).all { it.isEmpty() }
     )
-    ScaleRows(fields, context)
+    ScaleRows(fields)
     for ((key, name, value) in places) {
         Text(
             stringResource(R.string.profile_preview_row, stringResource(name), value),
@@ -77,7 +76,7 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
         )
     }
     for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
-    SeekingRows(draft.seeking, scales, context)
+    SeekingRows(draft.seeking, scales)
     if (draft.about.isNotEmpty()) {
         Text(
             stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
@@ -89,13 +88,13 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>, contex
 }
 
 @Composable
-private fun ScaleRows(fields: List<Pair<String, String>>, context: Context) {
+private fun ScaleRows(fields: List<Pair<String, String>>) {
     for ((scale, choice) in fields) {
         Text(
             stringResource(
                 R.string.profile_preview_row,
-                label(context, "field.$scale"),
-                label(context, "value.$scale.$choice")
+                label("field.$scale"),
+                label("value.$scale.$choice")
             )
         )
     }
@@ -103,9 +102,9 @@ private fun ScaleRows(fields: List<Pair<String, String>>, context: Context) {
 
 /** The public rows of [draft] under [title], with the disclosures. */
 @Composable
-internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, context: Context, title: Int) {
+internal fun ProfilePreview(draft: ProfileDraft, scales: List<ProfileScale>, title: Int) {
     Text(stringResource(title))
-    ProfileRows(draft, scales, context)
+    ProfileRows(draft, scales)
     Text(stringResource(R.string.profile_public_disclosure), Modifier.testTag("profile-public-disclosure"))
     if (BIRTH_KEYS.all { it in draft.values }) {
         Text(stringResource(R.string.profile_full_date_disclosure), Modifier.testTag("profile-full-date"))

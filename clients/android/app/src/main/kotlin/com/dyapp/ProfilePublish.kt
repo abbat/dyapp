@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -176,7 +175,7 @@ internal fun PublishSection(
             stringResource(R.string.profile_published_version, "${published.version}"),
             Modifier.testTag("profile-published-readback")
         )
-        ProfilePreview(published.draft.draft(), scales, LocalContext.current, R.string.profile_published)
+        ProfilePreview(published.draft.draft(), scales, R.string.profile_published)
     }
 }
 

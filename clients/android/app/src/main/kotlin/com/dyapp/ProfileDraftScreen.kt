@@ -25,7 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -221,14 +221,14 @@ private fun SaveAndPublish(
     unsaved: Boolean,
     save: () -> Int,
 ) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     var status by remember { mutableStateOf("") }
     var saves by remember { mutableIntStateOf(0) }
     if (status.isNotEmpty()) Text(status, Modifier.testTag("profile-status"))
     key(saves, unsaved) {
         PublishSection(opened, scales, visibility, unsaved) {
             OutlinedButton(onClick = {
-                status = context.getString(save())
+                status = resources.getString(save())
                 saves++
             }, modifier = Modifier.testTag("profile-save")) {
                 Text(stringResource(R.string.profile_save))

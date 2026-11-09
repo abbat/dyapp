@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -96,7 +95,7 @@ private fun PublishDialogBody(
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.testTag("profile-public-fields")) {
             draft.fold(
-                { ProfilePreview(it, scales, LocalContext.current, R.string.publish_intro) },
+                { ProfilePreview(it, scales, R.string.publish_intro) },
                 { Text(stringResource(R.string.profile_read_failed)) }
             )
         }

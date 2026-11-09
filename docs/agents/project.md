@@ -17,6 +17,10 @@ release secrets and fetch descriptors out of screen records. Project authenticat
 through core helpers such as `ChatSticker::sent_at_ms()`: the separate native Desktop crates do
 not inherit the root workspace's dependencies, and root quality does not compile them.
 
+Android's theme paints the system-bar background and consumes safe-drawing insets at the
+root surface. Nested scaffolds receive the consumed insets; do not add a second system-bar
+padding layer. Status and navigation icon contrast follows the chosen light or dark theme.
+
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.

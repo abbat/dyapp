@@ -30,5 +30,6 @@ tests/fuzz/target/
 tests/fuzz/artifacts/
 tests/fuzz/coverage/
 
-# Gradle project cache (configuration and file hashes).
+# Gradle and Kotlin project caches.
 .gradle/
+.kotlin/

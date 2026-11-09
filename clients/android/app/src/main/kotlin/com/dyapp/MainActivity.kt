@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -85,6 +84,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.callback = WindowKeyGate(requireNotNull(window.callback), ::consumeKey)
         loadTheme()
         // An unreadable verifier must fail closed, never start a new unlocked session.
         lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
@@ -142,11 +142,11 @@ class MainActivity : ComponentActivity() {
         return if (!wasLocked && locked) true else super.dispatchTouchEvent(event)
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    private fun consumeKey(): Boolean {
         val wasLocked = locked
         appLock.onInteraction()
         refreshLock()
-        return if (!wasLocked && locked) true else super.dispatchKeyEvent(event)
+        return !wasLocked && locked
     }
 
     private suspend fun setPin(current: String?, newPin: String?, biometric: Boolean = false): PinAttempt? {

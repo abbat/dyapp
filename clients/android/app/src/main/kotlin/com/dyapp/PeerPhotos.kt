@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,7 +101,7 @@ internal val LocalPeerPhotos = staticCompositionLocalOf<PeerPhotos?> { null }
 // The core decodes thumbnails, held to 320 x 320, so a crafted JPEG never reaches the platform decoder.
 internal fun thumbnail(bytes: ByteArray): ImageBitmap {
     val rgba = checkPreview(bytes)
-    val bitmap = Bitmap.createBitmap(rgba.width.toInt(), rgba.height.toInt(), Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(rgba.width.toInt(), rgba.height.toInt(), Bitmap.Config.ARGB_8888)
     bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(rgba.pixels))
     return bitmap.asImageBitmap()
 }

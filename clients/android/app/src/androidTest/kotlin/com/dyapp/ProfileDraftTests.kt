@@ -107,7 +107,7 @@ class ProfileDraftTests {
     }
 
     private fun label(key: String) = compose.activity.run {
-        getString(resources.getIdentifier("profile_" + key.replace('.', '_'), "string", packageName))
+        getString(requireNotNull(profileLabelResource(key)))
     }
 
     @Test

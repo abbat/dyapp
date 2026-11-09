@@ -60,6 +60,7 @@ private class NoticeState(allowed: Boolean) {
     var asked = false
 }
 
+@androidx.annotation.ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
 private fun permissionDialogFits(context: Context, asked: Boolean) =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !asked &&
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

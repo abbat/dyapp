@@ -16,7 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -82,8 +82,8 @@ internal fun BlockedCard(active: Opened.Ready) {
         R.string.settings_blocked_failed,
         R.string.settings_blocked_hint
     )
-    val context = LocalContext.current
-    val text = { id: Int -> context.getString(id) }
+    val resources = LocalResources.current
+    val text = { id: Int -> resources.getString(id) }
     LaunchedEffect(state) { state.refresh(active, list) }
     PeopleCard("blocked", state, texts) { peer, number ->
         BlockedActions(

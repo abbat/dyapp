@@ -3,6 +3,12 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+kotlin {
+    compilerOptions {
+        allWarningsAsErrors = true
+    }
+}
+
 android {
     namespace "com.dyapp"
     compileSdk 37
@@ -34,6 +40,22 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+        checkTestSources = true
+        xmlReport = true
+        textReport = true
+        showAll = true
+        error += ['UnusedResources', 'UnusedIds']
+    }
+
+    bundle {
+        language {
+            enableSplit = false
+        }
     }
 
     buildFeatures {
@@ -107,7 +129,7 @@ def uniffiBindgen = tasks.register('uniffiBindgen', Exec) {
     dependsOn cargoHost
     workingDir rustRoot
     commandLine 'build/debug/uniffi-bindgen', 'generate', '--library', 'build/debug/libdyapp_ffi.so',
-        '--language', 'kotlin', '--no-format', '--out-dir', "$rustOut/kotlin"
+        '--language', 'kotlin', '--config', 'clients/android/uniffi.toml', '--no-format', '--out-dir', "$rustOut/kotlin"
 }
 android.sourceSets.main.kotlin.srcDir("$rustOut/kotlin")
 

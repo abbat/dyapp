@@ -6,6 +6,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import uniffi.dyapp.makePreview
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -52,7 +54,7 @@ private fun readBounded(input: InputStream): ByteArray {
 internal fun preparePhoto(bytes: ByteArray): PreparedPhoto {
     if (bytes.size > MAX_PICKED_BYTES) throw PhotoProblem(R.string.profile_photo_too_large)
     val decoded = decode(bytes)
-    val flat = Bitmap.createBitmap(decoded.width, decoded.height, Bitmap.Config.ARGB_8888)
+    val flat = createBitmap(decoded.width, decoded.height, Bitmap.Config.ARGB_8888)
     Canvas(flat).apply {
         drawColor(Color.WHITE)
         drawBitmap(decoded, 0f, 0f, null)
@@ -93,7 +95,7 @@ internal fun fitted(width: Int, height: Int, side: Int): Pair<Int, Int>? {
 }
 
 private fun scaled(bitmap: Bitmap, side: Int): Bitmap =
-    fitted(bitmap.width, bitmap.height, side)?.let { (w, h) -> Bitmap.createScaledBitmap(bitmap, w, h, true) }
+    fitted(bitmap.width, bitmap.height, side)?.let { (w, h) -> bitmap.scale(w, h, filter = true) }
         ?: bitmap
 
 private fun jpeg(bitmap: Bitmap, side: Int, quality: Int): ByteArray {

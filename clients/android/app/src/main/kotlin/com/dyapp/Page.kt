@@ -101,10 +101,11 @@ internal fun ErrorNotice(text: String, textTag: String, details: String, details
 @Composable
 internal fun CopyButton(text: String, tag: String) {
     val context = LocalContext.current
+    val appName = stringResource(R.string.app_name)
     TextButton(
         onClick = {
             context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newPlainText(context.getString(R.string.app_name), text))
+                .setPrimaryClip(ClipData.newPlainText(appName, text))
         },
         Modifier.testTag(tag)
     ) { Text(stringResource(R.string.action_copy)) }

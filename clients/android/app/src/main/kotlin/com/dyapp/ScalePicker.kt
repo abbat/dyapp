@@ -1,6 +1,5 @@
 package com.dyapp
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,26 +14,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileScale
 
 @Composable
-internal fun label(context: Context, key: String): String {
-    val name = "profile_" + key.replace('.', '_')
-    val id = context.resources.getIdentifier(name, "string", context.packageName)
-    return if (id == 0) key else stringResource(id)
+internal fun label(key: String): String {
+    val id = profileLabelResource(key) ?: return key
+    return stringResource(id)
 }
 
 @Composable
 private fun ScaleChoices(scale: ProfileScale, none: Int, tag: String, onSelect: (Int) -> Unit) {
-    val context = LocalContext.current
     DropdownMenuItem(text = { Text(stringResource(none)) }, onClick = { onSelect(0) })
     for (choice in scale.choices) {
         DropdownMenuItem(
-            text = { Text(label(context, "value.${scale.key}.${choice.key}")) },
+            text = { Text(label("value.${scale.key}.${choice.key}")) },
             onClick = { onSelect(choice.code.toInt()) },
             modifier = Modifier.testTag("$tag-${choice.code}")
         )
@@ -44,19 +40,18 @@ private fun ScaleChoices(scale: ProfileScale, none: Int, tag: String, onSelect: 
 /** Picks one of the scale's choices or [none], shown with that label. */
 @Composable
 internal fun ScalePicker(scale: ProfileScale, selected: Int, none: Int, onSelect: (Int) -> Unit) {
-    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     // The prototype names this one control profile-goal; the key itself is a stored name.
     val tag = "profile-${scale.key.removePrefix("relationship_")}"
     Column(Modifier.fillMaxWidth(), Arrangement.spacedBy(4.dp)) {
-        Caption(label(context, "field.${scale.key}"))
+        Caption(label("field.${scale.key}"))
         Box {
             OutlinedButton(onClick = { expanded = true }, Modifier.fillMaxWidth().testTag(tag)) {
                 val chosen = scale.choices.firstOrNull { it.code.toInt() == selected }
                 val title = if (chosen == null) {
                     stringResource(none)
                 } else {
-                    label(context, "value.${scale.key}.${chosen.key}")
+                    label("value.${scale.key}.${chosen.key}")
                 }
                 Text(title)
             }

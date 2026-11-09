@@ -15,7 +15,7 @@ import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.PublicProfileDraft
 
-abstract class ProfileViewFixture {
+internal abstract class ProfileViewFixture {
     @get:Rule
     val compose = createComposeRule()
 
@@ -48,7 +48,7 @@ abstract class ProfileViewFixture {
     }
 }
 
-class ProfileViewTests : ProfileViewFixture() {
+internal class ProfileViewTests : ProfileViewFixture() {
     @Test
     fun aFoundProfileShowsItsFieldsAndTheFirstActions() {
         form.likes = ChatLikes(ours = false, matched = false, passed = false)
@@ -165,7 +165,7 @@ class ProfileViewTests : ProfileViewFixture() {
     }
 }
 
-class ProfileLoadTests : ProfileViewFixture() {
+internal class ProfileLoadTests : ProfileViewFixture() {
     @Test
     fun aProfileNotFetchedOffersARetry() {
         show(ProfileLoad.Missing)

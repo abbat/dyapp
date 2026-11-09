@@ -352,6 +352,9 @@ Swift-format owns brace and closure layout and collection commas; the conflictin
 SwiftLint retains complexity, length and safety checks. Formatter source-rewrite rules are
 disabled so this check changes layout only.
 Formatting does not compile Apple applications; their native CI tests remain required.
+The iOS XcodeGen project enables Swift warnings as errors and explicit complete strict
+concurrency checking for the app and both test targets. Native iOS CI validates these
+compiler settings and the generated bindings.
 
 The quality step runs `swiftlint lint --strict --quiet --no-cache clients/ios clients/macos` (the source tree is
 read-only in the container, so no cache): every warning fails. The binary is the static Linux
@@ -400,6 +403,21 @@ From `clients/android`, `./gradlew detekt` runs the same pinned CLI, plugin and 
 Root and app `check`, plus app `preBuild`, depend on that task. The dependency
 verification metadata pins both jars and their Maven metadata. The task parses sources
 without generating Rust bindings or compiling the Android app.
+All Android Kotlin compilations treat warnings as errors through the built-in Kotlin
+compiler options. Android Lint also treats warnings as errors, explicitly enables
+`UnusedResources` and `UnusedIds` as errors, and checks test sources without a baseline.
+The Android build/test workflow runs `:app:lintDebug`; the release image runs that task
+and `:app:lintRelease`. The local Android build/test workflow uses the same gates.
+Full text diagnostics and XML reports retain every finding; Android CI uploads
+`build/android-build/android/app/reports/lint-results-*` with its check evidence.
+The compilation-free `make lint-android` and `make quick-check` run detekt; SDK-based
+Android Lint runs with the native Android builds. Profile metadata labels use explicit `ProfileLabels.kt` resource references. Update the
+mapping and both resource locales when a scale or choice changes; native tests compare the
+complete resource set with the Rust metadata. Kotlin binding generation uses
+`clients/android/uniffi.toml` for the Android cleaner and its API 34 guard/JNA fallback.
+Gradle 9.9.0 is pinned with the official distribution SHA256. Whole-project unused
+non-private Kotlin declaration analysis remains planned.
+
 Detekt parses Kotlin but does not compile it: after API refactors, native Android CI or a
 Gradle compile is needed to catch stale call sites that `make lint-android`, `make test`
 and `make quality` cannot detect.

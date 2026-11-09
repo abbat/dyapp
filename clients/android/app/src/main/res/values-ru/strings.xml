@@ -172,7 +172,6 @@
     <string name="recovery_remove">Удалить эту личность…</string>
     <string name="details">Подробнее</string>
     <string name="action_copy">Копировать</string>
-    <string name="settings_title">Настройки</string>
     <string name="settings_appearance">Внешний вид</string>
     <string name="settings_theme">Тема</string>
     <string name="settings_follow_system">Как в системе</string>

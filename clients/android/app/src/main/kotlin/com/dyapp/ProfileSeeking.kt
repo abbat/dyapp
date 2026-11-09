@@ -1,6 +1,5 @@
 package com.dyapp
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -80,7 +78,7 @@ private fun GenderRow(choice: ProfileChoice, seeking: SeekingInputs) {
         Alignment.CenterVertically,
     ) {
         Checkbox(checked, onCheckedChange = null, enabled = !seeking.notLooking)
-        Text(label(LocalContext.current, "value.$GENDER.${choice.key}"))
+        Text(label("value.$GENDER.${choice.key}"))
     }
 }
 
@@ -125,10 +123,10 @@ private fun SeekingRow(name: Int, value: String, tag: String) {
 
 /** The public rows of [seeking]; a gender code this client does not know is left out. */
 @Composable
-internal fun SeekingRows(seeking: ProfileSeeking, scales: List<ProfileScale>, context: Context) {
+internal fun SeekingRows(seeking: ProfileSeeking, scales: List<ProfileScale>) {
     val choices = genderChoices(scales)
     val genders = seeking.genders.mapNotNull { code -> choices.firstOrNull { it.code == code } }
-        .map { label(context, "value.$GENDER.${it.key}") }
+        .map { label("value.$GENDER.${it.key}") }
     if (seeking.notLooking) {
         SeekingRow(R.string.profile_not_looking, stringResource(R.string.profile_not_looking_on), "preview-not-looking")
     }

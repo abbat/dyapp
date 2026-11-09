@@ -173,7 +173,6 @@
     <string name="recovery_remove">Remove this identity…</string>
     <string name="details">Details</string>
     <string name="action_copy">Copy</string>
-    <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_follow_system">Follow the system</string>
@@ -322,8 +321,8 @@
     <string name="profile_photo_limit">A profile holds six photos. Remove one to add another.</string>
     <string name="profile_photo_main">Main photo</string>
     <string name="profile_photo_label">Photo %1$d of %2$d</string>
-    <string name="profile_photo_left">Move photo %1$d left</string>
-    <string name="profile_photo_right">Move photo %1$d right</string>
+    <string name="profile_photo_left">Move photo left (position %1$d)</string>
+    <string name="profile_photo_right">Move photo right (position %1$d)</string>
     <string name="profile_photo_remove">Remove photo %1$d</string>
     <string name="profile_photo_working">Preparing the photo…</string>
     <string name="profile_photo_changed">Draft has unpublished changes.</string>

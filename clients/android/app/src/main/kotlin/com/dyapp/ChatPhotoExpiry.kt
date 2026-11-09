@@ -4,7 +4,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
@@ -16,7 +16,7 @@ private const val EXPIRY_REFRESH_MS = 60_000L
 
 @Composable
 internal fun ChatPhotoExpiry(photo: ChatPhoto, downloaded: Boolean) {
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(photoKey(photo)) {
         while (true) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { delay(EXPIRY_REFRESH_MS) }

@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import java.util.Locale
 
 internal const val APPEARANCE_STORE = "appearance"
@@ -79,7 +80,7 @@ internal fun takeRelaunchTarget() = relaunchTarget.also { relaunchTarget = null 
 
 // Resources are fixed when the activity attaches, so a new language needs a new activity.
 private fun Activity.pickLanguage(language: LanguageChoice) {
-    appearance.edit().putString(LANGUAGE, language.name).apply()
+    appearance.edit { putString(LANGUAGE, language.name) }
     relaunchTarget = StartTarget.SETTINGS
     recreate()
 }
@@ -96,7 +97,7 @@ internal fun AppearanceCard() {
             Text(stringResource(R.string.settings_theme))
             ThemeChoice.values().forEach { choice ->
                 ChoiceRow("theme-${choice.name.lowercase()}", choice.label, choice == chosenTheme.value) {
-                    activity.appearance.edit().putString(THEME, choice.name).apply()
+                    activity.appearance.edit { putString(THEME, choice.name) }
                     chosenTheme.value = choice
                 }
             }

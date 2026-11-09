@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
@@ -29,7 +30,7 @@ class AppearanceTests {
     // Choices persist on the emulator; the next test must meet the system theme and language.
     @After
     fun followTheSystemAgain() {
-        target.getSharedPreferences(APPEARANCE_STORE, Context.MODE_PRIVATE).edit().clear().commit()
+        target.getSharedPreferences(APPEARANCE_STORE, Context.MODE_PRIVATE).edit(commit = true) { clear() }
     }
 
     private fun openSettings() {

@@ -3,6 +3,7 @@ package com.dyapp
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.SystemClock
+import androidx.core.graphics.createBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatSession
@@ -34,7 +35,7 @@ internal fun waitFor(what: String, timeoutMs: Long = PEER_WAIT_MS, done: () -> B
 }
 
 private fun redPng(): ByteArray {
-    val bitmap = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+    val bitmap = createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
     return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
 }
 

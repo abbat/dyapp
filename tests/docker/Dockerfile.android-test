@@ -56,8 +56,8 @@ RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clie
 # Rust core is not built here and the packages are discarded. The cd lasts only this step.
 # hadolint ignore=DL3003
 RUN cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
-        :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin && \
-    ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease -x cargoNdkRelease && \
+        :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin :app:lintDebug && \
+    ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease :app:lintRelease -x cargoNdkRelease && \
     rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release
 COPY tools/scripts tools/scripts
 COPY tests/scripts tests/scripts

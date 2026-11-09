@@ -84,6 +84,7 @@ jobs:
           path: |
             build/platform-check-output/
             build/platform-reports/
+            build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
   linux:
