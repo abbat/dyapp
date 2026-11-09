@@ -118,6 +118,29 @@ def refused(old_dir, env):
     return lines[-1].strip()
 
 
+def upgrade_nodes(old_dir, new_dir, storage, client, envs, addresses,
+                  processes, before):
+    backup = f"{storage}/c.old"
+    for i, (env, tcp) in enumerate(zip(envs, addresses)):
+        if i == 2:
+            kept = [signed for signed in before
+                    if holders(client, [tcp], signed)]
+        halt(processes[i])
+        if i == 2:
+            shutil.copytree(env["DYAPPD_STORAGE_DIR"], backup)
+        processes[i] = start(new_dir, env, client, tcp)
+        log(f"upgraded {tcp}")
+        for signed in before:
+            if holders(client, addresses, signed) < 2:
+                raise RuntimeError("A canary lost its second holder")
+        if TRUST_MINUTES:
+            expect(client, tcp, addresses, "STATUS_FULL")
+        expect(client, addresses[i - 1], addresses, "STATUS_OK")
+        if i < 2:
+            wait_trust(f"storage trust of {tcp} before the next node")
+    return backup, kept
+
+
 def rehearse(old_dir, new_dir, storage):
     client = f"{new_dir}/dyappd"
     envs = [environment(storage, i) for i in range(3)]
@@ -139,24 +162,9 @@ def rehearse(old_dir, new_dir, storage):
         wait_trust("storage trust after the cold start")
         before = [expect(client, tcp, addresses, "STATUS_OK")
                   for tcp in addresses]
-        backup = f"{storage}/c.old"
-        for i, (env, tcp) in enumerate(zip(envs, addresses)):
-            if i == 2:
-                kept = [signed for signed in before
-                        if holders(client, [tcp], signed)]
-            halt(processes[i])
-            if i == 2:
-                shutil.copytree(env["DYAPPD_STORAGE_DIR"], backup)
-            processes[i] = start(new_dir, env, client, tcp)
-            log(f"upgraded {tcp}")
-            for signed in before:
-                if holders(client, addresses, signed) < 2:
-                    raise RuntimeError("A canary lost its second holder")
-            if TRUST_MINUTES:
-                expect(client, tcp, addresses, "STATUS_FULL")
-            expect(client, addresses[i - 1], addresses, "STATUS_OK")
-            if i < 2:
-                wait_trust(f"storage trust of {tcp} before the next node")
+        backup, kept = upgrade_nodes(
+            old_dir, new_dir, storage, client, envs, addresses,
+            processes, before)
         halt(processes[2])
         log(f"rollback refused: {refused(old_dir, envs[2])}")
         shutil.rmtree(envs[2]["DYAPPD_STORAGE_DIR"])

@@ -401,8 +401,7 @@ def deny_group(client, bin_dir, peer, process, env):
     print("Deny list: a listed IP group is refused, served once removed")
 
 
-def profile_repair(client, bin_dir, peers, processes, environments):
-    """A holder misses a newer publish while offline; heartbeat repairs it."""
+def initial_profile_replicas(client, peers):
     node_ids = [call(client, "info", tcp)["peer_id"] for tcp, _ in peers]
     ids = set(node_ids)
     for _ in range(40):
@@ -422,6 +421,11 @@ def profile_repair(client, bin_dir, peers, processes, environments):
             time.sleep(0.2)
         else:
             raise RuntimeError("Initial profile replica missing")
+    return node_ids, ids, signed
+
+
+def publish_with_offline_holder(client, peers, processes, node_ids, ids,
+                                signed):
     processes[1].terminate()
     processes[1].wait()
     # Let DHT lookups discard the departed holder before the bounded write.
@@ -443,6 +447,14 @@ def profile_repair(client, bin_dir, peers, processes, environments):
         time.sleep(0.2)
     else:
         raise RuntimeError("Live holder did not get the newer version")
+    return newer
+
+
+def profile_repair(client, bin_dir, peers, processes, environments):
+    """A holder misses a newer publish while offline; heartbeat repairs it."""
+    node_ids, ids, signed = initial_profile_replicas(client, peers)
+    newer = publish_with_offline_holder(
+        client, peers, processes, node_ids, ids, signed)
     processes[1] = start_node(bin_dir, environments[1])
     for _ in range(60):
         if healthy(client, peers[1][0]):
@@ -497,33 +509,39 @@ def media_cache(client, storage, peer, blob_hash):
     print("Media cache: later pieces survive loss of local shard metadata")
 
 
+def initial_media_replicas(client, peers, entry, ids, size):
+    for _ in range(40):
+        seed = os.urandom(32)
+        blob_hash = hashlib.sha256(seed * (size // 32)).hexdigest()
+        if set(replica_holders(client, entry, blob_hash)) == set(ids):
+            break
+    else:
+        raise RuntimeError("No media repair keys spanning all nodes")
+    upload = call(client, "media-sized", entry, str(size), seed.hex())
+    # A get right after a sharded put can miss shards still fanning out;
+    # the holder loop below waits for every copy.
+    if any(upload[k] != "STATUS_OK" for k in ("keep", "put")):
+        raise RuntimeError(f"Media repair upload failed: {upload}")
+    details = upload["details"]
+    # Every selected holder must have finished the background fan-out.
+    for tcp, _ in peers:
+        for _ in range(30):
+            if call(client, "media-get", tcp, blob_hash)["status"] == (
+                    "STATUS_OK"):
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("Media repair source not ready")
+    return blob_hash, details
+
+
 def media_repair(client, bin_dir, storage, peers):
     """Remove only temporary fixture copies/shards and repair them by keep."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry = peers[0][0]
     for size in (512 * 1024, 3 * 1024 * 1024):
-        for _ in range(40):
-            seed = os.urandom(32)
-            blob_hash = hashlib.sha256(seed * (size // 32)).hexdigest()
-            if set(replica_holders(client, entry, blob_hash)) == set(ids):
-                break
-        else:
-            raise RuntimeError("No media repair keys spanning all nodes")
-        upload = call(client, "media-sized", entry, str(size), seed.hex())
-        # A get right after a sharded put can miss shards still fanning out;
-        # the holder loop below waits for every copy.
-        if any(upload[k] != "STATUS_OK" for k in ("keep", "put")):
-            raise RuntimeError(f"Media repair upload failed: {upload}")
-        details = upload["details"]
-        # Every selected holder must have finished the background fan-out.
-        for tcp, _ in peers:
-            for _ in range(30):
-                if call(client, "media-get", tcp, blob_hash)["status"] == (
-                        "STATUS_OK"):
-                    break
-                time.sleep(0.2)
-            else:
-                raise RuntimeError("Media repair source not ready")
+        blob_hash, details = initial_media_replicas(
+            client, peers, entry, ids, size)
         target = Path(storage) / "7072"
         hash_bytes = bytes.fromhex(blob_hash)
         if size <= 1024 * 1024:
@@ -569,6 +587,17 @@ def media_repair(client, bin_dir, storage, peers):
     print("Media repair: keep restores a whole copy and a missing shard")
 
 
+def isolated_media_acceptor(client, tcp, peer_id):
+    for _ in range(60):
+        if healthy(client, tcp):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("Media acceptor did not restart in isolation")
+    if call(client, "info", tcp)["peer_id"] != peer_id:
+        raise RuntimeError("Restarted node changed its peer ID")
+
+
 def media_retention(client, bin_dir, storage, peer, processes, env):
     """Age fixture rows, refresh one keep, then exercise startup cleanup.
 
@@ -581,14 +610,7 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     processes[0].terminate()
     processes[0].wait()
     processes[0] = start_node(bin_dir, env)
-    for _ in range(60):
-        if healthy(client, tcp):
-            break
-        time.sleep(1)
-    else:
-        raise RuntimeError("Media acceptor did not restart in isolation")
-    if call(client, "info", tcp)["peer_id"] != peer_id:
-        raise RuntimeError("Restarted node changed its peer ID")
+    isolated_media_acceptor(client, tcp, peer_id)
     expired, refreshed = [
         call(client, "media-owned", tcp, os.urandom(64).hex())
         for _ in range(2)
@@ -645,31 +667,36 @@ def main():
           relay=True)
 
 
+def profile_roundtrip(client, tcp, quic):
+    for addr in (tcp, quic):
+        if not healthy(client, addr):
+            raise RuntimeError(f"Unhealthy node: {addr}")
+    own = call(client, "info", tcp)["peer_id"]
+    for _ in range(40):
+        signed = call(client, "sign-profile")
+        holders = replica_holders(client, tcp, signed["peer_id"])
+        if own in holders and len(set(holders)) >= 2:
+            break
+    else:
+        raise RuntimeError("No profile keys held by the test node")
+    peer_id, record = signed["peer_id"], signed["record"]
+    if call(client, "publish", tcp, record)["status"] != "STATUS_OK":
+        raise RuntimeError("Profile publish failed")
+    # Published over TCP, read back over QUIC: the stored bytes are the
+    # signed bytes.
+    reply = call(client, "get", quic, peer_id)
+    if reply != {"status": "STATUS_OK", "record": record}:
+        raise RuntimeError("Profile retrieval changed data")
+    reply = call(client, "publish", tcp, record)
+    if reply != {"status": "STATUS_STALE", "record": record}:
+        raise RuntimeError("Stale profile version was accepted")
+    return peer_id, holders
+
+
 def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
     cases = []
     for index, (tcp, quic) in enumerate(peers):
-        for addr in (tcp, quic):
-            if not healthy(client, addr):
-                raise RuntimeError(f"Unhealthy node: {addr}")
-        own = call(client, "info", tcp)["peer_id"]
-        for _ in range(40):
-            signed = call(client, "sign-profile")
-            holders = replica_holders(client, tcp, signed["peer_id"])
-            if own in holders and len(set(holders)) >= 2:
-                break
-        else:
-            raise RuntimeError("No profile keys held by the test node")
-        peer_id, record = signed["peer_id"], signed["record"]
-        if call(client, "publish", tcp, record)["status"] != "STATUS_OK":
-            raise RuntimeError("Profile publish failed")
-        # Published over TCP, read back over QUIC: the stored bytes are the
-        # signed bytes.
-        reply = call(client, "get", quic, peer_id)
-        if reply != {"status": "STATUS_OK", "record": record}:
-            raise RuntimeError("Profile retrieval changed data")
-        reply = call(client, "publish", tcp, record)
-        if reply != {"status": "STATUS_STALE", "record": record}:
-            raise RuntimeError("Stale profile version was accepted")
+        peer_id, holders = profile_roundtrip(client, tcp, quic)
         other = peers[(index + 1) % len(peers)][0]
         other_id = call(client, "info", other)["peer_id"]
         expected_status = ("STATUS_OK" if other_id in holders
@@ -698,12 +725,7 @@ def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
           f"{churned} passed")
 
 
-def network(peers, client, churn, storage):
-    """Routing, replication, ack forwarding, the rate limit and churn."""
-    ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
-    entry, limited = peers[0][0], peers[-1][0]
-    # The last node knows only its seed at first: a lookup through it finds
-    # every node once the seed has learned the others' addresses.
+def routing_relays(client, entry, limited, ids):
     for _ in range(30):
         found = call(client, "closest", limited, os.urandom(8).hex())
         if set(found["peers"]) == set(ids):
@@ -720,6 +742,16 @@ def network(peers, client, churn, storage):
         time.sleep(1)
     if relays != [call(client, "info", entry)["peer_id"]]:
         raise RuntimeError(f"TURN relays in the DHT: {relays}")
+    return relays
+
+
+def network(peers, client, churn, storage):
+    """Routing, replication, ack forwarding, the rate limit and churn."""
+    ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
+    entry, limited = peers[0][0], peers[-1][0]
+    # The last node knows only its seed at first: a lookup through it finds
+    # every node once the seed has learned the others' addresses.
+    relays = routing_relays(client, entry, limited, ids)
     media_spread(client, entry, peers, ids)
     sharded_hash = media_spread(client, entry, peers, ids, 3 * 1024 * 1024)
     if storage:

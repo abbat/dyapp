@@ -300,15 +300,7 @@ def self_check(p):
     assert near(rates[3][2], 9536.74316)
 
 
-def report(p, source, measured_partial):
-    places = zipf(p["places"], p["top_place"])
-    D = p["D"]
-    print("# Search capacity model\n")
-    print(f"Source: {source}; bytes_per_row = {p['bytes_per_row']}, "
-          f"warm qps = {p['qps']}.\n")
-    scan = {k: p["page"] / s for k, s in p["select"].items()}
-    joined = ", ".join(f"{k} {v:,.0f}" for k, v in scan.items())
-    print("Rows scanned per query class: " + joined + ".\n")
+def report_partial(p, measured_partial):
     print(f"## Partial share (max_scan_rows = {p['max_scan']:,.0f}, "
           f"page = {p['page']})\n")
     print("| Class | Expected matches in max_scan_rows | Partial (model) "
@@ -321,45 +313,9 @@ def report(p, source, measured_partial):
         measured = "-" if m is None else f"{m:.2f}"
         print(f"| {k} | {exp:,.1f} | {shown}{note} | {measured} |")
     print()
-    grid = {}
-    for act in p["activity"]:
-        print(f"## {act.capitalize()} activity\n")
-        print("| Users | Node % | Search % | Nodes | Search nodes | Disk GB "
-              f"| Sample | Gossip MB/s c1/c3/c{D} "
-              "| Inventory MB/s | First sync h | Sync MB/s per peer "
-              "| Queries/s per node | Qps cap warm/cold "
-              "| Get MB/s | Typical matches per node r1/r100/r10k "
-              "| Nodes per query typical r1/r100/r10k "
-              "| Nodes per query rare r1/r100/r10k | Verdict |")
-        print("|" + "---|" * 18)
-        for ns in p["node_share"]:
-            for ss in p["search_share"]:
-                rs = [row(p, u, act, ns, ss, places) for u in p["steps"]]
-                grid[(act, ns, ss)] = rs
-                for r in rs:
-                    g, c, n = r["gossip"], r["coverage"], r["nodes_per_query"]
-                    cap = f"{p['qps']:.0f}/–"
-                    if r["cold"]:
-                        cap = f"{p['qps']:.0f}/{r['cold_qps']:.0f}"
-                    ranks = (1, 100, 10_000)
-                    nq = "".join(
-                        "| " + "/".join(str(n[cls, k]) for k in ranks) + " "
-                        for cls in ("typical", "rare")
-                    )
-                    verdict = "; ".join(r["fails"]) or "holds"
-                    line = (
-                        f"| {r['users']:,.0f} | {ns:.1%} | {ss:.0%} "
-                        f"| {r['nodes']:,.0f} | {r['search']:,.1f} "
-                        f"| {r['disk'] / 1e9:.2f} | {r['sample']:.2f} "
-                        f"| {g[1] / 1e6:.3f}/{g[3] / 1e6:.3f}/"
-                        f"{g[D] / 1e6:.3f} "
-                        f"| {r['inventory'] / 1e6:.3f} "
-                        f"| {r['sync_h']:.1f} | {r['sync_peer'] / 1e6:.2f} "
-                        f"| {r['q_node']:.2f} | {cap} | {r['get'] / 1e6:.3f} "
-                        f"| {c[1]:,.0f}/{c[100]:,.0f}/{c[10_000]:,.0f} "
-                    )
-                    print(line + nq + f"| {verdict} |")
-        print()
+
+
+def report_thresholds(p, places, grid):
     print("## Thresholds\n")
     print("Holds from = lowest step with no failure; first failure above = "
           "the next failing step after it, with the first limiting "
@@ -407,6 +363,63 @@ def report(p, source, measured_partial):
             first = "none up to 50M"
         limit = f["fails"][0] if f else "-"
         print(f"| {name} | {holds} | {first} | {limit} |")
+
+
+def report_activity(p, places, D):
+    grid = {}
+    for act in p["activity"]:
+        print(f"## {act.capitalize()} activity\n")
+        print("| Users | Node % | Search % | Nodes | Search nodes | Disk GB "
+              f"| Sample | Gossip MB/s c1/c3/c{D} "
+              "| Inventory MB/s | First sync h | Sync MB/s per peer "
+              "| Queries/s per node | Qps cap warm/cold "
+              "| Get MB/s | Typical matches per node r1/r100/r10k "
+              "| Nodes per query typical r1/r100/r10k "
+              "| Nodes per query rare r1/r100/r10k | Verdict |")
+        print("|" + "---|" * 18)
+        for ns in p["node_share"]:
+            for ss in p["search_share"]:
+                rs = [row(p, u, act, ns, ss, places) for u in p["steps"]]
+                grid[(act, ns, ss)] = rs
+                for r in rs:
+                    g, c, n = r["gossip"], r["coverage"], r["nodes_per_query"]
+                    cap = f"{p['qps']:.0f}/–"
+                    if r["cold"]:
+                        cap = f"{p['qps']:.0f}/{r['cold_qps']:.0f}"
+                    ranks = (1, 100, 10_000)
+                    nq = "".join(
+                        "| " + "/".join(str(n[cls, k]) for k in ranks) + " "
+                        for cls in ("typical", "rare")
+                    )
+                    verdict = "; ".join(r["fails"]) or "holds"
+                    line = (
+                        f"| {r['users']:,.0f} | {ns:.1%} | {ss:.0%} "
+                        f"| {r['nodes']:,.0f} | {r['search']:,.1f} "
+                        f"| {r['disk'] / 1e9:.2f} | {r['sample']:.2f} "
+                        f"| {g[1] / 1e6:.3f}/{g[3] / 1e6:.3f}/"
+                        f"{g[D] / 1e6:.3f} "
+                        f"| {r['inventory'] / 1e6:.3f} "
+                        f"| {r['sync_h']:.1f} | {r['sync_peer'] / 1e6:.2f} "
+                        f"| {r['q_node']:.2f} | {cap} | {r['get'] / 1e6:.3f} "
+                        f"| {c[1]:,.0f}/{c[100]:,.0f}/{c[10_000]:,.0f} "
+                    )
+                    print(line + nq + f"| {verdict} |")
+        print()
+    return grid
+
+
+def report(p, source, measured_partial):
+    places = zipf(p["places"], p["top_place"])
+    D = p["D"]
+    print("# Search capacity model\n")
+    print(f"Source: {source}; bytes_per_row = {p['bytes_per_row']}, "
+          f"warm qps = {p['qps']}.\n")
+    scan = {k: p["page"] / s for k, s in p["select"].items()}
+    joined = ", ".join(f"{k} {v:,.0f}" for k, v in scan.items())
+    print("Rows scanned per query class: " + joined + ".\n")
+    report_partial(p, measured_partial)
+    grid = report_activity(p, places, D)
+    report_thresholds(p, places, grid)
     print("\n## Adversary\n")
     print("| PoW bits | Fake keys/day | Days to fill 50 GB "
           "| Phone s per bootstrap | Phone ok "

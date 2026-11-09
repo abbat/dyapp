@@ -21,7 +21,7 @@ checks later costs more: the backlog of violations has to be reformatted, budget
 first.
 
 `make quick-check` runs Rust formatting, web lint/format and Swift lint/format in the existing
-dev Docker container without compiling code. Protobuf lint and format checks run there too.
+dev Docker container without compiling code. Protobuf lint/format and Python lint checks run there too.
 `make quality` remains the full gate, including Clippy. Prepare the images after Dockerfile changes before using these commands.
 
 ## Where each linter runs
@@ -259,8 +259,11 @@ flake8 .                                # python-lint.yml, only when *.py or .fl
 ```
 
 `.flake8`: `max-line-length = 79`, empty `ignore`, standard excludes (`.git`, `__pycache__`,
-`.venv`, `venv`, `build`, `dist`, …). No `max-complexity` is set, so the McCabe check (`C901`) is
-off. flake8 only reports; it does not fix anything. `autopep8` or similar is not used by the
+`.venv`, `venv`, `build`, `dist`, …). McCabe complexity (`C901`) is limited to 10 for every
+Python function, including test helpers; there are no complexity baselines or suppressions.
+`make lint-python` runs flake8 and validates exact `noqa` reasons in Docker; quality, CI and
+`make quick-check` share that stage. A real-tool fixture checks the complexity-10 boundary.
+flake8 only reports; it does not fix anything. `autopep8` or similar is not used by the
 project.
 
 ## Swift (`.swiftlint.yml`)

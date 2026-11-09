@@ -54,8 +54,7 @@ step() {
             step proto-check
             check shellcheck shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
-            check flake8 python3 -m flake8 tests tools
-            check noqa python3 -B tests/scripts/check-noqa.py tests tools
+            step python-check
             step swift-check
             step fmt
             check cargo-shear cargo shear
@@ -76,6 +75,10 @@ step() {
         swift-check)
             check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
             check swift-format bash tests/scripts/swift-format.sh lint
+            ;;
+        python-check)
+            check flake8 python3 -m flake8 tests tools
+            check noqa python3 -B tests/scripts/check-noqa.py tests tools
             ;;
         proto-check)
             check buf buf lint proto
@@ -237,7 +240,7 @@ step() {
 if [[ ${1:-} != --raw ]]; then
     stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
-        quality|fmt|fmt-write|web-check|web-format|swift-check|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

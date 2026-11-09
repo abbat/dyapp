@@ -47,12 +47,15 @@ fuzz:
 	$(DEV) env FUZZ_SECONDS=$${FUZZ_SECONDS:-60} bash tests/scripts/rust-check.sh fuzz
 
 # Static checks only: no Cargo build, Clippy compilation or native UI tests.
-quick-check: fmt lint-web lint-swift lint-proto
+quick-check: fmt lint-web lint-swift lint-proto lint-python
 
 quality lint check:
 	bash tests/scripts/check-quality.sh
 
-.PHONY: lint-proto fmt-proto
+.PHONY: lint-proto fmt-proto lint-python
+
+lint-python:
+	$(DEV) bash tests/scripts/rust-check.sh python-check
 
 lint-proto:
 	$(DEV) bash tests/scripts/rust-check.sh proto-check

@@ -94,6 +94,33 @@ def process_tree(root_pid):
             for pid in tracked if pid in processes}
 
 
+def sample_process(process, previous, samples, started, now):
+    current = process_tree(process.pid)
+    ticks = sum(
+        max(0, ticks - previous[key][0])
+        for key, (ticks, _) in current.items() if key in previous)
+    previous = current
+    if current and len(samples) < 200:
+        samples.append({
+            "seconds": round(now - started, 2),
+            "rss_mb": round(
+                sum(rss for _, rss in current.values()) / 1048576,
+                2),
+            "processes": len(current),
+        })
+    return current, ticks
+
+
+def drain_output(selector, output_tail):
+    for key, _ in selector.select(timeout=0.5):
+        chunk = os.read(key.fd, 65536)
+        if chunk:
+            output_tail = (output_tail + chunk)[-LOG_LIMIT:]
+        else:
+            selector.unregister(key.fileobj)
+    return output_tail
+
+
 def run_case(app, name, output):
     profile = output / f"{name}-profile"
     profile.mkdir()
@@ -114,27 +141,12 @@ def run_case(app, name, output):
     exit_seen_at = None
     try:
         while process.poll() is None or selector.get_map():
-            for key, _ in selector.select(timeout=0.5):
-                chunk = os.read(key.fd, 65536)
-                if chunk:
-                    output_tail = (output_tail + chunk)[-LOG_LIMIT:]
-                else:
-                    selector.unregister(key.fileobj)
+            output_tail = drain_output(selector, output_tail)
             now = time.monotonic()
             if now >= next_sample:
-                current = process_tree(process.pid)
-                cpu_ticks += sum(
-                    max(0, ticks - previous[key][0])
-                    for key, (ticks, _) in current.items() if key in previous)
-                previous = current
-                if current and len(samples) < 200:
-                    samples.append({
-                        "seconds": round(now - started, 2),
-                        "rss_mb": round(
-                            sum(rss for _, rss in current.values()) / 1048576,
-                            2),
-                        "processes": len(current),
-                    })
+                previous, ticks = sample_process(
+                    process, previous, samples, started, now)
+                cpu_ticks += ticks
                 next_sample = now + 0.5
             if process.poll() is not None:
                 if exit_seen_at is None:

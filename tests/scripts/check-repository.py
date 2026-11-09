@@ -490,17 +490,54 @@ def skip_errors(texts):
     return errors
 
 
-def main():
-    from repository_unused import script_reference_errors
-    from repository_translations import unused_apple_errors
-    from desktop_translations import desktop_errors
+def validate_text_lines(name, path, text):
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.startswith(("<<<<<<< ", ">>>>>>> ")):
+            raise ValueError(f"Merge conflict: {name}:{number}")
+        trailing = line[len(line.rstrip(" \t")):]
+        if trailing and not (path.suffix == ".md" and trailing == "  "):
+            raise ValueError(f"Trailing whitespace: {name}:{number}")
 
-    output = subprocess.check_output(
-        ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
-         "--others", "--exclude-standard", "-z", "--", ".",
-         ":(exclude).beads/**", ":(exclude).beads.gate.lock",
-         ":(exclude)tests/fuzz/corpus/**"])
-    names = sorted(set(output.decode().strip("\0").split("\0")))
+
+def repository_text(path, name):
+    data = path.read_bytes()
+    if len(data) > 500 * 1024:
+        raise ValueError(f"Repository file exceeds 500KiB: {name}")
+    if b"\0" in data:
+        return None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if text and not text.endswith("\n"):
+        raise ValueError(f"Missing final newline: {name}")
+    validate_text_lines(name, path, text)
+    return text
+
+
+def repository_type(name, path, text, documents):
+    if path.suffix == ".json":
+        json.loads(text)
+    elif path.suffix in (".yaml", ".yml"):
+        loaded = list(yaml.safe_load_all(text))
+        # Practice C4: a default-permission token is never implicit.
+        workflow = name.startswith(".github/workflows/")
+        if workflow and "permissions" not in loaded[0]:
+            raise ValueError(f"No top-level permissions: {name}")
+    elif path.suffix == ".md":
+        documents[name] = text
+    elif path.name == "AndroidManifest.xml":
+        errors = manifest_errors(name, text)
+        if errors:
+            raise ValueError("\n".join(errors))
+    elif path.name == "Cargo.toml" and "[package]" in text:
+        # Practice C5: unsafe is forbidden outside the UNSAFE allow-list.
+        policy = UNSAFE.get(name, FORBID)
+        if not policy.search(text):
+            raise ValueError(f"No unsafe lint policy: {name}")
+
+
+def repository_sources(names):
     folded = {}
     documents = {}
     texts = {}
@@ -513,46 +550,18 @@ def main():
         if key in folded and folded[key] != name:
             raise ValueError(f"Case conflict: {name} / {folded[key]}")
         folded[key] = name
-        data = path.read_bytes()
-        if len(data) > 500 * 1024:
-            raise ValueError(f"Repository file exceeds 500KiB: {name}")
-        if b"\0" in data:
+        text = repository_text(path, name)
+        if text is None:
             continue
-        try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if text and not text.endswith("\n"):
-            raise ValueError(f"Missing final newline: {name}")
-        for number, line in enumerate(text.splitlines(), 1):
-            if line.startswith(("<<<<<<< ", ">>>>>>> ")):
-                raise ValueError(f"Merge conflict: {name}:{number}")
-            trailing = line[len(line.rstrip(" \t")):]
-            if trailing and not (path.suffix == ".md" and trailing == "  "):
-                raise ValueError(f"Trailing whitespace: {name}:{number}")
-        if path.suffix == ".json":
-            json.loads(text)
-        elif path.suffix in (".yaml", ".yml"):
-            loaded = list(yaml.safe_load_all(text))
-            # Practice C4: a default-permission token is never implicit.
-            workflow = name.startswith(".github/workflows/")
-            if workflow and "permissions" not in loaded[0]:
-                raise ValueError(f"No top-level permissions: {name}")
-        elif path.suffix == ".md":
-            documents[name] = text
-        elif path.name == "AndroidManifest.xml":
-            errors = manifest_errors(name, text)
-            if errors:
-                raise ValueError("\n".join(errors))
-        elif path.name == "Cargo.toml" and "[package]" in text:
-            # Practice C5: unsafe is forbidden outside the UNSAFE allow-list.
-            policy = UNSAFE.get(name, FORBID)
-            if not policy.search(text):
-                raise ValueError(f"No unsafe lint policy: {name}")
+        repository_type(name, path, text, documents)
         texts[name] = text
         checked += 1
     if not checked:
         raise ValueError("Empty repository validation inventory")
+    return folded, documents, texts, checked
+
+
+def validate_sources(names, texts):
     errors = debt_errors(texts)
     if errors:
         raise ValueError("Source debt markers:\n" + "\n".join(errors))
@@ -569,6 +578,14 @@ def main():
     errors = round_trip_errors(texts)
     if errors:
         raise ValueError(f"Round trips ({PROPERTIES}):\n" + "\n".join(errors))
+    return allowed
+
+
+def validate_clients(texts):
+    from repository_unused import script_reference_errors
+    from repository_translations import unused_apple_errors
+    from desktop_translations import desktop_errors
+
     errors = i18n_errors(texts) + translation_errors(texts)
     errors.extend(unused_apple_errors(texts))
     errors.extend(desktop_errors(texts))
@@ -586,6 +603,9 @@ def main():
     errors = skip_errors(texts)
     if errors:
         raise ValueError("Mutation skips:\n" + "\n".join(errors))
+
+
+def validate_documentation(documents, folded, texts, allowed):
     errors = commit_errors(allowed)
     if errors:
         raise ValueError("Commit messages:\n" + "\n".join(errors))
@@ -612,6 +632,20 @@ def main():
     if errors:
         raise ValueError(
             f"Settings budgets ([settings] in baselines.toml):\n{errors}")
+    return size
+
+
+def main():
+    output = subprocess.check_output(
+        ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
+         "--others", "--exclude-standard", "-z", "--", ".",
+         ":(exclude).beads/**", ":(exclude).beads.gate.lock",
+         ":(exclude)tests/fuzz/corpus/**"])
+    names = sorted(set(output.decode().strip("\0").split("\0")))
+    folded, documents, texts, checked = repository_sources(names)
+    allowed = validate_sources(names, texts)
+    validate_clients(texts)
+    size = validate_documentation(documents, folded, texts, allowed)
     print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
           "workflows set top-level permissions, no format or private-use "
           "characters, ASCII paths, crates follow the unsafe "
