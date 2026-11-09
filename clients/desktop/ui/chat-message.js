@@ -9,7 +9,13 @@ import { controller as stickersController } from './stickers.js';
 export const controller = {};
 
 // Message rows use the chat controller's explicitly imported rendering helpers.
-/** @param {HTMLDivElement | HTMLParagraphElement} item */
+/**
+ * @param {HTMLDivElement | HTMLParagraphElement} item
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./chat-state.js').ChatHistory} history
+ * @param {import('./ipc.js').Invoke} call
+ */
 function appendMessageBody(item, message, peerId, history, call) {
   const sticker = message.sticker && !message.deleted;
   const label = document.createElement('b');
@@ -32,13 +38,20 @@ function appendMessageBody(item, message, peerId, history, call) {
     item.append(stickerRequestsController.stickerRequests.controls(message, peerId, call));
 }
 
+/** @param {import('./chat-state.js').ChatMessage} message */
 function messageText(message) {
   if (message.deleted) return strings['chats.deleted'];
   if (message.sticker) return stickersController.stickerMessageText(message.sticker);
   return message.text || '';
 }
 
-/** @param {HTMLSpanElement} body */
+/**
+ * @param {HTMLSpanElement} body
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./chat-state.js').ChatHistory} history
+ * @param {import('./ipc.js').Invoke} call
+ */
 function messageContent(message, peerId, history, call, body) {
   const { photoBubble } = chatsUiController.chatMessageHelpers;
   if (message.photo) {
@@ -56,7 +69,10 @@ function messageContent(message, peerId, history, call, body) {
   return body;
 }
 
-/** @param {HTMLDivElement | HTMLParagraphElement} item */
+/**
+ * @param {HTMLDivElement | HTMLParagraphElement} item
+ * @param {import('./chat-state.js').ChatMessage} message
+ */
 function appendMessageMetadata(item, message) {
   const { chatLinkHosts } = chatsUiController.chatMessageHelpers;
   const hosts = chatLinkHosts(message.deleted ? '' : message.text);
@@ -81,7 +97,11 @@ function appendMessageMetadata(item, message) {
   }
 }
 
-/** @param {HTMLDivElement | HTMLParagraphElement} item */
+/**
+ * @param {HTMLDivElement | HTMLParagraphElement} item
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {import('./chat-state.js').ChatHistory} history
+ */
 function appendMessageActions(item, message, history) {
   const { openEdit, openDelete, openForward } = chatsUiController.chatMessageHelpers;
   const sticker = message.sticker && !message.deleted;
@@ -122,7 +142,10 @@ function appendMessageActions(item, message, history) {
   }
 }
 
-/** @param {HTMLDivElement | HTMLParagraphElement} item */
+/**
+ * @param {HTMLDivElement | HTMLParagraphElement} item
+ * @param {import('./chat-state.js').ChatMessage} message
+ */
 function appendMessageTime(item, message) {
   const time = chatTime(message);
   if (time) {
@@ -134,6 +157,12 @@ function appendMessageTime(item, message) {
   }
 }
 
+/**
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./chat-state.js').ChatHistory} history
+ * @param {import('./ipc.js').Invoke} call
+ */
 controller.chatMessage = (message, peerId, history, call) => {
   const sticker = message.sticker && !message.deleted;
   const item = document.createElement(sticker ? 'div' : 'p');

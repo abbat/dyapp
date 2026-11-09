@@ -202,7 +202,10 @@ const summaryText = (found) =>
   [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
 // self-declared claim as verified.
-/** @param {string} id */
+/**
+ * @param {string} id
+ * @param {FoundWithPlace} found
+ */
 const resultCard = (found, id) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -693,6 +696,7 @@ controller.scanQrFile = async (file) => {
     bitmap?.close();
   }
 };
+/** @param {HTMLVideoElement} preview */
 const safetyCameraFrame = (preview) => {
   if (!preview.videoWidth || !preview.videoHeight) return null;
   const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
@@ -705,6 +709,7 @@ const safetyCameraFrame = (preview) => {
   context.drawImage(preview, 0, 0, width, height);
   return { width, height, pixels: grayscaleFrame(context, width, height) };
 };
+/** @param {() => boolean} current */
 const scanSafetyCameraFrame = async (found, frame, current) => {
   const result = await invoke('scan_contact_qr', { peerId: found.peerId, ...frame });
   if (!current()) return true;
@@ -713,7 +718,10 @@ const scanSafetyCameraFrame = async (found, frame, current) => {
   showSafetyStatus(`view.safety.scan.${result}`);
   return true;
 };
-/** @param {HTMLVideoElement} preview @param {() => boolean} current */
+/**
+ * @param {HTMLVideoElement} preview @param {() => boolean} current
+ * @param {FoundWithPlace} found
+ */
 const safetyCameraScanner = (found, preview, current) => {
   const scan = async () => {
     if (!current() || !cameraState.stream) return;

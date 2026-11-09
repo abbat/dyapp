@@ -16,7 +16,7 @@ const pending = new Map();
 const text = (key) => strings[`stickerImage.${key}`];
 const active = (target) =>
   target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
-/** @param {boolean} focused */
+/** @param {boolean} focused @param {import('./ipc.js').BinaryResponse} bytes */
 const renderFrame = (target, bytes, focused) => {
   const canvas = stickerBinaryPixels(bytes, target.fallback.textContent);
   target.image.replaceChildren(canvas);
@@ -40,6 +40,7 @@ const finishLoad = (target, focused) => {
   if (focused && [document.body, target.button].includes(document.activeElement))
     target.button.focus();
 };
+/** @param {unknown} error */
 const frameFailure = (error) => {
   const code = String(error);
   if (code === 'onTap') return 'tap';
@@ -87,6 +88,11 @@ const clear = () => {
   pending.clear();
   batch = Promise.resolve();
 };
+/**
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./ipc.js').Invoke} call
+ */
 const bubble = (message, peerId, call) => {
   const root = document.createElement('div');
   root.className = 'sticker-body';

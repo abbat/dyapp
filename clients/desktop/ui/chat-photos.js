@@ -22,18 +22,30 @@ const forgetPhotos = () => {
   photoBoxes.clear();
   photoAutoTried.clear();
 };
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {number} width
+ * @param {number} height
+ * @param {number} side
+ */
 const fitCanvas = (canvas, width, height, side) => {
   const scale = Math.min(1, side / Math.max(width, height));
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
 };
-/** @param {number | undefined} [side] */
+/**
+ * @param {number | undefined} [side]
+ * @param {HTMLCanvasElement} canvas
+ * @param {BlobPart | number[]} bytes
+ * @param {string} mime
+ */
 const drawPhoto = async (canvas, bytes, mime, side) => {
   const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
   if (side) fitCanvas(canvas, bitmap.width, bitmap.height, side);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 };
+/** @param {import('./chat-state.js').ChatPhoto} photo */
 const photoCaption = (photo) => {
   const parts = [strings['chats.photo'], photo.mime, sizeText(photo.size)];
   if (photo.kept) return parts.join(' · ');
@@ -43,6 +55,7 @@ const photoCaption = (photo) => {
   }
   return parts.join(' · ');
 };
+/** @param {import('./chat-state.js').ChatMessage} message */
 const photoKey = (message) => `${message.author}:${message.id}`;
 /** @param {string} code */
 const photoError = (code) =>
@@ -62,6 +75,11 @@ const photoButton = (key, name, click) => {
   return button;
 };
 // A mail pass redraws the chat under a running fetch, so results go to the bubble of that moment.
+/**
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./ipc.js').Invoke} call
+ */
 const downloadOriginal = async (message, peerId, call) => {
   const generation = identityState.generation;
   const key = photoKey(message);
@@ -105,6 +123,7 @@ const downloadOriginal = async (message, peerId, call) => {
  *   fetchPhoto?: () => Promise<void>
  * }} PhotoBox
  */
+/** @param {import('./chat-state.js').ChatPhoto} photo */
 const createPhotoBubble = (photo) => {
   const box = document.createElement('span');
   box.className = 'chat-photo';
@@ -124,6 +143,12 @@ const createPhotoBubble = (photo) => {
   const initialized = Object.assign(box, { canvas, kept: photo.kept });
   return { box: initialized, canvas, status };
 };
+/**
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {boolean} blurred
+ * @param {import('./ipc.js').Invoke} call
+ */
 const photoBubble = (message, peerId, blurred, call) => {
   const { photo } = message;
   const key = photoKey(message);
@@ -177,6 +202,7 @@ const photoBubble = (message, peerId, blurred, call) => {
 // What the policy allows on this network, latest first, one at a time, among as many photos as
 // stay in memory. Asked only while something waits. A refusal forgets the tries, so a switch to an
 // unmetered network retries a failed fetch. A kept original opens either way: it costs no network.
+/** @param {string} peerId @param {import('./ipc.js').Invoke} call */
 const fetchAllowedPhotos = async (peerId, call) => {
   const waiting = () =>
     [...photoBoxes]

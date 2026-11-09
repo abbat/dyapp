@@ -14,10 +14,12 @@ controller.stickerImported = undefined;
 const panel = domById('sticker-packs', HTMLDetailsElement);
 const manager = domById('sticker-manager', HTMLDialogElement);
 let openedFrom = null;
+/** @param {string} key */
 const text = (key) => strings[`stickers.${key}`];
 let view = null;
 let removing = null;
 const dialog = domById('sticker-remove-dialog', HTMLDialogElement);
+/** @param {number[]} id */
 const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
 const active = (target) =>
   target && view === target && panel.open && identityCurrent(target.generation) && manager.open;
@@ -35,12 +37,13 @@ const busy = (target, value) => {
   for (const button of domById('sticker-list', HTMLUListElement).querySelectorAll('button'))
     button.disabled = value;
 };
-/** @param {string} key */
+/** @param {string} key @param {unknown} error */
 const failure = (key, error) => {
   message(key, true);
   domById('sticker-details', HTMLDetailsElement).hidden = false;
   domById('sticker-reason', HTMLParagraphElement).textContent = String(error);
 };
+/** @param {import('./ipc.js').StickerPack} entry */
 const row = (entry, target) => {
   const item = document.createElement('li');
   const name = document.createElement('strong');
@@ -78,7 +81,7 @@ const row = (entry, target) => {
   item.append(name, id, info, remove);
   return item;
 };
-/** @param {string} notice */
+/** @param {string} notice @param {import('./ipc.js').StickerPacks} page */
 const showCollectionStatus = (page, notice) => {
   const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
   message('');
@@ -136,6 +139,7 @@ dialog.addEventListener('cancel', (event) => {
   event.preventDefault();
   cancelRemoval();
 });
+/** @param {number[]} packId */
 const removeSelected = async (target, packId) => {
   try {
     await target.call('remove_saved_sticker_pack', {
@@ -214,6 +218,7 @@ const prepareImport = (file, target) => {
   domById('sticker-details', HTMLDetailsElement).hidden = true;
   return true;
 };
+/** @param {unknown} error */
 const showImportFailure = (target, error) => {
   if (active(target))
     failure(
@@ -286,6 +291,7 @@ manager.addEventListener('close', () => {
 });
 document.addEventListener('dyapp:identity-change', close);
 document.addEventListener('dyapp:area-change', close);
+/** @param {Pick<import('./chat-state.js').ChatSticker, 'emoji' | 'packName'>} sticker */
 controller.stickerMessageText = (sticker) =>
   text('message')
     .replace('{emoji}', () => sticker.emoji)

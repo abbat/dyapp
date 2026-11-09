@@ -77,6 +77,7 @@ const show = async (call = invoke) => {
     }
   }
 };
+/** @param {'set_media_cache' | 'clear_media_cache'} command */
 const apply = async (target, command, values) => {
   if (!active(target) || target.busy || !target.config) return;
   target.busy = true;

@@ -45,7 +45,11 @@ const profilePhotoFailure = (error) => {
   if (key) profileMessage(key);
   else profileMessage('profile.failed', String(error));
 };
-/** @param {() => void} focus */
+/**
+ * @param {() => void} focus
+ * @param {() => Promise<import('./profile-fields.js').ProfileView>} work
+ * @param {import('./ipc.js').Invoke} call
+ */
 const changeProfilePhotos = async (work, call, focus) => {
   if (profileBusy) return;
   const generation = identityState.generation;
@@ -64,6 +68,7 @@ const changeProfilePhotos = async (work, call, focus) => {
     }
   }
 };
+/** @param {File} file */
 const addProfilePhoto = (file, call = invoke) =>
   changeProfilePhotos(
     async () => {
@@ -114,7 +119,10 @@ const profilePhotoTool = (glyph, name, label, click) => {
   button.addEventListener('click', click);
   return button;
 };
-/** @param {number} index @param {number} count @param {import('./ipc.js').Invoke} call */
+/**
+ * @param {number} index @param {number} count @param {import('./ipc.js').Invoke} call
+ * @param {number[]} hash
+ */
 const profilePhotoTile = (hash, index, count, call) => {
   /** @type {HTMLElement & { ready?: Promise<void> }} */
   const tile = document.createElement('figure');
@@ -173,6 +181,7 @@ const profilePhotoTile = (hash, index, count, call) => {
 /** @type {import('./ipc.js').BinaryResponse | null} */
 let ownPhoto = null;
 let ownPhotoRun = 0;
+/** @param {HTMLElement} avatar */
 const paintOwnAvatar = async (avatar) => {
   const photo = ownPhoto;
   const canvas = document.createElement('canvas');

@@ -52,7 +52,9 @@ const fittedPhoto = async (bitmap, sides, qualities, limit) => {
   }
   return null;
 };
+/** @param {Blob} blob */
 const photoBytes = async (blob) => Array.from(new Uint8Array(await blob.arrayBuffer()));
+/** @param {File} file */
 const preparePhoto = async (
   file,
   sides = PHOTO_SIDES,
@@ -78,6 +80,7 @@ const preparePhoto = async (
     bitmap.close();
   }
 };
+/** @param {unknown} code */
 const photoSendError = (code) => {
   const key = {
     full: 'chats.photoFull',
@@ -89,6 +92,7 @@ const photoSendError = (code) => {
   }[code];
   return key ? strings[key] : `${strings['chats.sendFailed']} ${code}`;
 };
+/** @param {File} file */
 const sendChatPhoto = async (file, call = invoke) => {
   if (!chatState.activeChat || chatSending) return;
   await sendInChat(

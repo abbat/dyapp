@@ -53,6 +53,7 @@ const close = (restore = true) => {
   domById('sticker-picker-grid', HTMLDivElement).replaceChildren();
   if (restore && target?.button.isConnected && !target.button.disabled) target.button.focus();
 };
+/** @param {import('./ipc.js').PickerSticker & { packId?: number[], packName?: string }} entry */
 const entryButton = (target, entry) => {
   const packId = target.pack?.id || entry.packId;
   const name = target.pack?.name || entry.packName;
@@ -69,7 +70,10 @@ const entryButton = (target, entry) => {
   });
   return button;
 };
-/** @param {number} after */
+/**
+ * @param {number} after
+ * @param {import('./ipc.js').SavedStickerPage | import('./ipc.js').RecentStickerPage} page
+ */
 const renderPage = (target, page, after) => {
   target.after = after;
   target.next = page.next;
@@ -113,6 +117,7 @@ const load = async (target, after = 0) => {
     if (pageCurrent(target, read)) busy(target, false);
   }
 };
+/** @param {Pick<import('./ipc.js').StickerPack, 'id' | 'name'> | null} pack */
 const choose = (target, pack) => {
   target.pack = pack;
   target.pages = [];
@@ -173,6 +178,7 @@ const packs = async (target, after = null) => {
     }
   }
 };
+/** @param {number[]} packId @param {number} index */
 const send = async (target, packId, index) => {
   busy(target, true);
   notice('sending');

@@ -9,10 +9,12 @@ controller.stickerRequestsUpdated = undefined;
 // Read status only for visible received stickers; actions carry the observed local generation.
 let epoch = 0;
 const targets = new Map();
+/** @param {string} key */
 const text = (key) => strings[`stickerRequest.${key}`];
 const active = (target) =>
   target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
 const args = (target) => ({ identityId: target.identityId, selection: target.selection });
+/** @param {import('./ipc.js').StickerPackStatus} value */
 const checked = (value) => {
   if (!['new', 'saved', 'waiting', 'downloading', 'failed'].includes(value?.state))
     throw Error('Invalid pack status');
@@ -51,7 +53,7 @@ const finish = (target, focus) => {
     next?.focus();
   }
 };
-/** @param {string} key */
+/** @param {string} key @param {() => void | Promise<void>} action */
 const add = (target, key, action) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -112,6 +114,7 @@ const read = async (target) => {
     finish(target, focus);
   }
 };
+/** @param {import('./ipc.js').StickerPackAction['kind']} kind */
 const receiveAfterChange = (target, kind) => {
   if (kind !== 'stopWaiting') {
     controller.stickerRequestDelivered = target
@@ -122,6 +125,7 @@ const receiveAfterChange = (target, kind) => {
       .catch(() => {});
   }
 };
+/** @param {unknown} error */
 const actionFailure = (error) => {
   if (String(error) === 'unpublished') return 'unpublished';
   if (String(error) === 'too many pending sticker pack requests') return 'limit';
@@ -169,6 +173,11 @@ const clear = () => {
   observer.disconnect();
   targets.clear();
 };
+/**
+ * @param {import('./chat-state.js').ChatMessage} message
+ * @param {string} peerId
+ * @param {import('./ipc.js').Invoke} call
+ */
 const controls = (message, peerId, call) => {
   const root = document.createElement('div');
   root.className = 'sticker-request';

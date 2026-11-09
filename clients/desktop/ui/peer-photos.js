@@ -20,7 +20,7 @@ let viewPhotoRun = 0;
 /** @type {() => boolean | undefined | Promise<boolean | undefined>} */
 let loadViewPhoto = () => undefined;
 
-/** @param {boolean} full */
+/** @param {boolean} full @param {number[][]} hashes @param {import('./ipc.js').Invoke} call */
 const fetchPeerPhotos = async (hashes, full, call) => {
   try {
     await call('fetch_peer_photos', { hashes, full });
@@ -28,6 +28,7 @@ const fetchPeerPhotos = async (hashes, full, call) => {
     // The drawing below finds nothing and keeps the letters.
   }
 };
+/** @param {number[]} hash @param {import('./ipc.js').Invoke} call */
 const peerCanvas = async (hash, call) => {
   const canvas = document.createElement('canvas');
   try {
@@ -45,11 +46,13 @@ const peerPhotoAuto = async (call) => {
     return false;
   }
 };
+/** @param {number} index @param {number} count */
 const peerPhotoLabel = (index, count) =>
   strings['profile.photoLabel'].replace('{n}', index + 1).replace('{count}', count);
 
 // ponytail: the liked list redraws on each mail pass with news, so a missing thumbnail connects
 // again then; remember misses here if that shows up in traffic.
+/** @param {import('./ipc.js').FoundProfile[]} found @param {HTMLElement[]} cards */
 controller.showCardPhotos = async (found, cards, call = invoke) => {
   const wanted = found
     .map((item, index) => [item.draft.photos?.[0], cards[index]])
@@ -68,7 +71,11 @@ controller.showCardPhotos = async (found, cards, call = invoke) => {
   );
 };
 
-/** @param {number} index @param {string} letters */
+/**
+ * @param {number} index @param {string} letters
+ * @param {HTMLCanvasElement | null} canvas
+ * @param {number} count
+ */
 const thumbButton = (canvas, index, count, letters) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -83,7 +90,7 @@ const thumbButton = (canvas, index, count, letters) => {
 
 // Returns undefined when another choice takes over, otherwise whether the full image is showing.
 const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call }) => {
-  /** @param {boolean} load */
+  /** @param {boolean} load @param {number} index */
   const choose = async (index, load) => {
     const choice = ++viewPhotoRun;
     const current = () => choice === viewPhotoRun;
@@ -114,11 +121,13 @@ const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call
   return choose;
 };
 
+/** @param {import('./ipc.js').FoundProfile} found */
 controller.showFoundPhotos = async (found, call = invoke) => {
   const letters = shortPeer(found.peerId).slice(1, 3);
   const thumbnails = found.draft.photos ?? [];
   const originals = found.fullPhotos ?? [];
   const count = thumbnails.length;
+  /** @param {HTMLCanvasElement | null} canvas @param {number | undefined} [index] */
   const showMain = (canvas, index) => {
     if (canvas) {
       viewMain.replaceChildren(canvas);
