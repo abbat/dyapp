@@ -51,7 +51,7 @@ step() {
             step web-check
             check rumdl rumdl check --color never --no-cache .
             check hadolint hadolint --no-color tools/docker/Dockerfile.* tests/docker/Dockerfile.*
-            check buf buf lint proto
+            step proto-check
             check shellcheck shellcheck tests/scripts/*.sh tools/scripts/*.sh tools/build-scripts/*.sh
             check python-tests python3 -B -m unittest discover -s tests -p 'test_*.py' -v
             check flake8 python3 -m flake8 tests tools
@@ -76,6 +76,13 @@ step() {
         swift-check)
             check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
             check swift-format bash tests/scripts/swift-format.sh lint
+            ;;
+        proto-check)
+            check buf buf lint proto
+            check buf-format buf format proto --diff --exit-code
+            ;;
+        proto-format)
+            buf format proto --write
             ;;
         web-check)
             check biome biome check --error-on-warnings --colors=off clients/desktop clients/android/prototype

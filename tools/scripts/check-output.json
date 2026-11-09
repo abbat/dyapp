@@ -11,6 +11,7 @@
   "biome": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"^\\S+:\\d+:\\d+ \\S+/|^\\s*[×!] "},
   "rumdl": {"fix":"docs/development/linting.md#markdown-rumdltoml","format":"lines","pattern":"^.+:\\d+:\\d+: \\[MD\\d+\\]|^Error"},
   "hadolint": {"fix":"docs/development/linting.md#dockerfiles-hadolintyaml","format":"lines","pattern":"^.+:\\d+ (?:DL|SC)\\d+ |^hadolint: "},
+  "buf-format": {"fix":"docs/development/linting.md#protobuf-protobufyaml","format":"lines","pattern":"^(?:---|\\+\\+\\+|@@)|^[+-](?![+-])|^Failure:"},
   "buf": {"fix":"docs/development/linting.md#protobuf-protobufyaml","format":"lines","pattern":"^.+:\\d+:\\d+:|^Failure:"},
   "swift-format": {"fix":"docs/development/linting.md#swift-swiftlintyml","format":"lines","pattern":"^.+:[0-9]+:[0-9]+:"},
   "swiftlint": {"fix":"docs/development/linting.md#swift-swiftlintyml","format":"lines","pattern":"^.+:\\d+:\\d+:"},

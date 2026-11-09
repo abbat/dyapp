@@ -21,8 +21,8 @@ checks later costs more: the backlog of violations has to be reformatted, budget
 first.
 
 `make quick-check` runs Rust formatting, web lint/format and Swift lint/format in the existing
-dev Docker container without compiling code. `make quality` remains the full gate, including
-Clippy. Prepare the images after Dockerfile changes before using these commands.
+dev Docker container without compiling code. Protobuf lint and format checks run there too.
+`make quality` remains the full gate, including Clippy. Prepare the images after Dockerfile changes before using these commands.
 
 ## Where each linter runs
 
@@ -47,7 +47,7 @@ Clippy. Prepare the images after Dockerfile changes before using these commands.
 | JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
 | Dockerfiles | hadolint 2.15.1 on `tools/docker`, `tests/docker` | `.hadolint.yaml` | yes | — | enforced |
-| Protobuf | `buf lint` 1.75.0 on `proto` | `proto/buf.yaml` | yes | — | enforced; `STANDARD` rules |
+| Protobuf | `buf lint` and `buf format` 1.75.0 on `proto` | `proto/buf.yaml` | yes | — | enforced; `STANDARD` lint and canonical formatting |
 
 The quality checks are `tests/scripts/rust-check.sh quality`, run in the dev container by `make quality` (also `make lint`,
 `make check`, `tests/scripts/check-quality.sh`) and directly on the runner by CI job `ci / core / quality`. Git hooks run only
@@ -426,7 +426,13 @@ A comment does not change the build cache; editing a `RUN` line rebuilds every l
 
 ## Protobuf (`proto/buf.yaml`)
 
-The quality step runs `buf lint proto` with the `STANDARD` rules. Three are off:
+`make lint-proto` runs `buf lint proto` and `buf format proto --diff --exit-code`.
+Both checks also run in quality, CI and `make quick-check`; `make fmt-proto` writes canonical
+formatting in Docker. The root `.editorconfig` supplies UTF-8, LF, final newlines and the
+language-specific indentation used by the formatters, including tabs for Make recipes.
+A real formatter fixture verifies that drifting input fails and canonical input passes.
+
+Protobuf lint uses the `STANDARD` rules. Three are off:
 `PACKAGE_DIRECTORY_MATCH` and `DIRECTORY_SAME_PACKAGE` (protox compiles the flat `proto/`
 directory) and `PACKAGE_VERSION_SUFFIX` (protocol IDs and packages carry no version; messages evolve
 only by new fields). A finding is suppressed with a `// buf:lint:ignore <RULE>` comment on the

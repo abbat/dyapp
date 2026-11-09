@@ -47,10 +47,18 @@ fuzz:
 	$(DEV) env FUZZ_SECONDS=$${FUZZ_SECONDS:-60} bash tests/scripts/rust-check.sh fuzz
 
 # Static checks only: no Cargo build, Clippy compilation or native UI tests.
-quick-check: fmt lint-web lint-swift
+quick-check: fmt lint-web lint-swift lint-proto
 
 quality lint check:
 	bash tests/scripts/check-quality.sh
+
+.PHONY: lint-proto fmt-proto
+
+lint-proto:
+	$(DEV) bash tests/scripts/rust-check.sh proto-check
+
+fmt-proto:
+	$(TEST_COMPOSE) -f tools/docker/compose.format.yml --profile test run --no-deps --pull never dev bash tests/scripts/rust-check.sh proto-format
 
 lint-swift:
 	$(DEV) bash tests/scripts/rust-check.sh swift-check
