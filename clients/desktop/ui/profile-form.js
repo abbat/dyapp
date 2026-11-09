@@ -3,6 +3,7 @@ import { camel, countryName } from './profile-fields.js';
 
 // Profile form elements are built only after app.js validates the identity generation.
 export const profileForm = {
+  /** @param {import('./profile-fields.js').PickerScale} scale @param {Record<string, unknown>} draft */
   scaleRow(scale, draft) {
     const label = document.createElement('label');
     const select = document.createElement('select');
@@ -27,6 +28,7 @@ export const profileForm = {
     row.append(label, select);
     return row;
   },
+  /** @param {readonly string[]} countries */
   countryOptions(countries) {
     const unset = document.createElement('option');
     unset.value = '';
@@ -34,9 +36,9 @@ export const profileForm = {
     return [
       unset,
       ...countries
-        .map((code) => [code, countryName(code)])
-        .sort(([, a], [, b]) => a.localeCompare(b, locale))
-        .map(([code, name]) => {
+        .map((code) => ({ code, name: countryName(code) }))
+        .sort((a, b) => a.name.localeCompare(b.name, locale))
+        .map(({ code, name }) => {
           const option = document.createElement('option');
           option.value = code;
           option.textContent = name;

@@ -1,6 +1,7 @@
 import { locale, strings } from './locale.js';
 
 const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+/** @param {number} bytes */
 const sizeText = (bytes) => {
   let unit = 0;
   let value = bytes;
@@ -16,6 +17,7 @@ const sizeText = (bytes) => {
   return `${number} ${strings[`usage.unit.${units[unit]}`]}`;
 };
 
+/** @param {{ sentAtMs?: number | null } | null | undefined} message */
 const chatTime = (message) =>
   message?.sentAtMs == null
     ? ''
@@ -23,6 +25,7 @@ const chatTime = (message) =>
         dateStyle: 'short',
         timeStyle: 'short',
       }).format(new Date(message.sentAtMs));
+/** @param {string | null | undefined} text */
 const chatLinkHosts = (text) => {
   const hosts = new Set();
   for (const match of (text || '').matchAll(/https?:\/\/[^\s<>"']+/gi)) {

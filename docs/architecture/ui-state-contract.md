@@ -20,6 +20,9 @@ state, and independent clipboard, place and DOM modules avoid eager controller c
 fail on a missing or wrong-kind element; optional selector lookups retain `null`, and empty
 selector lists remain valid. The helpers preserve static `NodeList` results and use JSDoc types
 without widening element contracts to `any`.
+Locale loading validates the catalogue object and string values before replacing the live locale
+state. Invalid catalogues leave that state intact. Sticker rendering rejects an unavailable
+canvas context explicitly.
 Startup still waits for `stringsShown`. Rust mail/revocation notifications dispatch the DOM events
 `dyapp:mail-updated` and `dyapp:device-revoked`; the entry module routes them to their controllers.
 Native smoke has its own local interface and async scope, included only with `ui-smoke`.

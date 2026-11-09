@@ -727,6 +727,7 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
 };
 const checkModuleStartup = async () => {
   await smoke.checkDomContracts();
+  await smoke.checkFoundationContracts();
   const [localization, interests, pixels, fields, form, seeking, peers] = await Promise.all([
     import(new URL('locale.js', document.baseURI).href),
     import(new URL('profile-interests.js', document.baseURI).href),

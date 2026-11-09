@@ -5,6 +5,7 @@ const SCRIPTS: &[&str] = &[
     include_str!("interface.js"),
     include_str!("common.js"),
     include_str!("dom.js"),
+    include_str!("foundation.js"),
     include_str!("../video-frame-renderer.js"),
     include_str!("../video-frame-smoke.js"),
     include_str!("identity-peer-smoke.js"),

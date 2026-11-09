@@ -333,6 +333,10 @@ globals. The module-entry regression test rejects classic and inline scripts in 
 Desktop DOM lookup boundaries carry JSDoc types and validate actual element constructors rather
 than casting controls to broad element contracts. Native DOM smoke checks required/optional
 lookups, empty lists and rejection of missing or wrong-kind elements.
+Shared catalogue, identifier, peer-label, formatting, profile-control and sticker-frame helpers
+carry JSDoc contracts. The native bridge keeps Tauri's generic result contract: an untyped
+command result is `unknown`, requiring a command-specific type before property access.
+The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

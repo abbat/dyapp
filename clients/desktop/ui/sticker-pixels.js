@@ -1,4 +1,5 @@
 // Native binary framing is checked before allocating pixels or creating a canvas.
+/** @param {unknown} value @param {string} label */
 export const stickerBinaryPixels = (value, label) => {
   let bytes;
   if (value instanceof ArrayBuffer) bytes = new Uint8Array(value);
@@ -24,6 +25,11 @@ export const stickerBinaryPixels = (value, label) => {
   );
 };
 // Only validated RGBA crosses this boundary; never give peer encodings to the browser decoder.
+/**
+ * @param {{ width: number, height: number, pixels: number[] | Uint8Array }} frame
+ * @param {string} label
+ * @param {number} [limit]
+ */
 export const stickerPixels = (frame, label, limit = 512) => {
   const { width, height, pixels } = frame;
   if (
@@ -43,8 +49,8 @@ export const stickerPixels = (frame, label, limit = 512) => {
   canvas.height = height;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', label);
-  canvas
-    .getContext('2d')
-    .putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0);
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Sticker canvas unavailable');
+  context.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0);
   return canvas;
 };
