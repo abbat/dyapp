@@ -2,6 +2,24 @@ import { byId as domById } from './dom.js';
 import { locale, strings } from './locale.js';
 
 /** @typedef {{ field: number, key: string, ordered: boolean, choices: { code: number, key: string }[] }} PickerScale */
+/**
+ * @typedef {{ name: string, gender: number, orientation: number, relationshipGoal: number,
+ *   rolePreference: number, careerAmbition: number, financialPhilosophy: number,
+ *   employmentStatus: number, fitnessLevel: number, zodiac: number,
+ *   birthYear: number | null, birthMonth: number | null, birthDay: number | null,
+ *   height: number | null, about: string, interests: string[], smoking: number,
+ *   drinking: number, tattoos: number, maritalStatus: number, pets: number,
+ *   country: string, place: string, seekingGenders: number[], seekingAgeFrom: number | null,
+ *   seekingAgeTo: number | null, notLooking: boolean, photos: number[][] }} ProfileDraft
+ * @typedef {'name' | 'height' | 'about' | 'interests' | 'smoking' | 'drinking' | 'tattoos' |
+ *   'maritalStatus' | 'pets' | 'country' | 'place' | 'seekingGenders' | 'seekingAgeFrom' |
+ *   'seekingAgeTo' | 'notLooking'} DefaultedDraftFields
+ * @typedef {Omit<ProfileDraft, DefaultedDraftFields | 'photos'> &
+ *   Partial<Pick<ProfileDraft, DefaultedDraftFields>>} ProfileDraftInput
+ * @typedef {{ draft: ProfileDraft, published: number, ages: [number, number] | null,
+ *   problem: 'notAttested' | 'invalidBirthDate' | 'underage' | null,
+ *   searchMinutes: number | null, hidden: boolean }} ProfileView
+ */
 /** @type {PickerScale[]} */
 export let scaleFields = [];
 /** @param {PickerScale[]} scales */

@@ -1,9 +1,12 @@
 import { identityState, identityCurrent } from './identity-state.js';
 import { strings } from './locale.js';
-export const controller = {};
-
-controller.clipboardCopyToken = 0;
-const copyFrom = (button, source, text = () => source.textContent) =>
+export const controller = {
+  clipboardCopyToken: 0,
+  /** @type {Promise<void> | undefined} */
+  copied: undefined,
+};
+/** @param {HTMLElement} button @param {HTMLElement} source @param {() => string} [text] */
+const copyFrom = (button, source, text = () => source.textContent ?? '') =>
   button.addEventListener('click', () => {
     controller.clipboardCopyToken += 1;
     const generation = identityState.generation;
@@ -21,7 +24,7 @@ const copyFrom = (button, source, text = () => source.textContent) =>
         () => {
           if (!identityCurrent(generation)) return;
           source.textContent = value;
-          window.getSelection().selectAllChildren(source);
+          window.getSelection()?.selectAllChildren(source);
         },
       );
   });

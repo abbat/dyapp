@@ -8,6 +8,7 @@ export const profileInterestTags = () =>
     .split('\n')
     .map((tag) => tag.trim())
     .filter(Boolean);
+/** @param {readonly string[] | null | undefined} tags */
 export const showProfileInterests = (tags) => {
   interestInput.value = (tags || []).join('\n');
   interestInput.setCustomValidity('');

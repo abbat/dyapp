@@ -1,11 +1,20 @@
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings, locale } from './locale.js';
-export const controller = {};
 
+/** @param {import('./ipc.js').Place} place */
 const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
+/**
+ * @param {HTMLInputElement | HTMLSelectElement} countryInput
+ * @param {HTMLInputElement} input
+ * @param {HTMLDataListElement} list
+ * @param {() => string} country
+ * @param {import('./ipc.js').Invoke} [call]
+ */
 const placePicker = (countryInput, input, list, country, call = invoke) => {
+  /** @type {Map<string, string>} */
   let ids = new Map();
+  /** @param {import('./ipc.js').Place[]} places */
   const show = (places) => {
     ids = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
     list.replaceChildren(
@@ -20,6 +29,7 @@ const placePicker = (countryInput, input, list, country, call = invoke) => {
     input.setCustomValidity(
       input.value && !ids.has(input.value) ? strings['profile.placeUnknown'] : '',
     );
+  /** @param {import('./ipc.js').Place | null} place */
   const set = (place) => {
     show(place ? [place] : []);
     input.value = place ? placeLabel(place) : '';
@@ -44,7 +54,8 @@ const placePicker = (countryInput, input, list, country, call = invoke) => {
   });
   return { set, id: () => ids.get(input.value) || '' };
 };
-controller.placeText = (country, id) =>
+/** @param {string} country @param {string} id */
+const placeText = (country, id) =>
   id
     ? invoke('place_name', {
         country,
@@ -52,5 +63,11 @@ controller.placeText = (country, id) =>
         lang: locale,
       }).then((place) => (place ? placeLabel(place) : id))
     : Promise.resolve('');
+
+export const controller = {
+  placeText,
+  /** @type {Promise<void> | undefined} */
+  placesShown: undefined,
+};
 
 export { placePicker };

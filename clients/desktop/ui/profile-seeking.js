@@ -9,6 +9,7 @@ const notLooking = domById('profile-not-looking', HTMLInputElement);
 const seekingFields = domById('profile-seeking', HTMLFieldSetElement);
 
 const seekingChoices = () => scaleFields.find((scale) => scale.key === 'gender')?.choices ?? [];
+/** @param {{ key: string }} choice */
 const genderName = (choice) => strings[`profile.value.gender.${choice.key}`];
 export const seekingDraft = () => ({
   seekingGenders: [
@@ -18,6 +19,8 @@ export const seekingDraft = () => ({
   seekingAgeTo: Number(domById('profile-seeking-age-to', HTMLInputElement).value) || null,
   notLooking: notLooking.checked,
 });
+/** @typedef {Pick<import('./profile-fields.js').ProfileDraft, 'seekingGenders' | 'seekingAgeFrom' | 'seekingAgeTo' | 'notLooking'>} SeekingDraft */
+/** @param {SeekingDraft} draft */
 export const showSeeking = (draft) => {
   domById('profile-seeking-genders', HTMLDivElement).replaceChildren(
     ...seekingChoices().map((choice) => {
@@ -34,11 +37,12 @@ export const showSeeking = (draft) => {
       return label;
     }),
   );
-  domById('profile-seeking-age-from', HTMLInputElement).value = draft.seekingAgeFrom || '';
-  domById('profile-seeking-age-to', HTMLInputElement).value = draft.seekingAgeTo || '';
+  domById('profile-seeking-age-from', HTMLInputElement).value = String(draft.seekingAgeFrom || '');
+  domById('profile-seeking-age-to', HTMLInputElement).value = String(draft.seekingAgeTo || '');
   notLooking.checked = draft.notLooking;
   seekingFields.disabled = draft.notLooking;
 };
+/** @param {SeekingDraft} draft */
 export const seekingFacts = (draft) => {
   if (draft.notLooking) return [[strings['profile.notLooking'], strings['profile.notLookingOn']]];
   const genders = seekingChoices()
