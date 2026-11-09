@@ -263,8 +263,14 @@ flake8 .                                # python-lint.yml, only when *.py or .fl
 Python function, including test helpers; there are no complexity baselines or suppressions.
 `make lint-python` runs flake8 and validates exact `noqa` reasons in Docker; quality, CI and
 `make quick-check` share that stage. A real-tool fixture checks the complexity-10 boundary.
-flake8 only reports; it does not fix anything. `autopep8` or similar is not used by the
-project.
+Ruff 0.17.2 is provisioned from the same SHA-256-verified wheel in Docker and native CI.
+`.ruff.toml` fixes 79 columns, double quotes and Python 3.12-compatible syntax; `make fmt-python`
+formats all Python in `tests/` and `tools/` through a writable Docker mount. Repository-wide
+format checking is planned after the single formatting pass. flake8 remains the lint tool:
+Ruff's lint rules do not reproduce every existing flake8 check. Only `E203` (slice spacing) and
+`W503` (operator placement) are excluded because they conflict with Ruff formatting; complexity
+and unused-code checks remain enabled. The formatter fixture rejects drift and accepts canonical
+input; installer fixtures verify checksum, archive shape and bounded downloads.
 
 ## Swift (`.swiftlint.yml`)
 

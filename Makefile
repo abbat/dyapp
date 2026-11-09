@@ -52,10 +52,13 @@ quick-check: fmt lint-web lint-swift lint-proto lint-python
 quality lint check:
 	bash tests/scripts/check-quality.sh
 
-.PHONY: lint-proto fmt-proto lint-python
+.PHONY: lint-proto fmt-proto lint-python fmt-python
 
 lint-python:
 	$(DEV) bash tests/scripts/rust-check.sh python-check
+
+fmt-python:
+	$(TEST_COMPOSE) -f tools/docker/compose.format.yml --profile test run --no-deps --pull never dev bash tests/scripts/rust-check.sh python-format
 
 lint-proto:
 	$(DEV) bash tests/scripts/rust-check.sh proto-check

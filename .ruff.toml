@@ -1,0 +1,7 @@
+required-version = "==0.17.2"
+line-length = 79
+target-version = "py312"
+
+[format]
+quote-style = "double"
+indent-style = "space"

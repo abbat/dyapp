@@ -11,6 +11,9 @@ exclude =
     *.egg-info,
     .tox,
     .mypy_cache
+# Ruff owns slice spacing and puts operators before continuation lines.
+# E203 conflicts with formatted slices; W503 conflicts with that operator style.
+extend-ignore = E203,W503
 ignore =
 count = True
 statistics = True

@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential pkg-config protobuf-compiler libssl-dev \
     python3-flake8 python3-yaml python3-pyflakes shellcheck openjdk-21-jre-headless unzip && \
     rm -rf /var/lib/apt/lists/*
+# Ruff's wheel is hash-pinned in the shared Docker/CI installer.
+COPY tools/build-scripts/install-ruff.py /opt/install-ruff.py
+RUN python3 -B /opt/install-ruff.py /usr/local/bin/ruff
 # Official actionlint 1.7.12.
 COPY --from=rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 /usr/local/bin/actionlint /usr/local/bin/actionlint
 # Official gitleaks 8.30.1.
