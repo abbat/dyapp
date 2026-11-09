@@ -273,6 +273,12 @@ Ruff's lint rules do not reproduce every existing flake8 check. Only `E203` (sli
 and unused-code checks remain enabled. The formatter fixture rejects drift and accepts canonical
 input; installer fixtures verify checksum, archive shape and bounded downloads.
 
+Output wrappers share `DiagnosticPolicy`, `CheckPolicy` and the narrow `CheckRunner` protocol
+in `tools/scripts/check_dispatch.py`. Reuse those contracts when adding diagnostic formats or
+calling the dynamically loaded runner; a missing source loader fails before dispatch. Report
+readers describe their consumed fields with `TypedDict`; these annotations preserve, rather than
+replace, runtime validation of external reports. Project-wide strict type checking remains planned.
+
 ## Swift (`.swiftlint.yml`)
 
 `make lint-swift` runs SwiftLint and strict swift-format checks in the dev container.

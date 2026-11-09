@@ -7,20 +7,28 @@ what was dropped between them. Only an explicit log file gets a full copy.
 
 import os
 import threading
+from typing import BinaryIO
 
 HEAD = 64 * 1024
 TAIL = 256 * 1024
 
 
 class Capture:
-    def __init__(self, head=HEAD, tail=TAIL, log_file=None):
+    def __init__(
+        self,
+        head: int = HEAD,
+        tail: int = TAIL,
+        log_file: str | os.PathLike[str] | None = None,
+    ) -> None:
         self.head_limit, self.tail_limit = head, tail
         self.head, self.tail = bytearray(), bytearray()
         self.total = 0
         self.lock = threading.Lock()
-        self.copy = None if log_file is None else open(log_file, "ab")
+        self.copy: BinaryIO | None = (
+            None if log_file is None else open(log_file, "ab")
+        )
 
-    def write(self, data):
+    def write(self, data: bytes) -> None:
         with self.lock:
             self.total += len(data)
             room = self.head_limit - len(self.head)
@@ -31,10 +39,10 @@ class Capture:
             if self.copy is not None:
                 self.copy.write(data)
 
-    def dropped(self):
+    def dropped(self) -> int:
         return self.total - len(self.head) - len(self.tail)
 
-    def getvalue(self):
+    def getvalue(self) -> bytes:
         with self.lock:
             dropped = self.dropped()
             marker = (
@@ -44,7 +52,7 @@ class Capture:
             )
             return bytes(self.head) + marker + bytes(self.tail)
 
-    def since(self, offset):
+    def since(self, offset: int) -> bytes:
         """Retained output written after `offset` bytes."""
         with self.lock:
             if not self.dropped():
@@ -52,12 +60,12 @@ class Capture:
             start = len(self.tail) - (self.total - offset)
             return bytes(self.tail[max(0, start) :])
 
-    def pipe(self):
+    def pipe(self) -> tuple[int, threading.Thread]:
         """A write descriptor for a child; a thread copies it here until
         every writer has closed it. Close the descriptor after spawning."""
         read, write = os.pipe()
 
-        def drain():
+        def drain() -> None:
             with os.fdopen(read, "rb", buffering=0) as stream:
                 while chunk := stream.read(65536):
                     self.write(chunk)
@@ -66,7 +74,7 @@ class Capture:
         thread.start()
         return write, thread
 
-    def close(self):
+    def close(self) -> None:
         with self.lock:
             if self.copy is not None:
                 self.copy.close()

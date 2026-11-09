@@ -1,6 +1,7 @@
 """Run a mapped check with concise diagnostics and a retained raw log."""
 
 import argparse
+from collections.abc import Sequence
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,8 @@ import subprocess
 import sys
 import uuid
 
+from check_dispatch import CheckPolicy, DiagnosticPolicy
+
 from capture import Capture
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,7 +19,7 @@ FIX = "docs/development/code-quality.md#check-output"
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
-def gradle_errors(lines):
+def gradle_errors(lines: Sequence[str]) -> list[str]:
     start = next(
         (i for i, line in enumerate(lines) if line.startswith("FAILURE:")),
         None,
@@ -36,12 +39,12 @@ def gradle_errors(lines):
     return selected
 
 
-def json_diagnostics(text, policy):
+def json_diagnostics(text: str, policy: DiagnosticPolicy) -> list[str]:
     try:
         errors = json.loads(text)["errors"]
         if not isinstance(errors, list):
             return []
-        selected = []
+        selected: list[str] = []
         for error in errors:
             if not isinstance(error, str) or not error.strip():
                 continue
@@ -60,7 +63,7 @@ def json_diagnostics(text, policy):
         return []
 
 
-def rust_diagnostics(text, lines):
+def rust_diagnostics(text: str, lines: Sequence[str]) -> list[str]:
     start = next(
         (i for i, line in enumerate(lines) if line == "failures:"), None
     )
@@ -80,7 +83,7 @@ def rust_diagnostics(text, lines):
     return diagnostics(text, {"format": "lines", "pattern": pattern})
 
 
-def unittest_diagnostics(lines):
+def unittest_diagnostics(lines: Sequence[str]) -> list[str]:
     starts = [
         i
         for i, line in enumerate(lines)
@@ -97,7 +100,10 @@ def unittest_diagnostics(lines):
     return selected
 
 
-def line_diagnostics(lines, policy):
+def line_diagnostics(
+    lines: list[str],
+    policy: DiagnosticPolicy,
+) -> list[str]:
     if policy.get("details") and "DETAILS:" in lines:
         return [line for line in lines[lines.index("DETAILS:") + 1 :] if line]
     if policy.get("nested"):
@@ -122,7 +128,7 @@ def line_diagnostics(lines, policy):
     return [line for line in lines if pattern.search(line)]
 
 
-def diagnostics(text, policy):
+def diagnostics(text: str, policy: DiagnosticPolicy) -> list[str]:
     lines = ANSI.sub("", text).splitlines()
     kind = policy["format"]
     if kind == "json":
@@ -143,7 +149,7 @@ def diagnostics(text, policy):
     raise ValueError(f"Unknown diagnostic format: {kind!r}")
 
 
-def mapped_frame(selected):
+def mapped_frame(selected: Sequence[str]) -> bool:
     if len(selected) < 3:
         return False
     shape = (
@@ -155,7 +161,7 @@ def mapped_frame(selected):
     if not all(shape):
         return False
     try:
-        policies = json.loads(
+        policies: dict[str, CheckPolicy] = json.loads(
             (ROOT / "tools/scripts/check-output.json").read_text()
         )
         return any(
@@ -167,7 +173,13 @@ def mapped_frame(selected):
         return False
 
 
-def failure(name, fix, status, selected, log=None):
+def failure(
+    name: str,
+    fix: str,
+    status: int,
+    selected: Sequence[str],
+    log: str | os.PathLike[str] | None = None,
+) -> int:
     if status > 0 and mapped_frame(selected):
         print("\n".join(selected))
     else:
@@ -195,7 +207,12 @@ def failure(name, fix, status, selected, log=None):
     return 128 - status if status < 0 else status
 
 
-def run(name, command, policy, directory):
+def run(
+    name: str,
+    command: Sequence[str],
+    policy: CheckPolicy,
+    directory: Path,
+) -> int:
     directory.mkdir(parents=True, exist_ok=True)
     log = directory / f"{name}-{uuid.uuid4().hex}.log"
     captured = Capture(log_file=log)
@@ -228,7 +245,7 @@ def run(name, command, policy, directory):
     return failure(name, policy["fix"], status, selected, log)
 
 
-def main():
+def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
@@ -239,7 +256,7 @@ def main():
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     try:
-        policies = json.loads(
+        policies: dict[str, CheckPolicy] = json.loads(
             (ROOT / "tools/scripts/check-output.json").read_text()
         )
         if not re.fullmatch(r"[a-z][a-z0-9-]*", args.check):

@@ -2,6 +2,7 @@
 longer needs: flake8 has no unused-noqa check, so rerun it with
 `--disable-noqa` and require every suppressed code on its line."""
 
+from collections.abc import Container, Iterable, Iterator, Mapping
 import io
 from pathlib import Path
 import re
@@ -15,7 +16,7 @@ FORM = re.compile(r":\s*([A-Z]+\d+(?:,[A-Z]+\d+)*)\s+--\s+\S")
 REPORT = re.compile(r"^(.+):(\d+):\d+: ([A-Z]+\d+)\b")
 
 
-def suppressions(text):
+def suppressions(text: str) -> Iterator[tuple[int, list[str] | None]]:
     """Yield (line, codes or None) for each noqa comment; None is
     malformed. Strings that mention noqa are not comments."""
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
@@ -26,7 +27,10 @@ def suppressions(text):
             yield token.start[0], form.group(1).split(",") if form else None
 
 
-def errors(sources, reported):
+def errors(
+    sources: Mapping[str, str],
+    reported: Container[tuple[str, int, str]],
+) -> list[str]:
     """Problems in {path: text} given flake8 (path, line, code) findings."""
     result = []
     for path, text in sorted(sources.items()):
@@ -40,7 +44,7 @@ def errors(sources, reported):
     return result
 
 
-def flake8(paths):
+def flake8(paths: Iterable[str]) -> set[tuple[str, int, str]]:
     """Findings flake8 reports with every noqa ignored."""
     run = subprocess.run(
         [
@@ -65,7 +69,7 @@ def flake8(paths):
     }
 
 
-def main(dirs):
+def main(dirs: Iterable[str]) -> int:
     sources = {}
     for directory in dirs:
         for path in sorted((ROOT / directory).rglob("*.py")):

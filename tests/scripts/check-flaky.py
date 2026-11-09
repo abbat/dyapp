@@ -10,6 +10,7 @@ found; an
 entry stops covering its test after QUARANTINE_DAYS.
 """
 
+from collections.abc import Iterable, Mapping
 from datetime import date, timedelta
 from pathlib import Path
 import json
@@ -17,12 +18,22 @@ import re
 import sys
 import tomllib
 import xml.etree.ElementTree as ET
+from typing import TypedDict
+
+
+class TestNode(TypedDict, total=False):
+    nodeType: str
+    result: str
+    name: str
+    children: list["TestNode"]
+    testNodes: list["TestNode"]
+
 
 BASELINES = Path(__file__).with_name("baselines.toml")
 QUARANTINE_DAYS = 7
 
 
-def flaky_tests(report):
+def flaky_tests(report: str | bytes) -> list[str]:
     """Tests in a JUnit report that passed only on a retry."""
     return sorted(
         f"{case.get('classname')} {case.get('name')}"
@@ -34,7 +45,7 @@ def flaky_tests(report):
     )
 
 
-def xcresult_flaky(report, suite=""):
+def xcresult_flaky(report: TestNode, suite: str = "") -> list[str]:
     """Test Cases in an xcresult tests tree that passed after a failure."""
     found = []
     for node in report.get("testNodes", report.get("children", [])):
@@ -57,7 +68,7 @@ def xcresult_flaky(report, suite=""):
     return sorted(found)
 
 
-def instrumentation_failures(output):
+def instrumentation_failures(output: str) -> list[str]:
     """Tests listed as failed by `am instrument -w`; the run if none is."""
     return sorted(
         f"{cls} {name}"
@@ -67,7 +78,7 @@ def instrumentation_failures(output):
     ) or ["android instrumentation"]
 
 
-def report_flaky(path):
+def report_flaky(path: Path) -> list[str]:
     """Flaky tests in a report, by its type."""
     if path.suffix == ".json":
         return xcresult_flaky(json.loads(path.read_text()))
@@ -76,7 +87,11 @@ def report_flaky(path):
     return flaky_tests(path.read_bytes())
 
 
-def flaky_errors(flaky, quarantine, today):
+def flaky_errors(
+    flaky: Iterable[str],
+    quarantine: Mapping[str, date],
+    today: date,
+) -> list[str]:
     """Unlisted flaky tests and quarantine entries past their deadline."""
     errors = [
         f"{test}: flaky, open a bead and add it to [flaky] in "
@@ -98,7 +113,7 @@ if __name__ == "__main__":
     from check_wrapper import wrap
 
     wrap("flaky")
-    flaky = []
+    flaky: list[str] = []
     for name in sys.argv[1:]:
         flaky += report_flaky(Path(name))
     quarantine = tomllib.loads(BASELINES.read_text()).get("flaky", {})

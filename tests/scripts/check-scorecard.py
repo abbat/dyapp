@@ -8,12 +8,26 @@ import json
 from pathlib import Path
 import sys
 import tomllib
+from typing import NotRequired, TypedDict
+
+
+class ScoreCheck(TypedDict):
+    name: str
+    score: float
+    reason: str
+    details: NotRequired[list[str] | None]
+
+
+class Scorecard(TypedDict):
+    score: float
+    checks: list[ScoreCheck]
+
 
 BASELINES = Path(__file__).with_name("baselines.toml")
 TARGET = 7.0
 
 
-def check(result, baseline):
+def check(result: Scorecard, baseline: float) -> str:
     """The report; fails below the baseline."""
     score = result["score"]
     weak = sorted(

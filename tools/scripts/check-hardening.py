@@ -10,6 +10,7 @@ bundled C code (AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as
 Debian 12's gcc does not add -fstack-protector-strong by default.
 """
 
+from collections.abc import Iterable
 import os
 import struct
 import sys
@@ -21,10 +22,11 @@ DT_STRTAB, DT_STRSZ, DT_RPATH = 5, 10, 15
 DT_BIND_NOW, DT_RUNPATH, DT_FLAGS = 24, 29, 30
 DT_FLAGS_1 = 0x6FFFFFFB
 DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
+Segment = tuple[int, int, int, int, int]
 
 
-def dynamic_tags(data, segments):
-    tags = {}
+def dynamic_tags(data: bytes, segments: Iterable[Segment]) -> dict[int, int]:
+    tags: dict[int, int] = {}
     for kind, _, offset, _, size in segments:
         if kind != PT_DYNAMIC:
             continue
@@ -36,7 +38,7 @@ def dynamic_tags(data, segments):
     return tags
 
 
-def problems(binary):
+def problems(binary: str | os.PathLike[str]) -> list[str]:
     with open(binary, "rb") as f:
         data = f.read()
     if data[:6] != b"\x7fELF\x02\x01":
@@ -45,7 +47,7 @@ def problems(binary):
     phoff = struct.unpack_from("<Q", data, 32)[0]
     phentsize, phnum = struct.unpack_from("<HH", data, 54)
     # (type, flags, offset, vaddr, filesz) of each program header.
-    segments = []
+    segments: list[Segment] = []
     for i in range(phnum):
         kind, flags, offset, vaddr, _, filesz = struct.unpack_from(
             "<IIQQQQ", data, phoff + i * phentsize
@@ -90,7 +92,7 @@ def problems(binary):
 FIX = "docs/manuals/bootstrap.md#getting-dyappd"
 
 
-def main(raw=False):
+def main(raw: bool = False) -> None:
     (binary,) = sys.argv[1:]
     found = problems(binary)
     if found:

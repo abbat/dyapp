@@ -5,16 +5,46 @@ counts as caught (the tests noticed it); unviable mutants do not count.
 Every mutant in the [mutants.invariants] scope must be caught.
 """
 
+from collections.abc import Mapping, Sequence
 import json
 from pathlib import Path
 import re
 import sys
 import tomllib
+from typing import NotRequired, TypedDict
+
+
+class MutantFunction(TypedDict):
+    function_name: str
+
+
+class Mutant(TypedDict, total=False):
+    package: str
+    file: str
+    name: str
+    function: MutantFunction | None
+
+
+class MutantScenario(TypedDict):
+    Mutant: Mutant
+
+
+class Outcome(TypedDict):
+    scenario: str | MutantScenario
+    summary: str
+
+
+class Shard(TypedDict):
+    caught: int
+    timeout: int
+    missed: int
+    outcomes: NotRequired[list[Outcome]]
+
 
 BASELINES = Path(__file__).with_name("baselines.toml")
 
 
-def score(outcomes):
+def score(outcomes: Sequence[Shard]) -> tuple[float, dict[str, int]]:
     """Mutation score in percent over all shards, and the counts."""
     counts = {
         key: sum(item[key] for item in outcomes)
@@ -27,9 +57,9 @@ def score(outcomes):
     return round(100 * caught / total, 1), counts
 
 
-def unbuildable(outcomes):
+def unbuildable(outcomes: Sequence[Shard]) -> list[str]:
     """Packages none of whose mutants built: likely it fails to build alone."""
-    viable = {}
+    viable: dict[str, bool] = {}
     for item in outcomes:
         for outcome in item.get("outcomes", []):
             # The unmutated baseline's scenario is the string "Baseline".
@@ -40,7 +70,7 @@ def unbuildable(outcomes):
     return sorted(package for package, ok in viable.items() if not ok)
 
 
-def invariants(outcomes, scope):
+def invariants(outcomes: Sequence[Shard], scope: Mapping[str, str]) -> None:
     """Fails on a missed mutant in scope, or a scope entry no mutant matched.
 
     scope maps a file to a regex searched in the mutated function's name.
@@ -52,7 +82,8 @@ def invariants(outcomes, scope):
                 continue
             mutant = outcome["scenario"]["Mutant"]
             pattern = scope.get(mutant["file"])
-            function = (mutant.get("function") or {}).get("function_name")
+            info = mutant.get("function")
+            function = info.get("function_name") if info else None
             if (
                 pattern is None
                 or function is None
@@ -72,7 +103,11 @@ def invariants(outcomes, scope):
         raise ValueError(f"Missed security-invariant mutants:\n{names}")
 
 
-def check(outcomes, baseline, scope=None):
+def check(
+    outcomes: Sequence[Shard],
+    baseline: float,
+    scope: Mapping[str, str] | None = None,
+) -> str:
     """The score line; fails below the baseline, on an unbuildable crate, or
     on a missed mutant in the security-invariant scope."""
     if packages := unbuildable(outcomes):

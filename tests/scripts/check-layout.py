@@ -14,17 +14,30 @@ fails on a new finding and names listed ones that no longer occur.
     check-layout.py <desktop|android> <layout.json>
 """
 
+from collections.abc import Collection, Mapping, Sequence
 import json
 from pathlib import Path
 import sys
 import tomllib
+from typing import TypedDict
+
+
+class Gap(TypedDict):
+    identifier: bool
+    framed: bool
+    label: bool
+    gap: float
+    scope: str
+    a: str
+    b: str
+
 
 BASELINES = Path(__file__).with_name("baselines.toml")
 
 
-def findings(layout):
+def findings(layout: Mapping[str, Sequence[Gap]]) -> dict[str, list[str]]:
     """Each finding with the shots it occurs in."""
-    found = {}
+    found: dict[str, list[str]] = {}
     for shot, gaps in sorted(layout.items()):
         for gap in gaps:
             if gap["identifier"] and gap["gap"] < 12:
@@ -38,7 +51,10 @@ def findings(layout):
     return found
 
 
-def errors(found, known):
+def errors(
+    found: Mapping[str, Sequence[str]],
+    known: Collection[str],
+) -> tuple[list[str], list[str]]:
     """New findings fail; known ones that are gone are reported as stale."""
     new = [
         f"{key}: {', '.join(shots[:3])}"
@@ -49,7 +65,7 @@ def errors(found, known):
     return new, stale
 
 
-def main(platform, path):
+def main(platform: str, path: str | Path) -> int:
     known = tomllib.loads(BASELINES.read_text())["layout"][platform]
     found = findings(json.loads(Path(path).read_text()))
     new, stale = errors(found, known)
