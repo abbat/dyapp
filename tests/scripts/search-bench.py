@@ -32,12 +32,12 @@ class OutOfTime(Exception):
     pass
 
 
-def guard():
+def guard() -> None:
     if time.monotonic() - T0 > BUDGET_S:
         raise OutOfTime
 
 
-def say(msg):
+def say(msg) -> None:
     print(f"[{time.monotonic() - T0:7.1f}s] {msg}", flush=True)
 
 
@@ -212,7 +212,7 @@ class Q:
     """One query class on one place rank: the SQL text and how to draw its
     bound values."""
 
-    def __init__(self, cls, rank, country, rng):
+    def __init__(self, cls, rank, country, rng) -> None:
         self.cls, self.rank, self.rng = cls, rank, rng
         if cls == "place_in":
             places = [f"place-{k}" for k in range(1, 9)]
@@ -343,7 +343,7 @@ def measure_cell(db, q, n):
 def qps(path, country, seconds=5, threads=2):
     done, stop = [0] * threads, time.monotonic() + seconds
 
-    def work(k):
+    def work(k) -> None:
         db = sqlite3.connect(path)
         q = Q("typical", 1, country, random.Random(k))
         while time.monotonic() < stop:
@@ -365,7 +365,7 @@ CELLS = [  # class, ranks, queries per cell
 ]
 
 
-def measure(path, rows, run):
+def measure(path, rows, run) -> None:
     db = sqlite3.connect(path)
     db.execute("PRAGMA cache_size = -65536")
     rng, country = random.Random(42), COUNTRIES[0]
@@ -387,7 +387,7 @@ def measure(path, rows, run):
     say(f"  qps typical on 2 threads: {run['qps_typical_2threads']:.0f}")
 
 
-def extrapolate(out):
+def extrapolate(out) -> None:
     runs = out["runs"]
     done = sorted(
         int(n)
@@ -422,7 +422,7 @@ def extrapolate(out):
         }
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", type=int, action="append", required=True)
     ap.add_argument("--dir", required=True)

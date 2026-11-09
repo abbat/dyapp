@@ -6,11 +6,33 @@ import json
 from pathlib import Path
 import platform
 import subprocess
+from typing import Required, TypedDict
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def file_record(name, artifact, environment):
+class FileRecord(TypedDict):
+    artifact: str
+    path: str
+    bytes: int
+    sha256: str
+    environment: str
+
+
+class Measurement(TypedDict, total=False):
+    artifact: Required[str]
+    errors: Required[list[str]]
+    path: str
+    bytes: int
+    sha256: str
+    environment: str
+    revision: str
+    rustc: str
+    platform: str
+    machine: str
+
+
+def file_record(name: str, artifact: Path, environment: str) -> FileRecord:
     if not artifact.is_file() or artifact.stat().st_size == 0:
         raise ValueError(f"Missing or empty artifact: {artifact}")
     digest = hashlib.sha256()
@@ -27,16 +49,19 @@ def file_record(name, artifact, environment):
     }
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name")
     parser.add_argument("artifact", type=Path)
     parser.add_argument("--environment", required=True)
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args()
-    result = {"artifact": args.name, "errors": []}
+    result: Measurement = {"artifact": args.name, "errors": []}
     try:
-        result.update(file_record(args.name, args.artifact, args.environment))
+        result = {
+            **result,
+            **file_record(args.name, args.artifact, args.environment),
+        }
         result["revision"] = subprocess.check_output(
             ["git", "-c", f"safe.directory={ROOT}", "rev-parse", "HEAD"],
             cwd=ROOT,

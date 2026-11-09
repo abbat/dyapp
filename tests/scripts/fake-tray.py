@@ -38,7 +38,7 @@ def call(name, path, interface, method, args, reply=None):
     )
 
 
-def click(position):
+def click(position) -> None:
     """Sends "clicked" to the menu entry at `position` of the newest item."""
     name, path = items[-1]
     menu = call(
@@ -83,7 +83,7 @@ def tick():
     return True
 
 
-def method(_bus, sender, _path, _interface, name, params, invocation):
+def method(_bus, sender, _path, _interface, name, params, invocation) -> None:
     if name == "RegisterStatusNotifierItem":
         service = params.unpack()[0]
         # appindicator registers an object path on its own connection.

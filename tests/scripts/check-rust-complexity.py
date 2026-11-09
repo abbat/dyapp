@@ -96,7 +96,7 @@ def budget_changes(path, current):
     return policy.growth_errors(current, budgets(json.loads(old)))
 
 
-def check_thresholds(directory):
+def check_thresholds(directory) -> None:
     git = ["git", "-c", f"safe.directory={ROOT}"]
     raw = subprocess.check_output(
         [

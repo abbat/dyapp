@@ -99,7 +99,7 @@ def action(existing, run_id):
     return "reopen" if bead["status"] == "closed" else "note"
 
 
-def main(args):
+def main(args) -> None:
     dry = "--dry-run" in args
     ids = [a for a in args if a.isdigit()]
     if not ids:

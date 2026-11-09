@@ -1,16 +1,36 @@
 """D5: compare a release artifact against its measured environment baseline."""
 
+from collections.abc import Mapping
 import argparse
 import json
 from pathlib import Path
 import re
 import subprocess
+from typing import Required, TypedDict
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def inventory(path):
-    entries = json.loads(path.read_text())
+class Baseline(TypedDict):
+    bytes: int
+    environment: str
+    revision: str
+
+
+class SizeReport(TypedDict, total=False):
+    artifact: Required[str]
+    errors: Required[list[str]]
+    path: str
+    actual_bytes: int
+    baseline: Baseline
+    growth_percent: float
+    exception_reasons: list[str]
+    base: str
+    head: str
+
+
+def inventory(path: Path) -> dict[str, Baseline]:
+    entries: dict[str, Baseline] = json.loads(path.read_text())
     if not isinstance(entries, dict) or not entries:
         raise ValueError("Artifact inventory must be a nonempty object")
     for name, entry in entries.items():
@@ -28,8 +48,8 @@ def inventory(path):
     return entries
 
 
-def exceptions(base, head="HEAD", root=ROOT):
-    def git(*args):
+def exceptions(base: str, head: str = "HEAD", root: Path = ROOT) -> list[str]:
+    def git(*args: str) -> str:
         return subprocess.check_output(
             ["git", "-c", f"safe.directory={root}", *args],
             cwd=root,
@@ -48,7 +68,12 @@ def exceptions(base, head="HEAD", root=ROOT):
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def measure(name, artifact, entries, reasons):
+def measure(
+    name: str,
+    artifact: Path,
+    entries: Mapping[str, Baseline],
+    reasons: list[str],
+) -> SizeReport:
     if name not in entries:
         raise ValueError(f"Unregistered artifact: {name}")
     if not artifact.is_file() or artifact.stat().st_size == 0:
@@ -72,7 +97,7 @@ def measure(name, artifact, entries, reasons):
     }
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name")
     parser.add_argument("artifact", type=Path)
@@ -89,7 +114,7 @@ def main():
     )
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    report = {
+    report: SizeReport = {
         "artifact": args.name,
         "errors": [],
         "base": args.base,

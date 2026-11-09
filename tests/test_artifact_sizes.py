@@ -48,6 +48,7 @@ class ArtifactSizes(unittest.TestCase):
     def test_inventory_rejects_invalid_or_unmeasured_budgets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sizes.json"
+            record: object
             for record in (
                 {},
                 [],
@@ -70,7 +71,7 @@ class ArtifactSizes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
 
-            def git(*args):
+            def git(*args: str) -> str:
                 return subprocess.check_output(
                     ["git", *args], cwd=root, text=True, stderr=subprocess.PIPE
                 ).strip()

@@ -12,11 +12,14 @@ import sys
 import zipfile
 
 
-def main():
+def main() -> None:
     exe, out = Path(sys.argv[1]), Path(sys.argv[2])
     root = Path(__file__).resolve().parents[2]
     manifest = (root / "clients" / "windows" / "Cargo.toml").read_text()
-    version = re.search(r'^version = "(.*)"', manifest, re.M).group(1)
+    match = re.search(r'^version = "(.*)"', manifest, re.M)
+    if match is None:
+        raise ValueError("Windows Cargo manifest has no version")
+    version = match.group(1)
     name = f"dyapp-{version}-x86_64-windows"
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{name}.zip"

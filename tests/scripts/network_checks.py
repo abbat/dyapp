@@ -51,7 +51,7 @@ def replicate(client, entry, ids):
     return holders
 
 
-def mailbox(client, tcp, quic, other):
+def mailbox(client, tcp, quic, other) -> None:
     """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties,
     a watching fetch gets the next envelope pushed."""
     device, put, _ = spread(client, tcp)

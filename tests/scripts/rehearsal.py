@@ -41,7 +41,7 @@ TRUST_MINUTES = int(
 STARTED = time.monotonic()
 
 
-def log(message):
+def log(message) -> None:
     minutes = (time.monotonic() - STARTED) / 60
     print(f"[{minutes:6.1f} min] {message}", flush=True)
 
@@ -71,7 +71,7 @@ def start(bin_dir, env, client, tcp):
     raise RuntimeError(f"Node did not start: {tcp}")
 
 
-def halt(process):
+def halt(process) -> None:
     process.terminate()
     process.wait()
 
@@ -111,7 +111,7 @@ def expect(client, entry, addresses, status):
     return signed
 
 
-def wait_trust(reason):
+def wait_trust(reason) -> None:
     if TRUST_MINUTES:
         log(f"waiting {TRUST_MINUTES} + 1 min: {reason}")
         time.sleep((TRUST_MINUTES + 1) * 60)
@@ -163,7 +163,7 @@ def upgrade_nodes(
     return backup, kept
 
 
-def rehearse(old_dir, new_dir, storage):
+def rehearse(old_dir, new_dir, storage) -> None:
     client = f"{new_dir}/dyappd"
     envs = [environment(storage, i) for i in range(3)]
     addresses = [net.addresses(host, PORT)[0] for host in HOSTS]
@@ -214,7 +214,7 @@ def rehearse(old_dir, new_dir, storage):
     net.stop(processes, False)
 
 
-def main():
+def main() -> None:
     if len(sys.argv) != 3:
         sys.exit("Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR")
     Path("/tmp/ai").mkdir(exist_ok=True)

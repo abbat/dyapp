@@ -19,7 +19,7 @@ SQLITE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SQLITE)
 
 
-def decrypt_age(encrypted, identity, output, age_binary):
+def decrypt_age(encrypted, identity, output, age_binary) -> None:
     if identity.is_symlink():
         raise ValueError("age identity must not be a symlink")
     info = identity.stat()
@@ -118,7 +118,7 @@ def probe(
     return header["peer_id"]
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--dyappd", type=Path, required=True)

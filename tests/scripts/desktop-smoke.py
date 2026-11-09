@@ -39,7 +39,7 @@ start_smoke_node = native.start_smoke_node
 class DesktopSmoke:
     """Own smoke results and the shared application launcher."""
 
-    def __init__(self, executable):
+    def __init__(self, executable) -> None:
         self.executable = executable
         report_root = os.environ.get("RUNNER_TEMP")
         if not report_root:
@@ -91,7 +91,7 @@ class DesktopSmoke:
         self.results.append(result)
         return match.group(1) if match else None
 
-    def remove(self, name, profile, slot, first):
+    def remove(self, name, profile, slot, first) -> None:
         """Remove the opened identity; only its slot folder may go."""
         slots = Path(profile) / "profiles"
         kept = {s.name for s in slots.iterdir()} - {slot}
@@ -105,7 +105,7 @@ class DesktopSmoke:
         if reopened != first:
             raise RuntimeError("removed identity reopened after restart")
 
-    def window(self, profile):
+    def window(self, profile) -> None:
         """Ctrl+Q saves the moved window, a relaunch puts it back, and one
         saved on a display that went away comes back centred."""
         state = Path(profile) / "window.json"
@@ -137,7 +137,7 @@ class DesktopSmoke:
             peer=False,
         )
 
-    def linked(self, owner, owner_id, seed, file):
+    def linked(self, owner, owner_id, seed, file) -> None:
         """A new client joins the identity of `owner` through the node, both
         list two devices, and a disconnect wipes the new client. It waits on
         a bus of its own: on a shared one the single-instance check would
@@ -183,7 +183,7 @@ class DesktopSmoke:
             if any(slots.iterdir()):
                 raise RuntimeError("the wipe left the identity on disk")
 
-    def single(self, profile):
+    def single(self, profile) -> None:
         """A second launch shows the hidden window of the running one and
         exits."""
         hidden = Path(profile) / "hidden"
@@ -206,7 +206,7 @@ class DesktopSmoke:
                     raise RuntimeError(f"second launch failed: {second}")
             first.result()
 
-    def sticker_packs(self, profile, mode, flags, peer_id):
+    def sticker_packs(self, profile, mode, flags, peer_id) -> None:
         for step in ("import", "restart"):
             reopened = self.case(
                 f"{mode}-sticker-{step}",
@@ -216,7 +216,7 @@ class DesktopSmoke:
             if reopened != peer_id:
                 raise RuntimeError("sticker smoke changed the active identity")
 
-    def mixed(self, profile, first):
+    def mixed(self, profile, first) -> None:
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
         file = ["--ui-test-file"]
@@ -269,7 +269,7 @@ class DesktopSmoke:
         )
         self.remove("remove-missing", profile, added, first)
 
-    def system_files_only(self, profile):
+    def system_files_only(self, profile) -> None:
         """An app-file copy cannot recover a credential in a fresh provider."""
         root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
@@ -303,7 +303,7 @@ class DesktopSmoke:
                 },
             )
 
-    def legacy(self, profile, peer_id):
+    def legacy(self, profile, peer_id) -> None:
         """Turn the file slot into a pre-slot root key and reopen it."""
         root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
@@ -323,7 +323,7 @@ class DesktopSmoke:
         ):
             raise RuntimeError("legacy key changed Peer ID")
 
-    def network(self, profile):
+    def network(self, profile) -> None:
         """Failed checks keep the draft but never activate it."""
         file = ["--ui-test-file"]
         peer_id = self.case("network-create", file, profile)
@@ -367,7 +367,7 @@ class DesktopSmoke:
         if (folder / "network").exists():
             raise RuntimeError("a failed check activated the draft")
 
-    def profile_draft(self, profile):
+    def profile_draft(self, profile) -> None:
         """A nonempty public draft and its preview survive an app restart."""
         file = ["--ui-test-file"]
         peer_id = self.case("profile-create", file, profile)
@@ -503,7 +503,9 @@ class DesktopSmoke:
             raise RuntimeError("a cancelled check changed active network")
         return folder
 
-    def public_profile(self, profile, peer_id, file, node, seed, env, storage):
+    def public_profile(
+        self, profile, peer_id, file, node, seed, env, storage
+    ) -> None:
         published = self.case(
             "profile-publish-retry",
             [*file, "--ui-test-step=profile-publish-retry"],
@@ -643,7 +645,7 @@ class DesktopSmoke:
             raise RuntimeError(f"unexpected notice: {notice}")
         return peer_root, other_peer
 
-    def connect(self, profile):
+    def connect(self, profile) -> None:
         """A loopback dyappd answers the check, which activates the list."""
         node, storage = (
             Path(self.executable).with_name("dyappd"),
@@ -731,7 +733,7 @@ class DesktopSmoke:
             server.terminate()
             server.wait(timeout=30)
 
-    def tray(self, profile):
+    def tray(self, profile) -> None:
         """Without a host the tray settings are off; with one, Quit exits,
         close-to-tray hides the window until Open, the setting survives a
         relaunch, and a host that goes away brings the window back. Windows
@@ -777,7 +779,7 @@ class DesktopSmoke:
                     peer=False,
                 )
 
-    def storage_modes(self, flows):
+    def storage_modes(self, flows) -> None:
         for mode in ("system", "file"):
             with tempfile.TemporaryDirectory(dir=self.reports) as profile:
                 flags = ["--ui-test-file"] if mode == "file" else []
@@ -797,7 +799,7 @@ class DesktopSmoke:
                         profile, peer_id
                     )
 
-    def network_flows(self, flows):
+    def network_flows(self, flows) -> None:
         if flows:
             with tempfile.TemporaryDirectory(dir=self.reports) as profile:
                 self.network(profile)
@@ -833,7 +835,7 @@ class DesktopSmoke:
                     profile,
                 )
 
-    def exercise(self, flows):
+    def exercise(self, flows) -> None:
         video_enabled = os.environ.get("DYAPP_VIDEO_SMOKE") == "1"
         if flows and sys.platform.startswith("linux") and video_enabled:
             video_smoke(self.case, self.reports)
@@ -877,7 +879,7 @@ class DesktopSmoke:
         print(f"{len(self.results)} desktop UI cases passed")
 
 
-def smoke(executable, flows=True):
+def smoke(executable, flows=True) -> None:
     """Only fixture apps skip stateful identity/network flows."""
     DesktopSmoke(executable).exercise(flows)
 

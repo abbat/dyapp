@@ -221,7 +221,7 @@ def run_case(app, name, output):
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--app", type=Path, default=BUILD / "debug/dyapp-linux"

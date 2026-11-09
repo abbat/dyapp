@@ -16,7 +16,7 @@ import zipfile
 OUT = "rust/bootstrap/data/places.bin"
 
 
-def leb128(n):
+def leb128(n: int) -> bytes:
     out = bytearray()
     while n > 0x7F:
         out.append(n & 0x7F | 0x80)
@@ -24,7 +24,7 @@ def leb128(n):
     return bytes(out + bytes([n]))
 
 
-def main():
+def main() -> None:
     rows = set()
     with zipfile.ZipFile(sys.argv[1]) as z, z.open("cities1000.txt") as f:
         for line in io.TextIOWrapper(f, encoding="utf-8"):

@@ -33,7 +33,7 @@ class MemoryReports(unittest.TestCase):
             (root / "dyappd").write_bytes(b"measured release binary")
             expected = hashlib.sha256(b"measured release binary").hexdigest()
 
-            def start(_bin, _storage, peers, processes, _env, flood):
+            def start(_bin, _storage, peers, processes, _env, flood) -> None:
                 self.assertFalse(flood)
                 peers.extend([("tcp", "quic")] * 3)
                 processes.extend([object()] * 3)

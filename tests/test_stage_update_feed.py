@@ -45,7 +45,7 @@ def inventory(tag, platform=None):
 
 
 class Response:
-    def __init__(self, data, url=STAGE.FEED_URL):
+    def __init__(self, data, url=STAGE.FEED_URL) -> None:
         self.data = data
         self.url = url
 
@@ -63,7 +63,7 @@ class Response:
 
 
 class Opener:
-    def __init__(self, response):
+    def __init__(self, response) -> None:
         self.response = response
 
     def open(self, request, timeout):

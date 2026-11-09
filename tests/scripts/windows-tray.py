@@ -45,7 +45,7 @@ OVERFLOW_CLASS, SW_SHOWNA = "NotifyIconOverflowWindow", 8
 MN_GETHMENU, MN_SELECTITEM = 0x1E1, 0x1E5
 
 
-def log(message):
+def log(message) -> None:
     print(f"windows-tray: {message}", file=sys.stderr, flush=True)
 
 
@@ -58,7 +58,7 @@ class NotifyIconIdentifier(ctypes.Structure):
     ]
 
 
-def log_menu_needs(tray):
+def log_menu_needs(tray) -> None:
     """tray-icon opens the menu only when it gets the cursor position and the
     icon's rectangle; logs both, trying the first icon ids."""
     point = wintypes.POINT()

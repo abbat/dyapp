@@ -73,7 +73,7 @@ def fired(triggers, files):
     )
 
 
-def main(args):
+def main(args) -> None:
     triggers = load(LIST.read_text())
     git = [
         "git",

@@ -73,7 +73,7 @@ def read_marker(root, name, limit):
         os.close(fd)
 
 
-def check_file(root, record):
+def check_file(root, record) -> None:
     fd = open_beneath(root, record["path"])
     try:
         before = os.fstat(fd)
@@ -146,7 +146,7 @@ def validate_path(value, key_mode):
     return parts
 
 
-def header_inventory(value):
+def header_inventory(value) -> None:
     absent = value["absent"]
     if not isinstance(absent, list) or any(
         not isinstance(item, str) for item in absent
@@ -199,7 +199,7 @@ def file_record(value, previous, key_mode):
 class ManifestFiles:
     """Accumulate checked records without reopening the manifest."""
 
-    def __init__(self, root, header):
+    def __init__(self, root, header) -> None:
         self.root = root
         self.header = header
         self.key_mode = self.header["key_mode"]
@@ -215,7 +215,7 @@ class ManifestFiles:
         self.sqlite_records = []
         self.key_records = {}
 
-    def check(self, value):
+    def check(self, value) -> None:
         if not isinstance(value, dict) or set(value) != FILE_FIELDS:
             raise ValueError("invalid file record")
         path = value["path"]
@@ -242,7 +242,7 @@ class ManifestFiles:
             self.expected_dirs.add(parent.as_posix())
         self.hot_journal |= path.endswith(".db-journal")
 
-    def storage_record(self, parts, value):
+    def storage_record(self, parts, value) -> None:
         if parts[0] == "storage" and len(parts) == 2:
             self.seen.add(parts[1])
             is_wal = any(parts[1] == f"{db}-wal" for db in BACKUP.DATABASES)
@@ -252,7 +252,7 @@ class ManifestFiles:
                 if parts[1].endswith(suffix):
                     self.sidecars.add(parts[1][: -len(suffix)])
 
-    def validate(self):
+    def validate(self) -> None:
         required = set(BACKUP.REQUIRED)
         if self.key_mode == "inline":
             required.add("node.key")
@@ -271,7 +271,7 @@ class ManifestFiles:
             raise ValueError("recovery key does not match key mode")
         self.validate_markers()
 
-    def validate_markers(self):
+    def validate_markers(self) -> None:
         marker = read_marker(self.root, "node.id", 256).strip()
         if marker != self.header["peer_id"]:
             raise ValueError("peer ID differs from manifest")
@@ -339,8 +339,8 @@ def inventory_files(directory, parent, files):
     return found
 
 
-def check_inventory(root, expected_count, expected_dirs):
-    def fail_walk(error):
+def check_inventory(root, expected_count, expected_dirs) -> None:
+    def fail_walk(error) -> None:
         raise error
 
     found = 0
@@ -378,7 +378,7 @@ def verify(snapshot):
     return header["peer_id"], count
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     args = parser.parse_args()

@@ -138,12 +138,12 @@ def copy_file(source, target):
         os.close(fd)
 
 
-def write_manifest(destination, header, files):
+def write_manifest(destination, header, files) -> None:
     pending = destination / "manifest.pending"
     total = 0
     with pending.open("x", encoding="utf-8") as output:
 
-        def write_record(record):
+        def write_record(record) -> None:
             nonlocal total
             line = (
                 json.dumps(
@@ -195,7 +195,7 @@ def snapshot_paths(source, destination, key_mode, recovery_key):
     return source, destination
 
 
-def snapshot(source, destination, key_mode, recovery_key):
+def snapshot(source, destination, key_mode, recovery_key) -> None:
     source, destination = snapshot_paths(
         source, destination, key_mode, recovery_key
     )
@@ -233,7 +233,7 @@ def snapshot(source, destination, key_mode, recovery_key):
     write_manifest(destination, header, files)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("destination", type=Path)

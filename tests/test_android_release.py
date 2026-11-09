@@ -18,7 +18,9 @@ CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
 
-def fixture(path, kind, missing=None, wrong_machine=False, duplicate=False):
+def fixture(
+    path, kind, missing=None, wrong_machine=False, duplicate=False
+) -> None:
     prefix = "" if kind == "apk" else "base/"
     names = {
         "AndroidManifest.xml"

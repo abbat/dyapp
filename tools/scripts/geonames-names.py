@@ -13,6 +13,7 @@ https://download.geonames.org/export/dump/; download them into an empty
 directory first.
 """
 
+from collections.abc import Container, Iterator
 import io
 import sys
 import zipfile
@@ -24,18 +25,18 @@ OUT = ROOT / "rust/client/data/places.z"
 SERVER = ROOT / "rust/bootstrap/data/places.bin"
 
 
-def lines(path, member):
+def lines(path: Path, member: str) -> Iterator[list[str]]:
     with zipfile.ZipFile(path) as z, z.open(member) as f:
         for line in io.TextIOWrapper(f, encoding="utf-8"):
             yield line.rstrip("\n").split("\t")
 
 
-def server_ids():
+def server_ids() -> set[tuple[str, int]]:
     """The (country, ID) pairs of places.bin; see its writer
     geonames-places.py."""
     data, known = SERVER.read_bytes(), set()
 
-    def leb128(at):
+    def leb128(at: int) -> tuple[int, int]:
         n = shift = 0
         while True:
             n |= (data[at] & 0x7F) << shift
@@ -56,10 +57,10 @@ def server_ids():
     return known
 
 
-def russian(path, wanted):
+def russian(path: Path, wanted: Container[int]) -> dict[int, str]:
     """The Russian name of each wanted ID: a preferred one first, never a
     colloquial or historic one."""
-    best = {}
+    best: dict[int, tuple[bool, str]] = {}
     for c in lines(path, "alternateNamesV2.txt"):
         gid = int(c[1])
         if c[2] != "ru" or gid not in wanted or "1" in (c[6], c[7]):
@@ -69,13 +70,13 @@ def russian(path, wanted):
     return {gid: name for gid, (_, name) in best.items()}
 
 
-def main():
+def main() -> None:
     src = Path(sys.argv[1])
     regions = {}
     with open(src / "admin1CodesASCII.txt", encoding="utf-8") as f:
         for line in f:
-            code, name, _, gid = line.rstrip("\n").split("\t")
-            regions[code] = (name, int(gid))
+            code, name, _, raw_gid = line.rstrip("\n").split("\t")
+            regions[code] = (name, int(raw_gid))
     known = server_ids()
     places, unknown = [], 0
     for c in lines(src / "cities15000.zip", "cities15000.txt"):
@@ -92,7 +93,7 @@ def main():
         {p[1] for p in places} | {regions[r][1] for r in used},
     )
 
-    def other(name, gid):
+    def other(name: str, gid: int) -> str:
         return "" if ru.get(gid, name) == name else ru[gid]
 
     text = "".join(
@@ -101,7 +102,7 @@ def main():
         if code in used
     )
     text += "\n"
-    last = (None, 0)
+    last: tuple[str | None, int] = (None, 0)
     for country, gid, size, name, region in sorted(places):
         delta = gid - last[1] if country == last[0] else gid
         last = (country, gid)
@@ -115,8 +116,8 @@ def main():
         raise SystemExit("a name holds a tab or newline")
     data = zlib.compress(text.encode(), 9)
     out = sys.argv[2] if len(sys.argv) > 2 else OUT
-    with open(out, "wb") as f:
-        f.write(data)
+    with open(out, "wb") as target:
+        target.write(data)
     print(
         f"{len(places)} places ({unknown} not in places.bin skipped), "
         f"{len(ru)} Russian names, "

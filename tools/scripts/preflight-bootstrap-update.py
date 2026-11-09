@@ -49,7 +49,7 @@ def stopped(source):
 
 def check_space(
     source, destination, key_mode, recovery_key, scratch, free=available
-):
+) -> None:
     files, _ = BACKUP.paths(source, key_mode)
     sizes = {name: item.stat().st_size for name, item in files}
     total = sum(sizes.values())
@@ -98,7 +98,7 @@ def preflight(
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="dyappd storage.dir")
     parser.add_argument(

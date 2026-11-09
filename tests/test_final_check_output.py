@@ -91,7 +91,7 @@ class FinalChecks(unittest.TestCase):
                     ),
                 )
 
-            def facts(capabilities=0, privileges=1):
+            def facts(capabilities=0, privileges=1) -> None:
                 status.write_text(
                     f"CapEff:\t{capabilities:016x}\n"
                     f"NoNewPrivs:\t{privileges}\n"

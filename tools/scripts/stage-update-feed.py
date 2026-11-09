@@ -35,7 +35,9 @@ VERIFY = load_module(
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, request, response, code, message, headers, url):
+    def redirect_request(
+        self, request, response, code, message, headers, url
+    ) -> None:
         return None
 
 

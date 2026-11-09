@@ -122,7 +122,7 @@ def api(path):
     return json.loads(gh("api", f"repos/{repo}/{path}"))
 
 
-def main(run_id):
+def main(run_id) -> None:
     run = api(f"actions/runs/{run_id}")
     if run["event"] != "schedule":
         print(f"run {run_id} is a {run['event']} run, not scheduled")
@@ -186,7 +186,7 @@ def main(run_id):
     )
 
 
-def self_check():
+def self_check() -> None:
     runs = [
         {"id": 5, "conclusion": "failure"},
         {"id": 4, "conclusion": "timed_out"},

@@ -13,12 +13,12 @@ TOP = re.compile(
 
 
 class Navigation(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.targets = set()
         self.sections = set()
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag, attrs) -> None:
         attrs = dict(attrs)
         if tag == "button" and "data-area" in attrs:
             self.targets.add(attrs["data-area"])
@@ -56,11 +56,11 @@ class NavigationTest(unittest.TestCase):
 
 
 class ModuleScripts(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.scripts = []
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag, attrs) -> None:
         if tag == "script":
             self.scripts.append(dict(attrs))
 

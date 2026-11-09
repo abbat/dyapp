@@ -76,7 +76,7 @@ class RestoreBootstrap(unittest.TestCase):
             if p.name != "dyappd.lock"
         }
 
-    def migrate(self):
+    def migrate(self) -> None:
         """What a failed new dyappd leaves behind: a newer, changed store."""
         path = self.storage / "profiles.db"
         with closing(sqlite3.connect(path)) as database, database:
@@ -175,7 +175,7 @@ class RestoreBootstrap(unittest.TestCase):
             self.run_restore()
         self.assertEqual(self.live(), self.saved)
 
-    def assert_refused_untouched(self, pattern, **options):
+    def assert_refused_untouched(self, pattern, **options) -> None:
         self.migrate()
         migrated = self.live()
         with self.assertRaisesRegex(ValueError, pattern):

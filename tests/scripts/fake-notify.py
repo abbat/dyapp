@@ -28,7 +28,7 @@ notices = []
 owner = ""
 
 
-def method(_bus, sender, _path, _interface, _name, params, invocation):
+def method(_bus, sender, _path, _interface, _name, params, invocation) -> None:
     global owner  # pylint: disable=global-statement
     owner = sender
     _, replaces, _, summary, body, actions, _, _ = params.unpack()

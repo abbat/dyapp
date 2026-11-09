@@ -11,7 +11,7 @@ import threading
 import time
 
 
-def run(arguments, log, env=None, timeout=None):
+def run(arguments, log, env=None, timeout=None) -> None:
     with log.open("w") as output:
         result = subprocess.run(
             arguments,
@@ -110,7 +110,7 @@ def silent_endpoint():
     stopping = threading.Event()
     clients = []
 
-    def accept_connections():
+    def accept_connections() -> None:
         while not stopping.is_set():
             try:
                 client, _ = listener.accept()
@@ -143,7 +143,7 @@ def keep_crash_reports(reports):
     return kept
 
 
-def keep_log(reports, simulator, name, predicate):
+def keep_log(reports, simulator, name, predicate) -> None:
     """Save the unified log lines matching predicate as name."""
     spawn = ["xcrun", "simctl", "spawn", simulator] if simulator else []
     with (reports / name).open("w") as output:
@@ -169,7 +169,7 @@ def keep_log(reports, simulator, name, predicate):
             output.write("log show timed out\n")
 
 
-def main():
+def main() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
     platform = os.environ["APP_PLATFORM"]

@@ -27,7 +27,7 @@ class DependencyAge(unittest.TestCase):
         self.lock = self.root / "Cargo.lock"
         self.index = self.root / "index.crates.io-x"
 
-    def publish(self, name, version, days=None):
+    def publish(self, name, version, days=None) -> None:
         entry = {"name": name, "vers": version}
         if days is not None:
             entry["pubtime"] = (NOW - timedelta(days=days)).strftime(

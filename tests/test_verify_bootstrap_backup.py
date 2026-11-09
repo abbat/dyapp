@@ -39,7 +39,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
         }.items():
             (self.source / name).write_bytes(data)
 
-    def create(self, mode="inline"):
+    def create(self, mode="inline") -> None:
         recovery = None
         if mode != "inline":
             (self.source / "node.key").unlink(missing_ok=True)
@@ -47,7 +47,7 @@ class VerifyBootstrapBackup(unittest.TestCase):
             recovery.write_bytes(b"portable")
         BACKUP.snapshot(self.source, self.snapshot, mode, recovery)
 
-    def change_manifest(self, change):
+    def change_manifest(self, change) -> None:
         manifest = self.snapshot / "manifest.jsonl"
         lines = [
             json.loads(line) for line in manifest.read_text().splitlines()

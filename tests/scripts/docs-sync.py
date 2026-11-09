@@ -54,7 +54,7 @@ def errors(files, message):
     return TRIGGERS.fired(RULES, files)
 
 
-def main():
+def main() -> None:
     git = [
         "git",
         "-C",

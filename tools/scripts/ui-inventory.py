@@ -34,7 +34,7 @@ SHOWN = 8  # script condition lines listed per control
 
 
 class Page(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.stack = []  # (tag, attrs, label dict or None)
         self.rows = []  # one dict per control, in document order
@@ -48,7 +48,7 @@ class Page(HTMLParser):
                 return f"via #{parent.get('id', tag)}"
         return "no"
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag, attrs) -> None:
         attrs = dict(attrs)
         label = next(
             (e[2] for e in reversed(self.stack) if e[0] == "label"), None
@@ -87,7 +87,7 @@ class Page(HTMLParser):
         if tag not in VOID:
             self.stack.append((tag, attrs, label))
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag) -> None:
         while self.stack and self.stack[-1][0] != tag:
             self.stack.pop()
         if self.stack:
@@ -121,7 +121,7 @@ def conditions(name, js):
     return found
 
 
-def print_screens(screens, page, cond, en, ru):
+def print_screens(screens, page, cond, en, ru) -> None:
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
         print(
@@ -149,7 +149,7 @@ def print_screens(screens, page, cond, en, ru):
         print()
 
 
-def main():
+def main() -> None:
     argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     en = json.loads((UI / "i18n/en.json").read_text(encoding="utf-8"))
     ru = json.loads((UI / "i18n/ru.json").read_text(encoding="utf-8"))

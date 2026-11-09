@@ -106,7 +106,7 @@ class UnusedPublicToolTest(unittest.TestCase):
             ("hawk::unknown_item",),
         )
 
-    def check(self, root, environment, name, success, expected=()):
+    def check(self, root, environment, name, success, expected=()) -> None:
         result = subprocess.run(
             [
                 "cargo",

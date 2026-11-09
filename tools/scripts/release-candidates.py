@@ -26,7 +26,7 @@ def unique_object(pairs):
     return result
 
 
-def stable_tag(tag):
+def stable_tag(tag) -> None:
     if not isinstance(tag, str) or len(tag) > 64:
         raise ValueError("invalid tag")
     match = TAG.fullmatch(tag)

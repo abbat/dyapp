@@ -280,6 +280,9 @@ readers describe their consumed fields with `TypedDict`; these annotations prese
 replace, runtime validation of external reports. Unittest's no-value test/lifecycle contracts
 use `-> None`; fixture helpers retain their produced result types. Scripts loading local Python
 sources assert that their import spec and source loader exist before constructing the module.
+Docker execution helpers use typed stream handles and Compose build/service contracts; artifact
+size readers describe their measured fields separately from collected error lists. Functions
+without a produced value declare `-> None`, including command and fixture helpers.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

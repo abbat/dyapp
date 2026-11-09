@@ -285,7 +285,7 @@ def puzzle_rates(p):
     ]
 
 
-def self_check(p):
+def self_check(p) -> None:
     places = zipf(p["places"], p["top_place"])
 
     def near(a, b, tol=0.01):
@@ -353,7 +353,7 @@ def self_check(p):
     assert near(rates[3][2], 9536.74316)
 
 
-def report_partial(p, measured_partial):
+def report_partial(p, measured_partial) -> None:
     print(
         f"## Partial share (max_scan_rows = {p['max_scan']:,.0f}, "
         f"page = {p['page']})\n"
@@ -372,7 +372,7 @@ def report_partial(p, measured_partial):
     print()
 
 
-def report_thresholds(p, places, grid):
+def report_thresholds(p, places, grid) -> None:
     print("## Thresholds\n")
     print(
         "Holds from = lowest step with no failure; first failure above = "
@@ -475,7 +475,7 @@ def report_activity(p, places, D):
     return grid
 
 
-def report(p, source, measured_partial):
+def report(p, source, measured_partial) -> None:
     places = zipf(p["places"], p["top_place"])
     D = p["D"]
     print("# Search capacity model\n")
@@ -549,7 +549,7 @@ def report(p, source, measured_partial):
         print(f"| {name} | {bits} | {rate:,.3f} | {fair:.1f} |")
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--bench")
     ap.add_argument("--self-check", action="store_true")

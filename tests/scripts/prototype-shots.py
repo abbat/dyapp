@@ -347,7 +347,7 @@ window.add(view)
 window.show_all()
 
 
-def next_job():
+def next_job() -> None:
     if not jobs:
         Gtk.main_quit()
         return
@@ -367,7 +367,7 @@ def shot_name():
     return f"{screen}{dark}-{lang}-{width}"
 
 
-def snapshot():
+def snapshot() -> None:
     view.get_snapshot(
         WebKit2.SnapshotRegion.FULL_DOCUMENT,
         WebKit2.SnapshotOptions.NONE,
@@ -376,7 +376,7 @@ def snapshot():
     )
 
 
-def measured(_view, result):
+def measured(_view, result) -> None:
     try:
         layout[shot_name()] = json.loads(
             view.call_async_javascript_function_finish(result).to_string()
@@ -386,7 +386,7 @@ def measured(_view, result):
     snapshot()
 
 
-def saved(_view, result):
+def saved(_view, result) -> None:
     name = f"{OUT}/{shot_name()}.png"
     jobs.pop(0)
     try:
@@ -396,7 +396,7 @@ def saved(_view, result):
     next_job()
 
 
-def loaded(_view, event):
+def loaded(_view, event) -> None:
     if event == WebKit2.LoadEvent.FINISHED:
         view.call_async_javascript_function(
             READY_MEASURE, -1, None, None, None, None, measured

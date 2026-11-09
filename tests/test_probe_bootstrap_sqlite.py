@@ -44,7 +44,7 @@ class ProbeBootstrapSqlite(unittest.TestCase):
                 db.execute("CREATE TABLE records (id INTEGER PRIMARY KEY)")
                 db.execute("INSERT INTO records DEFAULT VALUES")
 
-    def snapshot_now(self):
+    def snapshot_now(self) -> None:
         BACKUP.snapshot(self.source, self.snapshot, "inline", None)
 
     def test_valid_databases_leave_snapshot_unchanged(self) -> None:

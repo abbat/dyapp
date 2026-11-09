@@ -91,7 +91,7 @@ def exe_images(path):
     return images
 
 
-def main():
+def main() -> None:
     exe, ico = Path(sys.argv[1]), Path(sys.argv[2])
     expected, found = ico_images(ico.read_bytes()), exe_images(exe)
     for size in SIZES:

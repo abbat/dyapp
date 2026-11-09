@@ -96,7 +96,9 @@ def dyappd(bin_dir, env, *args):
     ).stdout
 
 
-def start(bin_dir, storage, peers, processes, environments, flood=True):
+def start(
+    bin_dir, storage, peers, processes, environments, flood=True
+) -> None:
     """Start three loopback nodes, appending to the lists the caller stops.
 
     The first serves TURN and shares its deny list; the third accepts deny
@@ -167,7 +169,7 @@ def loopback_v6():
         return False
 
 
-def friendly_addresses(client):
+def friendly_addresses(client) -> None:
     """The client dials host:port with an IPv4, bracketed IPv6 or DNS host."""
     forms = ["127.0.0.1:7071", "localhost:7071"]
     if loopback_v6():
@@ -177,7 +179,7 @@ def friendly_addresses(client):
             raise RuntimeError(f"info {addr} failed")
 
 
-def stop(processes, failed):
+def stop(processes, failed) -> None:
     """Stop every node; after a failure print their output."""
     if failed:
         # The node state line shows what each node still held.
@@ -197,7 +199,7 @@ def stop(processes, failed):
         sys.stdout.flush()
 
 
-def local(bin_dir):
+def local(bin_dir) -> None:
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
@@ -253,7 +255,7 @@ def local(bin_dir):
             stop(processes, failed)
 
 
-def named_network(client, bin_dir, storage, processes):
+def named_network(client, bin_dir, storage, processes) -> None:
     """A node of a named network serves only clients of that name and its
     storage refuses a start under another name."""
     tcp, _ = addresses("127.0.0.1", 7074)
@@ -301,7 +303,7 @@ def named_network(client, bin_dir, storage, processes):
     )
 
 
-def plateau(bin_dir):
+def plateau(bin_dir) -> None:
     """Repeat mailbox and media load for PLATEAU_SECONDS; resident memory
     must level off.
 
@@ -319,7 +321,7 @@ def plateau(bin_dir):
                 bin_dir, storage, peers, processes, environments, flood=False
             )
 
-            def load():
+            def load() -> None:
                 # The suite's per-node load; the full suite assumes one pass
                 # (repair is shed under load).
                 for index, (tcp, quic) in enumerate(peers):
@@ -390,7 +392,7 @@ def node_state(process, captured):
     raise RuntimeError("No node state line after SIGHUP")
 
 
-def drained(processes, indexes):
+def drained(processes, indexes) -> None:
     """Idle nodes hold no pending request and nothing of a closed connection.
 
     Pending requests end by answer or the 20 s request timeout; lookups that
@@ -428,7 +430,7 @@ def deny_mailbox(client, bin_dir, peer, process, env):
     return mailbox
 
 
-def shared_deny(bin_dir, env, sharer, entry):
+def shared_deny(bin_dir, env, sharer, entry) -> None:
     """The accepting node stores the sharing node's signed list."""
     for _ in range(90):
         received = dyappd(bin_dir, env, "deny", "received")
@@ -440,7 +442,7 @@ def shared_deny(bin_dir, env, sharer, entry):
     print("Deny list: a shared list reaches an accepting node")
 
 
-def deny_group(client, bin_dir, peer, process, env):
+def deny_group(client, bin_dir, peer, process, env) -> None:
     """The client's IP group is refused while listed, served once removed."""
     group = "127.0.0.1/24"
     for action, refused in (("add", True), ("remove", False)):
@@ -507,7 +509,7 @@ def publish_with_offline_holder(
     return newer
 
 
-def profile_repair(client, bin_dir, peers, processes, environments):
+def profile_repair(client, bin_dir, peers, processes, environments) -> None:
     """A holder misses a newer publish while offline; heartbeat repairs it."""
     node_ids, ids, signed = initial_profile_replicas(client, peers)
     newer = publish_with_offline_holder(
@@ -547,7 +549,7 @@ def profile_repair(client, bin_dir, peers, processes, environments):
     print("Profile repair: restarted holder receives the newer version")
 
 
-def media_cache(client, storage, peer, blob_hash):
+def media_cache(client, storage, peer, blob_hash) -> None:
     """A later get uses the cache after this node loses its shard metadata."""
     target = Path(storage) / "7072"
     hash_bytes = bytes.fromhex(blob_hash)
@@ -599,7 +601,7 @@ def initial_media_replicas(client, peers, entry, ids, size):
     return blob_hash, details
 
 
-def media_repair(client, bin_dir, storage, peers):
+def media_repair(client, bin_dir, storage, peers) -> None:
     """Remove only temporary fixture copies/shards and repair them by keep."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry = peers[0][0]
@@ -665,7 +667,7 @@ def media_repair(client, bin_dir, storage, peers):
     print("Media repair: keep restores a whole copy and a missing shard")
 
 
-def isolated_media_acceptor(client, tcp, peer_id):
+def isolated_media_acceptor(client, tcp, peer_id) -> None:
     for _ in range(60):
         if healthy(client, tcp):
             break
@@ -676,7 +678,7 @@ def isolated_media_acceptor(client, tcp, peer_id):
         raise RuntimeError("Restarted node changed its peer ID")
 
 
-def media_retention(client, bin_dir, storage, peer, processes, env):
+def media_retention(client, bin_dir, storage, peer, processes, env) -> None:
     """Age fixture rows, refresh one keep, then exercise startup cleanup.
 
     This runs on the three-node loopback network inside the dev Docker image.
@@ -725,7 +727,7 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     print("Media retention: expired blob removed, refreshed keep survives")
 
 
-def main():
+def main() -> None:
     usage = (
         "Usage: network-test.py [--health MULTIADDR | --local BIN_DIR "
         "| --plateau BIN_DIR]"
@@ -782,7 +784,9 @@ def profile_roundtrip(client, tcp, quic):
     return peer_id, holders
 
 
-def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
+def suite(
+    peers, client, churn=None, relay=False, reports=None, storage=None
+) -> None:
     cases = []
     for index, (tcp, quic) in enumerate(peers):
         peer_id, holders = profile_roundtrip(client, tcp, quic)

@@ -33,13 +33,13 @@ def storage_records(snapshot):
     ]
 
 
-def own(path, owner):
+def own(path, owner) -> None:
     info = path.lstat()
     if (info.st_uid, info.st_gid) != (owner.st_uid, owner.st_gid):
         os.chown(path, owner.st_uid, owner.st_gid, follow_symlinks=False)
 
 
-def sync(path):
+def sync(path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(fd)
@@ -47,7 +47,7 @@ def sync(path):
         os.close(fd)
 
 
-def stage(snapshot, staging, header, records, owner):
+def stage(snapshot, staging, header, records, owner) -> None:
     """Copy and re-hash the snapshot's storage into `staging/storage`."""
     staging.mkdir(mode=0o700)
     (staging / "storage").mkdir(mode=0o700)
@@ -116,7 +116,7 @@ def restore(
     return failed
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "snapshot",

@@ -443,17 +443,17 @@ def round_trip_errors(texts):
 class _Visible(HTMLParser):
     """Text nodes of an HTML page outside <script> and <style>."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.skip, self.found = 0, []
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag, attrs) -> None:
         self.skip += tag in ("script", "style")
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag) -> None:
         self.skip -= tag in ("script", "style")
 
-    def handle_data(self, data):
+    def handle_data(self, data) -> None:
         if not self.skip and data.strip():
             self.found.append(data.strip())
 
@@ -621,7 +621,7 @@ def skip_errors(texts):
     return errors
 
 
-def validate_text_lines(name, path, text):
+def validate_text_lines(name, path, text) -> None:
     for number, line in enumerate(text.splitlines(), 1):
         if line.startswith(("<<<<<<< ", ">>>>>>> ")):
             raise ValueError(f"Merge conflict: {name}:{number}")
@@ -646,7 +646,7 @@ def repository_text(path, name):
     return text
 
 
-def repository_type(name, path, text, documents):
+def repository_type(name, path, text, documents) -> None:
     if path.suffix == ".json":
         json.loads(text)
     elif path.suffix in (".yaml", ".yml"):
@@ -718,7 +718,7 @@ def validate_sources(names, texts):
     return allowed
 
 
-def validate_clients(texts):
+def validate_clients(texts) -> None:
     from repository_unused import script_reference_errors
     from repository_translations import unused_apple_errors
     from desktop_translations import desktop_errors
@@ -775,7 +775,7 @@ def validate_documentation(documents, folded, texts, allowed):
     return size
 
 
-def main():
+def main() -> None:
     output = subprocess.check_output(
         [
             "git",

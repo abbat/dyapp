@@ -7,7 +7,7 @@ import os
 REQUIRED = {"core", "docker", "linux", "apple", "windows"}
 
 
-def validate(results):
+def validate(results) -> None:
     if not isinstance(results, dict) or not results:
         raise ValueError("Missing or invalid CI job inventory")
     errors = [f"{name}: missing" for name in sorted(REQUIRED - results.keys())]

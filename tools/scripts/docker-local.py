@@ -1,5 +1,6 @@
 """Serialize local Docker work; share one build budget of at most 4 CPUs."""
 
+from collections.abc import Mapping, Sequence
 import fcntl
 import json
 import os
@@ -8,13 +9,34 @@ from pathlib import Path
 import subprocess
 import sys
 import traceback
+from threading import Thread
+from typing import NotRequired, TypedDict
 import uuid
 
 from capture import Capture
-from check_dispatch import load_runner
+from check_dispatch import CheckPolicy, load_runner
 
 
-def stage_result(status, label, verbose, captured, message, log_file):
+class ComposeBuild(TypedDict):
+    context: str
+    dockerfile: NotRequired[str]
+    target: NotRequired[str]
+    args: NotRequired[dict[str, str | int | float | bool | None]]
+
+
+class ComposeService(TypedDict):
+    image: str
+    build: NotRequired[ComposeBuild]
+
+
+def stage_result(
+    status: int,
+    label: str,
+    verbose: bool,
+    captured: Capture | None,
+    message: str,
+    log_file: str | os.PathLike[str] | None,
+) -> int:
     if not status:
         print(f"OK {label}", flush=True)
         return 0
@@ -31,26 +53,40 @@ def stage_result(status, label, verbose, captured, message, log_file):
     )
 
 
-def close_capture(output, drain, captured):
+def close_capture(
+    output: int | None, drain: Thread | None, captured: Capture | None
+) -> None:
     if output is not None:
         os.close(output)
         # A helper that outlives the stage can keep the pipe open.
+        assert drain is not None
         drain.join(timeout=10)
     if captured is not None:
         captured.close()
 
 
-def startup_error(captured, verbose, message):
+def startup_error(
+    captured: Capture | None, verbose: bool, message: str
+) -> None:
     if captured is None and verbose:
         print(message, file=sys.stderr, end="")
     elif captured is not None:
         captured.write(message.encode())
 
 
-def run_logged(command, environment, label, cleanup=None, log_file=None):
+def run_logged(
+    command: Sequence[str],
+    environment: Mapping[str, str],
+    label: str,
+    cleanup: Sequence[str] | None = None,
+    log_file: str | os.PathLike[str] | None = None,
+) -> int:
     """Capture quiet stages with retained logs and concise diagnostics."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
-    captured = output = drain = error_stream = None
+    captured: Capture | None = None
+    output: int | None = None
+    drain: Thread | None = None
+    error_stream: int | None = None
     status = 0
     message = ""
     try:
@@ -97,9 +133,14 @@ def run_logged(command, environment, label, cleanup=None, log_file=None):
     return stage_result(status, label, verbose, captured, message, log_file)
 
 
-def report_failure(label, status, text, log_file=None):
+def report_failure(
+    label: str,
+    status: int,
+    text: str,
+    log_file: str | os.PathLike[str] | None = None,
+) -> int:
     runner = load_runner()
-    policy = json.loads(
+    policy: CheckPolicy = json.loads(
         (Path(__file__).with_name("check-output.json")).read_text()
     )["docker"]
     selected = runner.diagnostics(text, policy)
@@ -108,7 +149,12 @@ def report_failure(label, status, text, log_file=None):
     return runner.failure(label, policy["fix"], status, selected, log_file)
 
 
-def config_failure(text, status, environment, log_file=None):
+def config_failure(
+    text: str,
+    status: int,
+    environment: Mapping[str, str],
+    log_file: str | os.PathLike[str] | None = None,
+) -> int:
     """Retain preflight failures whose stdout may be a consumed JSON value."""
     log = None
     try:
@@ -131,7 +177,11 @@ def config_failure(text, status, environment, log_file=None):
 CPUS = min(int(os.environ.get("DYAPP_CPUS") or 4), 4, os.cpu_count() or 1)
 
 
-def image_build_command(build, service, environment):
+def image_build_command(
+    build: ComposeBuild,
+    service: ComposeService,
+    environment: Mapping[str, str],
+) -> tuple[list[str], str]:
     filename = build.get("dockerfile", "Dockerfile")
     dockerfile = Path(build["context"]) / filename
     # CI layer cache (DYAPP_BUILD_CACHE=gha) needs BuildKit, which has no
@@ -184,7 +234,11 @@ def image_build_command(build, service, environment):
     return command, buildkit
 
 
-def build_images(arguments, environment, log_file=None):
+def build_images(
+    arguments: Sequence[str],
+    environment: Mapping[str, str],
+    log_file: str | os.PathLike[str] | None = None,
+) -> int:
     value_options = {"-f", "--file", "--profile", "-p", "--project-name"}
     candidates = [i for i, value in enumerate(arguments) if value == "build"]
     index = next(
@@ -222,7 +276,7 @@ def build_images(arguments, environment, log_file=None):
             environment,
             log_file,
         )
-    services = json.loads(result.stdout)["services"]
+    services: dict[str, ComposeService] = json.loads(result.stdout)["services"]
     for name in selected or list(services):
         if name not in services:
             return config_failure(
@@ -263,7 +317,7 @@ def build_images(arguments, environment, log_file=None):
     return 0
 
 
-def make_bind_directories(arguments):
+def make_bind_directories(arguments: Sequence[str]) -> None:
     """Create the build/ bind mounts of the given compose files.
 
     So build/ can be deleted. Made here, they are the host user's; Docker
@@ -282,11 +336,11 @@ def make_bind_directories(arguments):
             directory.mkdir(parents=True, exist_ok=True)
 
 
-def main():
+def main() -> int:
     temporary = Path("/tmp/ai")
     temporary.mkdir(parents=True, exist_ok=True)
     arguments = sys.argv[1:]
-    log_file = None
+    log_file: str | None = None
     if arguments[:1] == ["--log-file"]:
         log_file, arguments = arguments[1], arguments[2:]
     make_bind_directories(arguments)

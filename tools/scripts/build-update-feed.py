@@ -54,7 +54,7 @@ def version(tag):
     return parts
 
 
-def fields(value, expected):
+def fields(value, expected) -> None:
     if not isinstance(value, dict) or set(value) != set(expected):
         raise ValueError("invalid inventory fields")
 
@@ -212,7 +212,7 @@ def validated_release(release):
     return result
 
 
-def merge_target_claims(ordered, targets):
+def merge_target_claims(ordered, targets) -> None:
     for _, claims in sorted(ordered):
         for target, entry in claims.items():
             previous = targets.get(target)

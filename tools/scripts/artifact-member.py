@@ -9,6 +9,7 @@ path ends in a SUFFIX, under a flat name. An artifact's content is untrusted:
 OUT_DIR holds only data.
 """
 
+from collections.abc import Callable
 import io
 import json
 import os
@@ -21,9 +22,11 @@ import zlib
 
 REPO = "abbat/dyapp"
 TAIL_BYTES = 1 << 21
+Member = tuple[str, int, int, int, int]
+Fetch = Callable[[int, int], bytes]
 
 
-def members(fetch, size):
+def members(fetch: Fetch, size: int) -> list[Member]:
     """(name, method, packed, size, offset) per central directory entry."""
     tail_start = max(0, size - TAIL_BYTES)
     tail = fetch(tail_start, size - 1)
@@ -55,7 +58,7 @@ def members(fetch, size):
     return found
 
 
-def content(fetch, member):
+def content(fetch: Fetch, member: Member) -> bytes:
     """A member's bytes; the local header has its own lengths."""
     _, method, packed, _, offset = member
     name_len, extra_len = struct.unpack("<HH", fetch(offset + 26, offset + 29))
@@ -64,14 +67,14 @@ def content(fetch, member):
     return zlib.decompress(data, -15) if method == 8 else data
 
 
-def self_test():
+def self_test() -> None:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("a/b/tests.log", "hello " * 100)
         archive.writestr("a/empty.log", "")
     raw = buffer.getvalue()
 
-    def fetch(start, end):
+    def fetch(start: int, end: int) -> bytes:
         return raw[start : end + 1]
 
     found = {m[0]: m for m in members(fetch, len(raw))}
@@ -81,7 +84,7 @@ def self_test():
     print("artifact-member: self-test passed")
 
 
-def main():
+def main() -> None:
     if sys.argv[1:] == ["--self-test"]:
         self_test()
         return
@@ -98,7 +101,7 @@ def main():
     )
     chosen = next(a for a in listing["artifacts"] if a["name"] == artifact)
 
-    def fetch(start, end):
+    def fetch(start: int, end: int) -> bytes:
         return subprocess.check_output(
             [
                 "gh",

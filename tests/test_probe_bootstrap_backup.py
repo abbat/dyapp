@@ -77,7 +77,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.age_identity.write_bytes(b"age-secret")
         self.age_identity.chmod(0o600)
 
-    def create(self, mode):
+    def create(self, mode) -> None:
         recovery = None
         if mode != "inline":
             (self.source / "node.key").unlink()
@@ -142,7 +142,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         plain = root / "plain-key"
         plain.write_bytes(b"good-key")
 
-        def snapshot(name, tamper=False):
+        def snapshot(name, tamper=False) -> None:
             encrypted = root / f"{name}.age"
             subprocess.run(
                 [

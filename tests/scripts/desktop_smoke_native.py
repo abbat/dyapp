@@ -49,7 +49,7 @@ def display_diagnostics():
     return "\n".join(lines)[:4096]
 
 
-def unlock_keyring():
+def unlock_keyring() -> None:
     """A gnome-keyring that dies mid-suite comes back locked through D-Bus
     activation, and --unlock cannot unlock a running daemon: replace it with
     an unlocked one. Only a locked one: a concurrent case may be using it."""
@@ -204,7 +204,7 @@ def check_profile_readback(node, seed, peer_id, env, storage, hidden=False):
     return payload
 
 
-def forge_search_signature(node_storage):
+def forge_search_signature(node_storage) -> None:
     """Flips the last byte, the signature, of the one record in the node's
     search index (profiles-idx.db or a later generation of it)."""
     indexes = sorted(node_storage.glob("profiles-idx*.db"))
@@ -221,7 +221,7 @@ def forge_search_signature(node_storage):
         )
 
 
-def expire_sticker_media(node_storage, owner):
+def expire_sticker_media(node_storage, owner) -> None:
     """Advance only this isolated sender's attachment deadlines, not clocks.
 
     Quarantine generated blob files to model completed expiry without waiting
@@ -259,7 +259,7 @@ def expire_sticker_media(node_storage, owner):
         raise RuntimeError("no individual sticker blob was quarantined")
 
 
-def video_smoke(case, reports):
+def video_smoke(case, reports) -> None:
     """Linux-only raw Tauri channel and Canvas smoke.
 
     Runs separately from account flows.

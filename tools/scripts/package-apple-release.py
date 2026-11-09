@@ -36,7 +36,7 @@ def executable(app, target):
     return binary
 
 
-def package(app, target, destination, architectures):
+def package(app, target, destination, architectures) -> None:
     executable(app, target)
     if set(architectures) != PLATFORMS[target][1]:
         raise ValueError(f"{target}: incorrect executable architectures")

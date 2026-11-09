@@ -60,7 +60,7 @@ def digest_file(path):
     return sha.hexdigest()
 
 
-def verify_package(package, tag, commit, directory, run=command):
+def verify_package(package, tag, commit, directory, run=command) -> None:
     name = package["name"]
     run(
         [

@@ -13,10 +13,16 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from typing import TypedDict
 import zlib
 
 
-def inventory(binary):
+class Package(TypedDict):
+    name: str
+    version: str
+
+
+def inventory(binary: str) -> list[Package]:
     with tempfile.TemporaryDirectory() as tmp:
         section = os.path.join(tmp, "dep-v0")
         copy = subprocess.run(
@@ -38,13 +44,14 @@ def inventory(binary):
             )
         with open(section, "rb") as f:
             data = f.read()
-    return json.loads(zlib.decompress(data))["packages"]
+    packages: list[Package] = json.loads(zlib.decompress(data))["packages"]
+    return packages
 
 
 FIX = "docs/development/code-quality.md#dependency-checks-cargo-deny"
 
 
-def main(raw=False):
+def main(raw: bool = False) -> None:
     binary, lock = sys.argv[1:]
     with open(lock, "rb") as f:
         locked = {

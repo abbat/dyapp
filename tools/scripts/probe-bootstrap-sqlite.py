@@ -21,7 +21,7 @@ VERIFY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VERIFY)
 
 
-def copy_verified_file(snapshot, scratch, record):
+def copy_verified_file(snapshot, scratch, record) -> None:
     source = VERIFY.open_beneath(snapshot, record["path"])
     target = scratch / record["path"]
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -33,7 +33,7 @@ def copy_verified_file(snapshot, scratch, record):
     VERIFY.check_file(scratch, record)
 
 
-def check_database(path):
+def check_database(path) -> None:
     deadline = time.monotonic() + 120
     with closing(sqlite3.connect(path)) as database:
         database.set_progress_handler(
@@ -70,7 +70,7 @@ def probe(snapshot, scratch=None):
     return header, keys, len(databases)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument(

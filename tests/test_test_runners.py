@@ -313,7 +313,7 @@ class Runners(unittest.TestCase):
         spec.loader.exec_module(network)
         environment = {"DYAPPD_STORAGE_DIR": "/storage/7071"}
 
-        def spawn(command, **kwargs):
+        def spawn(command, **kwargs) -> None:
             os.write(kwargs["stdout"], b"node output\n")
             self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
 

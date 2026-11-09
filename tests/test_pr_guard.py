@@ -61,7 +61,7 @@ class PullRequestGuardTests(unittest.TestCase):
         )
         return result.stdout.strip()
 
-    def write(self, path, content="changed\n"):
+    def write(self, path, content="changed\n") -> None:
         file = self.root / path
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content)

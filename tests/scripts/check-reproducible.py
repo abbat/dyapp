@@ -122,7 +122,7 @@ def build_pair(target, directory, revision=None, epoch=None):
     return report
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=TARGETS)
     parser.add_argument(

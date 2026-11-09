@@ -37,7 +37,7 @@ def rendered_setup(nodes, expected):
 
 
 class Accessibility:
-    def __init__(self):
+    def __init__(self) -> None:
         import gi
 
         gi.require_version("Atspi", "2.0")
@@ -125,7 +125,7 @@ def wait_for_setup(process, accessibility, expected, timeout=45):
     )
 
 
-def launch(executable, directory, accessibility, expected, timeout=45):
+def launch(executable, directory, accessibility, expected, timeout=45) -> None:
     env = dict(os.environ)
     for key in ("CONFIG", "CACHE", "DATA"):
         path = directory / key.lower()
@@ -161,7 +161,7 @@ def launch(executable, directory, accessibility, expected, timeout=45):
                 process.wait()
 
 
-def smoke(executable):
+def smoke(executable) -> None:
     executable = Path(executable).resolve(strict=True)
     checker = ROOT / "tools/scripts/check-no-ui-smoke.py"
     subprocess.run([sys.executable, str(checker), str(executable)], check=True)
