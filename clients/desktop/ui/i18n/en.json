@@ -245,7 +245,6 @@
   "profile.age": "Possible age",
   "profile.ageUnknown": "Age unknown",
   "profile.disclosure": "I understand public fields may be copied and stay available after I remove them",
-  "profile.problem.notAcknowledged": "Acknowledge the public-data warning before publishing.",
   "profile.fullDateWarning": "A full birth date reveals more than a partial one.",
   "profile.attested": "I am 18 or older",
   "profile.publish": "Preview and publish",

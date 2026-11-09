@@ -85,13 +85,14 @@ step() {
             buf format proto --write
             ;;
         web-check)
-            check biome biome check --error-on-warnings --colors=off clients/desktop clients/android/prototype
+            check biome biome check --error-on-warnings --colors=off clients/desktop clients/android/prototype tools/web-lint
             check typescript tsc --allowJs --checkJs --noEmit --strict --target es2022 \
                 --module esnext --lib es2022,dom --pretty false clients/desktop/ui/*.js
             check web-unused node tools/web-lint/check-unused.mjs
+            check web-translations python3 -B tests/scripts/check-desktop-translations.py --raw
             ;;
         web-format)
-            biome format --write clients/desktop clients/android/prototype
+            biome format --write clients/desktop clients/android/prototype tools/web-lint
             ;;
         fmt-write)
             cargo fmt --all

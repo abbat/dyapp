@@ -3,7 +3,7 @@
   // The desktop web UI, its static prototype and the Android one; JSON data files are not linted.
   "files": {
     "includes": ["clients/desktop/**/*.js", "clients/desktop/**/*.html", "clients/desktop/**/*.css",
-      "clients/android/prototype/*"]
+      "clients/android/prototype/*", "tools/web-lint/**/*.mjs"]
   },
   "formatter": {
     "enabled": true,
@@ -14,7 +14,7 @@
   "javascript": { "formatter": { "quoteStyle": "single" } },
   // Enforce the function limits for every desktop script, including future smoke helpers.
   "overrides": [{
-    "includes": ["clients/desktop/**/*.js"],
+    "includes": ["clients/desktop/**/*.js", "tools/web-lint/**/*.mjs"],
     "linter": { "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },

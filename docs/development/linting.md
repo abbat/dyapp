@@ -243,6 +243,14 @@ come from the actual shared Rust scale registry; publication reasons come from t
 publication contract. Removing a dynamic lookup removes those references. Unknown metadata
 formats fail the check; no prefix wildcard keeps arbitrary new catalogue keys alive.
 
+Desktop catalogue checks run in repository quality and the web stage, including quick-check.
+They require matching English/Russian keys and reject unused entries. JavaScript references are
+parsed with Acorn: finite values follow lexical bindings, calls, callbacks and object properties;
+HTML contributes only translation attributes. Native dynamic values come from the actual DTO
+unions, Rust scale registry and documented command error contracts. Unsupported dynamic lookups
+fail; native domains only count while their corresponding lookup exists. Parser regression fixtures
+cover unused keys, aliases, scope isolation, metadata and malformed inputs.
+
 ## Python
 
 ```bash
@@ -341,8 +349,8 @@ once it passes.
 ## Web (`biome.jsonc`)
 
 The quality step and `make lint-web` run `biome check --error-on-warnings` on
-`clients/desktop` and `clients/android/prototype`: JavaScript, HTML and CSS, including smoke
-scripts. `make fmt-web` formats all these files in the dev Docker container with an explicit
+`clients/desktop`, `clients/android/prototype` and `tools/web-lint`: JavaScript, HTML and CSS,
+including smoke scripts and the analysis tools. `make fmt-web` formats all these files in the dev Docker container with an explicit
 writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
 JavaScript quotes and 100 columns. Assist actions remain disabled.
 Cognitive complexity 15 and function length 50 code lines are blocking for every JavaScript file
