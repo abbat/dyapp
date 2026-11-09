@@ -249,8 +249,6 @@ async fn select_identity(
     slot: String,
 ) -> Result<HashMap<&'static str, String>, String> {
     let transition = drain_identity(&app, &state).await?;
-    #[cfg(unix)]
-    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
     let opened = tauri::async_runtime::spawn_blocking(move || {
         let slot = slots::list(&dir)?
@@ -279,8 +277,6 @@ async fn create_identity(
         _ => return Err("Unknown identity storage mode".into()),
     };
     let transition = drain_identity(&app, &state).await?;
-    #[cfg(unix)]
-    node::stop(&app.state::<node::NodeState>()).await;
     let dir = config_dir(&app)?;
     let recover_dir = dir.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -317,10 +313,6 @@ async fn remove_identity(
     let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
     let recover_dir = dir.clone();
-    // The slot's node must not hold its folder open while it is removed. A cfg on a command
-    // argument does not reach Tauri's macro, so the state comes from the app handle.
-    #[cfg(unix)]
-    node::stop(&app.state::<node::NodeState>()).await;
     let result = tauri::async_runtime::spawn_blocking(move || {
         slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
         slots::list(&dir).map(|slots| slots.len())
@@ -949,6 +941,8 @@ fn main() {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main, config_dir(app.handle()).ok().as_deref());
             }
+            #[cfg(unix)]
+            node_usage_commands::start(app.handle().clone());
             tray::watch(app.handle().clone());
             notify::watch(app.handle().clone());
             chats::commands::watch_mail(app.handle().clone());
@@ -974,6 +968,8 @@ fn main() {
         .expect("launch DYApp")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                #[cfg(unix)]
+                node_usage_commands::shutdown(app);
                 if let Ok(config) = config_dir(app) {
                     window::save(&app.state::<window::WindowState>(), &config);
                 }

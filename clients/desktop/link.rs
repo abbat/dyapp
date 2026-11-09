@@ -10,8 +10,6 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use dyapp_client::link::{Invite, Linked};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-#[cfg(unix)]
-use tauri::Manager;
 
 use crate::safety::QrMatrix;
 use crate::slots::{self, Opened, Slot};
@@ -203,8 +201,6 @@ pub async fn poll_link(
         }
     };
     let transition = crate::drain_identity(&app, &state).await?;
-    #[cfg(unix)]
-    crate::node::stop(&app.state::<crate::node::NodeState>()).await;
     let recover_dir = root.clone();
     let written = tauri::async_runtime::spawn_blocking(move || {
         write(&root, &current, &pending, &linked, wizard.as_deref())

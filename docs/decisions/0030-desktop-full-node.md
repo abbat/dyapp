@@ -16,12 +16,24 @@ it is reachable; hole punching and relays are [ADR 0031](0031-circuit-relay-and-
 
 The desktop app links `dyapp-bootstrap` as a library and, while it is open, runs a node with the
 `store` and `search` roles on the active network, in its own task and under its own node key and
-data directory next to the profile data. The node is off by default. A settings toggle turns it on
+data directory at the installation's app-config root, outside every profile folder. `node.json`
+holds its settings; `node/` holds its key, stores and persisted active network (`node/network`).
+The node is off by default. A settings toggle turns it on
 and sets its limits: disk (default 1 GiB, split between profiles, mailboxes and the search index)
 and connections; everything else uses the `dyappd` defaults. Turning it off or closing the app
 stops the node; its data stays until the user deletes it. The node is the same code as `dyappd`,
 so the start sequence moves from the `dyappd` binary into the library and both call it. Media and
 TURN roles stay on dedicated nodes. Mobile apps stay light clients.
+
+The existing Linux network choice is retained: explicitly saving enabled node settings or
+activating a network copies the selected profile's active network into `node/network`. No new
+network-selection UI is introduced. Without an open profile, settings reuse the saved node
+network; an enabled node without a saved network reports `noNetwork`. App startup restores this
+configuration before an identity opens. Creating, selecting, linking or removing profiles never
+stops or reconfigures the node. Only explicit node/network changes restart it, and application
+exit waits for its stores to close. Node status and settings commands need no open identity;
+reading the selected network takes only a short identity lease, released before node work.
+No pre-release profile-node migration is provided.
 
 ## Consequences
 

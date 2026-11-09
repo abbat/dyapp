@@ -77,9 +77,9 @@ lost (not for a missing key or one another slot also holds). Remove stays disabl
 confirmation box is ticked. The `remove_identity` command then removes the slot as described
 below and returns to the picker, or to the storage choice when none is left. It refuses the
 legacy slot, which needs the migration below, and a damaged slot, whose files it cannot
-interpret. A confirmed removal stops the running node and includes that slot's network and node
-settings, the node's key and stores and the `client.db` profile draft (including SQLite
-sidecars); unknown files still prevent removal. Merely opening the
+interpret. A confirmed removal includes that slot's network settings and the `client.db`
+profile draft (including SQLite sidecars); unknown files still prevent removal. The installation's
+node keeps running and its settings, key and stores remain outside the removed slot. Merely opening the
 profile form does not create `client.db` before the first draft save.
 
 | Item | Planned location / name |
@@ -88,7 +88,7 @@ profile form does not create `client.db` before the first draft save.
 | Lifecycle | `<app-config>/profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | File-backed key | `<app-config>/profiles/<slot>/identity.key`, with `storage-mode` = `file` in that directory. |
 | Network settings | `<app-config>/profiles/<slot>/network-draft` and `network`, written by `dyapp_identity::network`; the legacy slot keeps them at the root. |
-| Node (Linux) | `<app-config>/profiles/<slot>/node.json` holds the node settings and `node/` its key and stores ([ADR 0030](../decisions/0030-desktop-full-node.md)); the legacy slot keeps them at the root. |
+| Node (Linux) | `<app-config>/node.json` holds installation settings; `<app-config>/node/` holds its key, stores and explicitly applied active network, independent of profile selection ([ADR 0030](../decisions/0030-desktop-full-node.md)). |
 | Profile draft database | `<app-config>/profiles/<slot>/client.db`; the virtual legacy slot uses root `client.db`. The broader client store is [planned](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |
@@ -124,7 +124,7 @@ Mark the slot as deleting before removing its file or credential; if removal fai
 slot and show the error. After a crash, resume cleanup only after confirming that the selected
 key is absent. Removing the active slot returns to the picker, never switches identities
 silently. Confirmed cleanup includes the identity's `originals/` photo cache and sealed
-`sticker-packs/` store, along with its database, settings and node data. An unrecognized entry
+`sticker-packs/` store, along with its database and profile settings. An unrecognized entry
 still blocks cleanup and leaves the slot marked deleting for recovery. Local removal does not
 guarantee erasure of a published profile from the network.
 

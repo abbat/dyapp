@@ -821,8 +821,6 @@ async function renderReady(state, generation, fresh) {
   profileCancel.disabled = false;
   if (publishDialog.open) publishDialog.close();
   searchController.resetSearch();
-  // Starts the node when its setting is on and stops another identity's node; never blocks.
-  invoke('apply_node').catch(() => {});
   chatsUiController.announcePresence();
   showArea('profile-area');
   controller.statusShown = showStatus();

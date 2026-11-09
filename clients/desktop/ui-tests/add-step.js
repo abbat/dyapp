@@ -16,20 +16,24 @@
     await smoke.checkMediaCache();
     await smoke.checkSettingsLists();
   };
-  const createAdditionalIdentity = async (state, mode) => {
+  const createAdditionalIdentity = async (state, mode, checkNode = async () => {}) => {
     await openArea('settings', 'identities');
     document.getElementById('settings-create').click();
     await waitFor('setup');
+    await checkNode();
     await chooseStorage(mode);
+    await checkNode();
     const addedPeer = document.getElementById('peer-id').textContent;
     await checkSettingsInventory(addedPeer, mode);
     await expectPrivacy('false,false,true,true,true');
     document.getElementById('send-views').click();
     await appApi.privacySaved;
     await switchFromSettings(state.mode);
+    await checkNode();
     await checkSettingsInventory(state.peerId, state.mode);
     await expectPrivacy('false,false,true,true,true');
     await switchFromSettings(mode);
+    await checkNode();
     await checkSettingsInventory(addedPeer, mode);
     await expectPrivacy('true,false,true,true,true');
     document.getElementById('send-views').click();
@@ -97,7 +101,25 @@
   };
   smoke.uiSmokeAddStep = async (state, mode, checks) => {
     await checkSharedUi(state);
-    await createAdditionalIdentity(state, mode);
+    if (navigator.userAgent.includes('Windows')) {
+      await createAdditionalIdentity(state, mode);
+    } else {
+      const settings = await appBindings.invoke('load_node_settings');
+      const running = await appBindings.invoke('save_node_settings', {
+        settings: { ...settings, enabled: true },
+      });
+      if (running.status !== 'running') throw new Error('installation node did not start');
+      try {
+        await createAdditionalIdentity(state, mode, async () => {
+          const current = await appBindings.invoke('node_status');
+          if (current.status !== 'running' || current.peerId !== running.peerId) {
+            throw new Error('profile transition interrupted the installation node');
+          }
+        });
+      } finally {
+        await appBindings.invoke('save_node_settings', { settings });
+      }
+    }
     await checkFunctionalSmoke(checks);
     await checkStaleSmoke(checks);
   };

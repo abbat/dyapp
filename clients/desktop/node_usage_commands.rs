@@ -1,24 +1,31 @@
-//! Active-slot node and storage-status commands.
+//! Installation node and active-profile storage/status commands.
 
 #[cfg(unix)]
 use crate::node;
 use crate::{config_dir, usage, IdentityState};
 #[cfg(unix)]
+use dyapp_identity::network::{self, Settings as NetworkFile};
+#[cfg(unix)]
 use std::collections::HashMap;
 #[cfg(unix)]
 use tauri::Manager;
 
-/// The open identity's node settings; see `node::load`.
 #[cfg(unix)]
-#[tauri::command]
-pub(super) async fn load_node_settings(
-    state: tauri::State<'_, IdentityState>,
-) -> Result<node::Settings, String> {
-    let lease = state.lease()?;
-    node::load(&lease.active().1)
+fn selected_network(state: &IdentityState) -> Result<Option<network::Network>, String> {
+    let Ok(lease) = state.lease() else {
+        return Ok(None);
+    };
+    network::load(&lease.active().1, NetworkFile::Active).map_err(|error| error.to_string())
 }
 
-/// Saves node settings and restarts the node as they say; see `node::apply`.
+/// Installation settings remain available without an open identity.
+#[cfg(unix)]
+#[tauri::command]
+pub(super) async fn load_node_settings(app: tauri::AppHandle) -> Result<node::Settings, String> {
+    node::load(&config_dir(&app)?)
+}
+
+/// Node work owns no identity lease after the active-network snapshot is read.
 #[cfg(unix)]
 #[tauri::command]
 pub(super) async fn save_node_settings(
@@ -26,30 +33,40 @@ pub(super) async fn save_node_settings(
     state: tauri::State<'_, IdentityState>,
     settings: node::Settings,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let lease = state.lease()?;
-    let dir = lease.active().1.clone();
-    // apply spawns key generation; keep the lease when the UI command is cancelled.
+    let dir = config_dir(&app)?;
+    let active = if settings.enabled {
+        selected_network(&state)?
+    } else {
+        None
+    };
     tauri::async_runtime::spawn_blocking(move || {
-        let _lease = lease;
-        node::save(&dir, &settings)?;
-        tauri::async_runtime::block_on(node::apply(&app.state::<node::NodeState>(), &dir))
+        tauri::async_runtime::block_on(node::configure(
+            &app.state::<node::NodeState>(),
+            &dir,
+            Some(settings),
+            active,
+        ))
     })
     .await
     .map_err(|error| error.to_string())?
 }
 
-/// Starts or stops the node for the selected identity.
+/// Explicit activation adopts the selected Linux network; identity switches never call this.
 #[cfg(unix)]
 #[tauri::command]
 pub(super) async fn apply_node(
     app: tauri::AppHandle,
     state: tauri::State<'_, IdentityState>,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let lease = state.lease()?;
-    let dir = lease.active().1.clone();
+    let dir = config_dir(&app)?;
+    let active = selected_network(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let _lease = lease;
-        tauri::async_runtime::block_on(node::apply(&app.state::<node::NodeState>(), &dir))
+        tauri::async_runtime::block_on(node::configure(
+            &app.state::<node::NodeState>(),
+            &dir,
+            None,
+            active,
+        ))
     })
     .await
     .map_err(|error| error.to_string())?
@@ -58,11 +75,32 @@ pub(super) async fn apply_node(
 #[cfg(unix)]
 #[tauri::command]
 pub(super) async fn node_status(
-    state: tauri::State<'_, IdentityState>,
+    app: tauri::AppHandle,
     nodes: tauri::State<'_, node::NodeState>,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let lease = state.lease()?;
-    Ok(node::status(&nodes, &lease.active().1).await)
+    Ok(node::status(&nodes, &config_dir(&app)?).await)
+}
+
+/// Restore the installation node before any account is opened.
+#[cfg(unix)]
+pub(super) fn start(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let result = match config_dir(&app) {
+            Ok(dir) => node::apply(&app.state::<node::NodeState>(), &dir)
+                .await
+                .map(|_| ()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = result {
+            eprintln!("Embedded node startup failed: {error}");
+        }
+    });
+}
+
+/// Wait for the node stores to close on application exit, including explicit Quit.
+#[cfg(unix)]
+pub(super) fn shutdown(app: &tauri::AppHandle) {
+    tauri::async_runtime::block_on(node::stop(&app.state::<node::NodeState>()));
 }
 
 /// Settings → Storage for the selected identity; see `usage::usage`.

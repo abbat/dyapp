@@ -64,11 +64,15 @@ pub fn messages(dir: &Path) -> Option<u64> {
 pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
     #[cfg(unix)]
     let (node_path, node, node_limit) = {
-        let store = dir.join("node");
-        let limit = crate::node::load(dir)
-            .ok()
+        let store = config.map(|root| root.join("node"));
+        let limit = config
+            .and_then(|root| crate::node::load(root).ok())
             .map(|settings| settings.disk_mb << 20);
-        (Some(store.display().to_string()), bytes(&store), limit)
+        (
+            store.as_ref().map(|path| path.display().to_string()),
+            store.as_deref().and_then(bytes),
+            limit,
+        )
     };
     #[cfg(not(unix))]
     let (node_path, node, node_limit) = (None, None, None);
@@ -105,7 +109,8 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-desktop-usage-{nanos}"));
+        let root = std::env::temp_dir().join(format!("dyapp-desktop-usage-{nanos}"));
+        let dir = root.join("profiles/first");
         fs::create_dir_all(&dir).unwrap();
         let empty = usage(None, &dir);
         assert_eq!(
@@ -119,13 +124,13 @@ mod tests {
 
         fs::write(dir.join("client.db"), [0; 100]).unwrap();
         fs::write(dir.join("client.db-wal"), [0; 20]).unwrap();
-        fs::create_dir_all(dir.join("node/media")).unwrap();
-        fs::write(dir.join("node/profiles.db"), [0; 7]).unwrap();
-        fs::write(dir.join("node/media/chunk"), [0; 5]).unwrap();
+        fs::create_dir_all(root.join("node/media")).unwrap();
+        fs::write(root.join("node/profiles.db"), [0; 7]).unwrap();
+        fs::write(root.join("node/media/chunk"), [0; 5]).unwrap();
         assert_eq!(within(&dir.join("node/vanished")), Some(0));
         assert_eq!(bytes(&dir.join("node/vanished")), None);
-        let full = usage(Some(Path::new("/config")), &dir);
-        assert_eq!(full.identity_dir.as_deref(), Some("/config"));
+        let full = usage(Some(&root), &dir);
+        assert_eq!(full.identity_dir, Some(root.display().to_string()));
         assert_eq!(full.messages, Some(120));
         assert!(full.free.is_some_and(|free| free > 0));
         #[cfg(unix)]
@@ -133,6 +138,14 @@ mod tests {
             assert_eq!(full.node, Some(12));
             assert_eq!(full.node_limit, Some(1024 << 20));
         }
-        fs::remove_dir_all(&dir).unwrap();
+        let other = root.join("profiles/second");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("client.db"), [0; 5]).unwrap();
+        let switched = usage(Some(&root), &other);
+        assert_eq!(switched.messages, Some(5));
+        assert_eq!(switched.node_path, full.node_path);
+        assert_eq!(switched.node, full.node);
+        assert_eq!(switched.node_limit, full.node_limit);
+        fs::remove_dir_all(&root).unwrap();
     }
 }

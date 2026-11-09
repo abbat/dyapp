@@ -11,6 +11,11 @@ A Rust module loaded with `#[path]` needs explicit paths for its nested file mod
 outside root quality compilation; a dependency-free rustc fixture can verify module resolution.
 After moving a command, update ordinary Rust callers as well as Tauri command registration.
 
+The embedded desktop node belongs to the installation, not an identity: `node.json` and `node/`
+live at the app-config root. Profile transitions must not stop or apply it. Snapshot the active
+network only for explicit node settings/network activation, release the identity lease before
+node work, and preserve `node/network` for startup without an account (ADR 0030).
+
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
 release secrets and fetch descriptors out of screen records. Project authenticated timestamps

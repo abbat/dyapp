@@ -1,6 +1,6 @@
-//! The store and search node the app runs on the open identity's active network while it is
-//! open, when the user turns it on (ADR 0030). Its settings are `node.json` in the slot folder,
-//! its key and stores are in `node/` next to them.
+//! The installation's optional store/search node (ADR 0030). `node.json` and `node/` live at
+//! the app config root. Its last explicitly applied Linux active-network choice is saved in
+//! `node/network`; opening, switching or removing an identity never changes the node.
 
 use std::collections::HashMap;
 use std::fs;
@@ -33,12 +33,14 @@ impl Default for Settings {
     }
 }
 
-/// The running node: its slot folder, peer ID and serving task.
+type Running = (PathBuf, String, JoinHandle<()>);
+
+/// The running node: its installation root, peer ID and serving task.
 #[derive(Default)]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub struct NodeState(Mutex<Option<(PathBuf, String, JoinHandle<()>)>>);
+pub struct NodeState(Mutex<Option<Running>>);
 
-/// The settings of the slot folder `dir`, the defaults when never saved.
+/// The installation settings in `dir`, or defaults when never saved.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn load(dir: &Path) -> Result<Settings, String> {
     match fs::read(dir.join("node.json")) {
@@ -54,6 +56,7 @@ pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
     if settings.disk_mb < 4 || settings.max_connections < 1 {
         return Err("invalidLimits".into());
     }
+    fs::create_dir_all(dir).map_err(|error| error.to_string())?;
     let text = serde_json::to_vec(settings).map_err(|e| e.to_string())?;
     let temp = dir.join("node.json.tmp");
     fs::write(&temp, text)
@@ -61,8 +64,13 @@ pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// The node config for slot folder `dir` on `network`; everything not set here is the `dyappd`
-/// default.
+fn save_network(root: &Path, active: &network::Network) -> Result<(), String> {
+    let dir = root.join("node");
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    network::save(&dir, NetworkFile::Active, active).map_err(|e| e.to_string())
+}
+
+/// The node config for installation root `dir`; remaining values use `dyappd` defaults.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn config(dir: &Path, settings: &Settings, network: &network::Network) -> NodeConfig {
     let mut config = NodeConfig::default();
@@ -89,22 +97,54 @@ pub fn config(dir: &Path, settings: &Settings, network: &network::Network) -> No
 /// Stops the running node and waits until its stores are closed.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn stop(state: &NodeState) {
-    if let Some((_, _, task)) = state.0.lock().await.take() {
+    let mut running = state.0.lock().await;
+    stop_running(&mut running).await;
+}
+
+async fn stop_running(running: &mut Option<Running>) {
+    if let Some((_, _, task)) = running.take() {
         task.abort();
         let _ = task.await;
     }
 }
 
-/// Restarts the node for slot folder `dir` as its settings say. `status` is `off`, `noNetwork`
+/// Restarts the installation node as its settings say. `status` is `off`, `noNetwork`
 /// (no active network yet) or `running` with the node's `peerId`.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn apply(state: &NodeState, dir: &Path) -> Result<HashMap<&'static str, String>, String> {
-    stop(state).await;
+    configure(state, dir, None, None).await
+}
+
+/// Apply explicit installation settings/network changes as one serialized transition.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
+pub async fn configure(
+    state: &NodeState,
+    dir: &Path,
+    settings: Option<Settings>,
+    active: Option<network::Network>,
+) -> Result<HashMap<&'static str, String>, String> {
+    let mut running = state.0.lock().await;
+    if let Some(settings) = settings {
+        save(dir, &settings)?;
+    }
+    if let Some(active) = active {
+        save_network(dir, &active)?;
+    }
+    restart(&mut running, dir).await
+}
+
+async fn restart(
+    running: &mut Option<Running>,
+    dir: &Path,
+) -> Result<HashMap<&'static str, String>, String> {
+    stop_running(running).await;
     let settings = load(dir)?;
     if !settings.enabled {
         return Ok(HashMap::from([("status", "off".into())]));
     }
-    let Some(network) = network::load(dir, NetworkFile::Active).map_err(|e| e.to_string())? else {
+    let Some(network) =
+        network::load(&dir.join("node"), NetworkFile::Active).map_err(|e| e.to_string())?
+    else {
         return Ok(HashMap::from([("status", "noNetwork".into())]));
     };
     let config = config(dir, &settings, &network);
@@ -122,14 +162,14 @@ pub async fn apply(state: &NodeState, dir: &Path) -> Result<HashMap<&'static str
     let opened = node::open(config).await.map_err(|e| e.to_string())?;
     let peer_id = opened.peer_id.to_string();
     let task = tokio::spawn(opened.run());
-    *state.0.lock().await = Some((dir.to_owned(), peer_id.clone(), task));
+    *running = Some((dir.to_owned(), peer_id.clone(), task));
     Ok(HashMap::from([
         ("status", "running".into()),
         ("peerId", peer_id),
     ]))
 }
 
-/// `running` with the `peerId` when the node of slot folder `dir` runs, else `off`.
+/// `running` with its `peerId` for this installation root, otherwise `off`.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn status(state: &NodeState, dir: &Path) -> HashMap<&'static str, String> {
     match &*state.0.lock().await {
@@ -203,10 +243,36 @@ mod tests {
             seeds: vec![],
             name: String::new(),
         };
-        network::save(&dir, NetworkFile::Active, &public).unwrap();
-        let started = apply(&state, &dir).await.unwrap();
+        let profile = dir.join("profiles/first");
+        fs::create_dir_all(&profile).unwrap();
+        network::save(&profile, NetworkFile::Active, &public).unwrap();
+        assert_eq!(apply(&state, &dir).await.unwrap()["status"], "noNetwork");
+        let started = configure(&state, &dir, None, Some(public.clone()))
+            .await
+            .unwrap();
         assert_eq!(started["status"], "running");
         assert_eq!(status(&state, &dir).await, started);
+        let invalid = Settings {
+            disk_mb: 0,
+            ..on.clone()
+        };
+        assert_eq!(
+            configure(&state, &dir, Some(invalid), None).await,
+            Err("invalidLimits".into())
+        );
+        assert_eq!(status(&state, &dir).await, started);
+        let task_id = state.0.lock().await.as_ref().unwrap().2.id();
+        let changed = network::Network {
+            seeds: vec![],
+            name: "other".into(),
+        };
+        network::save(&profile, NetworkFile::Active, &changed).unwrap();
+        let persisted = network::load(&dir.join("node"), NetworkFile::Active)
+            .unwrap()
+            .unwrap();
+        assert!(persisted.name.is_empty());
+        assert_eq!(status(&state, &dir).await, started);
+        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
         assert_eq!(status(&state, &temp_dir("other")).await["status"], "off");
         // A restart reuses the key and takes the storage lock again.
         assert_eq!(apply(&state, &dir).await.unwrap(), started);
