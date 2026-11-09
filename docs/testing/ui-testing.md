@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+Shared desktop smoke scripts are concatenated in `clients/desktop/ui-tests/mod.rs` order.
+Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
+`*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
+Those entry scripts retain their existing exported check tables. Helpers share each scenario's
+fixture object; independent phases run sequentially, with each pending-response race kept together.
+`pendingSmokeCall()` creates a fresh promise on each invocation and exposes its latest resolver
+synchronously, so tests can settle old responses after navigation without adding polling waits.
+
 Desktop native smokes use `openArea('settings', category)` and `openSettings(category)`
 to follow the actual category buttons, including parent collections, before operating
 controls. The Python desktop smoke contract checks every literal sidebar destination against

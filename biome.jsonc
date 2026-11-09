@@ -12,42 +12,9 @@
     "lineWidth": 100
   },
   "javascript": { "formatter": { "quoteStyle": "single" } },
-  // Expand this enforced scope as the measured backlog is refactored.
+  // Enforce the function limits for every desktop script, including future smoke helpers.
   "overrides": [{
-    "includes": [
-      "clients/desktop/ui/**/*.js",
-      "clients/desktop/prototype/**/*.js",
-      "clients/desktop/video-frame-renderer.js",
-      "clients/desktop/video-frame-smoke.js",
-      "clients/desktop/ui-tests/removal.js",
-      "clients/desktop/ui-tests/settings-lists.js",
-      "clients/desktop/ui-tests/settings-nav.js",
-      "clients/desktop/ui-tests/clear.js",
-      "clients/desktop/ui-tests/composer.js",
-      "clients/desktop/ui-tests/identifiers.js",
-      "clients/desktop/ui-tests/chat-redraw.js",
-      "clients/desktop/ui-tests/media-cache.js",
-      "clients/desktop/ui-tests/sticker-removal.js",
-      "clients/desktop/ui-tests/sticker-requests.js",
-      "clients/desktop/ui-tests/sticker-messages.js",
-      "clients/desktop/ui-tests/sticker-picker.js",
-      "clients/desktop/ui-tests/stickers.js",
-      "clients/desktop/ui-tests/common.js",
-      "clients/desktop/ui-tests/system-steps.js",
-      "clients/desktop/ui-tests/ready-step.js",
-      "clients/desktop/ui-tests/add-step.js",
-      "clients/desktop/ui-tests/main.js",
-      "clients/desktop/ui-tests/*-guard*.js",
-      "clients/desktop/ui-tests/guards.js",
-      "clients/desktop/ui-tests/profile-photos.js",
-      "clients/desktop/ui-tests/peer-photos.js",
-      "clients/desktop/ui-tests/chat-photo-fixture.js",
-      "clients/desktop/ui-tests/photo-settings.js",
-      "clients/desktop/ui-tests/chat-photo-send.js",
-      "clients/desktop/ui-tests/chat-photo-render.js",
-      "clients/desktop/ui-tests/photos.js",
-      "clients/desktop/ui-tests/contact-names.js"
-    ],
+    "includes": ["clients/desktop/**/*.js"],
     "linter": { "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },

@@ -321,17 +321,12 @@ The quality step and `make lint-web` run `biome check --error-on-warnings` on
 scripts. `make fmt-web` formats all these files in the dev Docker container with an explicit
 writable source mount. Checks retain read-only mounts. Formatting uses two spaces, single
 JavaScript quotes and 100 columns. Assist actions remain disabled.
-Cognitive complexity 15 and function length 50 code lines are blocking for every desktop UI
-and prototype JavaScript file, including future files in those directories. The test-only video
-frame renderer, video smoke, settings list/navigation smoke, Clear dialog/composer/identifier smoke
-and removal/chat-redraw/media-cache smoke helpers also enforce these limits. All sticker, common,
-dispatcher, guard and all photo smoke helpers use the same limits.
-Future `*-guard*.js` helpers are included.
-Blank lines and immediate closure wrappers used to scope classic scripts are excluded; nested
-functions remain checked.
-Extending this scope to the remaining smoke scripts is planned after their measured backlog is
-refactored. The recommended rules apply except three,
-each justified in the config:
+Cognitive complexity 15 and function length 50 code lines are blocking for every JavaScript file
+under `clients/desktop`, including all production, prototype, video and native smoke scripts.
+The directory-wide glob also covers future helpers. Blank lines and immediate closure wrappers
+used to scope classic scripts are excluded; nested functions remain checked. All desktop scripts
+also fit the 1000-line file limit without legacy size allowances.
+The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).
 

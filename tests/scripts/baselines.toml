@@ -82,9 +82,6 @@ score = 72.2
 max_lines = 1000
 
 [size.files]
-# Biome's initial formatting expands existing statements; these exact counts may only shrink.
-"clients/desktop/ui-tests/chats.js" = 1319
-"clients/desktop/ui-tests/identity.js" = 1209
 # Files over the limit may shrink, never grow; lower each budget when it shrinks.
 
 [settings]

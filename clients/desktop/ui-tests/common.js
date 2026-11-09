@@ -29,6 +29,16 @@ window.timedChecks = (checks) =>
           },
     ]),
   );
+// Create each held promise at invocation time, exposing the most recent resolver synchronously.
+globalThis.pendingSmokeCall = () => {
+  const pending = {};
+  pending.call = () =>
+    new Promise((resolve, reject) => {
+      pending.resolve = resolve;
+      pending.reject = reject;
+    });
+  return pending;
+};
 const frames = () =>
   new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
