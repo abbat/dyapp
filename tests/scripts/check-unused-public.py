@@ -50,7 +50,7 @@ def failures(report, status):
     return errors
 
 
-def main():
+def main() -> "bool":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--report", type=Path, default=Path("build/unused-public.json")

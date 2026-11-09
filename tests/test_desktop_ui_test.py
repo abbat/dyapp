@@ -18,7 +18,11 @@ class Navigation(HTMLParser):
         self.targets = set()
         self.sections = set()
 
-    def handle_starttag(self, tag, attrs) -> None:
+    def handle_starttag(
+        self,
+        tag: "str",
+        attrs: "list[tuple[str, str | None]] | dict[str, str | None]",
+    ) -> None:
         attrs = dict(attrs)
         if tag == "button" and "data-area" in attrs:
             self.targets.add(attrs["data-area"])
@@ -26,7 +30,7 @@ class Navigation(HTMLParser):
             self.sections.add(attrs["id"])
 
 
-def area_calls(source):
+def area_calls(source: "str") -> "list[str]":
     return re.findall(r"""\bopenArea\(\s*['"]([^'"]+)['"]""", source)
 
 
@@ -60,11 +64,13 @@ class ModuleScripts(HTMLParser):
         super().__init__()
         self.scripts = []
 
-    def handle_starttag(self, tag, attrs) -> None:
+    def handle_starttag(
+        self, tag: "str", attrs: "list[tuple[str, str | None]]"
+    ) -> None:
         if tag == "script":
             self.scripts.append(dict(attrs))
 
-    def external_modules(self):
+    def external_modules(self) -> "bool":
         return bool(self.scripts) and all(
             script.get("type") == "module" and script.get("src")
             for script in self.scripts

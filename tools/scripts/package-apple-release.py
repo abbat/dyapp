@@ -69,7 +69,7 @@ def package(app, target, destination, architectures) -> None:
                         shutil.copyfileobj(source, out)
 
 
-def main():
+def main() -> "int":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=PLATFORMS)
     parser.add_argument("app", type=Path)

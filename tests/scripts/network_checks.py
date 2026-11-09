@@ -148,7 +148,7 @@ def allocate(address, username, password):
         return error_code(stun(sock, address, body, key.digest()))
 
 
-def attribute(kind, value):
+def attribute(kind: "int", value: "bytes") -> "bytes":
     padding = b"\0" * (-len(value) % 4)
     return struct.pack("!HH", kind, len(value)) + value + padding
 

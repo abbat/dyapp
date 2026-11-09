@@ -163,7 +163,7 @@ def inventory(tag, run=command):
     }
 
 
-def main():
+def main() -> "int":
     if len(sys.argv) != 2:
         print(__doc__, file=sys.stderr)
         return 2

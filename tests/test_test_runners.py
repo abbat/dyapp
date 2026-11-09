@@ -50,7 +50,11 @@ class Captures(unittest.TestCase):
 
 class Runners(unittest.TestCase):
     def run_script(
-        self, script, command, failing_service: str = "", verbose: str = "0"
+        self,
+        script: "str",
+        command: "str",
+        failing_service: str = "",
+        verbose: str = "0",
     ):
         Path("/tmp/ai").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:

@@ -5,6 +5,9 @@ Usage: stage-update-feed.py TAG > stable.json
 Requires a checked-out tag and gh authentication. Does not deploy Pages.
 """
 
+import types
+import typing
+
 import importlib.util
 import json
 from pathlib import Path
@@ -18,7 +21,7 @@ FEED_URL = "https://abbat.github.io/dyapp/updates/v1/stable.json"
 MAX_PRIOR_BYTES = 64 * 1024
 
 
-def load_module(name, script):
+def load_module(name: "str", script: "str") -> "types.ModuleType":
     spec = importlib.util.spec_from_file_location(name, ROOT / script)
     assert spec is not None and spec.loader is not None, (
         "Python source loader is unavailable"
@@ -36,7 +39,13 @@ VERIFY = load_module(
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(
-        self, request, response, code, message, headers, url
+        self,
+        request: "urllib.request.Request",
+        response: "typing.IO[bytes]",
+        code: "int",
+        message: "str",
+        headers,
+        url: "str",
     ) -> None:
         return None
 
@@ -67,7 +76,7 @@ def stage(tag, opener=None, inventory_fn=VERIFY.inventory):
     return BUILD.build(inventory, previous)
 
 
-def main():
+def main() -> "int":
     if len(sys.argv) != 2:
         print(__doc__, file=sys.stderr)
         return 2

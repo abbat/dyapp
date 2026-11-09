@@ -38,7 +38,7 @@ def call(name, path, interface, method, args, reply=None):
     )
 
 
-def click(position) -> None:
+def click(position: "int") -> None:
     """Sends "clicked" to the menu entry at `position` of the newest item."""
     name, path = items[-1]
     menu = call(
@@ -69,7 +69,7 @@ def click(position) -> None:
     )
 
 
-def tick():
+def tick() -> "bool":
     if not items or (mode != "quit" and not trigger.exists()):
         return True
     if mode == "vanish":

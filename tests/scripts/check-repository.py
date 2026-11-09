@@ -447,13 +447,15 @@ class _Visible(HTMLParser):
         super().__init__()
         self.skip, self.found = 0, []
 
-    def handle_starttag(self, tag, attrs) -> None:
+    def handle_starttag(
+        self, tag: "str", attrs: "list[tuple[str, str | None]]"
+    ) -> None:
         self.skip += tag in ("script", "style")
 
-    def handle_endtag(self, tag) -> None:
+    def handle_endtag(self, tag: "str") -> None:
         self.skip -= tag in ("script", "style")
 
-    def handle_data(self, data) -> None:
+    def handle_data(self, data: "str") -> None:
         if not self.skip and data.strip():
             self.found.append(data.strip())
 
@@ -718,7 +720,7 @@ def validate_sources(names, texts):
     return allowed
 
 
-def validate_clients(texts) -> None:
+def validate_clients(texts: "dict[str, str]") -> None:
     from repository_unused import script_reference_errors
     from repository_translations import unused_apple_errors
     from desktop_translations import desktop_errors

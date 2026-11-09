@@ -361,7 +361,7 @@ def next_job() -> None:
     )
 
 
-def shot_name():
+def shot_name() -> "str":
     screen, lang, width, theme = jobs[0]
     dark = "-dark" if theme == "dark" else ""
     return f"{screen}{dark}-{lang}-{width}"

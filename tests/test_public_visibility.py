@@ -57,7 +57,14 @@ class VisibilityPolicyTest(unittest.TestCase):
             "unfulfilled_lint_expectations",
         )
 
-    def run_case(self, root, env, name, source, expected=None) -> None:
+    def run_case(
+        self,
+        root: "Path",
+        env: "dict[str, str]",
+        name: "str",
+        source: "str",
+        expected: "str | None" = None,
+    ) -> None:
         (root / "src/lib.rs").write_text(source)
         result = subprocess.run(
             [

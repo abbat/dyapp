@@ -22,7 +22,7 @@ def run(command, log) -> None:
         raise ValueError(f"Command exited {result.returncode}; see {log}")
 
 
-def main():
+def main() -> "int":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=("ios", "macos"))
     args = parser.parse_args()

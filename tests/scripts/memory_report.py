@@ -1,12 +1,21 @@
 """Persist complete observations for the existing RSS plateau policy."""
 
+import os
+
 import hashlib
 import json
 from pathlib import Path
 import uuid
 
 
-def write_report(samples, elapsed, seconds, growth, binary, directory):
+def write_report(
+    samples,
+    elapsed: "float",
+    seconds: "int",
+    growth: "float",
+    binary: "Path | str",
+    directory: "str | os.PathLike[str]",
+):
     if elapsed < seconds:
         raise RuntimeError("Incomplete plateau observation")
     half = len(samples) // 2

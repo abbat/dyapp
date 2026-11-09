@@ -11,7 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def lint_sections(path):
+def lint_sections(path: "Path") -> "str":
     source = path.read_text()
     prefix = "workspace." if path == ROOT / "Cargo.toml" else ""
     sections = []

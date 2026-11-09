@@ -17,7 +17,12 @@ SPEC.loader.exec_module(CHECK)
 NOW = "2026-10-15T12:00:00+00:00"
 
 
-def bead(key, kind: str = "epic", parent=None, status: str = "open"):
+def bead(
+    key: "str",
+    kind: str = "epic",
+    parent: "str | None" = None,
+    status: str = "open",
+):
     return {
         "id": key,
         "title": key,

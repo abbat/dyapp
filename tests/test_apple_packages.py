@@ -19,7 +19,7 @@ CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
 
-def app_fixture(root, target):
+def app_fixture(root: "Path", target: "str"):
     app = root / "DYApp.app"
     content = app if target == "ios" else app / "Contents"
     binary = (

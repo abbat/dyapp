@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 
 
-def positive(value):
+def positive(value: "object") -> "int | float":
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("WSJF inputs must be numbers")
     if not math.isfinite(value) or value <= 0:
@@ -42,6 +42,7 @@ def proposal(beads, now, practices_first: bool = False):
         if bead["issue_type"] != "epic" or "quorum" in bead.get("labels", []):
             continue
         rating = (bead.get("metadata") or {}).get("wsjf")
+        delay: int | float
         if rating is None:
             delay = max(1, 5 - int(bead["priority"]))
             size = max(1, leaves(bead["id"], set()))
@@ -109,7 +110,7 @@ def check(document, approval, now):
     return errors
 
 
-def main():
+def main() -> "bool":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, help="saved bd list JSON")
     parser.add_argument("--proposal", type=Path, help="saved proposal JSON")

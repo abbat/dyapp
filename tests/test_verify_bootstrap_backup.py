@@ -1,3 +1,4 @@
+import types
 import importlib.util
 import json
 from pathlib import Path
@@ -8,7 +9,7 @@ import unittest
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
 
 
-def load(name, file):
+def load(name: "str", file: "str") -> "types.ModuleType":
     spec = importlib.util.spec_from_file_location(name, SCRIPTS / file)
     assert spec is not None and spec.loader is not None, (
         "Python source loader is unavailable"

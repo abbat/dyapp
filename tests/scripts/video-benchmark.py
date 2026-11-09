@@ -22,7 +22,7 @@ PAGE = os.sysconf("SC_PAGE_SIZE")
 LOG_LIMIT = 65536
 
 
-def release():
+def release() -> "dict[str, str]":
     values = {}
     for line in Path("/etc/os-release").read_text().splitlines():
         if "=" in line:
@@ -31,7 +31,7 @@ def release():
     return values
 
 
-def optional_output(args):
+def optional_output(args: "list[str]") -> "str":
     try:
         return subprocess.run(
             args, capture_output=True, text=True, timeout=5, check=False
@@ -144,7 +144,9 @@ def sample_process(process, previous, samples, started, now):
     return current, ticks
 
 
-def drain_output(selector, output_tail):
+def drain_output(
+    selector: "selectors.DefaultSelector", output_tail: "bytes"
+) -> "bytes":
     for key, _ in selector.select(timeout=0.5):
         chunk = os.read(key.fd, 65536)
         if chunk:

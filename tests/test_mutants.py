@@ -26,7 +26,7 @@ REPOSITORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPOSITORY)
 
 
-def shard(caught, timeout, missed, unviable: int = 0):
+def shard(caught: "int", timeout: "int", missed: "int", unviable: int = 0):
     return {
         "caught": caught,
         "timeout": timeout,

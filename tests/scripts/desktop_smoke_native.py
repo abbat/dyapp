@@ -14,7 +14,7 @@ import tempfile
 import time
 
 
-def display_diagnostics():
+def display_diagnostics() -> "str":
     """Bounded, allowlisted state while xvfb-run still owns the server."""
     display = os.environ.get("DISPLAY", "")
     local = re.fullmatch(r":([0-9]{1,6})(?:\.[0-9]{1,3})?", display)
@@ -130,7 +130,7 @@ def run(arguments, timeout: int = 60, env=None):
     )
 
 
-def read_varint(data, offset):
+def read_varint(data: "bytes", offset: "int"):
     """Read a protobuf varint from a signed profile record."""
     value = 0
     for shift in range(0, 70, 7):
@@ -144,7 +144,7 @@ def read_varint(data, offset):
     raise RuntimeError("invalid signed profile varint")
 
 
-def signed_profile_payload(record_hex):
+def signed_profile_payload(record_hex: "str") -> "bytes":
     """Extract the signed payload from identity.proto's bytes fields."""
     data = bytes.fromhex(record_hex)
     fields = {}

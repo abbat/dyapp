@@ -39,7 +39,7 @@ def own(path, owner) -> None:
         os.chown(path, owner.st_uid, owner.st_gid, follow_symlinks=False)
 
 
-def sync(path) -> None:
+def sync(path: "Path") -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(fd)

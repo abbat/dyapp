@@ -48,7 +48,7 @@ class Page(HTMLParser):
                 return f"via #{parent.get('id', tag)}"
         return "no"
 
-    def handle_starttag(self, tag, attrs) -> None:
+    def handle_starttag(self, tag: "str", attrs) -> None:
         attrs = dict(attrs)
         label = next(
             (e[2] for e in reversed(self.stack) if e[0] == "label"), None
@@ -87,7 +87,7 @@ class Page(HTMLParser):
         if tag not in VOID:
             self.stack.append((tag, attrs, label))
 
-    def handle_endtag(self, tag) -> None:
+    def handle_endtag(self, tag: "str") -> None:
         while self.stack and self.stack[-1][0] != tag:
             self.stack.pop()
         if self.stack:

@@ -1,5 +1,7 @@
 """Reject malformed budgets, stale source and incomplete parser output."""
 
+import types
+
 import copy
 import importlib.util
 import json
@@ -13,7 +15,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load(name, filename):
+def load(name: "str", filename: "str") -> "types.ModuleType":
     spec = importlib.util.spec_from_file_location(
         name, ROOT / "tests/scripts" / filename
     )

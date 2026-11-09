@@ -42,7 +42,7 @@ def read_json(path, limit):
     return json.loads(data, object_pairs_hook=unique_object)
 
 
-def version(tag):
+def version(tag: "object") -> "tuple[int, ...]":
     if not isinstance(tag, str) or len(tag) > 64:
         raise ValueError("invalid stable tag")
     match = VERSION.fullmatch(tag)
@@ -257,7 +257,7 @@ def build(inventory, prior=None):
     return {"schema": 1, "channel": "stable", "targets": targets}
 
 
-def main():
+def main() -> "int":
     if len(sys.argv) not in (2, 3):
         print(__doc__, file=sys.stderr)
         return 2

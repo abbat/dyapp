@@ -44,7 +44,7 @@ def method(_bus, sender, _path, _interface, _name, params, invocation) -> None:
     invocation.return_value(GLib.Variant("(u)", (len(notices),)))
 
 
-def tick():
+def tick() -> "bool":
     # Clicks again until stopped: a click before the app listens is lost. Only
     # the asking connection hears it, as from a real server.
     if notices and (folder / "hidden").exists():

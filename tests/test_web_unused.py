@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECK = ROOT / "tools/web-lint/check-unused.mjs"
 
 
-def fixture(root) -> None:
+def fixture(root: "Path") -> None:
     sources = {
         "clients/desktop/ui/index.html": (
             '<div class="used"></div><script '

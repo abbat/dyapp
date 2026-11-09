@@ -24,7 +24,7 @@ TRAILER = "\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n"
 
 
 class Lint(unittest.TestCase):
-    def errors(self, message):
+    def errors(self, message: "str") -> "str":
         return " ".join(CHECK.message_errors(message, ALLOWED))
 
     def test_tracker_ids(self) -> None:

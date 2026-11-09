@@ -1,5 +1,7 @@
 """Preflight passes the verified recovery key to dyappd on scratch data."""
 
+import types
+
 from contextlib import closing
 import importlib.util
 from pathlib import Path
@@ -14,7 +16,7 @@ import unittest
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
 
 
-def load(name, file):
+def load(name: "str", file: "str") -> "types.ModuleType":
     spec = importlib.util.spec_from_file_location(name, SCRIPTS / file)
     assert spec is not None and spec.loader is not None, (
         "Python source loader is unavailable"
@@ -77,7 +79,7 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.age_identity.write_bytes(b"age-secret")
         self.age_identity.chmod(0o600)
 
-    def create(self, mode) -> None:
+    def create(self, mode: "str") -> None:
         recovery = None
         if mode != "inline":
             (self.source / "node.key").unlink()

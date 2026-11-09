@@ -20,7 +20,7 @@ TARGETS = {
 }
 
 
-def digest(path):
+def digest(path: "Path") -> "str":
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError(f"Missing or empty executable: {path}")
     with path.open("rb") as stream:

@@ -104,7 +104,7 @@ def paths(source, key_mode):
     return result, sorted(OPTIONAL - root.keys())
 
 
-def copy_file(source, target):
+def copy_file(source: "Path", target: "Path"):
     fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         before = os.fstat(fd)

@@ -20,7 +20,7 @@ DRIVER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DRIVER)
 
 
-def directory():
+def directory() -> "Path":
     reports = Path(os.environ.get("RUNNER_TEMP", ROOT / "build"))
     path = reports / "production-smoke-fixtures" / str(time.time_ns())
     path.mkdir(parents=True)

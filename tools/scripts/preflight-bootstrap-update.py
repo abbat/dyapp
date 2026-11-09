@@ -24,7 +24,7 @@ BACKUP = PROBE.SQLITE.VERIFY.BACKUP
 MARGIN = 64 * 1024 * 1024
 
 
-def available(path):
+def available(path: "Path") -> "int":
     return shutil.disk_usage(path).free
 
 

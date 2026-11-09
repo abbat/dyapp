@@ -107,7 +107,7 @@ def show(sha, path):
     )
 
 
-def commit_errors(sha):
+def commit_errors(sha: "str") -> "list[str]":
     message = subprocess.check_output(
         GIT + ["log", "-1", "--format=%B", sha], text=True
     )
@@ -142,7 +142,7 @@ def trailer_error(message, sha):
     return "names a missing ADR" if adr else "has no ADR: trailer"
 
 
-def base():
+def base() -> "str":
     """ADR_BASE, or origin/main for a new branch or a forced push."""
     base = os.environ.get("ADR_BASE") or "origin/main"
     if subprocess.run(

@@ -45,7 +45,7 @@ OVERFLOW_CLASS, SW_SHOWNA = "NotifyIconOverflowWindow", 8
 MN_GETHMENU, MN_SELECTITEM = 0x1E1, 0x1E5
 
 
-def log(message) -> None:
+def log(message: "str") -> None:
     print(f"windows-tray: {message}", file=sys.stderr, flush=True)
 
 
@@ -78,7 +78,7 @@ def log_menu_needs(tray) -> None:
         )
 
 
-def shows_icons():
+def shows_icons() -> "bool":
     """Whether a visible window titled DYApp has a small icon, set on the
     window or else on its class. Tauri sets no big one, so the taskbar takes
     the executable's, which check-windows-icon.py checks."""

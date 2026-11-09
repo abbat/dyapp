@@ -67,7 +67,7 @@ class PreflightBootstrapUpdate(unittest.TestCase):
                 **options,
             )
 
-    def live(self):
+    def live(self) -> "dict[str, bytes]":
         return {p.name: p.read_bytes() for p in self.source.iterdir()}
 
     def test_stopped_node_passes_and_releases_lock(self) -> None:

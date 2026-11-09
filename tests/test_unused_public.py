@@ -1,5 +1,7 @@
 """Exercise the pinned API checker against a real two-crate workspace."""
 
+import typing
+
 import json
 import os
 from pathlib import Path
@@ -106,7 +108,14 @@ class UnusedPublicToolTest(unittest.TestCase):
             ("hawk::unknown_item",),
         )
 
-    def check(self, root, environment, name, success, expected=()) -> None:
+    def check(
+        self,
+        root: "Path",
+        environment: "dict[str, str]",
+        name: "str",
+        success: "bool",
+        expected: "typing.Sequence[str]" = (),
+    ) -> None:
         result = subprocess.run(
             [
                 "cargo",

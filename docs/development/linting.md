@@ -289,6 +289,9 @@ used by negative tests, including absent job conclusions and invalid coverage co
 `tools/scripts/ci_contracts.py` shares API/CLI run, job, step and tracked-failure shapes
 between CI helpers and fixtures. Trigger rules use a common name/glob/regex contract;
 the docs checker consumes the dynamically loaded parser through a narrow protocol.
+Scalar validators accept `object` until their existing runtime checks narrow the input.
+CLI helpers distinguish filesystem paths, byte/text buffers and numeric timeouts; test source
+loaders return `ModuleType`. GUI parser callbacks retain the standard HTML attribute types.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

@@ -1,5 +1,7 @@
 """Build Apple apps and run hosted XCTest/XCUITest in approved native CI."""
 
+import typing
+
 from contextlib import contextmanager
 import json
 import os
@@ -11,7 +13,12 @@ import threading
 import time
 
 
-def run(arguments, log, env=None, timeout=None) -> None:
+def run(
+    arguments: "typing.Sequence[str]",
+    log: "Path",
+    env: "typing.Mapping[str, str] | None" = None,
+    timeout: "float | None" = None,
+) -> None:
     with log.open("w") as output:
         result = subprocess.run(
             arguments,
@@ -132,7 +139,7 @@ def silent_endpoint():
             client.close()
 
 
-def keep_crash_reports(reports):
+def keep_crash_reports(reports: "Path") -> "bool":
     """A crash ends a UI test with just "not running"; its report says why."""
     source = Path.home() / "Library" / "Logs" / "DiagnosticReports"
     kept = False

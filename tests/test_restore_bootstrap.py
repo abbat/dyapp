@@ -68,7 +68,7 @@ class RestoreBootstrap(unittest.TestCase):
             )
         self.saved = self.live()
 
-    def live(self, path=None):
+    def live(self, path: "Path | None" = None) -> "dict[str, bytes]":
         path = path or self.storage
         return {
             p.name: p.read_bytes()

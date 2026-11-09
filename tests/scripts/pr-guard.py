@@ -43,7 +43,7 @@ def git(*args: str) -> bytes:
     return result.stdout
 
 
-def kind(path):
+def kind(path: "str") -> "str":
     if path.startswith("docs/") and not path.startswith("docs/agents/"):
         return "docs"
     if path.endswith("Cargo.lock") or path.endswith("Cargo.toml"):
@@ -113,7 +113,12 @@ def dependency_changes(before, after, path, api, now):
     return errors, changed
 
 
-def check(base, head, api=None, now=None):
+def check(
+    base: "str",
+    head: "str",
+    api: "str | None" = None,
+    now: "dt.datetime | None" = None,
+) -> "bool":
     api = api or os.environ.get("PR_GUARD_CRATES_API", CRATES_API)
     if not SHA.fullmatch(base) or not SHA.fullmatch(head):
         raise ValueError("base and head must be full commit hashes")
@@ -160,7 +165,9 @@ def check(base, head, api=None, now=None):
 
 if __name__ == "__main__":
     try:
-        success = check(*sys.argv[1:]) if len(sys.argv) == 3 else False
+        success = (
+            check(sys.argv[1], sys.argv[2]) if len(sys.argv) == 3 else False
+        )
         if len(sys.argv) != 3:
             print("usage: pr-guard.py BASE_SHA HEAD_SHA", file=sys.stderr)
     except (

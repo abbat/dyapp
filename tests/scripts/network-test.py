@@ -62,7 +62,7 @@ def healthy(client, addr):
     return reply["status"] == "STATUS_OK" and "ROLE_STORE" in reply["roles"]
 
 
-def addresses(host, port):
+def addresses(host: "str", port: "int"):
     """(TCP, QUIC) multiaddrs of a node."""
     return f"/ip4/{host}/tcp/{port}", f"/ip4/{host}/udp/{port}/quic-v1"
 
@@ -159,7 +159,7 @@ def start(
     friendly_addresses(client)
 
 
-def loopback_v6():
+def loopback_v6() -> "bool":
     """Whether this host can listen on ::1."""
     try:
         with socket.socket(socket.AF_INET6) as probe:
@@ -169,7 +169,7 @@ def loopback_v6():
         return False
 
 
-def friendly_addresses(client) -> None:
+def friendly_addresses(client: "str") -> None:
     """The client dials host:port with an IPv4, bracketed IPv6 or DNS host."""
     forms = ["127.0.0.1:7071", "localhost:7071"]
     if loopback_v6():
@@ -199,7 +199,7 @@ def stop(processes, failed) -> None:
         sys.stdout.flush()
 
 
-def local(bin_dir) -> None:
+def local(bin_dir: "str") -> None:
     """Run the suite against three loopback nodes with separate storage."""
     client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
@@ -303,7 +303,7 @@ def named_network(client, bin_dir, storage, processes) -> None:
     )
 
 
-def plateau(bin_dir) -> None:
+def plateau(bin_dir: "str") -> None:
     """Repeat mailbox and media load for PLATEAU_SECONDS; resident memory
     must level off.
 

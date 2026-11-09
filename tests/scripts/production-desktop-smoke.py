@@ -163,7 +163,7 @@ def launch(
                 process.wait()
 
 
-def smoke(executable) -> None:
+def smoke(executable: "str | Path") -> None:
     executable = Path(executable).resolve(strict=True)
     checker = ROOT / "tools/scripts/check-no-ui-smoke.py"
     subprocess.run([sys.executable, str(checker), str(executable)], check=True)

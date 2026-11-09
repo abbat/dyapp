@@ -1,5 +1,7 @@
 """Prototype layout criteria: gap findings and the settings budgets."""
 
+import types
+
 import importlib.util
 from pathlib import Path
 import unittest
@@ -7,7 +9,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load(name, path):
+def load(name: "str", path: "str") -> "types.ModuleType":
     spec = importlib.util.spec_from_file_location(name, ROOT / path)
     assert spec is not None and spec.loader is not None, (
         "Python source loader is unavailable"
@@ -22,9 +24,9 @@ REPOSITORY = load("repository_settings", "tests/scripts/check-repository.py")
 
 
 def gap(
-    a,
-    b,
-    px,
+    a: "str",
+    b: "str",
+    px: "int",
     framed: bool = True,
     identifier: bool = False,
     label: bool = False,

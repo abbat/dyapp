@@ -41,7 +41,7 @@ TRUST_MINUTES = int(
 STARTED = time.monotonic()
 
 
-def log(message) -> None:
+def log(message: "str") -> None:
     minutes = (time.monotonic() - STARTED) / 60
     print(f"[{minutes:6.1f} min] {message}", flush=True)
 
@@ -111,7 +111,7 @@ def expect(client, entry, addresses, status):
     return signed
 
 
-def wait_trust(reason) -> None:
+def wait_trust(reason: "str") -> None:
     if TRUST_MINUTES:
         log(f"waiting {TRUST_MINUTES} + 1 min: {reason}")
         time.sleep((TRUST_MINUTES + 1) * 60)
@@ -163,7 +163,7 @@ def upgrade_nodes(
     return backup, kept
 
 
-def rehearse(old_dir, new_dir, storage) -> None:
+def rehearse(old_dir: "str", new_dir: "str", storage: "str") -> None:
     client = f"{new_dir}/dyappd"
     envs = [environment(storage, i) for i in range(3)]
     addresses = [net.addresses(host, PORT)[0] for host in HOSTS]
@@ -219,7 +219,7 @@ def main() -> None:
         sys.exit("Usage: rehearsal.py OLD_BIN_DIR NEW_BIN_DIR")
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
-        rehearse(*sys.argv[1:], storage)
+        rehearse(sys.argv[1], sys.argv[2], storage)
 
 
 if __name__ == "__main__":

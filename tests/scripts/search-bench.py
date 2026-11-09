@@ -10,6 +10,8 @@ One-off study: stdlib only, no CI. Identifiers are backtick-quoted; runtime
 values are bound.
 """
 
+import typing
+
 import argparse
 import json
 import math
@@ -37,7 +39,7 @@ def guard() -> None:
         raise OutOfTime
 
 
-def say(msg) -> None:
+def say(msg: "str") -> None:
     print(f"[{time.monotonic() - T0:7.1f}s] {msg}", flush=True)
 
 
@@ -88,7 +90,7 @@ INDEXES = [
 ]
 
 
-def zipf_exponent(n, top_share):
+def zipf_exponent(n: "int", top_share: "float") -> "float":
     """Exponent s with 1 / sum(k^-s, k<=n) = top_share (bisection; the
     sum falls as s grows).
     """
@@ -123,7 +125,7 @@ def place_weights():
     return rows
 
 
-def fill_sql():
+def fill_sql() -> "str":
     enum_cols = list(ENUMS)
     totals = [(c, sum(n for _, n in ENUMS[c])) for c in enum_cols]
     enum_exprs = ", ".join(
@@ -212,7 +214,9 @@ class Q:
     """One query class on one place rank: the SQL text and how to draw its
     bound values."""
 
-    def __init__(self, cls, rank, country, rng) -> None:
+    def __init__(
+        self, cls: "str", rank: "int", country: "str", rng: "random.Random"
+    ) -> None:
         self.cls, self.rank, self.rng = cls, rank, rng
         if cls == "place_in":
             places = [f"place-{k}" for k in range(1, 9)]
@@ -279,7 +283,7 @@ class Q:
         rows = db.execute("EXPLAIN QUERY PLAN " + self.sql, args)
         return "\n".join(r[3] for r in rows)
 
-    def run(self, db, stats):
+    def run(self, db: "sqlite3.Connection", stats: "bool"):
         """One search: returns (seconds, found, scanned or None, partial).
 
         Counting is untimed.
@@ -312,7 +316,7 @@ class Q:
         return spent, found, (scanned if known else None), partial
 
 
-def pct(xs, p):
+def pct(xs: "typing.Sequence[float]", p: "int") -> "float":
     if len(xs) < 2:
         return xs[0]
     return statistics.quantiles(xs, n=100, method="inclusive")[p - 1]

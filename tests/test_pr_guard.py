@@ -22,7 +22,7 @@ SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 NOW = dt.datetime(2026, 10, 23, tzinfo=dt.timezone.utc)
 
 
-def lock(source=SOURCE):
+def lock(source: "str" = SOURCE) -> "str":
     return (
         'version = 4\n\n[[package]]\nname = "example"\n'
         'version = "1.0.0"\n'
@@ -66,7 +66,7 @@ class PullRequestGuardTests(unittest.TestCase):
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content)
 
-    def commit(self):
+    def commit(self) -> "str":
         self.git("add", "-A")
         self.git("commit", "-q", "-m", "fixture")
         return self.git("rev-parse", "HEAD")

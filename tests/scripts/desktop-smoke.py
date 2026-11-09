@@ -105,7 +105,7 @@ class DesktopSmoke:
         if reopened != first:
             raise RuntimeError("removed identity reopened after restart")
 
-    def window(self, profile) -> None:
+    def window(self, profile: "str") -> None:
         """Ctrl+Q saves the moved window, a relaunch puts it back, and one
         saved on a display that went away comes back centred."""
         state = Path(profile) / "window.json"
@@ -183,7 +183,7 @@ class DesktopSmoke:
             if any(slots.iterdir()):
                 raise RuntimeError("the wipe left the identity on disk")
 
-    def single(self, profile) -> None:
+    def single(self, profile: "str") -> None:
         """A second launch shows the hidden window of the running one and
         exits."""
         hidden = Path(profile) / "hidden"
@@ -269,7 +269,7 @@ class DesktopSmoke:
         )
         self.remove("remove-missing", profile, added, first)
 
-    def system_files_only(self, profile) -> None:
+    def system_files_only(self, profile: "str") -> None:
         """An app-file copy cannot recover a credential in a fresh provider."""
         root = Path(profile)
         slot = (root / "active-profile").read_text().strip()
@@ -323,7 +323,7 @@ class DesktopSmoke:
         ):
             raise RuntimeError("legacy key changed Peer ID")
 
-    def network(self, profile) -> None:
+    def network(self, profile: "str") -> None:
         """Failed checks keep the draft but never activate it."""
         file = ["--ui-test-file"]
         peer_id = self.case("network-create", file, profile)
@@ -367,7 +367,7 @@ class DesktopSmoke:
         if (folder / "network").exists():
             raise RuntimeError("a failed check activated the draft")
 
-    def profile_draft(self, profile) -> None:
+    def profile_draft(self, profile: "str") -> None:
         """A nonempty public draft and its preview survive an app restart."""
         file = ["--ui-test-file"]
         peer_id = self.case("profile-create", file, profile)
@@ -645,7 +645,7 @@ class DesktopSmoke:
             raise RuntimeError(f"unexpected notice: {notice}")
         return peer_root, other_peer
 
-    def connect(self, profile) -> None:
+    def connect(self, profile: "str") -> None:
         """A loopback dyappd answers the check, which activates the list."""
         node, storage = (
             Path(self.executable).with_name("dyappd"),
@@ -733,7 +733,7 @@ class DesktopSmoke:
             server.terminate()
             server.wait(timeout=30)
 
-    def tray(self, profile) -> None:
+    def tray(self, profile: "str") -> None:
         """Without a host the tray settings are off; with one, Quit exits,
         close-to-tray hides the window until Open, the setting survives a
         relaunch, and a host that goes away brings the window back. Windows
@@ -835,7 +835,7 @@ class DesktopSmoke:
                     profile,
                 )
 
-    def exercise(self, flows) -> None:
+    def exercise(self, flows: "bool") -> None:
         video_enabled = os.environ.get("DYAPP_VIDEO_SMOKE") == "1"
         if flows and sys.platform.startswith("linux") and video_enabled:
             video_smoke(self.case, self.reports)
@@ -879,7 +879,7 @@ class DesktopSmoke:
         print(f"{len(self.results)} desktop UI cases passed")
 
 
-def smoke(executable, flows: bool = True) -> None:
+def smoke(executable: "str", flows: bool = True) -> None:
     """Only fixture apps skip stateful identity/network flows."""
     DesktopSmoke(executable).exercise(flows)
 

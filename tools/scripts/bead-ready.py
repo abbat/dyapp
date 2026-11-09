@@ -47,7 +47,7 @@ def errors(bead):
     return [f"{bead['id']}: {error}" for error in found]
 
 
-def main(args) -> None:
+def main(args: "list[str]") -> None:
     if args == ["--in-progress"]:
         beads = bd("list", "--status", "in_progress", "--limit", "0")
     elif args[:1] == ["--claim"] and len(args) == 2:

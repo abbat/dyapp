@@ -31,7 +31,12 @@ def release(*assets):
     }
 
 
-def asset(name, digest=DIGEST, state: str = "uploaded", size: int = 42):
+def asset(
+    name: "str",
+    digest: "str" = DIGEST,
+    state: str = "uploaded",
+    size: int = 42,
+):
     return {
         "name": name,
         "digest": f"sha256:{digest}",

@@ -19,7 +19,7 @@ AUDIT = '[advisories]\nignore = ["A"]\n'
 OSV = '[[IgnoredVulns]]\nid = "B"\nignoreUntil = {}\n'
 
 
-def deny(reason):
+def deny(reason: "str") -> "str":
     return f'[advisories]\nignore = [{{ id = "A", reason = "{reason}" }}]\n'
 
 

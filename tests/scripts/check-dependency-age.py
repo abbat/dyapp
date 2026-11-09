@@ -4,6 +4,8 @@ Publish times come from the sparse index cache that `cargo fetch` leaves in
 CARGO_HOME, so the check runs offline in the dev container.
 """
 
+import typing
+
 from datetime import date, datetime, timedelta, timezone
 import json
 import os
@@ -13,6 +15,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
 MIN_AGE = timedelta(days=14)
+ExceptionPolicy = typing.Mapping[tuple[str, str], tuple[str, str]]
 CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # (crate, version): (date added, reason). Remove the entry once it is 14 days
 # old; an entry older than MIN_AGE is reported as stale.
@@ -31,7 +34,7 @@ EXCEPTIONS = {
 }
 
 
-def index_path(name):
+def index_path(name: "str") -> "str":
     name = name.lower()
     if len(name) <= 2:
         return f"{len(name)}/{name}"
@@ -40,7 +43,7 @@ def index_path(name):
     return f"{name[:2]}/{name[2:4]}/{name}"
 
 
-def published(cache, version):
+def published(cache: "bytes", version: "str") -> "datetime | None":
     """Publish time of version in a sparse index cache file, None if absent.
 
     The file is a binary header then NUL-separated version/JSON pairs."""
@@ -56,13 +59,18 @@ def published(cache, version):
     return None
 
 
-def packages(lockfile):
+def packages(lockfile: "Path") -> "typing.Iterator[tuple[str, str]]":
     for package in tomllib.loads(lockfile.read_text()).get("package", []):
         if package.get("source") == CRATES_IO:
             yield package["name"], package["version"]
 
 
-def errors(lockfiles, indexes, now, exceptions=EXCEPTIONS):
+def errors(
+    lockfiles: "list[Path]",
+    indexes: "list[Path]",
+    now: "datetime",
+    exceptions: "ExceptionPolicy" = EXCEPTIONS,
+) -> "list[str]":
     found = []
     for (name, version), (added, reason) in exceptions.items():
         if not reason:

@@ -43,7 +43,7 @@ def unique_object(pairs):
     return result
 
 
-def open_beneath(root, relative):
+def open_beneath(root: "Path", relative: "str") -> "int":
     parts = PurePosixPath(relative).parts
     directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:

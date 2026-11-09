@@ -10,13 +10,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def function(source, name):
+def function(source: "str", name: "str") -> "str":
     start = source.index("fn " + name + "(")
     return source[start : source.index("\n}", start) + 2]
 
 
 class DesktopSmokeFeatureTest(unittest.TestCase):
-    def directory(self, name):
+    def directory(self, name: "str") -> "Path":
         path = ROOT / "build/tool-fixtures/desktop-smoke-feature"
         path = path / str(time.time_ns()) / name
         path.mkdir(parents=True)

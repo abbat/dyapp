@@ -1,5 +1,8 @@
 """Tag feed staging preserves prior targets and rejects feed fetch failures."""
 
+import typing
+import urllib.request
+
 import importlib.util
 import json
 from pathlib import Path
@@ -18,7 +21,7 @@ DIGEST = "b" * 64
 COMMIT = "a" * 40
 
 
-def inventory(tag, platform=None):
+def inventory(tag: "str", platform: "str | None" = None):
     assets = []
     attestations = []
     targets = {}
@@ -45,28 +48,30 @@ def inventory(tag, platform=None):
 
 
 class Response:
-    def __init__(self, data, url=STAGE.FEED_URL) -> None:
+    def __init__(self, data: "bytes", url: "str" = STAGE.FEED_URL) -> None:
         self.data = data
         self.url = url
 
-    def __enter__(self):
+    def __enter__(self) -> "Response":
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: "object") -> "typing.Literal[False]":
         return False
 
-    def geturl(self):
+    def geturl(self) -> "str":
         return self.url
 
-    def read(self, _):
+    def read(self, _: "int") -> "bytes":
         return self.data
 
 
 class Opener:
-    def __init__(self, response) -> None:
+    def __init__(self, response: "Response | Exception") -> None:
         self.response = response
 
-    def open(self, request, timeout):
+    def open(
+        self, request: "urllib.request.Request", timeout: "float"
+    ) -> "Response":
         assert request.full_url == STAGE.FEED_URL
         assert timeout == 15
         if isinstance(self.response, Exception):
@@ -74,7 +79,7 @@ class Opener:
         return self.response
 
 
-def missing():
+def missing() -> "HTTPError":
     return HTTPError(STAGE.FEED_URL, 404, "not found", {}, None)
 
 
