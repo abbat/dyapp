@@ -17,6 +17,15 @@ import { shortPeer } from './peer-labels.js';
 import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { viewed, withPlaces, openFound } from './search.js';
 export const controller = {};
+/** @param {import('./chat-state.js').ForwardMessage} source @param {string} targetPeerId */
+controller.forwardMessage = (source, targetPeerId, call = invoke) =>
+  call('forward_chat_text', {
+    sourcePeerId: source.sourcePeerId,
+    sourceGroupId: source.sourceGroupId,
+    sourceAuthor: source.sourceAuthor,
+    sourceMessageId: source.sourceMessageId,
+    targetPeerId,
+  });
 /** @type {Promise<void> | undefined} */
 controller.shareOpened = undefined;
 /** @type {Promise<void> | undefined} */

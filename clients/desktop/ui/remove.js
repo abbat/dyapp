@@ -21,10 +21,11 @@ const removeAnyway = domById('remove-anyway', HTMLButtonElement);
 const showRemove = async (call = invoke) => {
   const generation = identityState.generation;
   const state = identityState.current;
+  if (!state) return;
   const items = await call('list_identities');
   if (!identityCurrent(generation)) return;
   const copies =
-    state.peerId &&
+    Boolean(state.peerId) &&
     items.some(
       (item) => item.slot !== state.slot && item.status === 'ready' && item.peerId === state.peerId,
     );
@@ -32,7 +33,7 @@ const showRemove = async (call = invoke) => {
   whoRow.replaceChildren(...who(whoRow, state.peerId, state.reason, modeText(state)));
   const peer = domById('remove-peer', HTMLElement);
   peer.textContent = state.peerId || reasonText(state.reason);
-  peer.parentElement.hidden = !state.peerId;
+  domQuery(removeDialog, 'p:has(#remove-peer)', HTMLParagraphElement).hidden = !state.peerId;
   const path = domById('remove-path', HTMLParagraphElement);
   path.hidden = !state.keyPath;
   domQuery(path, 'code', HTMLElement).textContent = state.keyPath || '';
@@ -42,7 +43,7 @@ const showRemove = async (call = invoke) => {
   // A missing key or another copy means nothing irreplaceable is lost.
   domById('remove-warning', HTMLParagraphElement).hidden = !state.peerId || copies;
   // A published profile is withdrawn from search before the key goes.
-  const view = state.status === 'ready' && (await call('load_profile').catch(() => null));
+  const view = state.status === 'ready' ? await call('load_profile').catch(() => null) : null;
   if (!identityCurrent(generation)) return;
   removalState.published = Boolean(view?.published);
   domById('remove-text', HTMLParagraphElement).hidden = !removalState.published;
@@ -68,7 +69,7 @@ for (const button of [removeIdentity, settingsRemove]) {
 }
 for (const id of ['setup-cancel', 'picker-cancel']) {
   domById(id, HTMLElement).addEventListener('click', () =>
-    identityState.current.status === 'ready'
+    identityState.current?.status === 'ready'
       ? show(identity, 'status.ready')
       : show(sections[3], 'status.recovery'),
   );
@@ -78,6 +79,7 @@ removeConfirm.addEventListener('change', () => {
 });
 const removeNow = () => {
   const removed = identityState.current;
+  if (!removed) return Promise.resolve(null);
   // Nothing is open after a removal until the backend reports the next state.
   identityState.current = null;
   return act(invoke('remove_identity', { slot: removed.slot, peerId: removed.peerId || null }));

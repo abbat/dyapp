@@ -86,6 +86,12 @@ if [[ $1 == rust ]]; then
         "$tmp/zizmor" "$tmp/age" "$tmp/age-keygen" "$tmp/biome" "$tmp/rumdl" "$tmp/hadolint" "$tmp/buf" \
         "$tmp/cargo-hawk" "$tmp/cargo-hawk-driver" "$tmp/cargo-hawk-rustdoc" /usr/local/bin/
     sudo install -m 644 "$tmp/detekt-cli.jar" /usr/local/lib/
+    # The platform package contains the native compiler plus matching standard libraries.
+    curl -fsSL -o "$tmp/typescript.tgz" https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz
+    echo '11875fd9c360eeb8025899f109d27e177577f4ef2285bdfb78702ed4b2bca00162ce04d06cf38aef31c75db3edf2b5f6e023aa3835de237b087f47c25c6ec7fc  '"$tmp/typescript.tgz" | sha512sum -c -
+    sudo mkdir -p /opt/typescript
+    sudo tar -xzf "$tmp/typescript.tgz" -C /opt/typescript --strip-components=2 package/lib
+    echo /opt/typescript >> "${GITHUB_PATH:?GitHub Actions only}"
     rm -rf "$tmp"
 fi
 rustup toolchain install "$toolchain" --profile minimal "${components[@]}"

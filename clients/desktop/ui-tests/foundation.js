@@ -255,12 +255,63 @@
     row.click();
     if (opened !== 1) throw new Error('Chat row did not retain its opening callback');
   };
+  const checkProfileScales = async () => {
+    const fields = await import(new URL('profile-fields.js', document.baseURI).href);
+    const { profileForm } = await import(new URL('profile-form.js', document.baseURI).href);
+    const keys = [
+      'gender',
+      'orientation',
+      'relationship_goal',
+      'role_preference',
+      'career_ambition',
+      'financial_philosophy',
+      'employment_status',
+      'fitness_level',
+      'zodiac',
+      'smoking',
+      'drinking',
+      'tattoos',
+      'marital_status',
+      'pets',
+    ];
+    const scales = keys.map((key, field) => ({
+      key,
+      field,
+      ordered: false,
+      choices: [{ code: 7, key: 'fixture' }],
+    }));
+    const fixture = document.createElement('div');
+    fixture.hidden = true;
+    fixture.append(...scales.map((scale) => profileForm.scaleRow(scale, {})));
+    for (const select of fixture.querySelectorAll('select')) select.value = '7';
+    document.body.prepend(fixture);
+    try {
+      const draft = profileForm.readScales(scales);
+      if (keys.some((key) => draft[fields.scaleKey(key)] !== 7))
+        throw new Error('Profile scale values changed during serialization');
+      let rejected = 0;
+      try {
+        fields.scaleKey('unknown_scale');
+      } catch {
+        rejected += 1;
+      }
+      try {
+        profileForm.readScales(scales.slice(1));
+      } catch {
+        rejected += 1;
+      }
+      if (rejected !== 2) throw new Error('Unknown or missing profile scales were accepted');
+    } finally {
+      fixture.remove();
+    }
+  };
   smoke.checkFoundationContracts = async () => {
     const localization = await import(new URL('locale.js', document.baseURI).href);
     const pixels = await import(new URL('sticker-pixels.js', document.baseURI).href);
     for (const catalogue of [null, [], 'text', { invalid: 1 }])
       await checkCatalogue(localization, catalogue);
     checkInterpolation(localization);
+    await checkProfileScales();
     checkCanvas(pixels);
     const photos = await import(new URL('chat-photos.js', document.baseURI).href);
     const bytes = await checkPhotoBytes(photos.drawPhoto);

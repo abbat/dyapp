@@ -52,7 +52,7 @@ const peerPhotoLabel = (index, count) =>
 
 // ponytail: the liked list redraws on each mail pass with news, so a missing thumbnail connects
 // again then; remember misses here if that shows up in traffic.
-/** @param {import('./ipc.js').FoundProfile[]} found @param {HTMLElement[]} cards */
+/** @param {{ draft: { photos?: number[][] } }[]} found @param {HTMLElement[]} cards */
 controller.showCardPhotos = async (found, cards, call = invoke) => {
   const wanted = found
     .map((item, index) => ({ hash: item.draft.photos?.[0] ?? [], card: cards[index] }))

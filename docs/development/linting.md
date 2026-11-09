@@ -43,6 +43,7 @@ Clippy. Prepare the images after Dockerfile changes before using these commands.
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 and strict swift-format from pinned Swift 6.4.0 | `.swiftlint.yml`, `.swift-format` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
+| Desktop UI JavaScript types | TypeScript 7.0.2 (`checkJs`, strict, no emit) | `rust-check.sh web-check` | yes | — | enforced |
 | JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
 | Dockerfiles | hadolint 2.15.1 on `tools/docker`, `tests/docker` | `.hadolint.yaml` | yes | — | enforced |
@@ -362,7 +363,14 @@ helpers declare their callback and DTO contracts; finite network status codes ty
 Native mail/revocation event routing validates payload types. Privacy and photo preferences validate
 finite select/radio values before invoking their fully typed native commands.
 Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
-The complete UI TypeScript gate and pinned toolchain wiring are still planned.
+`web-check` also runs TypeScript 7.0.2 with `--allowJs --checkJs --noEmit --strict` on every
+shipped `clients/desktop/ui/*.js` module. This gate runs in CI quality, `make quality`,
+`make lint-web` and `make quick-check`; it needs no compilation or generated JavaScript.
+Docker preparation and native CI setup install the same SHA-512-verified Linux x64 native
+compiler with its standard libraries, without Node or npm at check time.
+`contact-qr.js` owns QR pixels and camera frames; `profile-public.js` owns labelled public facts.
+Profile scale names are checked against the native fourteen-field set, and draft serialization
+requires all nine non-defaulted scales before sending a save command.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

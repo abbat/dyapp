@@ -141,8 +141,9 @@ editInput.addEventListener('input', () => {
 const openEdit = (message) => {
   if (
     !chatState.activeChat?.messages.includes(message) ||
-    message.author !== identityState.current.peerId ||
-    message.deleted
+    message.author !== identityState.current?.peerId ||
+    message.deleted ||
+    message.text === null
   )
     return;
   editTarget = {
@@ -184,7 +185,7 @@ deleteCancel.addEventListener('click', closeDelete);
 const openDelete = (message) => {
   if (
     !chatState.activeChat?.messages.includes(message) ||
-    message.author !== identityState.current.peerId ||
+    message.author !== identityState.current?.peerId ||
     message.deleted
   )
     return;
@@ -223,8 +224,9 @@ forwardCancel.addEventListener('click', closeForward);
 /** @param {import('./chat-state.js').ChatMessage} message */
 const openForward = (message) => {
   if (!chatState.activeChat?.messages.includes(message) || message.deleted || !message.text) return;
+  const sourcePeerId = chatState.activeChat.peerId;
   chatState.forwardTarget = {
-    sourcePeerId: chatState.activeChat.peerId,
+    sourcePeerId,
     sourceGroupId: message.groupId,
     sourceAuthor: message.author,
     sourceMessageId: message.id,
@@ -234,9 +236,7 @@ const openForward = (message) => {
   };
   showForwardDialog(
     'forward',
-    visibleChatRows.filter(
-      (row) => row.state === 'open' && row.peerId !== chatState.activeChat.peerId,
-    ),
+    visibleChatRows.filter((row) => row.state === 'open' && row.peerId !== sourcePeerId),
   );
 };
 const closeClear = () => {
@@ -293,7 +293,7 @@ const renderChatRows = (rows, call = invoke) => {
   ];
   controller.chatPhotosShown = peerPhotosController.showCardPhotos(
     cards.map((card) => ({
-      draft: { photos: [peerNamesController.peerPhoto(card.dataset.peerId)] },
+      draft: { photos: [peerNamesController.peerPhoto(card.dataset.peerId ?? '') ?? []] },
     })),
     cards,
     call,
@@ -630,7 +630,7 @@ const sendInChat = async (send, sent, failure, call) => {
     if (!currentSend()) return;
     result = history?.messages.some(
       (message) =>
-        message.author === identityState.current.peerId &&
+        message.author === identityState.current?.peerId &&
         !existing.has(JSON.stringify(message.id)),
     )
       ? 'queued'
@@ -699,7 +699,7 @@ const editChatText = async (call = invoke) => {
     if (!currentEdit()) return;
     result = history?.messages.some(
       (message) =>
-        message.author === identityState.current.peerId &&
+        message.author === identityState.current?.peerId &&
         JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
         JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
         message.edited &&
@@ -754,7 +754,7 @@ const deleteChatText = async (call = invoke) => {
     if (!currentDelete()) return;
     result = history?.messages.some(
       (message) =>
-        message.author === identityState.current.peerId &&
+        message.author === identityState.current?.peerId &&
         JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
         JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
         message.deleted &&
@@ -789,15 +789,24 @@ const showForwardFailure = (errorText) => {
   forwardError.textContent = `${strings['chats.forwardFailed']} ${errorText}`;
   forwardError.hidden = false;
 };
+/** @param {import('./chat-state.js').ForwardMessage} source */
+const forwardCurrent = (source) =>
+  chatState.forwardTarget === source &&
+  identityCurrent(source.generation) &&
+  source.request === chatOpenRequest &&
+  chatState.activeChat?.peerId === source.sourcePeerId;
 const forwardChatText = async (call = invoke) => {
   const source = chatState.forwardTarget;
   const targetPeerId = forwardSelect.value;
-  if (!source || chatState.forwardBusy || forwardConfirm.disabled || !targetPeerId) return;
-  const currentForward = () =>
-    chatState.forwardTarget === source &&
-    identityCurrent(source.generation) &&
-    source.request === chatOpenRequest &&
-    chatState.activeChat?.peerId === source.sourcePeerId;
+  if (
+    !source ||
+    source.share !== undefined ||
+    chatState.forwardBusy ||
+    forwardConfirm.disabled ||
+    !targetPeerId
+  )
+    return;
+  const currentForward = () => forwardCurrent(source);
   chatState.forwardBusy = true;
   forwardCancel.disabled = true;
   forwardConfirm.disabled = true;
@@ -810,13 +819,7 @@ const forwardChatText = async (call = invoke) => {
   let result = 'forwardSent';
   let errorText = '';
   try {
-    await call('forward_chat_text', {
-      sourcePeerId: source.sourcePeerId,
-      sourceGroupId: source.sourceGroupId,
-      sourceAuthor: source.sourceAuthor,
-      sourceMessageId: source.sourceMessageId,
-      targetPeerId,
-    });
+    await chatsShareController.forwardMessage(source, targetPeerId, call);
   } catch (error) {
     errorText = String(error);
     const after = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
@@ -825,7 +828,7 @@ const forwardChatText = async (call = invoke) => {
       before &&
       after?.messages.some(
         (message) =>
-          message.author === identityState.current.peerId &&
+          message.author === identityState.current?.peerId &&
           message.forwarded &&
           !message.deleted &&
           message.text === source.text &&
@@ -892,7 +895,11 @@ controller.showChats = async (call = invoke) => {
     likedList.replaceChildren(
       ...found.map((item, index) => resultCard(item, `liked-${index + 1}`)),
     );
-    peerPhotosController.showCardPhotos(found, [...likedList.children], call);
+    peerPhotosController.showCardPhotos(
+      found,
+      [...domAll(likedList, ':scope > *', HTMLElement)],
+      call,
+    );
     domById('chats-liked-count', HTMLSpanElement).textContent = String(found.length);
     showChatsStatus(receiveError, found.length, rows.length);
   } catch (error) {

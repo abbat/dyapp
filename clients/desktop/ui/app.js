@@ -16,7 +16,8 @@ import * as profileFieldsModule from './profile-fields.js';
 import { profileForm as profileFormModule_profileForm } from './profile-form.js';
 import { profileInterestTags, showProfileInterests } from './profile-interests.js';
 import { controller as profilePhotosController } from './profile-photos.js';
-import { seekingDraft, showSeeking, seekingFacts, profileFormValid } from './profile-seeking.js';
+import { seekingDraft, showSeeking, profileFormValid } from './profile-seeking.js';
+import { publicFacts, publicFields } from './profile-public.js';
 import { controller as searchController } from './search.js';
 import { controller as settingsController } from './settings.js';
 import { progress } from './ui-progress.js';
@@ -70,7 +71,7 @@ const show = (section, status) => {
   // The backend refuses to remove a damaged or unreadable slot.
   removeIdentity.hidden = !(
     section === sections[3] &&
-    ['missing', 'incomplete', 'deleting'].includes(identityState.current?.reason)
+    ['missing', 'incomplete', 'deleting'].includes(identityState.current?.reason ?? '')
   );
   // Setup and the picker opened from an open identity can go back to it.
   for (const id of ['setup-cancel', 'picker-cancel'])
@@ -163,7 +164,7 @@ const identityButton = (item) => {
   button.className = 'list-button';
   Object.assign(button.dataset, { status: item.status, mode: item.mode || '' });
   button.append(
-    ...who(button, item.status === 'ready' && item.peerId, item.reason, modeText(item)),
+    ...who(button, item.status === 'ready' ? item.peerId : undefined, item.reason, modeText(item)),
   );
   button.addEventListener('click', () => act(invoke('select_identity', { slot: item.slot })));
   return button;
@@ -178,17 +179,19 @@ controller.settingsIdentity = (item) => {
   const row = document.createElement('tr');
   const name = document.createElement('td');
   name.className = 'who';
-  name.append(...who(row, item.status === 'ready' && item.peerId, item.reason, modeText(item)));
+  name.append(
+    ...who(row, item.status === 'ready' ? item.peerId : undefined, item.reason, modeText(item)),
+  );
   const active = document.createElement('td');
   active.className = 'caption';
   active.textContent =
-    item.slot === identityState.current.slot ? localeModule_strings['settings.active'] : '';
-  if (item.slot === identityState.current.slot) {
+    item.slot === identityState.current?.slot ? localeModule_strings['settings.active'] : '';
+  if (item.slot === identityState.current?.slot) {
     settingsRemove.hidden = false;
     active.append(document.createElement('br'), settingsRemove);
   }
   row.append(name, active);
-  row.dataset.active = String(item.slot === identityState.current.slot);
+  row.dataset.active = String(item.slot === identityState.current?.slot);
   return row;
 };
 
@@ -218,7 +221,7 @@ controller.showUsage = async (call = invoke) => {
     const limited = usage.node !== null && usage.nodeLimit !== null;
     usageText(
       'usage-node',
-      limited
+      usage.node !== null && usage.nodeLimit !== null
         ? localeModule_strings['usage.of']
             .replace('{used}', sizeText(usage.node))
             .replace('{limit}', sizeText(usage.nodeLimit))
@@ -275,9 +278,13 @@ const trayClose = domById('tray-close', HTMLInputElement);
 /** @param {{ show: boolean; closeToTray: boolean; } | null} prefs */
 const setTray = async (prefs, call = invoke) => {
   const generation = identityState.generation;
-  const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
-    (key) => localeModule_strings[key],
-  );
+  /** @type {[string, string, string, string]} */
+  const labels = [
+    localeModule_strings['tray.open'],
+    localeModule_strings['tray.quit'],
+    localeModule_strings['notice.newMessage'],
+    localeModule_strings['stickers.notice'],
+  ];
   const tray = await call('set_tray', { prefs, labels });
   if (!identityCurrent(generation)) return tray;
   trayShow.checked = tray.show;
@@ -333,7 +340,7 @@ document.addEventListener('keydown', (event) => {
 const showArea = (area) => {
   document.dispatchEvent(new CustomEvent('dyapp:area-change', { detail: area }));
   for (const button of domAll(document, '#sidebar [data-area]', HTMLButtonElement)) {
-    domById(button.dataset.area, HTMLElement).hidden = button.dataset.area !== area;
+    domById(button.dataset.area ?? '', HTMLElement).hidden = button.dataset.area !== area;
     if (button.dataset.area === area) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
@@ -344,7 +351,7 @@ const showArea = (area) => {
   if (area === 'chats-area') progress.chatsDone = chatsUiController.showChats();
 };
 for (const button of domAll(document, '#sidebar [data-area]', HTMLButtonElement)) {
-  button.addEventListener('click', () => showArea(button.dataset.area));
+  button.addEventListener('click', () => showArea(button.dataset.area ?? ''));
 }
 const settingsCreate = domById('settings-create', HTMLButtonElement);
 const settingsSwitch = domById('settings-switch', HTMLButtonElement);
@@ -381,8 +388,8 @@ controller.showNode = async (call = invoke) => {
     const saved = await call('load_node_settings');
     if (!identityCurrent(generation)) return;
     nodeEnabled.checked = saved.enabled;
-    nodeDisk.value = saved.diskMb;
-    nodeConnections.value = saved.maxConnections;
+    nodeDisk.value = String(saved.diskMb);
+    nodeConnections.value = String(saved.maxConnections);
   } catch (error) {
     if (identityCurrent(generation)) nodeStatus('error', String(error));
   }
@@ -454,17 +461,7 @@ const profilePlace = placePicker(
 );
 const profileDraft = () => ({
   name: domById('profile-name', HTMLInputElement).value,
-  ...Object.fromEntries(
-    profileFieldsModule.scaleFields.map((scale) => [
-      profileFieldsModule.camel(scale.key),
-      Number(
-        domById(
-          `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`,
-          HTMLSelectElement,
-        ).value,
-      ),
-    ]),
-  ),
+  ...profileFormModule_profileForm.readScales(profileFieldsModule.scaleFields),
   birthYear: birthValue('year'),
   birthMonth: birthValue('month'),
   birthDay: birthValue('day'),
@@ -535,14 +532,16 @@ const showProfile = async (call = invoke) => {
   profileFieldsModule.setScaleFields(scales);
   const rows = scales.map((scale) => profileFormModule_profileForm.scaleRow(scale, view.draft));
   /** @param {HTMLDivElement} row */
-  const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
+  const basic = (row) =>
+    ['profile-gender', 'profile-goal'].includes(row.lastElementChild?.id ?? '');
   domById('profile-basics', HTMLDivElement).replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
-  for (const part of ['year', 'month', 'day']) {
-    domById(`birth-${part}`, HTMLInputElement).value =
-      view.draft[`birth${part[0].toUpperCase()}${part.slice(1)}`] || '';
+  for (const part of /** @type {const} */ (['Year', 'Month', 'Day'])) {
+    domById(`birth-${part.toLowerCase()}`, HTMLInputElement).value = String(
+      view.draft[`birth${part}`] || '',
+    );
   }
-  domById('profile-height', HTMLInputElement).value = view.draft.height || '';
+  domById('profile-height', HTMLInputElement).value = String(view.draft.height || '');
   domById('profile-about', HTMLTextAreaElement).value = view.draft.about;
   showProfileInterests(view.draft.interests);
   showSeeking(view.draft);
@@ -557,7 +556,7 @@ const showProfile = async (call = invoke) => {
       lang: locale,
     }));
   if (!identityCurrent(generation)) return;
-  profilePlace.set(place);
+  profilePlace.set(place || null);
   showAge(view);
   showHidden(view);
   profilePhotosController.showProfilePhotos(view.draft.photos, call);
@@ -585,48 +584,6 @@ const showAge = (view) => {
   domById('profile-age', HTMLParagraphElement).textContent = view.ages
     ? `${localeModule_strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
     : localeModule_strings['profile.ageUnknown'];
-};
-// Labelled public fields of a draft as [label, value] pairs, with its place named as `place`.
-/** @param {import('./profile-fields.js').ProfileDraft} draft @param {string} place */
-const publicFacts = (draft, place) => {
-  const facts = profileFieldsModule.scaleFields.flatMap((scale) => {
-    const option = scale.choices.find(
-      (choice) => choice.code === draft[profileFieldsModule.camel(scale.key)],
-    );
-    return option
-      ? [
-          [
-            localeModule_strings[`profile.field.${scale.key}`],
-            localeModule_strings[`profile.value.${scale.key}.${option.key}`],
-          ],
-        ]
-      : [];
-  });
-  if (draft.country)
-    facts.push([
-      localeModule_strings['profile.country'],
-      profileFieldsModule.countryName(draft.country),
-    ]);
-  if (draft.place) facts.push([localeModule_strings['profile.place'], place]);
-  for (const part of ['Year', 'Month', 'Day']) {
-    const value = draft[`birth${part}`];
-    if (value !== null) facts.push([localeModule_strings[`profile.birth${part}`], String(value)]);
-  }
-  if (draft.height) facts.push([localeModule_strings['profile.height'], String(draft.height)]);
-  if (draft.about) facts.push([localeModule_strings['profile.about'], draft.about]);
-  if (draft.interests?.length)
-    facts.push([localeModule_strings['profile.interests'], draft.interests.join('; ')]);
-  facts.push(...seekingFacts(draft));
-  return facts;
-};
-// The same fields as lines, or the empty notice.
-/** @param {string} place @param {profileFieldsModule.ProfileDraft} draft */
-const publicFields = (draft, place) => {
-  const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
-  if (draft.name) fields.unshift(`${localeModule_strings['profile.name']}: ${draft.name}`);
-  if (draft.photos?.length)
-    fields.push(`${localeModule_strings['profile.photos']}: ${draft.photos.length}`);
-  return fields.length ? fields : [localeModule_strings['profile.empty']];
 };
 /** @param {string[]} values */
 const listItems = (values) =>
@@ -911,7 +868,7 @@ async function render(state, generation = identityState.generation, fresh = fals
   linkIdentity.disabled = false;
   (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
   domById('system-reason', HTMLSpanElement).textContent = systemChoice.disabled
-    ? localeModule_strings[state.systemReason]
+    ? localeModule_strings[state.systemReason ?? '']
     : '';
   show(setup, 'status.choose');
   return state;

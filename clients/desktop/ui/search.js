@@ -13,6 +13,7 @@ import { placePicker, controller as placesController } from './places.js';
 import * as profileFieldsModule from './profile-fields.js';
 import { controller as savedProfilesController } from './saved-profiles.js';
 import { progress } from './ui-progress.js';
+import { drawContactQr, grayscaleFrame, safetyCameraFrame } from './contact-qr.js';
 export const controller = {};
 /** @type {Promise<void> | undefined} */
 controller.favoriteShown = undefined;
@@ -123,6 +124,7 @@ const showSearchFilters = (offered) => {
   );
   domById('search-filters', HTMLDivElement).hidden = !offered.length;
 };
+/** @returns {import('./ipc.js').EmployerFilter} */
 const searchEmployer = () => {
   const company = domById('search-company', HTMLInputElement).value.trim();
   const kind = company ? domById('search-employer', HTMLSelectElement).value : 'any';
@@ -159,6 +161,7 @@ const searchQuery = () => {
   const place = filled('search-place') && searchPlace.id();
   if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
   const [min, max] = [filled('search-age-min'), filled('search-age-max')];
+  /** @type {[number, number] | null} */
   const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
   const [from, to] = [filled('search-height-min'), filled('search-height-max')];
   if (from || to)
@@ -231,7 +234,7 @@ const withPlaces = (profiles) =>
     })),
   );
 const viewStatus = domById('view-status', HTMLParagraphElement);
-/** @param {{ ours: boolean; matched: boolean; } | import('./ipc.js').Likes} likes */
+/** @param {import('./ipc.js').Likes} likes */
 const showLikes = (likes) => {
   domById('view-like', HTMLButtonElement).hidden = likes.ours || likes.passed;
   domById('view-unlike', HTMLButtonElement).hidden = !likes.ours;
@@ -334,7 +337,7 @@ const openFound = (found, card, call = invoke) => {
     },
     () => {},
   );
-  showLikes({ ours: false, matched: false });
+  showLikes({ ours: false, matched: false, passed: false });
   call('peer_likes', { peerId: found.peerId }).then(
     (likes) => {
       if (identityCurrent(generation) && viewed === target && !target.actionStarted)
@@ -361,6 +364,7 @@ const closeFound = () => {
   viewed = null;
 };
 domById('view-back', HTMLButtonElement).addEventListener('click', () => {
+  if (!viewed) return;
   const { card } = viewed;
   const area = card.closest('section')?.id;
   closeFound();
@@ -475,16 +479,17 @@ for (const [id, passed] of passActions) {
 copyFrom(
   domById('copy-view-peer', HTMLButtonElement),
   domById('view-peer', HTMLElement),
-  () => viewed.found.peerId,
+  () => viewed?.found.peerId ?? '',
 );
 const copySafety = (call = invoke) => {
   const button = domById('copy-safety-number', HTMLButtonElement);
   const source = domById('view-safety-number', HTMLParagraphElement);
   const found = viewed?.found;
+  if (!found) return Promise.resolve();
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const token = ++clipboardController.clipboardCopyToken;
-  return call('copy_safety_number', { peerId: found?.peerId }).then(
+  return call('copy_safety_number', { peerId: found.peerId }).then(
     (copy) => {
       if (currentView()) {
         button.textContent = strings['action.copied'];
@@ -501,35 +506,15 @@ const copySafety = (call = invoke) => {
       }, 60000);
     },
     () => {
-      if (currentView()) window.getSelection().selectAllChildren(source);
+      if (currentView()) window.getSelection()?.selectAllChildren(source);
     },
   );
 };
 domById('copy-safety-number', HTMLButtonElement).addEventListener('click', () => {
   controller.safetyCopied = copySafety();
 });
-/** @param {import('./ipc.js').QrMatrix} matrix */
-const drawContactQr = (
-  { size, modules },
-  canvas = domById('view-safety-qr', HTMLCanvasElement),
-) => {
-  if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
-    throw new Error('invalid contact QR matrix');
-  }
-  const scale = 6;
-  canvas.width = (size + 8) * scale;
-  canvas.height = canvas.width;
-  const context = canvas.getContext('2d');
-  context.fillStyle = '#fff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#000';
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      if (modules[y * size + x]) context.fillRect((x + 4) * scale, (y + 4) * scale, scale, scale);
-    }
-  }
-};
 const loadSafety = (call = invoke) => {
+  if (!viewed) return Promise.resolve();
   const { found } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
@@ -549,9 +534,9 @@ const loadSafety = (call = invoke) => {
     .then(([number, matrix]) => {
       if (!currentView()) return;
       drawContactQr(matrix);
-      domById('view-safety-number', HTMLParagraphElement).textContent = number
-        .match(/.{5}/g)
-        .join(' ');
+      domById('view-safety-number', HTMLParagraphElement).textContent = (
+        number.match(/.{5}/g) ?? []
+      ).join(' ');
       panel.hidden = false;
       button.setAttribute('aria-expanded', 'true');
     })
@@ -567,6 +552,7 @@ domById('view-safety', HTMLButtonElement).addEventListener('click', () => {
 });
 // Only this path writes the mark; the answer is the signed profile the mark was made from.
 const confirmContact = (call = invoke) => {
+  if (!viewed) return Promise.resolve();
   const { found, card } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
@@ -598,6 +584,7 @@ const confirmContact = (call = invoke) => {
   );
 };
 const removeMark = (call = invoke) => {
+  if (!viewed) return Promise.resolve();
   const { found, card } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
@@ -644,17 +631,6 @@ domById('verify-confirm', HTMLButtonElement).addEventListener('click', () => {
 domById('view-unverify', HTMLButtonElement).addEventListener('click', () => {
   controller.confirmDone = removeMark();
 });
-/** @param {CanvasRenderingContext2D | null} context @param {number} width @param {number} height */
-const grayscaleFrame = (context, width, height) => {
-  const rgba = context.getImageData(0, 0, width, height).data;
-  const pixels = new Array(width * height);
-  for (let i = 0; i < pixels.length; i += 1) {
-    const at = i * 4;
-    const luma = Math.round((rgba[at] * 299 + rgba[at + 1] * 587 + rgba[at + 2] * 114) / 1000);
-    pixels[i] = Math.round((luma * rgba[at + 3] + 255 * (255 - rgba[at + 3])) / 255);
-  }
-  return pixels;
-};
 // The UI smoke passes a PNG made from the rendered canvas through this same file path.
 /** @param {File} file */
 controller.scanQrFile = async (file) => {
@@ -691,6 +667,7 @@ controller.scanQrFile = async (file) => {
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Canvas rendering is unavailable');
     context.fillStyle = '#fff';
     context.fillRect(0, 0, width, height);
     context.drawImage(bitmap, 0, 0, width, height);
@@ -702,19 +679,6 @@ controller.scanQrFile = async (file) => {
   } finally {
     bitmap?.close();
   }
-};
-/** @param {HTMLVideoElement} preview */
-const safetyCameraFrame = (preview) => {
-  if (!preview.videoWidth || !preview.videoHeight) return null;
-  const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
-  const width = Math.max(1, Math.round(preview.videoWidth * scale));
-  const height = Math.max(1, Math.round(preview.videoHeight * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  context.drawImage(preview, 0, 0, width, height);
-  return { width, height, pixels: grayscaleFrame(context, width, height) };
 };
 /**
  * @param {() => boolean} current @param {FoundWithPlace} found
@@ -785,9 +749,10 @@ const startSafetyCamera = async (found, preview, current) => {
     cameraTimer = setTimeout(scan, 300);
   } catch (error) {
     if (!current()) return;
-    const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name)
+    const name = error instanceof Error ? error.name : '';
+    const kind = ['NotAllowedError', 'PermissionDeniedError'].includes(name)
       ? 'denied'
-      : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(error?.name)
+      : ['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(name)
         ? 'unavailable'
         : 'failed';
     stopSafetyCamera();
@@ -835,6 +800,7 @@ safetyImageInput.addEventListener('change', () => {
 });
 // The local block takes effect even if token revocation cannot reach a node.
 const blockViewed = async (call = invoke) => {
+  if (!viewed) return;
   const { found, card } = viewed;
   const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
@@ -897,7 +863,11 @@ const renderSearchResults = (result, found, call) => {
   searchResults.replaceChildren(
     ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
   );
-  peerPhotosController.showCardPhotos(found, [...searchResults.children], call);
+  peerPhotosController.showCardPhotos(
+    found,
+    [...domAll(searchResults, ':scope > *', HTMLElement)],
+    call,
+  );
   const count = String(found.length);
   if (result.partial || result.failures.length) {
     searchMessage('search.partial', count);

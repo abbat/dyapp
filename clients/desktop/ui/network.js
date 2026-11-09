@@ -219,6 +219,7 @@ cancelButton.addEventListener('click', () => invoke('cancel_connection_check'));
 // First-run step 2: the shell's Peer ID and Network form move into the wizard and back.
 const peerCode = domById('peer-id', HTMLElement);
 const peerCard = peerCode.parentElement;
+if (!peerCard) throw new Error('Missing Peer ID card');
 const skipNetwork = domById('skip-network', HTMLButtonElement);
 const linkNetworkCancel = domById('link-network-cancel', HTMLButtonElement);
 // `on` is 'link' for the step of a link: that identity is about to go, so no Peer ID and no Skip.

@@ -1,8 +1,49 @@
 import { locale, strings } from './locale.js';
-import { camel, countryName } from './profile-fields.js';
+import { countryName, scaleKey } from './profile-fields.js';
+import { byId as domById } from './dom.js';
 
 // Profile form elements are built only after app.js validates the identity generation.
 export const profileForm = {
+  /** @param {import('./profile-fields.js').PickerScale[]} scales */
+  readScales(scales) {
+    /** @type {Record<string, number>} */
+    const values = Object.fromEntries(
+      scales.map((scale) => [
+        scaleKey(scale.key),
+        Number(
+          domById(
+            `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`,
+            HTMLSelectElement,
+          ).value,
+        ),
+      ]),
+    );
+    const required = [
+      'gender',
+      'orientation',
+      'relationshipGoal',
+      'rolePreference',
+      'careerAmbition',
+      'financialPhilosophy',
+      'employmentStatus',
+      'fitnessLevel',
+      'zodiac',
+    ];
+    if (required.some((key) => !Number.isInteger(values[key])))
+      throw new Error('Missing required profile scales');
+    return {
+      ...values,
+      gender: values.gender,
+      orientation: values.orientation,
+      relationshipGoal: values.relationshipGoal,
+      rolePreference: values.rolePreference,
+      careerAmbition: values.careerAmbition,
+      financialPhilosophy: values.financialPhilosophy,
+      employmentStatus: values.employmentStatus,
+      fitnessLevel: values.fitnessLevel,
+      zodiac: values.zodiac,
+    };
+  },
   /** @param {import('./profile-fields.js').PickerScale} scale @param {Record<string, unknown>} draft */
   scaleRow(scale, draft) {
     const label = document.createElement('label');
@@ -22,7 +63,7 @@ export const profileForm = {
         return option;
       }),
     );
-    select.value = String(draft[camel(scale.key)] || 0);
+    select.value = String(draft[scaleKey(scale.key)] || 0);
     const row = document.createElement('div');
     row.className = 'field';
     row.append(label, select);

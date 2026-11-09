@@ -7,6 +7,14 @@ RUN curl -fsSL --retry 7 -o hawk.tar.gz https://github.com/astral-sh/hawk/releas
     tar -xzf hawk.tar.gz --strip-components=1 && \
     test -x cargo-hawk && test -x cargo-hawk-driver && test -x cargo-hawk-rustdoc
 
+FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS typescript-tools
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# TypeScript 7.0.2 native compiler and standard libraries; no Node runtime is needed.
+RUN curl -fsSL --retry 7 -o /tmp/typescript.tgz https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz && \
+    echo '11875fd9c360eeb8025899f109d27e177577f4ef2285bdfb78702ed4b2bca00162ce04d06cf38aef31c75db3edf2b5f6e023aa3835de237b087f47c25c6ec7fc  /tmp/typescript.tgz' | sha512sum -c - && \
+    mkdir -p /opt/typescript && \
+    tar -xzf /tmp/typescript.tgz -C /opt/typescript --strip-components=2 package/lib
+
 FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49
 ARG DYAPP_CPUS=4
 ENV RUSTUP_TOOLCHAIN=1.99.0 CARGO_BUILD_JOBS=$DYAPP_CPUS \
@@ -81,5 +89,7 @@ ENV HOME=/home/appuser CARGO_NET_OFFLINE=true
 COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/bin/swift-format /usr/local/bin/swift-format
 COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/lib/swift/linux /usr/local/lib/swift/linux
 COPY --from=hawk-tools /build/cargo-hawk /build/cargo-hawk-driver /build/cargo-hawk-rustdoc /usr/local/bin/
+COPY --from=typescript-tools /opt/typescript /opt/typescript
+ENV PATH="/opt/typescript:${PATH}"
 USER 1000:1000
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

@@ -28,6 +28,29 @@ export const setScaleFields = (scales) => {
 };
 /** @param {string} key */
 export const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+const scaleKeys = /** @type {const} */ ([
+  'gender',
+  'orientation',
+  'relationshipGoal',
+  'rolePreference',
+  'careerAmbition',
+  'financialPhilosophy',
+  'employmentStatus',
+  'fitnessLevel',
+  'zodiac',
+  'smoking',
+  'drinking',
+  'tattoos',
+  'maritalStatus',
+  'pets',
+]);
+/** @param {string} key */
+export const scaleKey = (key) => {
+  const name = camel(key);
+  const field = scaleKeys.find((candidate) => candidate === name);
+  if (!field) throw new Error(`Unknown profile scale: ${key}`);
+  return field;
+};
 /** @param {string} code */
 export const countryName = (code) =>
   new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
