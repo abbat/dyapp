@@ -6,9 +6,12 @@ import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { shortPeer } from './peer-labels.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.chatRenamed = undefined;
 
 // Contact names: the page's copy of each peer's local or public name, and the dialog that sets the
 // local one. A public name is the peer's own claim, so it always shows its mark and short Peer ID.
+/** @type {Map<string, import('./ipc.js').PeerName>} */
 const peerNames = new Map();
 controller.peerName = (id) => {
   const short = shortPeer(id);
@@ -38,6 +41,7 @@ const renameDialog = domById('chat-rename-dialog', HTMLDialogElement);
 const renameInput = domById('chat-rename-input', HTMLInputElement);
 const renameError = domById('chat-rename-error', HTMLParagraphElement);
 const renameSave = domById('chat-rename-save', HTMLButtonElement);
+/** @type {{ peerId: string, generation: number } | null} */
 let renameTarget = null;
 const closeRename = () => {
   if (renameDialog.open) renameDialog.close();

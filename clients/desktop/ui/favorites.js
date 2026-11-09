@@ -4,14 +4,22 @@ import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { viewed } from './search.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.favoriteChanged = undefined;
 
 // Saved state is local. An unknown state can only be retried, never toggled.
 const favoritePanel = domById('view-favorite', HTMLDivElement);
 const favoriteButton = domById('view-favorite-toggle', HTMLButtonElement);
 const favoriteStatus = domById('view-favorite-status', HTMLParagraphElement);
+/** @typedef {{ view: import('./search.js').ProfileOpening, generation: number,
+ *   call: import('./ipc.js').Invoke, saved: boolean | null, busy: boolean,
+ *   status: string }} FavoriteView */
+/** @type {FavoriteView | null} */
 let favoriteView = null;
+/** @param {FavoriteView} target */
 const favoriteCurrent = (target) =>
   favoriteView === target && viewed === target.view && identityCurrent(target.generation);
+/** @param {FavoriteView} target */
 const renderFavorite = (target) => {
   favoriteButton.disabled = target.busy;
   const key = target.busy
@@ -36,6 +44,7 @@ controller.showFavorite = async (call = invoke) => {
   controller.clearFavorite();
   const view = viewed;
   if (!view || view.found.peerId === identityState.current?.peerId) return;
+  /** @type {FavoriteView} */
   const target = {
     view,
     generation: identityState.generation,

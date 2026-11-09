@@ -50,6 +50,28 @@ import { controller as stickerPickerController } from './sticker-picker.js';
 import { controller as stickerRequestsController } from './sticker-requests.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.chatOpened = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatPhotosShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatRead = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatBlocked = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatMuted = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatCleared = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatSent = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatEdited = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatDeleted = undefined;
+/** @type {Promise<void> | undefined} */
+controller.profileShared = undefined;
+/** @type {Promise<void> | undefined} */
+controller.chatForwarded = undefined;
 
 // Chats: local projection, requests, text, clearing and Liked you.
 // Liked you: peers whose like this profile has not answered, fetched again on each visit.
@@ -58,8 +80,11 @@ export const controller = {};
 const chatsMessage = (key, detail = '') =>
   statusMessage(domById('chats-status', HTMLParagraphElement), 'chats-open-network', key, detail);
 
+/** @type {string | null} */
 let chatRenderKey = null;
+/** @type {import('./ipc.js').Invoke | null} */
 let chatRenderCall = null;
+/** @type {string | null} */
 let newDevicePeer = null;
 let chatSending = false;
 let chatBlocking = false;
@@ -68,10 +93,15 @@ let chatsRequest = 0;
 let visibleChatRows = [];
 let chatOpenRequest = 0;
 
+/** @typedef {{ peerId: string, generation: number, request: number }} ChatTarget */
+/** @typedef {ChatTarget & { groupId: number[], messageId: number[] }} MessageTarget */
+/** @type {ChatTarget | null} */
 let clearTarget = null;
 let clearBusy = false;
+/** @type {string | null} */
 let clearedPeer = null;
 
+/** @type {(MessageTarget & { text: string | null }) | null} */
 let editTarget = null;
 let editBusy = false;
 const closeEdit = () => {
@@ -131,6 +161,7 @@ const openEdit = (message) => {
   editInput.focus();
 };
 
+/** @type {MessageTarget | null} */
 let deleteTarget = null;
 let deleteBusy = false;
 const closeDelete = () => {

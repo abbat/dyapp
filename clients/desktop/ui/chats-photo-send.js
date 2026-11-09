@@ -5,6 +5,8 @@ import { chatSending, sendInChat } from './chats-ui.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.chatPhotoSent = undefined;
 
 // Sends a picked photo from the open chat through the imported chat controller.
 // A canvas writes a bare JPEG, so EXIF, GPS, colour profiles and anything appended to the file

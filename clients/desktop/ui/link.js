@@ -16,6 +16,7 @@ const linkOpen = domById('link-open', HTMLButtonElement);
 const linkMs = 3000;
 let linkRun = 0;
 let linkTimer = 0;
+/** @type {import('./identity-state.js').ReadyIdentity | null} */
 let linkJoined = null;
 
 const linkState = (status) => {

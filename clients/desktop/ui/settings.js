@@ -12,6 +12,16 @@ import { controller as privacyUiController } from './privacy-ui.js';
 import { controller as settingsCollectionsController } from './settings-collections.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.blockedShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.revocationRetried = undefined;
+/** @type {Promise<void> | undefined} */
+controller.nodeShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.usageShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.privacyShown = undefined;
 
 // Settings controllers use explicitly imported navigation and identity helpers.
 let identitiesRead = 0;
@@ -54,6 +64,7 @@ const retryRevocation = async (peerId, retry, call = invoke) => {
 const showBlocked = async (call = invoke) => {
   const generation = identityState.generation;
   const read = ++blockedRead;
+  /** @type {string[]} */
   let peers = [];
   let failed = false;
   try {

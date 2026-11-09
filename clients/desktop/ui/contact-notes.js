@@ -5,6 +5,8 @@ import { strings } from './locale.js';
 import { viewed } from './search.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.noteChanged = undefined;
 
 // Private drafts belong to one loaded profile and identity, never the public draft.
 const notePanel = domById('view-note', HTMLDivElement);
@@ -13,9 +15,15 @@ const noteSave = domById('view-note-save', HTMLButtonElement);
 const noteClear = domById('view-note-clear', HTMLButtonElement);
 const noteRetry = domById('view-note-retry', HTMLButtonElement);
 const noteStatus = domById('view-note-status', HTMLParagraphElement);
+/** @typedef {{ view: import('./search.js').ProfileOpening, generation: number,
+ *   call: import('./ipc.js').Invoke, saved: string, loaded: boolean, busy: boolean,
+ *   status: string }} NoteView */
+/** @type {NoteView | null} */
 let noteView = null;
+/** @param {NoteView} target */
 const noteCurrent = (target) =>
   noteView === target && viewed === target.view && identityCurrent(target.generation);
+/** @param {NoteView} target */
 const renderNote = (target) => {
   noteText.disabled = target.busy || !target.loaded;
   noteSave.disabled = target.busy || !target.loaded || noteText.value === target.saved;
@@ -36,6 +44,7 @@ controller.showContactNote = async (call = invoke) => {
   controller.clearContactNote();
   const view = viewed;
   if (!view || view.found.peerId === identityState.current?.peerId) return;
+  /** @type {NoteView} */
   const target = {
     view,
     generation: identityState.generation,

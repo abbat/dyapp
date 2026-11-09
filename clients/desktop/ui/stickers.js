@@ -5,6 +5,10 @@ import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.stickerRemoved = undefined;
+/** @type {Promise<void> | undefined} */
+controller.stickerImported = undefined;
 
 // Each disclosure opening owns its reads, picker and import completion.
 (() => {

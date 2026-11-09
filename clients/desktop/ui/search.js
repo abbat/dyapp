@@ -14,6 +14,31 @@ import * as profileFieldsModule from './profile-fields.js';
 import { controller as savedProfilesController } from './saved-profiles.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.favoriteShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.peerPhotosShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.likeDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.passDone = undefined;
+/** @type {Promise<boolean> | undefined} */
+controller.safetyClearDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.safetyCopied = undefined;
+/** @type {Promise<void> | undefined} */
+controller.safetyDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.confirmDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.cameraDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.scanQrDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.blockDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.searchDone = undefined;
+/** @type {{ stream: MediaStream | null }} */
 export const cameraState = { stream: null };
 
 // The Search area imports its identity, navigation, place and status helpers.
@@ -189,6 +214,7 @@ const resultCard = (found, id) => {
 };
 const searchMain = domById('search-main', HTMLDivElement);
 const profileView = domById('profile-view', HTMLDivElement);
+/** @param {import('./ipc.js').FoundProfile[]} profiles */
 const withPlaces = (profiles) =>
   Promise.all(
     profiles.map(async (profile) => ({
@@ -205,9 +231,13 @@ const showLikes = (likes) => {
   domById('view-pass', HTMLButtonElement).hidden = likes.ours || likes.passed;
   domById('view-unpass', HTMLButtonElement).hidden = !likes.passed;
 };
+/** @typedef {import('./ipc.js').FoundProfile & { place: string }} FoundWithPlace */
+/** @typedef {{ found: FoundWithPlace, card: HTMLElement, actionStarted: boolean, actionBusy?: boolean }} ProfileOpening */
+/** @type {ProfileOpening | null} */
 let viewed = null;
 let safetyScanToken = 0;
 
+/** @type {number | null} */
 let cameraTimer = null;
 let cameraPending = false;
 /** @param {string} key */
@@ -218,7 +248,7 @@ const showSafetyStatus = (key) => {
 };
 const stopSafetyCamera = () => {
   safetyScanToken += 1;
-  clearTimeout(cameraTimer);
+  clearTimeout(cameraTimer ?? undefined);
   cameraTimer = null;
   cameraPending = false;
   cameraState.stream?.getTracks().forEach((track) => {
@@ -266,9 +296,11 @@ const showFound = (found) => {
   );
 };
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
+/** @param {FoundWithPlace} found @param {HTMLElement} card */
 const openFound = (found, card, call = invoke) => {
   const generation = identityState.generation;
   stopSafetyCamera();
+  /** @type {ProfileOpening} */
   const target = { found, card, actionStarted: false };
   viewed = target;
   for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass'])

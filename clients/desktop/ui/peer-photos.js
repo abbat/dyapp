@@ -5,6 +5,10 @@ import { strings } from './locale.js';
 import { shortPeer } from './peer-labels.js';
 import { viewStatus } from './search.js';
 export const controller = {};
+/** @type {Promise<boolean | undefined> | undefined} */
+controller.peerPhotoChosen = undefined;
+/** @type {Promise<void> | undefined} */
+controller.peerPhotoLoaded = undefined;
 
 // Other people's photos. Lists ask for thumbnails and the profile view for full images, through a
 // memory cache in the desktop core. Whatever fails leaves the letters, and the next view retries.

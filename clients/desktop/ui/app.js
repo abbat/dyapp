@@ -21,6 +21,18 @@ import { controller as searchController } from './search.js';
 import { controller as settingsController } from './settings.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.settingsShown = undefined;
+/** @type {Promise<void> | undefined} */
+controller.nodeApplied = undefined;
+/** @type {Promise<void> | undefined} */
+controller.profileSaveDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.publishDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.hideDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.statusShown = undefined;
 
 const ready = domById('app-ready', HTMLParagraphElement);
 const setup = domById('setup', HTMLElement);
@@ -80,7 +92,7 @@ const showError = () => {
   bootRetry.focus();
 };
 
-/** @param {string | undefined} [reason] */
+/** @param {string | null | undefined} [reason] */
 const reasonText = (reason) =>
   localeModule_strings[`recovery.${reason}`] || localeModule_strings['recovery.unavailable'];
 
@@ -121,7 +133,7 @@ const peerLabel = (element, id) => {
 /**
  * @param {HTMLElement} element
  * @param {string | undefined} id
- * @param {string | undefined} reason
+ * @param {string | null | undefined} reason
  * @param {string} caption
  */
 const who = (element, id, reason, caption) => {
@@ -186,6 +198,7 @@ const knownSize = (bytes) =>
 const usageText = (id, text) => {
   domById(id, HTMLElement).textContent = text;
 };
+/** @type {number | undefined} */
 let usageTimer;
 controller.showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
@@ -223,6 +236,7 @@ controller.showUsage = async (call = invoke) => {
 };
 
 // The status bar: client traffic every 2 s, unavailable until a client swarm starts.
+/** @type {number | undefined} */
 let statusTimer;
 const showStatus = async (call = invoke) => {
   clearTimeout(statusTimer);
@@ -469,6 +483,7 @@ const profileMessage = (key, detail = '') =>
 // While the search window holds the published profile, say when it reaches search and send it
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = domById('profile-search-wait', HTMLParagraphElement);
+/** @type {number | undefined} */
 let searchWaitTimer;
 const sendSearchProfile = (generation = identityState.generation, call = invoke) => {
   if (!identityCurrent(generation)) return Promise.resolve();
@@ -650,6 +665,7 @@ const openPublishDialog = (view) => {
   profileCancel.focus();
 };
 const elapsed = domById('publish-elapsed', HTMLParagraphElement);
+/** @type {number | undefined} */
 let elapsedTimer;
 const startElapsed = () => {
   const generation = identityState.generation;

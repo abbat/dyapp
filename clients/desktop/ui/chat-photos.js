@@ -9,6 +9,7 @@ const ORIGINAL_SIDE = 480;
 const MAX_KEPT_ORIGINALS = 16;
 // Decrypted originals of the open chat, so a redraw keeps them. Memory only, dropped on leaving it.
 const photoOriginals = new Map();
+/** @type {string | null} */
 let photoOriginalsPeer = null;
 // The bubble drawn last for each photo of the open chat, the fetches running and the automatic
 // tries already made.

@@ -3,6 +3,10 @@ import { strings } from './locale.js';
 import { stickerBinaryPixels } from './sticker-pixels.js';
 import { controller as stickersController } from './stickers.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.stickerImagesLoaded = undefined;
+/** @type {Promise<void> | undefined} */
+controller.stickerImageLoaded = undefined;
 
 // IntersectionObserver owns automatic reads; clearing the view invalidates every in-flight reply.
 (() => {

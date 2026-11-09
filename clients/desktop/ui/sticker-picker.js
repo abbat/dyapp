@@ -6,6 +6,8 @@ import { stickerPixels } from './sticker-pixels.js';
 import { controller as stickersController } from './stickers.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.stickerSent = undefined;
 
 // Every opening and page read owns its callbacks; committed sends belong to the common outbox.
 (() => {

@@ -5,6 +5,8 @@ import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 export const controller = {};
+/** @type {Promise<{ status: string; } | null> | Promise<import('./identity-state.js').ReadyIdentity | import('./identity-state.js').RecoveryIdentity | import('./identity-state.js').SetupIdentity | { status: string; }> | undefined} */
+controller.removeDone = undefined;
 export const removalState = { published: false };
 
 // Removal actions use explicit identity state, dialog elements and navigation imports.

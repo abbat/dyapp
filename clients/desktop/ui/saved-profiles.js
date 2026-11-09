@@ -5,6 +5,12 @@ import { strings } from './locale.js';
 import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { withPlaces, searchMain, openFound } from './search.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.savedOpened = undefined;
+/** @type {Promise<void> | undefined} */
+controller.savedRemoved = undefined;
+/** @type {Promise<void> | undefined} */
+controller.savedShown = undefined;
 
 // The list reads local IDs and labels; only pressing a row fetches a verified profile.
 const savedPanel = domById('saved-profiles', HTMLDetailsElement);

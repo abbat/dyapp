@@ -17,6 +17,10 @@ import { shortPeer } from './peer-labels.js';
 import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { viewed, withPlaces, openFound } from './search.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.shareOpened = undefined;
+/** @type {Promise<void> | undefined} */
+controller.sharedOpened = undefined;
 
 // Profile links in chats reuse the chat controller's Forward dialog through imports.
 // Forward and Share use one dialog; its title and button name the action.

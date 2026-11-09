@@ -6,6 +6,10 @@ import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.profilePhotoChanged = undefined;
+/** @type {Promise<void> | undefined} */
+controller.ownAvatarsShown = undefined;
 
 // The owner's profile photos share the imported chat photo encoder. Every change runs with the form busy: a proof-of-work step saves the draft it read, so a
 // change made during one would be lost.
@@ -22,6 +26,7 @@ const profilePhotoLimit = domById('profile-photo-limit', HTMLParagraphElement);
 const profilePhotoDialog = domById('photo-remove-dialog', HTMLDialogElement);
 const profilePhotoCancel = domById('photo-remove-cancel', HTMLButtonElement);
 let profilePhotoCount = 0;
+/** @type {(() => Promise<void>) | null} */
 let profilePhotoRemoval = null;
 
 controller.limitProfilePhotos = () => {
@@ -163,6 +168,7 @@ const profilePhotoTile = (hash, index, count, call) => {
 };
 // The open identity's first draft photo on its avatars. It is local, so no node hears of this.
 // Other identities keep their letters: their stores stay closed.
+/** @type {import('./ipc.js').BinaryResponse | null} */
 let ownPhoto = null;
 let ownPhotoRun = 0;
 const paintOwnAvatar = async (avatar) => {

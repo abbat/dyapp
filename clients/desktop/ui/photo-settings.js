@@ -2,6 +2,10 @@ import { all as domAll, byId as domById, eventDetail } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.photoModeSaved = undefined;
+/** @type {Promise<void> | undefined} */
+controller.photoModeShown = undefined;
 
 // Auto-download mode is independent of the originals cache budget.
 const photoModeError = domById('photo-mode-error', HTMLParagraphElement);

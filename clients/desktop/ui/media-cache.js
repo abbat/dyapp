@@ -4,6 +4,10 @@ import { identityCurrent, identityState } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.mediaCacheSaved = undefined;
+/** @type {Promise<void> | undefined} */
+controller.mediaCacheShown = undefined;
 
 // Byte budgets survive toggling off; uncertain writes require fresh readback.
 (() => {

@@ -3,6 +3,8 @@ import { identityCurrent, identityState } from './identity-state.js';
 import { strings } from './locale.js';
 import { controller as stickersController } from './stickers.js';
 export const controller = {};
+/** @type {Promise<void> | Promise<void[]> | undefined} */
+controller.stickerRequestsUpdated = undefined;
 
 // Read status only for visible received stickers; actions carry the observed local generation.
 (() => {

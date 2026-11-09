@@ -2,6 +2,8 @@ import { all as domAll, byId as domById, find as domFind } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { strings } from './locale.js';
 export const controller = {};
+/** @type {Promise<unknown> | undefined} */
+controller.settingsCollectionRefreshed = undefined;
 
 // Local collections are held as data; only one page of rows is mounted.
 (() => {

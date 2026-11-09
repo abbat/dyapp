@@ -28,6 +28,7 @@ const unpassPeer = async (peerId, button, call) => {
 controller.showPassed = async (call = invoke) => {
   const generation = identityState.generation;
   const read = ++passedRead;
+  /** @type {string[]} */
   let peers = [];
   let failed = false;
   try {

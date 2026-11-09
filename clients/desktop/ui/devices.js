@@ -5,6 +5,12 @@ import { strings } from './locale.js';
 import { controller as settingsCollectionsController } from './settings-collections.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.codeChecked = undefined;
+/** @type {Promise<void> | undefined} */
+controller.linkSent = undefined;
+/** @type {Promise<void> | undefined} */
+controller.disconnectDone = undefined;
 
 // Settings > Devices: the devices of the open identity, the disconnect dialog and sending the
 // identity to a new device.
@@ -23,6 +29,7 @@ const codeInvalid = domById('device-code-invalid', HTMLParagraphElement);
 const confirmDialog = domById('device-confirm-dialog', HTMLDialogElement);
 const confirmCancel = domById('device-confirm-cancel', HTMLButtonElement);
 const confirmAction = domById('device-confirm-action', HTMLButtonElement);
+/** @type {import('./ipc.js').Device | null} */
 let disconnecting = null;
 let disconnected = false;
 let devicesRead = 0;

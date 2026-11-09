@@ -7,6 +7,8 @@ import { startLink } from './link.js';
 import { strings } from './locale.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {Promise<void> | undefined} */
+controller.connectionChecked = undefined;
 
 // The Network area and the shell's connection status use explicitly imported helpers.
 // Bootstrap settings of the open identity: draft rows and one bounded Check and connect.
