@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../clients/desktop/video-frame-renderer.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../clients/desktop/ui-tests/video-frame-renderer.js'), 'utf8');
 const makeRenderer = vm.runInNewContext(`${source}\nsmoke.createVideoFrameRenderer`, {
   smoke: {},
   ArrayBuffer, DataView, Uint8ClampedArray, Set, Number, Date,

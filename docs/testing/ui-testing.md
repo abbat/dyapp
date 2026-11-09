@@ -25,7 +25,8 @@ missing elements and wrong element kinds. Functional scenarios use those same co
 objects and live state bindings (see
 [desktop module boundaries](../architecture/ui-state-contract.md#desktop-module-boundaries)).
 
-Shared desktop smoke scripts are concatenated in `clients/desktop/ui-tests/mod.rs` order.
+Shared desktop smoke scripts, including the test-only video frame renderer and smoke checks,
+live in `clients/desktop/ui-tests/` and are concatenated in its `mod.rs` order.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
 Those entry scripts retain their existing exported check tables. Helpers share each scenario's
