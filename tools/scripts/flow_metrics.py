@@ -27,10 +27,24 @@ def run_order(run):
     return instant(run["created_at"]), run.get("id", 0), run["attempt"]
 
 
-def ci_metrics(runs, since, now):
-    ci = [r for r in runs if r["workflow"] == ".github/workflows/ci.yml"]
-    if not ci:
-        raise ValueError("No canonical main CI history")
+def job_minutes(runs, since, now):
+    minutes = 0
+    for run in runs:
+        for job in run["jobs"]:
+            if not job.get("started_at"):
+                continue
+            start = instant(job["started_at"])
+            end = instant(job["completed_at"]) if job.get("completed_at") \
+                else now
+            if end < start:
+                raise ValueError("Job completion precedes start")
+            clipped_start, clipped_end = max(start, since), min(end, now)
+            elapsed = (clipped_end - clipped_start).total_seconds()
+            minutes += max(0, elapsed) / 60
+    return minutes
+
+
+def red_history(ci, since, now):
     events = [r for r in ci if r["completed_at"]]
     events.sort(key=lambda r: instant(r["completed_at"]))
     red, generation, green_generation = None, None, None
@@ -57,22 +71,10 @@ def ci_metrics(runs, since, now):
             generation = max(generation or order, order)
     if red is not None:
         intervals.append((red, now))
-    red_hours = [(end - start).total_seconds() / 3600
-                 for start, end in intervals if end >= since]
-    minutes = 0
-    for run in runs:
-        for job in run["jobs"]:
-            if not job.get("started_at"):
-                continue
-            start = instant(job["started_at"])
-            end = instant(job["completed_at"]) if job.get("completed_at") \
-                else now
-            if end < start:
-                raise ValueError("Job completion precedes start")
-            clipped_start, clipped_end = max(start, since), min(end, now)
-            elapsed = (clipped_end - clipped_start).total_seconds()
-            minutes += max(0, elapsed) / 60
-    failed = sum(bool(results & BAD) for results in outcomes.values())
+    return red, intervals, recovery, outcomes
+
+
+def main_state(ci, red, now):
     latest = max(ci, key=run_order)
     state = "unknown"
     if red is not None:
@@ -81,6 +83,19 @@ def ci_metrics(runs, since, now):
         if instant(latest["completed_at"]) <= now:
             if latest["conclusion"] == "success":
                 state = "green"
+    return state
+
+
+def ci_metrics(runs, since, now):
+    ci = [r for r in runs if r["workflow"] == ".github/workflows/ci.yml"]
+    if not ci:
+        raise ValueError("No canonical main CI history")
+    red, intervals, recovery, outcomes = red_history(ci, since, now)
+    red_hours = [(end - start).total_seconds() / 3600
+                 for start, end in intervals if end >= since]
+    minutes = job_minutes(runs, since, now)
+    failed = sum(bool(results & BAD) for results in outcomes.values())
+    state = main_state(ci, red, now)
     return {
         "main_state": state,
         "red_commit_percent": ratio(failed, len(outcomes)),
@@ -156,12 +171,7 @@ def health(snapshot):
             "errors": errors, "warnings": warnings}
 
 
-def report(snapshot):
-    if snapshot["schema"] != 1:
-        raise ValueError("Unsupported snapshot schema")
-    now = instant(snapshot["now"])
-    since = now - timedelta(days=7)
-
+def bead_metrics(snapshot, since, now):
     def within(value):
         return since <= instant(value) < now
     errors, leads, wip = [], [], Counter()
@@ -184,12 +194,10 @@ def report(snapshot):
             completed += 1
     errors += [f"WIP {agent}: {count} > 3" for agent, count in wip.items()
                if count > 3]
-    ci = ci_metrics(snapshot["runs"], since, now)
-    if ci["max_red_hours"] > 24:
-        errors.append(f"Main red {ci['max_red_hours']:.2f} hours > 24")
-    reviewed, late = postmortems(snapshot, ci, now)
-    errors += late
-    commits = [c for c in snapshot["commits"] if within(c["at"])]
+    return errors, leads, wip, completed
+
+
+def commit_metrics(commits):
     hatches, hatch_commits, reverts = Counter(), 0, 0
     for commit in commits:
         used = Counter()
@@ -201,6 +209,12 @@ def report(snapshot):
         hatches.update(used)
         hatch_commits += bool(used)
         reverts += 'This reverts commit ' in commit["message"]
+    return hatches, hatch_commits, reverts
+
+
+def false_positive_metrics(snapshot, since, now):
+    def within(value):
+        return since <= instant(value) < now
     checks = {}
     for sample in snapshot["observations"]:
         if not isinstance(sample["false_positive"], bool):
@@ -213,6 +227,26 @@ def report(snapshot):
         name: {"samples": total, "false_positives": false,
                "percent": ratio(false, total)}
         for name, (total, false) in checks.items()}
+    return false_positives
+
+
+def report(snapshot):
+    if snapshot["schema"] != 1:
+        raise ValueError("Unsupported snapshot schema")
+    now = instant(snapshot["now"])
+    since = now - timedelta(days=7)
+
+    def within(value):
+        return since <= instant(value) < now
+    errors, leads, wip, completed = bead_metrics(snapshot, since, now)
+    ci = ci_metrics(snapshot["runs"], since, now)
+    if ci["max_red_hours"] > 24:
+        errors.append(f"Main red {ci['max_red_hours']:.2f} hours > 24")
+    reviewed, late = postmortems(snapshot, ci, now)
+    errors += late
+    commits = [c for c in snapshot["commits"] if within(c["at"])]
+    hatches, hatch_commits, reverts = commit_metrics(commits)
+    false_positives = false_positive_metrics(snapshot, since, now)
     reviews = []
     for practice in snapshot["practices"]:
         adopted = instant(practice["adopted_at"])

@@ -13,6 +13,35 @@ from capture import Capture
 from check_dispatch import load_runner
 
 
+def stage_result(status, label, verbose, captured, message, log_file):
+    if not status:
+        print(f"OK {label}", flush=True)
+        return 0
+    if verbose:
+        print(f"ERROR {label} (exit {status})", file=sys.stderr, flush=True)
+        return 128 - status if status < 0 else status
+    text = (captured.getvalue().decode(errors="replace")
+            if captured is not None else message)
+    return report_failure(label, status, text,
+                          log_file if captured is not None else None)
+
+
+def close_capture(output, drain, captured):
+    if output is not None:
+        os.close(output)
+        # A helper that outlives the stage can keep the pipe open.
+        drain.join(timeout=10)
+    if captured is not None:
+        captured.close()
+
+
+def startup_error(captured, verbose, message):
+    if captured is None and verbose:
+        print(message, file=sys.stderr, end="")
+    elif captured is not None:
+        captured.write(message.encode())
+
+
 def run_logged(command, environment, label, cleanup=None, log_file=None):
     """Capture quiet stages with retained logs and concise diagnostics."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
@@ -44,29 +73,12 @@ def run_logged(command, environment, label, cleanup=None, log_file=None):
         status = status or 130
     except OSError as error:
         message = f"{type(error).__name__}: {error}\n"
-        if captured is None and verbose:
-            print(message, file=sys.stderr, end="")
-        elif captured is not None:
-            captured.write(message.encode())
+        startup_error(captured, verbose, message)
         status = status or 1
     finally:
-        if output is not None:
-            os.close(output)
-            # ponytail: a helper that outlives the stage keeps the pipe open;
-            # its later output is lost rather than waited for.
-            drain.join(timeout=10)
-        if captured is not None:
-            captured.close()
-    if not status:
-        print(f"OK {label}", flush=True)
-        return 0
-    if verbose:
-        print(f"ERROR {label} (exit {status})", file=sys.stderr, flush=True)
-        return 128 - status if status < 0 else status
-    text = (captured.getvalue().decode(errors="replace")
-            if captured is not None else message)
-    return report_failure(label, status, text,
-                          log_file if captured is not None else None)
+        close_capture(output, drain, captured)
+    return stage_result(
+        status, label, verbose, captured, message, log_file)
 
 
 def report_failure(label, status, text, log_file=None):
@@ -101,6 +113,37 @@ def config_failure(text, status, environment, log_file=None):
 CPUS = min(int(os.environ.get("DYAPP_CPUS") or 4), 4, os.cpu_count() or 1)
 
 
+def image_build_command(build, service, environment):
+    filename = build.get("dockerfile", "Dockerfile")
+    dockerfile = Path(build["context"]) / filename
+    # CI layer cache (DYAPP_BUILD_CACHE=gha) needs BuildKit, which has no
+    # CPU quota and cannot see local base images such as dyapp:dev-*.
+    cache = environment.get("DYAPP_BUILD_CACHE")
+    if cache and "FROM dyapp:" not in dockerfile.read_text():
+        scope = service["image"].replace(":", "-")
+        command = ["docker", "buildx", "build", "--load",
+                   "--cache-from", f"type={cache},scope={scope}"]
+        # Only main writes the cache: other branches and pull requests
+        # read it, so they neither poison it nor fill its 10 GB limit.
+        if environment.get("GITHUB_REF") == "refs/heads/main":
+            command += ["--cache-to", f"type={cache},scope={scope}"]
+        buildkit = "1"
+    else:
+        command = ["docker", "build", "--cpu-period", "100000",
+                   "--cpu-quota", str(CPUS * 100000),
+                   "--build-arg", f"DYAPP_CPUS={CPUS}"]
+        buildkit = "0"
+    command.extend(["--label", "dyapp.local", "-t", service["image"],
+                    "-f", str(dockerfile)])
+    if build.get("target"):
+        command.extend(["--target", build["target"]])
+    for key, value in build.get("args", {}).items():
+        command.extend(["--build-arg", key if value is None
+                        else f"{key}={value}"])
+    command.append(build["context"])
+    return command, buildkit
+
+
 def build_images(arguments, environment, log_file=None):
     value_options = {"-f", "--file", "--profile", "-p", "--project-name"}
     candidates = [i for i, value in enumerate(arguments) if value == "build"]
@@ -133,33 +176,8 @@ def build_images(arguments, environment, log_file=None):
             return config_failure(
                 f"ValueError: Unsupported build configuration: {name}",
                 2, environment, log_file)
-        filename = build.get("dockerfile", "Dockerfile")
-        dockerfile = Path(build["context"]) / filename
-        # CI layer cache (DYAPP_BUILD_CACHE=gha) needs BuildKit, which has no
-        # CPU quota and cannot see local base images such as dyapp:dev-*.
-        cache = environment.get("DYAPP_BUILD_CACHE")
-        if cache and "FROM dyapp:" not in dockerfile.read_text():
-            scope = service["image"].replace(":", "-")
-            command = ["docker", "buildx", "build", "--load",
-                       "--cache-from", f"type={cache},scope={scope}"]
-            # Only main writes the cache: other branches and pull requests
-            # read it, so they neither poison it nor fill its 10 GB limit.
-            if environment.get("GITHUB_REF") == "refs/heads/main":
-                command += ["--cache-to", f"type={cache},scope={scope}"]
-            buildkit = "1"
-        else:
-            command = ["docker", "build", "--cpu-period", "100000",
-                       "--cpu-quota", str(CPUS * 100000),
-                       "--build-arg", f"DYAPP_CPUS={CPUS}"]
-            buildkit = "0"
-        command.extend(["--label", "dyapp.local", "-t", service["image"],
-                        "-f", str(dockerfile)])
-        if build.get("target"):
-            command.extend(["--target", build["target"]])
-        for key, value in build.get("args", {}).items():
-            command.extend(["--build-arg", key if value is None
-                            else f"{key}={value}"])
-        command.append(build["context"])
+        command, buildkit = image_build_command(
+            build, service, environment)
         status = run_logged(
             command, {**environment, "DOCKER_BUILDKIT": buildkit},
             service["image"], log_file=log_file,

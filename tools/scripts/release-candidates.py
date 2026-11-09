@@ -34,7 +34,7 @@ def stable_tag(tag):
         raise ValueError("invalid tag")
 
 
-def candidates(release, tag, commit):
+def release_assets(release, tag, commit):
     stable_tag(tag)
     if not isinstance(commit, str) or not SHA.fullmatch(commit):
         raise ValueError("invalid commit")
@@ -51,6 +51,25 @@ def candidates(release, tag, commit):
     assets = release.get("assets")
     if not isinstance(assets, list) or len(assets) > 100:
         raise ValueError("invalid release assets")
+    return assets
+
+
+def package_metadata(asset, name):
+    digest = asset.get("digest")
+    size = asset.get("size")
+    if asset.get("state") != "uploaded":
+        raise ValueError("client package not uploaded")
+    if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
+        raise ValueError("client package has no SHA-256 digest")
+    if type(size) is not int or not 0 < size <= 1024**3:
+        raise ValueError("invalid client package size")
+    return {
+        "name": name, "sha256": digest[7:], "size": size,
+    }
+
+
+def candidates(release, tag, commit):
+    assets = release_assets(release, tag, commit)
     version = tag[1:]
     expected = {
         f"dyapp_{version}_amd64.deb": "linux-x86_64",
@@ -76,17 +95,7 @@ def candidates(release, tag, commit):
         target = expected.get(name)
         if target is None:
             continue
-        digest = asset.get("digest")
-        size = asset.get("size")
-        if asset.get("state") != "uploaded":
-            raise ValueError("client package not uploaded")
-        if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
-            raise ValueError("client package has no SHA-256 digest")
-        if type(size) is not int or not 0 < size <= 1024**3:
-            raise ValueError("invalid client package size")
-        packages[target] = {
-            "name": name, "sha256": digest[7:], "size": size,
-        }
+        packages[target] = package_metadata(asset, name)
     return {
         "schema": 1, "tag": tag, "commit": commit, "packages": packages,
     }

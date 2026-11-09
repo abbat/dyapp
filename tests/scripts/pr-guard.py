@@ -60,6 +60,36 @@ def published(name, version, api):
     return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def dependency_changes(before, after, path, api, now):
+    errors, changed = [], []
+    for key, package in sorted(after.items()):
+        if key in before:
+            if package.get("checksum") != before[key].get("checksum"):
+                errors.append(f"{path}: checksum changed without a "
+                              f"version change: {key[0]} {key[1]}")
+            continue
+        name, version, source = key
+        changed.append(
+            f"{path}: {name} {version} ({source or 'workspace'})")
+        if source is None:
+            continue
+        if source != CRATES_IO:
+            errors.append(
+                f"{path}: non-crates.io source: {name} {version}: "
+                f"{source}")
+            continue
+        try:
+            age = now - published(name, version, api)
+            if age < dt.timedelta(days=14):
+                errors.append(
+                    f"{path}: {name} {version} is younger than 14 days")
+        except (OSError, ValueError, KeyError,
+                json.JSONDecodeError) as error:
+            errors.append(
+                f"{path}: cannot verify age of {name} {version}: {error}")
+    return errors, changed
+
+
 def check(base, head, api=None, now=None):
     api = api or os.environ.get("PR_GUARD_CRATES_API", CRATES_API)
     if not SHA.fullmatch(base) or not SHA.fullmatch(head):
@@ -77,31 +107,10 @@ def check(base, head, api=None, now=None):
     changed = []
     for path in sorted(p for p in paths if p.endswith("Cargo.lock")):
         before, after = packages(common, path), packages(head, path)
-        for key, package in sorted(after.items()):
-            if key in before:
-                if package.get("checksum") != before[key].get("checksum"):
-                    errors.append(f"{path}: checksum changed without a "
-                                  f"version change: {key[0]} {key[1]}")
-                continue
-            name, version, source = key
-            changed.append(
-                f"{path}: {name} {version} ({source or 'workspace'})")
-            if source is None:
-                continue
-            if source != CRATES_IO:
-                errors.append(
-                    f"{path}: non-crates.io source: {name} {version}: "
-                    f"{source}")
-                continue
-            try:
-                age = now - published(name, version, api)
-                if age < dt.timedelta(days=14):
-                    errors.append(
-                        f"{path}: {name} {version} is younger than 14 days")
-            except (OSError, ValueError, KeyError,
-                    json.JSONDecodeError) as error:
-                errors.append(
-                    f"{path}: cannot verify age of {name} {version}: {error}")
+        failures, packages_changed = dependency_changes(
+            before, after, path, api, now)
+        errors.extend(failures)
+        changed.extend(packages_changed)
     lines = ["## Pull request guard", "", f"Changed paths: {len(paths)}.", ""]
     if warning:
         warning_text = ("⚠️ This PR changes the guard itself; review its "

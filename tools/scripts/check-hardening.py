@@ -22,6 +22,19 @@ DT_FLAGS_1 = 0x6FFFFFFB
 DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
 
 
+def dynamic_tags(data, segments):
+    tags = {}
+    for kind, _, offset, _, size in segments:
+        if kind != PT_DYNAMIC:
+            continue
+        for at in range(offset, offset + size - 15, 16):
+            tag, value = struct.unpack_from('<qQ', data, at)
+            if tag == 0:
+                break
+            tags.setdefault(tag, value)
+    return tags
+
+
 def problems(binary):
     with open(binary, 'rb') as f:
         data = f.read()
@@ -45,15 +58,7 @@ def problems(binary):
         found.append('executable stack')
     if PT_GNU_RELRO not in kinds:
         found.append('no RELRO segment')
-    tags = {}
-    for kind, _, offset, _, size in segments:
-        if kind != PT_DYNAMIC:
-            continue
-        for at in range(offset, offset + size - 15, 16):
-            tag, value = struct.unpack_from('<qQ', data, at)
-            if tag == 0:
-                break
-            tags.setdefault(tag, value)
+    tags = dynamic_tags(data, segments)
     bind_now = DT_BIND_NOW in tags or tags.get(DT_FLAGS, 0) & DF_BIND_NOW
     if not (bind_now or tags.get(DT_FLAGS_1, 0) & DF_1_NOW):
         found.append('lazy binding, RELRO is partial')

@@ -84,20 +84,7 @@ def expected_package(target, tag):
     }.get(target)
 
 
-def validated_release(release):
-    fields(release, (
-        "tag", "commit", "draft", "prerelease", "assets", "attestations",
-        "source_builds", "targets",
-    ))
-    tag = release["tag"]
-    version(tag)
-    commit = release["commit"]
-    if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
-        raise ValueError("invalid release commit")
-    if type(release["draft"]) is not bool:
-        raise ValueError("invalid release publication state")
-    if type(release["prerelease"]) is not bool:
-        raise ValueError("invalid release publication state")
+def validated_assets(release):
     if not isinstance(release["assets"], list) or len(release["assets"]) > 100:
         raise ValueError("invalid asset inventory")
     assets = {}
@@ -111,6 +98,10 @@ def validated_release(release):
         if name in assets:
             raise ValueError("invalid or duplicate asset")
         assets[name] = (asset["state"], digest)
+    return assets
+
+
+def validated_attestations(release, assets):
     if not isinstance(release["attestations"], list):
         raise ValueError("invalid attestation inventory")
     if len(release["attestations"]) > 100:
@@ -126,6 +117,10 @@ def validated_release(release):
         if pair in attestations:
             raise ValueError("invalid or duplicate attestation")
         attestations.add(pair)
+    return attestations
+
+
+def validated_source_builds(release):
     if not isinstance(release["source_builds"], list):
         raise ValueError("invalid source build inventory")
     if len(release["source_builds"]) > 5:
@@ -141,6 +136,53 @@ def validated_release(release):
         if pair in source_builds:
             raise ValueError("invalid or duplicate source build")
         source_builds.add(pair)
+    return source_builds
+
+
+def verified_claim(target, claim, tag, commit, assets, attestations,
+                   source_builds):
+    if target not in TARGETS or not isinstance(claim, dict):
+        raise ValueError("unknown client target")
+    method = claim.get("method")
+    if method == "package":
+        fields(claim, ("method", "asset"))
+        expected = expected_package(target, tag)
+        if expected is None or claim["asset"] != expected:
+            raise ValueError("unexpected package asset")
+        state_digest = assets.get(expected)
+        if state_digest is None or state_digest[0] != "uploaded":
+            raise ValueError("package is missing or not attested")
+        if (expected, state_digest[1]) not in attestations:
+            raise ValueError("package is missing or not attested")
+    elif method == "build-from-source":
+        fields(claim, ("method",))
+        if target not in SOURCE_TARGETS:
+            raise ValueError("source build not verified")
+        if (target, commit) not in source_builds:
+            raise ValueError("source build not verified")
+    else:
+        # No pinned store listing exists yet; reject store claims too.
+        raise ValueError("unsupported update method")
+    return {"version": tag[1:], "tag": tag, "method": method}
+
+
+def validated_release(release):
+    fields(release, (
+        "tag", "commit", "draft", "prerelease", "assets", "attestations",
+        "source_builds", "targets",
+    ))
+    tag = release["tag"]
+    version(tag)
+    commit = release["commit"]
+    if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
+        raise ValueError("invalid release commit")
+    if type(release["draft"]) is not bool:
+        raise ValueError("invalid release publication state")
+    if type(release["prerelease"]) is not bool:
+        raise ValueError("invalid release publication state")
+    assets = validated_assets(release)
+    attestations = validated_attestations(release, assets)
+    source_builds = validated_source_builds(release)
     targets = release["targets"]
     if not isinstance(targets, dict) or len(targets) > len(TARGETS):
         raise ValueError("invalid target inventory")
@@ -148,30 +190,24 @@ def validated_release(release):
         raise ValueError("unpublished release advertises clients")
     result = {}
     for target, claim in targets.items():
-        if target not in TARGETS or not isinstance(claim, dict):
-            raise ValueError("unknown client target")
-        method = claim.get("method")
-        if method == "package":
-            fields(claim, ("method", "asset"))
-            expected = expected_package(target, tag)
-            if expected is None or claim["asset"] != expected:
-                raise ValueError("unexpected package asset")
-            state_digest = assets.get(expected)
-            if state_digest is None or state_digest[0] != "uploaded":
-                raise ValueError("package is missing or not attested")
-            if (expected, state_digest[1]) not in attestations:
-                raise ValueError("package is missing or not attested")
-        elif method == "build-from-source":
-            fields(claim, ("method",))
-            if target not in SOURCE_TARGETS:
-                raise ValueError("source build not verified")
-            if (target, release["commit"]) not in source_builds:
-                raise ValueError("source build not verified")
-        else:
-            # No pinned store listing exists yet; reject store claims too.
-            raise ValueError("unsupported update method")
-        result[target] = {"version": tag[1:], "tag": tag, "method": method}
+        result[target] = verified_claim(
+            target, claim, tag, commit, assets, attestations,
+            source_builds)
     return result
+
+
+def merge_target_claims(ordered, targets):
+    for _, claims in sorted(ordered):
+        for target, entry in claims.items():
+            previous = targets.get(target)
+            if previous:
+                if version(entry["tag"]) < version(previous["tag"]):
+                    # An older release in a full inventory is expected.
+                    continue
+                if entry["tag"] == previous["tag"] and entry != previous:
+                    raise ValueError(
+                        "published target changed without version bump")
+            targets[target] = entry
 
 
 def build(inventory, prior=None):
@@ -193,17 +229,7 @@ def build(inventory, prior=None):
         seen.add(tag)
         if not release["draft"] and not release["prerelease"]:
             ordered.append((version(tag), claims))
-    for _, claims in sorted(ordered):
-        for target, entry in claims.items():
-            previous = targets.get(target)
-            if previous:
-                if version(entry["tag"]) < version(previous["tag"]):
-                    # An older release in a full inventory is expected.
-                    continue
-                if entry["tag"] == previous["tag"] and entry != previous:
-                    raise ValueError(
-                        "published target changed without version bump")
-            targets[target] = entry
+    merge_target_claims(ordered, targets)
     for target in targets:
         candidates = [entry[target] for _, entry in ordered if target in entry]
         newest = max((version(item["tag"]) for item in candidates),

@@ -32,7 +32,7 @@ def regular_file(path):
     return info
 
 
-def paths(source, key_mode):
+def storage_entries(source):
     root = {}
     for item in source.iterdir():
         name = item.name
@@ -51,20 +51,10 @@ def paths(source, key_mode):
             continue
         else:
             raise ValueError(f"unknown storage entry: {name}")
-    missing = REQUIRED - root.keys()
-    if missing:
-        raise ValueError(f"missing required storage files: {sorted(missing)}")
-    if key_mode == "inline" and "node.key" not in root:
-        raise ValueError("missing inline node.key")
-    if key_mode != "inline" and "node.key" in root:
-        raise ValueError("conflicting inline node.key")
-    if "data" in root and "media.db" not in root:
-        raise ValueError("data exists without media.db")
-    for db in DATABASES:
-        for suffix in ("-wal", "-journal", "-shm"):
-            if f"{db}{suffix}" in root and db not in root:
-                raise ValueError(f"orphaned SQLite sidecar: {db}{suffix}")
+    return root
 
+
+def storage_files(source, root):
     result = [(f"storage/{name}", item) for name, item in root.items()
               if name != "data" and not name.endswith("-shm")]
     if "data" in root:
@@ -85,6 +75,26 @@ def paths(source, key_mode):
                     result.append((relative, item))
                 if len(result) > MAX_FILES:
                     raise ValueError("too many files")
+    return result
+
+
+def paths(source, key_mode):
+    root = storage_entries(source)
+    missing = REQUIRED - root.keys()
+    if missing:
+        raise ValueError(f"missing required storage files: {sorted(missing)}")
+    if key_mode == "inline" and "node.key" not in root:
+        raise ValueError("missing inline node.key")
+    if key_mode != "inline" and "node.key" in root:
+        raise ValueError("conflicting inline node.key")
+    if "data" in root and "media.db" not in root:
+        raise ValueError("data exists without media.db")
+    for db in DATABASES:
+        for suffix in ("-wal", "-journal", "-shm"):
+            if f"{db}{suffix}" in root and db not in root:
+                raise ValueError(f"orphaned SQLite sidecar: {db}{suffix}")
+
+    result = storage_files(source, root)
     return result, sorted(OPTIONAL - root.keys())
 
 
@@ -151,7 +161,7 @@ def write_manifest(destination, header, files):
     os.replace(pending, destination / "manifest.jsonl")
 
 
-def snapshot(source, destination, key_mode, recovery_key):
+def snapshot_paths(source, destination, key_mode, recovery_key):
     if source.is_symlink():
         raise ValueError("source must not be a symlink")
     source = source.resolve(strict=True)
@@ -168,6 +178,12 @@ def snapshot(source, destination, key_mode, recovery_key):
         raise ValueError("inline mode does not take a recovery key")
     if key_mode != "inline" and recovery_key is None:
         raise ValueError("portable recovery key file is required")
+    return source, destination
+
+
+def snapshot(source, destination, key_mode, recovery_key):
+    source, destination = snapshot_paths(
+        source, destination, key_mode, recovery_key)
 
     files, absent = paths(source, key_mode)
     if (source / "node.id").stat().st_size > 256:

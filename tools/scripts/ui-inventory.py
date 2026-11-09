@@ -101,27 +101,7 @@ def conditions(name, js):
     return found
 
 
-def main():
-    argparse.ArgumentParser(
-        description=__doc__.splitlines()[0]).parse_args()
-    en = json.loads((UI / "i18n/en.json").read_text(encoding="utf-8"))
-    ru = json.loads((UI / "i18n/ru.json").read_text(encoding="utf-8"))
-    page = Page()
-    page.feed((UI / "index.html").read_text(encoding="utf-8"))
-    cond = {}
-    for name in SCRIPTS:
-        js = (UI / name).read_text(encoding="utf-8")
-        for ident, items in conditions(name, js).items():
-            cond.setdefault(ident, []).extend(items)
-    screens = []
-    for row in page.rows:
-        if row["screen"] not in screens:
-            screens.append(row["screen"])
-        row["key"] = row["key"] or page.labels.get(row["id"]) or (
-            row["label"] or {}).get("key")
-    print("# Desktop UI inventory\n")
-    print("Source: clients/desktop/ui/index.html, app.js, search.js, "
-          "network.js, i18n/en.json, i18n/ru.json.\n")
+def print_screens(screens, page, cond, en, ru):
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
         print("| id | element | i18n key | English | Russian | hidden "
@@ -143,6 +123,30 @@ def main():
             if len(items) > SHOWN:
                 print(f"- `{ident}` +{len(items) - SHOWN} more")
         print()
+
+
+def main():
+    argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]).parse_args()
+    en = json.loads((UI / "i18n/en.json").read_text(encoding="utf-8"))
+    ru = json.loads((UI / "i18n/ru.json").read_text(encoding="utf-8"))
+    page = Page()
+    page.feed((UI / "index.html").read_text(encoding="utf-8"))
+    cond = {}
+    for name in SCRIPTS:
+        js = (UI / name).read_text(encoding="utf-8")
+        for ident, items in conditions(name, js).items():
+            cond.setdefault(ident, []).extend(items)
+    screens = []
+    for row in page.rows:
+        if row["screen"] not in screens:
+            screens.append(row["screen"])
+        row["key"] = row["key"] or page.labels.get(row["id"]) or (
+            row["label"] or {}).get("key")
+    print("# Desktop UI inventory\n")
+    print("Source: clients/desktop/ui/index.html, app.js, search.js, "
+          "network.js, i18n/en.json, i18n/ru.json.\n")
+    print_screens(screens, page, cond, en, ru)
     keys = {r["key"] for r in page.rows if r["key"]}
     missing = sorted(keys - set(en) | keys - set(ru))
     if missing:

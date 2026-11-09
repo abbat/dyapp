@@ -83,6 +83,21 @@ def check_file(root, record):
         os.close(fd)
 
 
+def storage_path(parts, key_mode):
+    if len(parts) >= 3 and parts[1] == "data":
+        return parts
+    if len(parts) != 2:
+        raise ValueError("unknown storage path")
+    name = parts[1]
+    files = BACKUP.REQUIRED | (BACKUP.OPTIONAL - {"data"})
+    if (name == "node.key" and key_mode == "inline") or name in files:
+        return parts
+    if any(name == f"{db}{suffix}" for db in BACKUP.DATABASES
+           for suffix in ("-wal", "-journal")):
+        return parts
+    raise ValueError("unknown storage path")
+
+
 def validate_path(value, key_mode):
     if not isinstance(value, str) or not value:
         raise ValueError("invalid manifest path")
@@ -99,21 +114,21 @@ def validate_path(value, key_mode):
         if key_mode == "inline" or parts != ("recovery", expected):
             raise ValueError("unexpected recovery key path")
     elif parts[0] == "storage":
-        if len(parts) >= 3 and parts[1] == "data":
-            return parts
-        if len(parts) != 2:
-            raise ValueError("unknown storage path")
-        name = parts[1]
-        files = BACKUP.REQUIRED | (BACKUP.OPTIONAL - {"data"})
-        if (name == "node.key" and key_mode == "inline") or name in files:
-            return parts
-        if any(name == f"{db}{suffix}" for db in BACKUP.DATABASES
-               for suffix in ("-wal", "-journal")):
-            return parts
-        raise ValueError("unknown storage path")
+        return storage_path(parts, key_mode)
     else:
         raise ValueError("unknown manifest root")
     return parts
+
+
+def header_inventory(value):
+    absent = value["absent"]
+    if not isinstance(absent, list) or any(
+            not isinstance(item, str) for item in absent):
+        raise ValueError("invalid absent-store list")
+    if absent != sorted(set(absent)) or not set(absent) <= BACKUP.OPTIONAL:
+        raise ValueError("invalid absent-store list")
+    if type(value["hot_journal"]) is not bool:
+        raise ValueError("invalid hot-journal flag")
 
 
 def header_record(value):
@@ -132,14 +147,7 @@ def header_record(value):
     if not isinstance(value["key_mode"], str) or value["key_mode"] not in (
             "inline", "external", "age"):
         raise ValueError("invalid key mode")
-    absent = value["absent"]
-    if not isinstance(absent, list) or any(
-            not isinstance(item, str) for item in absent):
-        raise ValueError("invalid absent-store list")
-    if absent != sorted(set(absent)) or not set(absent) <= BACKUP.OPTIONAL:
-        raise ValueError("invalid absent-store list")
-    if type(value["hot_journal"]) is not bool:
-        raise ValueError("invalid hot-journal flag")
+    header_inventory(value)
     return value
 
 
@@ -155,6 +163,85 @@ def file_record(value, previous, key_mode):
             value["sha256"]):
         raise ValueError("invalid file digest")
     return parts
+
+
+class ManifestFiles:
+    """Accumulate checked records without reopening the manifest."""
+    def __init__(self, root, header):
+        self.root = root
+        self.header = header
+        self.key_mode = self.header["key_mode"]
+        self.expected_dirs = {"storage", "recovery"}
+        if "data" not in self.header["absent"]:
+            self.expected_dirs.add("storage/data")
+        self.seen = set()
+        self.sidecars = set()
+        self.previous = ""
+        self.count = 0
+        self.hot_journal = False
+        self.recovery_key_seen = False
+        self.sqlite_records = []
+        self.key_records = {}
+
+    def check(self, value):
+        if not isinstance(value, dict) or set(value) != FILE_FIELDS:
+            raise ValueError("invalid file record")
+        path = value["path"]
+        parts = file_record(value, self.previous, self.key_mode)
+        if self.count >= BACKUP.MAX_FILES:
+            raise ValueError("too many manifest files")
+        check_file(self.root, value)
+        self.count += 1
+        self.previous = path
+        if path in {"storage/node.id", "storage/network",
+                    "storage/node.key", "recovery/node.key",
+                    "recovery/node.key.age"}:
+            self.key_records[path] = value
+        if parts[0] == "recovery":
+            self.recovery_key_seen = True
+        self.storage_record(parts, value)
+        for parent in PurePosixPath(path).parents:
+            if parent == PurePosixPath("."):
+                break
+            self.expected_dirs.add(parent.as_posix())
+        self.hot_journal |= path.endswith(".db-journal")
+
+    def storage_record(self, parts, value):
+        if parts[0] == "storage" and len(parts) == 2:
+            self.seen.add(parts[1])
+            is_wal = any(parts[1] == f"{db}-wal"
+                         for db in BACKUP.DATABASES)
+            if parts[1] in BACKUP.DATABASES or is_wal:
+                self.sqlite_records.append(value)
+            for suffix in ("-wal", "-journal"):
+                if parts[1].endswith(suffix):
+                    self.sidecars.add(parts[1][:-len(suffix)])
+
+    def validate(self):
+        required = set(BACKUP.REQUIRED)
+        if self.key_mode == "inline":
+            required.add("node.key")
+        if not required <= self.seen:
+            raise ValueError("missing required storage file")
+        if not self.sidecars <= self.seen:
+            raise ValueError("orphaned SQLite sidecar")
+        for optional in BACKUP.OPTIONAL - {"data"}:
+            if (optional in self.seen) == (optional in self.header["absent"]):
+                raise ValueError("absent-store list does not match files")
+        if "data" not in self.header["absent"] and "media.db" not in self.seen:
+            raise ValueError("data exists without media.db")
+        if self.hot_journal != self.header["hot_journal"]:
+            raise ValueError("hot-journal flag does not match files")
+        if self.recovery_key_seen != (self.key_mode != "inline"):
+            raise ValueError("recovery key does not match key mode")
+        self.validate_markers()
+
+    def validate_markers(self):
+        marker = read_marker(self.root, "node.id", 256).strip()
+        if marker != self.header["peer_id"]:
+            raise ValueError("peer ID differs from manifest")
+        if read_marker(self.root, "network", 64) != self.header["network"]:
+            raise ValueError("network differs from manifest")
 
 
 def parse_and_hash(root):
@@ -173,74 +260,32 @@ def parse_and_hash(root):
                 return json.loads(line, object_pairs_hook=unique_object)
 
             header = header_record(record())
-            key_mode = header["key_mode"]
-            expected_dirs = {"storage", "recovery"}
-            if "data" not in header["absent"]:
-                expected_dirs.add("storage/data")
-            seen = set()
-            sidecars = set()
-            previous = ""
-            count = 0
-            hot_journal = False
-            recovery_key_seen = False
-            sqlite_records = []
-            key_records = {}
+            records = ManifestFiles(root, header)
             while stream.peek(1):
-                value = record()
-                if not isinstance(value, dict) or set(value) != FILE_FIELDS:
-                    raise ValueError("invalid file record")
-                path = value["path"]
-                parts = file_record(value, previous, key_mode)
-                if count >= BACKUP.MAX_FILES:
-                    raise ValueError("too many manifest files")
-                check_file(root, value)
-                count += 1
-                previous = path
-                if path in {"storage/node.id", "storage/network",
-                            "storage/node.key", "recovery/node.key",
-                            "recovery/node.key.age"}:
-                    key_records[path] = value
-                if parts[0] == "recovery":
-                    recovery_key_seen = True
-                if parts[0] == "storage" and len(parts) == 2:
-                    seen.add(parts[1])
-                    is_wal = any(parts[1] == f"{db}-wal"
-                                 for db in BACKUP.DATABASES)
-                    if parts[1] in BACKUP.DATABASES or is_wal:
-                        sqlite_records.append(value)
-                    for suffix in ("-wal", "-journal"):
-                        if parts[1].endswith(suffix):
-                            sidecars.add(parts[1][:-len(suffix)])
-                for parent in PurePosixPath(path).parents:
-                    if parent == PurePosixPath("."):
-                        break
-                    expected_dirs.add(parent.as_posix())
-                hot_journal |= path.endswith(".db-journal")
+                records.check(record())
             if metadata.st_size != stream.tell():
                 raise ValueError("manifest changed while checking")
     finally:
         os.close(fd)
-    required = set(BACKUP.REQUIRED)
-    if key_mode == "inline":
-        required.add("node.key")
-    if not required <= seen:
-        raise ValueError("missing required storage file")
-    if not sidecars <= seen:
-        raise ValueError("orphaned SQLite sidecar")
-    for optional in BACKUP.OPTIONAL - {"data"}:
-        if (optional in seen) == (optional in header["absent"]):
-            raise ValueError("absent-store list does not match files")
-    if "data" not in header["absent"] and "media.db" not in seen:
-        raise ValueError("data exists without media.db")
-    if hot_journal != header["hot_journal"]:
-        raise ValueError("hot-journal flag does not match files")
-    if recovery_key_seen != (key_mode != "inline"):
-        raise ValueError("recovery key does not match key mode")
-    if read_marker(root, "node.id", 256).strip() != header["peer_id"]:
-        raise ValueError("peer ID differs from manifest")
-    if read_marker(root, "network", 64) != header["network"]:
-        raise ValueError("network differs from manifest")
-    return header, count, expected_dirs, sqlite_records, key_records
+    records.validate()
+    return (header, records.count, records.expected_dirs,
+            records.sqlite_records, records.key_records)
+
+
+def inventory_files(directory, parent, files):
+    found = 0
+    for name in files:
+        relative = (parent / name).as_posix()
+        if relative == "manifest.jsonl":
+            continue
+        if parent == Path("."):
+            raise ValueError(f"unexpected root file: {relative}")
+        path = Path(directory) / name
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ValueError(f"unsafe file: {relative}")
+        found += 1
+    return found
 
 
 def check_inventory(root, expected_count, expected_dirs):
@@ -259,17 +304,7 @@ def check_inventory(root, expected_count, expected_dirs):
                     not stat.S_ISDIR(path.lstat().st_mode))):
                 raise ValueError(f"unexpected directory: {relative}")
             actual_dirs.add(relative)
-        for name in files:
-            relative = (parent / name).as_posix()
-            if relative == "manifest.jsonl":
-                continue
-            if parent == Path("."):
-                raise ValueError(f"unexpected root file: {relative}")
-            path = Path(directory) / name
-            info = path.lstat()
-            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-                raise ValueError(f"unsafe file: {relative}")
-            found += 1
+        found += inventory_files(directory, parent, files)
     if found != expected_count:
         raise ValueError("backup has extra files")
     if actual_dirs != expected_dirs:

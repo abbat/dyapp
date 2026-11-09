@@ -30,76 +30,92 @@ def gradle_errors(lines):
     return selected
 
 
+def json_diagnostics(text, policy):
+    try:
+        errors = json.loads(text)["errors"]
+        if not isinstance(errors, list):
+            return []
+        selected = []
+        for error in errors:
+            if not isinstance(error, str) or not error.strip():
+                continue
+            error = ANSI.sub("", error)
+            parts = error.splitlines()
+            if "pattern" in policy and len(parts) > 1:
+                selected.extend(line for line in parts
+                                if re.search(policy["pattern"], line))
+            else:
+                selected.append(error)
+        return selected
+    except (ValueError, KeyError, TypeError):
+        return []
+
+
+def rust_diagnostics(text, lines):
+    start = next((i for i, line in enumerate(lines)
+                  if line == "failures:"), None)
+    if start is None:
+        # cargo-nextest reports each failure as `FAIL [ time] test`.
+        start = next((i for i, line in enumerate(lines) if re.match(
+            r"^\s+(?:FAIL|TIMEOUT|SIG\w+) \[", line)), None)
+    if start is not None:
+        return [line for line in lines[start:] if line]
+    pattern = r"^(?:error(?:\[[^]]+\])?:|\s*-->\s)"
+    return diagnostics(text, {"format": "lines", "pattern": pattern})
+
+
+def unittest_diagnostics(lines):
+    starts = [i for i, line in enumerate(lines)
+              if line.startswith(("FAIL:", "ERROR:"))]
+    if not starts:
+        return []
+    selected = []
+    for line in lines[starts[0]:]:
+        if line.startswith("Ran "):
+            break
+        if line and set(line) not in ({"="}, {"-"}):
+            selected.append(line)
+    return selected
+
+
+def line_diagnostics(lines, policy):
+    if policy.get("details") and "DETAILS:" in lines:
+        return [line for line in lines[lines.index("DETAILS:") + 1:]
+                if line]
+    if policy.get("nested"):
+        # First frame to last log line: an inner wrapper drops the FAIL
+        # headers of later frames, so all frames before it are kept.
+        starts = [i for i, line in enumerate(lines)
+                  if line.startswith("FAIL ")]
+        ends = [i for i, line in enumerate(lines)
+                if line.endswith(": raw captured output")]
+        if starts:
+            end = (ends[-1] + 1 if ends and ends[-1] > starts[0]
+                   else len(lines))
+            return lines[starts[0]:end]
+    if policy.get("gradle"):
+        selected = gradle_errors(lines)
+        if selected:
+            return selected
+    pattern = re.compile(policy["pattern"])
+    return [line for line in lines if pattern.search(line)]
+
+
 def diagnostics(text, policy):
     lines = ANSI.sub("", text).splitlines()
     kind = policy["format"]
-    if kind == "json":
-        try:
-            errors = json.loads(text)["errors"]
-            if not isinstance(errors, list):
-                return []
-            selected = []
-            for error in errors:
-                if not isinstance(error, str) or not error.strip():
-                    continue
-                error = ANSI.sub("", error)
-                parts = error.splitlines()
-                if "pattern" in policy and len(parts) > 1:
-                    selected.extend(line for line in parts
-                                    if re.search(policy["pattern"], line))
-                else:
-                    selected.append(error)
-            return selected
-        except (ValueError, KeyError, TypeError):
-            return []
+    if kind == 'json':
+        return json_diagnostics(text, policy)
     if kind == "python":
         starts = [i for i, line in enumerate(lines)
                   if re.match(r"^[\w.]*(?:Error|Exception):", line)]
         return [line for line in lines[starts[-1]:] if line] if starts else []
-    if kind == "rust-test":
-        start = next((i for i, line in enumerate(lines)
-                      if line == "failures:"), None)
-        if start is None:
-            # cargo-nextest reports each failure as `FAIL [ time] test`.
-            start = next((i for i, line in enumerate(lines) if re.match(
-                r"^\s+(?:FAIL|TIMEOUT|SIG\w+) \[", line)), None)
-        if start is not None:
-            return [line for line in lines[start:] if line]
-        pattern = r"^(?:error(?:\[[^]]+\])?:|\s*-->\s)"
-        return diagnostics(text, {"format": "lines", "pattern": pattern})
-    if kind == "unittest":
-        starts = [i for i, line in enumerate(lines)
-                  if line.startswith(("FAIL:", "ERROR:"))]
-        if not starts:
-            return []
-        selected = []
-        for line in lines[starts[0]:]:
-            if line.startswith("Ran "):
-                break
-            if line and set(line) not in ({"="}, {"-"}):
-                selected.append(line)
-        return selected
-    if kind == "lines":
-        if policy.get("details") and "DETAILS:" in lines:
-            return [line for line in lines[lines.index("DETAILS:") + 1:]
-                    if line]
-        if policy.get("nested"):
-            # First frame to last log line: an inner wrapper drops the FAIL
-            # headers of later frames, so all frames before it are kept.
-            starts = [i for i, line in enumerate(lines)
-                      if line.startswith("FAIL ")]
-            ends = [i for i, line in enumerate(lines)
-                    if line.endswith(": raw captured output")]
-            if starts:
-                end = (ends[-1] + 1 if ends and ends[-1] > starts[0]
-                       else len(lines))
-                return lines[starts[0]:end]
-        if policy.get("gradle"):
-            selected = gradle_errors(lines)
-            if selected:
-                return selected
-        pattern = re.compile(policy["pattern"])
-        return [line for line in lines if pattern.search(line)]
+    if kind == 'rust-test':
+        return rust_diagnostics(text, lines)
+    if kind == 'unittest':
+        return unittest_diagnostics(lines)
+    if kind == 'lines':
+        return line_diagnostics(lines, policy)
     raise ValueError(f"Unknown diagnostic format: {kind!r}")
 
 
