@@ -301,6 +301,7 @@ fn russian_help_covers_every_documented_option() {
 }
 
 #[test]
+#[cfg(unix)]
 fn node_key_refuses_group_other_bits_without_repairing_permissions() {
     use std::os::unix::fs::PermissionsExt;
     let mut config = NodeConfig::default();
@@ -333,8 +334,11 @@ fn node_key_is_bound_to_the_data() {
     config.keygen(None).unwrap_err();
     let key = config.node_key().unwrap();
     assert_eq!(key.public().to_peer_id(), peer);
-    let mode = fs::metadata(config.storage.key_path()).unwrap().mode();
-    assert_eq!(mode & 0o777, 0o600);
+    #[cfg(unix)]
+    {
+        let mode = fs::metadata(config.storage.key_path()).unwrap().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
     assert_eq!(
         config.node_key().unwrap().public(),
         key.public(),
@@ -361,6 +365,7 @@ fn node_key_is_bound_to_the_data() {
 }
 
 #[test]
+#[cfg(unix)]
 fn key_source_is_independent_of_its_protection() {
     use std::os::unix::fs::PermissionsExt;
     let mut config = NodeConfig::default();

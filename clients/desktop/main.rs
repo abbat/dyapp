@@ -31,8 +31,7 @@ use identity_runtime::{describe, respond, IdentityState};
 mod link;
 #[path = "network.rs"]
 mod network;
-// The node library is Unix-only, so Windows builds without it (ADR 0030).
-#[cfg(unix)]
+// Installation-owned embedded node shared by desktop platforms (ADR 0030).
 #[path = "node.rs"]
 mod node;
 mod node_usage_commands;
@@ -888,13 +887,9 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     privacy::commands::set_muted,
     privacy::commands::passed_peers,
     privacy::commands::pass_peer,
-    #[cfg(unix)]
     node_usage_commands::load_node_settings,
-    #[cfg(unix)]
     node_usage_commands::save_node_settings,
-    #[cfg(unix)]
     node_usage_commands::apply_node,
-    #[cfg(unix)]
     node_usage_commands::node_status,
     node_usage_commands::storage_usage,
     node_usage_commands::status,
@@ -926,7 +921,6 @@ fn main() {
         .plugin(tray::one_instance());
     #[cfg(target_os = "linux")]
     let builder = builder.on_permission_request(safety::camera_permission);
-    #[cfg(unix)]
     let builder = builder.manage(node::NodeState::default());
     let builder = builder
         .manage(IdentityState::new())
@@ -941,7 +935,6 @@ fn main() {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main, config_dir(app.handle()).ok().as_deref());
             }
-            #[cfg(unix)]
             node_usage_commands::start(app.handle().clone());
             tray::watch(app.handle().clone());
             notify::watch(app.handle().clone());
@@ -968,7 +961,6 @@ fn main() {
         .expect("launch DYApp")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
-                #[cfg(unix)]
                 node_usage_commands::shutdown(app);
                 if let Ok(config) = config_dir(app) {
                     window::save(&app.state::<window::WindowState>(), &config);

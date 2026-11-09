@@ -1,13 +1,14 @@
 //! The swarm event loop of a node.
 
 use super::*;
+mod hangup;
 mod overload;
 mod search_jobs;
 mod stored;
 use search_jobs::{start_search, SearchDone, SearchJob};
 
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
-/// every 10 seconds and on SIGHUP.
+/// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     enum PowDone {
         Publish {
@@ -28,8 +29,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
         },
     }
     const POW_GOSSIP_QUEUE: usize = 64;
-    use tokio::signal::unix::{signal, SignalKind};
-    let mut hangup = match signal(SignalKind::hangup()) {
+    let mut hangup = match hangup::Hangup::new() {
         Ok(hangup) => hangup,
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),
     };
@@ -659,7 +659,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             }
             _ = republish_scan.tick() => replicas.scan(&mut swarm, &service, Instant::now()),
             _ = deny_check.tick() => reload_deny(&service, &deny, &mut deny_version),
-            _ = hangup.recv() => {
+            () = hangup.recv() => {
                 deny_version = None;
                 reload_deny(&service, &deny, &mut deny_version);
                 state(&replicas, &swarm, &[nonces.len(), swarm.behaviour().endpoints.len(), admission.len()], &watchers);

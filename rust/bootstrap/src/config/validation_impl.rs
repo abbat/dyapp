@@ -1,8 +1,15 @@
 use super::{fs, message, russian_locale, seed, transports, NodeConfig, Path, Role};
 
-fn effective_uid() -> libc::uid_t {
+fn check_user() -> anyhow::Result<()> {
     // SAFETY: geteuid has no preconditions and does not access configuration fields.
-    unsafe { libc::geteuid() }
+    #[cfg(unix)]
+    if unsafe { libc::geteuid() } == 0 {
+        anyhow::bail!(message(
+            "refusing to run as root: start the node as an unprivileged user",
+            "запуск от root запрещён: запустите узел от непривилегированного пользователя"
+        ));
+    }
+    Ok(())
 }
 
 impl super::Turn {
@@ -23,15 +30,10 @@ impl NodeConfig {
     ///
     /// # Errors
     ///
-    /// Returns an error when running as root, a configured address, role, policy or resource limit
+    /// Returns an error when running as root on Unix, a configured address, role, policy or resource limit
     /// is invalid, required directories cannot be prepared, or the storage network binding fails.
     pub fn validate(&self) -> anyhow::Result<()> {
-        if effective_uid() == 0 {
-            anyhow::bail!(message(
-                "refusing to run as root: start the node as an unprivileged user",
-                "запуск от root запрещён: запустите узел от непривилегированного пользователя"
-            ));
-        }
+        check_user()?;
         for address in self.listen.iter().chain(&self.external) {
             transports(address)?;
         }

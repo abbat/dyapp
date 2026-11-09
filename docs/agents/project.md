@@ -14,7 +14,13 @@ After moving a command, update ordinary Rust callers as well as Tauri command re
 The embedded desktop node belongs to the installation, not an identity: `node.json` and `node/`
 live at the app-config root. Profile transitions must not stop or apply it. Snapshot the active
 network only for explicit node settings/network activation, release the identity lease before
-node work, and preserve `node/network` for startup without an account (ADR 0030).
+node work, and preserve `node-config/network` for startup without an account (ADR 0030).
+Bootstrap reserves `node/network` for its raw storage-binding marker; seed-list configuration
+must use the separate `node-config/` directory.
+Windows links the same node library; it ships no separate daemon. Filesystem capacity queries
+belong in bootstrap's safe `storage::free` API (Unix statvfs, Windows caller-quota-aware
+GetDiskFreeSpaceExW), keeping unsafe code outside native desktop crates. In Linux smoke, the
+external daemon fixture uses `fixture-node/`, reserving installation `node/` for the embedded node.
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,

@@ -101,9 +101,7 @@
   };
   smoke.uiSmokeAddStep = async (state, mode, checks) => {
     await checkSharedUi(state);
-    if (navigator.userAgent.includes('Windows')) {
-      await createAdditionalIdentity(state, mode);
-    } else {
+    {
       const settings = await appBindings.invoke('load_node_settings');
       const running = await appBindings.invoke('save_node_settings', {
         settings: { ...settings, enabled: true },

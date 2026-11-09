@@ -13,7 +13,7 @@ pub struct Usage {
     pub identity_dir: Option<String>,
     pub messages_path: String,
     pub messages: Option<u64>,
-    /// The node store and its configured limit; `None` where the app has no node (Windows).
+    /// The installation node store and configured limit; `None` if its path is unavailable.
     pub node_path: Option<String>,
     pub node: Option<u64>,
     pub node_limit: Option<u64>,
@@ -62,7 +62,6 @@ pub fn messages(dir: &Path) -> Option<u64> {
 /// The usage of slot folder `dir`; `config` is the app config directory that holds the slots.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
-    #[cfg(unix)]
     let (node_path, node, node_limit) = {
         let store = config.map(|root| root.join("node"));
         let limit = config
@@ -74,20 +73,9 @@ pub fn usage(config: Option<&Path>, dir: &Path) -> Usage {
             limit,
         )
     };
-    #[cfg(not(unix))]
-    let (node_path, node, node_limit) = (None, None, None);
-    #[cfg(unix)]
     let free = dir
         .to_str()
         .and_then(|path| dyapp_bootstrap::storage::free(path).ok());
-    // The volume is the disk whose mount point is the longest prefix of `dir`.
-    #[cfg(windows)]
-    let free = sysinfo::Disks::new_with_refreshed_list()
-        .list()
-        .iter()
-        .filter(|disk| dir.starts_with(disk.mount_point()))
-        .max_by_key(|disk| disk.mount_point().as_os_str().len())
-        .map(sysinfo::Disk::available_space);
     Usage {
         identity_dir: config.map(|path| path.display().to_string()),
         messages_path: dir.join("client.db").display().to_string(),
@@ -109,7 +97,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root = std::env::temp_dir().join(format!("dyapp-desktop-usage-{nanos}"));
+        let root = std::env::temp_dir().join(format!("dyapp-desktop-usage-кириллица-{nanos}"));
         let dir = root.join("profiles/first");
         fs::create_dir_all(&dir).unwrap();
         let empty = usage(None, &dir);
@@ -133,7 +121,6 @@ mod tests {
         assert_eq!(full.identity_dir, Some(root.display().to_string()));
         assert_eq!(full.messages, Some(120));
         assert!(full.free.is_some_and(|free| free > 0));
-        #[cfg(unix)]
         {
             assert_eq!(full.node, Some(12));
             assert_eq!(full.node_limit, Some(1024 << 20));

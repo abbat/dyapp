@@ -88,7 +88,7 @@ profile form does not create `client.db` before the first draft save.
 | Lifecycle | `<app-config>/profiles/<slot>/state`: `pending`, `ready`, or `deleting`. |
 | File-backed key | `<app-config>/profiles/<slot>/identity.key`, with `storage-mode` = `file` in that directory. |
 | Network settings | `<app-config>/profiles/<slot>/network-draft` and `network`, written by `dyapp_identity::network`; the legacy slot keeps them at the root. |
-| Node (Linux) | `<app-config>/node.json` holds installation settings; `<app-config>/node/` holds its key, stores and explicitly applied active network, independent of profile selection ([ADR 0030](../decisions/0030-desktop-full-node.md)). |
+| Node (Linux, Windows) | `<app-config>/node.json` holds installation settings; `<app-config>/node/` holds its key and stores, and `<app-config>/node-config/network` the explicitly applied active network, independent of profile selection ([ADR 0030](../decisions/0030-desktop-full-node.md)). |
 | Profile draft database | `<app-config>/profiles/<slot>/client.db`; the virtual legacy slot uses root `client.db`. The broader client store is [planned](../design/client-local-storage.md). |
 | Linux system key | Secret Service attributes `application=dyapp`, `kind=identity`, `slot=profile:<slot>`; directory `storage-mode` = `system`. |
 | Windows system key | Credential Manager service `com.dyapp.identity`, user `profile:<slot>`, Local persistence; directory `storage-mode` = `system`. |

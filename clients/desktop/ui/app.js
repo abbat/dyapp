@@ -358,8 +358,7 @@ const settingsSwitch = domById('settings-switch', HTMLButtonElement);
 settingsCreate.addEventListener('click', () => act(invoke('storage_options')));
 settingsSwitch.addEventListener('click', () => act({ status: 'picker' }));
 
-// The store and search node the app runs while open (ADR 0030); Windows builds have no node
-// commands, so the form stays hidden there.
+// The installation's store and search node, shared across desktop platforms (ADR 0030).
 const nodeForm = domById('node', HTMLFormElement);
 const nodeEnabled = domById('node-enabled', HTMLInputElement);
 const nodeDisk = domById('node-disk', HTMLInputElement);

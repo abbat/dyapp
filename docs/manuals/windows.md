@@ -10,6 +10,14 @@ identity still requires an explicit storage choice and shows the file-key backup
 Settings also displays the current identity's bootstrap-address editor and connection status;
 Back returns the same editor to Ready with its edits intact.
 
+## Optional node
+
+Settings → Node can enable the store/search node while the app is open and set its disk and
+connection limits. It is off by default. The node belongs to this installation: switching,
+adding or removing identities leaves it running. Saving enabled node settings or explicitly
+activating a network applies that network to the node. Relaunch restores its saved configuration;
+Quit stops it. Its `node.json` settings and `node/` data sit outside identity folders.
+
 ## Share a profile
 
 On a profile page, **Share** offers existing open chats, excluding the profile owner.

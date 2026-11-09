@@ -12,13 +12,17 @@ the free space on the volume of the message store. Linux and macOS read it with 
 
 ## Decision
 
-The Windows client depends on `sysinfo` (Windows only, `disk` feature, pinned like the other desktop
-dependencies) and takes the available space of the disk whose mount point is the longest prefix
-of the identity's slot folder. `sysinfo` calls `GetDiskFreeSpaceExW` behind a safe API.
+Originally the Windows client used `sysinfo` with its disk feature and selected the volume
+by the longest matching mount point. With the Windows embedded node
+([ADR 0030](0030-desktop-full-node.md)), it now links `dyapp-bootstrap` and uses that crate's
+safe `storage::free` API, as Linux does. The Windows implementation calls
+`GetDiskFreeSpaceExW` for the directory containing the store and returns bytes available to the
+caller, respecting disk quotas. The unsafe call stays inside the bootstrap crate; the desktop
+client still forbids unsafe code. The redundant direct `sysinfo` disk dependency is removed.
 
 ## Consequences
 
-- The Storage card shows free space on Windows; when no disk matches, the row stays hidden.
-- `sysinfo` is already in the Windows dependency tree through libp2p, so no crate is added; only
-  its disk code is compiled in.
+- The Storage card shows free space on Windows; a failed filesystem query leaves it unavailable.
+- `windows-sys` is already in the dependency tree. Bootstrap enables only its filesystem API;
+  clients share the same free-space query used by node storage limits.
 - The client keeps `unsafe_code = "forbid"`.

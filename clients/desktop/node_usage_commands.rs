@@ -1,16 +1,11 @@
 //! Installation node and active-profile storage/status commands.
 
-#[cfg(unix)]
 use crate::node;
 use crate::{config_dir, usage, IdentityState};
-#[cfg(unix)]
 use dyapp_identity::network::{self, Settings as NetworkFile};
-#[cfg(unix)]
 use std::collections::HashMap;
-#[cfg(unix)]
 use tauri::Manager;
 
-#[cfg(unix)]
 fn selected_network(state: &IdentityState) -> Result<Option<network::Network>, String> {
     let Ok(lease) = state.lease() else {
         return Ok(None);
@@ -19,14 +14,12 @@ fn selected_network(state: &IdentityState) -> Result<Option<network::Network>, S
 }
 
 /// Installation settings remain available without an open identity.
-#[cfg(unix)]
 #[tauri::command]
 pub(super) async fn load_node_settings(app: tauri::AppHandle) -> Result<node::Settings, String> {
     node::load(&config_dir(&app)?)
 }
 
 /// Node work owns no identity lease after the active-network snapshot is read.
-#[cfg(unix)]
 #[tauri::command]
 pub(super) async fn save_node_settings(
     app: tauri::AppHandle,
@@ -51,8 +44,7 @@ pub(super) async fn save_node_settings(
     .map_err(|error| error.to_string())?
 }
 
-/// Explicit activation adopts the selected Linux network; identity switches never call this.
-#[cfg(unix)]
+/// Explicit activation adopts the selected active network; identity switches never call this.
 #[tauri::command]
 pub(super) async fn apply_node(
     app: tauri::AppHandle,
@@ -72,7 +64,6 @@ pub(super) async fn apply_node(
     .map_err(|error| error.to_string())?
 }
 
-#[cfg(unix)]
 #[tauri::command]
 pub(super) async fn node_status(
     app: tauri::AppHandle,
@@ -82,7 +73,6 @@ pub(super) async fn node_status(
 }
 
 /// Restore the installation node before any account is opened.
-#[cfg(unix)]
 pub(super) fn start(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         let result = match config_dir(&app) {
@@ -98,7 +88,6 @@ pub(super) fn start(app: tauri::AppHandle) {
 }
 
 /// Wait for the node stores to close on application exit, including explicit Quit.
-#[cfg(unix)]
 pub(super) fn shutdown(app: &tauri::AppHandle) {
     tauri::async_runtime::block_on(node::stop(&app.state::<node::NodeState>()));
 }

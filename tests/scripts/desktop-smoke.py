@@ -273,6 +273,12 @@ class DesktopSmoke:
     def mixed(self, profile: str | Path, first: str) -> None:
         """Add a file identity to a system one, then crash, bad pointer."""
         root = Path(profile)
+        # Offline fixture: no seeds or outgoing discovery. Installation-level
+        # network settings let the node run in the account picker too.
+        (root / "node-config").mkdir(exist_ok=True)
+        (root / "node-config" / "network").write_text(
+            "dyapp-network 1\nname \n"
+        )
         file = ["--ui-test-file"]
         second = self.case(
             "mixed-add", [*file, "--ui-test-step=add"], profile, timeout=300
@@ -547,8 +553,8 @@ class DesktopSmoke:
         ):
             raise RuntimeError("the node step replaced the identity")
         folder = storage / "profiles" / slot
-        saved = json.loads((folder / "node.json").read_text())
-        if saved["enabled"] or not (folder / "node").is_dir():
+        saved = json.loads((storage / "node.json").read_text())
+        if saved["enabled"] or not (storage / "node").is_dir():
             raise RuntimeError(f"the node did not run, then stop: {saved}")
         active = storage / "profiles" / slot / "network"
         active_before = active.read_bytes()
@@ -598,7 +604,7 @@ class DesktopSmoke:
         self.case(
             "search", [*file, "--ui-test-step=search"], profile, timeout=180
         )
-        forge_search_signature(storage / "node")
+        forge_search_signature(storage / "fixture-node")
         self.case(
             "search-forged",
             [*file, "--ui-test-step=search-forged"],
@@ -721,7 +727,7 @@ class DesktopSmoke:
                     timeout=180,
                 )
             if step == "sticker-send":
-                expire_sticker_media(storage / "node", peer_id)
+                expire_sticker_media(storage / "fixture-node", peer_id)
         kept = Path(peer_root) / "notices.json"
         notice = json.loads(kept.read_text())[-1]
         body = "&lt;b&gt;notice&lt;/b&gt; text"
@@ -745,7 +751,7 @@ class DesktopSmoke:
             os.environ,
             DYAPPD_LISTEN=f'["{seed}"]',
             DYAPPD_EXTERNAL=f'["{seed}"]',
-            DYAPPD_STORAGE_DIR=str(storage / "node"),
+            DYAPPD_STORAGE_DIR=str(storage / "fixture-node"),
             DYAPPD_ROLES='["store", "search", "media"]',
             DYAPPD_NETWORK_ID_POW_BITS="8",
             DYAPPD_SEARCH_MIN_PROFILE_POW_BITS="4",

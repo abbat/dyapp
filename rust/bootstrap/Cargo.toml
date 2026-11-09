@@ -43,6 +43,9 @@ toml = "1"
 serde_ignored = "0.1"
 dyapp-p2p-net = { path = "../p2p-net" }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+
 [[test]]
 name = "integration_tests"
 path = "../../tests/integration_tests.rs"

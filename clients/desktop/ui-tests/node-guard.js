@@ -44,16 +44,19 @@
   const checkOldNodeSettings = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let finishSettings;
+    let settingsStarted;
+    const ready = new Promise((resolve) => {
+      settingsStarted = resolve;
+    });
     const oldSettings = appBindings.showNode((command) =>
       command === 'node_status'
         ? Promise.resolve({ status: 'off', peerId: '' })
         : new Promise((resolve) => {
             finishSettings = resolve;
+            settingsStarted();
           }),
     );
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
+    await ready;
     if (!finishSettings) throw new Error('old node settings load did not start');
     await switchAndShow();
     finishSettings({ enabled: true, diskMb: 100, maxConnections: 10 });
@@ -63,16 +66,19 @@
   const checkOldNodeSettingsFailure = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let failSettings;
+    let settingsStarted;
+    const ready = new Promise((resolve) => {
+      settingsStarted = resolve;
+    });
     const oldSettingsFailure = appBindings.showNode((command) =>
       command === 'node_status'
         ? Promise.resolve({ status: 'off', peerId: '' })
         : new Promise((_, reject) => {
             failSettings = reject;
+            settingsStarted();
           }),
     );
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
+    await ready;
     await switchAndShow();
     failSettings(new Error('old settings'));
     await oldSettingsFailure;

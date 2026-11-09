@@ -164,6 +164,11 @@ fn usage(db: &Mutex<Connection>) -> Result<(u64, u64)> {
 ///
 /// Returns an error if `path` contains a NUL byte or the filesystem free-space query fails.
 pub fn free(path: &str) -> Result<u64> {
+    free_platform(path)
+}
+
+#[cfg(unix)]
+fn free_platform(path: &str) -> Result<u64> {
     let path = std::ffi::CString::new(path).map_err(storage_error)?;
     let mut fs = std::mem::MaybeUninit::<libc::statvfs>::uninit();
     // SAFETY: `path` is NUL-terminated and `fs` is written by statvfs before it is read.
@@ -178,6 +183,41 @@ pub fn free(path: &str) -> Result<u64> {
         reason = "statvfs field types differ between targets"
     )]
     Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
+}
+
+#[cfg(windows)]
+fn free_platform(path: &str) -> Result<u64> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+
+    let path = Path::new(path);
+    let metadata = std::fs::metadata(path).map_err(storage_error)?;
+    let dir = if metadata.is_dir() {
+        path
+    } else {
+        path.parent()
+            .ok_or_else(|| storage_error("path has no parent directory"))?
+    };
+    let mut wide: Vec<u16> = dir.as_os_str().encode_wide().collect();
+    if wide.contains(&0) {
+        return Err(storage_error("path contains a NUL byte"));
+    }
+    wide.push(0);
+    let mut available = 0;
+    // SAFETY: wide is NUL-terminated and lives through the call; available is writable.
+    // The optional total-space outputs are not requested. This respects caller disk quotas.
+    if unsafe {
+        GetDiskFreeSpaceExW(
+            wide.as_ptr(),
+            &raw mut available,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    } == 0
+    {
+        return Err(storage_error(std::io::Error::last_os_error()));
+    }
+    Ok(available)
 }
 
 /// Panics if `EXPLAIN QUERY PLAN` shows a step that reads a table without an index.
@@ -610,6 +650,21 @@ mod tests {
             let envelope = NewEnvelope::new(mailbox, id, record, signal, expires_at);
             Ok(self.put_envelope(&envelope, max_bytes, None)? == Put::Stored)
         }
+    }
+
+    #[test]
+    fn free_space_accepts_directories_and_files_and_rejects_invalid_paths() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build")
+            .join(format!("free-space-кириллица-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("store.db");
+        std::fs::write(&file, b"probe").unwrap();
+        // Capacity can change between queries; compare neither exact bytes nor a fixed size.
+        assert!(free(dir.to_str().unwrap()).unwrap() > 0);
+        assert!(free(file.to_str().unwrap()).unwrap() > 0);
+        assert!(free(dir.join("missing").to_str().unwrap()).is_err());
+        assert!(free("invalid\0path").is_err());
     }
 
     #[test]

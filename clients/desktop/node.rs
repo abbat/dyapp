@@ -1,6 +1,6 @@
 //! The installation's optional store/search node (ADR 0030). `node.json` and `node/` live at
-//! the app config root. Its last explicitly applied Linux active-network choice is saved in
-//! `node/network`; opening, switching or removing an identity never changes the node.
+//! the app config root. Its last explicitly applied active-network choice is saved in
+//! `node-config/network`; opening, switching or removing an identity never changes the node.
 
 use std::collections::HashMap;
 use std::fs;
@@ -65,7 +65,8 @@ pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
 }
 
 fn save_network(root: &Path, active: &network::Network) -> Result<(), String> {
-    let dir = root.join("node");
+    // Bootstrap reserves node/network for its storage-binding marker, not seed settings.
+    let dir = root.join("node-config");
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     network::save(&dir, NetworkFile::Active, active).map_err(|e| e.to_string())
 }
@@ -143,7 +144,7 @@ async fn restart(
         return Ok(HashMap::from([("status", "off".into())]));
     }
     let Some(network) =
-        network::load(&dir.join("node"), NetworkFile::Active).map_err(|e| e.to_string())?
+        network::load(&dir.join("node-config"), NetworkFile::Active).map_err(|e| e.to_string())?
     else {
         return Ok(HashMap::from([("status", "noNetwork".into())]));
     };
@@ -251,6 +252,8 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(started["status"], "running");
+        // Storage binding uses a different format from the saved seed-list configuration.
+        assert!(fs::read(dir.join("node/network")).unwrap().is_empty());
         assert_eq!(status(&state, &dir).await, started);
         let invalid = Settings {
             disk_mb: 0,
@@ -267,10 +270,13 @@ mod tests {
             name: "other".into(),
         };
         network::save(&profile, NetworkFile::Active, &changed).unwrap();
-        let persisted = network::load(&dir.join("node"), NetworkFile::Active)
+        let persisted = network::load(&dir.join("node-config"), NetworkFile::Active)
             .unwrap()
             .unwrap();
         assert!(persisted.name.is_empty());
+        assert_eq!(status(&state, &dir).await, started);
+        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
+        fs::remove_dir_all(&profile).unwrap();
         assert_eq!(status(&state, &dir).await, started);
         assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
         assert_eq!(status(&state, &temp_dir("other")).await["status"], "off");

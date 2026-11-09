@@ -9,6 +9,7 @@ tauri = { version = "=2.12.3", features = ["tray-icon"] }
 tauri-plugin-clipboard-manager = "=2.5.0"
 tauri-plugin-single-instance = "=2.5.4"
 dyapp-client = { path = "../../rust/client" }
+dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-identity = { path = "../../rust/identity" }
 dyapp-p2p-net = { path = "../../rust/p2p-net" }
 dyapp-profile = { path = "../../rust/profile" }
@@ -21,9 +22,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "sync"] }
 zeroize = "1.9"
-
-[target.'cfg(windows)'.dependencies]
-sysinfo = { version = "=0.38.4", default-features = false, features = ["disk"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "time"] }

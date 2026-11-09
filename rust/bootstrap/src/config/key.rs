@@ -1,15 +1,34 @@
 //! The node key: made once with its proof of work, then loaded with the data directory binding.
 
 use super::{
-    fs, message, File, Keypair, MetadataExt, NodeConfig, OpenOptions, OpenOptionsExt, Path, PeerId,
-    Read, Write, Zeroizing,
+    fs, message, File, Keypair, NodeConfig, OpenOptions, Path, PeerId, Read, Write, Zeroizing,
 };
+#[cfg(unix)]
+use super::{MetadataExt, OpenOptionsExt};
+
+fn check_permissions(metadata: &fs::Metadata, check_mode: bool, path: &Path) -> anyhow::Result<()> {
+    #[cfg(unix)]
+    if check_mode && metadata.mode() & 0o077 != 0 {
+        anyhow::bail!(
+            "{} {}",
+            path.display(),
+            message(
+                "has group/other permissions: use chmod 600 before starting",
+                "доступен группе или другим пользователям: перед запуском выполните chmod 600"
+            )
+        );
+    }
+    #[cfg(not(unix))]
+    let _ = (metadata, check_mode, path);
+    Ok(())
+}
 
 impl NodeConfig {
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
     /// 2 vCPU) and binds the data directory to it and to `network.name`. Refuses an existing key,
     /// existing data or a directory of another network: a new key is a new node. The key goes to
-    /// `out` when given (to be sealed by another tool), else to a new 0600 file.
+    /// `out` when given (to be sealed by another tool), else to a new file (0600 on Unix,
+    /// inherited user-directory access control on Windows).
     ///
     /// # Errors
     ///
@@ -41,18 +60,20 @@ impl NodeConfig {
         self.bind_network()?;
         let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
         let encoded = Zeroizing::new(keypair.to_protobuf_encoding()?);
-        match out {
-            Some(out) => {
-                out.write_all(&encoded)?;
-                out.flush()?;
-            }
-            None => OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
+        if let Some(out) = out {
+            out.write_all(&encoded)?;
+            out.flush()?;
+        } else {
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            options.mode(0o600);
+            // Windows inherits access control from the user's app-config directory,
+            // as desktop file-backed identities do; POSIX mode bits do not apply.
+            options
                 .open(&key_path)
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
-                .write_all(&encoded)?,
+                .write_all(&encoded)?;
         }
         let peer_id = keypair.public().to_peer_id();
         fs::write(&id_path, peer_id.to_string())?;
@@ -60,7 +81,7 @@ impl NodeConfig {
     }
 
     /// Loads the node key made by [`Self::keygen`]. A key that does not belong to the stored data
-    /// or lacks the proof of work is refused, as is a key file with group/other permission bits.
+    /// or lacks the proof of work is refused, as is a Unix key file with group/other permission bits.
     ///
     /// # Errors
     ///
@@ -94,16 +115,7 @@ impl NodeConfig {
             let metadata = file
                 .metadata()
                 .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
-            if check_mode && metadata.mode() & 0o077 != 0 {
-                anyhow::bail!(
-                    "{} {}",
-                    key_path.display(),
-                    message(
-                        "has group/other permissions: use chmod 600 before starting",
-                        "доступен группе или другим пользователям: перед запуском выполните chmod 600"
-                    )
-                );
-            }
+            check_permissions(&metadata, check_mode, &key_path)?;
             // Read into one fixed allocation: growing a Vec could leave freed secret copies.
             let mut bytes = Zeroizing::new(vec![0; usize::try_from(metadata.len())?]);
             file.read_exact(&mut bytes)

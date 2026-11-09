@@ -17,7 +17,9 @@ it is reachable; hole punching and relays are [ADR 0031](0031-circuit-relay-and-
 The desktop app links `dyapp-bootstrap` as a library and, while it is open, runs a node with the
 `store` and `search` roles on the active network, in its own task and under its own node key and
 data directory at the installation's app-config root, outside every profile folder. `node.json`
-holds its settings; `node/` holds its key, stores and persisted active network (`node/network`).
+holds its settings; `node/` holds its key and stores; `node-config/network` holds its persisted
+active-network settings. Bootstrap's distinct `node/network` marker binds the stores to a network
+name and must never be overwritten with the identity seed-list format.
 The node is off by default. A settings toggle turns it on
 and sets its limits: disk (default 1 GiB, split between profiles, mailboxes and the search index)
 and connections; everything else uses the `dyappd` defaults. Turning it off or closing the app
@@ -26,7 +28,7 @@ so the start sequence moves from the `dyappd` binary into the library and both c
 TURN roles stay on dedicated nodes. Mobile apps stay light clients.
 
 The existing Linux network choice is retained: explicitly saving enabled node settings or
-activating a network copies the selected profile's active network into `node/network`. No new
+activating a network copies the selected profile's active network into `node-config/network`. No new
 network-selection UI is introduced. Without an open profile, settings reuse the saved node
 network; an enabled node without a saved network reports `noNetwork`. App startup restores this
 configuration before an identity opens. Creating, selecting, linking or removing profiles never
@@ -43,6 +45,8 @@ No pre-release profile-node migration is provided.
 - The node is reachable only where AutoNAT says so; behind NAT it serves only the connections it
   opens until NAT traversal lands.
 - A desktop node is up only while the app runs, so replication must keep tolerating churn.
-- `dyapp-bootstrap` builds only on Unix, so the Windows desktop runs no node until it builds
-  there. The macOS Tauri client ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) runs the
-  node as Linux does (planned).
+- Linux and Windows share the embedded-node implementation. Unix keeps its 0600 key-file
+  checks, root refusal and SIGHUP reload; Windows inherits key access control from the user's
+  app-config directory, queries free space with `GetDiskFreeSpaceExW`, and refreshes deny lists
+  on the common timer. The macOS Tauri client
+  ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) runs the node as Linux does (planned).
