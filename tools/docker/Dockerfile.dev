@@ -7,6 +7,11 @@ RUN curl -fsSL --retry 7 -o hawk.tar.gz https://github.com/astral-sh/hawk/releas
     tar -xzf hawk.tar.gz --strip-components=1 && \
     test -x cargo-hawk && test -x cargo-hawk-driver && test -x cargo-hawk-rustdoc
 
+FROM node@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS web-tools
+WORKDIR /opt/web-lint
+COPY tools/web-lint/package.json tools/web-lint/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+
 FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS typescript-tools
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # TypeScript 7.0.2 native compiler and standard libraries; no Node runtime is needed.
@@ -90,6 +95,8 @@ COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bf
 COPY --from=swift@sha256:042765b8f0014cc3b43c7a00e55f6cd450e37b1b2ac4ff70171b0bfaa597e3bf /usr/lib/swift/linux /usr/local/lib/swift/linux
 COPY --from=hawk-tools /build/cargo-hawk /build/cargo-hawk-driver /build/cargo-hawk-rustdoc /usr/local/bin/
 COPY --from=typescript-tools /opt/typescript /opt/typescript
+COPY --from=web-tools /usr/local/bin/node /usr/local/bin/node
+COPY --from=web-tools /opt/web-lint /opt/web-lint
 ENV PATH="/opt/typescript:${PATH}"
 USER 1000:1000
 CMD ["cargo", "test", "--workspace", "--locked", "--offline"]

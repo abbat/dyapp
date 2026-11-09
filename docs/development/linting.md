@@ -371,6 +371,18 @@ compiler with its standard libraries, without Node or npm at check time.
 `contact-qr.js` owns QR pixels and camera frames; `profile-public.js` owns labelled public facts.
 Profile scale names are checked against the native fourteen-field set, and draft serialization
 requires all nine non-defaulted scales before sending a save command.
+
+The same web stage runs Knip 6.44.2 for unused UI files, exports and dependencies, and an AST-based
+CSS selector check using Acorn 8.15.0, CSS Tree 3.2.1 and parse5 8.0.0. Preparation locks all npm
+transitives and uses pinned Node 24.22.2; checks run offline with no installs. The product has no
+npm dependency or bundling step. The checker copies every UI JavaScript file into a fresh analysis
+workspace under `build/`, derives application entries from HTML, and uses the actual Rust smoke
+script inventory. It rewrites only static smoke import URLs for analysis, preserving test consumers.
+Missing/empty inventories, unsupported imports and parse errors fail rather than skipping work.
+CSS class and ID names are compared with HTML attributes and JavaScript string/template tokens in
+the shipped UI and shared prototype. Exact runtime-built names need a reason in
+`tools/web-lint/runtime-selectors.json`; stale allowances fail. This detects unreferenced names,
+not whether a particular element-selector combination can match at runtime.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

@@ -1,0 +1,4 @@
+{
+  "_comment": "Only class/id names assembled at runtime belong here. Each exact selector needs a reason. Current names are all statically referenced.",
+  "selectors": {}
+}

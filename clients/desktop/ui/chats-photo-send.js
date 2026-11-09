@@ -4,7 +4,7 @@ import { chatState } from './chat-state.js';
 import { chatSending, sendInChat } from './chats-ui.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-export const controller = {};
+const controller = {};
 /** @type {Promise<void> | undefined} */
 controller.chatPhotoSent = undefined;
 

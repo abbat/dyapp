@@ -21,7 +21,7 @@ may run several finite stages, each with a result.
 | `test-integration` | mapped Cargo integration, network and memory stages |
 | `quality`, `lint`, `check`, `pre-commit` | `check-quality.sh`; tool-level mapped checks |
 | `fmt`, `msrv`, `doc` | explicit mapped Cargo commands inside Docker capture |
-| `lint-web`, `quick-check` | mapped Biome and TypeScript checks; quick-check also runs Rust/Swift formatting and SwiftLint |
+| `lint-web`, `quick-check` | mapped Biome, TypeScript and unused JS/CSS checks; quick-check also runs Rust/Swift formatting and SwiftLint |
 | `deb`, `image` | Docker build/package stages; `image-test.sh` |
 | `ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | `ui-test.sh`; Docker/native test frontends |
 | `pre-push` | `test-all` |

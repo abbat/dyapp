@@ -1,11 +1,11 @@
 (() => {
-  const checkCatalogue = async (localization, catalogue) => {
+  const checkCatalogue = async (localization, catalogue, load) => {
     const before = [localization.locale, localization.pseudoLocale, localization.strings];
     const fetch = window.fetch;
     let rejected = false;
     try {
       window.fetch = async () => new Response(JSON.stringify(catalogue));
-      await localization.loadLocale(async () => [false, false]);
+      await load(async () => [false, false]);
     } catch (error) {
       rejected = error instanceof Error && error.message.startsWith('Invalid translation');
     } finally {
@@ -309,7 +309,7 @@
     const localization = await import(new URL('locale.js', document.baseURI).href);
     const pixels = await import(new URL('sticker-pixels.js', document.baseURI).href);
     for (const catalogue of [null, [], 'text', { invalid: 1 }])
-      await checkCatalogue(localization, catalogue);
+      await checkCatalogue(localization, catalogue, localization.loadLocale);
     checkInterpolation(localization);
     await checkProfileScales();
     checkCanvas(pixels);

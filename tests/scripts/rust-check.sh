@@ -81,6 +81,7 @@ step() {
             check biome biome check --error-on-warnings --colors=off clients/desktop clients/android/prototype
             check typescript tsc --allowJs --checkJs --noEmit --strict --target es2022 \
                 --module esnext --lib es2022,dom --pretty false clients/desktop/ui/*.js
+            check web-unused node tools/web-lint/check-unused.mjs
             ;;
         web-format)
             biome format --write clients/desktop clients/android/prototype

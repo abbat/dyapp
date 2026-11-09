@@ -27,7 +27,7 @@ export const setScaleFields = (scales) => {
   scaleFields = scales;
 };
 /** @param {string} key */
-export const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+const camel = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const scaleKeys = /** @type {const} */ ([
   'gender',
   'orientation',

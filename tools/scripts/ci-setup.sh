@@ -92,6 +92,16 @@ if [[ $1 == rust ]]; then
     sudo mkdir -p /opt/typescript
     sudo tar -xzf "$tmp/typescript.tgz" -C /opt/typescript --strip-components=2 package/lib
     echo /opt/typescript >> "${GITHUB_PATH:?GitHub Actions only}"
+    # Same Node 24.22.2 image and locked checker dependencies as Docker preparation.
+    container=$(docker create node@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9)
+    sudo docker cp "$container:/usr/local/bin/node" /usr/local/bin/node
+    sudo docker cp "$container:/usr/local/lib/node_modules/npm" /opt/web-lint-npm
+    docker rm "$container" > /dev/null
+    mkdir -p "$tmp/web-lint"
+    cp -f tools/web-lint/package.json tools/web-lint/package-lock.json "$tmp/web-lint/"
+    /usr/local/bin/node /opt/web-lint-npm/bin/npm-cli.js ci --prefix "$tmp/web-lint" --ignore-scripts --no-audit --no-fund
+    echo /usr/local/bin >> "$GITHUB_PATH"
+    sudo cp -rf "$tmp/web-lint" /opt/web-lint
     rm -rf "$tmp"
 fi
 rustup toolchain install "$toolchain" --profile minimal "${components[@]}"

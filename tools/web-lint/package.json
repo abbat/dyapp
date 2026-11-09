@@ -1,0 +1,11 @@
+{
+  "name": "dyapp-web-lint",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "acorn": "8.15.0",
+    "css-tree": "3.2.1",
+    "knip": "6.44.2",
+    "parse5": "8.0.0"
+  }
+}

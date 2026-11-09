@@ -116,8 +116,7 @@ p {
 .caption {
   font: var(--text-caption);
 }
-code,
-.mono {
+code {
   font-family: var(--mono);
   font-size: 0.875em;
   overflow-wrap: anywhere;
@@ -453,11 +452,6 @@ details > summary {
 #profile-public-fields li {
   white-space: pre-line;
   overflow-wrap: anywhere;
-}
-.result {
-  display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
 }
 .avatar {
   width: 40px;
@@ -969,8 +963,7 @@ details > summary {
     align-items: center;
   }
   .sidebar .label,
-  .sidebar .sub,
-  .nav .chev {
+  .sidebar .sub {
     display: none;
   }
   .nav {
