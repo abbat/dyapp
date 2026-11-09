@@ -19,6 +19,9 @@ native_path = Path(__file__).with_name("desktop_smoke_native.py")
 native_spec = importlib.util.spec_from_file_location(
     "desktop_smoke_native", native_path
 )
+assert native_spec is not None and native_spec.loader is not None, (
+    "Python source loader is unavailable"
+)
 native = importlib.util.module_from_spec(native_spec)
 native_spec.loader.exec_module(native)
 display_diagnostics = native.display_diagnostics

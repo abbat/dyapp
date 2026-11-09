@@ -13,6 +13,9 @@ import unittest.mock as mock
 
 SCRIPT = Path(__file__).parent / "scripts/pr-guard.py"
 spec = importlib.util.spec_from_file_location("pr_guard", SCRIPT)
+assert spec is not None and spec.loader is not None, (
+    "Python source loader is unavailable"
+)
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
 SOURCE = "registry+https://github.com/rust-lang/crates.io-index"

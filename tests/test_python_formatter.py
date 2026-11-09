@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
     "install_ruff", ROOT / "tools/build-scripts/install-ruff.py"
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 INSTALLER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INSTALLER)
 

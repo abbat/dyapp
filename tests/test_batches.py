@@ -12,6 +12,9 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests/scripts/check-batches.py"
 SPEC = importlib.util.spec_from_file_location("batches", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 

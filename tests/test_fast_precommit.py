@@ -7,6 +7,9 @@ import unittest
 
 SCRIPT = Path(__file__).parent / "scripts" / "check-fast-precommit.py"
 SPEC = importlib.util.spec_from_file_location("check_fast_precommit", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 

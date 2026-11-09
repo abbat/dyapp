@@ -83,6 +83,9 @@ class CoreCheckCLI(unittest.TestCase):
                 spec = importlib.util.spec_from_file_location(
                     "quiet_import", ROOT / "tests/scripts" / name
                 )
+                assert spec is not None and spec.loader is not None, (
+                    "Python source loader is unavailable"
+                )
                 module = importlib.util.module_from_spec(spec)
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with redirect_stdout(stdout), redirect_stderr(stderr):

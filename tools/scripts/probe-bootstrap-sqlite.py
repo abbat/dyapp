@@ -14,6 +14,9 @@ import time
 
 SCRIPT = Path(__file__).with_name("verify-bootstrap-backup.py")
 SPEC = importlib.util.spec_from_file_location("verify_bootstrap", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 VERIFY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VERIFY)
 

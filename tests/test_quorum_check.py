@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
     "quorum_check", ROOT / "tests/scripts/quorum-check.py"
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 with patch.dict(sys.modules, {"triggers": test_triggers.CHECK}):
     SPEC.loader.exec_module(CHECK)

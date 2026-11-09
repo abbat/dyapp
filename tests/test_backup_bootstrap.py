@@ -11,6 +11,9 @@ import unittest
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/backup-bootstrap.py"
 SPEC = importlib.util.spec_from_file_location("backup_bootstrap", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 BACKUP = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BACKUP)
 

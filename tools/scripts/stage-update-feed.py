@@ -20,6 +20,9 @@ MAX_PRIOR_BYTES = 64 * 1024
 
 def load_module(name, script):
     spec = importlib.util.spec_from_file_location(name, ROOT / script)
+    assert spec is not None and spec.loader is not None, (
+        "Python source loader is unavailable"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

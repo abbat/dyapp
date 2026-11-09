@@ -8,6 +8,9 @@ import unittest
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/release-candidates.py"
 SPEC = importlib.util.spec_from_file_location("release_candidates", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 CANDIDATES = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CANDIDATES)
 TAG = "v0.0.1"

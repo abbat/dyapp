@@ -11,11 +11,17 @@ SCRIPT = Path(__file__).parents[1] / "tools/scripts/verify-release-packages.py"
 SPEC = importlib.util.spec_from_file_location(
     "verify_release_packages", SCRIPT
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 VERIFY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VERIFY)
 BUILD_SCRIPT = Path(__file__).parents[1] / "tools/scripts/build-update-feed.py"
 BUILD_SPEC = importlib.util.spec_from_file_location(
     "build_update_feed", BUILD_SCRIPT
+)
+assert BUILD_SPEC is not None and BUILD_SPEC.loader is not None, (
+    "Python source loader is unavailable"
 )
 BUILD = importlib.util.module_from_spec(BUILD_SPEC)
 BUILD_SPEC.loader.exec_module(BUILD)

@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
     "flow_report", ROOT / "tools/scripts/flow-report.py"
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 CLI = importlib.util.module_from_spec(SPEC)
 with patch.dict(sys.modules, {"flow_metrics": FLOW}):
     SPEC.loader.exec_module(CLI)

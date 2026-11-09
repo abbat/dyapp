@@ -165,6 +165,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         for run_status, stop_status, expected in (
@@ -205,6 +208,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         Path("/tmp/ai").mkdir(exist_ok=True)
@@ -226,6 +232,9 @@ class Runners(unittest.TestCase):
     ) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
@@ -254,6 +263,9 @@ class Runners(unittest.TestCase):
     ) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
@@ -294,6 +306,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "network_test", ROOT / "tests/scripts/network-test.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
         environment = {"DYAPPD_STORAGE_DIR": "/storage/7071"}
@@ -316,6 +331,9 @@ class Runners(unittest.TestCase):
     def test_local_node_failure_prints_retained_diagnostics(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "network_test", ROOT / "tests/scripts/network-test.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         network = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(network)
@@ -379,6 +397,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         made = []
@@ -404,6 +425,9 @@ class Runners(unittest.TestCase):
     def test_image_builds_have_cpu_quota_and_stop_on_failure(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
@@ -498,6 +522,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
         with tempfile.TemporaryDirectory() as directory:
@@ -551,6 +578,9 @@ class Runners(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
         payload = bytes(range(128))
@@ -573,6 +603,9 @@ class Runners(unittest.TestCase):
     ) -> None:
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
@@ -597,6 +630,9 @@ class Runners(unittest.TestCase):
     def test_desktop_timeout_kills_helpers_holding_stdout(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "desktop_smoke", ROOT / "tests/scripts/desktop-smoke.py"
+        )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
         )
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)

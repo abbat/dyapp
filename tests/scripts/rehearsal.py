@@ -27,6 +27,9 @@ import time
 spec = importlib.util.spec_from_file_location(
     "network_test", Path(__file__).with_name("network-test.py")
 )
+assert spec is not None and spec.loader is not None, (
+    "Python source loader is unavailable"
+)
 net = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(net)
 

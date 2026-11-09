@@ -52,6 +52,9 @@ class NativeOutput(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "ui_export", ROOT / "tests/scripts/export-ui-reports.py"
         )
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         exporter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(exporter)
         with tempfile.TemporaryDirectory() as directory:

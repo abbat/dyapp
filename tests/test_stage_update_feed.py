@@ -9,6 +9,9 @@ from urllib.error import HTTPError
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/stage-update-feed.py"
 SPEC = importlib.util.spec_from_file_location("stage_update_feed", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 STAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(STAGE)
 DIGEST = "b" * 64

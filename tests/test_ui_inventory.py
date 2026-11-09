@@ -32,6 +32,9 @@ class Inventory(unittest.TestCase):
 
     def test_condition_heuristic(self) -> None:
         spec = importlib.util.spec_from_file_location("ui_inventory", SCRIPT)
+        assert spec is not None and spec.loader is not None, (
+            "Python source loader is unavailable"
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         js = "const a = document.getElementById('x-y');\na.hidden = true;\n"

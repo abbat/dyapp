@@ -19,6 +19,9 @@ from memory_report import write_report  # noqa: E402 -- path set above
 SPEC = importlib.util.spec_from_file_location(
     "network_memory", ROOT / "tests/scripts/network-test.py"
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 NETWORK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NETWORK)
 

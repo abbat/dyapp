@@ -14,6 +14,9 @@ import unittest
 SCRIPTS = Path(__file__).parents[1] / "tools/scripts"
 SCRIPT = SCRIPTS / "preflight-bootstrap-update.py"
 SPEC = importlib.util.spec_from_file_location("preflight_update", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 PREFLIGHT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PREFLIGHT)
 

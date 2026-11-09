@@ -278,8 +278,9 @@ in `tools/scripts/check_dispatch.py`. Reuse those contracts when adding diagnost
 calling the dynamically loaded runner; a missing source loader fails before dispatch. Report
 readers describe their consumed fields with `TypedDict`; these annotations preserve, rather than
 replace, runtime validation of external reports. Unittest's no-value test/lifecycle contracts
-use `-> None`; fixture helpers retain their produced result types. Project-wide strict type
-checking remains planned.
+use `-> None`; fixture helpers retain their produced result types. Scripts loading local Python
+sources assert that their import spec and source loader exist before constructing the module.
+Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)
 

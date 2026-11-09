@@ -18,6 +18,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "triggers", ROOT / "tests/scripts/triggers.py"
 )
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 TRIGGERS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TRIGGERS)
 # (interface, globs, changed-line regex), the shape of triggers.load().

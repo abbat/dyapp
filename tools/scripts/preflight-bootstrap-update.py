@@ -15,6 +15,9 @@ import tempfile
 
 SCRIPT = Path(__file__).with_name("probe-bootstrap-backup.py")
 SPEC = importlib.util.spec_from_file_location("probe_bootstrap_backup", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None, (
+    "Python source loader is unavailable"
+)
 PROBE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PROBE)
 BACKUP = PROBE.SQLITE.VERIFY.BACKUP
