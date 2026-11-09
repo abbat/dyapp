@@ -18,8 +18,18 @@ const dialog = domById('photo-keep-dialog', HTMLDialogElement);
 const cancel = domById('photo-keep-cancel', HTMLButtonElement);
 const confirm = domById('photo-keep-confirm', HTMLButtonElement);
 const mib = 1048576;
-let view = null,
-  asked = null;
+/**
+ * @typedef {{ generation: number, identityId: string | undefined, call: import('./ipc.js').Invoke,
+ *   config: import('./ipc.js').MediaCache | null, busy: boolean }} CacheView
+ * @typedef {{ enabled?: boolean, limitBytes?: number }} CacheValues
+ * @typedef {{ target: CacheView, command: 'set_media_cache' | 'clear_media_cache',
+ *   values: CacheValues, opener: Element | null }} CacheChange
+ */
+/** @type {CacheView | null} */
+let view = null;
+/** @type {CacheChange | null} */
+let asked = null;
+/** @param {CacheView} target */
 const active = (target) => view === target && identityCurrent(target.generation);
 const render = () => {
   const known = view?.config;
@@ -53,6 +63,7 @@ const invalidate = () => {
 };
 const show = async (call = invoke) => {
   close();
+  /** @type {CacheView} */
   const target = {
     generation: identityState.generation,
     identityId: identityState.current?.peerId,
@@ -77,7 +88,11 @@ const show = async (call = invoke) => {
     }
   }
 };
-/** @param {'set_media_cache' | 'clear_media_cache'} command */
+/**
+ * @param {'set_media_cache' | 'clear_media_cache'} command
+ * @param {CacheView} target
+ * @param {CacheValues} values
+ */
 const apply = async (target, command, values) => {
   if (!active(target) || target.busy || !target.config) return;
   target.busy = true;
@@ -100,7 +115,7 @@ const apply = async (target, command, values) => {
     }
   }
 };
-/** @param {'set_media_cache' | 'clear_media_cache'} command */
+/** @param {'set_media_cache' | 'clear_media_cache'} command @param {CacheValues} [values] */
 const change = (command, values = {}) => {
   const target = view;
   if (!target?.config || target.busy) return;

@@ -9,14 +9,25 @@ controller.stickerImagesLoaded = undefined;
 controller.stickerImageLoaded = undefined;
 
 // IntersectionObserver owns automatic reads; clearing the view invalidates every in-flight reply.
+/**
+ * @typedef {{ root: HTMLDivElement, fallback: HTMLParagraphElement, image: HTMLSpanElement,
+ *   status: HTMLParagraphElement, button: HTMLButtonElement, call: import('./ipc.js').Invoke,
+ *   epoch: number, generation: number, identityId: string, busy: boolean, loaded: boolean,
+ *   selection: import('./ipc.js').ChatStickerSelection }} ImageTarget
+ */
 let epoch = 0;
 let batch = Promise.resolve();
+/** @type {Map<Element, ImageTarget>} */
 const pending = new Map();
 /** @param {string} key */
 const text = (key) => strings[`stickerImage.${key}`];
+/** @param {ImageTarget} target */
 const active = (target) =>
   target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
-/** @param {boolean} focused @param {import('./ipc.js').BinaryResponse} bytes */
+/**
+ * @param {boolean} focused @param {import('./ipc.js').BinaryResponse} bytes
+ * @param {ImageTarget} target
+ */
 const renderFrame = (target, bytes, focused) => {
   const canvas = stickerBinaryPixels(bytes, target.fallback.textContent);
   target.image.replaceChildren(canvas);
@@ -31,7 +42,7 @@ const renderFrame = (target, bytes, focused) => {
   observer.unobserve(target.root);
   pending.delete(target.root);
 };
-/** @param {boolean} focused */
+/** @param {boolean} focused @param {ImageTarget} target */
 const finishLoad = (target, focused) => {
   if (!active(target)) return;
   target.busy = false;
@@ -47,7 +58,7 @@ const frameFailure = (error) => {
   if (['expired', 'notFound'].includes(code)) return 'unavailable';
   return 'failed';
 };
-/** @param {boolean} manual */
+/** @param {boolean} manual @param {ImageTarget} target */
 const load = async (target, manual) => {
   if (!active(target) || target.busy || target.loaded) return;
   const focused = manual && document.activeElement === target.button;
@@ -108,6 +119,7 @@ const bubble = (message, peerId, call) => {
   button.className = 'btn';
   button.textContent = text('load');
   button.dataset.action = 'load-sticker';
+  /** @type {ImageTarget} */
   const target = {
     root,
     fallback,

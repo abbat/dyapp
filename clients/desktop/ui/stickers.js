@@ -13,23 +13,31 @@ controller.stickerImported = undefined;
 // Each disclosure opening owns its reads, picker and import completion.
 const panel = domById('sticker-packs', HTMLDetailsElement);
 const manager = domById('sticker-manager', HTMLDialogElement);
+/** @typedef {{ generation: number, identityId: string | undefined, call: import('./ipc.js').Invoke,
+ *   busy: boolean, next: number[] | null }} ManagerView */
+/** @type {Element | null} */
 let openedFrom = null;
 /** @param {string} key */
 const text = (key) => strings[`stickers.${key}`];
+/** @type {ManagerView | null} */
 let view = null;
+/** @type {{ target: ManagerView, id: number[], button: HTMLButtonElement } | null} */
 let removing = null;
 const dialog = domById('sticker-remove-dialog', HTMLDialogElement);
 /** @param {number[]} id */
 const hexId = (id) => id.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+/** @param {ManagerView | null} target @returns {target is ManagerView} */
 const active = (target) =>
-  target && view === target && panel.open && identityCurrent(target.generation) && manager.open;
+  Boolean(
+    target && view === target && panel.open && identityCurrent(target.generation) && manager.open,
+  );
 /** @param {string} key */
 const message = (key, error = false) => {
   domById('sticker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
   domById('sticker-status', HTMLParagraphElement).hidden = !key;
   domById('sticker-status', HTMLParagraphElement).classList.toggle('error', error);
 };
-/** @param {boolean} value */
+/** @param {boolean} value @param {ManagerView} target */
 const busy = (target, value) => {
   target.busy = value;
   for (const id of ['sticker-import', 'sticker-refresh', 'sticker-next'])
@@ -43,7 +51,7 @@ const failure = (key, error) => {
   domById('sticker-details', HTMLDetailsElement).hidden = false;
   domById('sticker-reason', HTMLParagraphElement).textContent = String(error);
 };
-/** @param {import('./ipc.js').StickerPack} entry */
+/** @param {import('./ipc.js').StickerPack} entry @param {ManagerView} target */
 const row = (entry, target) => {
   const item = document.createElement('li');
   const name = document.createElement('strong');
@@ -89,6 +97,7 @@ const showCollectionStatus = (page, notice) => {
     `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
   domById('sticker-status', HTMLParagraphElement).hidden = false;
 };
+/** @param {number[] | null} [after] @param {ManagerView} target */
 const load = async (target, after = null, notice = '') => {
   const paging = document.activeElement === domById('sticker-next', HTMLButtonElement);
   busy(target, true);
@@ -139,7 +148,7 @@ dialog.addEventListener('cancel', (event) => {
   event.preventDefault();
   cancelRemoval();
 });
-/** @param {number[]} packId */
+/** @param {number[]} packId @param {ManagerView} target */
 const removeSelected = async (target, packId) => {
   try {
     await target.call('remove_saved_sticker_pack', {
@@ -192,6 +201,7 @@ const open = (call = invoke) => {
     manager.showModal();
   }
   panel.open = true;
+  /** @type {ManagerView} */
   const target = {
     generation: identityState.generation,
     identityId: identityState.current?.peerId,
@@ -205,7 +215,7 @@ const open = (call = invoke) => {
   domById('sticker-unknown', HTMLParagraphElement).hidden = true;
   return load(target);
 };
-/** @param {File} file */
+/** @param {File} file @param {ManagerView | null} target */
 const prepareImport = (file, target) => {
   if (!file || !active(target) || target.busy) return false;
   domById('sticker-details', HTMLDetailsElement).hidden = true;
@@ -218,7 +228,7 @@ const prepareImport = (file, target) => {
   domById('sticker-details', HTMLDetailsElement).hidden = true;
   return true;
 };
-/** @param {unknown} error */
+/** @param {unknown} error @param {ManagerView | null} target */
 const showImportFailure = (target, error) => {
   if (active(target))
     failure(

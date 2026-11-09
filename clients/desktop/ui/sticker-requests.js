@@ -5,14 +5,28 @@ import { controller as stickersController } from './stickers.js';
 export const controller = {};
 /** @type {Promise<void> | Promise<void[]> | undefined} */
 controller.stickerRequestsUpdated = undefined;
+/** @type {void | Promise<void>} */
+controller.stickerRequestChanged = undefined;
+/** @type {Promise<void> | undefined} */
+controller.stickerRequestDelivered = undefined;
 
 // Read status only for visible received stickers; actions carry the observed local generation.
+/**
+ * @typedef {Pick<import('./ipc.js').StickerPackStatus, 'state' | 'generation' | 'failure'>} PackStatus
+ * @typedef {{ root: HTMLDivElement, caption: HTMLParagraphElement, error: HTMLParagraphElement,
+ *   actions: HTMLDivElement, call: import('./ipc.js').Invoke, epoch: number, visible: boolean,
+ *   busy: boolean, value: PackStatus | null, identityId: string, generation: number,
+ *   name: string, signature?: string | null, selection: import('./ipc.js').ChatStickerSelection }} RequestTarget
+ */
 let epoch = 0;
+/** @type {Map<Element, RequestTarget>} */
 const targets = new Map();
 /** @param {string} key */
 const text = (key) => strings[`stickerRequest.${key}`];
+/** @param {RequestTarget} target */
 const active = (target) =>
   target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
+/** @param {RequestTarget} target */
 const args = (target) => ({ identityId: target.identityId, selection: target.selection });
 /** @param {import('./ipc.js').StickerPackStatus} value */
 const checked = (value) => {
@@ -35,15 +49,16 @@ const checked = (value) => {
     throw Error('Invalid pack failure');
   return { state: value.state, generation: token, failure: value.failure };
 };
+/** @param {RequestTarget} target */
 const focusHere = (target) =>
   target.root.contains(document.activeElement) ? document.activeElement : null;
-/** @param {boolean} value */
+/** @param {boolean} value @param {RequestTarget} target */
 const busy = (target, value) => {
   target.busy = value;
   target.root.setAttribute('aria-busy', String(value));
   for (const button of target.actions.children) button.disabled = value;
 };
-/** @param {Element | null} focus */
+/** @param {Element | null} focus @param {RequestTarget} target */
 const finish = (target, focus) => {
   if (!active(target)) return;
   busy(target, false);
@@ -53,7 +68,7 @@ const finish = (target, focus) => {
     next?.focus();
   }
 };
-/** @param {string} key @param {() => void | Promise<void>} action */
+/** @param {string} key @param {() => void | Promise<void>} action @param {RequestTarget} target */
 const add = (target, key, action) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -65,13 +80,19 @@ const add = (target, key, action) => {
   });
   target.actions.append(button);
 };
+/** @param {RequestTarget} target */
 const manage = (target) => stickersController.stickerCollection.open(target.call);
-/** @param {(key: string, kind: import('./ipc.js').StickerPackAction['kind']) => void} action */
+/**
+ * @param {(key: string, kind: import('./ipc.js').StickerPackAction['kind']) => void} action
+ * @param {RequestTarget} target
+ * @param {PackStatus} value
+ */
 const failedActions = (target, value, action) => {
   if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
   else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
   if (value.generation && value.failure === 'invalid') action('fresh', 'fresh');
 };
+/** @param {RequestTarget} target @param {PackStatus} value */
 const render = (target, value) => {
   const signature = JSON.stringify(value);
   target.value = value;
@@ -92,6 +113,7 @@ const render = (target, value) => {
   if (value.state === 'saved' || ['quota', 'storage', 'stickerMissing'].includes(value.failure))
     add(target, 'manage', () => manage(target));
 };
+/** @param {RequestTarget} target */
 const failedRead = (target) => {
   target.value = null;
   target.signature = null;
@@ -101,6 +123,7 @@ const failedRead = (target) => {
   add(target, 'refresh', () => read(target));
   add(target, 'manage', () => manage(target));
 };
+/** @param {RequestTarget} target */
 const read = async (target) => {
   if (!active(target) || target.busy) return;
   const focus = focusHere(target);
@@ -114,7 +137,7 @@ const read = async (target) => {
     finish(target, focus);
   }
 };
-/** @param {import('./ipc.js').StickerPackAction['kind']} kind */
+/** @param {import('./ipc.js').StickerPackAction['kind']} kind @param {RequestTarget} target */
 const receiveAfterChange = (target, kind) => {
   if (kind !== 'stopWaiting') {
     controller.stickerRequestDelivered = target
@@ -131,9 +154,10 @@ const actionFailure = (error) => {
   if (String(error) === 'too many pending sticker pack requests') return 'limit';
   return 'actionFailed';
 };
+/** @param {RequestTarget} target */
 const requestGeneration = (target) =>
   target.value.generation ? [...target.value.generation] : null;
-/** @param {import('./ipc.js').StickerPackAction['kind']} kind */
+/** @param {import('./ipc.js').StickerPackAction['kind']} kind @param {RequestTarget} target */
 const change = async (target, kind) => {
   if (!active(target) || target.busy || !target.value) return;
   const focus = focusHere(target);
@@ -191,6 +215,7 @@ const controls = (message, peerId, call) => {
   error.setAttribute('role', 'alert');
   const actions = document.createElement('div');
   actions.className = 'actions';
+  /** @type {RequestTarget} */
   const target = {
     root,
     caption,

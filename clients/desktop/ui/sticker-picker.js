@@ -15,16 +15,30 @@ const el = (id) => domById(`sticker-picker-${id}`, HTMLElement);
 const dialog = domById('sticker-picker', HTMLDialogElement);
 /** @param {string} key */
 const text = (key) => strings[`stickerPicker.${key}`];
+/**
+ * @typedef {{ peerId: string, call?: import('./ipc.js').Invoke,
+ *   onSent?: () => void | Promise<void> }} PickerOptions
+ * @typedef {PickerOptions & { identityId: string, generation: number,
+ *   call: import('./ipc.js').Invoke, button: HTMLButtonElement, pages: number[],
+ *   packPages: (number[] | null)[], read: number, busy: boolean, focus?: Element | null,
+ *   pack?: Pick<import('./ipc.js').StickerPack, 'id' | 'name'> | null,
+ *   phase?: 'page' | 'packs', after?: number, next?: number | null,
+ *   packAfter?: number[] | null, packNext?: number[] | null }} PickerView
+ */
+/** @type {PickerView | null} */
 let view = null;
+/** @type {PickerView | null} */
 let returnTo = null;
+/** @param {PickerView | null} target @returns {target is PickerView} */
 const active = (target) =>
-  target && view === target && dialog.open && identityCurrent(target.generation);
+  Boolean(target && view === target && dialog.open && identityCurrent(target.generation));
 /** @param {string} key */
 const notice = (key, error = false) => {
   domById('sticker-picker-status', HTMLParagraphElement).textContent = key ? text(key) : '';
   domById('sticker-picker-status', HTMLParagraphElement).hidden = !key;
   domById('sticker-picker-status', HTMLParagraphElement).classList.toggle('error', error);
 };
+/** @param {PickerView} target */
 const restorePickerFocus = (target) => {
   if ([document.body, dialog, target.focus].includes(document.activeElement)) {
     const focus =
@@ -34,7 +48,7 @@ const restorePickerFocus = (target) => {
     focus.focus();
   }
 };
-/** @param {boolean} value */
+/** @param {boolean} value @param {PickerView} target */
 const busy = (target, value) => {
   if (value && !target.busy) target.focus = document.activeElement;
   target.busy = value;
@@ -53,7 +67,10 @@ const close = (restore = true) => {
   domById('sticker-picker-grid', HTMLDivElement).replaceChildren();
   if (restore && target?.button.isConnected && !target.button.disabled) target.button.focus();
 };
-/** @param {import('./ipc.js').PickerSticker & { packId?: number[], packName?: string }} entry */
+/**
+ * @param {import('./ipc.js').PickerSticker & { packId?: number[], packName?: string }} entry
+ * @param {PickerView} target
+ */
 const entryButton = (target, entry) => {
   const packId = target.pack?.id || entry.packId;
   const name = target.pack?.name || entry.packName;
@@ -71,8 +88,8 @@ const entryButton = (target, entry) => {
   return button;
 };
 /**
- * @param {number} after
- * @param {import('./ipc.js').SavedStickerPage | import('./ipc.js').RecentStickerPage} page
+ * @param {number} after @param {import('./ipc.js').SavedStickerPage | import('./ipc.js').RecentStickerPage} page
+ * @param {PickerView} target
  */
 const renderPage = (target, page, after) => {
   target.after = after;
@@ -88,8 +105,9 @@ const renderPage = (target, page, after) => {
   );
   notice(page.entries.length ? '' : target.pack ? 'empty' : 'noRecent');
 };
-/** @param {number} read */
+/** @param {number} read @param {PickerView} target */
 const pageCurrent = (target, read) => active(target) && target.read === read;
+/** @param {PickerView} target */
 const load = async (target, after = 0) => {
   const read = ++target.read;
   target.phase = 'page';
@@ -117,7 +135,10 @@ const load = async (target, after = 0) => {
     if (pageCurrent(target, read)) busy(target, false);
   }
 };
-/** @param {Pick<import('./ipc.js').StickerPack, 'id' | 'name'> | null} pack */
+/**
+ * @param {Pick<import('./ipc.js').StickerPack, 'id' | 'name'> | null} pack
+ * @param {PickerView} target
+ */
 const choose = (target, pack) => {
   target.pack = pack;
   target.pages = [];
@@ -132,6 +153,7 @@ const choose = (target, pack) => {
     );
   return load(target);
 };
+/** @param {number[] | null} [after] @param {PickerView} target */
 const packs = async (target, after = null) => {
   target.phase = 'packs';
   target.packAfter = after;
@@ -178,7 +200,7 @@ const packs = async (target, after = null) => {
     }
   }
 };
-/** @param {number[]} packId @param {number} index */
+/** @param {number[]} packId @param {number} index @param {PickerView} target */
 const send = async (target, packId, index) => {
   busy(target, true);
   notice('sending');
@@ -197,8 +219,10 @@ const send = async (target, packId, index) => {
     }
   }
 };
+/** @param {PickerOptions} options */
 const open = ({ peerId, call = invoke, onSent }) => {
   close(false);
+  /** @type {PickerView} */
   const target = {
     peerId,
     identityId: identityState.current.peerId,

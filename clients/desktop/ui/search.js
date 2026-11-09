@@ -709,7 +709,7 @@ const safetyCameraFrame = (preview) => {
   context.drawImage(preview, 0, 0, width, height);
   return { width, height, pixels: grayscaleFrame(context, width, height) };
 };
-/** @param {() => boolean} current */
+/** @param {() => boolean} current @param {FoundWithPlace} found */
 const scanSafetyCameraFrame = async (found, frame, current) => {
   const result = await invoke('scan_contact_qr', { peerId: found.peerId, ...frame });
   if (!current()) return true;

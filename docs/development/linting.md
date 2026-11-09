@@ -345,7 +345,9 @@ Open-profile views, note/favorite actions, dialog targets and timers describe th
 controllers explicitly expose typed promises for asynchronous operation completion.
 Message rows, photo decoders/encoders, search results and sticker helpers use native DTO input types;
 photo file preparation requires `File`, and sticker labels require only emoji and pack name.
-Sticker action kinds reuse the native command's finite union.
+Sticker action kinds reuse the native command's finite union. Sticker image/request targets,
+picker/manager openings and cache changes have explicit state contracts, including nullable and
+not-yet-loaded fields. Active-opening checks narrow the current manager/picker state.
 Chat list-row rendering is a separate module so controller typing stays within the file-size budget.
 The complete UI TypeScript gate and pinned toolchain wiring are still planned.
 The recommended rules apply except three, each justified in the config:
