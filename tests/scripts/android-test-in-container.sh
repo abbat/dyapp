@@ -9,6 +9,7 @@ case "${1:?suite required}" in
         # is the mounted /app/build, so the outputs and caches stay there between runs.
         mkdir -p /tmp/ai/src
         cp -a /app/Cargo.toml /app/Cargo.lock /app/.cargo /app/proto /app/rust /app/clients /tmp/ai/src/
+        cp -f /app/detekt.yml /app/detekt-baseline.xml /app/.editorconfig /tmp/ai/src/
         ln -s /app/build /tmp/ai/src/build
         cd /tmp/ai/src
         echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
@@ -19,15 +20,17 @@ case "${1:?suite required}" in
         cargo build --locked -p dyapp-bootstrap --bin dyappd
         ;;
     unit)
-        cp -rf /app/clients/android /tmp/ai/android
-        mkdir -p /tmp/build/android
+        mkdir -p /tmp/ai/src/clients /tmp/build/android
+        cp -rf /app/clients/android /tmp/ai/src/clients/android
+        cp -f /app/detekt.yml /app/detekt-baseline.xml /app/.editorconfig /tmp/ai/src/
+        ln -s /tmp/build /tmp/ai/src/build
         cp -rf /app/build/android/app /tmp/build/android/app
-        cd /tmp/ai/android
+        cd /tmp/ai/src/clients/android
         report_dir="/reports/$HOSTNAME"
         mkdir -p "$report_dir"
         save_reports() {
             local code=$? crash
-            for crash in /tmp/ai/android/hs_err*.log; do
+            for crash in /tmp/ai/src/clients/android/hs_err*.log; do
                 if [[ -f $crash ]]; then head -60 "$crash"; cp -f "$crash" "$report_dir/"; fi
             done
             cp -rf /tmp/build/android/app/test-results "$report_dir/" 2>/dev/null || true

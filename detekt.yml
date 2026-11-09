@@ -1,5 +1,13 @@
 # Detekt configuration for dyapp Kotlin code
 
+formatting:
+  active: true
+  autoCorrect: true
+  android: false
+  # The style rule below owns unused imports; formatting never removes declarations.
+  NoUnusedImports:
+    active: false
+
 output-reports:
   active: true
   exclude:

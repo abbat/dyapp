@@ -1,7 +1,50 @@
 plugins {
+    id 'base'
     id 'com.android.application' version '9.5.0' apply false
     // AGP 9 compiles Kotlin itself; Compose still needs the Kotlin compiler plugin.
     id 'org.jetbrains.kotlin.plugin.compose' version '2.4.21' apply false
+}
+
+// Reuse the pinned CLI instead of coupling the old detekt Gradle plugin to AGP.
+configurations {
+    detektCli {
+        canBeConsumed = false
+        transitive = false
+    }
+    detektFormatting {
+        canBeConsumed = false
+        transitive = false
+    }
+}
+dependencies {
+    detektCli 'io.gitlab.arturbosch.detekt:detekt-cli:1.23.8:all'
+    detektFormatting 'io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8'
+}
+def repositoryRoot = rootProject.file('../..')
+def formatterJar = configurations.detektFormatting
+tasks.register('detekt', JavaExec) {
+    group = 'verification'
+    description = 'Check all Android Kotlin sources with the shared detekt and formatting rules.'
+    classpath = configurations.detektCli
+    mainClass = 'io.gitlab.arturbosch.detekt.cli.Main'
+    workingDir = repositoryRoot
+    maxHeapSize = '512m'
+    inputs.files(fileTree(projectDir) {
+        include '**/*.kt', '**/*.kts'
+        exclude '**/build/**'
+    })
+    inputs.files(new File(repositoryRoot, 'detekt.yml'),
+        new File(repositoryRoot, 'detekt-baseline.xml'),
+        new File(repositoryRoot, '.editorconfig'))
+    doFirst {
+        setArgs(['--plugins', formatterJar.singleFile.absolutePath,
+            '--config', 'detekt.yml', '--baseline', 'detekt-baseline.xml',
+            '--input', 'clients/android', '--excludes', '**/clients/android/**/build/**',
+            '--build-upon-default-config'])
+    }
+}
+tasks.named('check') {
+    dependsOn tasks.named('detekt')
 }
 
 // Keep Gradle's root and app outputs beside Cargo's output in the repository build tree.
@@ -9,4 +52,7 @@ def outputRoot = rootProject.file('../../build/android')
 layout.buildDirectory = file("$outputRoot/root")
 subprojects {
     layout.buildDirectory = file("$outputRoot/$name")
+    tasks.matching { it.name in ['check', 'preBuild'] }.configureEach {
+        dependsOn rootProject.tasks.named('detekt')
+    }
 }

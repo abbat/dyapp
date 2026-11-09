@@ -135,10 +135,11 @@ pulls anything).
 | Debian 12 package | `make deb` | `tools/scripts/build-deb.sh` (.deb and tar.gz for `dyappd` and the desktop client), then `tests/scripts/deb-test.sh`, `tests/scripts/tarball-test.sh` and `tests/scripts/client-deb-test.sh` on bookworm-slim with procps and systemd (`tests/docker/Dockerfile.deb-test`; `deb-test.sh` runs `systemd-analyze verify` on the unit) |
 | Container image | `make image` | builds `dyappd:latest` (`tools/docker/Dockerfile.dyappd`), then `tests/scripts/image-test.sh` |
 | fmt check | `make fmt` | root workspace and native desktop crates; `make fmt-write` applies formatting in Docker |
-| Fast static checks | `make quick-check` | Rust formatting, Biome lint/format, SwiftLint/swift-format, Protobuf lint/format and Python lint in Docker; no compilation |
+| Fast static checks | `make quick-check` | Rust formatting, Biome lint/format, SwiftLint/swift-format, Kotlin lint/format, Protobuf lint/format and Python lint in Docker; no compilation |
 | Lint / quality (pre-commit) | `make quality` (= `lint`, `check`) | `tests/scripts/check-quality.sh` |
 | Python lint only | `make lint-python` | Ruff format check, flake8 with complexity 10, strict mypy for every source/local stub and exact `noqa` validation in Docker |
 | Python formatting | `make fmt-python` | pinned Ruff writes all Python under `tests/` and `tools/` in Docker |
+| Kotlin formatting | `make fmt-kotlin` | pinned detekt-formatting corrects all owned Android Kotlin sources in Docker and checks the result |
 | Android lint only (seconds) | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, both run; nothing compiles, so after a UniFFI record gains a field grep its constructors in `src/test` and `src/androidTest` too |
 | Coverage ratchet (lines, tests/scripts/baselines.toml) | `make coverage` | `tests/scripts/docker-test.sh coverage` |
 | Security | `make security` (= `audit`, `deny`) | `tests/scripts/docker-test.sh security` |

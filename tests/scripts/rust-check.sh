@@ -116,13 +116,14 @@ step() {
             check rustfmt cargo fmt --manifest-path tools/rust-functions/Cargo.toml -- --check
             check rustfmt python3 -B tests/scripts/desktop-rust-format.py check
             ;;
+        kotlin-format)
+            bash tests/scripts/kotlin-format.sh format
+            ;;
         android-lint)
             # Both checks run even if the first fails: one pass reports every Android finding.
             local status=0
             check repository python3 -B tests/scripts/check-repository.py --raw || status=1
-            check detekt java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml \
-                --baseline detekt-baseline.xml --input clients/android \
-                --excludes '**/build/**' --build-upon-default-config || status=1
+            check detekt bash tests/scripts/kotlin-format.sh lint || status=1
             return "$status"
             ;;
         test) tests ;;
@@ -245,7 +246,7 @@ step() {
 if [[ ${1:-} != --raw ]]; then
     stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
     case "$stage" in
-        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|kotlin-format|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

@@ -21,7 +21,7 @@ checks later costs more: the backlog of violations has to be reformatted, budget
 first.
 
 `make quick-check` runs Rust formatting, web lint/format and Swift lint/format in the existing
-dev Docker container without compiling code. Protobuf lint/format and Python lint checks run there too.
+dev Docker container without compiling code. Kotlin lint/format, Protobuf lint/format and Python lint checks run there too.
 `make quality` remains the full gate, including Clippy. Prepare the images after Dockerfile changes before using these commands.
 
 ## Where each linter runs
@@ -42,7 +42,7 @@ dev Docker container without compiling code. Protobuf lint/format and Python lin
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
 | Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
 | Swift | SwiftLint 0.65.1 and strict swift-format from pinned Swift 6.4.0 | `.swiftlint.yml`, `.swift-format` | yes | — | enforced; three SourceKit rules are skipped on Linux |
-| Kotlin | detekt 1.23.8 CLI on `android` | `detekt.yml`, `detekt-baseline.xml` | yes | — | enforced; the baseline is empty; not wired into Gradle |
+| Kotlin | detekt and detekt-formatting 1.23.8 on Android | `detekt.yml`, `detekt-baseline.xml`, `.editorconfig` | yes | Gradle `detekt`, `check` and app `preBuild` | enforced; empty baseline |
 | Desktop UI JavaScript types | TypeScript 7.0.2 (`checkJs`, strict, no emit) | `rust-check.sh web-check` | yes | — | enforced |
 | JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |
@@ -385,12 +385,21 @@ config sets:
 
 ## Kotlin (`detekt.yml`)
 
-The quality step runs the detekt 1.23.8 CLI jar (sha256-checked, on Java 21 in the dev image):
-`java -jar /usr/local/lib/detekt-cli.jar --config detekt.yml --baseline detekt-baseline.xml
---input clients/android --excludes '**/build/**' --build-upon-default-config`.
+The quality step and `make lint-android` run `tests/scripts/kotlin-format.sh lint`:
+the SHA256-pinned Maven detekt CLI and detekt-formatting 1.23.8 jars use
+`detekt.yml`, `detekt-baseline.xml` and every owned Kotlin source under
+`clients/android`, excluding build output. `make quick-check` runs the same stage.
 `detekt-baseline.xml` is empty: every finding fails the check.
 `--build-upon-default-config` keeps every default setting `detekt.yml` does not override.
-The Gradle build applies no detekt plugin, so `./gradlew detekt` does not exist.
+`make fmt-kotlin` applies the supported corrections in Docker, then requires a clean
+check. It allows up to three correction passes because wrapping can expose indentation
+changes; remaining findings require manual fixes. Formatting uses four spaces and 120
+columns, matching EditorConfig and the existing detekt length rule.
+
+From `clients/android`, `./gradlew detekt` runs the same pinned CLI, plugin and rules.
+Root and app `check`, plus app `preBuild`, depend on that task. The dependency
+verification metadata pins both jars and their Maven metadata. The task parses sources
+without generating Rust bindings or compiling the Android app.
 Detekt parses Kotlin but does not compile it: after API refactors, native Android CI or a
 Gradle compile is needed to catch stale call sites that `make lint-android`, `make test`
 and `make quality` cannot detect.
@@ -398,14 +407,9 @@ The config sets `CyclomaticComplexMethod` threshold 10,
 `LongMethod` 30, `LargeClass` 150, `LongParameterList` 5 (functions) / 7 (constructors),
 `MaxLineLength` 120; most rule sets active, including the `Undocumented*` comment rules for public
 declarations. `FunctionNaming` ignores `@Composable` functions, `MagicNumber` ignores property
-declarations, and `FunctionMaxLength` skips the test sources. The `formatting` (ktlint) rule set
-is not used.
-
-The baseline suppresses only its recorded findings; it does not fix the code. Work to remove
-those findings and then the baseline is tracked separately. When fixing a finding, remove its
-entry from `detekt-baseline.xml` so the baseline reflects only remaining debt.
-A baseline ID includes the full function signature (XML-escaped, e.g. `-&gt;`), so changing the
-parameters of a baselined function needs its ID updated to the new signature.
+declarations, and `FunctionMaxLength` skips the test sources. The `formatting` rule set
+adds ktlint formatting checks. Its unused-import correction is disabled because the
+existing `style/UnusedImports` rule owns that check; formatting does not remove imports.
 
 Defaults that new Android code often hits: `TooManyFunctions` reports at 10 functions per class
 and 11 per file (top-level extension functions in another file help), `StringLiteralDuplication`

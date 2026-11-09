@@ -12,6 +12,9 @@ max_line_length = 100
 [*.{js,html,css,json,jsonc,yaml,yml,proto}]
 indent_size = 2
 
+[*.{kt,kts}]
+max_line_length = 120
+
 [*.py]
 max_line_length = 79
 

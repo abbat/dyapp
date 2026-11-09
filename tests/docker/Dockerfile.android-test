@@ -48,6 +48,7 @@ COPY --chown=1000:1000 .cargo .cargo
 COPY --chown=1000:1000 proto proto
 COPY --chown=1000:1000 rust rust
 COPY --chown=1000:1000 clients clients
+COPY --chown=1000:1000 detekt.yml detekt-baseline.xml .editorconfig ./
 RUN echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
 # Build as 1000 so the outputs need no recursive chown (a copy-up layer doubles the image size).
 # Compile and populate all runtime dependencies online; do not run tests in the build.

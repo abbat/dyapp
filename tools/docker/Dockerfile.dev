@@ -52,14 +52,16 @@ RUN curl -fsSL -o /usr/local/bin/biome https://github.com/biomejs/biome/releases
     curl -fsSL -o /tmp/shear.tgz https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-unknown-linux-musl.tar.gz && \
     curl -fsSL -o /tmp/swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip && \
     curl -fsSL -o /tmp/zizmor.tgz https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz && \
-    curl -fsSL -o /usr/local/lib/detekt-cli.jar https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar && \
+    curl -fsSL -o /usr/local/lib/detekt-cli.jar https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar && \
+    curl -fsSL -o /usr/local/lib/detekt-formatting.jar https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-formatting/1.23.8/detekt-formatting-1.23.8.jar && \
     curl -fsSL -o /tmp/age.tgz https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz && \
     printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  /tmp/typos.tgz' \
         '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156  /tmp/taplo.gz' \
         '9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e  /tmp/shear.tgz' \
         'caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d  /tmp/swiftlint.zip' \
         'e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a  /tmp/zizmor.tgz' \
-        '2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1  /usr/local/lib/detekt-cli.jar' \
+        '3afe89a11120303c73c9bdda3d8fe558dd9070a6937d27819ddc04b275381245  /usr/local/lib/detekt-cli.jar' \
+        'a18a3f680d232ad746ccec3d5a251776ce39131b395c455b92e1bb0a9e8fb6ba  /usr/local/lib/detekt-formatting.jar' \
         'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10  /tmp/age.tgz' \
         'fd1249e77e57c21d6e5e6c1102f2f19ee5fda140b6126f6ff24a70e789a5d526  /usr/local/bin/biome' \
         '81a389a894f3e22233b9e94f385d784744362ee7ed3fffde532ea6f1c9b392fd  /tmp/rumdl.tgz' \
@@ -75,7 +77,7 @@ RUN curl -fsSL -o /usr/local/bin/biome https://github.com/biomejs/biome/releases
     chmod 755 /usr/local/bin/typos /usr/local/bin/taplo /usr/local/bin/cargo-shear /usr/local/bin/swiftlint \
         /usr/local/bin/zizmor /usr/local/bin/age /usr/local/bin/age-keygen /usr/local/bin/biome \
         /usr/local/bin/rumdl /usr/local/bin/hadolint /usr/local/bin/buf && \
-    chmod 644 /usr/local/lib/detekt-cli.jar && \
+    chmod 644 /usr/local/lib/detekt-cli.jar /usr/local/lib/detekt-formatting.jar && \
     rm -f /tmp/typos.tgz /tmp/taplo.gz /tmp/shear.tgz /tmp/swiftlint.zip /tmp/zizmor.tgz /tmp/age.tgz /tmp/rumdl.tgz
 RUN rustup component add rustfmt clippy llvm-tools-preview --toolchain 1.99.0
 RUN cargo install --locked cargo-llvm-cov --version 0.9.1 && \

@@ -62,7 +62,8 @@ if [[ $1 == rust ]]; then
     curl -fsSL -o "$tmp/shear.tgz" https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-unknown-linux-musl.tar.gz
     curl -fsSL -o "$tmp/swiftlint.zip" https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip
     curl -fsSL -o "$tmp/zizmor.tgz" https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
-    curl -fsSL -o "$tmp/detekt-cli.jar" https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+    curl -fsSL -o "$tmp/detekt-cli.jar" https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar
+    curl -fsSL -o "$tmp/detekt-formatting.jar" https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-formatting/1.23.8/detekt-formatting-1.23.8.jar
     curl -fsSL -o "$tmp/age.tgz" https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz
     curl -fsSL -o "$tmp/hawk.tgz" https://github.com/astral-sh/hawk/releases/download/0.1.17/cargo-hawk-x86_64-unknown-linux-gnu.tar.gz
     (cd "$tmp" && printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  typos.tgz' \
@@ -70,7 +71,8 @@ if [[ $1 == rust ]]; then
         '9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e  shear.tgz' \
         'caeed6f4a679c35539ffaf124f6c4ab4a8416917f7d8796279dc52b74026059d  swiftlint.zip' \
         'e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a  zizmor.tgz' \
-        '2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1  detekt-cli.jar' \
+        '3afe89a11120303c73c9bdda3d8fe558dd9070a6937d27819ddc04b275381245  detekt-cli.jar' \
+        'a18a3f680d232ad746ccec3d5a251776ce39131b395c455b92e1bb0a9e8fb6ba  detekt-formatting.jar' \
         'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10  age.tgz' \
         'fd1249e77e57c21d6e5e6c1102f2f19ee5fda140b6126f6ff24a70e789a5d526  biome' \
         '81a389a894f3e22233b9e94f385d784744362ee7ed3fffde532ea6f1c9b392fd  rumdl.tgz' \
@@ -88,7 +90,7 @@ if [[ $1 == rust ]]; then
     sudo install -m 755 "$tmp/typos" "$tmp/taplo" "$tmp/cargo-shear" "$tmp/swiftlint" \
         "$tmp/zizmor" "$tmp/age" "$tmp/age-keygen" "$tmp/biome" "$tmp/rumdl" "$tmp/hadolint" "$tmp/buf" \
         "$tmp/cargo-hawk" "$tmp/cargo-hawk-driver" "$tmp/cargo-hawk-rustdoc" /usr/local/bin/
-    sudo install -m 644 "$tmp/detekt-cli.jar" /usr/local/lib/
+    sudo install -m 644 "$tmp/detekt-cli.jar" "$tmp/detekt-formatting.jar" /usr/local/lib/
     # The platform package contains the native compiler plus matching standard libraries.
     curl -fsSL -o "$tmp/typescript.tgz" https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz
     echo '11875fd9c360eeb8025899f109d27e177577f4ef2285bdfb78702ed4b2bca00162ce04d06cf38aef31c75db3edf2b5f6e023aa3835de237b087f47c25c6ec7fc  '"$tmp/typescript.tgz" | sha512sum -c -
