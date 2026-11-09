@@ -154,6 +154,13 @@ impl Profile {
     }
 
     fn validate(&self, owner_key: &[u8]) -> Result<(), Error> {
+        self.validate_fields()?;
+        self.validate_text()?;
+        self.validate_photos()?;
+        self.validate_devices(owner_key)
+    }
+
+    fn validate_fields(&self) -> Result<(), Error> {
         if self.version == 0 {
             return Err(Error::Invalid("version must start at 1"));
         }
@@ -190,6 +197,10 @@ impl Profile {
         {
             return Err(Error::Invalid("not looking but states who is sought"));
         }
+        Ok(())
+    }
+
+    fn validate_text(&self) -> Result<(), Error> {
         if self.place.chars().count() > MAX_PLACE_CHARS || !is_clean_text(&self.place) {
             return Err(Error::Invalid("place is too long or not printable"));
         }
@@ -216,6 +227,10 @@ impl Profile {
         if self.interests.iter().any(|i| *i != normalize_interest(i)) {
             return Err(Error::Invalid("interest is not normalized"));
         }
+        Ok(())
+    }
+
+    fn validate_photos(&self) -> Result<(), Error> {
         let hash = |h: &Vec<u8>| h.len() == 32;
         if self.photos.len() > MAX_PHOTOS
             || !self.photos.iter().all(|p| {
@@ -227,6 +242,10 @@ impl Profile {
         {
             return Err(Error::Invalid("photos are not blob hashes or too many"));
         }
+        Ok(())
+    }
+
+    fn validate_devices(&self, owner_key: &[u8]) -> Result<(), Error> {
         if self.devices.len() > MAX_DEVICES {
             return Err(Error::Invalid("too many devices"));
         }

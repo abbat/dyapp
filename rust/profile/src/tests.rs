@@ -156,35 +156,7 @@ fn device_directory_checks_owner_keys_order_and_signature() {
     }
     profile.device_owners.clear();
 
-    profile.devices.reverse();
-    assert_eq!(
-        verify(&profile.sign(&owner)),
-        Err(Error::Invalid("duplicate or unsorted devices"))
-    );
-    profile.devices.reverse();
-    profile.devices[1] = profile.devices[0].clone();
-    assert_eq!(
-        verify(&profile.sign(&owner)),
-        Err(Error::Invalid("duplicate or unsorted devices"))
-    );
-    profile.devices[0].signature[0] ^= 1;
-    assert_eq!(
-        verify(&profile.sign(&owner)),
-        Err(Error::Invalid("invalid device certificate signature"))
-    );
-    profile.devices[0] = Identity::generate().sign(
-        Domain::DeviceCertificate,
-        DeviceCertificate {
-            device_key: first.public_key().to_vec(),
-            mls_signature_key: mls_first.public_key().to_vec(),
-            generation: 1,
-        }
-        .encode_to_vec(),
-    );
-    assert_eq!(
-        verify(&profile.sign(&owner)),
-        Err(Error::Invalid("invalid device certificate signature"))
-    );
+    reject_invalid_device_directory(&mut profile, &owner, &first, &mls_first);
 }
 
 #[test]
@@ -197,15 +169,7 @@ fn content_rules_hold_at_their_boundaries() {
             "{reason}"
         );
     };
-    let mut country = sample(1);
-    for code in ["de", "DEU"] {
-        country.country = code.into();
-        invalid(&country, "country is not an ISO 3166-1 alpha-2 code");
-    }
-    let mut income = sample(1);
-    income.income_to = income.income_from;
-    assert!(verify(&income.sign(&owner)).is_ok());
-
+    check_country_income_boundaries(&owner);
     let certificate = |device: [u8; 32], mls: [u8; 32], generation| {
         owner.sign(
             Domain::DeviceCertificate,
@@ -387,26 +351,7 @@ fn interests_require_canonical_tag() {
 
 #[test]
 fn profile_strings_are_nfc_without_hidden_characters_and_bounded() {
-    for text in [
-        "Berlin",
-        "Москва",
-        "東京",
-        "🙂",
-        "👨\u{200D}👩\u{200D}👧",
-        "می\u{200C}خواهم",
-    ] {
-        assert!(is_clean_text(text), "{text}");
-    }
-    for text in [
-        "a\u{202E}b",
-        "a\u{200B}b",
-        "a\u{E000}b",
-        "e\u{301}",
-        "a\u{7}",
-    ] {
-        assert!(!is_clean_text(text), "{text:?}");
-    }
-
+    check_clean_text_examples();
     let owner = Identity::generate();
     let mut profile = sample(1);
     profile.place = "Mit\u{202E}te".into();
@@ -589,15 +534,95 @@ fn rejects_bad_signature_and_content() {
     let verified = verify(&gender.sign(&owner)).unwrap();
     assert_eq!(verified.profile.gender, Gender::Woman.code());
 
+    check_photo_boundaries(&owner);
+    let garbage = owner.sign(Domain::Profile, vec![0xff; 4]);
+    assert_eq!(verify(&garbage), Err(Error::Decode));
+}
+
+fn reject_invalid_device_directory(
+    profile: &mut Profile,
+    owner: &Identity,
+    first: &Identity,
+    mls_first: &Identity,
+) {
+    profile.devices.reverse();
+    assert_eq!(
+        verify(&profile.sign(owner)),
+        Err(Error::Invalid("duplicate or unsorted devices"))
+    );
+    profile.devices.reverse();
+    profile.devices[1] = profile.devices[0].clone();
+    assert_eq!(
+        verify(&profile.sign(owner)),
+        Err(Error::Invalid("duplicate or unsorted devices"))
+    );
+    profile.devices[0].signature[0] ^= 1;
+    assert_eq!(
+        verify(&profile.sign(owner)),
+        Err(Error::Invalid("invalid device certificate signature"))
+    );
+    profile.devices[0] = Identity::generate().sign(
+        Domain::DeviceCertificate,
+        DeviceCertificate {
+            device_key: first.public_key().to_vec(),
+            mls_signature_key: mls_first.public_key().to_vec(),
+            generation: 1,
+        }
+        .encode_to_vec(),
+    );
+    assert_eq!(
+        verify(&profile.sign(owner)),
+        Err(Error::Invalid("invalid device certificate signature"))
+    );
+}
+
+fn check_country_income_boundaries(owner: &Identity) {
+    let mut country = sample(1);
+    for code in ["de", "DEU"] {
+        country.country = code.into();
+        assert_eq!(
+            verify(&country.sign(owner)),
+            Err(Error::Invalid("country is not an ISO 3166-1 alpha-2 code")),
+            "country is not an ISO 3166-1 alpha-2 code"
+        );
+    }
+    let mut income = sample(1);
+    income.income_to = income.income_from;
+    assert!(verify(&income.sign(owner)).is_ok());
+}
+
+fn check_clean_text_examples() {
+    for text in [
+        "Berlin",
+        "Москва",
+        "東京",
+        "🙂",
+        "👨\u{200D}👩\u{200D}👧",
+        "می\u{200C}خواهم",
+    ] {
+        assert!(is_clean_text(text), "{text}");
+    }
+    for text in [
+        "a\u{202E}b",
+        "a\u{200B}b",
+        "a\u{E000}b",
+        "e\u{301}",
+        "a\u{7}",
+    ] {
+        assert!(!is_clean_text(text), "{text:?}");
+    }
+}
+
+fn check_photo_boundaries(owner: &Identity) {
     let photo = Photo {
         full: vec![vec![1; 32], vec![2; 32]],
         thumbnail: vec![3; 32],
     };
     let mut photos = sample(1);
     photos.photos = vec![photo.clone(); MAX_PHOTOS];
-    assert!(verify(&photos.sign(&owner)).is_ok());
+    assert!(verify(&photos.sign(owner)).is_ok());
     photos.photos.push(photo.clone());
-    assert!(verify(&photos.sign(&owner)).is_err());
+    assert!(verify(&photos.sign(owner)).is_err());
     for bad in [
         Photo {
             thumbnail: vec![],
@@ -617,9 +642,6 @@ fn rejects_bad_signature_and_content() {
         },
     ] {
         photos.photos = vec![bad];
-        assert!(verify(&photos.sign(&owner)).is_err());
+        assert!(verify(&photos.sign(owner)).is_err());
     }
-
-    let garbage = owner.sign(Domain::Profile, vec![0xff; 4]);
-    assert_eq!(verify(&garbage), Err(Error::Decode));
 }

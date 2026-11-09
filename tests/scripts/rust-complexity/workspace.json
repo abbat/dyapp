@@ -286,10 +286,5 @@
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn current_age_uses_birth_bounds_and_leap_anniversary ","metrics":{"lines":55}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn every_field_and_op_is_checked ","metrics":{"cognitive":26,"lines":70}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn habit_filters_keep_the_chosen_values_and_leave_out_an_empty_field ","metrics":{"lines":51}},
-  {"path":"rust/p2p-net/src/wire.rs","function":"mod tests # [cfg (test)]::fn concurrent_additions_and_takes_conserve_bytes ","metrics":{"nesting":6,"nested_regions":1}},
-  {"path":"rust/profile/src/lib.rs","function":"impl Profile ::fn validate ","metrics":{"lines":115}},
-  {"path":"rust/profile/src/tests.rs","function":"fn content_rules_hold_at_their_boundaries ","metrics":{"lines":56}},
-  {"path":"rust/profile/src/tests.rs","function":"fn device_directory_checks_owner_keys_order_and_signature ","metrics":{"lines":74}},
-  {"path":"rust/profile/src/tests.rs","function":"fn profile_strings_are_nfc_without_hidden_characters_and_bounded ","metrics":{"cognitive":16}},
-  {"path":"rust/profile/src/tests.rs","function":"fn rejects_bad_signature_and_content ","metrics":{"lines":54}}
+  {"path":"rust/p2p-net/src/wire.rs","function":"mod tests # [cfg (test)]::fn concurrent_additions_and_takes_conserve_bytes ","metrics":{"nesting":6,"nested_regions":1}}
 ]

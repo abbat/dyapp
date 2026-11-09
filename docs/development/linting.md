@@ -210,6 +210,8 @@ format checks include it. It maps current source spans to module/impl/function i
 measures block nesting, including inline module and impl scopes. Anonymous closures are marked
 separately so they cannot inherit a named function's cognitive-complexity budget. Test functions
 are measured too; fixture and assertion helpers retain each scenario's original coverage and order.
+Profile validation and its boundary tests have no complexity allowances; validation preserves
+field, text, photo and device error precedence through separate private checks.
 Parse failures are errors. Workspace quality and `make lint-linux` enforce 15 cognitive complexity,
 50 code lines and 5 nesting levels with exact existing-function budgets. The tested
 `tests/scripts/rust_complexity.py` comparison layer rejects incomplete reports, unknown
