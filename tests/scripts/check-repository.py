@@ -491,6 +491,8 @@ def skip_errors(texts):
 
 
 def main():
+    from repository_unused import script_reference_errors
+
     output = subprocess.check_output(
         ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
          "--others", "--exclude-standard", "-z", "--", ".",
@@ -571,6 +573,9 @@ def main():
     errors = screen_errors(texts)
     if errors:
         raise ValueError("Screen IDs (docs/design):\n" + "\n".join(errors))
+    errors = script_reference_errors(texts)
+    if errors:
+        raise ValueError("Unused scripts:\n" + "\n".join(errors))
     errors = fuzz_errors(texts)
     if errors:
         raise ValueError("Fuzz targets (tests/fuzz/):\n" + "\n".join(errors))

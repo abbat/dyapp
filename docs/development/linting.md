@@ -229,6 +229,14 @@ remain in the local/container build directory; no extra report artifact is uploa
 Windows measurements and native CI wiring remain planned. Run local checks through the existing
 Docker containers; Git and parser dependencies are provisioned in the Linux image.
 
+## Script references
+
+The repository check follows script references from commands, documentation and source files
+into `tests/scripts/` and `tools/`. Python imports count as references; a script's own filename
+does not. Disconnected cycles fail even when their scripts refer to each other.
+Exact manual entry points may be declared with reasons in
+`tests/scripts/repository_unused.py`; empty, missing and stale entries fail. The list is empty.
+
 ## Python
 
 ```bash
