@@ -7,6 +7,10 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from flow_metrics import Run, Snapshot
 from unittest.mock import patch
 
 from test_flow_metrics import FLOW, snapshot
@@ -78,18 +82,18 @@ class Collection(unittest.TestCase):
                     self.assertEqual(bool(result["errors"]), expected)
 
     def test_cli_health_exit_codes(self) -> None:
-        data = {
+        data: "Snapshot" = {
             "schema": 1,
             "now": "2026-10-15T12:00:00Z",
             "runs": snapshot()["runs"],
         }
-        bad = dict(
-            data["runs"][0],
-            head_sha="bad",
-            conclusion="failure",
-            created_at="2026-10-15T10:00:00Z",
-            completed_at="2026-10-15T11:00:00Z",
-        )
+        bad: "Run" = {
+            **data["runs"][0],
+            "head_sha": "bad",
+            "conclusion": "failure",
+            "created_at": "2026-10-15T10:00:00Z",
+            "completed_at": "2026-10-15T11:00:00Z",
+        }
         for runs, code in [([], 0), ([bad], 2)]:
             data["runs"] = snapshot()["runs"] + runs
             with patch.object(

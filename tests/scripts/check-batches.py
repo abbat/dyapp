@@ -6,8 +6,34 @@ import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import tomllib
+from typing import TypedDict
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class CommitCount(TypedDict):
+    commit: str
+    lines: int
+    large: bool
+    reason: str
+
+
+class StagedReport(TypedDict):
+    staged_lines: int
+    reason: str
+    errors: list[str]
+
+
+class HistoryReport(TypedDict):
+    base: str
+    head: str
+    max_lines: int
+    commits: list[CommitCount]
+    large_commits: int
+    total_commits: int
+    large_percent: float
+    target_percent: int
+    errors: list[str]
 
 
 def git(*args: str) -> bytes:
@@ -16,7 +42,7 @@ def git(*args: str) -> bytes:
     )
 
 
-def excluded(name):
+def excluded(name: str) -> bool:
     path = PurePosixPath(name)
     return any(
         (
@@ -27,7 +53,7 @@ def excluded(name):
     )
 
 
-def changed_lines(stats):
+def changed_lines(stats: bytes) -> int:
     """Read --numstat -z without renames; binary entries have no lines."""
     total = 0
     for entry in filter(None, stats.split(b"\0")):
@@ -38,7 +64,7 @@ def changed_lines(stats):
     return total
 
 
-def large_change_reason(message):
+def large_change_reason(message: str) -> str:
     """Accept final metadata lines, even across blank lines."""
     for paragraph in reversed(re.split(r"\n[ \t]*\n", message.strip())):
         fields = []
@@ -53,7 +79,7 @@ def large_change_reason(message):
     return ""
 
 
-def staged(message_file, limit):
+def staged(message_file: Path, limit: int) -> StagedReport:
     lines = changed_lines(
         git(
             "diff",
@@ -75,7 +101,7 @@ def staged(message_file, limit):
     return {"staged_lines": lines, "reason": reason, "errors": errors}
 
 
-def inspect(base, head, limit):
+def inspect(base: str, head: str, limit: int) -> HistoryReport:
     # Missing/divergent baselines and incomplete history must fail, not skip.
     if git("rev-parse", "--is-shallow-repository").strip() != b"false":
         raise ValueError("Small batches require a full-history checkout")
@@ -90,7 +116,8 @@ def inspect(base, head, limit):
             head,
         ]
     )
-    commits, errors = [], []
+    commits: list[CommitCount] = []
+    errors: list[str] = []
     sha: str | bytes
     for sha in git("rev-list", "--no-merges", f"{base}..{head}").split():
         sha = sha.decode("ascii")
@@ -119,21 +146,21 @@ def inspect(base, head, limit):
                 f"{sha[:12]}: {lines} > {limit} changed lines; "
                 "split the commit or add Large-Change: <reason>"
             )
-    large = sum(commit["large"] for commit in commits)
+    large_count = sum(commit["large"] for commit in commits)
     return {
         "base": base,
         "head": head,
         "max_lines": limit,
         "commits": commits,
-        "large_commits": large,
+        "large_commits": large_count,
         "total_commits": len(commits),
-        "large_percent": 100 * large / len(commits) if commits else 0,
+        "large_percent": 100 * large_count / len(commits) if commits else 0,
         "target_percent": 10,
         "errors": errors,
     }
 
 
-def main():
+def main() -> bool:
     policy = tomllib.loads(
         (ROOT / "tests/scripts/baselines.toml").read_text()
     )["batches"]
@@ -144,6 +171,7 @@ def main():
     parser.add_argument("--staged", action="store_true")
     parser.add_argument("--message-file", type=Path)
     args = parser.parse_args()
+    report: StagedReport | HistoryReport
     if args.staged:
         if not args.message_file:
             parser.error("--staged requires --message-file")

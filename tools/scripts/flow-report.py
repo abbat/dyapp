@@ -1,6 +1,7 @@
 """Local A7 report; reads bd/git/gh, never writes to trackers or GitHub."""
 
 import argparse
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
@@ -8,12 +9,66 @@ from pathlib import Path
 import re
 import subprocess
 
-from flow_metrics import health, instant, report
+from typing import Literal, NotRequired, TypedDict, overload
+
+from flow_metrics import (
+    Alert,
+    Commit,
+    Health,
+    Job,
+    Observation,
+    Practice,
+    Report,
+    Review,
+    Run,
+    Snapshot,
+    health,
+    instant,
+    report,
+)
+
+
+class APIRun(TypedDict):
+    id: int
+    run_attempt: int
+    head_branch: str
+    event: str
+    created_at: str
+    updated_at: str
+    path: str
+    conclusion: str | None
+    status: str
+    head_sha: str
+
+
+class APIJob(Job):
+    id: int
+
+
+class AdvisoryRef(TypedDict):
+    ghsa_id: str
+
+
+class APIAdvisory(TypedDict):
+    created_at: str
+    ghsa_id: NotRequired[str]
+    security_advisory: NotRequired[AdvisoryRef]
+
+
+class Ledger(TypedDict, total=False):
+    observations: list[Observation]
+    reviews: list[Review]
+
+
+class ErrorResult(TypedDict):
+    errors: list[str]
+    warnings: NotRequired[list[str]]
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def command(*args):
+def command(*args: str) -> str:
     for _ in range(3 if args[0] == "gh" else 1):
         result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
         if result.returncode == 0:
@@ -21,14 +76,28 @@ def command(*args):
     raise RuntimeError(f"{args[0]} failed: {result.stderr.strip()}")
 
 
-def git(*args):
+def git(*args: str) -> str:
     return command("git", "-c", f"safe.directory={ROOT}", *args)
 
 
-def pages(endpoint, key):
+@overload
+def pages(endpoint: str, key: Literal["jobs"]) -> list[APIJob]:
+    """Read paginated workflow jobs."""
+    ...
+
+
+@overload
+def pages(endpoint: str, key: Literal["workflow_runs"]) -> list[APIRun]:
+    """Read paginated workflow runs."""
+    ...
+
+
+def pages(endpoint: str, key: str) -> list[APIJob] | list[APIRun]:
     text = command("gh", "api", "--paginate", "--slurp", endpoint)
     result = json.loads(text)
-    records = [row for page in result for row in page[key]]
+    records: list[APIJob] | list[APIRun] = [
+        row for page in result for row in page[key]
+    ]
     ids = {row["id"] for row in records}
     if not result or len(ids) != result[0]["total_count"]:
         raise ValueError(f"Incomplete GitHub pagination: {key}")
@@ -37,10 +106,10 @@ def pages(endpoint, key):
     return records
 
 
-def alerts(repo):
+def alerts(repo: str) -> list[Alert]:
     """A8 triggers: Dependabot alerts and repository security advisories."""
-    found = []
-    for endpoint, ghsa in (
+    found: list[Alert] = []
+    endpoints: tuple[tuple[str, Callable[[APIAdvisory], str]], ...] = (
         (
             f"repos/{repo}/dependabot/alerts?per_page=100&state="
             "auto_dismissed,dismissed,fixed,open",
@@ -50,8 +119,9 @@ def alerts(repo):
             f"repos/{repo}/security-advisories?per_page=100",
             lambda row: row["ghsa_id"],
         ),
-    ):
-        pages = json.loads(
+    )
+    for endpoint, ghsa in endpoints:
+        pages: list[list[APIAdvisory]] = json.loads(
             command("gh", "api", "--paginate", "--slurp", endpoint)
         )
         found += [
@@ -62,7 +132,7 @@ def alerts(repo):
     return found
 
 
-def adoption_dates():
+def adoption_dates() -> list[Practice]:
     history = git(
         "log",
         "--reverse",
@@ -72,17 +142,19 @@ def adoption_dates():
         "--",
         "docs/development/practices.md",
     )
-    found, date = {}, None
+    found: dict[str, str] = {}
+    date: str | None = None
     for line in history.splitlines():
         if line.startswith("\0"):
             date = line[1:]
         match = re.match(r"^\+\| ([A-Z]\d+[a-z]?) \(adopted\)", line)
         if match:
+            assert date is not None
             found.setdefault(match[1], date)
     return [{"id": key, "adopted_at": date} for key, date in found.items()]
 
 
-def commits(since):
+def commits(since: str) -> list[Commit]:
     text = git(
         "log",
         "main",
@@ -90,7 +162,7 @@ def commits(since):
         f"--since={since}",
         "--format=%H%x00%cI%x00%B%x00%(trailers)%x00",
     )
-    result = []
+    result: list[Commit] = []
     fields = text.strip().split("\0") if text.strip() else []
     for offset in range(0, len(fields) - 1, 4):
         sha, at, message, trailers = fields[offset : offset + 4]
@@ -130,7 +202,7 @@ def commits(since):
     return result
 
 
-def collect(now, ledger, full: bool = True):
+def collect(now: str, ledger: Ledger, full: bool = True) -> Snapshot:
     if git("rev-parse", "--is-shallow-repository").strip() != "false":
         raise ValueError("Full Git history is required")
     since = (instant(now) - timedelta(days=7)).isoformat()
@@ -190,11 +262,11 @@ def collect(now, ledger, full: bool = True):
     ]
     api = f"repos/{repo}/actions/runs"
 
-    def details(run):
-        attempts = []
+    def details(run: APIRun) -> list[Run]:
+        attempts: list[Run] = []
         for number in range(1, run["run_attempt"] + 1):
             endpoint = f"{api}/{run['id']}/attempts/{number}"
-            meta = (
+            meta: APIRun = (
                 run
                 if number == run["run_attempt"]
                 else json.loads(command("gh", "api", endpoint))
@@ -223,7 +295,7 @@ def collect(now, ledger, full: bool = True):
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         attempts = [a for group in pool.map(details, selected) for a in group]
-    snapshot = {
+    snapshot: Snapshot = {
         "schema": 1,
         "now": now,
         "runs": attempts,
@@ -258,7 +330,7 @@ def collect(now, ledger, full: bool = True):
     return snapshot
 
 
-def write(path, value):
+def write(path: Path | None, value: object) -> str:
     text = json.dumps(value, indent=2) + "\n"
     if path:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -266,7 +338,7 @@ def write(path, value):
     return text
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapshot", type=Path, help="offline input JSON")
     parser.add_argument("--snapshot-out", type=Path, help="save live input")
@@ -279,10 +351,13 @@ def main():
     )
     args = parser.parse_args()
     try:
+        result: Health | Report | ErrorResult
         if args.snapshot:
-            snapshot = json.loads(args.snapshot.read_text())
+            snapshot: Snapshot = json.loads(args.snapshot.read_text())
         else:
-            ledger = json.loads(args.ledger.read_text()) if args.ledger else {}
+            ledger: Ledger = (
+                json.loads(args.ledger.read_text()) if args.ledger else {}
+            )
             snapshot = collect(
                 datetime.now(timezone.utc).isoformat(),
                 ledger,

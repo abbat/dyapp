@@ -21,6 +21,10 @@ shallow Git history, a missing pre-week green CI anchor in an older repository,
 invalid inputs and threshold breaches exit nonzero with JSON errors.
 The command does not fetch Git refs: update local `main` before reporting.
 Its snapshot records the local main SHA and GitHub collection counts.
+`flow_metrics.py` defines the shared typed snapshot, workflow/job, bead and report
+contracts used by the collector and fixtures. Daily snapshots require only schema,
+time and runs; weekly calculations also read the ledger and work-history fields.
+Annotations retain the existing runtime validation of timestamps and report inputs.
 Reports and snapshots contain private bead details; keep them outside Git
 and public artifacts. No tracker or GitHub changes are made.
 

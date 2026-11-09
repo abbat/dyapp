@@ -4,18 +4,179 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 import math
 
+from collections.abc import Sequence
+from typing import NotRequired, Required, TypedDict, cast
+
+
+class Job(TypedDict):
+    started_at: str | None
+    completed_at: str | None
+
+
+class Run(TypedDict):
+    id: NotRequired[int]
+    head_sha: str
+    created_at: str
+    completed_at: str | None
+    conclusion: str | None
+    attempt: int
+    jobs: Sequence[Job]
+    workflow: str
+
+
+class Bead(TypedDict, total=False):
+    status: Required[str]
+    issue_type: Required[str]
+    id: str
+    assignee: str | None
+    external_ref: str | None
+    created_at: str
+    closed_at: str
+
+
+class Commit(TypedDict):
+    sha: NotRequired[str]
+    at: str
+    message: str
+    trailers: str
+    annotations: NotRequired[dict[str, int]]
+
+
+class Practice(TypedDict):
+    id: str
+    adopted_at: str
+
+
+class Review(TypedDict):
+    practice: str
+    at: str
+
+
+class Observation(TypedDict):
+    check: str
+    at: str
+    false_positive: bool | str
+
+
+class Alert(TypedDict):
+    ghsa_id: str
+    created_at: str
+
+
+class Sources(TypedDict):
+    repository: str
+    main: str
+    github_runs: int
+    selected_runs: int
+
+
+class Snapshot(TypedDict, total=False):
+    schema: Required[int]
+    now: Required[str]
+    runs: Required[list[Run]]
+    sources: Sources
+    beads: list[Bead]
+    commits: list[Commit]
+    practices: list[Practice]
+    reviews: list[Review]
+    observations: list[Observation]
+    alerts: list[Alert]
+
+
+class RedInterval(TypedDict):
+    started_at: str
+    ended_at: str
+
+
+class CIMetrics(TypedDict):
+    main_state: str
+    red_commit_percent: float | None
+    failed_commits: int
+    completed_commits: int
+    max_red_hours: float
+    red_intervals: list[RedInterval]
+    current_red_hours: float
+    time_to_green_hours_p50: float | None
+    time_to_green_hours_p85: float | None
+    recovered_intervals: int
+    job_minutes: float
+    pending_runs: int
+
+
+class Postmortem(TypedDict):
+    trigger: str
+    at: str
+    due_at: str
+    bead: str | Bead | None
+    late: bool
+
+
+class Health(TypedDict):
+    schema: int
+    until: str
+    sources: Sources | None
+    main_state: str
+    current_red_hours: float
+    red_intervals: list[RedInterval]
+    errors: list[str]
+    warnings: list[str]
+
+
+class FalsePositives(TypedDict):
+    samples: int
+    false_positives: int
+    percent: float | None
+
+
+class PracticeReview(TypedDict):
+    practice: str
+    due_at: str
+    reviewed: bool
+    overdue: bool
+
+
+class Report(TypedDict):
+    schema: int
+    since: str
+    until: str
+    sources: Sources | None
+    throughput: int
+    lead_hours_p50: float | None
+    lead_hours_p85: float | None
+    wip_by_assignee: dict[str, int]
+    ci: CIMetrics
+    commits: int
+    revert_percent: float | None
+    hatches: dict[str, int]
+    hatch_commits: int
+    hatch_commit_percent: float | None
+    false_positive_share: dict[str, FalsePositives] | None
+    practice_reviews: list[PracticeReview]
+    postmortems: list[Postmortem]
+    errors: list[str]
+    warnings: list[str]
+
+
+RunOrder = tuple[datetime, int, int]
+RedHistory = tuple[
+    datetime | None,
+    list[tuple[datetime, datetime]],
+    list[float],
+    dict[str, set[str | None]],
+]
+
 HATCHES = {"Large-Change", "Size-Increase", "Docs-Unchanged", "Quorum"}
 BAD = {"failure", "timed_out", "startup_failure", "action_required", "stale"}
 
 
-def instant(value):
+def instant(value: str) -> datetime:
     result = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if result.tzinfo is None:
         raise ValueError("Timestamps must include a timezone")
     return result.astimezone(timezone.utc)
 
 
-def percentile(values, fraction):
+def percentile(values: Sequence[float], fraction: float) -> float | None:
     return (
         sorted(values)[math.ceil(len(values) * fraction) - 1]
         if values
@@ -23,23 +184,23 @@ def percentile(values, fraction):
     )
 
 
-def ratio(count, total):
+def ratio(count: int, total: int) -> float | None:
     return 100 * count / total if total else None
 
 
-def run_order(run):
+def run_order(run: Run) -> RunOrder:
     return instant(run["created_at"]), run.get("id", 0), run["attempt"]
 
 
-def job_minutes(runs, since, now):
-    minutes = 0
+def job_minutes(runs: Sequence[Run], since: datetime, now: datetime) -> float:
+    minutes: float = 0
     for run in runs:
         for job in run["jobs"]:
             if not job.get("started_at"):
                 continue
-            start = instant(job["started_at"])
+            start = instant(cast(str, job["started_at"]))
             end = (
-                instant(job["completed_at"])
+                instant(cast(str, job["completed_at"]))
                 if job.get("completed_at")
                 else now
             )
@@ -51,13 +212,19 @@ def job_minutes(runs, since, now):
     return minutes
 
 
-def red_history(ci, since, now):
+def red_history(
+    ci: Sequence[Run], since: datetime, now: datetime
+) -> RedHistory:
     events = [r for r in ci if r["completed_at"]]
-    events.sort(key=lambda r: instant(r["completed_at"]))
-    red, generation, green_generation = None, None, None
-    intervals, recovery, outcomes = [], [], {}
+    events.sort(key=lambda r: instant(cast(str, r["completed_at"])))
+    red: datetime | None = None
+    generation: RunOrder | None = None
+    green_generation: RunOrder | None = None
+    intervals: list[tuple[datetime, datetime]] = []
+    recovery: list[float] = []
+    outcomes: dict[str, set[str | None]] = {}
     for run in events:
-        end = instant(run["completed_at"])
+        end = instant(cast(str, run["completed_at"]))
         if end > now:
             continue
         order = run_order(run)
@@ -66,7 +233,7 @@ def red_history(ci, since, now):
             outcomes.setdefault(run["head_sha"], set()).add(conclusion)
         if conclusion == "success":
             green_generation = max(green_generation or order, order)
-            if red is not None and order >= generation:
+            if red is not None and order >= cast(RunOrder, generation):
                 intervals.append((red, end))
                 if end >= since:
                     recovery.append((end - red).total_seconds() / 3600)
@@ -81,7 +248,7 @@ def red_history(ci, since, now):
     return red, intervals, recovery, outcomes
 
 
-def main_state(ci, red, now):
+def main_state(ci: Sequence[Run], red: datetime | None, now: datetime) -> str:
     latest = max(ci, key=run_order)
     state = "unknown"
     if red is not None:
@@ -93,7 +260,9 @@ def main_state(ci, red, now):
     return state
 
 
-def ci_metrics(runs, since, now):
+def ci_metrics(
+    runs: Sequence[Run], since: datetime, now: datetime
+) -> CIMetrics:
     ci = [r for r in runs if r["workflow"] == ".github/workflows/ci.yml"]
     if not ci:
         raise ValueError("No canonical main CI history")
@@ -128,7 +297,9 @@ def ci_metrics(runs, since, now):
     }
 
 
-def postmortems(snapshot, ci, now):
+def postmortems(
+    snapshot: Snapshot, ci: CIMetrics, now: datetime
+) -> tuple[list[Postmortem], list[str]]:
     """A8: each trigger after adoption needs a `postmortem:<key>` bead
     created within 48 hours of the trigger."""
     adopted = [
@@ -149,8 +320,9 @@ def postmortems(snapshot, ci, now):
         for alert in snapshot.get("alerts", [])
     ]
     beads = {b.get("external_ref"): b for b in snapshot["beads"]}
-    rows, errors = [], []
-    first = {}
+    rows: list[Postmortem] = []
+    errors: list[str] = []
+    first: dict[str, datetime] = {}
     for key, at in triggers:  # one advisory may raise several alerts
         first[key] = min(at, first.get(key, at))
     for key, at in sorted(first.items(), key=lambda trigger: trigger[1]):
@@ -175,7 +347,7 @@ def postmortems(snapshot, ci, now):
     return rows, errors
 
 
-def health(snapshot):
+def health(snapshot: Snapshot) -> Health:
     """Daily canonical-main check: red for over 24 hours is an error; red for
     less, or an unresolved latest run, is a warning; only green is clean."""
     if snapshot["schema"] != 1:
@@ -203,11 +375,15 @@ def health(snapshot):
     }
 
 
-def bead_metrics(snapshot, since, now):
-    def within(value):
+def bead_metrics(
+    snapshot: Snapshot, since: datetime, now: datetime
+) -> tuple[list[str], list[float], Counter[str], int]:
+    def within(value: str) -> bool:
         return since <= instant(value) < now
 
-    errors, leads, wip = [], [], Counter()
+    errors: list[str] = []
+    leads: list[float] = []
+    wip: Counter[str] = Counter()
     completed = 0
     for bead in snapshot["beads"]:
         if bead["status"] == "in_progress":
@@ -233,10 +409,11 @@ def bead_metrics(snapshot, since, now):
     return errors, leads, wip, completed
 
 
-def commit_metrics(commits):
-    hatches, hatch_commits, reverts = Counter(), 0, 0
+def commit_metrics(commits: Sequence[Commit]) -> tuple[Counter[str], int, int]:
+    hatches: Counter[str] = Counter()
+    hatch_commits, reverts = 0, 0
     for commit in commits:
-        used = Counter()
+        used: Counter[str] = Counter()
         for line in commit["trailers"].splitlines():
             key, sep, value = line.partition(":")
             if sep and key in HATCHES and value.strip():
@@ -248,11 +425,13 @@ def commit_metrics(commits):
     return hatches, hatch_commits, reverts
 
 
-def false_positive_metrics(snapshot, since, now):
-    def within(value):
+def false_positive_metrics(
+    snapshot: Snapshot, since: datetime, now: datetime
+) -> dict[str, FalsePositives]:
+    def within(value: str) -> bool:
         return since <= instant(value) < now
 
-    checks = {}
+    checks: dict[str, list[int]] = {}
     for sample in snapshot["observations"]:
         if not isinstance(sample["false_positive"], bool):
             raise ValueError("false_positive must be a JSON boolean")
@@ -260,7 +439,7 @@ def false_positive_metrics(snapshot, since, now):
             counts = checks.setdefault(sample["check"], [0, 0])
             counts[0] += 1
             counts[1] += sample["false_positive"]
-    false_positives = {
+    false_positives: dict[str, FalsePositives] = {
         name: {
             "samples": total,
             "false_positives": false,
@@ -271,13 +450,13 @@ def false_positive_metrics(snapshot, since, now):
     return false_positives
 
 
-def report(snapshot):
+def report(snapshot: Snapshot) -> Report:
     if snapshot["schema"] != 1:
         raise ValueError("Unsupported snapshot schema")
     now = instant(snapshot["now"])
     since = now - timedelta(days=7)
 
-    def within(value):
+    def within(value: str) -> bool:
         return since <= instant(value) < now
 
     errors, leads, wip, completed = bead_metrics(snapshot, since, now)
@@ -289,7 +468,7 @@ def report(snapshot):
     commits = [c for c in snapshot["commits"] if within(c["at"])]
     hatches, hatch_commits, reverts = commit_metrics(commits)
     false_positives = false_positive_metrics(snapshot, since, now)
-    reviews = []
+    reviews: list[PracticeReview] = []
     for practice in snapshot["practices"]:
         adopted = instant(practice["adopted_at"])
         due = adopted + timedelta(days=28)

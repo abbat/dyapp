@@ -4,6 +4,10 @@ from copy import deepcopy
 import importlib.util
 from pathlib import Path
 import unittest
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from flow_metrics import Run, Snapshot
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -16,7 +20,13 @@ FLOW = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FLOW)
 
 
-def run(sha, created, finished, conclusion, attempt: int = 1):
+def run(
+    sha: str,
+    created: str,
+    finished: str | None,
+    conclusion: str | None,
+    attempt: int = 1,
+) -> "Run":
     return {
         "head_sha": sha,
         "created_at": created,
@@ -28,7 +38,7 @@ def run(sha, created, finished, conclusion, attempt: int = 1):
     }
 
 
-def snapshot():
+def snapshot() -> "Snapshot":
     return {
         "schema": 1,
         "now": "2026-10-15T12:00:00Z",
@@ -191,7 +201,7 @@ class Metrics(unittest.TestCase):
             self.assertEqual(FLOW.report(data)["ci"]["main_state"], "unknown")
 
     def test_daily_health_separates_24_hours_over_24_and_unknown(self) -> None:
-        cases = [
+        cases: list[tuple[str, str, str, list[str], list[str]]] = [
             ("success", "2026-10-15T11:00:00Z", "green", [], []),
             (
                 "failure",
@@ -216,7 +226,7 @@ class Metrics(unittest.TestCase):
             ),
         ]
         for conclusion, finished, state, errors, warnings in cases:
-            data = {
+            data: "Snapshot" = {
                 "schema": 1,
                 "now": "2026-10-15T12:00:00Z",
                 "runs": snapshot()["runs"],
