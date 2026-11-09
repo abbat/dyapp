@@ -7,6 +7,9 @@ With the lcov report, lines changed since COVERAGE_BASE (default
 origin/main; the working tree is compared) must be >= 80% covered.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Set
 import json
 import os
 from pathlib import Path
@@ -30,7 +33,7 @@ CRATES = (
 HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
 
-def validate(report, baseline):
+def validate(report: Mapping[str, object], baseline: float) -> float:
     if report.get("type") != "llvm.coverage.json.export":
         raise ValueError("Not an LLVM coverage JSON export")
     data = report.get("data")
@@ -62,9 +65,10 @@ def validate(report, baseline):
     return percentage
 
 
-def changed(diff):
+def changed(diff: str) -> dict[str, set[int]]:
     """{repository path: new-side line numbers} of a `git diff -U0`."""
-    result, path = {}, None
+    result: dict[str, set[int]] = {}
+    path = None
     for line in diff.splitlines():
         if line.startswith("+++ "):
             path = line[len("+++ b/") :] if line != "+++ /dev/null" else None
@@ -74,9 +78,10 @@ def changed(diff):
     return result
 
 
-def instrumented(lcov, root):
+def instrumented(lcov: str, root: Path) -> dict[str, dict[int, int]]:
     """{repository path: {line: hits}} of an lcov report."""
-    result, lines = {}, None
+    result: dict[str, dict[int, int]] = {}
+    lines: dict[int, int] | None = None
     for line in lcov.splitlines():
         if line.startswith("SF:"):
             path = Path(line[3:])
@@ -92,7 +97,9 @@ def instrumented(lcov, root):
     return result
 
 
-def diff_coverage(changes, lines):
+def diff_coverage(
+    changes: Mapping[str, Set[int]], lines: Mapping[str, Mapping[int, int]]
+) -> tuple[int, int, list[str]]:
     """(covered, instrumented) changed lines; missed as path:line."""
     covered, missed = 0, []
     for path, numbers in sorted(changes.items()):
@@ -104,7 +111,7 @@ def diff_coverage(changes, lines):
     return covered, covered + len(missed), missed
 
 
-def check_diff(lcov):
+def check_diff(lcov: str) -> tuple[int, int]:
     base = os.environ.get("COVERAGE_BASE") or "origin/main"
     # A push that creates a branch (zeros) or is forced (the old head is gone).
     if subprocess.run(

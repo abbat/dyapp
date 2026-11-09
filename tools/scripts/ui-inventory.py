@@ -9,11 +9,19 @@ control. Output is deterministic:
     python3 -B tools/scripts/ui-inventory.py
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
+
 import argparse
 import json
 from html.parser import HTMLParser
 from pathlib import Path
 import re
+
+if TYPE_CHECKING:
+    import measurement_contracts as mc
 
 ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / "clients/desktop/ui"
@@ -36,11 +44,15 @@ SHOWN = 8  # script condition lines listed per control
 class Page(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
-        self.stack = []  # (tag, attrs, label dict or None)
-        self.rows = []  # one dict per control, in document order
-        self.labels = {}  # `for` id -> i18n key
+        self.stack: list[
+            tuple[str, mc.Attributes, mc.Attributes | None]
+        ] = []  # (tag, attrs, label dict or None)
+        self.rows: list[
+            mc.Control
+        ] = []  # one dict per control, in document order
+        self.labels: dict[str | None, str] = {}  # `for` id -> i18n key
 
-    def hidden(self, attrs):
+    def hidden(self, attrs: Mapping[str, str | None]) -> str:
         if "hidden" in attrs:
             return "yes"
         for tag, parent, _ in reversed(self.stack):
@@ -48,44 +60,46 @@ class Page(HTMLParser):
                 return f"via #{parent.get('id', tag)}"
         return "no"
 
-    def handle_starttag(self, tag: "str", attrs) -> None:
-        attrs = dict(attrs)
+    def handle_starttag(
+        self, tag: "str", attrs: list[tuple[str, str | None]]
+    ) -> None:
+        attributes = dict(attrs)
         label = next(
             (e[2] for e in reversed(self.stack) if e[0] == "label"), None
         )
-        key = attrs.get("data-i18n")
-        if tag == "label" and "for" not in attrs:
+        key = attributes.get("data-i18n")
+        if tag == "label" and "for" not in attributes:
             label = {}
-        if tag == "label" and "for" in attrs and key:
-            self.labels[attrs["for"]] = key
+        if tag == "label" and "for" in attributes and key:
+            self.labels[attributes["for"]] = key
         if key and label is not None and "key" not in label and tag != "label":
             label["key"] = key
         screen = next(
             (e[1].get("id") for e in self.stack if e[0] == "section"), None
         )
         if tag == "section" and screen is None:
-            screen = attrs.get("id", "?")
-        status = attrs.get("role") in ("status", "alert")
+            screen = attributes.get("id", "?")
+        status = attributes.get("role") in ("status", "alert")
         listed = tag in CONTROLS or status or tag == "section"
-        if listed and (attrs.get("id") or tag != "option" or key):
+        if listed and (attributes.get("id") or tag != "option" or key):
             kind = tag
             if tag == "input":
-                kind = f"input[{attrs.get('type', 'text')}]"
+                kind = f"input[{attributes.get('type', 'text')}]"
             if status and tag not in CONTROLS:
-                kind = f"{tag}[role={attrs['role']}]"
+                kind = f"{tag}[role={attributes['role']}]"
             self.rows.append(
                 {
                     "screen": screen or "(main)",
-                    "id": attrs.get("id", "-"),
+                    "id": attributes.get("id", "-"),
                     "kind": kind,
                     "key": key,
                     "label": label,
-                    "hidden": self.hidden(attrs),
-                    "disabled": "yes" if "disabled" in attrs else "no",
+                    "hidden": self.hidden(attributes),
+                    "disabled": "yes" if "disabled" in attributes else "no",
                 }
             )
         if tag not in VOID:
-            self.stack.append((tag, attrs, label))
+            self.stack.append((tag, attributes, label))
 
     def handle_endtag(self, tag: "str") -> None:
         while self.stack and self.stack[-1][0] != tag:
@@ -94,11 +108,11 @@ class Page(HTMLParser):
             self.stack.pop()
 
 
-def cell(text):
+def cell(text: str | None) -> str:
     return (text or "").replace("|", "\\|").replace("\n", " ") or "-"
 
 
-def conditions(name, js):
+def conditions(name: str, js: str) -> mc.Conditions:
     """Map element id -> [(file:line, code)] of `.hidden`/`.disabled` sets."""
     names = dict(
         re.findall(r"const (\w+) = document\.getElementById\('([^']+)'\)", js)
@@ -109,7 +123,7 @@ def conditions(name, js):
     assign = re.compile(
         r"(\w+|getElementById\('[^']+'\))\.(?:hidden|disabled)\s*=[^=]"
     )
-    found = {}
+    found: mc.Conditions = {}
     for number, line in enumerate(js.splitlines(), 1):
         for target in assign.findall(line):
             match = re.match(r"getElementById\('([^']+)'\)", target)
@@ -121,7 +135,13 @@ def conditions(name, js):
     return found
 
 
-def print_screens(screens, page, cond, en, ru) -> None:
+def print_screens(
+    screens: Sequence[str],
+    page: Page,
+    cond: mc.Conditions,
+    en: Mapping[str | None, str],
+    ru: Mapping[str | None, str],
+) -> None:
     for screen in screens:
         print(f"## {screen if screen == '(main)' else '#' + screen}\n")
         print(
@@ -155,7 +175,7 @@ def main() -> None:
     ru = json.loads((UI / "i18n/ru.json").read_text(encoding="utf-8"))
     page = Page()
     page.feed((UI / "index.html").read_text(encoding="utf-8"))
-    cond = {}
+    cond: mc.Conditions = {}
     for name in SCRIPTS:
         js = (UI / name).read_text(encoding="utf-8")
         for ident, items in conditions(name, js).items():

@@ -16,12 +16,12 @@ if __name__ == "__main__":
         )
         raise SystemExit(0)
 
-suite, destination = sys.argv[1:]
+suite, destination_arg = sys.argv[1:]
 services = {
     "linux": ["linux-test"],
     "android": ["android-unit-test", "android-emulator-test"],
 }[suite]
-destination = Path(destination)
+destination = Path(destination_arg)
 destination.mkdir(parents=True, exist_ok=True)
 for service in services:
     containers = subprocess.check_output(

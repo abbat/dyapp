@@ -1,5 +1,10 @@
 """Compare two fresh release builds in the same toolchain and environment."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
 import argparse
 import hashlib
 import json
@@ -8,6 +13,9 @@ import re
 from pathlib import Path
 import subprocess
 import tempfile
+
+if TYPE_CHECKING:
+    import policy_contracts as pc
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = {
@@ -27,7 +35,7 @@ def digest(path: "Path") -> "str":
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def compare(paths):
+def compare(paths: Iterable[Path]) -> list[str]:
     hashes = [digest(path) for path in paths]
     if len(hashes) != 2 or hashes[0] != hashes[1]:
         raise ValueError(f"Release executable hashes differ: {hashes}")
@@ -38,7 +46,12 @@ def output(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 
-def build_pair(target, directory, revision=None, epoch=None):
+def build_pair(
+    target: str,
+    directory: Path,
+    revision: str | None = None,
+    epoch: str | None = None,
+) -> pc.ReproducibilityReport:
     manifest, binary, lock = TARGETS[target]
     directory.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix=f"{target}-", dir=directory))
@@ -55,7 +68,7 @@ def build_pair(target, directory, revision=None, epoch=None):
             "--format=%ct",
             "HEAD",
         )
-    report = {
+    report: pc.ReproducibilityReport = {
         "target": target,
         "revision": revision,
         "rustc": output("rustc", "-Vv"),
@@ -65,6 +78,7 @@ def build_pair(target, directory, revision=None, epoch=None):
         "errors": [],
     }
     try:
+        assert epoch is not None, "Source date is required for release builds"
         paths = []
         for index in (1, 2):
             destination = run / str(index)
@@ -104,7 +118,7 @@ def build_pair(target, directory, revision=None, epoch=None):
                     stderr=subprocess.STDOUT,
                     check=False,
                 )
-            entry = {
+            entry: pc.ReproducedBuild = {
                 "directory": str(destination),
                 "log": str(log),
                 "exit_code": result.returncode,

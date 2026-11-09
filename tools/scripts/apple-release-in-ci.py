@@ -1,5 +1,8 @@
 """Produce unsigned Release Apple packages only in approved native CI."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 import argparse
 import os
 from pathlib import Path
@@ -9,7 +12,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run(command, log) -> None:
+def run(command: Sequence[str], log: Path) -> None:
     with log.open("w") as stream:
         result = subprocess.run(
             command,

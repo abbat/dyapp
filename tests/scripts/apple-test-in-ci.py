@@ -1,5 +1,7 @@
 """Build Apple apps and run hosted XCTest/XCUITest in approved native CI."""
 
+from __future__ import annotations
+
 import typing
 
 from contextlib import contextmanager
@@ -39,7 +41,7 @@ def run(
 
 
 @contextmanager
-def local_node(reports):
+def local_node(reports: Path) -> typing.Iterator[tuple[str, str]]:
     """Run loopback dyappd for native UI tests without public peers."""
     run(
         [
@@ -108,7 +110,7 @@ def local_node(reports):
 
 
 @contextmanager
-def silent_endpoint():
+def silent_endpoint() -> typing.Iterator[str]:
     """Accept local TCP without answering the peer handshake."""
     listener = socket.socket()
     listener.bind(("127.0.0.1", 33447))
@@ -150,7 +152,9 @@ def keep_crash_reports(reports: "Path") -> "bool":
     return kept
 
 
-def keep_log(reports, simulator, name, predicate) -> None:
+def keep_log(
+    reports: Path, simulator: str | None, name: str, predicate: str
+) -> None:
     """Save the unified log lines matching predicate as name."""
     spawn = ["xcrun", "simctl", "spawn", simulator] if simulator else []
     with (reports / name).open("w") as output:

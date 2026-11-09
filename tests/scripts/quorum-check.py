@@ -1,5 +1,10 @@
 """A6 local delivery gate: bind a closed quorum to the exact reviewed range."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
 import argparse
 import json
 from pathlib import Path
@@ -7,6 +12,9 @@ import re
 import subprocess
 
 import triggers
+
+if TYPE_CHECKING:
+    import policy_contracts as pc
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -19,7 +27,12 @@ def git(*args: str) -> str:
     return command("git", "-c", f"safe.directory={ROOT}", *args)
 
 
-def proof_errors(quorum, participants, base, head):
+def proof_errors(
+    quorum: pc.WorkItem,
+    participants: Sequence[pc.WorkItem],
+    base: str,
+    head: str,
+) -> list[str]:
     errors = []
     if any(
         (
@@ -59,13 +72,15 @@ def proof_errors(quorum, participants, base, head):
     return errors
 
 
-def needs_review(hits, tightening, protected):
+def needs_review(
+    hits: Sequence[str], tightening: bool, protected: bool
+) -> bool:
     # A6a reports all check changes; A6 only gates weakening, not tightening.
     security = any(not hit.startswith("checks: ") for hit in hits)
     return bool(security or protected or (hits and not tightening))
 
 
-def main():
+def main() -> bool:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True)
     parser.add_argument("--head", default="HEAD")
@@ -77,7 +92,7 @@ def main():
     )
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    result = {"errors": []}
+    result: pc.QuorumReport = {"errors": []}
     try:
         if git("status", "--porcelain").strip():
             raise ValueError("Delivery requires a clean working tree")

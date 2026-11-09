@@ -1,5 +1,9 @@
 """Review aid for untrusted PRs; run this from the base commit."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import datetime as dt
 import json
 import os
@@ -9,6 +13,9 @@ import sys
 import tomllib
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+
+if TYPE_CHECKING:
+    import policy_contracts as pc
 
 CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 CRATES_API = "https://crates.io/api/v1/crates"
@@ -55,7 +62,7 @@ def kind(path: "str") -> "str":
     return "code"
 
 
-def packages(sha, path):
+def packages(sha: str, path: str) -> pc.Packages:
     exists = subprocess.run(
         ["git", "cat-file", "-e", f"{sha}:{path}"],
         capture_output=True,
@@ -70,7 +77,7 @@ def packages(sha, path):
     }
 
 
-def published(name, version, api):
+def published(name: str, version: str, api: str) -> dt.datetime:
     url = f"{api.rstrip('/')}/{quote(name, safe='')}/{quote(version, safe='')}"
     request = Request(url, headers={"User-Agent": "dyapp-pr-guard/1"})
     with urlopen(request, timeout=10) as response:
@@ -81,7 +88,13 @@ def published(name, version, api):
     return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def dependency_changes(before, after, path, api, now):
+def dependency_changes(
+    before: pc.Packages,
+    after: pc.Packages,
+    path: str,
+    api: str,
+    now: dt.datetime,
+) -> tuple[list[str], list[str]]:
     errors, changed = [], []
     for key, package in sorted(after.items()):
         if key in before:

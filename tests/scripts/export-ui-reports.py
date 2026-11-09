@@ -1,5 +1,7 @@
 """Copy Android test evidence from the retained reports volume."""
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import subprocess
@@ -8,7 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def export(directory):
+def export(directory: Path) -> Path:
     containers = subprocess.check_output(
         [
             "docker",

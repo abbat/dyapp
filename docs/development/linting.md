@@ -309,6 +309,11 @@ becoming checked records; copied filesystem paths are distinct from serialized r
 Release helpers share feed targets, candidate packages, inventory records and injected command/HTTP
 interfaces in `tools/scripts/release_contracts.py`; validation, download limits and trust checks
 remain in their existing owners.
+Policy and reproducibility helpers share work-item, lockfile and build-report records in
+`tools/scripts/policy_contracts.py`. Coverage readers distinguish changed line sets from measured
+hit counts. Desktop inventory and benchmark observations use `tools/scripts/measurement_contracts.py`;
+HTML boolean attributes retain their possible missing values, and process pipes are checked before
+sampling. The deployment rehearsal consumes the shared network harness through a narrow protocol.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

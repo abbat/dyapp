@@ -1,7 +1,9 @@
 """Consumed CLI records and network scenario observations."""
 
-from collections.abc import Sequence
-from typing import NotRequired, TypeAlias, TypedDict
+from collections.abc import Mapping, Sequence
+from re import Pattern
+import subprocess
+from typing import Literal, NotRequired, Protocol, TypeAlias, TypedDict
 
 Peer: TypeAlias = tuple[str, str]
 
@@ -56,6 +58,43 @@ class NetworkCase(TypedDict):
     acked_on: list[str]
     repaired_on: list[str]
     holders_after_churn: NotRequired[list[str]]
+
+
+class NetworkHarness(Protocol):
+    ANSI: Pattern[str]
+
+    def call(
+        self,
+        client: str,
+        command: Literal["info", "sign-profile", "publish", "get"],
+        *args: str,
+    ) -> Reply:
+        """Read one rehearsal command reply."""
+        ...
+
+    def start_node(
+        self, bin_dir: str, environment: Mapping[str, str]
+    ) -> subprocess.Popen[bytes]:
+        """Start one captured loopback node."""
+        ...
+
+    def healthy(self, client: str, addr: str) -> bool:
+        """Check the node's store role."""
+        ...
+
+    def addresses(self, host: str, port: int) -> Peer:
+        """Return TCP and QUIC addresses."""
+        ...
+
+    def dyappd(self, bin_dir: str, env: Mapping[str, str], *args: str) -> str:
+        """Run a storage command."""
+        ...
+
+    def stop(
+        self, processes: Sequence[subprocess.Popen[bytes]], failed: bool
+    ) -> None:
+        """Stop every captured node."""
+        ...
 
 
 class MemorySample(TypedDict):

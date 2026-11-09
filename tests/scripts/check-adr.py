@@ -14,6 +14,8 @@ in that commit; an older ADR that covers the change is fine. A routine change
 that records no decision says why instead: `ADR: none — <reason>`.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import PurePosixPath
 import re
@@ -44,7 +46,7 @@ TOOLING = {
 }
 
 
-def dependencies(text):
+def dependencies(text: str) -> set[str]:
     """Names in every dependency table of a Cargo.toml but path and
     workspace ones."""
     data = tomllib.loads(text) if text else {}
@@ -66,7 +68,7 @@ def dependencies(text):
     }
 
 
-def triggers(path, old, new, diff):
+def triggers(path: str, old: str, new: str, diff: str) -> list[str]:
     """Why a change of `path` from `old` to `new` text needs an ADR."""
     name = PurePosixPath(path)
     found = []
@@ -96,7 +98,7 @@ def triggers(path, old, new, diff):
     return found
 
 
-def show(sha, path):
+def show(sha: str, path: str) -> str:
     result = subprocess.run(
         GIT + ["show", f"{sha}:{path}"], capture_output=True, check=False
     )
@@ -132,7 +134,7 @@ def commit_errors(sha: "str") -> "list[str]":
     return [f"{sha[:12]} {reason}: " + "; ".join(found)] if reason else []
 
 
-def trailer_error(message, sha):
+def trailer_error(message: str, sha: str) -> str | None:
     """Why the ADR trailer of a triggering commit is not accepted, or None."""
     if NONE.search(message):
         return None

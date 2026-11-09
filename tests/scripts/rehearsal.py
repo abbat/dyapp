@@ -14,6 +14,11 @@ store-format limit. Every step prints one line; the run takes about three
 storage trust periods.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, cast
+
 import importlib.util
 import os
 from pathlib import Path
@@ -24,14 +29,18 @@ import tempfile
 import threading
 import time
 
+if TYPE_CHECKING:
+    import network_contracts as nc
+
 spec = importlib.util.spec_from_file_location(
     "network_test", Path(__file__).with_name("network-test.py")
 )
 assert spec is not None and spec.loader is not None, (
     "Python source loader is unavailable"
 )
-net = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(net)
+_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(_module)
+net = cast("nc.NetworkHarness", _module)
 
 HOSTS = ("127.1.0.1", "127.2.0.1", "127.3.0.1")
 PORT = 33445
@@ -46,7 +55,7 @@ def log(message: "str") -> None:
     print(f"[{minutes:6.1f} min] {message}", flush=True)
 
 
-def environment(storage, index):
+def environment(storage: str, index: int) -> dict[str, str]:
     host = HOSTS[index]
     seeds = [f"{other}:{PORT}" for other in HOSTS if other != host]
     return {
@@ -60,7 +69,9 @@ def environment(storage, index):
     }
 
 
-def start(bin_dir, env, client, tcp):
+def start(
+    bin_dir: str, env: Mapping[str, str], client: str, tcp: str
+) -> subprocess.Popen[bytes]:
     process = net.start_node(bin_dir, env)
     for _ in range(60):
         if net.healthy(client, tcp):
@@ -71,19 +82,19 @@ def start(bin_dir, env, client, tcp):
     raise RuntimeError(f"Node did not start: {tcp}")
 
 
-def halt(process) -> None:
+def halt(process: subprocess.Popen[bytes]) -> None:
     process.terminate()
     process.wait()
 
 
-def canary(client, entry):
+def canary(client: str, entry: str) -> tuple[str, nc.Reply]:
     """Publishes a fresh profile through `entry`; its status and holders."""
     signed = net.call(client, "sign-profile")
     status = net.call(client, "publish", entry, signed["record"])["status"]
     return status, signed
 
 
-def holders(client, addresses, signed):
+def holders(client: str, addresses: Sequence[str], signed: nc.Reply) -> int:
     records = [
         net.call(client, "get", tcp, signed["peer_id"]).get("record")
         for tcp in addresses
@@ -91,7 +102,9 @@ def holders(client, addresses, signed):
     return records.count(signed["record"])
 
 
-def expect(client, entry, addresses, status):
+def expect(
+    client: str, entry: str, addresses: Sequence[str], status: str
+) -> nc.Reply:
     """A canary through `entry` gets `status`; an accepted one, two holders."""
     got, signed = canary(client, entry)
     if got != status:
@@ -117,7 +130,7 @@ def wait_trust(reason: "str") -> None:
         time.sleep((TRUST_MINUTES + 1) * 60)
 
 
-def refused(old_dir, env):
+def refused(old_dir: str, env: Mapping[str, str]) -> str:
     """The old dyappd exits on a store a newer one upgraded; its error line."""
     result = subprocess.run(
         [f"{old_dir}/dyappd"],
@@ -139,8 +152,15 @@ def refused(old_dir, env):
 
 
 def upgrade_nodes(
-    old_dir, new_dir, storage, client, envs, addresses, processes, before
-):
+    old_dir: str,
+    new_dir: str,
+    storage: str,
+    client: str,
+    envs: Sequence[Mapping[str, str]],
+    addresses: Sequence[str],
+    processes: list[subprocess.Popen[bytes]],
+    before: Sequence[nc.Reply],
+) -> tuple[str, list[nc.Reply]]:
     backup = f"{storage}/c.old"
     for i, (env, tcp) in enumerate(zip(envs, addresses)):
         if i == 2:

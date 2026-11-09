@@ -10,13 +10,22 @@ the description, acceptance criteria, design or notes.
     bead-ready.py --in-progress  check every claimed bead
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
+
 import json
 import re
 import subprocess
 import sys
 
+if TYPE_CHECKING:
+    import policy_contracts as pc
+
 TYPES = {"task", "feature", "bug"}
-FIELDS = ("description", "acceptance_criteria", "design", "notes")
+FIELDS: tuple[
+    Literal["description", "acceptance_criteria", "design", "notes"], ...
+] = ("description", "acceptance_criteria", "design", "notes")
 LINE = {
     name: re.compile(rf"^[ \t]*{name}:[ \t]*\S", re.M | re.I)
     for name in ("Docs", "Verify")
@@ -24,13 +33,14 @@ LINE = {
 WHOLE_LINE = re.compile(r"^\s*(?:Docs|Verify):.*$", re.M | re.I)
 
 
-def bd(*args):
-    return json.loads(
+def bd(*args: str) -> list[pc.WorkItem]:
+    records: list[pc.WorkItem] = json.loads(
         subprocess.check_output(["bd", *args, "--json"], text=True)
     )
+    return records
 
 
-def errors(bead):
+def errors(bead: pc.WorkItem) -> list[str]:
     """What keeps `bead` from being ready; empty when it is ready."""
     if bead.get("issue_type") not in TYPES:
         return []

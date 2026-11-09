@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Real Debian 12 desktop benchmark for the test-only raw Tauri/Canvas path."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import argparse
 import datetime
 import json
@@ -13,6 +17,9 @@ import signal
 import socket
 import subprocess
 import time
+
+if TYPE_CHECKING:
+    import measurement_contracts as mc
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,7 +47,7 @@ def optional_output(args: "list[str]") -> "str":
         return "unavailable"
 
 
-def host_info():
+def host_info() -> mc.Host:
     distro = release()
     if distro.get("ID") != "debian" or distro.get("VERSION_ID") != "12":
         raise RuntimeError("Benchmark requires a real Debian 12 desktop")
@@ -90,7 +97,7 @@ def host_info():
     }
 
 
-def process_tree(root_pid):
+def process_tree(root_pid: int) -> mc.ProcessTree:
     """Return CPU ticks and RSS bytes for app and all surviving descendants."""
     processes = {}
     for path in Path("/proc").glob("[0-9]*"):
@@ -123,7 +130,13 @@ def process_tree(root_pid):
     }
 
 
-def sample_process(process, previous, samples, started, now):
+def sample_process(
+    process: subprocess.Popen[bytes],
+    previous: mc.ProcessTree,
+    samples: list[mc.ProcessSample],
+    started: float,
+    now: float,
+) -> tuple[mc.ProcessTree, int]:
     current = process_tree(process.pid)
     ticks = sum(
         max(0, ticks - previous[key][0])
@@ -156,7 +169,7 @@ def drain_output(
     return output_tail
 
 
-def run_case(app, name, output):
+def run_case(app: Path, name: str, output: Path) -> mc.VideoCase:
     profile = output / f"{name}-profile"
     profile.mkdir()
     env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
@@ -168,13 +181,14 @@ def run_case(app, name, output):
         env=env,
         start_new_session=True,
     )
+    assert process.stdout is not None, "Benchmark stdout pipe is unavailable"
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
     started = time.monotonic()
     next_sample = started
-    previous = {}
+    previous: mc.ProcessTree = {}
     cpu_ticks = 0
-    samples = []
+    samples: list[mc.ProcessSample] = []
     output_tail = b""
     exit_seen_at = None
     try:
