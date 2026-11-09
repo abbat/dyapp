@@ -10,7 +10,7 @@ export const controller = {};
 
 // Settings → Passed people: Undo pass shows the peer in later searches and Liked you again.
 let passedRead = 0;
-/** @param {HTMLButtonElement} button @param {import('./ipc.js').Invoke} call */
+/** @param {string} peerId @param {HTMLButtonElement} button @param {import('./ipc.js').Invoke} call */
 const unpassPeer = async (peerId, button, call) => {
   const generation = identityState.generation;
   button.disabled = true;

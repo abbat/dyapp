@@ -36,6 +36,8 @@
       list.children.length === 1 && previous.disabled && next.disabled,
       'Search did not reset page',
     );
+    list.querySelector('button').click();
+    check(selected() === 64, 'Filtered action targeted wrong item');
     search.value = 'missing';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     check(!list.children.length, 'Empty search retained rows');

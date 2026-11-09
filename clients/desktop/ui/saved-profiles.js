@@ -17,15 +17,23 @@ const savedPanel = domById('saved-profiles', HTMLDetailsElement);
 const savedRows = domById('saved-profile-rows', HTMLUListElement);
 const savedStatus = domById('saved-profile-status', HTMLParagraphElement);
 const savedRefresh = domById('saved-profile-refresh', HTMLButtonElement);
+/**
+ * @typedef {{ run: number, generation: number, call: import('./ipc.js').Invoke }} SavedContext
+ * @typedef {{ peerId: string, context: SavedContext, row: HTMLLIElement }} SavedRow
+ * @typedef {SavedRow & { open: HTMLButtonElement, selection: number }} SavedOpening
+ * @typedef {SavedRow & { open: HTMLButtonElement, remove: HTMLButtonElement }} SavedActions
+ */
 let savedRun = 0;
 let savedSelection = 0;
 let savedCall = invoke;
+/** @param {SavedContext} context */
 const savedCurrent = (context) =>
   context.run === savedRun && identityCurrent(context.generation) && savedPanel.open;
 /** @param {string} key */
 const savedMessage = (key) => {
   savedStatus.textContent = key ? strings[`favorites.${key}`] : '';
 };
+/** @param {SavedOpening} opening */
 const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
   const [found] = await withPlaces([await context.call('shared_profile', { peerId })]);
   if (
@@ -37,20 +45,23 @@ const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
   )
     openFound(found, open, context.call);
 };
+/** @param {SavedRow} selection */
 const removeSavedProfile = async ({ peerId, context, row }) => {
   await context.call('set_favorite', { peerId, favorite: false });
   if (!savedCurrent(context) || !row.isConnected) return;
   await controller.showSaved(context.call);
   if (savedPanel.open && identityCurrent(context.generation)) savedRefresh.focus();
 };
-/** @param {number} selection */
+/** @param {boolean} opening @param {number} selection @param {SavedContext} context @param {HTMLLIElement} row */
 const savedRowFailure = (opening, selection, context, row) => {
   if ((!opening || selection === savedSelection) && savedCurrent(context) && row.isConnected) {
     savedMessage(opening ? 'openFailed' : 'changeFailed');
   }
 };
+/** @param {SavedActions} actions */
 const savedRowAction = ({ peerId, context, row, open, remove }) => {
   let busy = false;
+  /** @param {boolean} opening */
   const run = async (opening) => {
     if (busy || !savedCurrent(context) || !row.isConnected) return;
     const selection = opening ? ++savedSelection : savedSelection;
@@ -75,7 +86,7 @@ const savedRowAction = ({ peerId, context, row, open, remove }) => {
 };
 /**
  * @param {string} peerId
- * @param {{ run: number; generation: number; call: import('./ipc.js').Invoke; }} context
+ * @param {SavedContext} context
  */
 const savedRow = (peerId, context) => {
   const row = document.createElement('li');

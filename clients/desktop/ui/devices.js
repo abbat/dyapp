@@ -39,6 +39,7 @@ document.addEventListener('dyapp:identity-change', () => {
   devicesRead += 1;
 });
 
+/** @param {number[]} key */
 const deviceShort = (key) =>
   key
     .slice(0, 3)
@@ -51,6 +52,7 @@ const disconnectOffline = (offline) => {
   disconnectRetry.hidden = !offline;
   for (const button of disconnectButtons) button.disabled = false;
 };
+/** @param {import('./ipc.js').Device} device */
 const openDisconnect = (device) => {
   disconnecting = device;
   disconnected = false;
@@ -61,6 +63,7 @@ const openDisconnect = (device) => {
   disconnectDialog.showModal();
   disconnectCancel.focus();
 };
+/** @param {import('./ipc.js').Device} device @param {number} index */
 const deviceRow = (device, index) => {
   const row = document.createElement('tr');
   const name = document.createElement('td');
@@ -110,7 +113,7 @@ const showDevices = async (call = invoke) => {
       }
       return;
     }
-    rows.sort((a, b) => b.this - a.this);
+    rows.sort((a, b) => Number(b.this) - Number(a.this));
     const text = JSON.stringify(rows);
     if (text !== shownDevices)
       settingsCollectionsController.renderSettingsRows(

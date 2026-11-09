@@ -6,6 +6,15 @@ export const controller = {};
 controller.settingsCollectionRefreshed = undefined;
 
 // Local collections are held as data; only one page of rows is mounted.
+/**
+ * @typedef {keyof typeof ids} CollectionName
+ * @typedef {{ find: () => string, row: (index: number) => HTMLElement }} DeferredRow
+ * @typedef {{ name: CollectionName, list: HTMLElement, search: HTMLInputElement,
+ *   status: HTMLParagraphElement, previous: HTMLButtonElement, next: HTMLButtonElement,
+ *   refresh: HTMLButtonElement, items: DeferredRow[] | null, page: number,
+ *   reload?: () => void | Promise<unknown> }} CollectionState
+ */
+/** @type {Map<CollectionName, CollectionState>} */
 const states = new Map();
 const ids = {
   identities: 'settings-identities',
@@ -15,17 +24,18 @@ const ids = {
 };
 /** @param {string} key */
 const text = (key) => strings[`settings.collection.${key}`];
+/** @param {CollectionState} state */
 const render = (state) => {
   const term = state.search.value.trim().toLocaleLowerCase();
   const items = (state.items || [])
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => state.find(item).toLocaleLowerCase().includes(term));
+    .filter(({ item }) => item.find().toLocaleLowerCase().includes(term));
   const pages = Math.max(1, Math.ceil(items.length / 32));
   state.page = Math.min(state.page, pages - 1);
   const rows = items.slice(state.page * 32, (state.page + 1) * 32);
   const remove = domById('settings-remove', HTMLButtonElement);
   if (state.name === 'identities' && remove) remove.hidden = true;
-  state.list.replaceChildren(...rows.map(({ item, index }) => state.row(item, index)));
+  state.list.replaceChildren(...rows.map(({ item, index }) => item.row(index)));
   state.previous.disabled = state.page === 0;
   state.next.disabled = state.page === pages - 1;
   state.status.textContent = pageStatus(state, items.length, pages);
@@ -39,15 +49,16 @@ const render = (state) => {
     count.textContent = state.items === null ? '?' : String(state.items.length);
   }
 };
-/** @param {number} pages */
+/** @param {CollectionState} state @param {number} count @param {number} pages */
 const pageStatus = (state, count, pages) => {
   if (state.items === null) return text('failed');
   if (!count) return text('empty');
   return text('page')
-    .replace('{page}', state.page + 1)
-    .replace('{pages}', pages)
-    .replace('{count}', count);
+    .replace('{page}', String(state.page + 1))
+    .replace('{pages}', String(pages))
+    .replace('{count}', String(count));
 };
+/** @param {CollectionName} name */
 const create = (name) => {
   const list = domById(ids[name], HTMLElement);
   const field = document.createElement('div');
@@ -59,7 +70,9 @@ const create = (name) => {
   label.htmlFor = search.id;
   label.textContent = text('search');
   field.append(label, search);
-  list.closest('table').before(field);
+  const table = list.closest('table');
+  if (!table) throw new Error('Settings collection requires a table');
+  table.before(field);
   const status = document.createElement('p');
   status.className = 'notice';
   status.id = `settings-${name}-status`;
@@ -76,13 +89,17 @@ const create = (name) => {
     actions.append(button);
     return button;
   });
-  list.closest('[data-settings-pane]').append(status, actions);
+  const pane = list.closest('[data-settings-pane]');
+  if (!pane) throw new Error('Settings collection requires a pane');
+  pane.append(status, actions);
   const [previous, next, refresh] = buttons;
+  /** @type {CollectionState} */
   const state = { name, list, search, status, previous, next, refresh, items: [], page: 0 };
   bindControls(state);
   states.set(name, state);
   return state;
 };
+/** @param {CollectionState} state */
 const bindControls = (state) => {
   const { previous, next, refresh, search } = state;
   /** @param {number} amount */
@@ -108,17 +125,28 @@ const bindControls = (state) => {
     const generation = identityState.generation;
     refresh.disabled = true;
     controller.settingsCollectionRefreshed = Promise.resolve()
-      .then(() => state.reload())
+      .then(() => state.reload?.())
       .finally(() => {
         if (identityCurrent(generation)) refresh.disabled = false;
       });
   });
 };
+/**
+ * @template Item
+ * @param {CollectionName} name
+ * @param {Item[] | null} items
+ * @param {(item: Item, index: number) => HTMLElement} row
+ * @param {(item: Item) => string} find
+ * @param {() => void | Promise<unknown>} reload
+ */
 controller.renderSettingsRows = (name, items, row, find, reload) => {
   const state = states.get(name) || create(name);
-  Object.assign(state, { items, row, find, reload });
+  state.items =
+    items?.map((item) => ({ find: () => find(item), row: (index) => row(item, index) })) ?? null;
+  state.reload = reload;
   render(state);
 };
+/** @param {CollectionName} name */
 controller.settingsCollectionFailed = (name) => {
   const state = states.get(name);
   if (state) state.status.textContent = text('failed');

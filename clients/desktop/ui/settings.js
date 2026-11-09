@@ -27,7 +27,7 @@ controller.privacyShown = undefined;
 let identitiesRead = 0;
 let blockedRead = 0;
 // Settings → Blocked people: Unblock shows the peer in later searches again.
-/** @param {HTMLButtonElement} button */
+/** @param {string} peerId @param {HTMLButtonElement} button */
 const unblockPeer = async (peerId, button, call = invoke) => {
   const generation = identityState.generation;
   button.disabled = true;
@@ -43,7 +43,7 @@ const unblockPeer = async (peerId, button, call = invoke) => {
       settingsCollectionsController.settingsCollectionFailed('blocked');
   }
 };
-/** @param {HTMLButtonElement} retry */
+/** @param {string} peerId @param {HTMLButtonElement} retry */
 const retryRevocation = async (peerId, retry, call = invoke) => {
   const generation = identityState.generation;
   retry.disabled = true;
