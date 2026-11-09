@@ -1,50 +1,11 @@
-// Practice D1: visible strings come from the matching i18n catalogue by data-i18n key.
-// With --pseudo-locale each English string is accented and 40% longer.
 const { invoke } = window.__TAURI__.core;
-const accents = {
-  a: 'á',
-  e: 'é',
-  i: 'í',
-  o: 'ó',
-  u: 'ú',
-  y: 'ý',
-  A: 'Á',
-  E: 'É',
-  I: 'Í',
-  O: 'Ó',
-  U: 'Ú',
-};
-const pseudo = (text) =>
-  `[${[...text].map((c) => accents[c] || c).join('')}${'·'.repeat(Math.ceil(text.length * 0.4))}]`;
-
-window.stringsShown = invoke('locale_options').then(async ([pseudoLocale, testRussian]) => {
-  const systemLanguage = (navigator.languages?.[0] || navigator.language || 'en')
-    .split(/[-_]/)[0]
-    .toLowerCase();
-  // Settings → Language overrides the system unless a test or the pseudo-locale sets it.
-  const chosen = localStorage.getItem('language');
-  const wanted = chosen === 'en' || chosen === 'ru' ? chosen : systemLanguage;
-  const language = !pseudoLocale && (testRussian || wanted === 'ru') ? 'ru' : 'en';
-  const response = await fetch(`i18n/${language}.json`);
-  if (!response.ok) throw new Error('Translation catalogue unavailable');
-  const catalogue = await response.json();
-  window.locale = language;
-  window.pseudoLocale = pseudoLocale;
-  document.documentElement.lang = language;
-  window.strings = Object.fromEntries(
-    Object.entries(catalogue).map(([key, text]) => [key, pseudoLocale ? pseudo(text) : text]),
-  );
-  for (const element of document.querySelectorAll('[data-i18n]')) {
-    element.textContent = window.strings[element.dataset.i18n];
-  }
-  // Icon-only buttons in the rail still have a name and a tooltip.
-  for (const element of document.querySelectorAll('[data-i18n-label]')) {
-    element.setAttribute('aria-label', window.strings[element.dataset.i18nLabel]);
-    if (element.tagName === 'BUTTON') element.title = window.strings[element.dataset.i18nLabel];
-  }
-  for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
-    element.placeholder = window.strings[element.dataset.i18nPlaceholder];
-  }
+// shortcut: bridge classic controllers until their ES-module migration is complete.
+window.stringsShown = Promise.all([
+  import('./locale.js'),
+  import('./profile-interests.js'),
+  import('./sticker-pixels.js'),
+]).then(async ([localization, interests, pixels]) => {
+  Object.assign(window, interests, pixels, await localization.loadLocale(invoke));
 });
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');

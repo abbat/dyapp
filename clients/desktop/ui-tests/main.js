@@ -725,6 +725,23 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
     await checkEmptyProfilePreview();
   }
 };
+const checkModuleStartup = async () => {
+  const [localization, interests, pixels] = await Promise.all([
+    import(new URL('locale.js', document.baseURI).href),
+    import(new URL('profile-interests.js', document.baseURI).href),
+    import(new URL('sticker-pixels.js', document.baseURI).href),
+  ]);
+  if (
+    localization.strings !== window.strings ||
+    localization.locale !== window.locale ||
+    localization.pseudoLocale !== window.pseudoLocale ||
+    interests.profileInterestTags !== window.profileInterestTags ||
+    interests.showProfileInterests !== window.showProfileInterests ||
+    pixels.stickerPixels !== window.stickerPixels ||
+    pixels.stickerBinaryPixels !== window.stickerBinaryPixels
+  )
+    throw new Error('Desktop module startup bridge is inconsistent');
+};
 Promise.all([
   window.identityShown,
   invokeTest('ui_test_mode'),
@@ -734,6 +751,7 @@ Promise.all([
   .then(async ([state, mode, existing, step]) => {
     if (step.startsWith('video-bench:') || step.startsWith('video:'))
       return window.uiSmokeSystemSteps.video(step);
+    await checkModuleStartup();
     const readySteps = readySmokeSteps(mode);
     if (step.startsWith('recovery:')) return window.uiSmokeSystemSteps.recovery(state, step);
     if (step.startsWith('window:')) return window.uiSmokeSystemSteps.windowBounds(step);

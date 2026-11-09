@@ -4,6 +4,17 @@ This page records what the apps preserve today. It does not promise recovery for
 not been saved. The shared [client Store](../design/client-local-storage.md) persists accepted
 writes per identity; each platform decides when to submit an editor or composer draft.
 
+## Desktop module boundaries
+
+`locale.js` owns catalogue loading and exports live `locale`, `pseudoLocale` and `strings`
+bindings. `profile-interests.js` imports that catalogue explicitly and owns the interests input;
+`sticker-pixels.js` exports the validated canvas builders without publishing page globals.
+The classic `app.js` controller imports these modules before its existing `stringsShown` startup
+barrier completes. It temporarily exposes their APIs to the remaining classic controllers and
+native smoke scripts. Converting those controllers and the smoke interface to ES modules is
+planned; script order still matters for the remaining classic files. Locale selection, validation
+and native CSP are unchanged. Modules are served directly, without a bundler.
+
 ## Linux desktop profile editor
 
 | State | Switching app sections in the same window | Closing and reopening the app |

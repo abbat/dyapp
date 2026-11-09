@@ -1,5 +1,5 @@
 // Native binary framing is checked before allocating pixels or creating a canvas.
-window.stickerBinaryPixels = (value, label) => {
+export const stickerBinaryPixels = (value, label) => {
   let bytes;
   if (value instanceof ArrayBuffer) bytes = new Uint8Array(value);
   else if (ArrayBuffer.isView(value))
@@ -14,7 +14,7 @@ window.stickerBinaryPixels = (value, label) => {
   if (bytes.byteLength < 8 || bytes.byteLength > 8 + 512 * 512 * 4)
     throw new Error('Invalid sticker frame');
   const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return window.stickerPixels(
+  return stickerPixels(
     {
       width: header.getUint32(0, true),
       height: header.getUint32(4, true),
@@ -24,7 +24,7 @@ window.stickerBinaryPixels = (value, label) => {
   );
 };
 // Only validated RGBA crosses this boundary; never give peer encodings to the browser decoder.
-window.stickerPixels = (frame, label, limit = 512) => {
+export const stickerPixels = (frame, label, limit = 512) => {
   const { width, height, pixels } = frame;
   if (
     !Number.isInteger(width) ||
