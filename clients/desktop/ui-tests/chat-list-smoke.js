@@ -8,11 +8,11 @@
       !request ||
       !conversation ||
       !request.textContent.includes('hello') ||
-      !request.textContent.includes(window.strings['chats.state.requestReceived']) ||
+      !request.textContent.includes(appApi.strings['chats.state.requestReceived']) ||
       !request.querySelector('.meta .caption').textContent ||
       !request.textContent.includes('2') ||
-      !conversation.textContent.includes(window.strings['chats.deleted']) ||
-      document.getElementById('chats-status').textContent !== window.strings['chats.notConnected']
+      !conversation.textContent.includes(appApi.strings['chats.deleted']) ||
+      document.getElementById('chats-status').textContent !== appApi.strings['chats.notConnected']
     ) {
       throw new Error('local Chats rows disappeared when the node failed');
     }
@@ -20,8 +20,8 @@
   const assertChatProjectionChatHistoryDidNotClearLocalUnread = (marked) => {
     if (
       !marked ||
-      chatDetail.hidden ||
-      chatMessages.textContent.indexOf('hello') < 0 ||
+      appBindings.chatDetail.hidden ||
+      appBindings.chatMessages.textContent.indexOf('hello') < 0 ||
       document.querySelector('#chats-requests .meta .badge')
     ) {
       throw new Error('chat history did not clear local unread');
@@ -31,20 +31,20 @@
     if (
       sentArgs.peerId !== peer ||
       sentArgs.text !== 'reply' ||
-      chatInput.value ||
-      activeChat.state !== 'open' ||
+      appBindings.chatInput.value ||
+      appBindings.activeChat.state !== 'open' ||
       document.querySelector('#chats-requests button') ||
       document
         .querySelector(`#chat-list button[data-peer-id="${peer}"]`)
-        ?.textContent.includes(window.strings['chats.state.requestReceived'])
+        ?.textContent.includes(appApi.strings['chats.state.requestReceived'])
     ) {
       throw new Error('reply did not open conversation or remove request marker');
     }
   };
   const assertChatProjectionSecondUnansweredFirstMessageIsEnabled = () => {
     if (
-      !chatInput.disabled ||
-      !chatSend.disabled ||
+      !appBindings.chatInput.disabled ||
+      !appBindings.chatSend.disabled ||
       document.getElementById('chat-first-notice').hidden
     ) {
       throw new Error('second unanswered first message is enabled');
@@ -52,11 +52,11 @@
   };
   const assertChatProjectionAClosedChatCanStillBeWritten = () => {
     if (
-      !chatInput.disabled ||
-      !chatSend.disabled ||
+      !appBindings.chatInput.disabled ||
+      !appBindings.chatSend.disabled ||
       document.getElementById('chat-closed-notice').hidden ||
-      [...chatMessages.querySelectorAll('button')].some(
-        (button) => button.textContent === window.strings['chats.edit'],
+      [...appBindings.chatMessages.querySelectorAll('button')].some(
+        (button) => button.textContent === appApi.strings['chats.edit'],
       )
     ) {
       throw new Error('a closed chat can still be written to');
@@ -64,71 +64,73 @@
   };
   const assertChatProjectionFailedSendLostTheUnstagedDraft = () => {
     if (
-      chatInput.value !== 'keep draft' ||
-      !chatComposeStatus.textContent.includes('notConnected')
+      appBindings.chatInput.value !== 'keep draft' ||
+      !appBindings.chatComposeStatus.textContent.includes('notConnected')
     ) {
       throw new Error('failed send lost the unstaged draft');
     }
   };
   const assertChatProjectionAnInviteWithoutStockDidNotSay = () => {
     if (
-      chatInput.value !== 'keep draft' ||
-      chatComposeStatus.textContent !== window.strings['chats.peerUnavailable']
+      appBindings.chatInput.value !== 'keep draft' ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.peerUnavailable']
     ) {
       throw new Error('an invite without stock did not say so or lost the draft');
     }
   };
   const checkChatProjectionStale = async (peer, message, rows) => {
-    const readyState = current;
-    const finishHistoryCall = pendingSmokeCall();
-    const oldHistory = openChat(peer, () => finishHistoryCall.call());
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const readyState = appBindings.current;
+    const finishHistoryCall = smoke.pendingSmokeCall();
+    const oldHistory = appBindings.openChat(peer, () => finishHistoryCall.call());
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishHistoryCall.resolve({ state: 'open', messages: [message] });
     await oldHistory;
-    if (!chatDetail.hidden) throw new Error('old chat history opened after identity switch');
-    await openChat(peer, (command) => {
+    if (!appBindings.chatDetail.hidden)
+      throw new Error('old chat history opened after identity switch');
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
       if (command === 'chat_rows') return Promise.resolve(rows);
       throw new Error(`unexpected stale-send setup: ${command}`);
     });
-    chatInput.value = 'late';
-    chatInput.dispatchEvent(new Event('input'));
-    const finishSendCall = pendingSmokeCall();
-    const oldSend = sendChatText(() => finishSendCall.call());
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    appBindings.chatInput.value = 'late';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
+    const finishSendCall = smoke.pendingSmokeCall();
+    const oldSend = appBindings.sendChatText(() => finishSendCall.call());
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishSendCall.resolve([1]);
     await oldSend;
-    if (!chatDetail.hidden || chatInput.value) throw new Error('old send painted new identity');
+    if (!appBindings.chatDetail.hidden || appBindings.chatInput.value)
+      throw new Error('old send painted new identity');
   };
   const checkChatProjectionSendFailures = async (peer, message, reply, rows) => {
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
       if (command === 'chat_rows') return Promise.resolve(rows);
       throw new Error(`unexpected open command: ${command}`);
     });
-    chatInput.value = 'keep draft';
-    chatInput.dispatchEvent(new Event('input'));
-    await sendChatText((command) => {
+    appBindings.chatInput.value = 'keep draft';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('notConnected');
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message] });
       throw new Error(`unexpected failed send command: ${command}`);
     });
     assertChatProjectionFailedSendLostTheUnstagedDraft();
-    await sendChatText((command) => {
+    await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('peerUnavailable');
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message] });
       throw new Error(`unexpected unavailable send command: ${command}`);
     });
     assertChatProjectionAnInviteWithoutStockDidNotSay();
-    await sendChatText((command) => {
+    await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('nodeFailed');
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message, reply] });
@@ -136,16 +138,19 @@
       if (command === 'chat_rows') return Promise.resolve(rows);
       throw new Error(`unexpected staged send command: ${command}`);
     });
-    if (chatInput.value || chatComposeStatus.textContent !== window.strings['chats.queued']) {
+    if (
+      appBindings.chatInput.value ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.queued']
+    ) {
       throw new Error('staged failed send could be duplicated');
     }
     document.getElementById('chat-back').click();
-    if (!chatDetail.hidden || chatOverview.hidden)
+    if (!appBindings.chatDetail.hidden || appBindings.chatOverview.hidden)
       throw new Error('chat Back did not show the list');
     await checkChatProjectionStale(peer, message, rows);
   };
   const checkChatProjectionWriteGuards = async (peer, message, reply, rows) => {
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'requestSent', messages: [reply] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
@@ -154,11 +159,11 @@
     });
     assertChatProjectionSecondUnansweredFirstMessageIsEnabled();
 
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history') {
         return Promise.resolve({
           state: 'closed',
-          messages: [{ ...reply, author: current.peerId }],
+          messages: [{ ...reply, author: appBindings.current.peerId }],
         });
       }
       if (command === 'mark_chat_read') return Promise.resolve(0);
@@ -170,17 +175,17 @@
     await checkChatProjectionSendFailures(peer, message, reply, rows);
   };
   const checkChatProjectionReply = async (peer, message, rows) => {
-    chatInput.value = 'reply';
-    chatInput.dispatchEvent(new Event('input'));
+    appBindings.chatInput.value = 'reply';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
     let sentArgs;
     const reply = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       id: [1],
       text: 'reply',
       deleted: false,
       sentAtMs: null,
     };
-    await sendChatText((command, args) => {
+    await appBindings.sendChatText((command, args) => {
       if (command === 'send_chat_text') {
         sentArgs = args;
         return Promise.resolve([1]);
@@ -198,7 +203,7 @@
   };
   const checkChatProjection = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = 'd'.repeat(64);
     const other = 'e'.repeat(64);
     const message = { author: peer, text: 'hello', deleted: false, sentAtMs: 1_700_000_000_000 };
@@ -211,7 +216,7 @@
         unreadCount: 0,
       },
     ];
-    await window.showChats((command) => {
+    await appApi.showChats((command) => {
       if (command === 'receive_mail') return Promise.reject('notConnected');
       if (command === 'chat_rows') return Promise.resolve(rows);
       if (command === 'liked_you') return Promise.reject('notConnected');
@@ -221,7 +226,7 @@
     const conversation = document.querySelector('#chat-list button');
     assertChatProjectionLocalChatsRowsDisappearedWhenTheNode(request, conversation);
     let marked = false;
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'requestReceived', messages: [message] });
       if (command === 'mark_chat_read') {
@@ -237,9 +242,9 @@
   };
   const assertFirstMessageFirstMessageDetailDidNotOpen = (found) => {
     if (
-      activeChat?.peerId !== found.peerId ||
-      activeChat.state !== 'none' ||
-      chatInput.disabled ||
+      appBindings.activeChat?.peerId !== found.peerId ||
+      appBindings.activeChat.state !== 'none' ||
+      appBindings.chatInput.disabled ||
       !document.getElementById('chat-clear').hidden
     ) {
       throw new Error('first-message detail did not open');
@@ -249,8 +254,8 @@
     if (
       sent.peerId !== found.peerId ||
       sent.text !== 'first text' ||
-      activeChat.state !== 'requestSent' ||
-      !chatInput.disabled ||
+      appBindings.activeChat.state !== 'requestSent' ||
+      !appBindings.chatInput.disabled ||
       !document.querySelector('#chat-list button')
     ) {
       throw new Error('first text did not create a pending request row');
@@ -263,25 +268,25 @@
       draft: { birthYear: null, birthMonth: null, birthDay: null },
       place: '',
     };
-    const card = resultCard(found, 'first-message-profile');
-    searchResults.append(card);
-    openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+    const card = appBindings.resultCard(found, 'first-message-profile');
+    appBindings.searchResults.append(card);
+    appBindings.openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
     const messageButton = document.getElementById('view-message');
     if (messageButton.disabled) throw new Error('Found profile cannot start a message');
     messageButton.click();
-    await window.chatOpened;
+    await appApi.chatOpened;
     assertFirstMessageFirstMessageDetailDidNotOpen(found);
-    chatInput.value = 'first text';
-    chatInput.dispatchEvent(new Event('input'));
+    appBindings.chatInput.value = 'first text';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
     let sent;
     const own = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       id: [7],
       text: 'first text',
       deleted: false,
       sentAtMs: null,
     };
-    await sendChatText((command, args) => {
+    await appBindings.sendChatText((command, args) => {
       if (command === 'send_chat_text') {
         sent = args;
         return Promise.resolve([7]);
@@ -297,37 +302,37 @@
     });
     assertFirstMessageFirstTextDidNotCreateAPending(sent, found);
     let second = 0;
-    await sendChatText(() => {
+    await appBindings.sendChatText(() => {
       second += 1;
       throw new Error('second request sent');
     });
     if (second) throw new Error('second unanswered text was sent');
-    showArea('search-area');
-    closeFound();
+    appBindings.showArea('search-area');
+    appBindings.closeFound();
   };
   const assertClearChatClearChatConfirmationMissing = () => {
     if (
-      !clearDialog.open ||
-      !clearDialog.textContent.includes(window.strings['chats.clearWarning'])
+      !appBindings.clearDialog.open ||
+      !appBindings.clearDialog.textContent.includes(appApi.strings['chats.clearWarning'])
     ) {
       throw new Error('Clear chat confirmation missing');
     }
   };
   const assertClearChatFailedClearLostChat = () => {
     if (
-      !clearDialog.open ||
-      !clearError.textContent.includes('diskFailed') ||
-      !chatMessages.textContent.includes('private')
+      !appBindings.clearDialog.open ||
+      !appBindings.clearError.textContent.includes('diskFailed') ||
+      !appBindings.chatMessages.textContent.includes('private')
     )
       throw new Error('failed Clear lost chat');
   };
   const assertClearChatClearDidNotKeepTheEmptyConversation = (clearCalls) => {
     if (
       clearCalls !== 1 ||
-      clearDialog.open ||
-      chatMessages.textContent !== '' ||
+      appBindings.clearDialog.open ||
+      appBindings.chatMessages.textContent !== '' ||
       document.getElementById('chat-cleared').hidden ||
-      activeChat.state !== 'open' ||
+      appBindings.activeChat.state !== 'open' ||
       !document.querySelector('#chat-list button[data-peer-id]')
     ) {
       throw new Error('Clear did not keep the empty conversation');
@@ -339,7 +344,7 @@
     const row = { peerId: peer, state: 'open', lastMessage: message, unreadCount: 0 };
     const history = { state: 'open', messages: [message] };
     const open = (currentHistory) =>
-      openChat(peer, (command) => {
+      appBindings.openChat(peer, (command) => {
         if (command === 'chat_history') return Promise.resolve(currentHistory);
         if (command === 'mark_chat_read') return Promise.resolve(0);
         if (command === 'chat_rows') return Promise.resolve([row]);
@@ -349,23 +354,23 @@
   };
   const checkClearChat = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const { row, history, open } = clearChatFixture();
     await open(history);
     document.getElementById('chat-clear').click();
     assertClearChatClearChatConfirmationMissing();
-    clearCancel.click();
-    if (clearDialog.open || !chatMessages.textContent.includes('private')) {
+    appBindings.clearCancel.click();
+    if (appBindings.clearDialog.open || !appBindings.chatMessages.textContent.includes('private')) {
       throw new Error('Cancel cleared the chat');
     }
     document.getElementById('chat-clear').click();
-    await clearChat((command) => {
+    await appBindings.clearChat((command) => {
       if (command === 'clear_chat') return Promise.reject('diskFailed');
       throw new Error(`unexpected failed clear: ${command}`);
     });
     assertClearChatFailedClearLostChat();
     let clearCalls = 0;
-    await clearChat((command) => {
+    await appBindings.clearChat((command) => {
       if (command === 'clear_chat') {
         clearCalls += 1;
         return Promise.resolve(1);
@@ -377,14 +382,14 @@
     });
     assertClearChatClearDidNotKeepTheEmptyConversation(clearCalls);
     document.getElementById('chat-clear').click();
-    const finishClearCall = pendingSmokeCall();
-    const oldClear = clearChat(() => finishClearCall.call());
-    const readyState = current;
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const finishClearCall = smoke.pendingSmokeCall();
+    const oldClear = appBindings.clearChat(() => finishClearCall.call());
+    const readyState = appBindings.current;
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishClearCall.resolve(0);
     await oldClear;
-    if (clearDialog.open || !document.getElementById('chat-cleared').hidden) {
+    if (appBindings.clearDialog.open || !document.getElementById('chat-cleared').hidden) {
       throw new Error('old Clear repainted new identity');
     }
   };
@@ -398,8 +403,8 @@
   };
   const assertChatBlockFailedBlockHidTheChat = () => {
     if (
-      chatDetail.hidden ||
-      !chatRequests.querySelector('button') ||
+      appBindings.chatDetail.hidden ||
+      !appBindings.chatRequests.querySelector('button') ||
       !document.getElementById('chats-status').textContent.includes('diskFailed')
     ) {
       throw new Error('failed Block hid the chat');
@@ -407,38 +412,38 @@
   };
   const assertChatBlockBlockedPeerStayedInChatsOrRevocation = () => {
     if (
-      !chatDetail.hidden ||
-      chatRequests.querySelector('button') ||
+      !appBindings.chatDetail.hidden ||
+      appBindings.chatRequests.querySelector('button') ||
       document.getElementById('chats-status').textContent !==
-        window.strings['chats.blocked.pending']
+        appApi.strings['chats.blocked.pending']
     ) {
       throw new Error('blocked peer stayed in Chats or revocation was overstated');
     }
   };
   const checkChatBlock = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = 'b'.repeat(64);
     const message = { author: peer, id: [4], text: 'request', deleted: false, sentAtMs: null };
     const row = { peerId: peer, state: 'requestReceived', lastMessage: message, unreadCount: 1 };
     const open = (state) =>
-      openChat(peer, (command) => {
+      appBindings.openChat(peer, (command) => {
         if (command === 'chat_history') return Promise.resolve({ state, messages: [message] });
         if (command === 'mark_chat_read') return Promise.resolve(0);
         if (command === 'chat_rows') return Promise.resolve([row]);
         throw new Error(`unexpected block setup: ${command}`);
       });
-    renderChatRows([row]);
+    appBindings.renderChatRows([row]);
     await open('requestReceived');
     assertChatBlockRequestBlockControlMissing();
-    await blockChat((command) => {
+    await appBindings.blockChat((command) => {
       if (command === 'block_peer') return Promise.reject('diskFailed');
       throw new Error(`unexpected failed block: ${command}`);
     });
     assertChatBlockFailedBlockHidTheChat();
     await open('open');
     if (document.getElementById('chat-block').hidden) throw new Error('open chat Block missing');
-    await blockChat((command) => {
+    await appBindings.blockChat((command) => {
       if (command === 'block_peer')
         return Promise.resolve({ revocation: 'pending', detail: 'offline' });
       if (command === 'chat_rows') return Promise.resolve([]);
@@ -446,18 +451,18 @@
     });
     assertChatBlockBlockedPeerStayedInChatsOrRevocation();
     await open('open');
-    const finishBlockCall = pendingSmokeCall();
-    const oldBlock = blockChat((command) =>
+    const finishBlockCall = smoke.pendingSmokeCall();
+    const oldBlock = appBindings.blockChat((command) =>
       command === 'block_peer' ? finishBlockCall.call() : Promise.resolve([]),
     );
-    const readyState = current;
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const readyState = appBindings.current;
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishBlockCall.resolve({ revocation: 'confirmed' });
     await oldBlock;
-    if (!chatDetail.hidden) throw new Error('old Block repainted new identity');
+    if (!appBindings.chatDetail.hidden) throw new Error('old Block repainted new identity');
   };
-  globalThis.uiSmokeChatList = Object.freeze({
+  smoke.uiSmokeChatList = Object.freeze({
     checkChatProjection,
     checkFirstMessage,
     checkClearChat,

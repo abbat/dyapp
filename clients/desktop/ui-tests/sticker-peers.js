@@ -6,7 +6,7 @@
   const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
   const get = (id) => document.getElementById(id);
   const selection = (peerId, message) => ({
-    identityId: current.peerId,
+    identityId: appBindings.current.peerId,
     selection: { peerId, groupId: message.groupId, author: message.author, id: message.id },
   });
   // Lazy image/status controllers publish through the DOM, so observe their completion.
@@ -25,7 +25,7 @@
           resolve(value);
         }
       }
-      observer.observe(chatMessages, {
+      observer.observe(appBindings.chatMessages, {
         subtree: true,
         childList: true,
         attributes: true,
@@ -33,12 +33,13 @@
       });
       update();
     });
-  const history = async (peer) => (await invoke('chat_history', { peerId: peer })).messages;
+  const history = async (peer) =>
+    (await appBindings.invoke('chat_history', { peerId: peer })).messages;
   const received = async (peer) => {
     const deadline = performance.now() + 30000;
     do {
       // Each completed node pass is the next observation, without a fixed interval.
-      await invoke('receive_mail');
+      await appBindings.invoke('receive_mail');
       const message = (await history(peer)).find((item) => item.author === peer && item.sticker);
       if (message) return message;
     } while (performance.now() < deadline);
@@ -68,58 +69,64 @@
   };
   const open = async (peer) => {
     await openArea('chats-area');
-    await window.chatsDone;
-    await openChat(peer);
-    check(activeChat?.state === 'open', 'Sticker flow requires the established conversation');
+    await appApi.chatsDone;
+    await appBindings.openChat(peer);
+    check(
+      appBindings.activeChat?.state === 'open',
+      'Sticker flow requires the established conversation',
+    );
   };
   const row = (own = false) =>
-    [...chatMessages.querySelectorAll('.sticker-message')].find(
+    [...appBindings.chatMessages.querySelectorAll('.sticker-message')].find(
       (item) => item.classList.contains('out') === own,
     );
   const send = async (peer, packId) => {
     const before = (await history(peer)).filter((message) => message.sticker).length;
-    chatInput.value = 'keep sticker draft';
-    chatInput.dispatchEvent(new Event('input'));
+    appBindings.chatInput.value = 'keep sticker draft';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
     get('chat-stickers').click();
-    await window.stickersShown;
+    await appApi.stickersShown;
     const pack = [...get('sticker-picker-choices').children].find(
       (button) => button.dataset.pack === JSON.stringify(packId),
     );
     check(pack && !pack.disabled, 'Saved pack is missing from the real picker');
     pack.click();
-    await window.stickersShown;
+    await appApi.stickersShown;
     const choice = get('sticker-picker-grid').querySelector('button');
     check(
       choice && !choice.disabled && choice.querySelector('canvas'),
       'Real picker has no validated thumbnail',
     );
     choice.click();
-    await window.stickerSent;
+    await appApi.stickerSent;
     check(
-      !get('sticker-picker').open && chatInput.value === 'keep sticker draft',
+      !get('sticker-picker').open && appBindings.chatInput.value === 'keep sticker draft',
       'Sticker send failed or cleared the text draft',
     );
     const after = (await history(peer)).filter((message) => message.sticker);
     check(after.length === before + 1, 'Picker send did not persist exactly one sticker');
     metadata(after.at(-1), packId);
-    const recent = await invoke('recent_sticker_page', { identityId: current.peerId, after: 0 });
+    const recent = await appBindings.invoke('recent_sticker_page', {
+      identityId: appBindings.current.peerId,
+      after: 0,
+    });
     check(
       recent.entries.some((entry) => same(entry.packId, packId) && entry.emoji === '😺'),
       'Sent sticker did not enter recents',
     );
   };
   const requestState = (peer, message) =>
-    invoke('chat_sticker_pack_status', selection(peer, message));
+    appBindings.invoke('chat_sticker_pack_status', selection(peer, message));
   const steps = {
     'sticker-send': async (peer) => {
-      await window.stickerFileChecks.importPack();
-      const packId = await window.stickerFileChecks.readback();
+      await smoke.stickerFileChecks.importPack();
+      const packId = await smoke.stickerFileChecks.readback();
       await open(peer);
       await send(peer, packId);
-      await shot('stickers-peer-send');
+      await smoke.shot('stickers-peer-send');
     },
     'sticker-request': async (peer) => {
-      await invoke('set_auto_download_mode', { mode: 'onTap' });
+      await appBindings.invoke('set_auto_download_mode', { mode: 'onTap' });
       const message = await received(peer);
       metadata(message, message.sticker.packId);
       await open(peer);
@@ -128,16 +135,16 @@
       bubble.scrollIntoView({ block: 'center' });
       const load = bubble.querySelector('[data-action="load-sticker"]');
       await shown(
-        () => !load.disabled && bubble.textContent.includes(window.strings['stickerImage.tap']),
+        () => !load.disabled && bubble.textContent.includes(appApi.strings['stickerImage.tap']),
         'manual sticker load',
       );
       load.click();
-      await window.stickerImageLoaded;
+      await appApi.stickerImageLoaded;
       check(
         !bubble.querySelector('canvas') &&
           bubble.textContent.includes('😺') &&
           bubble.textContent.includes('Native smoke cats') &&
-          bubble.textContent.includes(window.strings['stickerImage.unavailable']),
+          bubble.textContent.includes(appApi.strings['stickerImage.unavailable']),
         'Expired media lost its safe fallback',
       );
       check(
@@ -149,24 +156,28 @@
         'Add pack',
       );
       add.click();
-      await window.stickerRequestChanged;
-      await window.stickerRequestDelivered;
+      await appApi.stickerRequestChanged;
+      await appApi.stickerRequestDelivered;
       const pending = await requestState(peer, message);
       check(
         pending.state === 'waiting' && pending.generation?.length === 16,
         'Offline sender request was not retained',
       );
       check(
-        !(await invoke('saved_sticker_packs', { identityId: current.peerId, after: null })).entries
-          .length,
+        !(
+          await appBindings.invoke('saved_sticker_packs', {
+            identityId: appBindings.current.peerId,
+            after: null,
+          })
+        ).entries.length,
         'Pack appeared before its offline owner answered',
       );
-      await shot('stickers-peer-waiting');
+      await smoke.shot('stickers-peer-waiting');
     },
     'sticker-answer': async (peer) => {
       // This is a fresh sender process: the request arrived while it was stopped.
-      await invoke('receive_mail');
-      await window.stickerFileChecks.readback();
+      await appBindings.invoke('receive_mail');
+      await smoke.stickerFileChecks.readback();
       check(
         (await history(peer)).filter((message) => message.sticker).length === 1,
         'Hidden request leaked into visible history',
@@ -177,7 +188,7 @@
       const deadline = performance.now() + 30000;
       let status;
       do {
-        await invoke('receive_mail');
+        await appBindings.invoke('receive_mail');
         status = await requestState(peer, message);
         if (status.state === 'saved') break;
         check(status.state !== 'failed', `Pack download failed: ${status.failure}`);
@@ -186,7 +197,7 @@
         status.state === 'saved' && status.generation === null,
         'Requested pack did not save after sender restart',
       );
-      const packId = await window.stickerFileChecks.readback();
+      const packId = await smoke.stickerFileChecks.readback();
       metadata(message, packId);
       await open(peer);
       const bubble = row();
@@ -198,19 +209,19 @@
         'Saved pack did not recover bounded pixels after individual media expiry',
       );
       await send(peer, packId);
-      await shot('stickers-peer-saved-reply');
+      await smoke.shot('stickers-peer-saved-reply');
     },
     'sticker-reply-seen': async (peer) => {
       const reply = await received(peer);
-      metadata(reply, await window.stickerFileChecks.readback());
+      metadata(reply, await smoke.stickerFileChecks.readback());
       await open(peer);
       check(row(), 'Returned sticker has no visible row after restart');
       check(
         (await history(peer)).filter((message) => message.sticker).length === 2,
         'Reply or hidden packet projection changed after restart',
       );
-      await shot('stickers-peer-reply-seen');
+      await smoke.shot('stickers-peer-reply-seen');
     },
   };
-  window.stickerPeerChecks = { steps };
+  smoke.stickerPeerChecks = { steps };
 })();

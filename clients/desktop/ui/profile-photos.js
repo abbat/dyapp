@@ -1,5 +1,12 @@
-// The owner's photos in the profile editor. Loaded after chats-photo-send.js in the shared page
-// scope. Every change runs with the form busy: a proof-of-work step saves the draft it read, so a
+import { profileBusy, profileMessage, setProfileBusy } from './app.js';
+import { drawPhoto } from './chat-photos.js';
+import { preparePhoto } from './chats-photo-send.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+export const controller = {};
+
+// The owner's profile photos share the imported chat photo encoder. Every change runs with the form busy: a proof-of-work step saves the draft it read, so a
 // change made during one would be lost.
 const MAX_PROFILE_PHOTOS = 6;
 const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
@@ -16,7 +23,7 @@ const profilePhotoCancel = document.getElementById('photo-remove-cancel');
 let profilePhotoCount = 0;
 let profilePhotoRemoval = null;
 
-window.limitProfilePhotos = () => {
+controller.limitProfilePhotos = () => {
   const full = profilePhotoCount >= MAX_PROFILE_PHOTOS;
   profilePhotoAdd.disabled = profileBusy || full;
   profilePhotoHint.hidden = full;
@@ -34,12 +41,12 @@ const profilePhotoFailure = (error) => {
 };
 const changeProfilePhotos = async (work, call, focus) => {
   if (profileBusy) return;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   setProfileBusy(true);
   try {
     const view = await work();
     if (!identityCurrent(generation)) return;
-    window.showProfilePhotos(view.draft.photos, call);
+    controller.showProfilePhotos(view.draft.photos, call);
     profileMessage('profile.draft');
   } catch (error) {
     if (identityCurrent(generation)) profilePhotoFailure(error);
@@ -85,7 +92,7 @@ const askProfilePhotoRemoval = (index, call) => {
   profilePhotoCancel.focus();
 };
 const profilePhotoText = (key, index, count) =>
-  window.strings[key].replace('{n}', index + 1).replace('{count}', count);
+  strings[key].replace('{n}', index + 1).replace('{count}', count);
 const profilePhotoTool = (glyph, name, label, click) => {
   const button = document.createElement('button');
   button.type = 'button';
@@ -111,11 +118,11 @@ const profilePhotoTile = (hash, index, count, call) => {
   if (index === 0) {
     const main = document.createElement('figcaption');
     main.className = 'caption';
-    main.textContent = window.strings['profile.photoMain'];
+    main.textContent = strings['profile.photoMain'];
     tile.append(main);
   }
   const moved = (to, name) => () => {
-    window.profilePhotoChanged = moveProfilePhoto(index, to, name, call);
+    controller.profilePhotoChanged = moveProfilePhoto(index, to, name, call);
   };
   const tools = document.createElement('div');
   tools.className = 'photo-tools';
@@ -164,7 +171,7 @@ const paintOwnAvatar = async (avatar) => {
   avatar.querySelector('canvas')?.remove();
   if (photo && drawn) avatar.append(canvas);
 };
-window.ownAvatar = (avatar) => {
+controller.ownAvatar = (avatar) => {
   avatar.dataset.own = 'true';
   paintOwnAvatar(avatar);
 };
@@ -179,18 +186,18 @@ document.addEventListener('dyapp:identity-change', () => {
   ownPhotoRun += 1;
   ownPhoto = null;
 });
-window.showProfilePhotos = (hashes = [], call = invoke) => {
-  window.ownAvatarsShown = showOwnAvatars(hashes[0], call);
+controller.showProfilePhotos = (hashes = [], call = invoke) => {
+  controller.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;
   profilePhotoGrid.replaceChildren(
     ...hashes.map((hash, index) => profilePhotoTile(hash, index, hashes.length, call)),
   );
-  window.limitProfilePhotos();
+  controller.limitProfilePhotos();
 };
 profilePhotoAdd.addEventListener('click', () => profilePhotoInput.click());
 profilePhotoInput.addEventListener('change', () => {
   const [file] = profilePhotoInput.files;
-  if (file) window.profilePhotoChanged = addProfilePhoto(file);
+  if (file) controller.profilePhotoChanged = addProfilePhoto(file);
   profilePhotoInput.value = '';
 });
 profilePhotoDialog.addEventListener('close', () => {
@@ -199,5 +206,7 @@ profilePhotoDialog.addEventListener('close', () => {
 profilePhotoCancel.addEventListener('click', () => profilePhotoDialog.close());
 document.getElementById('photo-remove-confirm').addEventListener('click', () => {
   profilePhotoDialog.close();
-  window.profilePhotoChanged = profilePhotoRemoval();
+  controller.profilePhotoChanged = profilePhotoRemoval();
 });
+
+export { addProfilePhoto };

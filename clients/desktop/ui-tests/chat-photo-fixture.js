@@ -63,7 +63,7 @@
     return (command, args) =>
       Object.hasOwn(handlers, command) ? handlers[command](args) : Promise.resolve(0);
   };
-  window.uiSmokeChatPhotoFixture = async () => {
+  smoke.uiSmokeChatPhotoFixture = async () => {
     const original = await originalBytes();
     const preview = [...new Uint8Array(original)];
     const peer = 'e'.repeat(64);

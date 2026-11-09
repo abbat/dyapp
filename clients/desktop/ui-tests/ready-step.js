@@ -45,7 +45,7 @@
       readyText: ready.textContent === strings['status.ready'],
       locale:
         strings['status.ready'] ===
-        (window.pseudoLocale ? '[Réádý··]' : window.locale === 'ru' ? 'Готово' : 'Ready'),
+        (appApi.pseudoLocale ? '[Réádý··]' : appApi.locale === 'ru' ? 'Готово' : 'Ready'),
       dimensions: rect.width > 0 && rect.height > 0,
       visibility: style.visibility === 'visible' && style.opacity !== '0',
       onTop: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === area,
@@ -77,16 +77,16 @@
       reason: failed.join(','),
     });
   };
-  window.uiSmokeReadyStep = async (mode, existing, step) => {
+  smoke.uiSmokeReadyStep = async (mode, existing, step) => {
     if (!document.getElementById('identity').hidden) await openArea('profile-area');
     await document.fonts.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (existing && !step) await shot('ready');
+    if (existing && !step) await smoke.shot('ready');
     const ready = document.getElementById('app-ready');
     const area = document.querySelector('#profile-area h1');
     const rect = area.getBoundingClientRect();
     const style = getComputedStyle(area);
-    const { strings } = window;
+    const { strings } = appApi;
     const peerId = document.getElementById('peer-id').textContent;
     const { narrowLines, wideLines } = peerReflow();
     const context = { ready, area, rect, style, strings, peerId, narrowLines, wideLines };

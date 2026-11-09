@@ -1,3 +1,9 @@
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { viewed } from './search.js';
+export const controller = {};
+
 // Saved state is local. An unknown state can only be retried, never toggled.
 const favoritePanel = document.getElementById('view-favorite');
 const favoriteButton = document.getElementById('view-favorite-toggle');
@@ -16,22 +22,22 @@ const renderFavorite = (target) => {
       : target.saved
         ? 'remove'
         : 'add';
-  favoriteButton.textContent = window.strings[`favorites.${key}`];
-  favoriteStatus.textContent = target.status ? window.strings[`favorites.${target.status}`] : '';
+  favoriteButton.textContent = strings[`favorites.${key}`];
+  favoriteStatus.textContent = target.status ? strings[`favorites.${target.status}`] : '';
   favoriteStatus.hidden = !target.status;
 };
-window.clearFavorite = () => {
+controller.clearFavorite = () => {
   favoriteView = null;
   favoritePanel.hidden = true;
   favoriteButton.disabled = true;
 };
-window.showFavorite = async (call = invoke) => {
-  window.clearFavorite();
+controller.showFavorite = async (call = invoke) => {
+  controller.clearFavorite();
   const view = viewed;
-  if (!view || view.found.peerId === current?.peerId) return;
+  if (!view || view.found.peerId === identityState.current?.peerId) return;
   const target = {
     view,
-    generation: identityGeneration,
+    generation: identityState.generation,
     call,
     saved: null,
     busy: true,
@@ -55,10 +61,10 @@ window.showFavorite = async (call = invoke) => {
     }
   }
 };
-window.toggleFavorite = async () => {
+controller.toggleFavorite = async () => {
   const target = favoriteView;
   if (!target || !favoriteCurrent(target) || target.busy) return;
-  if (target.saved === null) return window.showFavorite(target.call);
+  if (target.saved === null) return controller.showFavorite(target.call);
   const favorite = !target.saved;
   target.busy = true;
   target.status = '';
@@ -79,6 +85,6 @@ window.toggleFavorite = async () => {
   }
 };
 favoriteButton.addEventListener('click', () => {
-  window.favoriteChanged = window.toggleFavorite();
+  controller.favoriteChanged = controller.toggleFavorite();
 });
-document.addEventListener('dyapp:identity-change', window.clearFavorite);
+document.addEventListener('dyapp:identity-change', controller.clearFavorite);

@@ -1,8 +1,14 @@
+import { controller as chatsUiController } from './chats-ui.js';
+import { identityCurrent, identityState } from './identity-state.js';
+import { strings } from './locale.js';
+import { controller as stickersController } from './stickers.js';
+export const controller = {};
+
 // Read status only for visible received stickers; actions carry the observed local generation.
 (() => {
   let epoch = 0;
   const targets = new Map();
-  const text = (key) => window.strings[`stickerRequest.${key}`];
+  const text = (key) => strings[`stickerRequest.${key}`];
   const active = (target) =>
     target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
   const args = (target) => ({ identityId: target.identityId, selection: target.selection });
@@ -49,11 +55,11 @@
     button.textContent = text(key);
     button.dataset.action = key;
     button.addEventListener('click', () => {
-      if (active(target) && !target.busy) window.stickerRequestChanged = action();
+      if (active(target) && !target.busy) controller.stickerRequestChanged = action();
     });
     target.actions.append(button);
   };
-  const manage = (target) => window.stickerCollection.open(target.call);
+  const manage = (target) => stickersController.stickerCollection.open(target.call);
   const failedActions = (target, value, action) => {
     if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
     else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
@@ -101,10 +107,10 @@
   };
   const receiveAfterChange = (target, kind) => {
     if (kind !== 'stopWaiting') {
-      window.stickerRequestDelivered = target
+      controller.stickerRequestDelivered = target
         .call('receive_mail')
         .then((count) => {
-          if (active(target)) return window.mailUpdated(count, target.call);
+          if (active(target)) return chatsUiController.mailUpdated(count, target.call);
         })
         .catch(() => {});
     }
@@ -147,7 +153,7 @@
       const target = targets.get(entry.target);
       if (!target) continue;
       target.visible = entry.isIntersecting;
-      if (target.visible) window.stickerRequestsUpdated = read(target);
+      if (target.visible) controller.stickerRequestsUpdated = read(target);
     }
   });
   const clear = () => {
@@ -178,8 +184,8 @@
       visible: false,
       busy: false,
       value: null,
-      identityId: current.peerId,
-      generation: identityGeneration,
+      identityId: identityState.current.peerId,
+      generation: identityState.generation,
       name: message.sticker.packName,
       selection: {
         peerId,
@@ -194,7 +200,7 @@
     return root;
   };
   const refresh = (changed = 0, force = false) => {
-    window.stickerRequestsUpdated = Promise.all(
+    controller.stickerRequestsUpdated = Promise.all(
       [...targets.values()]
         .filter(
           (target) =>
@@ -202,10 +208,10 @@
         )
         .map(read),
     );
-    return window.stickerRequestsUpdated;
+    return controller.stickerRequestsUpdated;
   };
   document.addEventListener('dyapp:identity-change', clear);
   document.addEventListener('dyapp:area-change', clear);
   document.addEventListener('dyapp:sticker-manager-close', () => refresh(0, true));
-  window.stickerRequests = { controls, clear, refresh };
+  controller.stickerRequests = { controls, clear, refresh };
 })();

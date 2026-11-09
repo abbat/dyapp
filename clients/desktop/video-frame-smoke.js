@@ -4,7 +4,7 @@ const videoFrames = async (size, count = 4) => {
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', 'Synthetic video test frame');
   document.body.append(canvas);
-  const renderer = globalThis.createVideoFrameRenderer(canvas);
+  const renderer = smoke.createVideoFrameRenderer(canvas);
   let received = 0;
   let channelError = '';
   let resolveFrames;
@@ -63,7 +63,7 @@ const checkVideoFrames = (canvas, renderer, size, count, channelError, metrics) 
     throw new Error('malformed video frame accepted');
 };
 // A separate real-host benchmark step keeps the four-frame CI smoke quick.
-globalThis.videoBenchmark = async (size) => {
+smoke.videoBenchmark = async (size) => {
   if (!['idle', '360p', '720p'].includes(size)) throw new Error('invalid video benchmark size');
   const metrics =
     size === 'idle'

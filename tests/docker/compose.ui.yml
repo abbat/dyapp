@@ -122,7 +122,7 @@ services:
     profiles: [prototype, all]
     network_mode: none
     volumes:
-      - ../../clients/desktop:/desktop:ro
+      - ../../clients/desktop:/assets/desktop:ro
       - ../../build/ux-research/prototype:/shots
       # Mounted so a changed screen list needs no image rebuild.
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
@@ -139,8 +139,8 @@ services:
     environment:
       HOME: /home/appuser
     volumes:
-      - ../../clients/desktop:/desktop:ro
-      - ../../clients/android/prototype:/android/prototype:ro
+      - ../../clients/desktop:/assets/desktop:ro
+      - ../../clients/android/prototype:/assets/android/prototype:ro
       - ../../build/ux-research/prototype-android:/shots
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py, android]

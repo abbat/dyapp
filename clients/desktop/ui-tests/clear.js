@@ -10,7 +10,7 @@
       'Clear target ID changed raw copy or lacks chunks',
     );
     check(
-      get('peer-label').textContent === window.strings['view.peer'],
+      get('peer-label').textContent === appApi.strings['view.peer'],
       'Clear labels the target as our own ID',
     );
     check(
@@ -19,7 +19,7 @@
     );
     const warning = get('dialog').querySelector('[data-i18n="chats.clearWarning"]');
     check(
-      warning.textContent === window.strings['chats.clearWarning'],
+      warning.textContent === appApi.strings['chats.clearWarning'],
       'Clear warning is not localized',
     );
     check(
@@ -31,7 +31,7 @@
       'Clear consequence precedes target ID',
     );
   };
-  window.checkClearDialog = async () => {
+  smoke.checkClearDialog = async () => {
     const peer = `12D3KooW${'a'.repeat(44)}`;
     const name = '<target> & contact 😺';
     const get = (id) => document.getElementById(`chat-clear-${id}`);
@@ -47,7 +47,7 @@
     };
     try {
       await openArea('chats-area');
-      await openChat(peer, call);
+      await appBindings.openChat(peer, call);
       const opener = document.getElementById('chat-clear');
       opener.focus();
       opener.click();
@@ -74,9 +74,9 @@
         'Closed Clear retains target identity',
       );
     } finally {
-      closeClear();
-      closeChat();
-      peerNames.delete(peer);
+      appBindings.closeClear();
+      appBindings.closeChat();
+      appBindings.peerNames.delete(peer);
     }
   };
 })();

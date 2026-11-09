@@ -1,25 +1,28 @@
 // Exercise events, focus and measured layout without sending a fixture message.
 (() => {
   const checkComposerInput = async (attach, stickers, submits, check) => {
-    chatInput.focus();
-    const bounds = chatInput.getBoundingClientRect();
+    appBindings.chatInput.focus();
+    const bounds = appBindings.chatInput.getBoundingClientRect();
     for (const text of ['draft', '']) {
-      chatInput.value = text;
-      chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-      const changed = chatInput.getBoundingClientRect();
-      check(chatSend.hidden === !text && chatSend.disabled === !text, 'Send does not follow text');
+      appBindings.chatInput.value = text;
+      appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+      const changed = appBindings.chatInput.getBoundingClientRect();
+      check(
+        appBindings.chatSend.hidden === !text && appBindings.chatSend.disabled === !text,
+        'Send does not follow text',
+      );
       check(
         bounds.width === changed.width &&
           bounds.left === changed.left &&
-          document.activeElement === chatInput,
+          document.activeElement === appBindings.chatInput,
         'Send shifted composer geometry or focus',
       );
     }
-    for (const button of [attach, stickers, chatSend]) {
+    for (const button of [attach, stickers, appBindings.chatSend]) {
       check(button.getAttribute('aria-label') && button.title, 'Composer icon is unnamed');
     }
-    chatInput.value = 'draft';
-    chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+    appBindings.chatInput.value = 'draft';
+    appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
     for (const options of [{ shiftKey: true }, { isComposing: true }]) {
       const event = new KeyboardEvent('keydown', {
         key: 'Enter',
@@ -27,15 +30,15 @@
         cancelable: true,
         ...options,
       });
-      chatInput.dispatchEvent(event);
+      appBindings.chatInput.dispatchEvent(event);
       check(!event.defaultPrevented && submits() === 0, 'Modified/composing Enter submitted');
     }
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-    chatInput.dispatchEvent(enter);
+    appBindings.chatInput.dispatchEvent(enter);
     check(enter.defaultPrevented && submits() === 1, 'Enter did not use form submission');
     stickers.focus();
     stickers.click();
-    await window.stickersShown;
+    await appApi.stickersShown;
     check(document.getElementById('sticker-picker').open, 'Sticker picker did not open');
     document.getElementById('sticker-picker-cancel').click();
     check(
@@ -43,7 +46,7 @@
       'Picker Cancel did not restore composer focus',
     );
   };
-  window.checkChatComposer = async () => {
+  smoke.checkChatComposer = async () => {
     await openArea('chats-area');
     const form = document.getElementById('chat-composer');
     const attach = document.getElementById('chat-attach');
@@ -52,10 +55,10 @@
       if (!ok) throw new Error(reason);
     };
     const before = {
-      chat: activeChat,
-      value: chatInput.value,
-      detail: chatDetail.hidden,
-      overview: chatOverview.hidden,
+      chat: appBindings.activeChat,
+      value: appBindings.chatInput.value,
+      detail: appBindings.chatDetail.hidden,
+      overview: appBindings.chatOverview.hidden,
     };
     let submits = 0;
     const intercept = (event) => {
@@ -65,26 +68,29 @@
     };
     form.addEventListener('submit', intercept, true);
     try {
-      activeChat = { peerId: current.peerId, state: 'open', muted: false };
-      chatDetail.hidden = false;
-      chatOverview.hidden = true;
-      chatInput.value = '';
-      updateComposer();
+      appBindings.activeChat = { peerId: appBindings.current.peerId, state: 'open', muted: false };
+      appBindings.chatDetail.hidden = false;
+      appBindings.chatOverview.hidden = true;
+      appBindings.chatInput.value = '';
+      appBindings.updateComposer();
       await checkComposerInput(attach, stickers, () => submits, check);
       for (const state of ['requestSent', 'closed', 'requestReceived']) {
-        activeChat.state = state;
-        updateComposer();
+        appBindings.activeChat.state = state;
+        appBindings.updateComposer();
         check(attach.disabled && stickers.disabled, 'Pre-match/closed chat enabled media');
-        check(chatInput.disabled === (state !== 'requestReceived'), 'Text reply guard changed');
+        check(
+          appBindings.chatInput.disabled === (state !== 'requestReceived'),
+          'Text reply guard changed',
+        );
       }
     } finally {
       form.removeEventListener('submit', intercept, true);
-      window.stickerCollection.close();
-      activeChat = before.chat;
-      chatInput.value = before.value;
-      chatDetail.hidden = before.detail;
-      chatOverview.hidden = before.overview;
-      updateComposer();
+      appApi.stickerCollection.close();
+      appBindings.activeChat = before.chat;
+      appBindings.chatInput.value = before.value;
+      appBindings.chatDetail.hidden = before.detail;
+      appBindings.chatOverview.hidden = before.overview;
+      appBindings.updateComposer();
     }
   };
 })();

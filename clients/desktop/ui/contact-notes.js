@@ -1,3 +1,10 @@
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { viewed } from './search.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 // Private drafts belong to one loaded profile and identity, never the public draft.
 const notePanel = document.getElementById('view-note');
 const noteText = document.getElementById('view-note-text');
@@ -14,23 +21,23 @@ const renderNote = (target) => {
   noteClear.disabled = target.busy || !target.loaded || !target.saved;
   noteRetry.hidden = target.loaded;
   noteRetry.disabled = target.busy;
-  noteStatus.textContent = target.status ? window.strings[`notes.${target.status}`] : '';
+  noteStatus.textContent = target.status ? strings[`notes.${target.status}`] : '';
   noteStatus.hidden = !target.status;
 };
-window.clearContactNote = () => {
+controller.clearContactNote = () => {
   noteView = null;
   notePanel.hidden = true;
   noteText.value = '';
   noteText.setCustomValidity('');
   noteText.disabled = true;
 };
-window.showContactNote = async (call = invoke) => {
-  window.clearContactNote();
+controller.showContactNote = async (call = invoke) => {
+  controller.clearContactNote();
   const view = viewed;
-  if (!view || view.found.peerId === current?.peerId) return;
+  if (!view || view.found.peerId === identityState.current?.peerId) return;
   const target = {
     view,
-    generation: identityGeneration,
+    generation: identityState.generation,
     call,
     saved: '',
     loaded: false,
@@ -62,7 +69,7 @@ const prepareNoteSave = (clear) => {
   const target = noteView;
   if (!target || !noteCurrent(target) || !target.loaded || target.busy) return;
   const note = clear ? '' : noteText.value;
-  noteText.setCustomValidity([...note].length > 2000 ? window.strings['notes.invalid'] : '');
+  noteText.setCustomValidity([...note].length > 2000 ? strings['notes.invalid'] : '');
   if (!clear && !noteText.reportValidity()) return;
   if (note === target.saved) return;
   target.busy = true;
@@ -70,7 +77,7 @@ const prepareNoteSave = (clear) => {
   renderNote(target);
   return { target, note };
 };
-window.saveContactNote = async (clear = false) => {
+controller.saveContactNote = async (clear = false) => {
   const prepared = prepareNoteSave(clear);
   if (!prepared) return;
   const { target, note } = prepared;
@@ -99,14 +106,14 @@ noteText.addEventListener('input', () => {
   }
 });
 noteSave.addEventListener('click', () => {
-  window.noteChanged = window.saveContactNote();
+  controller.noteChanged = controller.saveContactNote();
 });
 noteClear.addEventListener('click', () => {
-  window.noteChanged = window.saveContactNote(true);
+  controller.noteChanged = controller.saveContactNote(true);
 });
 noteRetry.addEventListener('click', () => {
   if (noteView && noteCurrent(noteView) && !noteView.busy) {
-    window.noteShown = window.showContactNote(noteView.call);
+    progress.noteShown = controller.showContactNote(noteView.call);
   }
 });
-document.addEventListener('dyapp:identity-change', window.clearContactNote);
+document.addEventListener('dyapp:identity-change', controller.clearContactNote);

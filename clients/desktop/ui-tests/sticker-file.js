@@ -55,7 +55,7 @@
     if (file) transfer.items.add(file);
     input.files = transfer.files;
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    return window.stickerImported;
+    return appApi.stickerImported;
   };
   const ownership = async () => {
     const manager = document.getElementById('sticker-manager');
@@ -66,11 +66,11 @@
       return { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
     };
     try {
-      await window.stickerCollection.open(call);
+      await appApi.stickerCollection.open(call);
       get('import').click();
       const old = get('file');
-      window.stickerCollection.close();
-      await window.stickerCollection.open(call);
+      appApi.stickerCollection.close();
+      await appApi.stickerCollection.open(call);
       get('import').click();
       const latest = get('file');
       await select(old, new File([archive()], 'old-owner.tar'));
@@ -79,15 +79,19 @@
       check(imports === 1, 'Current file selection did not import once');
     } finally {
       manager.removeEventListener('click', preventChooser, true);
-      window.stickerCollection.close();
+      appApi.stickerCollection.close();
     }
   };
   const readback = async () => {
-    const identityId = current.peerId;
-    const page = await invoke('saved_sticker_packs', { identityId, after: null });
+    const identityId = appBindings.current.peerId;
+    const page = await appBindings.invoke('saved_sticker_packs', { identityId, after: null });
     const pack = page.entries.find((entry) => entry.name === name && !entry.error);
     check(pack, 'Imported pack did not survive native reopen');
-    const content = await invoke('saved_sticker_page', { identityId, packId: pack.id, after: 0 });
+    const content = await appBindings.invoke('saved_sticker_page', {
+      identityId,
+      packId: pack.id,
+      after: 0,
+    });
     check(
       JSON.stringify(content.packId) === JSON.stringify(pack.id),
       'Native page returned another pack ID',
@@ -116,9 +120,9 @@
     manager.addEventListener('click', preventChooser, true);
     let imports = 0,
       importedId = null;
-    const identityId = current.peerId;
+    const identityId = appBindings.current.peerId;
     const call = async (command, args) => {
-      const result = await invoke(command, args);
+      const result = await appBindings.invoke(command, args);
       if (command === 'import_sticker_pack') {
         imports += 1;
         importedId = result;
@@ -127,14 +131,14 @@
       return result;
     };
     try {
-      await window.stickerCollection.open(call);
+      await appApi.stickerCollection.open(call);
       get('import').click();
       await select(get('file'), null);
       check(imports === 0, 'Empty file selection invoked native import');
       get('import').click();
       await select(get('file'), new File([new ArrayBuffer(8 * 1024 * 1024 + 1)], 'too-large.tar'));
       check(
-        imports === 0 && get('status').textContent === window.strings['stickers.tooLarge'],
+        imports === 0 && get('status').textContent === appApi.strings['stickers.tooLarge'],
         'Real oversized file reached native import',
       );
       get('import').click();
@@ -150,20 +154,20 @@
         JSON.stringify(await readback()) === JSON.stringify(importedId),
         'Native readback selected another pack',
       );
-      await shot('stickers-file-import');
+      await smoke.shot('stickers-file-import');
     } finally {
       manager.removeEventListener('click', preventChooser, true);
-      window.stickerCollection.close();
+      appApi.stickerCollection.close();
     }
   };
   const restart = async () => {
     await readback();
     try {
-      await window.stickerCollection.open();
-      await shot('stickers-file-restart');
+      await appApi.stickerCollection.open();
+      await smoke.shot('stickers-file-restart');
     } finally {
-      window.stickerCollection.close();
+      appApi.stickerCollection.close();
     }
   };
-  window.stickerFileChecks = { ownership, importPack, readback, restart };
+  smoke.stickerFileChecks = { ownership, importPack, readback, restart };
 })();

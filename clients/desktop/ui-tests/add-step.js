@@ -3,18 +3,18 @@
   const checkSharedUi = async (state) => {
     if (state.status !== 'ready') throw new Error('identity not reopened');
     await checkSettingsInventory(state.peerId, state.mode);
-    await window.checkStickerCollection();
-    await window.checkStickerRemoval();
-    await window.checkChatComposer();
-    await window.checkStickerPicker();
-    await window.checkStickerMessages();
-    await window.checkChatRedraw();
-    await window.checkStickerRequests();
-    await window.checkClearDialog();
-    await window.checkIdentifiers();
-    await window.checkSettingsNavigation();
-    await window.checkMediaCache();
-    await window.checkSettingsLists();
+    await smoke.checkStickerCollection();
+    await smoke.checkStickerRemoval();
+    await smoke.checkChatComposer();
+    await smoke.checkStickerPicker();
+    await smoke.checkStickerMessages();
+    await smoke.checkChatRedraw();
+    await smoke.checkStickerRequests();
+    await smoke.checkClearDialog();
+    await smoke.checkIdentifiers();
+    await smoke.checkSettingsNavigation();
+    await smoke.checkMediaCache();
+    await smoke.checkSettingsLists();
   };
   const createAdditionalIdentity = async (state, mode) => {
     await openArea('settings', 'identities');
@@ -25,7 +25,7 @@
     await checkSettingsInventory(addedPeer, mode);
     await expectPrivacy('false,false,true,true,true');
     document.getElementById('send-views').click();
-    await window.privacySaved;
+    await appApi.privacySaved;
     await switchFromSettings(state.mode);
     await checkSettingsInventory(state.peerId, state.mode);
     await expectPrivacy('false,false,true,true,true');
@@ -33,7 +33,7 @@
     await checkSettingsInventory(addedPeer, mode);
     await expectPrivacy('true,false,true,true,true');
     document.getElementById('send-views').click();
-    await window.privacySaved;
+    await appApi.privacySaved;
     await openArea('profile-area');
   };
   const checkFunctionalSmoke = async (checks) => {
@@ -95,7 +95,7 @@
     await guardChecks.checkStaleCopy();
     await guardChecks.checkStalePlaceSuggestions();
   };
-  window.uiSmokeAddStep = async (state, mode, checks) => {
+  smoke.uiSmokeAddStep = async (state, mode, checks) => {
     await checkSharedUi(state);
     await createAdditionalIdentity(state, mode);
     await checkFunctionalSmoke(checks);

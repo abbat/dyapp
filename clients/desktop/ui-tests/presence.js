@@ -1,9 +1,9 @@
 // Active recently: the mocked smoke and the two-client steps it adds to the live scenario.
 const checkChatPresence = async () => {
   await openArea('chats-area');
-  await window.chatsDone;
+  await appApi.chatsDone;
   const peer = '6'.repeat(64);
-  const mark = window.strings['chats.active'];
+  const mark = appApi.strings['chats.active'];
   const header = document.getElementById('chat-presence');
   let activeRecently = true;
   const sent = [];
@@ -19,30 +19,30 @@ const checkChatPresence = async () => {
     }
     return Promise.resolve(0);
   };
-  await window.mailUpdated(0, call);
+  await appApi.mailUpdated(0, call);
   if (!liveRow('chat-list', peer)?.textContent.includes(mark)) throw new Error('row has no mark');
-  await openChat(peer, call);
+  await appBindings.openChat(peer, call);
   if (header.hidden || header.textContent !== mark) throw new Error('chat has no presence mark');
-  await shot('chat-presence');
+  await smoke.shot('chat-presence');
   activeRecently = false;
-  await window.mailUpdated(0, call);
+  await appApi.mailUpdated(0, call);
   if (!header.hidden) throw new Error('an old presence stayed in the chat');
   document.getElementById('chat-back').click();
-  await window.mailUpdated(0, call);
+  await appApi.mailUpdated(0, call);
   if (liveRow('chat-list', peer).textContent.includes(mark)) {
     throw new Error('a pass with no new mail kept an old presence in the row');
   }
-  await window.mailUpdated(0, () => Promise.resolve([]));
+  await appApi.mailUpdated(0, () => Promise.resolve([]));
 
-  const shown = window.announcePresence;
+  const shown = appApi.announcePresence;
   const focus = async () => {
     sent.length = 0;
     let pass;
-    window.announcePresence = () => {
+    appApi.announcePresence = () => {
       pass = shown(call);
     };
     window.dispatchEvent(new Event('focus'));
-    window.announcePresence = shown;
+    appApi.announcePresence = shown;
     await pass;
     return sent.includes('announce_presence');
   };
@@ -61,25 +61,26 @@ const checkLikePending = async () => {
   const peerId = '7'.repeat(64);
   const found = { peerId, draft: { attributes: {} } };
   const card = document.createElement('button');
-  searchResults.append(card);
+  appBindings.searchResults.append(card);
   for (const [ours, expected] of [
     [true, 'view.like.pending'],
     [false, 'view.like.notConnected'],
   ]) {
-    openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
-    await sendLike(true, (command) =>
+    appBindings.openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
+    await appBindings.sendLike(true, (command) =>
       command === 'like_peer'
         ? Promise.reject('notConnected')
         : Promise.resolve({ ours, matched: false }),
     );
-    if (viewStatus.textContent !== window.strings[expected]) {
-      throw new Error(`failed like shows ${viewStatus.textContent}`);
+    if (appBindings.viewStatus.textContent !== appApi.strings[expected]) {
+      throw new Error(`failed like shows ${appBindings.viewStatus.textContent}`);
     }
   }
-  closeFound();
+  appBindings.closeFound();
   card.remove();
 };
-const liveMatched = async (peer) => (await invoke('peer_likes', { peerId: peer })).matched;
+const liveMatched = async (peer) =>
+  (await appBindings.invoke('peer_likes', { peerId: peer })).matched;
 // One more than the old mailbox limit of 100, so the last text only arrives past that limit.
 const FLOOD_TEXTS = 102;
 const FLOOD_STEP_MS = 60000;
@@ -90,13 +91,13 @@ const presenceSteps = {
     await liveFound(peer);
     await liveLikes(peer, false);
     document.getElementById('view-like').click();
-    await window.likeDone;
+    await appApi.likeDone;
   },
   'presence-pass': async (peer) => {
     await liveChats(() => liveRow('chats-liked-list', peer), 'the like to pass');
     liveRow('chats-liked-list', peer).click();
     document.getElementById('view-pass').click();
-    await window.passDone;
+    await appApi.passDone;
     if (
       document.getElementById('view-unpass').hidden ||
       !document.getElementById('view-like').hidden
@@ -110,14 +111,14 @@ const presenceSteps = {
     }
     await openArea('search-area');
     document.getElementById('run-search').click();
-    await window.searchDone;
+    await appApi.searchDone;
     if (document.querySelector(`#search-results [data-peer-id="${peer}"]`)) {
       throw new Error('search showed the passed peer');
     }
     await openArea('settings', 'passed');
-    await window.passedShown;
+    await appApi.passedShown;
     document.getElementById('unpass-1').click();
-    await window.passedShown;
+    await appApi.passedShown;
     if (document.getElementById('passed-none').hidden) throw new Error('undo kept the pass');
     await liveChats(() => liveRow('chats-liked-list', peer), 'the undone pass');
   },
@@ -126,22 +127,23 @@ const presenceSteps = {
     // Not through search: the other client unhid its profile, and that record waits for the window.
     liveRow('chats-liked-list', peer).click();
     document.getElementById('view-like').click();
-    await window.likeDone;
+    await appApi.likeDone;
     if (!(await liveMatched(peer))) throw new Error('the second like made no match');
   },
   'presence-send': async (peer) => {
     await openArea('chats-area');
     await livePoll(async () => {
-      window.chatsDone = window.showChats();
-      await window.chatsDone;
+      appApi.chatsDone = appApi.showChats();
+      await appApi.chatsDone;
       return liveMatched(peer);
     }, 'the match');
     // The launch or focus send may have taken it already; either way the hour is now used.
-    await invoke('announce_presence');
-    if ((await invoke('announce_presence')) !== false) throw new Error('the throttle let a resend');
+    await appBindings.invoke('announce_presence');
+    if ((await appBindings.invoke('announce_presence')) !== false)
+      throw new Error('the throttle let a resend');
   },
   'presence-shown': async (peer) => {
-    const mark = window.strings['chats.active'];
+    const mark = appApi.strings['chats.active'];
     await liveChats(() => liveRow('chat-list', peer)?.textContent.includes(mark), 'the presence');
     await liveOpen(liveRow('chat-list', peer));
     if (document.getElementById('chat-presence').hidden)
@@ -150,7 +152,7 @@ const presenceSteps = {
   'match-send': async (peer) => {
     await liveFound(peer);
     document.getElementById('view-message').click();
-    await Promise.all([window.chatOpened, window.chatsDone]);
+    await Promise.all([appApi.chatOpened, appApi.chatsDone]);
     liveState('open');
     await liveSend('match text');
   },
@@ -166,7 +168,7 @@ const presenceSteps = {
     const stop = Date.now() + FLOOD_STEP_MS;
     let sent = (await floodTexts(peer)).length;
     while (sent < FLOOD_TEXTS && Date.now() < stop) {
-      await invoke('send_chat_text', { peerId: peer, text: `flood ${sent}` });
+      await appBindings.invoke('send_chat_text', { peerId: peer, text: `flood ${sent}` });
       sent += 1;
     }
   },
@@ -177,25 +179,26 @@ const presenceSteps = {
     if (stored !== FLOOD_TEXTS)
       throw new Error(`${stored} of ${FLOOD_TEXTS} pending texts arrived`);
   },
-  'notice-send': (peer) => invoke('send_chat_text', { peerId: peer, text: '<b>notice</b> text' }),
+  'notice-send': (peer) =>
+    appBindings.invoke('send_chat_text', { peerId: peer, text: '<b>notice</b> text' }),
   // desktop-smoke.py runs fake-notify.py here and reads the notice it kept. The window comes back
   // only through the click, or ui_test_hide fails.
   'notice-click': async () => {
     await openArea('settings', 'notifications');
-    await window.showPrivacy();
+    await appApi.showPrivacy();
     const content = document.getElementById('notice-content');
     content.value = 'text';
     content.dispatchEvent(new Event('change', { bubbles: true }));
-    await window.privacySaved;
+    await appApi.privacySaved;
     const back = invokeTest('ui_test_hide', { close: false });
     await new Promise((resolve) => {
       setTimeout(resolve, 1500);
     });
-    await invoke('receive_mail');
+    await appBindings.invoke('receive_mail');
     await back;
   },
 };
-globalThis.uiSmokePresence = Object.freeze({
+smoke.uiSmokePresence = Object.freeze({
   checkChatPresence,
   checkLikePending,
   presenceSteps,

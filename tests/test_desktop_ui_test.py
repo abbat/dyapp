@@ -1,4 +1,5 @@
-"""The smoke suite runs in the app page without redeclaring its globals."""
+"""Module entry and the isolated native smoke scope stay connected."""
+from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 import re
@@ -46,15 +47,37 @@ class NavigationTest(unittest.TestCase):
             ["chats", "chats-area"])
 
 
-class ChatScriptOrderTest(unittest.TestCase):
-    def test_photo_helpers_load_before_controller_and_message_rows(self):
-        scripts = re.findall(r'<script src="([^"]+)"',
-                             (UI / "ui/index.html").read_text())
-        names = ("search.js", "chat-photos.js",
-                 "chats-ui.js", "chat-message.js")
-        order = [scripts.index(name) for name in names]
-        self.assertEqual(order, sorted(order))
-        self.assertEqual(len(set(order)), len(order))
+class ModuleScripts(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.scripts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "script":
+            self.scripts.append(dict(attrs))
+
+    def external_modules(self):
+        return bool(self.scripts) and all(
+            script.get("type") == "module" and script.get("src")
+            for script in self.scripts)
+
+
+class ModuleEntryTest(unittest.TestCase):
+    def test_shipped_page_loads_external_modules(self):
+        page = ModuleScripts()
+        page.feed((UI / "ui/index.html").read_text())
+        self.assertTrue(page.external_modules())
+        for script in page.scripts:
+            self.assertTrue((UI / "ui" / script["src"]).is_file())
+
+    def test_classic_and_inline_scripts_are_rejected(self):
+        for source in ('<script src="app.js"></script>',
+                       '<script type="module">run()</script>',
+                       '<script type="module" src="entry.js"></script>'
+                       '<script src="legacy.js"></script>', ''):
+            page = ModuleScripts()
+            page.feed(source)
+            self.assertFalse(page.external_modules())
 
 
 class SmokeInventoryTest(unittest.TestCase):
@@ -71,14 +94,17 @@ class SmokeInventoryTest(unittest.TestCase):
         self.assertFalse(list(UI.glob("ui-test*.js")))
 
 
-class GlobalsTest(unittest.TestCase):
-    def test_ui_test_names_do_not_shadow_app_globals(self):
-        app = {name for path in (UI / "ui").glob("*.js")
-               for name in TOP.findall(path.read_text())}
-        suite = {name for path in (UI / "ui-tests").glob("*.js")
-                 for name in TOP.findall(path.read_text())}
-        # A clash is a SyntaxError on eval: the suite never starts.
-        self.assertEqual(sorted(app & suite), [])
+class SmokeScopeTest(unittest.TestCase):
+    def test_concatenated_helpers_have_unique_top_level_bindings(self):
+        directory = UI / "ui-tests"
+        includes = re.findall(r'include_str!\("([^"]+)"\)',
+                              (directory / "mod.rs").read_text())
+        names = Counter(name for path in includes
+                        for name in TOP.findall(
+                            (directory / path).read_text()))
+        self.assertTrue(names)
+        self.assertEqual(sorted(name for name, count in names.items()
+                                if count > 1), [])
 
 
 if __name__ == "__main__":

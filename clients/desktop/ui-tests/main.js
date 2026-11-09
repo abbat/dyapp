@@ -1,25 +1,25 @@
 // Desktop UI smoke: network, profile, connected fixtures and step dispatch.
-const identityChecks = window.timedChecks(globalThis.uiSmokeIdentity);
-const chatChecks = window.timedChecks(globalThis.uiSmokeChats);
-const presenceChecks = window.timedChecks(globalThis.uiSmokePresence);
-const nameChecks = window.timedChecks(globalThis.uiSmokeNames);
-const photoChecks = window.timedChecks(globalThis.uiSmokePhotos);
-const guardChecks = window.timedChecks(globalThis.uiSmokeGuards);
+const identityChecks = smoke.timedChecks(smoke.uiSmokeIdentity);
+const chatChecks = smoke.timedChecks(smoke.uiSmokeChats);
+const presenceChecks = smoke.timedChecks(smoke.uiSmokePresence);
+const nameChecks = smoke.timedChecks(smoke.uiSmokeNames);
+const photoChecks = smoke.timedChecks(smoke.uiSmokePhotos);
+const guardChecks = smoke.timedChecks(smoke.uiSmokeGuards);
 // Saves the node form and returns the status it ends on.
 const saveNode = async (enabled, disk) => {
   document.getElementById('node-enabled').checked = enabled;
   document.getElementById('node-disk').value = disk;
-  window.nodeApplied = null;
+  appApi.nodeApplied = null;
   document.getElementById('node-save').click();
-  await window.nodeApplied;
+  await appApi.nodeApplied;
   return document.getElementById('node').dataset.status;
 };
 // Settings → Storage: the node store is Unavailable until the node first runs, then sized.
 const checkUsage = async (limit) => {
-  const { strings } = window;
+  const { strings } = appApi;
   await openArea('profile-area');
   await openArea('settings', 'node');
-  await window.usageShown;
+  await appApi.usageShown;
   const text = (id) => document.getElementById(id).textContent;
   const bar = document.getElementById('usage-node-bar');
   if (
@@ -48,7 +48,7 @@ const checkUsage = async (limit) => {
 // row the app cannot fill is hidden, and no size reads as a made-up zero.
 const checkStorageCard = async () => {
   await openArea('settings', 'node');
-  await window.usageShown;
+  await appApi.usageShown;
   const text = (id) => document.getElementById(id).textContent;
   const shown = (id) => !document.getElementById(id).hidden;
   const dir = text('usage-identity-dir');
@@ -61,21 +61,21 @@ const checkStorageCard = async () => {
     !/^(\/|[A-Za-z]:\\)/.test(dir) ||
     !path.startsWith(`${dir}${sep}`) ||
     !path.endsWith(`${sep}client.db`) ||
-    text('usage-messages') === window.strings['usage.unavailable'] ||
+    text('usage-messages') === appApi.strings['usage.unavailable'] ||
     shown('usage-node-row') === windows ||
     !shown('usage-free-row') ||
     sizes.some((id) => /^0\s/.test(text(id)))
   ) {
     throw new Error(`Storage card wrong: ${dir} ${path} ${sizes.map(text).join(' | ')}`);
   }
-  await shot('storage');
+  await smoke.shot('storage');
   await openArea('profile-area');
 };
 // The node starts on the loopback network, then stops; bad limits never reach the app.
 const checkNode = async () => {
-  const { strings } = window;
+  const { strings } = appApi;
   await checkUsage(0);
-  await window.nodeShown;
+  await appApi.nodeShown;
   const form = document.getElementById('node');
   if (
     form.hidden ||
@@ -99,7 +99,7 @@ const checkNode = async () => {
     throw new Error(`node did not start: ${text}`);
   }
   await checkUsage(64 << 20);
-  await shot('settings-storage');
+  await smoke.shot('settings-storage');
   if ((await saveNode(false, '64')) !== 'off') throw new Error('node did not stop');
   await openArea('profile-area');
 };
@@ -129,14 +129,14 @@ const closePublishDialog = async () => {
   if (!byId('publish-dialog').hidden) throw new Error('Cancel left the publish dialog open');
 };
 const checkEmptyProfilePreview = async () => {
-  await shot('profile-edit');
+  await smoke.shot('profile-edit');
   if (!byId('profile-hidden').disabled)
     throw new Error('Hide from search offered before a publish');
   const fields = await openPublishForTest();
-  await shot('publish-dialog');
-  if (fields.join('|') !== window.strings['profile.empty'])
+  await smoke.shot('publish-dialog');
+  if (fields.join('|') !== appApi.strings['profile.empty'])
     throw new Error('unset fields appeared in preview');
-  if (byId('profile-age').textContent !== window.strings['profile.ageUnknown']) {
+  if (byId('profile-age').textContent !== appApi.strings['profile.ageUnknown']) {
     throw new Error('unknown age not shown');
   }
   if (!byId('profile-date-warning').hidden)
@@ -146,7 +146,7 @@ const checkEmptyProfilePreview = async () => {
   consent('profile-disclosure');
   if (byId('profile-publish-confirm').disabled) throw new Error('Publish disabled with both boxes');
   await closePublishDialog();
-  if (byId('profile-status').textContent !== window.strings['profile.saved']) {
+  if (byId('profile-status').textContent !== appApi.strings['profile.saved']) {
     throw new Error('Cancel lost the draft');
   }
   await openPublishForTest();
@@ -155,7 +155,7 @@ const checkEmptyProfilePreview = async () => {
 const waitForProfileStatus = (key, detail = '', ms = 10000) =>
   new Promise((resolve, reject) => {
     const status = document.getElementById('profile-status');
-    const expected = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
+    const expected = `${appApi.strings[key]}${detail ? ` ${detail}` : ''}`;
     const observer = new MutationObserver(() => {
       if (status.textContent === expected) {
         observer.disconnect();
@@ -177,9 +177,9 @@ const pickPlace = async (form = 'profile') => {
   country.dispatchEvent(new Event('input', { bubbles: true }));
   place.value = 'Berl';
   place.dispatchEvent(new Event('input', { bubbles: true }));
-  await window.placesShown;
+  await appApi.placesShown;
   const label = document.querySelector(`#${form}-places option`)?.value;
-  if (!label?.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
+  if (!label?.startsWith(appApi.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
     throw new Error(`place suggestion missing: ${label}`);
   }
   place.value = label;
@@ -197,7 +197,7 @@ const saveProfileForRestart = async () => {
   const place = document.getElementById('profile-place');
   place.value = 'Nowhere';
   place.dispatchEvent(new Event('input', { bubbles: true }));
-  await window.placesShown;
+  await appApi.placesShown;
   if (place.checkValidity()) throw new Error('unlisted place accepted');
   await openArea('network-area');
   await openArea('profile-area');
@@ -229,16 +229,16 @@ const seekingKept = () =>
   !byId('profile-not-looking').checked;
 const expectedFields = (photos = 0) =>
   [
-    `${window.strings['profile.field.gender']}: ${window.strings['profile.value.gender.Woman']}`,
-    `${window.strings['profile.field.smoking']}: ${window.strings['profile.value.smoking.No']}`,
-    `${window.strings['profile.birthYear']}: 1990`,
-    `${window.strings['profile.birthMonth']}: 2`,
-    `${window.strings['profile.height']}: 180`,
-    `${window.strings['profile.about']}: ${ABOUT}`,
-    `${window.strings['profile.seekingGenders']}: ${window.strings['profile.value.gender.Woman']}`,
-    `${window.strings['profile.seekingAgeFrom']}: 30`,
-    `${window.strings['profile.seekingAgeTo']}: 60`,
-    ...(photos ? [`${window.strings['profile.photos']}: ${photos}`] : []),
+    `${appApi.strings['profile.field.gender']}: ${appApi.strings['profile.value.gender.Woman']}`,
+    `${appApi.strings['profile.field.smoking']}: ${appApi.strings['profile.value.smoking.No']}`,
+    `${appApi.strings['profile.birthYear']}: 1990`,
+    `${appApi.strings['profile.birthMonth']}: 2`,
+    `${appApi.strings['profile.height']}: 180`,
+    `${appApi.strings['profile.about']}: ${ABOUT}`,
+    `${appApi.strings['profile.seekingGenders']}: ${appApi.strings['profile.value.gender.Woman']}`,
+    `${appApi.strings['profile.seekingAgeFrom']}: 30`,
+    `${appApi.strings['profile.seekingAgeTo']}: 60`,
+    ...(photos ? [`${appApi.strings['profile.photos']}: ${photos}`] : []),
   ].join('|');
 const preparePublishDraft = (saved) => {
   if (saved) {
@@ -283,7 +283,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0
   await result;
   await new Promise((resolve) => setTimeout(resolve, 50));
   if (!byId('publish-dialog').hidden) throw new Error('publish dialog stayed open');
-  await shot(fails ? 'profile-publish-failed' : 'profile-published');
+  await smoke.shot(fails ? 'profile-publish-failed' : 'profile-published');
   if (byId('profile-open-network').hidden !== !fails) {
     throw new Error(`profile Open Network shown ${fails ? 'without' : 'after'} a failure`);
   }
@@ -299,7 +299,7 @@ const hideProfileOnLoopback = async () => {
   hidden.checked = true;
   hidden.dispatchEvent(new Event('change'));
   await result;
-  await shot('profile-hidden');
+  await smoke.shot('profile-hidden');
   if (
     !hidden.checked ||
     byId('profile-hidden-notice').hidden ||
@@ -309,7 +309,7 @@ const hideProfileOnLoopback = async () => {
   }
   await openArea('search-area');
   byId('run-search').click();
-  await window.searchDone;
+  await appApi.searchDone;
   if (!shown('search-empty') || document.querySelector('#search-results [data-peer-id]'))
     throw new Error('hidden profile remains in search');
 };
@@ -335,7 +335,7 @@ const unhideProfileOnLoopback = async () => {
   ) {
     throw new Error('unhide did not publish the saved draft with search pending');
   }
-  await shot('profile-unhidden-pending');
+  await smoke.shot('profile-unhidden-pending');
 };
 // The switch locks the choices and publishes only itself; a reversed age range is never saved.
 const checkSeekingForm = async () => {
@@ -346,9 +346,9 @@ const checkSeekingForm = async () => {
   const fields = await openPublishForTest();
   if (
     !fields.includes(
-      `${window.strings['profile.notLooking']}: ${window.strings['profile.notLookingOn']}`,
+      `${appApi.strings['profile.notLooking']}: ${appApi.strings['profile.notLookingOn']}`,
     ) ||
-    fields.some((field) => field.startsWith(window.strings['profile.seekingGenders']))
+    fields.some((field) => field.startsWith(appApi.strings['profile.seekingGenders']))
   ) {
     throw new Error(`not-looking preview: ${fields}`);
   }
@@ -359,7 +359,7 @@ const checkSeekingForm = async () => {
   const to = byId('profile-seeking-age-to');
   to.value = '20';
   byId('profile-save').click();
-  if (to.validationMessage !== window.strings['search.rangeReversed']) {
+  if (to.validationMessage !== appApi.strings['search.rangeReversed']) {
     throw new Error(`reversed partner age: ${to.validationMessage}`);
   }
   to.value = '60';
@@ -382,19 +382,19 @@ const checkSavedProfile = async () => {
     throw new Error('profile draft changed after restart');
   }
   const place = byId('profile-place').value;
-  if (!place.startsWith(window.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
+  if (!place.startsWith(appApi.locale === 'ru' ? 'Берлин, ' : 'Berlin, ')) {
     throw new Error(`picked place lost after restart: ${place}`);
   }
   const placeFields = (await openPublishForTest()).filter(
     (field) =>
-      field.startsWith(window.strings['profile.country']) ||
-      field.startsWith(window.strings['profile.place']),
+      field.startsWith(appApi.strings['profile.country']) ||
+      field.startsWith(appApi.strings['profile.place']),
   );
   if (
     placeFields.join('|') !==
     [
-      `${window.strings['profile.country']}: ${new Intl.DisplayNames([window.locale], { type: 'region' }).of('DE')}`,
-      `${window.strings['profile.place']}: ${place}`,
+      `${appApi.strings['profile.country']}: ${new Intl.DisplayNames([appApi.locale], { type: 'region' }).of('DE')}`,
+      `${appApi.strings['profile.place']}: ${place}`,
     ].join('|')
   )
     throw new Error(`place preview changed: ${placeFields}`);
@@ -410,7 +410,7 @@ const checkSavedProfile = async () => {
   const fields = await openPublishForTest();
   if (fields.join('|') !== expectedFields()) throw new Error(`profile preview changed: ${fields}`);
   await closePublishDialog();
-  if (!byId('profile-age').textContent.startsWith(`${window.strings['profile.age']}: `)) {
+  if (!byId('profile-age').textContent.startsWith(`${appApi.strings['profile.age']}: `)) {
     throw new Error('known age hidden after restart');
   }
   await checkSeekingForm();
@@ -418,9 +418,9 @@ const checkSavedProfile = async () => {
 // The status bar: traffic is unavailable until a search starts the client swarm, then counts the
 // reply; the message store always has a size once the identity is open.
 const checkStatus = async (traffic) => {
-  const { strings } = window;
-  window.statusShown = showStatus();
-  await window.statusShown;
+  const { strings } = appApi;
+  appApi.statusShown = appBindings.showStatus();
+  await appApi.statusShown;
   const text = (id) => document.getElementById(id).textContent;
   const [, received] = text('status-traffic').match(/(\d[\d.,]*)\s/) ?? [];
   if (
@@ -454,21 +454,21 @@ const checkHeightFilter = async () => {
   const search = async (from, to) => {
     [min.value, max.value] = [from, to];
     byId('run-search').click();
-    await window.searchDone;
+    await appApi.searchDone;
     return byId('search-status').textContent;
   };
   const before = byId('search-status').textContent;
   if (
     (await search('190', '170')) !== before ||
-    max.validationMessage !== window.strings['search.rangeReversed']
+    max.validationMessage !== appApi.strings['search.rangeReversed']
   ) {
     throw new Error(`reversed height range: ${max.validationMessage}`);
   }
   const within = await search('180', '180');
-  if (within !== `${window.strings['search.results']} 1`)
+  if (within !== `${appApi.strings['search.results']} 1`)
     throw new Error(`height search: ${within}`);
   const above = await search('181', '');
-  if (above !== window.strings['search.empty']) throw new Error(`height search above: ${above}`);
+  if (above !== appApi.strings['search.empty']) throw new Error(`height search above: ${above}`);
   await search('', '');
 };
 // The published profile states smoking only: its value matches, another or an empty field does not.
@@ -476,15 +476,15 @@ const checkHabitFilters = async () => {
   const search = async (id, value) => {
     byId(id).value = value;
     byId('run-search').click();
-    await window.searchDone;
+    await appApi.searchDone;
     const status = byId('search-status').textContent;
     byId(id).value = '0';
     return status;
   };
   for (const [id, value, expected] of [
-    ['search-smoking', '10', `${window.strings['search.results']} 1`],
-    ['search-smoking', '20', window.strings['search.empty']],
-    ['search-pets', '2', window.strings['search.empty']],
+    ['search-smoking', '10', `${appApi.strings['search.results']} 1`],
+    ['search-smoking', '20', appApi.strings['search.empty']],
+    ['search-pets', '2', appApi.strings['search.empty']],
   ]) {
     const status = await search(id, value);
     if (status !== expected) throw new Error(`${id}=${value}: ${status}`);
@@ -499,44 +499,44 @@ const checkMutualFilter = async () => {
   if (!shown('search-mutual-row')) throw new Error('mutual search not offered');
   byId('search-mutual').checked = true;
   byId('run-search').click();
-  await window.searchDone;
+  await appApi.searchDone;
   byId('search-mutual').checked = false;
   if (new Date().getUTCMonth() === 1) {
-    if (byId('search-error-text').textContent !== window.strings['search.mutualUnavailable']) {
+    if (byId('search-error-text').textContent !== appApi.strings['search.mutualUnavailable']) {
       throw new Error(`mutual search refusal: ${byId('search-error-text').textContent}`);
     }
     return;
   }
   const status = byId('search-status').textContent;
-  if (status !== `${window.strings['search.results']} 1`)
+  if (status !== `${appApi.strings['search.results']} 1`)
     throw new Error(`mutual search: ${status}`);
 };
 const searchOnLoopback = (() => {
   const checkDisconnectedSearch = async (status) => {
     if (
-      status !== window.strings['search.notConnected'] ||
+      status !== appApi.strings['search.notConnected'] ||
       !shown('search-error') ||
       !shown('search-open-network') ||
       searchFailures() !== 'notConnected'
     ) {
       throw new Error(`search without a network: ${status}, details ${searchFailures()}`);
     }
-    await shot('search-not-connected');
+    await smoke.shot('search-not-connected');
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     if (
-      document.getElementById('chats-status').textContent !== window.strings['chats.notConnected']
+      document.getElementById('chats-status').textContent !== appApi.strings['chats.notConnected']
     ) {
       throw new Error('Chats showed a fresh empty list without a network');
     }
-    await shot('chats-not-connected');
+    await smoke.shot('chats-not-connected');
   };
   const checkSearchResult = async (status) => {
     const peers = [...document.querySelectorAll('#search-results [data-peer-id]')].map(
       (item) => item.dataset.peerId,
     );
     if (
-      status !== `${window.strings['search.results']} 1` ||
+      status !== `${appApi.strings['search.results']} 1` ||
       shown('search-error') ||
       shown('search-empty') ||
       !shown('search-again') ||
@@ -545,7 +545,7 @@ const searchOnLoopback = (() => {
     ) {
       throw new Error(`loopback search: ${status}, peers ${peers}, failures ${searchFailures()}`);
     }
-    await shot('search-results');
+    await smoke.shot('search-results');
     document.getElementById('result-1').click();
     if (
       shown('search-main') ||
@@ -555,9 +555,9 @@ const searchOnLoopback = (() => {
     ) {
       throw new Error('the result card did not open the profile');
     }
-    await shot('search-profile');
-    await globalThis.checkSafetyNumber();
-    await shot('search-safety');
+    await smoke.shot('search-profile');
+    await smoke.checkSafetyNumber();
+    await smoke.shot('search-safety');
     document.getElementById('view-back').click();
     if (
       !shown('search-main') ||
@@ -570,7 +570,7 @@ const searchOnLoopback = (() => {
   };
   const checkSearchFilters = async () => {
     await checkStatus(true);
-    await shot('statusbar');
+    await smoke.shot('statusbar');
     await checkHeightFilter();
     await checkHabitFilters();
     await checkMutualFilter();
@@ -578,12 +578,12 @@ const searchOnLoopback = (() => {
       throw new Error('place filter not offered');
     await pickPlace('search');
     document.getElementById('run-search').click();
-    await window.searchDone;
+    await appApi.searchDone;
     const placed = document.getElementById('search-status').textContent;
-    if (placed !== window.strings['search.empty'] || !shown('search-empty')) {
+    if (placed !== appApi.strings['search.empty'] || !shown('search-empty')) {
       throw new Error(`place search: ${placed}`);
     }
-    await shot('search-empty');
+    await smoke.shot('search-empty');
     document.getElementById('search-country').value = '';
     document.getElementById('search-country').dispatchEvent(new Event('input', { bubbles: true }));
   };
@@ -591,7 +591,7 @@ const searchOnLoopback = (() => {
     await checkStatus(false);
     await openArea('search-area');
     document.getElementById('run-search').click();
-    await window.searchDone;
+    await appApi.searchDone;
     const status = document.getElementById('search-status').textContent;
     if (!connected) return checkDisconnectedSearch(status);
     await checkSearchResult(status);
@@ -603,11 +603,11 @@ const searchOnLoopback = (() => {
 const searchForged = async () => {
   await openArea('search-area');
   document.getElementById('run-search').click();
-  await window.searchDone;
+  await appApi.searchDone;
   if (
     document.querySelectorAll('#search-results [data-peer-id]').length ||
     !shown('search-error') ||
-    !searchFailures().split('\n').includes(window.strings['search.failure.invalid'])
+    !searchFailures().split('\n').includes(appApi.strings['search.failure.invalid'])
   ) {
     throw new Error(
       `forged search: ${document.getElementById('search-status').textContent}, ` +
@@ -615,7 +615,7 @@ const searchForged = async () => {
     );
   }
   document.querySelector('#search-error details').open = true;
-  await shot('search-error');
+  await smoke.shot('search-error');
 };
 // Steps that run one check on the reopened identity.
 const readySmokeSteps = (mode) => ({
@@ -623,12 +623,12 @@ const readySmokeSteps = (mode) => ({
   node: checkNode,
   'network-settings-failure': checkNetworkInSettings,
   'settings-privacy-restart': () => checkPrivacy(true),
-  'remove-offline': window.identityRemovalChecks.offline,
-  'remove-tombstone': () => window.identityRemovalChecks.tombstone(mode),
+  'remove-offline': smoke.identityRemovalChecks.offline,
+  'remove-tombstone': () => smoke.identityRemovalChecks.tombstone(mode),
   'profile-save': saveProfileForRestart,
   'profile-restart': checkSavedProfile,
-  'sticker-import': window.stickerFileChecks.importPack,
-  'sticker-restart': window.stickerFileChecks.restart,
+  'sticker-import': smoke.stickerFileChecks.importPack,
+  'sticker-restart': smoke.stickerFileChecks.restart,
   'profile-publish-fail': () => publishProfileOnLoopback(false, true),
   'profile-publish-retry': () => publishProfileOnLoopback(true),
   'search-forged': searchForged,
@@ -647,7 +647,7 @@ const requireSmokeReady = (state) => {
 };
 const checkSmokeLaunch = async (state, step) => {
   requireSmokeReady(state);
-  await window.connectionShown;
+  await appApi.connectionShown;
   if (connection() !== step.slice('launch:'.length)) {
     throw new Error(`launch shows ${connection()}`);
   }
@@ -655,9 +655,9 @@ const checkSmokeLaunch = async (state, step) => {
 const checkSmokeNetworkRestart = async (state) => {
   requireSmokeReady(state);
   if (document.getElementById('seeds').value !== testSeeds) throw new Error('draft lost');
-  if (document.getElementById('network-status').textContent !== window.strings['network.idle'])
+  if (document.getElementById('network-status').textContent !== appApi.strings['network.idle'])
     throw new Error('unchecked draft shown as active');
-  await window.connectionShown;
+  await appApi.connectionShown;
   if (connection() !== 'offline') throw new Error(`no active network shows ${connection()}`);
 };
 const runSmokeIdentityStep = async (state, mode, step) => {
@@ -665,7 +665,7 @@ const runSmokeIdentityStep = async (state, mode, step) => {
     if (state.status !== 'setup') throw new Error('storage picker not shown');
     await chooseStorage(mode, step.slice('wizard-connect:'.length));
   } else if (step === 'add') {
-    await window.uiSmokeAddStep(state, mode, {
+    await smoke.uiSmokeAddStep(state, mode, {
       identityChecks,
       chatChecks,
       presenceChecks,
@@ -736,40 +736,40 @@ const checkModuleStartup = async () => {
     import(new URL('peer-labels.js', document.baseURI).href),
   ]);
   if (
-    localization.strings !== window.strings ||
-    localization.locale !== window.locale ||
-    localization.pseudoLocale !== window.pseudoLocale ||
-    interests.profileInterestTags !== window.profileInterestTags ||
-    interests.showProfileInterests !== window.showProfileInterests ||
-    pixels.stickerPixels !== window.stickerPixels ||
-    pixels.stickerBinaryPixels !== window.stickerBinaryPixels ||
-    fields !== window.profileFields ||
-    form.profileForm !== window.profileForm ||
-    seeking.seekingDraft !== window.seekingDraft ||
-    seeking.showSeeking !== window.showSeeking ||
-    seeking.seekingFacts !== window.seekingFacts ||
-    seeking.profileFormValid !== window.profileFormValid ||
-    peers.shortPeerId !== window.shortPeerId ||
-    peers.shortPeer !== window.shortPeer ||
-    peers.knowPeers !== window.knowPeers ||
-    peers.addKnownPeers !== window.addKnownPeers
+    localization.strings !== appApi.strings ||
+    localization.locale !== appApi.locale ||
+    localization.pseudoLocale !== appApi.pseudoLocale ||
+    interests.profileInterestTags !== appApi.profileInterestTags ||
+    interests.showProfileInterests !== appApi.showProfileInterests ||
+    pixels.stickerPixels !== appApi.stickerPixels ||
+    pixels.stickerBinaryPixels !== appApi.stickerBinaryPixels ||
+    fields !== appApi.profileFields ||
+    form.profileForm !== appApi.profileForm ||
+    seeking.seekingDraft !== appApi.seekingDraft ||
+    seeking.showSeeking !== appApi.showSeeking ||
+    seeking.seekingFacts !== appApi.seekingFacts ||
+    seeking.profileFormValid !== appApi.profileFormValid ||
+    peers.shortPeerId !== appApi.shortPeerId ||
+    peers.shortPeer !== appApi.shortPeer ||
+    peers.knowPeers !== appApi.knowPeers ||
+    peers.addKnownPeers !== appApi.addKnownPeers
   )
     throw new Error('Desktop module startup bridge is inconsistent');
 };
 Promise.all([
-  window.identityShown,
+  appApi.identityShown,
   invokeTest('ui_test_mode'),
   invokeTest('ui_test_existing'),
   invokeTest('ui_test_step'),
 ])
   .then(async ([state, mode, existing, step]) => {
     if (step.startsWith('video-bench:') || step.startsWith('video:'))
-      return window.uiSmokeSystemSteps.video(step);
+      return smoke.uiSmokeSystemSteps.video(step);
     await checkModuleStartup();
     const readySteps = readySmokeSteps(mode);
-    if (step.startsWith('recovery:')) return window.uiSmokeSystemSteps.recovery(state, step);
-    if (step.startsWith('window:')) return window.uiSmokeSystemSteps.windowBounds(step);
-    if (step.startsWith('tray:')) return window.uiSmokeSystemSteps.tray(state, mode, step);
+    if (step.startsWith('recovery:')) return smoke.uiSmokeSystemSteps.recovery(state, step);
+    if (step.startsWith('window:')) return smoke.uiSmokeSystemSteps.windowBounds(step);
+    if (step.startsWith('tray:')) return smoke.uiSmokeSystemSteps.tray(state, mode, step);
     if (step === 'single') {
       // A second launch, started by the smoke once the window is hidden, shows it again.
       await invokeTest('ui_test_hide', { close: false });
@@ -777,13 +777,13 @@ Promise.all([
     }
     if (step.startsWith('link-')) {
       // Not timed like a check: the wait lasts as long as the other client takes.
-      const peerId = await globalThis.uiSmokeGuards.linkStep(step, mode, state);
+      const peerId = await smoke.uiSmokeGuards.linkStep(step, mode, state);
       return invokeTest('ui_test_result', { passed: true, peerId, reason: '' });
     }
     if (!(await runSmokeIdentityStep(state, mode, step))) {
       if (!(await runSmokeNetworkStep(state, step)))
         await runSmokeFallbackStep(state, mode, existing, step, readySteps);
     }
-    return window.uiSmokeReadyStep(mode, existing, step);
+    return smoke.uiSmokeReadyStep(mode, existing, step);
   })
-  .catch(fail);
+  .catch(smoke.fail);

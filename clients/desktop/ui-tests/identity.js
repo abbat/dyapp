@@ -27,7 +27,7 @@ const openArea = async (area, pane = null) => {
   button.click();
   await waitFor(area);
   if (area === 'settings') {
-    await window.settingsShown;
+    await appApi.settingsShown;
     if (pane) openSettings(pane);
   }
 };
@@ -58,7 +58,7 @@ const hiddenRendered = () =>
 // The short Peer ID rule: "@" and the last 6 characters, one more per shared tail, and a copy
 // of the same ID in another slot is no collision.
 const shortPeerIdRule = () => {
-  const short = window.shortPeerId;
+  const short = appApi.shortPeerId;
   const a = `${'0'.repeat(56)}12abcdef`;
   const b = `${'1'.repeat(56)}92abcdef`;
   const c = `${'2'.repeat(56)}12abcdef`;
@@ -106,7 +106,7 @@ const chooseStorage = async (mode, seed) => {
   if (!choice || choice.disabled || choice.hidden) throw new Error('storage choice unavailable');
   assertSetupIdentityActions();
   assertStorageRecommendation();
-  await shot('setup');
+  await smoke.shot('setup');
   const before = (await invokeTest('list_identities')).length;
   choice.click();
   if (
@@ -128,7 +128,7 @@ const chooseStorage = async (mode, seed) => {
   const rendered2 = hiddenRendered();
   if (rendered2.length) throw new Error(`hidden but rendered: ${rendered2}`);
   await checkCopy('copy-peer-id', peerCode);
-  await shot('wizard-network');
+  await smoke.shot('wizard-network');
   if (seed) await connectNetwork(seed);
   else document.getElementById('skip-network').click();
   await waitFor('identity');
@@ -149,13 +149,13 @@ const checkCopy = async (id, source) => {
   const button = document.getElementById(id);
   button.click();
   try {
-    await window.copied;
+    await appApi.copied;
   } finally {
     delete navigator.clipboard.writeText;
   }
   if (
     copied.join() !== source.textContent ||
-    button.textContent !== window.strings['action.copied']
+    button.textContent !== appApi.strings['action.copied']
   )
     throw new Error(`${id} did not copy`);
 };
@@ -169,7 +169,7 @@ const pickReady = async (mode) => {
     );
     throw new Error(`no ready ${mode} identity in the picker: ${shown}`);
   }
-  await shot('picker');
+  await smoke.shot('picker');
   pick.click();
   await waitFor('identity');
 };
@@ -195,14 +195,14 @@ const checkSettingsInventory = async (peerId, mode) => {
       reject(new Error('Settings inventory did not load'));
     }, 10000);
   });
-  await shot('settings');
+  await smoke.shot('settings');
   const active = [...list.children].filter((item) => item.dataset.active === 'true');
-  const short = window.shortPeerId(peerId, expected.map((item) => item.peerId).filter(Boolean));
+  const short = appApi.shortPeerId(peerId, expected.map((item) => item.peerId).filter(Boolean));
   if (
     active.length !== 1 ||
     active[0].dataset.peerId !== peerId ||
     !active[0].textContent.includes(short) ||
-    !active[0].textContent.includes(window.strings[`identity.mode.${mode}`])
+    !active[0].textContent.includes(appApi.strings[`identity.mode.${mode}`])
   ) {
     throw new Error('Settings marked the wrong active identity or storage mode');
   }
@@ -223,35 +223,35 @@ const switchFromSettings = async (mode) => {
 };
 // A pending identity response cannot render after a later transition has shown the picker.
 const checkStaleRender = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   let finishOld;
-  const old = act(
+  const old = appBindings.act(
     new Promise((resolve) => {
       finishOld = resolve;
     }),
   );
-  await act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
   if (document.getElementById('picker').hidden) throw new Error('picker not shown');
   finishOld({ status: 'setup' });
   await old;
   if (document.getElementById('picker').hidden) throw new Error('stale identity response rendered');
-  await act(Promise.resolve(readyState));
+  await appBindings.act(Promise.resolve(readyState));
   if (document.getElementById('identity').hidden) throw new Error('ready view not restored');
   // A failure that arrives after a later transition stays silent.
   let failOld;
-  const oldFailure = act(
+  const oldFailure = appBindings.act(
     new Promise((_, reject) => {
       failOld = reject;
     }),
   );
-  await act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
   failOld(new Error('refused'));
   await oldFailure;
   if (document.getElementById('picker').hidden) throw new Error('stale failure rendered');
-  await act(Promise.resolve(readyState));
+  await appBindings.act(Promise.resolve(readyState));
   // A failed switch or removal offers a way back to the identity the backend kept.
   const retry = document.getElementById('boot-retry');
-  await act(Promise.reject(new Error('refused')));
+  await appBindings.act(Promise.reject(new Error('refused')));
   const actions = document.getElementById('boot-actions');
   if (
     document.getElementById('storage-error').hidden ||
@@ -266,7 +266,7 @@ const checkStaleRender = async () => {
   }
 };
 const { checkStaleSearchAndChats, checkStalePeerActions, checkStaleSafety } =
-  globalThis.uiSmokeIdentityPeer;
+  smoke.uiSmokeIdentityPeer;
 const {
   checkStaleProfileLoad,
   checkStaleProfileHandlers,
@@ -275,9 +275,9 @@ const {
   checkStaleUsageStatus,
   checkStalePrivacy,
   checkStaleBlocked,
-} = globalThis.uiSmokeIdentityProfile;
+} = smoke.uiSmokeIdentityProfile;
 // These fragments are concatenated into one WebView eval; expose the shared test API explicitly.
-globalThis.uiSmokeIdentity = Object.freeze({
+smoke.uiSmokeIdentity = Object.freeze({
   waitFor,
   openArea,
   hiddenRendered,

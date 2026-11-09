@@ -1,3 +1,10 @@
+import { drawPhoto } from './chat-photos.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { shortPeer } from './peer-labels.js';
+import { viewStatus } from './search.js';
+export const controller = {};
+
 // Other people's photos. Lists ask for thumbnails and the profile view for full images, through a
 // memory cache in the desktop core. Whatever fails leaves the letters, and the next view retries.
 const PEER_PHOTO_SIDE = 1600;
@@ -31,11 +38,11 @@ const peerPhotoAuto = async (call) => {
   }
 };
 const peerPhotoLabel = (index, count) =>
-  window.strings['profile.photoLabel'].replace('{n}', index + 1).replace('{count}', count);
+  strings['profile.photoLabel'].replace('{n}', index + 1).replace('{count}', count);
 
 // ponytail: the liked list redraws on each mail pass with news, so a missing thumbnail connects
 // again then; remember misses here if that shows up in traffic.
-window.showCardPhotos = async (found, cards, call = invoke) => {
+controller.showCardPhotos = async (found, cards, call = invoke) => {
   const wanted = found
     .map((item, index) => [item.draft.photos?.[0], cards[index]])
     .filter(([hash]) => hash?.length);
@@ -97,8 +104,8 @@ const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call
   return choose;
 };
 
-window.showFoundPhotos = async (found, call = invoke) => {
-  const letters = window.shortPeer(found.peerId).slice(1, 3);
+controller.showFoundPhotos = async (found, call = invoke) => {
+  const letters = shortPeer(found.peerId).slice(1, 3);
   const thumbnails = found.draft.photos ?? [];
   const originals = found.fullPhotos ?? [];
   const count = thumbnails.length;
@@ -131,7 +138,7 @@ window.showFoundPhotos = async (found, call = invoke) => {
   const choose = foundPhotoChoice({ thumbnails, originals, buttons, showMain, auto, call });
   buttons.forEach((button, index) => {
     button.addEventListener('click', () => {
-      window.peerPhotoChosen = choose(index, auto);
+      controller.peerPhotoChosen = choose(index, auto);
     });
   });
   if (count > 1) viewThumbs.replaceChildren(...buttons);
@@ -139,16 +146,16 @@ window.showFoundPhotos = async (found, call = invoke) => {
 };
 
 viewLoad.addEventListener('click', () => {
-  window.peerPhotoLoaded = (async () => {
+  controller.peerPhotoLoaded = (async () => {
     viewStatus.textContent = '';
     viewLoad.disabled = true;
-    viewLoad.textContent = window.strings['view.photoLoading'];
+    viewLoad.textContent = strings['view.photoLoading'];
     const shown = await loadViewPhoto();
     viewLoad.disabled = false;
-    viewLoad.textContent = window.strings['view.photoLoad'];
+    viewLoad.textContent = strings['view.photoLoad'];
     if (shown) viewMain.focus();
     else if (shown === false) {
-      viewStatus.textContent = window.strings['view.photoFailed'];
+      viewStatus.textContent = strings['view.photoFailed'];
       viewLoad.focus();
     }
   })();

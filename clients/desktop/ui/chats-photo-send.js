@@ -1,4 +1,11 @@
-// Sends a picked photo from the open chat. Loaded after chats-ui.js in the shared page scope.
+import { fitCanvas } from './chat-photos.js';
+import { chatState } from './chat-state.js';
+import { chatSending, sendInChat } from './chats-ui.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+export const controller = {};
+
+// Sends a picked photo from the open chat through the imported chat controller.
 // A canvas writes a bare JPEG, so EXIF, GPS, colour profiles and anything appended to the file
 // never leave the computer. It also turns a rotated photo upright and fits the node limit.
 const MAX_PHOTO_FILE_BYTES = 64 * 1024 * 1024;
@@ -70,10 +77,10 @@ const photoSendError = (code) => {
     notConnected: 'chats.notConnected',
     peerUnavailable: 'chats.peerUnavailable',
   }[code];
-  return key ? window.strings[key] : `${window.strings['chats.sendFailed']} ${code}`;
+  return key ? strings[key] : `${strings['chats.sendFailed']} ${code}`;
 };
 const sendChatPhoto = async (file, call = invoke) => {
-  if (!activeChat || chatSending) return;
+  if (!chatState.activeChat || chatSending) return;
   await sendInChat(
     async (peerId) => call('send_chat_photo', { peerId, ...(await preparePhoto(file)) }),
     () => {},
@@ -84,6 +91,8 @@ const sendChatPhoto = async (file, call = invoke) => {
 document.getElementById('chat-attach').addEventListener('click', () => chatPhotoInput.click());
 chatPhotoInput.addEventListener('change', () => {
   const [file] = chatPhotoInput.files;
-  if (file) window.chatPhotoSent = sendChatPhoto(file);
+  if (file) controller.chatPhotoSent = sendChatPhoto(file);
   chatPhotoInput.value = '';
 });
+
+export { preparePhoto, sendChatPhoto };

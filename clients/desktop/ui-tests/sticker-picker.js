@@ -31,14 +31,14 @@
       frame,
       calls,
       call,
-      ui: window.stickerPicker,
-      before: chatInput.value,
+      ui: appApi.stickerPicker,
+      before: appBindings.chatInput.value,
       sent: 0,
       close() {
         if (closed) return;
         closed = true;
         fixture.ui.close();
-        chatInput.value = fixture.before;
+        appBindings.chatInput.value = fixture.before;
       },
     };
     return fixture;
@@ -46,7 +46,7 @@
   const checkPickerPage = async (fixture) => {
     try {
       const { ui, call, calls, id } = fixture;
-      chatInput.value = 'keep this draft';
+      appBindings.chatInput.value = 'keep this draft';
       await ui.open({
         peerId: 'fixture-peer',
         call,
@@ -71,13 +71,13 @@
         'Pack name interpreted as markup',
       );
       el('next').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(el('next').disabled && !el('previous').disabled, 'Next/Previous cursor state');
       el('previous').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(calls.at(-1).args.after === 0, 'Previous did not restore cursor');
       el('choices').children[1].click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(
         calls.at(-1).command === 'saved_sticker_page' && calls.at(-1).args.packId === id,
         'Saved pack choice lost its ID',
@@ -93,22 +93,23 @@
       const button = el('grid').querySelector('button');
       button.click();
       button.click();
-      await window.stickerSent;
+      await appApi.stickerSent;
       check(
         fixture.sent === 1 &&
           calls.filter((entry) => entry.command === 'send_saved_sticker').length === 1,
         'Duplicate durable send',
       );
       check(
-        chatInput.value === 'keep this draft' && !document.getElementById('sticker-picker').open,
+        appBindings.chatInput.value === 'keep this draft' &&
+          !document.getElementById('sticker-picker').open,
         'Send cleared draft or left picker open',
       );
       await ui.open({ peerId: 'fixture-peer', call });
       el('manage').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(document.getElementById('sticker-manager').open, 'Manager entry lost');
       document.getElementById('sticker-manager-cancel').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(document.getElementById('sticker-picker').open, 'Manager did not return to picker');
       ui.close();
     } catch (error) {
@@ -130,7 +131,7 @@
       check(!el('retry').hidden && !el('retry').disabled, 'Missing load recovery');
       fail = false;
       el('retry').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(el('grid').children.length === 1, 'Retry did not reload the page');
     } catch (error) {
       fixture.close();
@@ -172,7 +173,7 @@
       ]) {
         let rejected = false;
         try {
-          window.stickerPixels(bad, 'bad');
+          appApi.stickerPixels(bad, 'bad');
         } catch {
           rejected = true;
         }
@@ -183,7 +184,7 @@
       throw error;
     }
   };
-  window.checkStickerPicker = async () => {
+  smoke.checkStickerPicker = async () => {
     const fixture = createPickerFixture();
     try {
       await checkPickerPage(fixture);

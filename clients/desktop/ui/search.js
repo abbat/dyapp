@@ -1,5 +1,21 @@
-// The Search area; loaded after app.js, whose helpers (invoke, showArea, placePicker,
-// statusMessage) it shares through the page's global scope.
+import { statusMessage, who, peerLabel, publicFacts, showArea } from './app.js';
+import { copyFrom, controller as clipboardController } from './clipboard.js';
+import { controller as contactNotesController } from './contact-notes.js';
+import { controller as favoritesController } from './favorites.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { shortPeer, addKnownPeers } from './peer-labels.js';
+import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
+import { controller as peerPhotosController } from './peer-photos.js';
+import { placePicker, controller as placesController } from './places.js';
+import * as profileFieldsModule from './profile-fields.js';
+import { controller as savedProfilesController } from './saved-profiles.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+export const cameraState = { stream: null };
+
+// The Search area imports its identity, navigation, place and status helpers.
 // A verified sample from the active network's search nodes. The query stays in the form, and
 // filters appear only for fields every reached node offers and the client re-checks.
 const searchForm = document.getElementById('search');
@@ -35,7 +51,7 @@ const showSearchFilters = (offered) => {
     [...scales.querySelectorAll('select')].map((select) => [select.id, select.value]),
   );
   scales.replaceChildren(
-    ...window.profileFields.scaleFields
+    ...profileFieldsModule.scaleFields
       .filter((scale) => offered.includes(scale.field))
       .map((scale) => {
         const label = document.createElement('label');
@@ -43,16 +59,16 @@ const showSearchFilters = (offered) => {
         select.id = `search-${scale.key}`;
         select.dataset.field = String(scale.field);
         label.htmlFor = select.id;
-        label.textContent = window.strings[`profile.field.${scale.key}`];
+        label.textContent = strings[`profile.field.${scale.key}`];
         const any = document.createElement('option');
         any.value = '0';
-        any.textContent = window.strings['search.any'];
+        any.textContent = strings['search.any'];
         select.append(
           any,
           ...scale.choices.map((choice) => {
             const option = document.createElement('option');
             option.value = String(choice.code);
-            option.textContent = window.strings[`profile.value.${scale.key}.${choice.key}`];
+            option.textContent = strings[`profile.value.${scale.key}.${choice.key}`];
             return option;
           }),
         );
@@ -121,7 +137,7 @@ const searchQuery = () => {
   return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
 };
 const failureText = (failure) => {
-  const text = window.strings[`search.failure.${failure.kind}`];
+  const text = strings[`search.failure.${failure.kind}`];
   return failure.kind === 'rateLimited'
     ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}`
     : text;
@@ -143,9 +159,9 @@ const ageText = (draft) => {
   return passed === null ? `${years - 1}–${years}` : String(passed ? years : years - 1);
 };
 const genderText = (draft) => {
-  const scale = window.profileFields.scaleFields.find((field) => field.key === 'gender');
+  const scale = profileFieldsModule.scaleFields.find((field) => field.key === 'gender');
   const option = scale?.choices.find((choice) => choice.code === draft.gender);
-  return option ? window.strings[`profile.value.gender.${option.key}`] : '';
+  return option ? strings[`profile.value.gender.${option.key}`] : '';
 };
 const summaryText = (found) =>
   [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
@@ -167,7 +183,7 @@ const withPlaces = (profiles) =>
   Promise.all(
     profiles.map(async (profile) => ({
       ...profile,
-      place: await window.placeText(profile.draft.country, profile.draft.place),
+      place: await placesController.placeText(profile.draft.country, profile.draft.place),
     })),
   );
 const viewStatus = document.getElementById('view-status');
@@ -180,12 +196,12 @@ const showLikes = (likes) => {
 };
 let viewed = null;
 let safetyScanToken = 0;
-let cameraStream = null;
+
 let cameraTimer = null;
 let cameraPending = false;
 const showSafetyStatus = (key) => {
   const status = document.getElementById('view-safety-scan-status');
-  status.textContent = window.strings[key];
+  status.textContent = strings[key];
   status.hidden = false;
 };
 const stopSafetyCamera = () => {
@@ -193,15 +209,15 @@ const stopSafetyCamera = () => {
   clearTimeout(cameraTimer);
   cameraTimer = null;
   cameraPending = false;
-  cameraStream?.getTracks().forEach((track) => {
+  cameraState.stream?.getTracks().forEach((track) => {
     track.stop();
   });
-  cameraStream = null;
+  cameraState.stream = null;
   const preview = document.getElementById('view-safety-preview');
   preview.srcObject = null;
   preview.hidden = true;
   const button = document.getElementById('view-safety-camera');
-  button.textContent = window.strings['view.safety.camera.start'];
+  button.textContent = strings['view.safety.camera.start'];
 };
 document.addEventListener('dyapp:identity-change', stopSafetyCamera);
 document.addEventListener('dyapp:area-change', (event) => {
@@ -214,15 +230,15 @@ const showVerified = (verified) => {
   document.getElementById('view-verified').hidden = !verified;
   const state = document.getElementById('view-safety-state');
   state.dataset.i18n = verified ? 'view.safety.verified' : 'view.safety.unverified';
-  state.textContent = window.strings[state.dataset.i18n];
+  state.textContent = strings[state.dataset.i18n];
   document.getElementById('view-confirm').hidden = verified;
   document.getElementById('view-unverify').hidden = !verified;
 };
 const showFound = (found) => {
-  const short = window.shortPeer(found.peerId);
+  const short = shortPeer(found.peerId);
   peerLabel(document.getElementById('view-peer'), found.peerId);
   document.getElementById('view-peer').textContent = short;
-  document.getElementById('view-title').textContent = window.peerName(found.peerId);
+  document.getElementById('view-title').textContent = peerNamesController.peerName(found.peerId);
   document.getElementById('view-summary').textContent = summaryText(found);
   document.getElementById('view-fields').replaceChildren(
     ...publicFacts(found.draft, found.place).flatMap(([label, value]) => {
@@ -236,7 +252,7 @@ const showFound = (found) => {
 };
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
 const openFound = (found, card, call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   stopSafetyCamera();
   const target = { found, card, actionStarted: false };
   viewed = target;
@@ -271,17 +287,17 @@ const openFound = (found, card, call = invoke) => {
     () => {},
   );
   showFound(found);
-  window.favoriteShown = window.showFavorite(call);
-  window.noteShown = window.showContactNote(call);
-  window.peerPhotosShown = window.showFoundPhotos(found, call);
+  controller.favoriteShown = favoritesController.showFavorite(call);
+  progress.noteShown = contactNotesController.showContactNote(call);
+  controller.peerPhotosShown = peerPhotosController.showFoundPhotos(found, call);
   searchMain.hidden = true;
   profileView.hidden = false;
   document.getElementById('view-back').focus();
 };
 const closeFound = () => {
   stopSafetyCamera();
-  window.clearFavorite();
-  window.clearContactNote();
+  favoritesController.clearFavorite();
+  contactNotesController.clearContactNote();
   document.getElementById('view-message').disabled = true;
   profileView.hidden = true;
   searchMain.hidden = false;
@@ -293,7 +309,7 @@ document.getElementById('view-back').addEventListener('click', () => {
   const area = card.closest('section')?.id;
   closeFound();
   if (area === 'search-area') {
-    window.refreshSaved();
+    savedProfilesController.refreshSaved();
     return;
   }
   if (!area || !card.isConnected) return;
@@ -305,7 +321,7 @@ const sendLike = async (liked, call = invoke) => {
   const target = viewed;
   if (!target || target.actionBusy) return;
   const { found } = target;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed === target;
   target.actionBusy = true;
   target.actionStarted = true;
@@ -313,7 +329,7 @@ const sendLike = async (liked, call = invoke) => {
     document.getElementById(id),
   );
   for (const button of buttons) button.disabled = true;
-  viewStatus.textContent = window.strings['view.sending'];
+  viewStatus.textContent = strings['view.sending'];
   try {
     const likes = await call('like_peer', { peerId: found.peerId, liked });
     if (!currentView()) return;
@@ -323,14 +339,14 @@ const sendLike = async (liked, call = invoke) => {
     if (!currentView()) return;
     const code = String(error);
     viewStatus.textContent =
-      window.strings[`view.like.${code}`] ?? `${window.strings['view.like.failed']} ${code}`;
+      strings[`view.like.${code}`] ?? `${strings['view.like.failed']} ${code}`;
     // A failed send can still be staged, so the stored state decides the button and says that
     // the catch-up pass will retry it.
     await call('peer_likes', { peerId: found.peerId }).then(
       (likes) => {
         if (!currentView()) return;
         showLikes(likes);
-        if (likes.ours === liked) viewStatus.textContent = window.strings['view.like.pending'];
+        if (likes.ours === liked) viewStatus.textContent = strings['view.like.pending'];
       },
       () => {},
     );
@@ -340,7 +356,7 @@ const sendLike = async (liked, call = invoke) => {
   }
 };
 document.getElementById('view-like').addEventListener('click', () => {
-  window.likeDone = sendLike(true);
+  controller.likeDone = sendLike(true);
 });
 const unlikeDialog = document.getElementById('unlike-dialog');
 document.getElementById('view-unlike').addEventListener('click', () => {
@@ -354,14 +370,14 @@ unlikeDialog.addEventListener('close', () => {
 document.getElementById('unlike-cancel').addEventListener('click', () => unlikeDialog.close());
 document.getElementById('unlike-confirm').addEventListener('click', () => {
   unlikeDialog.close();
-  window.likeDone = sendLike(false);
+  controller.likeDone = sendLike(false);
 });
 // A pass stays with the own devices: the card leaves its list at once and the open profile can undo it.
 const sendPass = async (passed, call = invoke) => {
   const target = viewed;
   if (!target || target.actionBusy) return;
   const { found, card } = target;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed === target;
   target.actionBusy = true;
   target.actionStarted = true;
@@ -369,7 +385,7 @@ const sendPass = async (passed, call = invoke) => {
     document.getElementById(id),
   );
   for (const button of buttons) button.disabled = true;
-  viewStatus.textContent = window.strings['view.pass.saving'];
+  viewStatus.textContent = strings['view.pass.saving'];
   try {
     const likes = await call('pass_peer', { peerId: found.peerId, passed });
     if (!currentView()) return;
@@ -380,10 +396,9 @@ const sendPass = async (passed, call = invoke) => {
         document.querySelectorAll('#chats-liked-list [data-peer-id]:not([hidden])').length,
       );
     }
-    viewStatus.textContent = window.strings[passed ? 'view.passed' : 'view.unpassed'];
+    viewStatus.textContent = strings[passed ? 'view.passed' : 'view.unpassed'];
   } catch (error) {
-    if (currentView())
-      viewStatus.textContent = `${window.strings['view.pass.failed']} ${String(error)}`;
+    if (currentView()) viewStatus.textContent = `${strings['view.pass.failed']} ${String(error)}`;
   } finally {
     target.actionBusy = false;
     if (currentView()) for (const button of buttons) button.disabled = false;
@@ -394,7 +409,7 @@ for (const [id, passed] of [
   ['view-unpass', false],
 ]) {
   document.getElementById(id).addEventListener('click', () => {
-    window.passDone = sendPass(passed);
+    controller.passDone = sendPass(passed);
   });
 }
 copyFrom(
@@ -406,21 +421,21 @@ const copySafety = (call = invoke) => {
   const button = document.getElementById('copy-safety-number');
   const source = document.getElementById('view-safety-number');
   const found = viewed?.found;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
-  const token = ++window.clipboardCopyToken;
+  const token = ++clipboardController.clipboardCopyToken;
   return call('copy_safety_number', { peerId: found?.peerId }).then(
     (copy) => {
       if (currentView()) {
-        button.textContent = window.strings['action.copied'];
+        button.textContent = strings['action.copied'];
         setTimeout(() => {
-          if (currentView()) button.textContent = window.strings['view.safety.copy'];
+          if (currentView()) button.textContent = strings['view.safety.copy'];
         }, 2000);
       }
       // Clear the old sensitive value even if the user switched identities before copy completed.
       setTimeout(() => {
-        window.safetyClearDone =
-          token === window.clipboardCopyToken
+        controller.safetyClearDone =
+          token === clipboardController.clipboardCopyToken
             ? invoke('clear_safety_clipboard', { expected: copy }).catch(() => false)
             : Promise.resolve(false);
       }, 60000);
@@ -431,7 +446,7 @@ const copySafety = (call = invoke) => {
   );
 };
 document.getElementById('copy-safety-number').addEventListener('click', () => {
-  window.safetyCopied = copySafety();
+  controller.safetyCopied = copySafety();
 });
 const drawContactQr = ({ size, modules }, canvas = document.getElementById('view-safety-qr')) => {
   if (!Number.isInteger(size) || size < 21 || size > 177 || modules?.length !== size * size) {
@@ -452,7 +467,7 @@ const drawContactQr = ({ size, modules }, canvas = document.getElementById('view
 };
 const loadSafety = (call = invoke) => {
   const { found } = viewed;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-safety');
   const panel = document.getElementById('view-safety-panel');
@@ -475,19 +490,19 @@ const loadSafety = (call = invoke) => {
       button.setAttribute('aria-expanded', 'true');
     })
     .catch(() => {
-      if (currentView()) viewStatus.textContent = window.strings['view.safety.failed'];
+      if (currentView()) viewStatus.textContent = strings['view.safety.failed'];
     })
     .finally(() => {
       if (currentView()) button.disabled = false;
     });
 };
 document.getElementById('view-safety').addEventListener('click', () => {
-  window.safetyDone = loadSafety();
+  controller.safetyDone = loadSafety();
 });
 // Only this path writes the mark; the answer is the signed profile the mark was made from.
 const confirmContact = (call = invoke) => {
   const { found, card } = viewed;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-confirm');
   button.disabled = true;
@@ -505,12 +520,12 @@ const confirmContact = (call = invoke) => {
       Object.assign(found, placed);
       showFound(found);
       card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
-      window.showCardPhotos([found], [card], call);
+      peerPhotosController.showCardPhotos([found], [card], call);
     },
     (error) => {
       if (!currentView()) return;
       const key = `view.safety.confirm.${error}`;
-      showSafetyStatus(window.strings[key] ? key : 'view.safety.confirm.failed');
+      showSafetyStatus(strings[key] ? key : 'view.safety.confirm.failed');
       button.disabled = false;
       button.focus();
     },
@@ -518,7 +533,7 @@ const confirmContact = (call = invoke) => {
 };
 const removeMark = (call = invoke) => {
   const { found, card } = viewed;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   const button = document.getElementById('view-unverify');
   button.disabled = true;
@@ -533,7 +548,7 @@ const removeMark = (call = invoke) => {
       if (!currentView()) return;
       showFound(found);
       card.replaceChildren(...who(card, found.peerId, '', summaryText(found)));
-      window.showCardPhotos([found], [card], call);
+      peerPhotosController.showCardPhotos([found], [card], call);
     },
     () => {
       if (!currentView()) return;
@@ -558,10 +573,10 @@ document.addEventListener('dyapp:identity-change', () => {
 document.getElementById('verify-cancel').addEventListener('click', () => verifyDialog.close());
 document.getElementById('verify-confirm').addEventListener('click', () => {
   verifyDialog.close();
-  window.confirmDone = confirmContact();
+  controller.confirmDone = confirmContact();
 });
 document.getElementById('view-unverify').addEventListener('click', () => {
-  window.confirmDone = removeMark();
+  controller.confirmDone = removeMark();
 });
 const grayscaleFrame = (context, width, height) => {
   const rgba = context.getImageData(0, 0, width, height).data;
@@ -574,9 +589,9 @@ const grayscaleFrame = (context, width, height) => {
   return pixels;
 };
 // The UI smoke passes a PNG made from the rendered canvas through this same file path.
-globalThis.scanQrFile = async (file) => {
+controller.scanQrFile = async (file) => {
   const found = viewed?.found;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const panel = document.getElementById('view-safety-panel');
   const token = ++safetyScanToken;
   const current = () =>
@@ -641,12 +656,12 @@ const scanSafetyCameraFrame = async (found, frame, current) => {
 };
 const safetyCameraScanner = (found, preview, current) => {
   const scan = async () => {
-    if (!current() || !cameraStream) return;
+    if (!current() || !cameraState.stream) return;
     try {
       const frame = safetyCameraFrame(preview);
       if (frame && (await scanSafetyCameraFrame(found, frame, current))) return;
       if (!current()) return;
-      if (cameraStream.getVideoTracks()[0]?.readyState === 'ended') {
+      if (cameraState.stream.getVideoTracks()[0]?.readyState === 'ended') {
         stopSafetyCamera();
         showSafetyStatus('view.safety.camera.unavailable');
         return;
@@ -674,13 +689,13 @@ const startSafetyCamera = async (found, preview, current) => {
       });
       return;
     }
-    cameraStream = stream;
+    cameraState.stream = stream;
     cameraPending = false;
     preview.srcObject = stream;
     preview.hidden = false;
     await preview.play();
     if (!current()) {
-      if (cameraStream === stream) stopSafetyCamera();
+      if (cameraState.stream === stream) stopSafetyCamera();
       return;
     }
     showSafetyStatus('view.safety.camera.scanning');
@@ -698,13 +713,13 @@ const startSafetyCamera = async (found, preview, current) => {
   }
 };
 document.getElementById('view-safety-camera').addEventListener('click', () => {
-  if (cameraPending || cameraStream) {
+  if (cameraPending || cameraState.stream) {
     stopSafetyCamera();
     showSafetyStatus('view.safety.camera.stopped');
     return;
   }
   const found = viewed?.found;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const panel = document.getElementById('view-safety-panel');
   if (!found || panel.hidden) return;
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -722,9 +737,9 @@ document.getElementById('view-safety-camera').addEventListener('click', () => {
   const button = document.getElementById('view-safety-camera');
   const preview = document.getElementById('view-safety-preview');
   cameraPending = true;
-  button.textContent = window.strings['view.safety.camera.stop'];
+  button.textContent = strings['view.safety.camera.stop'];
   showSafetyStatus('view.safety.camera.starting');
-  window.cameraDone = startSafetyCamera(found, preview, current);
+  controller.cameraDone = startSafetyCamera(found, preview, current);
 });
 document.getElementById('view-safety-select').addEventListener('click', () => {
   document.getElementById('view-safety-image').click();
@@ -733,12 +748,12 @@ document.getElementById('view-safety-image').addEventListener('change', (event) 
   const input = event.currentTarget;
   const file = input.files?.[0];
   input.value = '';
-  if (file) window.scanQrDone = globalThis.scanQrFile(file);
+  if (file) controller.scanQrDone = controller.scanQrFile(file);
 });
 // The local block takes effect even if token revocation cannot reach a node.
 const blockViewed = async (call = invoke) => {
   const { found, card } = viewed;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const currentView = () => identityCurrent(generation) && viewed?.found === found;
   let result;
   try {
@@ -756,15 +771,15 @@ const blockViewed = async (call = invoke) => {
       document.getElementById('chats-liked-list').children.length,
     );
   closeFound();
-  if (savedRow) window.refreshSaved();
+  if (savedRow) savedProfilesController.refreshSaved();
   return searchMessage(`search.blocked.${result.revocation}`);
 };
 document.getElementById('view-block').addEventListener('click', () => {
-  window.blockDone = blockViewed();
+  controller.blockDone = blockViewed();
 });
 const searchError = document.getElementById('search-error');
 const showSearchError = (key, details) => {
-  document.getElementById('search-error-text').textContent = window.strings[key];
+  document.getElementById('search-error-text').textContent = strings[key];
   document.getElementById('search-failures').textContent = details;
   searchError.hidden = false;
 };
@@ -793,7 +808,7 @@ const renderSearchResults = (result, found, call) => {
   searchResults.replaceChildren(
     ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
   );
-  window.showCardPhotos(found, [...searchResults.children], call);
+  peerPhotosController.showCardPhotos(found, [...searchResults.children], call);
   const count = String(found.length);
   if (result.partial || result.failures.length) {
     searchMessage('search.partial', count);
@@ -804,10 +819,10 @@ const renderSearchResults = (result, found, call) => {
   searchAgain.hidden = !found.length;
 };
 const runSearch = async (call = invoke) => {
-  window.profileFields.checkRange('search-age-min', 'search-age-max');
-  window.profileFields.checkRange('search-height-min', 'search-height-max');
+  profileFieldsModule.checkRange('search-age-min', 'search-age-max');
+  profileFieldsModule.checkRange('search-height-min', 'search-height-max');
   if (searchBusy || !searchForm.reportValidity()) return;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const query = searchQuery();
   closeFound();
   clearSearch();
@@ -818,7 +833,7 @@ const runSearch = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     const found = await withPlaces(result.profiles);
     if (!identityCurrent(generation)) return;
-    window.addKnownPeers(result.profiles);
+    addKnownPeers(result.profiles);
     await loadPeerNames(
       found.map((item) => item.peerId),
       call,
@@ -842,7 +857,7 @@ const runSearch = async (call = invoke) => {
     if (identityCurrent(generation)) setSearchBusy(false);
   }
 };
-window.resetSearch = () => {
+controller.resetSearch = () => {
   setSearchBusy(false);
   searchForm.reset();
   searchPlace.set(null);
@@ -853,13 +868,39 @@ window.resetSearch = () => {
 };
 searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  window.searchDone = runSearch();
+  controller.searchDone = runSearch();
 });
 for (const id of ['profile-open-network', 'search-open-network', 'chats-open-network']) {
   document.getElementById(id).addEventListener('click', () => showArea('network-area'));
 }
 for (const button of [searchRetry, searchAgain]) {
   button.addEventListener('click', () => {
-    window.searchDone = runSearch();
+    controller.searchDone = runSearch();
   });
 }
+
+export {
+  blockViewed,
+  cameraPending,
+  clearSearch,
+  closeFound,
+  confirmContact,
+  copySafety,
+  drawContactQr,
+  loadSafety,
+  openFound,
+  profileView,
+  removeMark,
+  resultCard,
+  runSearch,
+  searchBusy,
+  searchMain,
+  searchQuery,
+  searchResults,
+  sendLike,
+  sendPass,
+  showSearchFilters,
+  viewStatus,
+  viewed,
+  withPlaces,
+};

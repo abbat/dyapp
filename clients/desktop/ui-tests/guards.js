@@ -1,20 +1,20 @@
 // Desktop UI smoke: remaining generation and Settings checks.
 // An old inventory load must not replace the newer identity's Settings rows or error.
 const checkStaleSettingsInventory = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   const list = document.getElementById('settings-identities');
   const error = document.getElementById('settings-error');
   const switchAndLoad = async () => {
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     await openArea('settings', 'identities');
     const items = await invokeTest('list_identities');
-    await showSettingsIdentities(() => Promise.resolve(items));
+    await appBindings.showSettingsIdentities(() => Promise.resolve(items));
     return [...list.children].map((row) => row.dataset.peerId).join();
   };
   await openArea('settings', 'identities');
   let finishLoad;
-  const oldLoad = showSettingsIdentities(
+  const oldLoad = appBindings.showSettingsIdentities(
     () =>
       new Promise((resolve) => {
         finishLoad = resolve;
@@ -29,7 +29,7 @@ const checkStaleSettingsInventory = async () => {
   }
 
   let failLoad;
-  const oldFailure = showSettingsIdentities(
+  const oldFailure = appBindings.showSettingsIdentities(
     () =>
       new Promise((_, reject) => {
         failLoad = reject;
@@ -43,25 +43,25 @@ const checkStaleSettingsInventory = async () => {
 };
 // A tray result from an old Settings view cannot replace the new controls.
 const checkStaleTray = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   const show = document.getElementById('tray-show');
   const close = document.getElementById('tray-close');
   const note = document.getElementById('tray-note');
   await openArea('settings', 'appearance');
-  await window.trayShown;
+  await appApi.trayShown;
   let finishOld;
-  const oldTray = setTray(
+  const oldTray = appBindings.setTray(
     null,
     () =>
       new Promise((resolve) => {
         finishOld = resolve;
       }),
   );
-  await act(Promise.resolve({ status: 'picker' }));
-  await act(Promise.resolve(readyState));
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve(readyState));
   await openArea('settings', 'appearance');
-  await window.trayShown;
-  await setTray(null, () =>
+  await appApi.trayShown;
+  await appBindings.setTray(null, () =>
     Promise.resolve({
       available: true,
       show: true,
@@ -73,24 +73,24 @@ const checkStaleTray = async () => {
   if (!show.checked || show.disabled || !close.checked || close.disabled || !note.hidden) {
     throw new Error('old tray result changed new Settings controls');
   }
-  await setTray(null);
+  await appBindings.setTray(null);
 };
 // Old removal preparation cannot open the dialog after another identity renders.
 const checkStaleRemovePreparation = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   const items = await invokeTest('list_identities');
   let finishList;
-  const oldList = showRemove(
+  const oldList = appBindings.showRemove(
     () =>
       new Promise((resolve) => {
         finishList = resolve;
       }),
   );
-  await act(Promise.resolve({ status: 'picker' }));
-  await act(Promise.resolve(readyState));
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve(readyState));
   finishList(items);
   await oldList;
-  if (removeDialog.open || !removeDialog.hidden) {
+  if (appBindings.removeDialog.open || !appBindings.removeDialog.hidden) {
     throw new Error('old removal inventory opened new dialog');
   }
 
@@ -98,7 +98,7 @@ const checkStaleRemovePreparation = async () => {
   const profileStarted = new Promise((resolve) => {
     startedProfile = resolve;
   });
-  const oldProfile = showRemove((command) =>
+  const oldProfile = appBindings.showRemove((command) =>
     command === 'list_identities'
       ? Promise.resolve(items)
       : new Promise((resolve) => {
@@ -108,23 +108,27 @@ const checkStaleRemovePreparation = async () => {
   );
   await profileStarted;
   if (!finishProfile) throw new Error('old removal profile load did not start');
-  await act(Promise.resolve({ status: 'picker' }));
-  await act(Promise.resolve(readyState));
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve(readyState));
   finishProfile({ published: 1 });
   await oldProfile;
-  if (removeDialog.open || !removeDialog.hidden) {
+  if (appBindings.removeDialog.open || !appBindings.removeDialog.hidden) {
     throw new Error('old removal profile opened new dialog');
   }
-  await showRemove((command) => Promise.resolve(command === 'list_identities' ? items : null));
-  if (!removeDialog.open) throw new Error('current removal dialog did not open');
-  const oldClose = closed(removeDialog);
-  removeDialog.close();
-  await showRemove((command) => Promise.resolve(command === 'list_identities' ? items : null));
+  await appBindings.showRemove((command) =>
+    Promise.resolve(command === 'list_identities' ? items : null),
+  );
+  if (!appBindings.removeDialog.open) throw new Error('current removal dialog did not open');
+  const oldClose = closed(appBindings.removeDialog);
+  appBindings.removeDialog.close();
+  await appBindings.showRemove((command) =>
+    Promise.resolve(command === 'list_identities' ? items : null),
+  );
   await oldClose;
-  if (!removeDialog.open || removeDialog.hidden)
+  if (!appBindings.removeDialog.open || appBindings.removeDialog.hidden)
     throw Error('Old close hid a reopened removal dialog');
-  const finalClose = closed(removeDialog);
-  removeDialog.close();
+  const finalClose = closed(appBindings.removeDialog);
+  appBindings.removeDialog.close();
   await finalClose;
 };
 // The close event, which the app handles first, comes on a later task in no fixed order with
@@ -143,42 +147,45 @@ const closed = (dialog) =>
   });
 // A revocation of another slot wipes nothing; the active slot's closes dialogs and says why.
 const checkDeviceRevoked = async () => {
-  await showRemove((command) => Promise.resolve(command === 'list_identities' ? [] : null));
+  await appBindings.showRemove((command) =>
+    Promise.resolve(command === 'list_identities' ? [] : null),
+  );
   let removed = 0;
   const remove = async () => {
     removed += 1;
   };
-  await window.deviceRevoked('another slot', remove);
-  if (removed || !removeDialog.open) throw new Error('another slot was wiped');
-  await window.deviceRevoked(current.slot, async () => {
+  await appApi.deviceRevoked('another slot', remove);
+  if (removed || !appBindings.removeDialog.open) throw new Error('another slot was wiped');
+  await appApi.deviceRevoked(appBindings.current.slot, async () => {
     removed += 1;
     return { status: 'error' };
   });
-  if (removed !== 1 || removeDialog.open || revokedDialog.open) {
+  if (removed !== 1 || appBindings.removeDialog.open || appBindings.revokedDialog.open) {
     throw new Error('a failed wipe claimed success');
   }
-  await window.deviceRevoked(current.slot, remove);
-  if (removed !== 2 || !revokedDialog.open) throw new Error('a wipe did not say why');
+  await appApi.deviceRevoked(appBindings.current.slot, remove);
+  if (removed !== 2 || !appBindings.revokedDialog.open) throw new Error('a wipe did not say why');
   document.getElementById('revoked-ok').click();
-  await closed(revokedDialog);
-  if (revokedDialog.open || !revokedDialog.hidden) throw new Error('the notice stayed open');
+  await closed(appBindings.revokedDialog);
+  if (appBindings.revokedDialog.open || !appBindings.revokedDialog.hidden)
+    throw new Error('the notice stayed open');
 };
 // An old withdrawal cannot remove the new identity or switch its dialog to Offline.
-const checkStaleWithdrawal = window.uiSmokeLifecycleGuards.withdrawal;
+const checkStaleWithdrawal = smoke.uiSmokeLifecycleGuards.withdrawal;
 // An old launch connection cannot repaint the new shell or start another dial.
 const checkStaleLaunchConnection = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   const currentConnection = async () => {
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
-    await window.connectionShown;
-    await connectAtLaunch((command) =>
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
+    await appApi.connectionShown;
+    await appBindings.connectAtLaunch((command) =>
       Promise.resolve(command === 'load_network' ? { name: 'new network' } : true),
     );
   };
   const checkCurrent = (message) => {
     if (
-      connectionStatus.dataset.state !== 'connected' ||
+      appBindings.connectionStatus.dataset.state !== 'connected' ||
       document.getElementById('connection-network').textContent !== 'new network'
     ) {
       throw new Error(message);
@@ -186,7 +193,7 @@ const checkStaleLaunchConnection = async () => {
   };
   let finishActive;
   let oldDials = 0;
-  const oldActive = connectAtLaunch((command) => {
+  const oldActive = appBindings.connectAtLaunch((command) => {
     if (command === 'load_network')
       return new Promise((resolve) => {
         finishActive = resolve;
@@ -201,7 +208,7 @@ const checkStaleLaunchConnection = async () => {
   if (oldDials) throw new Error('old active network started a new dial');
 
   let finishDial;
-  const oldDial = connectAtLaunch((command) =>
+  const oldDial = appBindings.connectAtLaunch((command) =>
     command === 'load_network'
       ? Promise.resolve({ name: 'old network' })
       : new Promise((resolve) => {
@@ -219,14 +226,14 @@ const checkStaleLaunchConnection = async () => {
 };
 // The same place text on B must keep B's suggestion ID when A responds late.
 const checkStalePlaceSuggestions = async () => {
-  const readyState = current;
+  const readyState = appBindings.current;
   const countryInput = document.createElement('input');
   const input = document.createElement('input');
   const list = document.createElement('datalist');
   countryInput.value = 'DE';
   let finishOld;
   let calls = 0;
-  const picker = placePicker(
+  const picker = appBindings.placePicker(
     countryInput,
     input,
     list,
@@ -242,12 +249,12 @@ const checkStalePlaceSuggestions = async () => {
   );
   input.value = 'Berlin';
   input.dispatchEvent(new Event('input'));
-  const oldPlaces = window.placesShown;
-  await act(Promise.resolve({ status: 'picker' }));
-  await act(Promise.resolve(readyState));
+  const oldPlaces = appApi.placesShown;
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
+  await appBindings.act(Promise.resolve(readyState));
   input.value = 'Berlin';
   input.dispatchEvent(new Event('input'));
-  await window.placesShown;
+  await appApi.placesShown;
   if (picker.id() !== '2' || !input.validity.valid) {
     throw new Error('current place suggestion did not render');
   }
@@ -263,7 +270,7 @@ const checkStalePlaceSuggestions = async () => {
 };
 // Removes the opened identity through both confirmations, then opens the one left.
 const removeOpened = async (state, mode) => {
-  const { strings } = window;
+  const { strings } = appApi;
   if (state.status === 'ready') {
     await openArea('settings', 'identities');
     document.getElementById('settings-remove').click();
@@ -271,7 +278,7 @@ const removeOpened = async (state, mode) => {
     if (!document.getElementById('remove-action').disabled) {
       throw new Error('remove enabled before confirmation');
     }
-    const cancelled = closed(removeDialog);
+    const cancelled = closed(appBindings.removeDialog);
     document.getElementById('remove-cancel').click();
     await cancelled;
     if (
@@ -289,7 +296,7 @@ const removeOpened = async (state, mode) => {
   if (document.activeElement.id !== 'remove-cancel') {
     throw new Error('Cancel is not focused in the removal dialog');
   }
-  await shot('remove');
+  await smoke.shot('remove');
   const action = document.getElementById('remove-action');
   if (
     document.getElementById('remove-peer').textContent !==
@@ -316,11 +323,11 @@ const removeOpened = async (state, mode) => {
 // Nothing listens on port 1, so that row is refused at once; `seed` has no port.
 const testSeeds = '127.0.0.1:1\nseed';
 const submitCheck = async (rows) => {
-  const { strings } = window;
+  const { strings } = appApi;
   if (document.getElementById('wizard-network').hidden) await openArea('network-area');
   document.getElementById('seeds').value = rows;
   document.getElementById('check-connection').click();
-  await window.connectionChecked;
+  await appApi.connectionChecked;
   const status = document.getElementById('network-status').textContent;
   return status === strings['network.empty']
     ? 'empty'
@@ -338,24 +345,24 @@ const expectFailed = (rows, state) => {
 const connectNetwork = async (seed) => {
   const rows = await submitCheck(seed);
   if (rows.join() !== 'connected') throw new Error(`rows ${rows}`);
-  if (document.getElementById('network-status').textContent !== window.strings['network.active'])
+  if (document.getElementById('network-status').textContent !== appApi.strings['network.active'])
     throw new Error('connection not activated');
   if (connection() !== 'connected') throw new Error(`shell shows ${connection()}`);
-  if (!document.getElementById('identity').hidden) await shot('network-connected');
+  if (!document.getElementById('identity').hidden) await smoke.shot('network-connected');
 };
 // An empty list is refused, then a refused and a malformed row activate nothing.
 const checkNetwork = async () => {
   // The launch connect settles first, so it cannot overwrite the status this check sets.
-  await window.connectionShown;
+  await appApi.connectionShown;
   const state = connection();
   if ((await submitCheck('')) !== 'empty') throw new Error('empty list not reported');
-  await shot('network-empty');
+  await smoke.shot('network-empty');
   const rows = await submitCheck(testSeeds);
   if (rows.join() !== 'unreachable,invalidAddress') throw new Error(`rows ${rows}`);
-  await shot('network-failure');
+  await smoke.shot('network-failure');
   if (
     document.getElementById('network-status').textContent !==
-    window.strings['network.invalidAddress']
+    appApi.strings['network.invalidAddress']
   )
     throw new Error('row problem not summarized');
   expectFailed(testSeeds.split('\n'), state);
@@ -363,7 +370,7 @@ const checkNetwork = async () => {
 // A seed that accepts and never answers keeps the check running until Cancel stops it.
 const cancelNetwork = async (seed) => {
   // The launch connect settles first, so it cannot overwrite the status this check sets.
-  await window.connectionShown;
+  await appApi.connectionShown;
   const state = connection();
   if (document.getElementById('wizard-network').hidden) await openArea('network-area');
   document.getElementById('seeds').value = seed;
@@ -372,7 +379,7 @@ const cancelNetwork = async (seed) => {
   if (cancel.hidden) throw new Error('Cancel not offered while checking');
   // Repeated, because a Cancel that lands before the check starts stops nothing.
   let settled = false;
-  window.connectionChecked.finally(() => {
+  appApi.connectionChecked.finally(() => {
     settled = true;
   });
   while (!settled) {
@@ -381,7 +388,7 @@ const cancelNetwork = async (seed) => {
       setTimeout(resolve, 200);
     });
   }
-  if (document.getElementById('network-status').textContent !== window.strings['network.cancelled'])
+  if (document.getElementById('network-status').textContent !== appApi.strings['network.cancelled'])
     throw new Error('check not cancelled');
   if (!cancel.hidden) throw new Error('cancelled check left Cancel shown');
   if (connection() !== state) throw new Error(`cancelled check left ${connection()}`);
@@ -389,7 +396,7 @@ const cancelNetwork = async (seed) => {
 // The live node under a wrong pin or another network name, then down: nothing activates.
 const checkWrongNetwork = async (seed) => {
   // The launch connect settles first, so it cannot overwrite the status this check sets.
-  await window.connectionShown;
+  await appApi.connectionShown;
   const state = connection();
   const name = document.getElementById('network-name');
   const otherPeer = '12D3KooW9tJMax94Lrqw7Y5Qw36viGQAS2gTEPQ5Wg1vTk7xPfQs';
@@ -397,7 +404,7 @@ const checkWrongNetwork = async (seed) => {
     const shown = await submitCheck(rows);
     if (
       shown.join() !== statuses ||
-      document.getElementById('network-status').textContent !== window.strings[summary]
+      document.getElementById('network-status').textContent !== appApi.strings[summary]
     )
       throw new Error(`${rows}: rows ${shown}`);
     expectFailed([rows], state);
@@ -423,7 +430,7 @@ const checkNetworkInSettings = async () => {
   await openArea('network-area');
   if (
     document.getElementById('network-status').textContent !==
-      window.strings['network.invalidAddress'] ||
+      appApi.strings['network.invalidAddress'] ||
     [...document.querySelectorAll('#seed-rows li')].map((row) => row.dataset.status).join() !==
       'unreachable,invalidAddress'
   ) {
@@ -432,11 +439,11 @@ const checkNetworkInSettings = async () => {
   await openArea('profile-area');
 };
 const checkSettingsLanguage = async () => {
-  const strings = window.strings;
+  const strings = appApi.strings;
   await openArea('settings');
-  const expectedTitle = window.pseudoLocale
+  const expectedTitle = appApi.pseudoLocale
     ? '[Séttíngs····]'
-    : window.locale === 'ru'
+    : appApi.locale === 'ru'
       ? 'Настройки'
       : 'Settings';
   if (document.querySelector('#settings h1').textContent !== expectedTitle) {
@@ -469,13 +476,13 @@ const privacyIds = [
 const privacyState = () => privacyIds.map((id) => document.getElementById(id).checked).join();
 const expectPrivacy = async (expected) => {
   await openArea('settings', 'privacy');
-  await window.privacyShown;
+  await appApi.privacyShown;
   if (privacyState() !== expected || shown('privacy-error')) {
     throw new Error(`privacy settings ${privacyState()}, expected ${expected}`);
   }
 };
-const checkPrivacy = window.uiSmokeSettingsGuards.privacy;
-const checkDevices = window.uiSmokeSettingsGuards.devices;
+const checkPrivacy = smoke.uiSmokeSettingsGuards.privacy;
+const checkDevices = smoke.uiSmokeSettingsGuards.devices;
 // A pasted code with stubbed commands: nothing is sent before the confirmation.
 const checkLinkCode = async () => {
   const code = document.getElementById('device-code-dialog');
@@ -487,15 +494,15 @@ const checkLinkCode = async () => {
   if (!code.open || document.activeElement.id !== 'device-code') {
     throw new Error('link code dialog did not open');
   }
-  codeField.value = 'dyapp-link:1:code';
-  await checkCode(refuse('bad'));
+  appBindings.codeField.value = 'dyapp-link:1:code';
+  await appBindings.checkCode(refuse('bad'));
   if (invalid.hidden || !code.open) throw new Error('a bad code gave no message');
-  await checkCode(refuse('expired'));
-  if (!invalid.hidden || problem.textContent !== window.strings['devices.code.expired']) {
+  await appBindings.checkCode(refuse('expired'));
+  if (!invalid.hidden || problem.textContent !== appApi.strings['devices.code.expired']) {
     throw new Error('an expired code gave no message');
   }
   const sent = [];
-  await checkCode((command) => {
+  await appBindings.checkCode((command) => {
     sent.push(command);
     return Promise.resolve();
   });
@@ -507,28 +514,28 @@ const checkLinkCode = async () => {
   ) {
     throw new Error(`code did not reach the confirmation: ${sent}`);
   }
-  await sendLink(refuse('notConnected'));
+  await appBindings.sendLink(refuse('notConnected'));
   if (
     confirm.open ||
     !code.open ||
-    problem.textContent !== window.strings['devices.code.offline']
+    problem.textContent !== appApi.strings['devices.code.offline']
   ) {
     throw new Error('a failed send did not return to the code');
   }
   code.close();
-  await sendLink((command, args) => {
+  await appBindings.sendLink((command, args) => {
     sent.push(command, args.code);
     return Promise.resolve();
   });
   if (
     sent.join() !== 'check_link_code,send_link,dyapp-link:1:code' ||
-    document.getElementById('devices-status').textContent !== window.strings['devices.sent']
+    document.getElementById('devices-status').textContent !== appApi.strings['devices.sent']
   ) {
     throw new Error(`send sent ${sent}`);
   }
 };
 // The link page against a stub backend; two clients linking are the smoke's.
-const checkLinkScreen = window.uiSmokeLifecycleGuards.linkScreen;
+const checkLinkScreen = smoke.uiSmokeLifecycleGuards.linkScreen;
 // Every chat of a linked device says where its history starts; no chat of a first device does.
 const checkLinkedNotice = async () => {
   const notice = document.getElementById('chat-linked-notice');
@@ -539,12 +546,12 @@ const checkLinkedNotice = async () => {
     return Promise.resolve(false);
   };
   await openArea('chats-area');
-  await openChat(peer, call(true));
+  await appBindings.openChat(peer, call(true));
   if (notice.hidden) throw new Error('a chat on a linked device has no history notice');
-  await shot('chat-linked');
-  await openChat(peer, call(false));
+  await smoke.shot('chat-linked');
+  await appBindings.openChat(peer, call(false));
   if (!notice.hidden) throw new Error('a chat on a first device says it is linked');
-  closeChat();
+  appBindings.closeChat();
 };
 // Linking two real clients: each half is a step of its own process, the node carries the record.
 const linkUntil = async (check, what, ms = 60000) => {
@@ -574,45 +581,47 @@ const linkWaitStep = async (mode, seed) => {
   await linkUntil(() => shown('link-done'), 'linked identity', 120000);
   if (
     shown('link-pending') ||
-    !document.getElementById('link-peer').textContent.includes(window.peerName(linkJoined.peerId))
+    !document
+      .getElementById('link-peer')
+      .textContent.includes(appApi.peerName(appBindings.linkJoined.peerId))
   ) {
     throw new Error('the link did not finish');
   }
-  await shot('link-joined');
+  await smoke.shot('link-joined');
   document.getElementById('link-open').click();
   await waitFor('identity');
   await liveDevices(2);
-  return linkJoined.peerId;
+  return appBindings.linkJoined.peerId;
 };
 const linkSendStep = async (code) => {
   await openArea('settings', 'devices');
-  await window.devicesShown;
+  await appApi.devicesShown;
   document.getElementById('device-link').click();
   document.getElementById('device-code').value = code;
   document.getElementById('device-code-next').click();
-  await window.codeChecked;
+  await appApi.codeChecked;
   document.getElementById('device-confirm-action').click();
-  await window.linkSent;
-  if (document.getElementById('devices-status').textContent !== window.strings['devices.sent']) {
+  await appApi.linkSent;
+  if (document.getElementById('devices-status').textContent !== appApi.strings['devices.sent']) {
     throw new Error('the link was not sent');
   }
 };
 const linkDisconnectStep = async () => {
   await openArea('settings', 'devices');
   await liveDevices(2);
-  await showDevices();
+  await appBindings.showDevices();
   document.getElementById('device-disconnect-1').click();
   document.getElementById('disconnect-action').click();
   const dialog = document.getElementById('disconnect');
-  await window.disconnectDone;
+  await appApi.disconnectDone;
   if (dialog.open) {
     throw new Error(
       `disconnect failed: ${document.getElementById('disconnect-problem').textContent}`,
     );
   }
   await closed(dialog);
-  await window.devicesShown;
-  if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
+  await appApi.devicesShown;
+  if (document.getElementById('devices-status').textContent !== appApi.strings['devices.gone']) {
     throw new Error('the device was not disconnected');
   }
   await liveDevices(1);
@@ -637,12 +646,12 @@ const linkStep = async (step, mode, state) => {
   await (step === 'link-disconnect' ? linkDisconnectStep() : linkSendStep(value));
   return state.peerId;
 };
-globalThis.uiSmokeGuards = Object.freeze({
+smoke.uiSmokeGuards = Object.freeze({
   checkLinkScreen,
   linkStep,
   checkLinkedNotice,
   checkStaleSettingsInventory,
-  checkStaleNode: window.uiSmokeNodeGuard,
+  checkStaleNode: smoke.uiSmokeNodeGuard,
   checkStaleTray,
   checkStaleRemovePreparation,
   checkStaleWithdrawal,
@@ -650,9 +659,9 @@ globalThis.uiSmokeGuards = Object.freeze({
   checkDevices,
   checkLinkCode,
   checkStaleLaunchConnection,
-  checkStaleNetworkForm: window.uiSmokeNetworkGuards.form,
-  checkStaleNetworkCheck: window.uiSmokeNetworkGuards.requests,
-  checkStaleCopy: window.uiSmokeCopyGuard,
+  checkStaleNetworkForm: smoke.uiSmokeNetworkGuards.form,
+  checkStaleNetworkCheck: smoke.uiSmokeNetworkGuards.requests,
+  checkStaleCopy: smoke.uiSmokeCopyGuard,
   checkStalePlaceSuggestions,
   removeOpened,
   testSeeds,

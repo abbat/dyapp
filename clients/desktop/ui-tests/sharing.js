@@ -2,23 +2,26 @@
 Object.assign(peerSteps, {
   'share-profile-send': async (peer) => {
     await openArea('chats-area');
-    await window.chatsDone;
-    await openChat(peer);
-    await openShare(current.peerId);
-    if (!forwardDialog.open || ![...forwardSelect.options].some((item) => item.value === peer)) {
+    await appApi.chatsDone;
+    await appBindings.openChat(peer);
+    await appBindings.openShare(appBindings.current.peerId);
+    if (
+      !appBindings.forwardDialog.open ||
+      ![...appBindings.forwardSelect.options].some((item) => item.value === peer)
+    ) {
       throw Error('Share dialog omitted the established conversation');
     }
-    forwardSelect.value = peer;
+    appBindings.forwardSelect.value = peer;
     document.getElementById('chat-forward-form').requestSubmit();
-    await window.profileShared;
-    const history = await invoke('chat_history', { peerId: peer });
-    const link = `dyapp-profile:1:${current.peerId}`;
+    await appApi.profileShared;
+    const history = await appBindings.invoke('chat_history', { peerId: peer });
+    const link = `dyapp-profile:1:${appBindings.current.peerId}`;
     const shared = history.messages.find((message) => message.text === link);
     if (
-      forwardDialog.open ||
+      appBindings.forwardDialog.open ||
       !shared ||
-      shared.sharedPeer !== current.peerId ||
-      chatComposeStatus.textContent !== window.strings['chats.shareSent']
+      shared.sharedPeer !== appBindings.current.peerId ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.shareSent']
     ) {
       throw Error('Share did not persist exactly the public profile link');
     }
@@ -27,8 +30,8 @@ Object.assign(peerSteps, {
     const deadline = performance.now() + 30000;
     let shared;
     do {
-      await invoke('receive_mail');
-      const history = await invoke('chat_history', { peerId: peer });
+      await appBindings.invoke('receive_mail');
+      const history = await appBindings.invoke('chat_history', { peerId: peer });
       shared = history.messages.find(
         (message) => message.author === peer && message.sharedPeer === peer,
       );
@@ -37,19 +40,26 @@ Object.assign(peerSteps, {
     if (!shared || shared.text !== `dyapp-profile:1:${peer}`)
       throw Error('Shared public link did not arrive');
     await openArea('chats-area');
-    await window.chatsDone;
-    await openChat(peer);
-    const card = chatMessages.querySelector(`button[data-peer-id="${peer}"]`);
+    await appApi.chatsDone;
+    await appBindings.openChat(peer);
+    const card = appBindings.chatMessages.querySelector(`button[data-peer-id="${peer}"]`);
     if (!card) throw Error('Received link has no profile card');
     card.click();
-    await window.sharedOpened;
-    if (viewed?.found.peerId !== peer || document.getElementById('view-message').disabled) {
+    await appApi.sharedOpened;
+    if (
+      appBindings.viewed?.found.peerId !== peer ||
+      document.getElementById('view-message').disabled
+    ) {
       throw Error('Card did not open the other verified profile');
     }
-    await shot('shared-profile-peer');
+    await smoke.shot('shared-profile-peer');
     document.getElementById('view-message').click();
-    await window.chatOpened;
-    if (activeChat?.peerId !== peer || activeChat.state !== 'open' || chatInput.disabled) {
+    await appApi.chatOpened;
+    if (
+      appBindings.activeChat?.peerId !== peer ||
+      appBindings.activeChat.state !== 'open' ||
+      appBindings.chatInput.disabled
+    ) {
       throw Error('Message on the shared profile did not return to the writable conversation');
     }
   },

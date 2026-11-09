@@ -1,13 +1,19 @@
+import { identityCurrent, identityState } from './identity-state.js';
+import { strings } from './locale.js';
+import { stickerBinaryPixels } from './sticker-pixels.js';
+import { controller as stickersController } from './stickers.js';
+export const controller = {};
+
 // IntersectionObserver owns automatic reads; clearing the view invalidates every in-flight reply.
 (() => {
   let epoch = 0;
   let batch = Promise.resolve();
   const pending = new Map();
-  const text = (key) => window.strings[`stickerImage.${key}`];
+  const text = (key) => strings[`stickerImage.${key}`];
   const active = (target) =>
     target.epoch === epoch && target.root.isConnected && identityCurrent(target.generation);
   const renderFrame = (target, bytes, focused) => {
-    const canvas = window.stickerBinaryPixels(bytes, target.fallback.textContent);
+    const canvas = stickerBinaryPixels(bytes, target.fallback.textContent);
     target.image.replaceChildren(canvas);
     target.fallback.hidden = true;
     target.button.hidden = true;
@@ -66,7 +72,7 @@
     batch = batch.then(async () => {
       for (const target of visible) if (target) await load(target, false);
     });
-    window.stickerImagesLoaded = batch;
+    controller.stickerImagesLoaded = batch;
   });
   const clear = () => {
     epoch += 1;
@@ -79,7 +85,7 @@
     root.className = 'sticker-body';
     const fallback = document.createElement('p');
     fallback.className = 'caption';
-    fallback.textContent = window.stickerMessageText(message.sticker);
+    fallback.textContent = stickersController.stickerMessageText(message.sticker);
     const image = document.createElement('span');
     image.className = 'sticker-image';
     const status = document.createElement('p');
@@ -97,8 +103,8 @@
       button,
       call,
       epoch,
-      generation: identityGeneration,
-      identityId: current.peerId,
+      generation: identityState.generation,
+      identityId: identityState.current.peerId,
       busy: false,
       loaded: false,
       selection: {
@@ -109,7 +115,7 @@
       },
     };
     button.addEventListener('click', () => {
-      window.stickerImageLoaded = load(target, true);
+      controller.stickerImageLoaded = load(target, true);
     });
     root.append(image, fallback, status, button);
     pending.set(root, target);
@@ -118,5 +124,5 @@
   };
   document.addEventListener('dyapp:identity-change', clear);
   document.addEventListener('dyapp:area-change', clear);
-  window.stickerMessages = { bubble, clear };
+  controller.stickerMessages = { bubble, clear };
 })();

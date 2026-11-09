@@ -10,7 +10,7 @@
     }
     byId('remove-confirm').click();
     byId('remove-action').click();
-    await window.removeDone;
+    await appApi.removeDone;
     if (
       !shown('remove-offline') ||
       shown('remove-ask') ||
@@ -18,9 +18,9 @@
     ) {
       throw new Error('no offline choice when the tombstone failed');
     }
-    await shot('remove-offline');
+    await smoke.shot('remove-offline');
     byId('remove-retry').click();
-    await window.removeDone;
+    await appApi.removeDone;
     if (!shown('remove-offline') || byId('remove-retry').disabled) {
       throw new Error('Retry did not offer the offline choice again');
     }
@@ -34,7 +34,7 @@
     await waitFor('remove');
     byId('remove-confirm').click();
     byId('remove-action').click();
-    const state = await window.removeDone;
+    const state = await appApi.removeDone;
     if (shown('remove-offline')) throw new Error('removal stopped although a node answered');
     if (state?.status !== 'setup') {
       const remaining = await invokeTest('list_identities');
@@ -45,5 +45,5 @@
     await waitFor('setup');
     await chooseStorage(mode);
   };
-  window.identityRemovalChecks = { offline: removeOfflineIdentity, tombstone: removeWithTombstone };
+  smoke.identityRemovalChecks = { offline: removeOfflineIdentity, tombstone: removeWithTombstone };
 })();

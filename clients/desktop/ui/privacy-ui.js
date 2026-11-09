@@ -1,3 +1,7 @@
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+export const controller = {};
+
 // Settings → Privacy: stored per identity on this device, saved on every change.
 const privacyInputs = {
   sendViews: 'send-views',
@@ -15,8 +19,8 @@ const privacyFailure = (failed) => {
 const showNoticeChoice = () => {
   noticeContent.disabled = !document.getElementById('message-notifications').checked;
 };
-window.showPrivacy = async (call = invoke) => {
-  const generation = identityGeneration;
+controller.showPrivacy = async (call = invoke) => {
+  const generation = identityState.generation;
   try {
     const privacy = await call('privacy_settings');
     if (!identityCurrent(generation)) return;
@@ -32,7 +36,7 @@ window.showPrivacy = async (call = invoke) => {
   }
 };
 const savePrivacy = (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const privacy = Object.fromEntries(
     Object.entries(privacyInputs).map(([key, id]) => [key, document.getElementById(id).checked]),
   );
@@ -49,6 +53,8 @@ const savePrivacy = (call = invoke) => {
 for (const id of ['privacy', 'notifications']) {
   document.getElementById(id).addEventListener('change', () => {
     showNoticeChoice();
-    window.privacySaved = savePrivacy();
+    controller.privacySaved = savePrivacy();
   });
 }
+
+export { privacyError, savePrivacy };

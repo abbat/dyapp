@@ -1,3 +1,9 @@
+import { sizeText } from './formatting.js';
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+export const controller = {};
+
 // Byte budgets survive toggling off; uncertain writes require fresh readback.
 (() => {
   const el = (name) => document.getElementById(`media-cache-${name}`);
@@ -21,12 +27,10 @@
     enabled.checked = Boolean(known?.enabled);
     enabled.setAttribute('aria-checked', String(enabled.checked));
     limit.value = known ? String(known.limitBytes / mib) : '';
-    el('used').textContent = known
-      ? sizeText(known.usedBytes)
-      : window.strings['usage.unavailable'];
+    el('used').textContent = known ? sizeText(known.usedBytes) : strings['usage.unavailable'];
   };
   const status = (key) => {
-    el('status').textContent = key ? window.strings[`photos.cache.${key}`] : '';
+    el('status').textContent = key ? strings[`photos.cache.${key}`] : '';
   };
   const close = () => {
     asked = null;
@@ -42,8 +46,8 @@
   const show = async (call = invoke) => {
     close();
     const target = {
-      generation: identityGeneration,
-      identityId: current?.peerId,
+      generation: identityState.generation,
+      identityId: identityState.current?.peerId,
       call,
       config: null,
       busy: true,
@@ -99,14 +103,14 @@
     render();
     if (destructive) {
       document.querySelector('#photo-keep-dialog p').textContent =
-        window.strings[
+        strings[
           command === 'clear_media_cache' ? 'photos.cache.clearWarning' : 'photos.keepEraseWarning'
         ];
       asked = { target, command, values, opener: document.activeElement };
       dialog.hidden = false;
       dialog.showModal();
       cancel.focus();
-    } else window.mediaCacheSaved = apply(target, command, values);
+    } else controller.mediaCacheSaved = apply(target, command, values);
   };
   enabled.addEventListener('change', () => {
     if (!view?.config || view.busy) return;
@@ -123,7 +127,7 @@
   });
   clear.addEventListener('click', () => change('clear_media_cache'));
   refresh.addEventListener('click', () => {
-    window.mediaCacheShown = show();
+    controller.mediaCacheShown = show();
   });
   const dismiss = () => {
     const button = asked?.opener;
@@ -145,13 +149,14 @@
   confirm.addEventListener('click', () => {
     const pending = asked;
     close();
-    if (pending) window.mediaCacheSaved = apply(pending.target, pending.command, pending.values);
+    if (pending)
+      controller.mediaCacheSaved = apply(pending.target, pending.command, pending.values);
   });
   document.addEventListener('dyapp:identity-change', invalidate);
   document.addEventListener('dyapp:area-change', invalidate);
   document.addEventListener('dyapp:settings-pane', (event) => {
-    if (event.detail === 'photos') window.mediaCacheShown = show();
+    if (event.detail === 'photos') controller.mediaCacheShown = show();
     else invalidate();
   });
-  window.showMediaCache = show;
+  controller.showMediaCache = show;
 })();

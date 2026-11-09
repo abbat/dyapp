@@ -27,7 +27,7 @@
     holder.style.cssText =
       'position:fixed;inset:0;z-index:100;background:var(--surface);overflow:auto';
     document.body.append(holder);
-    const ui = window.stickerMessages;
+    const ui = appApi.stickerMessages;
     let closed = false;
     return {
       bytes,
@@ -56,7 +56,7 @@
       });
       holder.append(bubble);
       await started.promise;
-      await window.stickerImagesLoaded;
+      await appApi.stickerImagesLoaded;
       check(
         calls.length === 1 && !calls[0].args.manual,
         'Viewport read did not use automatic policy',
@@ -67,7 +67,7 @@
       );
       bubble.querySelector('button').focus();
       bubble.querySelector('button').click();
-      await window.stickerImageLoaded;
+      await appApi.stickerImageLoaded;
       const canvas = bubble.querySelector('canvas');
       check(
         canvas?.width === 1 && canvas.height === 1 && canvas.getAttribute('aria-label'),
@@ -77,7 +77,7 @@
       check(
         calls[1].args.manual &&
           calls[1].args.selection.author === message.author &&
-          calls[1].args.identityId === current.peerId,
+          calls[1].args.identityId === appBindings.current.peerId,
         'Image read lost selection/owner binding',
       );
       check(
@@ -98,7 +98,7 @@
       const old = ui.bubble(message, 'fixture-peer', () => stale.promise);
       holder.append(old);
       old.querySelector('button').click();
-      const loading = window.stickerImageLoaded;
+      const loading = appApi.stickerImageLoaded;
       ui.clear();
       stale.resolve(bytes);
       await loading;
@@ -115,7 +115,7 @@
       padded.set(bytes, 2);
       for (const value of [bytes.buffer, Array.from(bytes), padded.subarray(2, 14)]) {
         check(
-          window.stickerBinaryPixels(value, 'safe').width === 1,
+          appApi.stickerBinaryPixels(value, 'safe').width === 1,
           'Supported IPC bytes rejected',
         );
       }
@@ -124,7 +124,7 @@
       for (const value of [[], [1, 2], zero, [...bytes, 0], [...bytes.slice(0, 11), -1]]) {
         let rejected = false;
         try {
-          window.stickerBinaryPixels(value, 'bad');
+          appApi.stickerBinaryPixels(value, 'bad');
         } catch {
           rejected = true;
         }
@@ -138,8 +138,8 @@
   const checkOwnSticker = (fixture) => {
     try {
       const { bytes, message } = fixture;
-      const own = window.chatMessage(
-        { ...message, author: current.peerId },
+      const own = appApi.chatMessage(
+        { ...message, author: appBindings.current.peerId },
         'fixture-peer',
         { state: 'open' },
         async () => bytes,
@@ -150,9 +150,9 @@
       );
       const actions = [...own.querySelectorAll('button')].map((button) => button.textContent);
       check(
-        actions.includes(window.strings['chats.delete']) &&
-          !actions.includes(window.strings['chats.edit']) &&
-          !actions.includes(window.strings['chats.forward']),
+        actions.includes(appApi.strings['chats.delete']) &&
+          !actions.includes(appApi.strings['chats.edit']) &&
+          !actions.includes(appApi.strings['chats.forward']),
         'Sticker actions changed',
       );
     } catch (error) {
@@ -160,7 +160,7 @@
       throw error;
     }
   };
-  window.checkStickerMessages = async () => {
+  smoke.checkStickerMessages = async () => {
     const fixture = createImageFixture();
     try {
       await checkManualImage(fixture);

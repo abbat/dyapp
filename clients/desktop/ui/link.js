@@ -1,3 +1,9 @@
+import { show, sections, who, modeText, showError, identity, act } from './app.js';
+import { copyFrom } from './clipboard.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { drawContactQr } from './search.js';
+
 // The new computer's side of a link: the code, the wait for the record and the identity joined.
 // The backend holds the keys of the wait in memory, so leaving this page only has to cancel it.
 const linkWait = document.getElementById('link-wait');
@@ -15,7 +21,7 @@ const linkState = (status) => {
   linkShown.hidden = status === 'expired' || status === 'finishing';
   linkActions.hidden = status === 'finishing';
   linkNew.hidden = status !== 'expired';
-  document.getElementById('link-status').textContent = window.strings[`link.${status}`];
+  document.getElementById('link-status').textContent = strings[`link.${status}`];
 };
 const linkPage = (status) => {
   linkWait.hidden = false;
@@ -94,3 +100,5 @@ document.getElementById('link-cancel').addEventListener('click', () => {
 });
 linkOpen.addEventListener('click', () => act(linkJoined));
 copyFrom(document.getElementById('copy-link-code'), document.getElementById('link-code'));
+
+export { linkJoined, linkRun, linkTimer, pollLink, startLink, stopLink };

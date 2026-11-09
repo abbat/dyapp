@@ -63,9 +63,10 @@ Paginated identity actions retain stable element references: a button can be det
 its old row, so a later page must reattach that reference instead of querying the document.
 Refresh reads also need a per-read sequence guard in addition to identity generation.
 
-Desktop photo/cache rendering lives in `ui/chat-photos.js`, loaded before `chats-ui.js`.
-Desktop message-row rendering lives in `ui/chat-message.js`, loaded after `chats-ui.js`;
-its classic-script helper retains the controller helpers for media, delivery and message actions.
+Desktop photo/cache rendering lives in `ui/chat-photos.js`; message-row rendering lives in
+`ui/chat-message.js`. The native ES-module entry is `ui/entry.js`; dependencies use imports, not
+script order or page globals. Shared identity/chat state, clipboard/place helpers and DOM refs
+have independent modules so controller cycles do not read uninitialized imports.
 Unchanged chat render inputs preserve mounted rows and their original message objects:
 Edit/Delete use reference membership guards. Include identity, peer, displayed name, full history
 and call-function identity in reuse checks, and reset them on leaving or closing the chat.
@@ -76,11 +77,11 @@ draft-clearing policy, including direct navigation after Forward.
 Profile form element builders live in the ES module `ui/profile-form.js`, imported by `app.js`
 before startup completes. They import locale and field helpers explicitly and read draft data
 only when the identity-guarded profile load calls them. `ui/profile-fields.js` owns scale metadata;
-`ui/peer-labels.js` privately owns known peers. Add peers through its API instead of assigning
-controller globals.
-Desktop Settings list/refresh controllers live in `ui/settings.js`, loaded after `app.js`.
-The classic scripts share lexical helpers; keep that order when moving controller code to
-stay below the per-file line limit, and retain the existing native smoke entry points.
+`ui/peer-labels.js` owns known peers. Add peers through its API instead of assigning controller
+globals. Desktop Settings list/refresh controllers live in `ui/settings.js` and import helpers
+explicitly. Native smoke uses a feature-only local interface in `ui-tests/interface.js`; do not
+restore page globals to expose module state. Rust UI notifications use the entry module's DOM
+event bridge. Keep modules below the per-file line limit.
 
 Desktop search result objects can be reused after Back and reopening a profile. Async UI
 callbacks must capture the per-opening view object plus identity generation; comparing only
@@ -311,8 +312,9 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   and regenerate every affected platform lockfile; bot PRs can omit a separate lockfile.
 - Desktop page: there is no Tauri capabilities directory, so page-side `event.listen` is denied
   (app commands work; Rust reaches the page through `webview.eval`), and the CSP blocks `data:`
-  and `blob:` images, so draw through `createImageBitmap` and a canvas. Classic scripts share
-  top-level names, but biome checks each file alone: expose a name used elsewhere as `window.x`.
+  and `blob:` images, so draw through `createImageBitmap` and a canvas. UI dependencies use
+  native ES-module imports; do not expose application names on `window`. The entry module routes
+  Rust-dispatched DOM notifications to the relevant controller.
   Add a new `clients/desktop/ui-tests/*.js` to the ordered list in `ui-tests/mod.rs`. Modules
   under `clients/desktop/chats/` need an explicit `#[path]`. `make fmt` checks native desktop
   modules too; `make fmt-write` applies formatting in the Docker container.

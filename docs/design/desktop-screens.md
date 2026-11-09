@@ -10,10 +10,10 @@ Russian at 440 and 1280 px to `build/ux-research/prototype/<state>-<lang>-<width
 shell with the Profile, Search, Chats, Network and Settings areas and both first-run steps.
 Chats now shows local requests, conversations and text history with send, Edit, Delete and Clear
 controls; remaining chat actions and the switcher are planned. Its controller is
-`clients/desktop/ui/chats-ui.js`, loaded after `search.js` because it uses Search's profile
-cards and place lookup; `chats-share.js` follows it with the Forward/Share dialog, Share and
-the profile card, `chats-photo-send.js` sends a picked photo, and
-`profile-photos.js` follows that and shares its canvas encoding for the profile editor.
+`clients/desktop/ui/chats-ui.js`, which imports Search's profile cards and the shared place
+lookup. The page loads one ES-module entry (`entry.js`) and controllers declare their dependencies
+with imports. `chats-share.js` owns the Forward/Share actions, `chats-photo-send.js` sends a picked
+photo, and `profile-photos.js` shares its canvas encoding for the profile editor.
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour
 contracts.
 

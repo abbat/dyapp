@@ -1,8 +1,12 @@
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+export const controller = {};
+
 // Auto-download mode is independent of the originals cache budget.
 const photoModeError = document.getElementById('photo-mode-error');
 let photoModeRequest = 0;
 const showPhotoMode = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const request = ++photoModeRequest;
   try {
     const mode = await call('auto_download_mode');
@@ -16,9 +20,9 @@ const showPhotoMode = async (call = invoke) => {
   }
 };
 document.getElementById('photo-mode').addEventListener('change', (event) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const request = ++photoModeRequest;
-  window.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
+  controller.photoModeSaved = invoke('set_auto_download_mode', { mode: event.target.value }).then(
     () => {
       if (identityCurrent(generation) && request === photoModeRequest) photoModeError.hidden = true;
     },
@@ -29,5 +33,5 @@ document.getElementById('photo-mode').addEventListener('change', (event) => {
   );
 });
 document.addEventListener('dyapp:area-change', (event) => {
-  if (event.detail === 'settings') window.photoModeShown = showPhotoMode();
+  if (event.detail === 'settings') controller.photoModeShown = showPhotoMode();
 });

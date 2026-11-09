@@ -11,7 +11,7 @@
     if (!ok) throw new Error(reason);
   };
   const createRemovalFixture = () => {
-    const ui = window.stickerCollection;
+    const ui = appApi.stickerCollection;
     const panel = document.getElementById('sticker-packs');
     const entry = { id: Array(32).fill(7), name: '<Cats>', stickers: 1, bytes: 12, error: null };
     const page = { entries: [entry], next: null, usedBytes: 12, unrecognizedFiles: 0 };
@@ -94,7 +94,7 @@
       });
       button().click();
       get('remove-confirm').click();
-      const removing = window.stickerRemoved;
+      const removing = appApi.stickerRemoved;
       get('remove-confirm').click();
       check(
         fixture.removes === 1 && sent.packId.join() === entry.id.join() && sent.identityId,
@@ -123,13 +123,13 @@
       });
       button().click();
       check(
-        get('remove-name').textContent === window.strings['stickers.unreadable'],
+        get('remove-name').textContent === appApi.strings['stickers.unreadable'],
         'Unreadable pack cannot be selected',
       );
       get('remove-confirm').click();
-      await window.stickerRemoved;
+      await appApi.stickerRemoved;
       check(
-        get('status').textContent === window.strings['stickers.removeError'],
+        get('status').textContent === appApi.strings['stickers.removeError'],
         'Removal error promises a known outcome',
       );
       check(document.activeElement === get('refresh'), 'Removal lost keyboard focus');
@@ -147,14 +147,14 @@
       get('remove-confirm').click();
       await Promise.resolve();
       check(
-        get('status').textContent === window.strings['stickers.loading'],
+        get('status').textContent === appApi.strings['stickers.loading'],
         'Refresh was confirmed before reading',
       );
       refreshed.resolve({ ...page, entries: [] });
-      await window.stickerRemoved;
+      await appApi.stickerRemoved;
       check(
         get('list').children.length === 0 &&
-          get('status').textContent.includes(window.strings['stickers.removed']),
+          get('status').textContent.includes(appApi.strings['stickers.removed']),
         'Successful removal did not refresh and confirm',
       );
     } catch (error) {
@@ -162,7 +162,7 @@
       throw error;
     }
   };
-  window.checkStickerRemoval = async () => {
+  smoke.checkStickerRemoval = async () => {
     await openArea('settings');
     const fixture = createRemovalFixture();
     try {

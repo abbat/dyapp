@@ -1,8 +1,16 @@
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { stickerPixels } from './sticker-pixels.js';
+import { controller as stickersController } from './stickers.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 // Every opening and page read owns its callbacks; committed sends belong to the common outbox.
 (() => {
   const el = (id) => document.getElementById(`sticker-picker-${id}`);
   const dialog = document.getElementById('sticker-picker');
-  const text = (key) => window.strings[`stickerPicker.${key}`];
+  const text = (key) => strings[`stickerPicker.${key}`];
   let view = null;
   let returnTo = null;
   const active = (target) =>
@@ -42,13 +50,14 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn';
-    const label = window.stickerMessageText({ emoji: entry.emoji, packName: name });
+    const label = stickersController.stickerMessageText({ emoji: entry.emoji, packName: name });
     button.setAttribute('aria-label', label);
-    const canvas = window.stickerPixels(entry.frame, label, 96);
+    const canvas = stickerPixels(entry.frame, label, 96);
     canvas.setAttribute('aria-hidden', 'true');
     button.append(canvas);
     button.addEventListener('click', () => {
-      if (active(target) && !target.busy) window.stickerSent = send(target, packId, entry.index);
+      if (active(target) && !target.busy)
+        controller.stickerSent = send(target, packId, entry.index);
     });
     return button;
   };
@@ -124,7 +133,7 @@
           button.dataset.pack = pack.id ? JSON.stringify(pack.id) : 'recent';
           button.addEventListener('click', () => {
             if (active(target) && !target.busy)
-              window.stickersShown = choose(target, pack.id ? pack : null);
+              progress.stickersShown = choose(target, pack.id ? pack : null);
           });
           return button;
         }),
@@ -162,8 +171,8 @@
     close(false);
     const target = {
       peerId,
-      identityId: current.peerId,
-      generation: identityGeneration,
+      identityId: identityState.current.peerId,
+      generation: identityState.generation,
       call,
       onSent,
       button: document.getElementById('chat-stickers'),
@@ -188,7 +197,7 @@
   });
   el('retry').addEventListener('click', () => {
     if (active(view) && !view.busy)
-      window.stickersShown =
+      progress.stickersShown =
         view.phase === 'page' ? load(view, view.after) : packs(view, view.packAfter);
   });
   for (const direction of ['previous', 'next'])
@@ -200,7 +209,7 @@
         target.pages.push(target.after);
         after = target.next;
       } else after = target.pages.pop();
-      window.stickersShown = load(target, after);
+      progress.stickersShown = load(target, after);
     });
   for (const direction of ['previous', 'next'])
     el(`packs-${direction}`).addEventListener('click', () => {
@@ -211,18 +220,18 @@
         target.packPages.push(target.packAfter);
         after = target.packNext;
       } else after = target.packPages.pop();
-      window.stickersShown = packs(target, after);
+      progress.stickersShown = packs(target, after);
     });
   el('manage').addEventListener('click', () => {
     if (!active(view) || view.busy) return;
     returnTo = view;
     close(false);
-    window.stickersShown = window.stickerCollection.open(returnTo.call);
+    progress.stickersShown = stickersController.stickerCollection.open(returnTo.call);
   });
   document.addEventListener('dyapp:sticker-manager-close', () => {
     const target = returnTo;
     returnTo = null;
-    if (target && identityCurrent(target.generation)) window.stickersShown = open(target);
+    if (target && identityCurrent(target.generation)) progress.stickersShown = open(target);
   });
   const invalidate = () => {
     returnTo = null;
@@ -230,7 +239,7 @@
   };
   document.addEventListener('dyapp:identity-change', invalidate);
   document.addEventListener('dyapp:area-change', invalidate);
-  window.stickerPicker = {
+  controller.stickerPicker = {
     open,
     close: invalidate,
     leave: (peerId) => {

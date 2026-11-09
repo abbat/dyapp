@@ -136,7 +136,9 @@ pub(super) fn wipe_if_revoked(app: &tauri::AppHandle, dir: &Path, passed: &Resul
     let slot = dir.file_name().map(|name| name.to_string_lossy());
     if let (Some(page), Some(slot)) = (app.get_webview_window("main"), slot) {
         let slot = serde_json::Value::from(slot.as_ref());
-        let _ = page.eval(format!("window.deviceRevoked?.({slot})"));
+        let _ = page.eval(format!(
+            "document.dispatchEvent(new CustomEvent('dyapp:device-revoked', {{ detail: {slot} }}))"
+        ));
     }
 }
 

@@ -1,14 +1,14 @@
 // Delayed clipboard outcomes and label reset callbacks retain their original identity.
 (() => {
   const createCopyFixture = () => {
-    const readyState = current;
+    const readyState = appBindings.current;
     const source = document.getElementById('peer-id');
     const button = document.getElementById('copy-peer-id');
     const clipboard = navigator.clipboard;
     if (!clipboard) throw new Error('no clipboard API for stale copy check');
     const switchAndMark = async () => {
-      await act(Promise.resolve({ status: 'picker' }));
-      await act(Promise.resolve(readyState));
+      await appBindings.act(Promise.resolve({ status: 'picker' }));
+      await appBindings.act(Promise.resolve(readyState));
       source.textContent = 'b'.repeat(64);
       button.textContent = 'new copy';
       window.getSelection().removeAllRanges();
@@ -19,7 +19,7 @@
       closed = true;
       delete clipboard.writeText;
       source.textContent = readyState.peerId;
-      button.textContent = window.strings['action.copy'];
+      button.textContent = appApi.strings['action.copy'];
     };
     return { source, button, clipboard, switchAndMark, close };
   };
@@ -36,7 +36,7 @@
         setTimeout(resolve, 0);
       });
       if (!rejectOld) throw new Error('old clipboard write did not start');
-      const oldFailure = window.copied;
+      const oldFailure = appApi.copied;
       await switchAndMark();
       rejectOld(new Error('old clipboard'));
       await oldFailure;
@@ -64,7 +64,7 @@
         setTimeout(resolve, 0);
       });
       if (!finishOld) throw new Error('old clipboard success did not start');
-      const oldSuccess = window.copied;
+      const oldSuccess = appApi.copied;
       await switchAndMark();
       finishOld();
       await oldSuccess;
@@ -89,7 +89,7 @@
       try {
         clipboard.writeText = () => Promise.resolve();
         button.click();
-        await window.copied;
+        await appApi.copied;
       } finally {
         globalThis.setTimeout = originalTimeout;
       }
@@ -102,7 +102,7 @@
       throw error;
     }
   };
-  window.uiSmokeCopyGuard = async () => {
+  smoke.uiSmokeCopyGuard = async () => {
     const fixture = createCopyFixture();
     try {
       await checkOldCopyFailure(fixture);

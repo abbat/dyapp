@@ -2,7 +2,7 @@
 (() => {
   const video = async (step) => {
     if (step.startsWith('video-bench:'))
-      return globalThis.videoBenchmark(step.slice('video-bench:'.length));
+      return smoke.videoBenchmark(step.slice('video-bench:'.length));
     const size = step.slice('video:'.length);
     if (!['360p', '720p'].includes(size)) throw new Error('invalid video smoke size');
     const metrics = await videoFrames(size);
@@ -22,16 +22,16 @@
       state.reason !== reason ||
       document.getElementById('recovery').hidden ||
       document.getElementById('recovery-reason').textContent !==
-        window.strings[`recovery.${reason}`]
+        appApi.strings[`recovery.${reason}`]
     )
       throw new Error(`recovery ${reason} not shown`);
     if (more.open || !details.textContent.startsWith(`${reason}\n${state.slot}`)) {
       throw new Error(`recovery details: ${more.open} ${details.textContent}`);
     }
-    await shot('recovery');
+    await smoke.shot('recovery');
     more.open = true;
     await checkCopy('copy-recovery-details', details);
-    await shot('recovery-details');
+    await smoke.shot('recovery-details');
     return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
   };
   const windowBounds = async (step) => {
@@ -65,14 +65,14 @@
     if (!show.disabled || !close.disabled || document.getElementById('tray-note').hidden) {
       throw new Error('tray settings usable without a tray host');
     }
-    await shot('tray-none');
+    await smoke.shot('tray-none');
     return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
   };
   const checkTrayControls = async (kind, show, close) => {
     if (kind === 'close') {
       if (!show.checked || close.checked || close.disabled) throw new Error('tray defaults wrong');
       close.click();
-      await shot('tray');
+      await smoke.shot('tray');
     } else if (!close.checked) throw new Error('close-to-tray not restored');
   };
   const tray = async (state, mode, step) => {
@@ -82,7 +82,7 @@
     const kind = step.slice('tray:'.length);
     if (kind === 'quit') return undefined;
     const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
-      (key) => window.strings[key],
+      (key) => appApi.strings[key],
     );
     const tray = async (check) => {
       for (let i = 0; i < 30; i += 1) {
@@ -99,7 +99,7 @@
     if (state.status === 'setup') await chooseStorage(mode);
     if (kind !== 'none') await tray((now) => now.available);
     await openArea('settings', 'appearance');
-    await window.trayShown;
+    await appApi.trayShown;
     const show = document.getElementById('tray-show');
     const close = document.getElementById('tray-close');
     if (kind === 'none') return checkAbsentTray(show, close);
@@ -109,5 +109,5 @@
     if (kind === 'vanish') await tray((now) => !now.available);
     return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
   };
-  window.uiSmokeSystemSteps = { video, recovery, windowBounds, tray };
+  smoke.uiSmokeSystemSteps = { video, recovery, windowBounds, tray };
 })();

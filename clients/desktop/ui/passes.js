@@ -1,7 +1,16 @@
+import { who } from './app.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { controller as peerNamesController } from './peer-names.js';
+import { controller as settingsCollectionsController } from './settings-collections.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 // Settings → Passed people: Undo pass shows the peer in later searches and Liked you again.
 let passedRead = 0;
 const unpassPeer = async (peerId, button, call) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   button.disabled = true;
   let failed = false;
   try {
@@ -10,11 +19,12 @@ const unpassPeer = async (peerId, button, call) => {
     failed = true;
   }
   if (!identityCurrent(generation)) return;
-  await window.showPassed(call);
-  if (failed && identityCurrent(generation)) window.settingsCollectionFailed('passed');
+  await controller.showPassed(call);
+  if (failed && identityCurrent(generation))
+    settingsCollectionsController.settingsCollectionFailed('passed');
 };
-window.showPassed = async (call = invoke) => {
-  const generation = identityGeneration;
+controller.showPassed = async (call = invoke) => {
+  const generation = identityState.generation;
   const read = ++passedRead;
   let peers = [];
   let failed = false;
@@ -24,7 +34,7 @@ window.showPassed = async (call = invoke) => {
     failed = true;
   }
   if (!identityCurrent(generation) || read !== passedRead) return;
-  window.renderSettingsRows(
+  settingsCollectionsController.renderSettingsRows(
     'passed',
     failed ? null : peers,
     (peerId, index) => {
@@ -36,17 +46,17 @@ window.showPassed = async (call = invoke) => {
       button.type = 'button';
       button.className = 'btn';
       button.id = `unpass-${index + 1}`;
-      button.textContent = window.strings['settings.unpass'];
+      button.textContent = strings['settings.unpass'];
       button.addEventListener('click', () => {
-        window.passedShown = unpassPeer(peerId, button, call);
+        progress.passedShown = unpassPeer(peerId, button, call);
       });
       const action = document.createElement('td');
       action.append(button);
       row.append(name, action);
       return row;
     },
-    (peer) => `${peer} ${window.peerName(peer)}`,
-    () => window.showPassed(),
+    (peer) => `${peer} ${peerNamesController.peerName(peer)}`,
+    () => controller.showPassed(),
   );
   document.getElementById('passed-none').hidden = peers.length > 0;
 };

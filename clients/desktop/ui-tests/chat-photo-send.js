@@ -22,7 +22,7 @@
   };
   const checkSentPhoto = async (fixture, secret, tagged) => {
     const { peer, call } = fixture;
-    await sendChatPhoto(tagged, call);
+    await appBindings.sendChatPhoto(tagged, call);
     const holds = (bytes) =>
       bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
     if (
@@ -38,10 +38,10 @@
   };
   const checkRefusedPhotos = async (fixture, tagged) => {
     const { sends, call } = fixture;
-    const { strings } = window;
+    const { strings } = appApi;
     const status = document.getElementById('chat-compose-status');
     const refused = async (file, key) => {
-      await sendChatPhoto(file, call);
+      await appBindings.sendChatPhoto(file, call);
       if (status.textContent !== strings[key]) throw new Error(`no ${key}: ${status.textContent}`);
     };
     sends.push('full');
@@ -55,9 +55,9 @@
     );
     if (document.getElementById('chat-attach').disabled) throw new Error('Attach stayed off');
     document.getElementById('chat-back').click();
-    await window.showChats(() => Promise.resolve([]));
+    await appApi.showChats(() => Promise.resolve([]));
   };
-  window.uiSmokeChatPhotoSend = async (fixture) => {
+  smoke.uiSmokeChatPhotoSend = async (fixture) => {
     if (document.getElementById('chat-attach').hidden) throw new Error('an open chat hid Attach');
     const { secret, tagged } = taggedPhoto(fixture.original);
     await checkSentPhoto(fixture, secret, tagged);

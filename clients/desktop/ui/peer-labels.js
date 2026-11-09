@@ -20,3 +20,5 @@ export const addKnownPeers = (items) => {
   knownPeers = [...new Set([...knownPeers, ...items.map((item) => item.peerId)])];
 };
 export const shortPeer = (id) => shortPeerId(id, knownPeers);
+
+export { knownPeers };

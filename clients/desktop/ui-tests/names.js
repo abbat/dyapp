@@ -1,15 +1,15 @@
 // Contact names in chats: the rule for each kind of name, the rename dialog and identity isolation.
-const checkContactNames = window.uiSmokeContactNames;
+const checkContactNames = smoke.uiSmokeContactNames;
 const { checkPublicName, checkChatMute, checkProfileShare, checkInterests } =
-  globalThis.uiSmokeNamesPublic;
+  smoke.uiSmokeNamesPublic;
 const {
   checkFavoriteAction,
   checkSavedProfiles,
   checkContactNotes,
   checkPassActions,
   checkProfileActionGuards,
-} = globalThis.uiSmokeNamesActions;
-globalThis.uiSmokeNames = Object.freeze({
+} = smoke.uiSmokeNamesActions;
+smoke.uiSmokeNames = Object.freeze({
   checkContactNames,
   checkPublicName,
   checkChatMute,

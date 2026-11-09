@@ -47,7 +47,7 @@
       'Identifier interpreted markup',
     );
   };
-  window.checkIdentifiers = async () => {
+  smoke.checkIdentifiers = async () => {
     const selection = window.getSelection();
     const savedRanges = Array.from({ length: selection.rangeCount }, (_, index) =>
       selection.getRangeAt(index).cloneRange(),

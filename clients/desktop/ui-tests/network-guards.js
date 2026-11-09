@@ -1,11 +1,11 @@
 // Network generation smoke guards; delayed replies belong to their original identity.
 (() => {
   const createFormFixture = () => {
-    const readyState = current;
+    const readyState = appBindings.current;
     const switchAndShow = async () => {
-      await act(Promise.resolve({ status: 'picker' }));
-      await act(Promise.resolve(readyState));
-      await showNetwork((_, args) =>
+      await appBindings.act(Promise.resolve({ status: 'picker' }));
+      await appBindings.act(Promise.resolve(readyState));
+      await appBindings.showNetwork((_, args) =>
         Promise.resolve(
           args.file === 'active'
             ? { seeds: ['new-active'], name: 'new' }
@@ -15,9 +15,9 @@
     };
     const checkNew = (message) => {
       if (
-        seeds.value !== 'new-draft' ||
-        networkName.value !== 'new draft' ||
-        document.getElementById('network-status').textContent !== window.strings['network.active']
+        appBindings.seeds.value !== 'new-draft' ||
+        appBindings.networkName.value !== 'new draft' ||
+        document.getElementById('network-status').textContent !== appApi.strings['network.active']
       )
         throw new Error(message);
     };
@@ -27,7 +27,7 @@
     const { switchAndShow, checkNew } = fixture;
     let finishActive;
     let oldDraftCalls = 0;
-    const oldActive = showNetwork((_, args) => {
+    const oldActive = appBindings.showNetwork((_, args) => {
       if (args.file === 'active')
         return new Promise((resolve) => {
           finishActive = resolve;
@@ -44,7 +44,7 @@
   const checkOldDraft = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let finishDraft;
-    const oldDraft = showNetwork((_, args) =>
+    const oldDraft = appBindings.showNetwork((_, args) =>
       args.file === 'active'
         ? Promise.resolve({ seeds: ['old'], name: 'old' })
         : new Promise((resolve) => {
@@ -63,7 +63,7 @@
   const checkOldDraftSave = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let failSave;
-    const oldSave = saveNetworkDraft(
+    const oldSave = appBindings.saveNetworkDraft(
       () =>
         new Promise((_, reject) => {
           failSave = reject;
@@ -77,7 +77,7 @@
   const checkOldAndNewRequests = async (readyState) => {
     let finishOldCheck;
     let oldActivations = 0;
-    const oldCheck = check((command) => {
+    const oldCheck = appBindings.check((command) => {
       if (command === 'check_connection') {
         return new Promise((resolve) => {
           finishOldCheck = resolve;
@@ -86,13 +86,13 @@
       oldActivations += 1;
       return Promise.resolve();
     });
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
-    if (checkButton.disabled || !cancelButton.hidden) {
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
+    if (appBindings.checkButton.disabled || !appBindings.cancelButton.hidden) {
       throw new Error('new network form inherited old busy controls');
     }
     let finishNewCheck;
-    const newCheck = check((command) =>
+    const newCheck = appBindings.check((command) =>
       command === 'check_connection'
         ? new Promise((resolve) => {
             finishNewCheck = resolve;
@@ -103,22 +103,22 @@
     await oldCheck;
     if (
       oldActivations ||
-      !checkButton.disabled ||
-      cancelButton.hidden ||
-      document.getElementById('network-status').textContent !== window.strings['network.checking']
+      !appBindings.checkButton.disabled ||
+      appBindings.cancelButton.hidden ||
+      document.getElementById('network-status').textContent !== appApi.strings['network.checking']
     ) {
       throw new Error('old network check changed new busy form or activated');
     }
     finishNewCheck([{ status: 'unreachable' }]);
     await newCheck;
-    if (checkButton.disabled || !cancelButton.hidden) {
+    if (appBindings.checkButton.disabled || !appBindings.cancelButton.hidden) {
       throw new Error('current network check did not release controls');
     }
   };
   const checkOldActivation = async (readyState) => {
     let finishActivation;
     let oldApply = 0;
-    const oldActivation = check((command) => {
+    const oldActivation = appBindings.check((command) => {
       if (command === 'check_connection') return Promise.resolve([{ status: 'connected' }]);
       if (command === 'activate_connection') {
         return new Promise((resolve) => {
@@ -132,37 +132,37 @@
       setTimeout(resolve, 0);
     });
     if (!finishActivation) throw new Error('old network activation did not start');
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     const status = document.getElementById('network-status').textContent;
     finishActivation();
     await oldActivation;
     if (
       oldApply ||
       document.getElementById('network-status').textContent !== status ||
-      checkButton.disabled ||
-      !cancelButton.hidden
+      appBindings.checkButton.disabled ||
+      !appBindings.cancelButton.hidden
     ) {
       throw new Error('old activation changed new network or applied node');
     }
   };
   const checkOldFailure = async (readyState) => {
     let failOldCheck;
-    const oldFailure = check(
+    const oldFailure = appBindings.check(
       () =>
         new Promise((_, reject) => {
           failOldCheck = reject;
         }),
     );
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     const newerStatus = document.getElementById('network-status').textContent;
     failOldCheck(new Error('old check'));
     await oldFailure;
     if (
       document.getElementById('network-status').textContent !== newerStatus ||
-      checkButton.disabled ||
-      !cancelButton.hidden
+      appBindings.checkButton.disabled ||
+      !appBindings.cancelButton.hidden
     ) {
       throw new Error('old network check error changed new form');
     }
@@ -174,10 +174,10 @@
     await checkOldDraftSave(fixture);
   };
   const requests = async () => {
-    const readyState = current;
+    const readyState = appBindings.current;
     await checkOldAndNewRequests(readyState);
     await checkOldActivation(readyState);
     await checkOldFailure(readyState);
   };
-  window.uiSmokeNetworkGuards = { form, requests };
+  smoke.uiSmokeNetworkGuards = { form, requests };
 })();

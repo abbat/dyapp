@@ -1,3 +1,10 @@
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { controller as settingsCollectionsController } from './settings-collections.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 // Settings > Devices: the devices of the open identity, the disconnect dialog and sending the
 // identity to a new device.
 const devicesCard = document.getElementById('devices');
@@ -52,7 +59,7 @@ const deviceRow = (device, index) => {
   key.textContent = deviceShort(device.key);
   const kind = document.createElement('span');
   kind.className = 'caption';
-  kind.textContent = window.strings[device.this ? 'devices.this' : 'devices.other'];
+  kind.textContent = strings[device.this ? 'devices.this' : 'devices.other'];
   name.append(key, document.createElement('br'), kind);
   const action = document.createElement('td');
   if (!device.this) {
@@ -60,7 +67,7 @@ const deviceRow = (device, index) => {
     button.type = 'button';
     button.className = 'btn';
     button.id = `device-disconnect-${index}`;
-    button.textContent = window.strings['devices.disconnect'];
+    button.textContent = strings['devices.disconnect'];
     button.setAttribute('aria-label', `${button.textContent} ${key.textContent}`);
     button.addEventListener('click', () => openDisconnect(device));
     action.append(button);
@@ -73,10 +80,10 @@ const deviceRow = (device, index) => {
 // an older one may still list a disconnected device. An unpublished identity lists no device and
 // has no card. A failed live read leaves the saved list up.
 const showDevices = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   devicesRead += 1;
   const read = devicesRead;
-  devicesStatus.textContent = disconnected ? window.strings['devices.gone'] : '';
+  devicesStatus.textContent = disconnected ? strings['devices.gone'] : '';
   disconnected = false;
   for (const live of [false, true]) {
     const rows = await call('list_devices', { live }).catch(() => null);
@@ -84,7 +91,7 @@ const showDevices = async (call = invoke) => {
     if (!rows) {
       if (!live) {
         devicesCard.hidden = true;
-        window.renderSettingsRows(
+        settingsCollectionsController.renderSettingsRows(
           'devices',
           null,
           deviceRow,
@@ -97,7 +104,7 @@ const showDevices = async (call = invoke) => {
     rows.sort((a, b) => b.this - a.this);
     const text = JSON.stringify(rows);
     if (text !== shownDevices)
-      window.renderSettingsRows(
+      settingsCollectionsController.renderSettingsRows(
         'devices',
         rows,
         deviceRow,
@@ -111,7 +118,7 @@ const showDevices = async (call = invoke) => {
 // A repeat closes the mailbox again, which is harmless, and a draft another device moved on is
 // already replaced, so Retry is enough after any failure.
 const disconnectNow = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   for (const button of disconnectButtons) button.disabled = true;
   try {
     await call('revoke_device', { deviceKey: disconnecting.key });
@@ -127,10 +134,10 @@ const disconnectNow = async (call = invoke) => {
 };
 disconnectDialog.addEventListener('close', () => {
   disconnectDialog.hidden = true;
-  window.devicesShown = showDevices();
+  progress.devicesShown = showDevices();
 });
 const openCode = (problem = '') => {
-  codeProblem.textContent = problem && window.strings[problem];
+  codeProblem.textContent = problem && strings[problem];
   codeInvalid.hidden = true;
   codeDialog.hidden = false;
   codeDialog.showModal();
@@ -138,13 +145,13 @@ const openCode = (problem = '') => {
 };
 // Nothing leaves this computer before the confirmation: Continue only reads the code.
 const checkCode = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   codeProblem.textContent = '';
   codeInvalid.hidden = true;
   const failure = await call('check_link_code', { code: codeField.value }).then(() => '', String);
   if (!identityCurrent(generation)) return;
   if (failure === 'expired') {
-    codeProblem.textContent = window.strings['devices.code.expired'];
+    codeProblem.textContent = strings['devices.code.expired'];
   } else if (failure) {
     codeInvalid.hidden = false;
   } else {
@@ -155,7 +162,7 @@ const checkCode = async (call = invoke) => {
   }
 };
 const sendLink = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   confirmCancel.disabled = true;
   confirmAction.disabled = true;
   const failure = await call('send_link', { code: codeField.value }).then(() => '', String);
@@ -164,9 +171,9 @@ const sendLink = async (call = invoke) => {
   if (!identityCurrent(generation)) return;
   confirmDialog.close();
   if (failure) openCode(failure === 'expired' ? 'devices.code.expired' : 'devices.code.offline');
-  else devicesStatus.textContent = window.strings['devices.sent'];
+  else devicesStatus.textContent = strings['devices.sent'];
 };
-window.closeDeviceDialogs = () => {
+controller.closeDeviceDialogs = () => {
   for (const dialog of [disconnectDialog, codeDialog, confirmDialog]) dialog.close();
 };
 for (const dialog of [codeDialog, confirmDialog]) {
@@ -181,11 +188,11 @@ document.getElementById('device-link').addEventListener('click', () => {
 });
 document.getElementById('device-code-cancel').addEventListener('click', () => codeDialog.close());
 document.getElementById('device-code-next').addEventListener('click', () => {
-  window.codeChecked = checkCode();
+  controller.codeChecked = checkCode();
 });
 confirmCancel.addEventListener('click', () => confirmDialog.close());
 confirmAction.addEventListener('click', () => {
-  window.linkSent = sendLink();
+  controller.linkSent = sendLink();
 });
 // Escape waits for a running step, like Cancel, so its result is not lost.
 confirmDialog.addEventListener('cancel', (event) => {
@@ -197,6 +204,8 @@ disconnectDialog.addEventListener('cancel', (event) => {
 disconnectCancel.addEventListener('click', () => disconnectDialog.close());
 for (const button of [disconnectAction, disconnectRetry]) {
   button.addEventListener('click', () => {
-    window.disconnectDone = disconnectNow();
+    controller.disconnectDone = disconnectNow();
   });
 }
+
+export { checkCode, codeField, disconnectNow, sendLink, showDevices };

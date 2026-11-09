@@ -45,7 +45,7 @@
     document.body.append(holder);
     let closed = false;
     const fixture = {
-      ui: window.stickerRequests,
+      ui: appApi.stickerRequests,
       holder,
       value: { state: 'new', generation: null, failure: null },
       changes: 0,
@@ -59,18 +59,18 @@
         id: Array(16).fill(1),
         sticker: { packName: '<Cats> $&' },
       },
-      runtimeMail: window.mailUpdated,
+      runtimeMail: appApi.mailUpdated,
       close() {
         if (closed) return;
         closed = true;
         fixture.ui.clear();
         holder.remove();
         fixture.delivery.resolve(0);
-        window.mailUpdated = fixture.runtimeMail;
+        appApi.mailUpdated = fixture.runtimeMail;
       },
     };
     fixture.call = (command, args) => requestCall(fixture, command, args);
-    window.mailUpdated = async () => {};
+    appApi.mailUpdated = async () => {};
     return fixture;
   };
   const checkInitialRequest = async (fixture) => {
@@ -80,7 +80,7 @@
       const root = ui.controls(message, 'fixture-peer', call);
       holder.append(root);
       await fixture.started.promise;
-      await window.stickerRequestsUpdated;
+      await appApi.stickerRequestsUpdated;
       check(
         root.textContent.includes('<Cats> $&') && !root.querySelector('cats'),
         'Pack name interpreted as markup',
@@ -90,19 +90,19 @@
       add.focus();
       add.click();
       add.click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         fixture.changes === 1 && fixture.actions[0].action.generation === null && button('stop'),
         'Initial request duplicated or lost offline state',
       );
       check(document.activeElement === button('stop'), 'Request transition lost focus');
       check(
-        fixture.actions[0].identityId === current.peerId &&
+        fixture.actions[0].identityId === appBindings.current.peerId &&
           fixture.actions[0].selection.author === message.author,
         'Request lost owner/selection',
       );
       button('stop').click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         fixture.actions[1].action.generation.every((byte) => byte === 1) && button('add'),
         'Stop did not use observed generation',
@@ -124,15 +124,15 @@
         'Quota recovery exposes wrong actions',
       );
       button('manage').click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         document.getElementById('sticker-manager').open,
         'Quota recovery lost collection manager',
       );
       document.getElementById('sticker-manager-cancel').click();
-      await window.stickerRequestsUpdated;
+      await appApi.stickerRequestsUpdated;
       button('retry').click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         fixture.actions.at(-1).action.kind === 'retry' &&
           fixture.actions.at(-1).action.generation[0] === 7,
@@ -141,7 +141,7 @@
       fixture.value = { state: 'failed', failure: 'invalid', generation: token(8) };
       await ui.refresh(0, true);
       button('fresh').click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         fixture.actions.at(-1).action.kind === 'fresh' &&
           fixture.actions.at(-1).action.generation[0] === 8,
@@ -159,11 +159,11 @@
       fixture.reject = true;
       const beforeConflict = fixture.changes;
       button('stop').click();
-      await window.stickerRequestChanged;
+      await appApi.stickerRequestChanged;
       check(
         button('stop') &&
           !button('add') &&
-          root.textContent.includes(window.strings['stickerRequest.actionFailed']),
+          root.textContent.includes(appApi.strings['stickerRequest.actionFailed']),
         'Uncertain action did not read current status before recovery',
       );
       check(fixture.changes === beforeConflict + 1, 'Generation conflict retried itself');
@@ -183,7 +183,7 @@
       const named = ui.controls({ ...message, sticker: { packName: name } }, 'fixture-peer', call);
       holder.append(named);
       await fixture.started.promise;
-      await window.stickerRequestsUpdated;
+      await appApi.stickerRequestsUpdated;
       check(
         named.textContent.includes(name) && named.scrollWidth <= named.clientWidth,
         'Saved pack name was clipped or interpreted as markup',
@@ -206,7 +206,7 @@
       });
       holder.append(stale);
       await fixture.started.promise;
-      const oldRead = window.stickerRequestsUpdated;
+      const oldRead = appApi.stickerRequestsUpdated;
       ui.clear();
       old.resolve({ state: 'new', generation: null, failure: null });
       await oldRead;
@@ -219,7 +219,7 @@
       });
       holder.append(malformed);
       await fixture.started.promise;
-      await window.stickerRequestsUpdated;
+      await appApi.stickerRequestsUpdated;
       check(
         !malformed.querySelector('[data-action="add"]') &&
           malformed.querySelector('[data-action="refresh"]'),
@@ -230,7 +230,7 @@
       throw error;
     }
   };
-  window.checkStickerRequests = async () => {
+  smoke.checkStickerRequests = async () => {
     const fixture = createRequestFixture();
     try {
       const controls = await checkInitialRequest(fixture);

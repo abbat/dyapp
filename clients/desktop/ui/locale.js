@@ -1,3 +1,5 @@
+import { invoke } from './ipc.js';
+
 // Visible strings come from the matching i18n catalogue by data-i18n key.
 const accents = {
   a: 'á',
@@ -51,3 +53,5 @@ export const loadLocale = async (invoke) => {
   }
   return { locale, pseudoLocale, strings };
 };
+
+export const stringsShown = loadLocale(invoke);

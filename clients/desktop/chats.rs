@@ -641,7 +641,7 @@ pub mod commands {
             std::thread::sleep(CATCH_UP_PERIOD);
             let changed = catch_up(&app).map_or("null".to_string(), |count| count.to_string());
             if let Some(page) = app.get_webview_window("main") {
-                let _ = page.eval(format!("window.mailUpdated?.({changed})"));
+                let _ = page.eval(format!("document.dispatchEvent(new CustomEvent('dyapp:mail-updated', {{ detail: {changed} }}))"));
             }
         });
     }

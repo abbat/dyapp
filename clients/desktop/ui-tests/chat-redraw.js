@@ -57,7 +57,7 @@
       state: 'open',
       own: {
         groupId: [9],
-        author: current.peerId,
+        author: appBindings.current.peerId,
         id: Array(16).fill(2),
         sentAtMs: 1,
         text: 'keep actions',
@@ -75,62 +75,64 @@
   };
   const checkUnchangedRedraw = async (fixture, runtimeMail, check) => {
     await openArea('chats-area');
-    await openChat(fixture.peer, fixture.call);
+    await appBindings.openChat(fixture.peer, fixture.call);
     await fixture.started.promise;
-    const first = chatMessages.firstElementChild,
-      messages = activeChat.messages;
-    chatInput.value = 'draft survives refresh';
-    chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-    chatInput.focus();
+    const first = appBindings.chatMessages.firstElementChild,
+      messages = appBindings.activeChat.messages;
+    appBindings.chatInput.value = 'draft survives refresh';
+    appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+    appBindings.chatInput.focus();
     fixture.historyGate = deferred();
     fixture.historyStarted = deferred();
     const refreshing = runtimeMail(0, fixture.call);
     await fixture.historyStarted.promise;
     check(
-      !chatInput.disabled &&
-        !chatSend.disabled &&
-        document.activeElement === chatInput &&
-        chatInput.value === 'draft survives refresh',
+      !appBindings.chatInput.disabled &&
+        !appBindings.chatSend.disabled &&
+        document.activeElement === appBindings.chatInput &&
+        appBindings.chatInput.value === 'draft survives refresh',
       'Transparent refresh disabled or blurred the composer',
     );
     fixture.historyGate.resolve();
     fixture.historyGate = null;
     await refreshing;
     check(
-      document.activeElement === chatInput && chatInput.value === 'draft survives refresh',
+      document.activeElement === appBindings.chatInput &&
+        appBindings.chatInput.value === 'draft survives refresh',
       'Refresh lost the draft or focus',
     );
     check(
-      chatMessages.firstElementChild === first && activeChat.messages === messages,
+      appBindings.chatMessages.firstElementChild === first &&
+        appBindings.activeChat.messages === messages,
       'Unchanged history replaced DOM or message objects',
     );
     fixture.reply.resolve(fixture.bytes);
-    await window.stickerImagesLoaded;
+    await appApi.stickerImagesLoaded;
     check(
       fixture.reads === 1 && first.querySelector('canvas'),
       'Idle redraw repeated or lost an image read',
     );
-    openDelete(messages[1]);
-    check(deleteDialog.open, 'Preserved message lost its action guard');
-    closeDelete();
+    appBindings.openDelete(messages[1]);
+    check(appBindings.deleteDialog.open, 'Preserved message lost its action guard');
+    appBindings.closeDelete();
   };
   const checkChangedRedraw = async (fixture, check) => {
     fixture.version = 1;
     fixture.started = deferred();
     fixture.reply = deferred();
-    await openChat(fixture.peer, fixture.call);
+    await appBindings.openChat(fixture.peer, fixture.call);
     await fixture.started.promise;
-    const stale = chatMessages.firstElementChild,
+    const stale = appBindings.chatMessages.firstElementChild,
       oldReply = fixture.reply,
-      oldBatch = window.stickerImagesLoaded;
+      oldBatch = appApi.stickerImagesLoaded;
     fixture.version = 2;
     fixture.started = deferred();
     fixture.reply = deferred();
     fixture.reply.resolve(fixture.bytes);
-    await openChat(fixture.peer, fixture.call);
+    await appBindings.openChat(fixture.peer, fixture.call);
     await fixture.started.promise;
-    await window.stickerImagesLoaded;
-    const latest = chatMessages.firstElementChild;
+    await appApi.stickerImagesLoaded;
+    const latest = appBindings.chatMessages.firstElementChild;
     oldReply.resolve(fixture.bytes);
     await oldBatch;
     check(
@@ -142,27 +144,31 @@
     fixture.state = 'closed';
     await runtimeMail(0, fixture.call);
     check(
-      chatInput.disabled && chatSend.disabled && chatInput.value === 'draft survives refresh',
+      appBindings.chatInput.disabled &&
+        appBindings.chatSend.disabled &&
+        appBindings.chatInput.value === 'draft survives refresh',
       'Closed snapshot did not enforce the composer policy',
     );
     fixture.state = 'open';
     fixture.version = 3;
     fixture.started = deferred();
     fixture.reply = deferred();
-    await openChat(fixture.peer, fixture.call);
+    await appBindings.openChat(fixture.peer, fixture.call);
     await fixture.started.promise;
-    const closing = chatMessages.firstElementChild,
-      closingBatch = window.stickerImagesLoaded;
-    check(!chatInput.disabled, 'Open snapshot did not restore writable state');
+    const closing = appBindings.chatMessages.firstElementChild,
+      closingBatch = appApi.stickerImagesLoaded;
+    check(!appBindings.chatInput.disabled, 'Open snapshot did not restore writable state');
     fixture.historyGate = deferred();
     fixture.historyStarted = deferred();
-    const switching = openChat('another-peer', fixture.call);
+    const switching = appBindings.openChat('another-peer', fixture.call);
     await fixture.historyStarted.promise;
     check(
-      chatInput.disabled && chatSend.disabled && chatInput.value === '',
+      appBindings.chatInput.disabled &&
+        appBindings.chatSend.disabled &&
+        appBindings.chatInput.value === '',
       'Peer switch retained the old draft or writable composer',
     );
-    closeChat();
+    appBindings.closeChat();
     fixture.historyGate.resolve();
     fixture.historyGate = null;
     await switching;
@@ -170,21 +176,21 @@
     await closingBatch;
     check(!closing.querySelector('canvas'), 'Closed chat admitted an old image');
   };
-  window.checkChatRedraw = async () => {
+  smoke.checkChatRedraw = async () => {
     const check = (ok, why) => {
       if (!ok) throw new Error(why);
     };
     const fixture = createRedrawFixture();
-    const runtimeMail = window.mailUpdated;
-    window.mailUpdated = async () => {};
+    const runtimeMail = appApi.mailUpdated;
+    appApi.mailUpdated = async () => {};
     try {
       await checkUnchangedRedraw(fixture, runtimeMail, check);
       await checkChangedRedraw(fixture, check);
       await checkClosedRedraw(fixture, runtimeMail, check);
     } finally {
-      closeDelete();
-      closeChat();
-      window.mailUpdated = runtimeMail;
+      appBindings.closeDelete();
+      appBindings.closeChat();
+      appApi.mailUpdated = runtimeMail;
     }
   };
 })();

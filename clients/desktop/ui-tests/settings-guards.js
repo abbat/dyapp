@@ -2,8 +2,8 @@
 (() => {
   const checkPrivacyDefaults = async (restarted) => {
     await openArea('settings', 'privacy');
-    await window.privacyShown;
-    await window.blockedShown;
+    await appApi.privacyShown;
+    await appApi.blockedShown;
     const expected = restarted ? 'true,true,false,false,false' : 'false,false,true,true,true';
     if (
       privacyState() !== expected ||
@@ -28,7 +28,7 @@
     openSettings('notifications');
     noticeChoice.value = 'text';
     noticeChoice.dispatchEvent(new Event('change', { bubbles: true }));
-    await window.privacySaved;
+    await appApi.privacySaved;
     for (const id of [
       'send-views',
       'send-read-receipts',
@@ -38,7 +38,7 @@
     ]) {
       openSettings(id === 'message-notifications' ? 'notifications' : 'privacy');
       document.getElementById(id).click();
-      await window.privacySaved;
+      await appApi.privacySaved;
     }
     if (shown('privacy-error')) throw new Error('privacy settings not saved');
   };
@@ -57,7 +57,7 @@
       throw new Error(`unexpected block state: ${blocked.revocation}`);
     await openArea('profile-area');
     await openArea('settings', 'blocked');
-    await window.blockedShown;
+    await appApi.blockedShown;
     const retry = document.getElementById('retry-revocation-1');
     if (
       !retry ||
@@ -67,15 +67,15 @@
       throw new Error('blocked peer has no retry and unblock actions');
     }
     retry.click();
-    await window.revocationRetried;
+    await appApi.revocationRetried;
     if (
       document.getElementById('blocked-revoke-status').textContent !==
-      window.strings['settings.blocked.notNeeded']
+      appApi.strings['settings.blocked.notNeeded']
     ) {
       throw new Error('retry did not report token revocation state');
     }
     document.getElementById('unblock-1').click();
-    await window.blockedShown;
+    await appApi.blockedShown;
     if (!shown('blocked-none') || document.getElementById('blocked-list').children.length) {
       throw new Error('unblock did not clear the blocked list');
     }
@@ -87,7 +87,7 @@
       { key: [1, 2, 255], this: false },
       { key: [10, 11, 12], this: true },
     ];
-    const stale = showDevices(
+    const stale = appBindings.showDevices(
       () =>
         new Promise((resolve) => {
           setTimeout(() => resolve([rows[0]]));
@@ -101,10 +101,10 @@
   };
   const checkDeviceRows = async (fixture) => {
     const { card, stale, list } = fixture;
-    await showDevices(() => Promise.resolve([]));
+    await appBindings.showDevices(() => Promise.resolve([]));
     if (!card.hidden) throw new Error('an unpublished identity shows Devices');
     await openArea('settings', 'devices');
-    await showDevices(list);
+    await appBindings.showDevices(list);
     await stale;
     const shownKeys = [...document.querySelectorAll('#devices-list code')].map(
       (key) => key.textContent,
@@ -129,7 +129,7 @@
     }
   };
   const checkFailedDisconnect = async () => {
-    await disconnectNow(() => Promise.reject(new Error('notConnected')));
+    await appBindings.disconnectNow(() => Promise.reject(new Error('notConnected')));
     if (
       document.getElementById('disconnect-problem').hidden ||
       document.getElementById('disconnect-retry').hidden ||
@@ -141,7 +141,7 @@
   const checkSuccessfulDisconnect = async (fixture) => {
     const { dialog } = fixture;
     const sent = [];
-    await disconnectNow((command, args) => {
+    await appBindings.disconnectNow((command, args) => {
       sent.push([command, args.deviceKey.join()]);
       return Promise.resolve();
     });
@@ -149,7 +149,7 @@
       throw new Error(`disconnect sent ${sent}`);
     }
     await closed(dialog);
-    if (document.getElementById('devices-status').textContent !== window.strings['devices.gone']) {
+    if (document.getElementById('devices-status').textContent !== appApi.strings['devices.gone']) {
       throw new Error('disconnect did not report its result');
     }
   };
@@ -167,5 +167,5 @@
     await checkFailedDisconnect();
     await checkSuccessfulDisconnect(fixture);
   };
-  window.uiSmokeSettingsGuards = { privacy, devices };
+  smoke.uiSmokeSettingsGuards = { privacy, devices };
 })();

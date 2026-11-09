@@ -56,9 +56,9 @@
       fullPhotos,
       draft: { photos, gender: 0, birthYear: null, birthMonth: null, birthDay: null },
     });
-    const { strings } = window;
+    const { strings } = appApi;
     const found = person('ab', [[1], [2]], [[3], [4]]);
-    const card = resultCard(found, 'peer-photo-card');
+    const card = appBindings.resultCard(found, 'peer-photo-card');
     const avatar = card.querySelector('.avatar');
     const letters = avatar.textContent;
 
@@ -75,12 +75,12 @@
   const checkCardPhotos = async (fixture) => {
     const { refused, found, card, call, avatar, letters, fetches } = fixture;
     refused.add(1);
-    await window.showCardPhotos([found], [card], call);
+    await appApi.showCardPhotos([found], [card], call);
     if (avatar.querySelector('canvas') || avatar.textContent !== letters) {
       throw new Error('a refused thumbnail did not leave the letters');
     }
     refused.clear();
-    await window.showCardPhotos([found], [card], call);
+    await appApi.showCardPhotos([found], [card], call);
     if (!avatar.querySelector('canvas'))
       throw new Error('the next view did not retry the thumbnail');
     if (fetches.some(({ hashes, full }) => full || String(hashes) !== '1')) {
@@ -90,9 +90,9 @@
   const checkChatPhotos = async (fixture) => {
     const { call, chatRows } = fixture;
     await openArea('chats-area');
-    await window.chatsDone;
-    await window.showChats(call);
-    await window.chatPhotosShown;
+    await appApi.chatsDone;
+    await appApi.showChats(call);
+    await appApi.chatPhotosShown;
     const [shownRow, plainRow] = chatRows.map(({ peerId }) => liveRow('chat-list', peerId));
     if (
       !shownRow.querySelector('.avatar canvas') ||
@@ -112,8 +112,8 @@
     fetches.length = 0;
     held.clear();
     refused.add(3);
-    openFound(found, card, call);
-    await window.peerPhotosShown;
+    appBindings.openFound(found, card, call);
+    await appApi.peerPhotosShown;
     if (fetches.some(({ full }) => full) || !main.querySelector('canvas') || load.hidden) {
       throw new Error(
         'on a metered network the view did not wait for a tap with the thumbnail shown',
@@ -132,7 +132,7 @@
   const checkFullPhotoRetry = async (fixture) => {
     const { refused, load, main, fetches, thumbs, strings } = fixture;
     load.click();
-    await window.peerPhotoLoaded;
+    await appApi.peerPhotoLoaded;
     if (
       byId('view-status').textContent !== strings['view.photoFailed'] ||
       load.hidden ||
@@ -143,7 +143,7 @@
     }
     refused.clear();
     load.click();
-    await window.peerPhotoLoaded;
+    await appApi.peerPhotoLoaded;
     if (
       !load.hidden ||
       document.activeElement !== main ||
@@ -152,9 +152,9 @@
     ) {
       throw new Error('a tap did not load the full photo and move the focus to it');
     }
-    await shot('peer-photos');
+    await smoke.shot('peer-photos');
     thumbs()[1].click();
-    await window.peerPhotoChosen;
+    await appApi.peerPhotoChosen;
     if (
       load.hidden ||
       thumbs()[0].hasAttribute('aria-current') ||
@@ -169,19 +169,19 @@
     held.clear();
     refused.add(5);
     const missing = person('cd', [[5]], [[6]]);
-    openFound(missing, card, call);
+    appBindings.openFound(missing, card, call);
     if (main.querySelector('canvas')) throw new Error('the last profile stayed under the new name');
-    await window.peerPhotosShown;
+    await appApi.peerPhotosShown;
     if (!load.hidden || !held.has(6)) throw new Error('a free network did not load the full photo');
     refused.clear();
     held.delete(6);
     refused.add(6);
-    await window.showFoundPhotos(missing, call);
+    await appApi.showFoundPhotos(missing, call);
     if (!main.querySelector('canvas') || !load.hidden) {
       throw new Error('the next view did not retry, or a free network offered a tap');
     }
     refused.clear();
-    await window.showFoundPhotos(found, call);
+    await appApi.showFoundPhotos(found, call);
     if (fetches.at(-1).hashes[0][0] !== 3 || !fetches.at(-1).full) {
       throw new Error('a free network did not fetch the full photo without a tap');
     }
@@ -190,7 +190,7 @@
     const { held, refused, person, call, main, card } = fixture;
     held.clear();
     refused.add(1);
-    await window.showFoundPhotos(person('ef', [[1]], [[]]), call);
+    await appApi.showFoundPhotos(person('ef', [[1]], [[]]), call);
     if (
       main.querySelector('canvas') ||
       main.getAttribute('aria-hidden') !== 'true' ||
@@ -201,7 +201,7 @@
     byId('view-back').click();
     card.remove();
   };
-  window.uiSmokePeerPhotos = async () => {
+  smoke.uiSmokePeerPhotos = async () => {
     const fixture = await createFixture();
     await checkCardPhotos(fixture);
     await checkChatPhotos(fixture);

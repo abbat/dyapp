@@ -327,7 +327,9 @@ Cognitive complexity 15 and function length 50 code lines are blocking for every
 under `clients/desktop`, including all production, prototype, video and native smoke scripts.
 The directory-wide glob also covers future helpers. Blank lines and immediate closure wrappers
 used to scope classic scripts are excluded; nested functions remain checked. All desktop scripts
-also fit the 1000-line file limit without legacy size allowances.
+also fit the 1000-line file limit without legacy size allowances. Shipped UI modules additionally
+reject undeclared variables, so cross-file dependencies require imports instead of page lexical
+globals. The module-entry regression test rejects classic and inline scripts in the shipped page.
 The recommended rules apply except three, each justified in the config:
 `noLabelWithoutControl` and `useHeadingContent` (label and heading text comes from the i18n
 catalogs at runtime) and `noDescendingSpecificity` (`style.css` groups rules by component).

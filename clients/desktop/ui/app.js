@@ -1,25 +1,26 @@
-const { invoke } = window.__TAURI__.core;
-// shortcut: bridge classic controllers until their ES-module migration is complete.
-window.stringsShown = Promise.all([
-  import('./locale.js'),
-  import('./profile-interests.js'),
-  import('./sticker-pixels.js'),
-  import('./profile-fields.js'),
-  import('./profile-form.js'),
-  import('./profile-seeking.js'),
-  import('./peer-labels.js'),
-]).then(async ([localization, interests, pixels, profileFields, form, seeking, peers]) => {
-  Object.assign(
-    window,
-    interests,
-    pixels,
-    form,
-    seeking,
-    peers,
-    { profileFields },
-    await localization.loadLocale(invoke),
-  );
-});
+import { controller as chatsUiController } from './chats-ui.js';
+import { copyFrom } from './clipboard.js';
+import { controller as devicesController } from './devices.js';
+import { removeDialog, removeIdentity, settingsRemove } from './elements.js';
+import { sizeText } from './formatting.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import * as localeModule from './locale.js';
+import { strings as localeModule_strings, stringsShown, locale } from './locale.js';
+import { connectAtLaunch, wizardStep, controller as networkController } from './network.js';
+import { knowPeers, shortPeer } from './peer-labels.js';
+import { controller as peerNamesController } from './peer-names.js';
+import { placePicker } from './places.js';
+import * as profileFieldsModule from './profile-fields.js';
+import { profileForm as profileFormModule_profileForm } from './profile-form.js';
+import { profileInterestTags, showProfileInterests } from './profile-interests.js';
+import { controller as profilePhotosController } from './profile-photos.js';
+import { seekingDraft, showSeeking, seekingFacts, profileFormValid } from './profile-seeking.js';
+import { controller as searchController } from './search.js';
+import { controller as settingsController } from './settings.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 const ready = document.getElementById('app-ready');
 const setup = document.getElementById('setup');
 const identity = document.getElementById('identity');
@@ -32,8 +33,7 @@ const bootActions = document.getElementById('boot-actions');
 const bootRetry = document.getElementById('boot-retry');
 
 const switchIdentity = document.getElementById('switch-identity');
-const removeIdentity = document.getElementById('remove-identity');
-const removeDialog = document.getElementById('remove');
+
 const wizardNetwork = document.getElementById('wizard-network');
 const sections = [
   setup,
@@ -44,73 +44,50 @@ const sections = [
   document.getElementById('link'),
 ];
 // The opened identity or recovery state the remove dialog acts on.
-let current = null;
 
 // Shows one section (or none, the boot page) with its status line.
 const show = (section, status) => {
   if (removeDialog.open) removeDialog.close();
-  window.closeDeviceDialogs?.();
+  devicesController.closeDeviceDialogs?.();
   document.getElementById('boot').hidden = Boolean(section);
   for (const each of sections) each.hidden = each !== section;
   // Ready keeps identity actions in Settings; recovery has no other way out.
   switchIdentity.hidden = section !== sections[3];
   // The backend refuses to remove a damaged or unreadable slot.
   removeIdentity.hidden = !(
-    section === sections[3] && ['missing', 'incomplete', 'deleting'].includes(current?.reason)
+    section === sections[3] &&
+    ['missing', 'incomplete', 'deleting'].includes(identityState.current?.reason)
   );
   // Setup and the picker opened from an open identity can go back to it.
-  for (const id of ['setup-cancel', 'picker-cancel']) document.getElementById(id).hidden = !current;
+  for (const id of ['setup-cancel', 'picker-cancel'])
+    document.getElementById(id).hidden = !identityState.current;
   // An open identity links from Settings, with its network.
-  linkIdentity.hidden = Boolean(current);
+  linkIdentity.hidden = Boolean(identityState.current);
   storageError.hidden = true;
   bootActions.hidden = true;
-  ready.textContent = window.strings[status];
+  ready.textContent = localeModule_strings[status];
 };
 
 const showError = () => {
   show(null, 'status.error');
   switchIdentity.hidden = true;
   document.getElementById('boot-loading').hidden = true;
-  storageError.textContent = window.strings['storage.error'];
+  storageError.textContent = localeModule_strings['storage.error'];
   storageError.hidden = false;
   bootActions.hidden = false;
   bootRetry.focus();
 };
 
 const reasonText = (reason) =>
-  window.strings[`recovery.${reason}`] || window.strings['recovery.unavailable'];
+  localeModule_strings[`recovery.${reason}`] || localeModule_strings['recovery.unavailable'];
 
 // Copies `text()`, by default the text of `source`; where the webview refuses, shows it in
 // `source` and selects it for Ctrl+C instead.
-window.clipboardCopyToken = 0;
-const copyFrom = (button, source, text = () => source.textContent) =>
-  button.addEventListener('click', () => {
-    window.clipboardCopyToken += 1;
-    const generation = identityGeneration;
-    const value = text();
-    window.copied = Promise.resolve(value)
-      .then((copy) => (identityCurrent(generation) ? navigator.clipboard.writeText(copy) : null))
-      .then(
-        () => {
-          if (!identityCurrent(generation)) return;
-          button.textContent = window.strings['action.copied'];
-          setTimeout(() => {
-            if (identityCurrent(generation)) button.textContent = window.strings['action.copy'];
-          }, 2000);
-        },
-        () => {
-          if (!identityCurrent(generation)) return;
-          source.textContent = value;
-          window.getSelection().selectAllChildren(source);
-        },
-      );
-  });
 
 // A result belongs to the identity view that started it, even after its Rust lease ends.
-let identityGeneration = 0;
-const identityCurrent = (generation) => generation === identityGeneration;
+
 const act = async (pending, fresh = false) => {
-  const generation = ++identityGeneration;
+  const generation = ++identityState.generation;
   document.dispatchEvent(new Event('dyapp:identity-change'));
   clearTimeout(searchWaitTimer);
   clearInterval(elapsedTimer);
@@ -129,7 +106,7 @@ const act = async (pending, fresh = false) => {
 const peerLabel = (element, id) => {
   Object.assign(element.dataset, { peerId: id });
   element.title = id;
-  return window.peerName(id);
+  return peerNamesController.peerName(id);
 };
 
 // An identity as an avatar, its short ID (or why it cannot open) and a caption under it.
@@ -139,16 +116,16 @@ const who = (element, id, reason, caption) => {
   avatar.setAttribute('aria-hidden', 'true');
   const name = document.createElement(id ? 'code' : 'span');
   name.textContent = id ? peerLabel(element, id) : reasonText(reason);
-  avatar.textContent = id ? window.shortPeer(id).slice(1, 3) : '!';
+  avatar.textContent = id ? shortPeer(id).slice(1, 3) : '!';
   const note = document.createElement('span');
   note.className = 'caption';
   note.textContent = caption;
   const text = document.createElement('span');
   text.append(name, document.createElement('br'), note);
-  if (id && id === current?.peerId) window.ownAvatar(avatar);
+  if (id && id === identityState.current?.peerId) profilePhotosController.ownAvatar(avatar);
   return [avatar, text];
 };
-const modeText = (item) => window.strings[`identity.mode.${item.mode}`] || '';
+const modeText = (item) => localeModule_strings[`identity.mode.${item.mode}`] || '';
 
 const identityButton = (item) => {
   const button = document.createElement('button');
@@ -163,55 +140,42 @@ const identityButton = (item) => {
 };
 
 // Remove applies to the open identity only, so it sits in that row.
-const settingsRemove = document.getElementById('settings-remove');
-window.settingsIdentity = (item) => {
+
+controller.settingsIdentity = (item) => {
   const row = document.createElement('tr');
   const name = document.createElement('td');
   name.className = 'who';
   name.append(...who(row, item.status === 'ready' && item.peerId, item.reason, modeText(item)));
   const active = document.createElement('td');
   active.className = 'caption';
-  active.textContent = item.slot === current.slot ? window.strings['settings.active'] : '';
-  if (item.slot === current.slot) {
+  active.textContent =
+    item.slot === identityState.current.slot ? localeModule_strings['settings.active'] : '';
+  if (item.slot === identityState.current.slot) {
     settingsRemove.hidden = false;
     active.append(document.createElement('br'), settingsRemove);
   }
   row.append(name, active);
-  row.dataset.active = String(item.slot === current.slot);
+  row.dataset.active = String(item.slot === identityState.current.slot);
   return row;
 };
 
 // Settings → Storage: binary units with one decimal; an unknown number reads Unavailable, not 0.
-const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-const sizeText = (bytes) => {
-  let unit = 0;
-  let value = bytes;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const digits = unit ? 1 : 0;
-  const number = new Intl.NumberFormat(window.locale, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value);
-  return `${number} ${window.strings[`usage.unit.${units[unit]}`]}`;
-};
+
 const knownSize = (bytes) =>
-  bytes === null ? window.strings['usage.unavailable'] : sizeText(bytes);
+  bytes === null ? localeModule_strings['usage.unavailable'] : sizeText(bytes);
 const usageText = (id, text) => {
   document.getElementById(id).textContent = text;
 };
 let usageTimer;
-window.showUsage = async (call = invoke) => {
+controller.showUsage = async (call = invoke) => {
   clearTimeout(usageTimer);
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const card = document.getElementById('usage');
   if (document.getElementById('settings').hidden) return;
   try {
     const usage = await call('storage_usage');
     if (!identityCurrent(generation)) return;
-    usageText('usage-identity-dir', usage.identityDir ?? window.strings['usage.unavailable']);
+    usageText('usage-identity-dir', usage.identityDir ?? localeModule_strings['usage.unavailable']);
     usageText('usage-messages', knownSize(usage.messages));
     usageText('usage-messages-path', usage.messagesPath);
     document.getElementById('usage-node-row').hidden = usage.nodePath === null;
@@ -219,7 +183,7 @@ window.showUsage = async (call = invoke) => {
     usageText(
       'usage-node',
       limited
-        ? window.strings['usage.of']
+        ? localeModule_strings['usage.of']
             .replace('{used}', sizeText(usage.node))
             .replace('{limit}', sizeText(usage.nodeLimit))
         : knownSize(usage.node),
@@ -235,15 +199,15 @@ window.showUsage = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     card.hidden = true;
   }
-  if (identityCurrent(generation)) usageTimer = setTimeout(window.showUsage, 10_000);
+  if (identityCurrent(generation)) usageTimer = setTimeout(controller.showUsage, 10_000);
 };
 
 // The status bar: client traffic every 2 s, unavailable until a client swarm starts.
 let statusTimer;
 const showStatus = async (call = invoke) => {
   clearTimeout(statusTimer);
-  const generation = identityGeneration;
-  const { strings } = window;
+  const generation = identityState.generation;
+  const { strings } = localeModule;
   const traffic = document.getElementById('status-traffic');
   const messages = document.getElementById('status-messages');
   try {
@@ -272,9 +236,9 @@ const showStatus = async (call = invoke) => {
 const trayShow = document.getElementById('tray-show');
 const trayClose = document.getElementById('tray-close');
 const setTray = async (prefs, call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const labels = ['tray.open', 'tray.quit', 'notice.newMessage', 'stickers.notice'].map(
-    (key) => window.strings[key],
+    (key) => localeModule_strings[key],
   );
   const tray = await call('set_tray', { prefs, labels });
   if (!identityCurrent(generation)) return tray;
@@ -288,7 +252,7 @@ const setTray = async (prefs, call = invoke) => {
 const changeTray = () => setTray({ show: trayShow.checked, closeToTray: trayClose.checked });
 trayShow.addEventListener('change', changeTray);
 trayClose.addEventListener('change', changeTray);
-window.trayShown = window.stringsShown.then(() => setTray(null));
+progress.trayShown = stringsShown.then(() => setTray(null));
 
 // Settings → Appearance: kept by this app for every identity; a language change reloads the page.
 const applyTheme = (theme) => {
@@ -335,8 +299,8 @@ const showArea = (area) => {
   setMenu(false);
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
-  if (area === 'settings') window.settingsShown = window.showSettings();
-  if (area === 'chats-area') window.chatsDone = window.showChats();
+  if (area === 'settings') controller.settingsShown = settingsController.showSettings();
+  if (area === 'chats-area') progress.chatsDone = chatsUiController.showChats();
 };
 for (const button of document.querySelectorAll('#sidebar [data-area]')) {
   button.addEventListener('click', () => showArea(button.dataset.area));
@@ -354,13 +318,13 @@ const nodeDisk = document.getElementById('node-disk');
 const nodeConnections = document.getElementById('node-connections');
 const nodeSave = document.getElementById('node-save');
 const nodeStatus = (status, detail) => {
-  const text = window.strings[`node.${status}`];
+  const text = localeModule_strings[`node.${status}`];
   document.getElementById('node-status').textContent = detail ? `${text} ${detail}` : text;
   nodeForm.dataset.status = status;
 };
 const nodeResult = (result) => nodeStatus(result.status, result.peerId);
-window.showNode = async (call = invoke) => {
-  const generation = identityGeneration;
+controller.showNode = async (call = invoke) => {
+  const generation = identityState.generation;
   try {
     const result = await call('node_status');
     if (!identityCurrent(generation)) return;
@@ -381,7 +345,7 @@ window.showNode = async (call = invoke) => {
   }
 };
 const saveNodeSettings = (node, call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   nodeSave.disabled = true;
   nodeStatus(node.enabled ? 'starting' : 'off');
   return call('save_node_settings', { settings: node })
@@ -411,7 +375,7 @@ nodeForm.addEventListener('submit', (event) => {
     nodeStatus('invalidLimits');
     return;
   }
-  window.nodeApplied = saveNodeSettings(node);
+  controller.nodeApplied = saveNodeSettings(node);
 });
 
 // The Rust core supplies field numbers and choices; catalogues supply only visible names.
@@ -430,58 +394,11 @@ const birthValue = (part) => {
   const value = document.getElementById(`birth-${part}`).value;
   return value === '' ? null : Number(value);
 };
-const placeLabel = (place) => (place.region ? `${place.name}, ${place.region}` : place.name);
-window.placeText = (country, id) =>
-  id
-    ? invoke('place_name', {
-        country,
-        id: Number(id),
-        lang: window.locale,
-      }).then((place) => (place ? placeLabel(place) : id))
-    : Promise.resolve('');
+
 // The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
 // so typed text that is no suggestion fails validation instead of being saved or searched.
 // Editing the country clears the place.
-const placePicker = (countryInput, input, list, country, call = invoke) => {
-  let ids = new Map();
-  const show = (places) => {
-    ids = new Map(places.map((place) => [placeLabel(place), String(place.id)]));
-    list.replaceChildren(
-      ...[...ids.keys()].map((label) => {
-        const option = document.createElement('option');
-        option.value = label;
-        return option;
-      }),
-    );
-  };
-  const check = () =>
-    input.setCustomValidity(
-      input.value && !ids.has(input.value) ? window.strings['profile.placeUnknown'] : '',
-    );
-  const set = (place) => {
-    show(place ? [place] : []);
-    input.value = place ? placeLabel(place) : '';
-    check();
-  };
-  countryInput.addEventListener('input', () => set(null));
-  input.addEventListener('input', () => {
-    const text = input.value;
-    if (ids.has(text)) return check();
-    const generation = identityGeneration;
-    const selectedCountry = country();
-    window.placesShown = call('search_places', {
-      country: selectedCountry,
-      prefix: text,
-      lang: window.locale,
-      limit: 20,
-    }).then((places) => {
-      if (!identityCurrent(generation)) return;
-      if (input.value === text && country() === selectedCountry) show(places);
-      check();
-    });
-  });
-  return { set, id: () => ids.get(input.value) || '' };
-};
+
 const placeCountry = document.getElementById('profile-country');
 const placeInput = document.getElementById('profile-place');
 const profilePlace = placePicker(
@@ -493,8 +410,8 @@ const profilePlace = placePicker(
 const profileDraft = () => ({
   name: document.getElementById('profile-name').value,
   ...Object.fromEntries(
-    window.profileFields.scaleFields.map((scale) => [
-      window.profileFields.camel(scale.key),
+    profileFieldsModule.scaleFields.map((scale) => [
+      profileFieldsModule.camel(scale.key),
       Number(
         document.getElementById(`profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`)
           .value,
@@ -506,14 +423,14 @@ const profileDraft = () => ({
   birthDay: birthValue('day'),
   height: Number(document.getElementById('profile-height').value) || null,
   about: document.getElementById('profile-about').value,
-  interests: window.profileInterestTags(),
+  interests: profileInterestTags(),
   country: placeCountry.value,
   place: profilePlace.id(),
   ...seekingDraft(),
 });
 // Without an answering node the way on is the Network area, so the message offers it.
 const statusMessage = (status, open, key, detail) => {
-  status.textContent = `${window.strings[key]}${detail ? ` ${detail}` : ''}`;
+  status.textContent = `${localeModule_strings[key]}${detail ? ` ${detail}` : ''}`;
   const offline = key.endsWith('.notConnected');
   status.classList.toggle('error', offline);
   document.getElementById(open).hidden = !offline;
@@ -524,7 +441,7 @@ const profileMessage = (key, detail = '') =>
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = document.getElementById('profile-search-wait');
 let searchWaitTimer;
-const sendSearchProfile = (generation = identityGeneration, call = invoke) => {
+const sendSearchProfile = (generation = identityState.generation, call = invoke) => {
   if (!identityCurrent(generation)) return Promise.resolve();
   return call('send_search_profile').then(
     (view) => {
@@ -537,13 +454,13 @@ const sendSearchProfile = (generation = identityGeneration, call = invoke) => {
 };
 const showSearchWait = (view, send = sendSearchProfile) => {
   clearTimeout(searchWaitTimer);
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const minutes = view.searchMinutes;
   searchWait.hidden = minutes == null;
   if (minutes == null) return;
   searchWait.textContent = minutes
-    ? window.strings['profile.searchIn'].replace('{minutes}', String(minutes))
-    : window.strings['profile.searchPending'];
+    ? localeModule_strings['profile.searchIn'].replace('{minutes}', String(minutes))
+    : localeModule_strings['profile.searchPending'];
   searchWaitTimer = setTimeout(
     () => {
       if (identityCurrent(generation)) send(generation);
@@ -552,7 +469,7 @@ const showSearchWait = (view, send = sendSearchProfile) => {
   );
 };
 const showProfile = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const [scales, view, countries] = await Promise.all([
     call('profile_scales'),
     call('load_profile'),
@@ -561,8 +478,8 @@ const showProfile = async (call = invoke) => {
   if (!identityCurrent(generation)) return;
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile(generation);
-  window.profileFields.setScaleFields(scales);
-  const rows = scales.map((scale) => window.profileForm.scaleRow(scale, view.draft));
+  profileFieldsModule.setScaleFields(scales);
+  const rows = scales.map((scale) => profileFormModule_profileForm.scaleRow(scale, view.draft));
   const basic = (row) => ['profile-gender', 'profile-goal'].includes(row.lastChild.id);
   document.getElementById('profile-basics').replaceChildren(...rows.filter(basic));
   profileScales.replaceChildren(...rows.filter((row) => !basic(row)));
@@ -572,9 +489,9 @@ const showProfile = async (call = invoke) => {
   }
   document.getElementById('profile-height').value = view.draft.height || '';
   document.getElementById('profile-about').value = view.draft.about;
-  window.showProfileInterests(view.draft.interests);
+  showProfileInterests(view.draft.interests);
   showSeeking(view.draft);
-  placeCountry.replaceChildren(...window.profileForm.countryOptions(countries));
+  placeCountry.replaceChildren(...profileFormModule_profileForm.countryOptions(countries));
   document.getElementById('profile-name').value = view.draft.name;
   placeCountry.value = view.draft.country;
   const place =
@@ -582,13 +499,13 @@ const showProfile = async (call = invoke) => {
     (await call('place_name', {
       country: view.draft.country,
       id: Number(view.draft.place),
-      lang: window.locale,
+      lang: locale,
     }));
   if (!identityCurrent(generation)) return;
   profilePlace.set(place);
   showAge(view);
   showHidden(view);
-  window.showProfilePhotos(view.draft.photos, call);
+  profilePhotosController.showProfilePhotos(view.draft.photos, call);
 };
 // The switch works once a version is published; hidden, the status and notice say so.
 const showHidden = (view) => {
@@ -609,48 +526,48 @@ const showHidden = (view) => {
 const showAge = (view) => {
   const [youngest, oldest] = view.ages || [];
   document.getElementById('profile-age').textContent = view.ages
-    ? `${window.strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
-    : window.strings['profile.ageUnknown'];
+    ? `${localeModule_strings['profile.age']}: ${youngest === oldest ? youngest : `${youngest}–${oldest}`}`
+    : localeModule_strings['profile.ageUnknown'];
 };
 // Labelled public fields of a draft as [label, value] pairs, with its place named as `place`.
 const publicFacts = (draft, place) => {
-  const facts = window.profileFields.scaleFields.flatMap((scale) => {
+  const facts = profileFieldsModule.scaleFields.flatMap((scale) => {
     const option = scale.choices.find(
-      (choice) => choice.code === draft[window.profileFields.camel(scale.key)],
+      (choice) => choice.code === draft[profileFieldsModule.camel(scale.key)],
     );
     return option
       ? [
           [
-            window.strings[`profile.field.${scale.key}`],
-            window.strings[`profile.value.${scale.key}.${option.key}`],
+            localeModule_strings[`profile.field.${scale.key}`],
+            localeModule_strings[`profile.value.${scale.key}.${option.key}`],
           ],
         ]
       : [];
   });
   if (draft.country)
     facts.push([
-      window.strings['profile.country'],
-      window.profileFields.countryName(draft.country),
+      localeModule_strings['profile.country'],
+      profileFieldsModule.countryName(draft.country),
     ]);
-  if (draft.place) facts.push([window.strings['profile.place'], place]);
+  if (draft.place) facts.push([localeModule_strings['profile.place'], place]);
   for (const part of ['Year', 'Month', 'Day']) {
     const value = draft[`birth${part}`];
-    if (value !== null) facts.push([window.strings[`profile.birth${part}`], String(value)]);
+    if (value !== null) facts.push([localeModule_strings[`profile.birth${part}`], String(value)]);
   }
-  if (draft.height) facts.push([window.strings['profile.height'], String(draft.height)]);
-  if (draft.about) facts.push([window.strings['profile.about'], draft.about]);
+  if (draft.height) facts.push([localeModule_strings['profile.height'], String(draft.height)]);
+  if (draft.about) facts.push([localeModule_strings['profile.about'], draft.about]);
   if (draft.interests?.length)
-    facts.push([window.strings['profile.interests'], draft.interests.join('; ')]);
+    facts.push([localeModule_strings['profile.interests'], draft.interests.join('; ')]);
   facts.push(...seekingFacts(draft));
   return facts;
 };
 // The same fields as lines, or the empty notice.
 const publicFields = (draft, place) => {
   const fields = publicFacts(draft, place).map(([label, value]) => `${label}: ${value}`);
-  if (draft.name) fields.unshift(`${window.strings['profile.name']}: ${draft.name}`);
+  if (draft.name) fields.unshift(`${localeModule_strings['profile.name']}: ${draft.name}`);
   if (draft.photos?.length)
-    fields.push(`${window.strings['profile.photos']}: ${draft.photos.length}`);
-  return fields.length ? fields : [window.strings['profile.empty']];
+    fields.push(`${localeModule_strings['profile.photos']}: ${draft.photos.length}`);
+  return fields.length ? fields : [localeModule_strings['profile.empty']];
 };
 const listItems = (values) =>
   values.map((value) => {
@@ -660,7 +577,7 @@ const listItems = (values) =>
   });
 const saveProfile = async (call = invoke) => {
   if (!profileFormValid()) return null;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const view = await call('save_profile', { draft: profileDraft() }).catch((error) => {
     if (!identityCurrent(generation)) return null;
     const refusal = {
@@ -669,10 +586,10 @@ const saveProfile = async (call = invoke) => {
       invalidAbout: 'profile.aboutInvalid',
       invalidInterests: 'profile.interestsInvalid',
     }[String(error)];
-    throw refusal ? window.strings[refusal] : error;
+    throw refusal ? localeModule_strings[refusal] : error;
   });
   if (!identityCurrent(generation) || !view) return null;
-  window.showProfileInterests(view.draft.interests);
+  showProfileInterests(view.draft.interests);
   showAge(view);
   profileMessage(view.problem ? `profile.problem.${view.problem}` : 'profile.saved');
   return view;
@@ -699,12 +616,12 @@ const openPublishDialog = (view) => {
 const elapsed = document.getElementById('publish-elapsed');
 let elapsedTimer;
 const startElapsed = () => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const start = Date.now();
   const tick = () => {
     if (!identityCurrent(generation)) return;
     const seconds = Math.floor((Date.now() - start) / 1000);
-    elapsed.textContent = window.strings['publish.elapsed'].replace(
+    elapsed.textContent = localeModule_strings['publish.elapsed'].replace(
       '{time}',
       `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
     );
@@ -718,7 +635,7 @@ const setProfileBusy = (busy) => {
   for (const element of profileForm.querySelectorAll('input, select, textarea, button')) {
     element.disabled = busy;
   }
-  window.limitProfilePhotos();
+  profilePhotosController.limitProfilePhotos();
   for (const element of [profileAttested, profileDisclosure]) element.disabled = busy;
   profileHidden.disabled = busy || !profilePublished;
   switchIdentity.disabled = busy;
@@ -744,7 +661,7 @@ profileForm.addEventListener('input', () => {
 });
 const submitProfile = async (save = saveProfile) => {
   if (profileBusy || !profileFormValid()) return;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   setProfileBusy(true);
   try {
     await save();
@@ -756,11 +673,11 @@ const submitProfile = async (save = saveProfile) => {
 };
 profileForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  window.profileSaveDone = submitProfile();
+  controller.profileSaveDone = submitProfile();
 });
 const previewAndPublish = async (save = saveProfile) => {
   if (profileBusy || !profileFormValid()) return;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   setProfileBusy(true);
   try {
     const view = await save();
@@ -780,7 +697,7 @@ for (const box of [profileAttested, profileDisclosure]) {
 // Cancel stops the puzzle while it runs and otherwise closes the dialog; the draft stays.
 profileCancel.addEventListener('click', () => {
   if (!profileBusy) return publishDialog.close();
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   profileCancel.disabled = true;
   invoke('cancel_profile_solve').catch((error) => {
     if (identityCurrent(generation)) profileFailure(error);
@@ -795,7 +712,7 @@ publishDialog.addEventListener('close', () => {
 });
 const confirmPublish = async (call = invoke) => {
   if (profileBusy || !profileAttested.checked || !profileDisclosure.checked) return;
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   setProfileBusy(true);
   publishConfirm.disabled = true;
   document.getElementById('publish-consents').hidden = true;
@@ -823,7 +740,7 @@ const confirmPublish = async (call = invoke) => {
   }
 };
 publishConfirm.addEventListener('click', () => {
-  window.publishDone = confirmPublish();
+  controller.publishDone = confirmPublish();
 });
 // On hides the profile with a tombstone; off publishes the saved draft again through the dialog.
 const hideProfile = async (call = invoke) => {
@@ -831,7 +748,7 @@ const hideProfile = async (call = invoke) => {
     profileHidden.checked = true;
     return previewAndPublish();
   }
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   setProfileBusy(true);
   try {
     const view = await call('hide_profile');
@@ -847,7 +764,7 @@ const hideProfile = async (call = invoke) => {
   }
 };
 profileHidden.addEventListener('change', () => {
-  window.hideDone = hideProfile();
+  controller.hideDone = hideProfile();
 });
 
 async function renderReady(state, generation, fresh) {
@@ -862,28 +779,28 @@ async function renderReady(state, generation, fresh) {
   text.className = 'label';
   text.lastChild.className = 'sub';
   sidebarIdentity.replaceChildren(avatar, text);
-  await window.showNetwork();
+  await networkController.showNetwork();
   if (!identityCurrent(generation)) return state;
-  window.connectionShown = connectAtLaunch();
+  progress.connectionShown = connectAtLaunch();
   await showProfile();
   if (!identityCurrent(generation)) return state;
   setProfileBusy(false);
   profileCancel.disabled = false;
   if (publishDialog.open) publishDialog.close();
-  window.resetSearch();
+  searchController.resetSearch();
   // Starts the node when its setting is on and stops another identity's node; never blocks.
   invoke('apply_node').catch(() => {});
-  window.announcePresence();
+  chatsUiController.announcePresence();
   showArea('profile-area');
-  window.statusShown = showStatus();
+  controller.statusShown = showStatus();
   wizardStep(fresh);
   show(fresh ? wizardNetwork : identity, 'status.ready');
   return state;
 }
 
-async function render(state, generation = identityGeneration, fresh = false) {
+async function render(state, generation = identityState.generation, fresh = false) {
   if (!identityCurrent(generation)) return state;
-  if (state.status === 'ready' || state.status === 'recovery') current = state;
+  if (state.status === 'ready' || state.status === 'recovery') identityState.current = state;
   if (state.status === 'ready') return renderReady(state, generation, fresh);
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
@@ -913,7 +830,7 @@ async function render(state, generation = identityGeneration, fresh = false) {
   linkIdentity.disabled = false;
   (systemChoice.disabled ? fileChoice : systemChoice).checked = true;
   document.getElementById('system-reason').textContent = systemChoice.disabled
-    ? window.strings[state.systemReason]
+    ? localeModule_strings[state.systemReason]
     : '';
   show(setup, 'status.choose');
   return state;
@@ -944,11 +861,54 @@ bootRetry.addEventListener('click', () => {
   act(invoke('identity_state'));
 });
 
-const startupGeneration = identityGeneration;
-window.identityShown = window.stringsShown
+const startupGeneration = identityState.generation;
+controller.identityShown = stringsShown
   .then(() => invoke('identity_state'))
   .then((state) => render(state, startupGeneration))
   .catch(() => {
     if (identityCurrent(startupGeneration)) showError();
     return { status: 'error' };
   });
+
+export {
+  act,
+  confirmPublish,
+  elapsed,
+  hideProfile,
+  identity,
+  modeText,
+  openPublishDialog,
+  peerLabel,
+  placeInput,
+  previewAndPublish,
+  profileAttested,
+  profileBusy,
+  profileDisclosure,
+  profileDraft,
+  profileFailure,
+  profileHidden,
+  profileMessage,
+  profileStatus,
+  publicFacts,
+  publicFields,
+  publishConfirm,
+  publishDialog,
+  reasonText,
+  saveNodeSettings,
+  saveProfile,
+  sections,
+  sendSearchProfile,
+  setProfileBusy,
+  setTray,
+  show,
+  showArea,
+  showError,
+  showProfile,
+  showSearchWait,
+  showStatus,
+  startElapsed,
+  statusMessage,
+  submitProfile,
+  who,
+  wizardNetwork,
+};

@@ -95,7 +95,7 @@
     p50AgeMs: percentile(state, 0.5),
     p95AgeMs: percentile(state, 0.95),
   });
-  globalThis.createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) => {
+  smoke.createVideoFrameRenderer = (canvas, requestFrame = requestAnimationFrame) => {
     const context = canvas.getContext('2d', { alpha: false });
     if (!context) throw new Error('Canvas 2D unavailable');
     const state = {

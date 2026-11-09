@@ -16,11 +16,11 @@ Debian package sessions also run real WebKit counterexamples for missing/hidden 
 disabled buttons and mixed locales; native functional flows remain in feature-enabled CI.
 The clean package-test container provisions AT-SPI/WebKit introspection and xdotool.
 
-The desktop smoke dispatcher imports the locale, profile form/field/seeking/interest,
-peer-label and sticker-pixel modules and checks their APIs against the startup bridge before
-functional scenarios. Injected scripts
-resolve module URLs against `document.baseURI`; they have no external script URL of their own.
-The remaining classic-controller migration is planned (see
+The desktop smoke runs in one async local scope. Its explicit `interface.js` imports the real
+controller modules and exposes live `appBindings` and `appApi` views; shared smoke helpers live
+in a local `smoke` object. No application or test APIs are published on the page global object.
+Injected imports resolve URLs against `document.baseURI`, since injected scripts have no external
+script URL. Functional scenarios use those same controller objects and live state bindings (see
 [desktop module boundaries](../architecture/ui-state-contract.md#desktop-module-boundaries)).
 
 Shared desktop smoke scripts are concatenated in `clients/desktop/ui-tests/mod.rs` order.
@@ -46,7 +46,9 @@ Native identifier reflow checks count overlapping vertical bands of nonempty tex
 not DOM fragment rectangles: chunk spans and WBRs can produce many rectangles on one line.
 The check waits for fonts, retains narrow/wide wrapping assertions and rejects horizontal clipping.
 
-Prototype screenshots wait for `document.fonts.ready` and two animation frames, with a
+Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
+including the shared identifier ES module. No external network access is needed.
+They wait for `document.fonts.ready` and two animation frames, with a
 30-second failure deadline, before measuring layout. The desktop composer check changes
 text through input events and compares the field's current bounds and focus as Send
 appears/disappears; it does not assume a window coordinate or add a layout sleep.

@@ -12,11 +12,15 @@ explicitly. `profile-fields.js` owns the current scale metadata and shared range
 `peer-labels.js` privately owns the peers used to disambiguate short IDs. Chat and search add
 peers through `addKnownPeers`; reloading the identities replaces that set through `knowPeers`.
 `sticker-pixels.js` exports the validated canvas builders. These modules publish no page globals.
-The classic `app.js` controller imports these modules before its existing `stringsShown` startup
-barrier completes. It temporarily exposes their APIs to the remaining classic controllers and
-native smoke scripts. Converting those controllers and the smoke interface to ES modules is
-planned; script order still matters for the remaining classic files. Locale selection, validation
-and native CSP are unchanged. Modules are served directly, without a bundler.
+The page loads one native ES-module entry, `entry.js`. Controllers import their helpers, live
+bindings and controller APIs explicitly; page globals and classic-script order are not used.
+`identity-state.js` owns the selected identity and generation, `chat-state.js` owns shared chat
+state, and independent clipboard, place and DOM modules avoid eager controller cycles.
+Startup still waits for `stringsShown`. Rust mail/revocation notifications dispatch the DOM events
+`dyapp:mail-updated` and `dyapp:device-revoked`; the entry module routes them to their controllers.
+Native smoke has its own local interface and async scope, included only with `ui-smoke`.
+Locale selection, validation and native CSP are unchanged. Modules are served directly, without
+a bundler.
 
 ## Linux desktop profile editor
 

@@ -1,6 +1,6 @@
 // Runs in the actual Tauri webview after the bundled page loads.
 const invokeTest = window.__TAURI__.core.invoke;
-window.fail = (error) =>
+smoke.fail = (error) =>
   invokeTest('ui_test_result', {
     passed: false,
     peerId: '',
@@ -10,7 +10,7 @@ window.fail = (error) =>
 // kept here because some checks replace the global ones.
 const CHECK_LIMIT_MS = 100000;
 const { setTimeout: startTimer, clearTimeout: stopTimer } = globalThis;
-window.timedChecks = (checks) =>
+smoke.timedChecks = (checks) =>
   Object.fromEntries(
     Object.entries(checks).map(([name, check]) => [
       name,
@@ -30,7 +30,7 @@ window.timedChecks = (checks) =>
     ]),
   );
 // Create each held promise at invocation time, exposing the most recent resolver synchronously.
-globalThis.pendingSmokeCall = () => {
+smoke.pendingSmokeCall = () => {
   const pending = {};
   pending.call = () =>
     new Promise((resolve, reject) => {
@@ -170,7 +170,7 @@ const audit = (() => {
   };
 })();
 // Audits the current screen, then saves its screenshots when the run asks for them.
-window.shot = async (name) => {
+smoke.shot = async (name) => {
   await audit(name);
   await invokeTest('ui_test_shot', { name });
 };
@@ -183,7 +183,7 @@ window.shot = async (name) => {
     });
   const checkSafetyQr = async () => {
     document.getElementById('view-safety').click();
-    await window.safetyDone;
+    await appApi.safetyDone;
     const number = document.getElementById('view-safety-number').textContent;
     const qr = document.getElementById('view-safety-qr');
     const pixels = qr.getContext('2d');
@@ -212,16 +212,16 @@ window.shot = async (name) => {
   };
   const checkSafetyScan = async (qr) => {
     const scan = document.getElementById('view-safety-scan-status');
-    await globalThis.scanQrFile(new File(['not an image'], 'invalid.png', { type: 'image/png' }));
-    if (scan.textContent !== window.strings['view.safety.scan.loadFailed']) {
+    await appApi.scanQrFile(new File(['not an image'], 'invalid.png', { type: 'image/png' }));
+    if (scan.textContent !== appApi.strings['view.safety.scan.loadFailed']) {
       throw new Error('malformed PNG was not reported');
     }
     const png = await new Promise((resolve) => qr.toBlob(resolve, 'image/png'));
     if (!png) throw new Error('could not make the QR fixture PNG');
     // This search fixture opens our own profile, so both QR directions are identical.
     // Direction rejection for two distinct peers is covered by the Rust safety tests.
-    await globalThis.scanQrFile(new File([png], 'loopback.png', { type: 'image/png' }));
-    if (scan.hidden || scan.textContent !== window.strings['view.safety.scan.matched']) {
+    await appApi.scanQrFile(new File([png], 'loopback.png', { type: 'image/png' }));
+    if (scan.hidden || scan.textContent !== appApi.strings['view.safety.scan.matched']) {
       throw new Error('loopback QR image did not match');
     }
     return scan;
@@ -238,20 +238,20 @@ window.shot = async (name) => {
     if (!dialog.open || document.activeElement.id !== 'verify-cancel') {
       throw new Error('verification did not ask first with Cancel focused');
     }
-    await shot('search-safety-confirm');
+    await smoke.shot('search-safety-confirm');
     document.getElementById('verify-cancel').click();
     if (
       dialog.open ||
       confirm.disabled ||
-      scan.textContent !== window.strings['view.safety.scan.matched']
+      scan.textContent !== appApi.strings['view.safety.scan.matched']
     ) {
       throw new Error('Cancel did not leave the comparison as it was');
     }
     confirm.click();
     document.getElementById('verify-confirm').click();
-    await window.confirmDone;
+    await appApi.confirmDone;
     if (
-      scan.textContent !== window.strings['view.safety.confirm.ownPeer'] ||
+      scan.textContent !== appApi.strings['view.safety.confirm.ownPeer'] ||
       !mark.hidden ||
       confirm.disabled ||
       document.activeElement !== confirm
@@ -273,8 +273,8 @@ window.shot = async (name) => {
           throw error;
         });
         camera.click();
-        await window.cameraDone;
-        if (scan.textContent !== window.strings[`view.safety.camera.${expected}`]) {
+        await appApi.cameraDone;
+        if (scan.textContent !== appApi.strings[`view.safety.camera.${expected}`]) {
           throw new Error(`camera ${name} was not reported`);
         }
       }
@@ -297,8 +297,8 @@ window.shot = async (name) => {
           },
         ],
       });
-      await window.cameraDone;
-      if (!stopped || scan.textContent !== window.strings['view.safety.camera.stopped']) {
+      await appApi.cameraDone;
+      if (!stopped || scan.textContent !== appApi.strings['view.safety.camera.stopped']) {
         throw new Error('cancelled camera capture was not stopped');
       }
     } finally {
@@ -319,31 +319,31 @@ window.shot = async (name) => {
     try {
       const copy = document.getElementById('copy-safety-number');
       copy.click();
-      await window.safetyCopied;
-      if (copy.textContent !== window.strings['action.copied'] || expiries.length !== 1) {
+      await appApi.safetyCopied;
+      if (copy.textContent !== appApi.strings['action.copied'] || expiries.length !== 1) {
         throw new Error('safety copy was not scheduled');
       }
       expiries.shift()();
-      if ((await window.safetyClearDone) !== true) throw new Error('safety copy did not expire');
+      if ((await appApi.safetyClearDone) !== true) throw new Error('safety copy did not expire');
       copy.click();
-      await window.safetyCopied;
-      const other = await invoke('copy_safety_number', { peerId: '00'.repeat(32) });
+      await appApi.safetyCopied;
+      const other = await appBindings.invoke('copy_safety_number', { peerId: '00'.repeat(32) });
       if (other === number) throw new Error('second safety number was not different');
       expiries.shift()();
-      if ((await window.safetyClearDone) !== false)
+      if ((await appApi.safetyClearDone) !== false)
         throw new Error('expiry erased a later clipboard value');
       copy.click();
-      await window.safetyCopied;
+      await appApi.safetyCopied;
       document.getElementById('copy-view-peer').click();
-      await window.copied;
+      await appApi.copied;
       expiries.shift()();
-      if ((await window.safetyClearDone) !== false)
+      if ((await appApi.safetyClearDone) !== false)
         throw new Error('safety expiry erased an ordinary Peer ID copy');
     } finally {
       globalThis.setTimeout = originalTimeout;
     }
   };
-  globalThis.checkSafetyNumber = async () => {
+  smoke.checkSafetyNumber = async () => {
     const { number, qr } = await checkSafetyQr();
     const scan = await checkSafetyScan(qr);
     await checkSafetyConfirm(scan);

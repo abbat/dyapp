@@ -15,7 +15,7 @@
       );
     }
   };
-  window.checkSettingsNavigation = async () => {
+  smoke.checkSettingsNavigation = async () => {
     await openArea('settings');
     const root = document.getElementById('settings-root');
     const back = document.getElementById('settings-back');
@@ -58,7 +58,7 @@
       );
       back.click();
     }
-    window.openSettingsPane('privacy');
+    appApi.openSettingsPane('privacy');
     document.dispatchEvent(new Event('dyapp:identity-change'));
     check(
       !root.hidden && panes.every((pane) => pane.hidden),

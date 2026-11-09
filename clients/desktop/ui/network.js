@@ -1,5 +1,13 @@
-// The Network area and the shell's connection status; loaded after app.js, whose helpers
-// (invoke, show, showArea, copyFrom) it shares through the page's global scope.
+import { showArea, wizardNetwork, show, identity } from './app.js';
+import { copyFrom } from './clipboard.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { startLink } from './link.js';
+import { strings } from './locale.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
+// The Network area and the shell's connection status use explicitly imported helpers.
 // Bootstrap settings of the open identity: draft rows and one bounded Check and connect.
 const network = document.getElementById('network');
 const seeds = document.getElementById('seeds');
@@ -11,7 +19,7 @@ const networkError = document.getElementById('network-error');
 const connectionStatus = document.getElementById('connection-status');
 // Only the latest launch connect or check may set the shell status.
 let connectionRun = 0;
-let checkGeneration = identityGeneration;
+let checkGeneration = identityState.generation;
 const showConnection = (state, name) => {
   connectionStatus.dataset.state = state;
   for (const dot of document.querySelectorAll('.connection-dot')) {
@@ -19,19 +27,19 @@ const showConnection = (state, name) => {
     dot.classList.toggle('off', state === 'offline');
   }
   for (const label of document.querySelectorAll('.connection-label')) {
-    label.textContent = window.strings[`connection.${state}`];
+    label.textContent = strings[`connection.${state}`];
   }
   // The rail hides the label, so the title names the button there.
-  connectionStatus.title = window.strings[`connection.${state}`];
+  connectionStatus.title = strings[`connection.${state}`];
   if (name !== undefined) {
     document.getElementById('connection-network').textContent =
-      name || window.strings['network.name.public'];
+      name || strings['network.name.public'];
   }
 };
 connectionStatus.addEventListener('click', () => showArea('network-area'));
 // Dials the saved active network as the identity opens; nothing active means Offline.
 const connectAtLaunch = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const run = ++connectionRun;
   const active = await call('load_network', { file: 'active' }).catch(() => null);
   if (!identityCurrent(generation) || run !== connectionRun) return;
@@ -46,7 +54,7 @@ const connectAtLaunch = async (call = invoke) => {
   }
 };
 const networkStatus = (key, detail) => {
-  const text = window.strings[key];
+  const text = strings[key];
   document.getElementById('network-status').textContent = detail ? `${text} ${detail}` : text;
 };
 const draft = () => ({
@@ -59,7 +67,7 @@ const draft = () => ({
 
 // Fills the form from the draft, else the active settings; a damaged file is shown, not reset.
 const showNetwork = async (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   if (checkGeneration !== generation) {
     checkGeneration = generation;
     checkButton.disabled = false;
@@ -79,19 +87,19 @@ const showNetwork = async (call = invoke) => {
     if (identityCurrent(generation)) networkStatus('network.failed', String(error));
   }
 };
-window.showNetwork = showNetwork;
+controller.showNetwork = showNetwork;
 
 const rowItem = (seed, row) => {
   const entry = document.createElement('li');
   entry.dataset.status = row.status;
-  entry.textContent = `${seed}: ${window.strings[`network.row.${row.status}`]}`;
+  entry.textContent = `${seed}: ${strings[`network.row.${row.status}`]}`;
   // The node ID or the transport error is for an operator, so it stays collapsed.
   const detail = row.peerId || row.reason;
   if (detail) {
     const more = document.createElement('details');
     const label = document.createElement('summary');
     const code = document.createElement('pre');
-    label.textContent = window.strings['network.details'];
+    label.textContent = strings['network.details'];
     code.textContent = detail;
     more.append(label, code);
     entry.append(more);
@@ -130,7 +138,7 @@ const renderNetworkCheck = (rows, result) => {
 
 const restoreNetworkCheck = (before) => {
   if (connectionStatus.dataset.state === 'connecting') {
-    if (before === 'connecting') window.connectionShown = connectAtLaunch();
+    if (before === 'connecting') progress.connectionShown = connectAtLaunch();
     else showConnection(before);
   }
   checkButton.disabled = false;
@@ -141,7 +149,7 @@ const restoreNetworkCheck = (before) => {
 // previous network and its shell status.
 const check = async (call = invoke) => {
   const rows = draft();
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const run = ++connectionRun;
   const live = () => identityCurrent(generation) && run === connectionRun;
   const before = connectionStatus.dataset.state;
@@ -181,11 +189,11 @@ const check = async (call = invoke) => {
 
 network.addEventListener('submit', (event) => {
   event.preventDefault();
-  window.connectionChecked = check();
+  controller.connectionChecked = check();
 });
 // Edits are kept even if the app closes before a check.
 const saveNetworkDraft = (call = invoke) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   return call('save_network_draft', { draft: draft() }).catch((error) => {
     if (identityCurrent(generation)) networkStatus('network.failed', String(error));
   });
@@ -225,3 +233,16 @@ copyFrom(
   document.getElementById('copy-network-details'),
   document.getElementById('network-error-details'),
 );
+
+export {
+  cancelButton,
+  check,
+  checkButton,
+  connectAtLaunch,
+  connectionStatus,
+  networkName,
+  saveNetworkDraft,
+  seeds,
+  showNetwork,
+  wizardStep,
+};

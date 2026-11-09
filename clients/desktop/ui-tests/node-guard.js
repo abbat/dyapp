@@ -1,16 +1,16 @@
 // Node Settings waits and save completions stay bound to the identity that started them.
 (() => {
   const createNodeFixture = () => {
-    const readyState = current;
+    const readyState = appBindings.current;
     const node = document.getElementById('node');
     const save = document.getElementById('node-save');
     const saved = { enabled: false, diskMb: 40, maxConnections: 2 };
     const switchAndShow = async () => {
-      await act(Promise.resolve({ status: 'picker' }));
-      await act(Promise.resolve(readyState));
+      await appBindings.act(Promise.resolve({ status: 'picker' }));
+      await appBindings.act(Promise.resolve(readyState));
       await openArea('settings', 'node');
-      await window.nodeShown;
-      await showNode((command) =>
+      await appApi.nodeShown;
+      await appBindings.showNode((command) =>
         Promise.resolve(command === 'node_status' ? { status: 'off', peerId: '' } : saved),
       );
     };
@@ -30,7 +30,7 @@
     const { switchAndShow, checkNew } = fixture;
     await openArea('settings', 'node');
     let finishStatus;
-    const oldStatus = showNode(
+    const oldStatus = appBindings.showNode(
       () =>
         new Promise((resolve) => {
           finishStatus = resolve;
@@ -44,7 +44,7 @@
   const checkOldNodeSettings = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let finishSettings;
-    const oldSettings = showNode((command) =>
+    const oldSettings = appBindings.showNode((command) =>
       command === 'node_status'
         ? Promise.resolve({ status: 'off', peerId: '' })
         : new Promise((resolve) => {
@@ -63,7 +63,7 @@
   const checkOldNodeSettingsFailure = async (fixture) => {
     const { switchAndShow, checkNew } = fixture;
     let failSettings;
-    const oldSettingsFailure = showNode((command) =>
+    const oldSettingsFailure = appBindings.showNode((command) =>
       command === 'node_status'
         ? Promise.resolve({ status: 'off', peerId: '' })
         : new Promise((_, reject) => {
@@ -81,7 +81,7 @@
   const checkOldNodeSave = async (fixture) => {
     const { saved, switchAndShow, save, node } = fixture;
     let finishOldSave;
-    const oldSave = saveNodeSettings(
+    const oldSave = appBindings.saveNodeSettings(
       saved,
       () =>
         new Promise((resolve) => {
@@ -90,7 +90,7 @@
     );
     await switchAndShow();
     let finishNewSave;
-    const newSave = saveNodeSettings(
+    const newSave = appBindings.saveNodeSettings(
       { ...saved, enabled: true },
       () =>
         new Promise((resolve) => {
@@ -110,7 +110,7 @@
   const checkOldNodeSaveFailure = async (fixture) => {
     const { saved, switchAndShow, checkNew } = fixture;
     let failOldSave;
-    const oldSaveFailure = saveNodeSettings(
+    const oldSaveFailure = appBindings.saveNodeSettings(
       saved,
       () =>
         new Promise((_, reject) => {
@@ -121,9 +121,9 @@
     failOldSave(new Error('old save'));
     await oldSaveFailure;
     checkNew('old node save error changed new status');
-    await showNode();
+    await appBindings.showNode();
   };
-  window.uiSmokeNodeGuard = async () => {
+  smoke.uiSmokeNodeGuard = async () => {
     const fixture = createNodeFixture();
     await checkOldNodeStatus(fixture);
     await checkOldNodeSettings(fixture);

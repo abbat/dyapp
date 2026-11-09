@@ -5,7 +5,7 @@
     const reload = async () => {
       refreshes += 1;
     };
-    window.renderSettingsRows(name, items, row, String, reload);
+    appApi.renderSettingsRows(name, items, row, String, reload);
     const list = document.getElementById(id),
       search = document.getElementById(`settings-${name}-search`);
     list.closest('.card').hidden = false; // The fixture supplies data even for unpublished Devices.
@@ -40,18 +40,18 @@
     search.dispatchEvent(new Event('input', { bubbles: true }));
     check(!list.children.length, 'Empty search retained rows');
     document.getElementById(`settings-${name}-refresh`).click();
-    await window.settingsCollectionRefreshed;
+    await appApi.settingsCollectionRefreshed;
     check(refreshes === 1, 'Collection Refresh did not invoke loader');
-    window.renderSettingsRows(name, null, row, String, reload);
+    appApi.renderSettingsRows(name, null, row, String, reload);
     check(
       document.getElementById(`settings-${name}-status`).textContent ===
-        window.strings['settings.collection.failed'],
+        appApi.strings['settings.collection.failed'],
       'Read error is not visible on list',
     );
   };
-  window.checkSettingsLists = async () => {
+  smoke.checkSettingsLists = async () => {
     await openArea('settings');
-    await Promise.all([window.devicesShown, window.blockedShown, window.passedShown]);
+    await Promise.all([appApi.devicesShown, appApi.blockedShown, appApi.passedShown]);
     const check = (ok, reason) => {
       if (!ok) throw Error(reason);
     };

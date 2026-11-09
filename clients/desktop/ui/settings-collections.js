@@ -1,3 +1,7 @@
+import { identityState, identityCurrent } from './identity-state.js';
+import { strings } from './locale.js';
+export const controller = {};
+
 // Local collections are held as data; only one page of rows is mounted.
 (() => {
   const states = new Map();
@@ -7,7 +11,7 @@
     blocked: 'blocked-list',
     passed: 'passed-list',
   };
-  const text = (key) => window.strings[`settings.collection.${key}`];
+  const text = (key) => strings[`settings.collection.${key}`];
   const render = (state) => {
     const term = state.search.value.trim().toLocaleLowerCase();
     const items = (state.items || [])
@@ -96,21 +100,21 @@
       render(state);
     });
     refresh.addEventListener('click', () => {
-      const generation = identityGeneration;
+      const generation = identityState.generation;
       refresh.disabled = true;
-      window.settingsCollectionRefreshed = Promise.resolve()
+      controller.settingsCollectionRefreshed = Promise.resolve()
         .then(() => state.reload())
         .finally(() => {
           if (identityCurrent(generation)) refresh.disabled = false;
         });
     });
   };
-  window.renderSettingsRows = (name, items, row, find, reload) => {
+  controller.renderSettingsRows = (name, items, row, find, reload) => {
     const state = states.get(name) || create(name);
     Object.assign(state, { items, row, find, reload });
     render(state);
   };
-  window.settingsCollectionFailed = (name) => {
+  controller.settingsCollectionFailed = (name) => {
     const state = states.get(name);
     if (state) state.status.textContent = text('failed');
   };

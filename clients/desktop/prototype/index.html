@@ -928,6 +928,9 @@ if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
   document.getElementById('sticker-remove-cancel').focus();
 </script>
 <script src="sticker-states.js"></script>
-<script src="../ui/identifiers.js"></script>
+<script type="module">
+import { installIdentifiers } from '../ui/identifiers.js';
+installIdentifiers(window.strings);
+</script>
 </body>
 </html>

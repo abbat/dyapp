@@ -1,10 +1,17 @@
+import { sizeText } from './formatting.js';
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { progress } from './ui-progress.js';
+export const controller = {};
+
 // Each disclosure opening owns its reads, picker and import completion.
 (() => {
   const el = (id) => document.getElementById(`sticker-${id}`);
   const panel = document.getElementById('sticker-packs');
   const manager = document.getElementById('sticker-manager');
   let openedFrom = null;
-  const text = (key) => window.strings[`stickers.${key}`];
+  const text = (key) => strings[`stickers.${key}`];
   let view = null;
   let removing = null;
   const dialog = el('remove-dialog');
@@ -144,7 +151,7 @@
     const target = selection.target;
     busy(target, true);
     message('removing');
-    window.stickerRemoved = removeSelected(target, selection.id);
+    controller.stickerRemoved = removeSelected(target, selection.id);
   });
   const close = () => {
     view = null;
@@ -171,8 +178,8 @@
     }
     panel.open = true;
     const target = {
-      generation: identityGeneration,
-      identityId: current?.peerId,
+      generation: identityState.generation,
+      identityId: identityState.current?.peerId,
       call,
       busy: false,
       next: null,
@@ -224,14 +231,14 @@
   };
   panel.addEventListener('toggle', () => {
     if (panel.open) {
-      if (!view) window.stickersShown = open();
+      if (!view) progress.stickersShown = open();
     } else close();
   });
   el('refresh').addEventListener('click', () => {
-    if (active(view) && !view.busy) window.stickersShown = load(view);
+    if (active(view) && !view.busy) progress.stickersShown = load(view);
   });
   el('next').addEventListener('click', () => {
-    if (active(view) && !view.busy && view.next) window.stickersShown = load(view, view.next);
+    if (active(view) && !view.busy && view.next) progress.stickersShown = load(view, view.next);
   });
   el('import').addEventListener('click', () => {
     if (!active(view) || view.busy) return;
@@ -243,7 +250,7 @@
     input.addEventListener('change', () => {
       const file = input.files[0];
       input.value = '';
-      window.stickerImported = importFile(file, target);
+      controller.stickerImported = importFile(file, target);
     });
     input.click();
   });
@@ -264,9 +271,9 @@
   });
   document.addEventListener('dyapp:identity-change', close);
   document.addEventListener('dyapp:area-change', close);
-  window.stickerMessageText = (sticker) =>
+  controller.stickerMessageText = (sticker) =>
     text('message')
       .replace('{emoji}', () => sticker.emoji)
       .replace('{name}', () => sticker.packName);
-  window.stickerCollection = { open, close, importFile };
+  controller.stickerCollection = { open, close, importFile };
 })();

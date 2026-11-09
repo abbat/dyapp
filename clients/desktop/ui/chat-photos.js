@@ -1,3 +1,8 @@
+import { sizeText } from './formatting.js';
+import { identityState, identityCurrent } from './identity-state.js';
+import { strings } from './locale.js';
+export const controller = {};
+
 // The page's CSP admits no image URLs, so photo bytes are decoded onto a canvas.
 const PREVIEW_SIDE = 240;
 const ORIGINAL_SIDE = 480;
@@ -28,17 +33,17 @@ const drawPhoto = async (canvas, bytes, mime, side) => {
   bitmap.close();
 };
 const photoCaption = (photo) => {
-  const parts = [window.strings['chats.photo'], photo.mime, sizeText(photo.size)];
+  const parts = [strings['chats.photo'], photo.mime, sizeText(photo.size)];
   if (photo.kept) return parts.join(' · ');
-  if (photo.hoursLeft === 0) parts.push(window.strings['chats.photoExpired']);
+  if (photo.hoursLeft === 0) parts.push(strings['chats.photoExpired']);
   else if (photo.hoursLeft) {
-    parts.push(window.strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
+    parts.push(strings['chats.photoExpires'].replace('{hours}', photo.hoursLeft));
   }
   return parts.join(' · ');
 };
 const photoKey = (message) => `${message.author}:${message.id}`;
 const photoError = (code) =>
-  window.strings[
+  strings[
     {
       notFound: 'chats.photoGone',
       corrupted: 'chats.photoBroken',
@@ -48,13 +53,13 @@ const photoButton = (key, name, click) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `btn quiet ${name}`;
-  button.textContent = window.strings[key];
+  button.textContent = strings[key];
   button.addEventListener('click', click);
   return button;
 };
 // A mail pass redraws the chat under a running fetch, so results go to the bubble of that moment.
 const downloadOriginal = async (message, peerId, call) => {
-  const generation = identityGeneration;
+  const generation = identityState.generation;
   const key = photoKey(message);
   if (photoFetches.has(key) || photoOriginals.has(key)) return;
   const { mime } = message.photo;
@@ -99,7 +104,7 @@ const createPhotoBubble = (photo) => {
   fitCanvas(canvas, photo.width, photo.height, PREVIEW_SIDE);
   canvas.tabIndex = -1;
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', window.strings['chats.photo']);
+  canvas.setAttribute('aria-label', strings['chats.photo']);
   box.append(canvas, caption, status);
   box.canvas = canvas;
   box.kept = photo.kept;
@@ -119,7 +124,7 @@ const photoBubble = (message, peerId, blurred, call) => {
   const download = photoButton('chats.photoDownload', 'photo-download', fetchPhoto);
   box.showFetching = () => {
     download.disabled = true;
-    status.textContent = window.strings['chats.photoDownloading'];
+    status.textContent = strings['chats.photoDownloading'];
   };
   box.showResult = (text, retry) => {
     status.textContent = text;
@@ -179,7 +184,7 @@ const fetchAllowedPhotos = async (peerId, call) => {
     photoAutoRunning = false;
   }
 };
-window.chatPhotos = {
+controller.chatPhotos = {
   photoBubble,
   fetchAllowed: fetchAllowedPhotos,
   resetPeer(peerId, clear = false) {
@@ -187,3 +192,5 @@ window.chatPhotos = {
     photoOriginalsPeer = peerId;
   },
 };
+
+export { drawPhoto, fitCanvas };

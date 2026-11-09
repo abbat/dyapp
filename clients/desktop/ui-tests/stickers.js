@@ -12,10 +12,10 @@
     if (!ok) throw new Error(reason);
   };
   const createCollectionFixture = () => {
-    const ui = window.stickerCollection;
+    const ui = appApi.stickerCollection;
     const panel = document.getElementById('sticker-packs');
     const page = { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
-    const fallback = window.stickerMessageText({ emoji: '😺', packName: '$&<img>{emoji}' });
+    const fallback = appApi.stickerMessageText({ emoji: '😺', packName: '$&<img>{emoji}' });
     check(
       fallback.includes('$&<img>{emoji}') && !fallback.includes('{name}'),
       'plain sticker label',
@@ -58,7 +58,7 @@
       await ui.importFile(null);
       check(!read && calls.length === 1, 'Oversized/cancelled picker read or invoked import');
       check(
-        get('status').textContent === window.strings['stickers.tooLarge'],
+        get('status').textContent === appApi.strings['stickers.tooLarge'],
         'Missing file limit explanation',
       );
     } catch (error) {
@@ -126,7 +126,7 @@
       });
       get('next').focus();
       get('next').click();
-      await window.stickersShown;
+      await appApi.stickersShown;
       check(
         cursor === next &&
           get('list').children.length === 1 &&
@@ -155,7 +155,7 @@
         'Import lost identity or bytes',
       );
       check(
-        get('status').textContent.includes(window.strings['stickers.saved']),
+        get('status').textContent.includes(appApi.strings['stickers.saved']),
         'Import lacks local confirmation',
       );
     } catch (error) {
@@ -176,7 +176,7 @@
         });
         await ui.importFile({ size: 1, arrayBuffer: async () => new ArrayBuffer(1) });
         check(
-          get('status').textContent === window.strings[`stickers.${key}`],
+          get('status').textContent === appApi.strings[`stickers.${key}`],
           'Import reason misclassified',
         );
       }
@@ -207,11 +207,11 @@
         'Read failure lacks text-only details',
       );
       check(
-        get('status').textContent === window.strings['stickers.error'],
+        get('status').textContent === appApi.strings['stickers.error'],
         'Read failure lacks retry',
       );
       get('details').open = true;
-      await shot('stickers-read-error');
+      await smoke.shot('stickers-read-error');
       ui.close();
       check(
         get('reason').textContent === '' && !get('details').open,
@@ -222,7 +222,7 @@
       throw error;
     }
   };
-  window.checkStickerCollection = async () => {
+  smoke.checkStickerCollection = async () => {
     await openArea('settings');
     const fixture = createCollectionFixture();
     try {

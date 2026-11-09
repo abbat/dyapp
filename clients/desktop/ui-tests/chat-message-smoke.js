@@ -3,10 +3,10 @@
   const assertChatEditEditDeleteVisibleOutsideOwnLiveText = (editButtons) => {
     if (
       editButtons.length !== 4 ||
-      editButtons[0].textContent !== window.strings['chats.edit'] ||
-      editButtons[1].textContent !== window.strings['chats.delete'] ||
-      editButtons[2].textContent !== window.strings['chats.forward'] ||
-      editButtons[3].textContent !== window.strings['chats.forward']
+      editButtons[0].textContent !== appApi.strings['chats.edit'] ||
+      editButtons[1].textContent !== appApi.strings['chats.delete'] ||
+      editButtons[2].textContent !== appApi.strings['chats.forward'] ||
+      editButtons[3].textContent !== appApi.strings['chats.forward']
     ) {
       throw new Error('Edit/Delete visible outside own live text or Forward missing');
     }
@@ -18,27 +18,27 @@
       editedArgs.text !== 'replacement' ||
       JSON.stringify(editedArgs.groupId) !== JSON.stringify(groupId) ||
       JSON.stringify(editedArgs.messageId) !== JSON.stringify(own.id) ||
-      editDialog.open ||
-      !chatMessages.textContent.includes(window.strings['chats.edited']) ||
-      chatComposeStatus.textContent !== window.strings['chats.editSent']
+      appBindings.editDialog.open ||
+      !appBindings.chatMessages.textContent.includes(appApi.strings['chats.edited']) ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.editSent']
     ) {
       throw new Error('Edit did not refresh current text and marker');
     }
   };
   const assertChatEditUnstagedEditLostItsDraft = () => {
     if (
-      !editDialog.open ||
-      editInput.value !== 'keep draft' ||
-      !editError.textContent.includes('diskFailed')
+      !appBindings.editDialog.open ||
+      appBindings.editInput.value !== 'keep draft' ||
+      !appBindings.editError.textContent.includes('diskFailed')
     ) {
       throw new Error('unstaged Edit lost its draft');
     }
   };
   const assertChatEditStagedEditOfferedADuplicateRetry = () => {
     if (
-      editDialog.open ||
-      !chatMessages.textContent.includes('queued text') ||
-      chatComposeStatus.textContent !== window.strings['chats.editQueued']
+      appBindings.editDialog.open ||
+      !appBindings.chatMessages.textContent.includes('queued text') ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.editQueued']
     ) {
       throw new Error('staged Edit offered a duplicate retry');
     }
@@ -48,7 +48,7 @@
     const peer = 'f'.repeat(64);
     const groupId = [8, 9];
     const own = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       groupId,
       id: [1],
       text: 'original',
@@ -70,40 +70,45 @@
     return Object.assign(fixture, { peer, groupId, own, theirs, deleted, row, call });
   };
   const checkChatEditStale = async (call) => {
-    chatMessages.querySelector('button').click();
-    editInput.value = 'late';
-    editInput.dispatchEvent(new Event('input'));
-    const finishEditCall = pendingSmokeCall();
-    const oldEdit = editChatText((command) =>
+    appBindings.chatMessages.querySelector('button').click();
+    appBindings.editInput.value = 'late';
+    appBindings.editInput.dispatchEvent(new Event('input'));
+    const finishEditCall = smoke.pendingSmokeCall();
+    const oldEdit = appBindings.editChatText((command) =>
       command === 'edit_chat_text' ? finishEditCall.call() : call(command),
     );
-    const readyState = current;
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const readyState = appBindings.current;
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishEditCall.resolve([6]);
     await oldEdit;
-    if (editDialog.open || !chatDetail.hidden) throw new Error('old Edit painted new identity');
+    if (appBindings.editDialog.open || !appBindings.chatDetail.hidden)
+      throw new Error('old Edit painted new identity');
   };
   const checkChatEdit = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = chatEditFixture();
     const { peer, groupId, own, theirs, deleted, call } = fixture;
-    await openChat(peer, call);
-    const editButtons = chatMessages.querySelectorAll('button');
+    await appBindings.openChat(peer, call);
+    const editButtons = appBindings.chatMessages.querySelectorAll('button');
     assertChatEditEditDeleteVisibleOutsideOwnLiveText(editButtons);
     editButtons[0].click();
-    if (!editDialog.open || editInput.value !== 'original' || !editSave.disabled) {
+    if (
+      !appBindings.editDialog.open ||
+      appBindings.editInput.value !== 'original' ||
+      !appBindings.editSave.disabled
+    ) {
       throw new Error('Edit dialog did not load current own text');
     }
-    editCancel.click();
-    if (editDialog.open) throw new Error('Edit cancel left dialog open');
+    appBindings.editCancel.click();
+    if (appBindings.editDialog.open) throw new Error('Edit cancel left dialog open');
     editButtons[0].click();
-    editInput.value = 'replacement';
-    editInput.dispatchEvent(new Event('input'));
+    appBindings.editInput.value = 'replacement';
+    appBindings.editInput.dispatchEvent(new Event('input'));
     let editedArgs;
     fixture.messages = [{ ...own, text: 'replacement', edited: true }, theirs, deleted];
-    await editChatText((command, args) => {
+    await appBindings.editChatText((command, args) => {
       if (command === 'edit_chat_text') {
         editedArgs = args;
         return Promise.resolve([5]);
@@ -111,16 +116,16 @@
       return call(command);
     });
     assertChatEditEditDidNotRefreshCurrentTextAnd(editedArgs, peer, groupId, own);
-    chatMessages.querySelector('button').click();
-    editInput.value = 'keep draft';
-    editInput.dispatchEvent(new Event('input'));
-    await editChatText((command) =>
+    appBindings.chatMessages.querySelector('button').click();
+    appBindings.editInput.value = 'keep draft';
+    appBindings.editInput.dispatchEvent(new Event('input'));
+    await appBindings.editChatText((command) =>
       command === 'edit_chat_text' ? Promise.reject('diskFailed') : call(command),
     );
     assertChatEditUnstagedEditLostItsDraft();
-    editInput.value = 'queued text';
-    editInput.dispatchEvent(new Event('input'));
-    await editChatText((command) => {
+    appBindings.editInput.value = 'queued text';
+    appBindings.editInput.dispatchEvent(new Event('input'));
+    await appBindings.editChatText((command) => {
       if (command === 'edit_chat_text') {
         fixture.messages = [{ ...own, text: 'queued text', edited: true }, theirs, deleted];
         return Promise.reject('nodeFailed');
@@ -132,8 +137,8 @@
   };
   const assertChatDeleteBestEffortDeleteWarningMissing = () => {
     if (
-      !deleteDialog.open ||
-      !deleteDialog.textContent.includes(window.strings['chats.deleteWarning'])
+      !appBindings.deleteDialog.open ||
+      !appBindings.deleteDialog.textContent.includes(appApi.strings['chats.deleteWarning'])
     ) {
       throw new Error('best-effort Delete warning missing');
     }
@@ -149,29 +154,29 @@
       deletedArgs.peerId !== peer ||
       JSON.stringify(deletedArgs.groupId) !== JSON.stringify(own.groupId) ||
       JSON.stringify(deletedArgs.messageId) !== JSON.stringify(own.id) ||
-      deleteDialog.open ||
-      chatMessages.textContent.includes('remove me') ||
-      !chatMessages.textContent.includes(window.strings['chats.deleted']) ||
+      appBindings.deleteDialog.open ||
+      appBindings.chatMessages.textContent.includes('remove me') ||
+      !appBindings.chatMessages.textContent.includes(appApi.strings['chats.deleted']) ||
       deleteButton() ||
-      chatComposeStatus.textContent !== window.strings['chats.deleteSent']
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.deleteSent']
     ) {
       throw new Error('Delete did not show terminal placeholder');
     }
   };
   const assertChatDeleteUnstagedDeleteHidOwnText = () => {
     if (
-      !deleteDialog.open ||
-      !deleteError.textContent.includes('diskFailed') ||
-      !chatMessages.textContent.includes('second')
+      !appBindings.deleteDialog.open ||
+      !appBindings.deleteError.textContent.includes('diskFailed') ||
+      !appBindings.chatMessages.textContent.includes('second')
     ) {
       throw new Error('unstaged Delete hid own text');
     }
   };
   const assertChatDeleteStagedDeleteWasReportedAsFailure = () => {
     if (
-      deleteDialog.open ||
-      chatMessages.textContent.includes('second') ||
-      chatComposeStatus.textContent !== window.strings['chats.deleteQueued']
+      appBindings.deleteDialog.open ||
+      appBindings.chatMessages.textContent.includes('second') ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.deleteQueued']
     ) {
       throw new Error('staged Delete was reported as failure');
     }
@@ -180,7 +185,7 @@
     const fixture = {};
     const peer = '9'.repeat(64);
     const own = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       groupId: [6],
       id: [7],
       text: 'remove me',
@@ -202,41 +207,45 @@
   };
   const checkChatDeleteStale = async (fixture, peer, own, theirs, call, deleteButton) => {
     fixture.messages = [{ ...own, id: [11], text: 'late' }, theirs];
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     deleteButton().click();
-    const finishDeleteCall = pendingSmokeCall();
-    const oldDelete = deleteChatText((command) =>
+    const finishDeleteCall = smoke.pendingSmokeCall();
+    const oldDelete = appBindings.deleteChatText((command) =>
       command === 'delete_chat_text' ? finishDeleteCall.call() : call(command),
     );
-    const readyState = current;
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const readyState = appBindings.current;
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishDeleteCall.resolve([12]);
     await oldDelete;
-    if (deleteDialog.open || !chatDetail.hidden) throw new Error('old Delete painted new identity');
+    if (appBindings.deleteDialog.open || !appBindings.chatDetail.hidden)
+      throw new Error('old Delete painted new identity');
   };
   const checkChatDelete = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = chatDeleteFixture();
     const { peer, own, theirs, call } = fixture;
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     const deleteButton = () =>
-      Array.from(chatMessages.querySelectorAll('button')).find(
-        (button) => button.textContent === window.strings['chats.delete'],
+      Array.from(appBindings.chatMessages.querySelectorAll('button')).find(
+        (button) => button.textContent === appApi.strings['chats.delete'],
       );
-    if (!deleteButton() || chatMessages.querySelectorAll('button').length !== 4) {
+    if (!deleteButton() || appBindings.chatMessages.querySelectorAll('button').length !== 4) {
       throw new Error('Delete action visible for peer text or Forward missing');
     }
     deleteButton().click();
     assertChatDeleteBestEffortDeleteWarningMissing();
-    deleteCancel.click();
-    if (deleteDialog.open || !chatMessages.textContent.includes('remove me')) {
+    appBindings.deleteCancel.click();
+    if (
+      appBindings.deleteDialog.open ||
+      !appBindings.chatMessages.textContent.includes('remove me')
+    ) {
       throw new Error('Cancel deleted own text');
     }
     deleteButton().click();
     let deletedArgs;
-    await deleteChatText((command, args) => {
+    await appBindings.deleteChatText((command, args) => {
       if (command === 'delete_chat_text') {
         deletedArgs = args;
         fixture.messages = [{ ...own, text: null, deleted: true }, theirs];
@@ -246,13 +255,13 @@
     });
     assertChatDeleteDeleteDidNotShowTerminalPlaceholder(deletedArgs, peer, own, deleteButton);
     fixture.messages = [{ ...own, id: [10], text: 'second' }, theirs];
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     deleteButton().click();
-    await deleteChatText((command) =>
+    await appBindings.deleteChatText((command) =>
       command === 'delete_chat_text' ? Promise.reject('diskFailed') : call(command),
     );
     assertChatDeleteUnstagedDeleteHidOwnText();
-    await deleteChatText((command) => {
+    await appBindings.deleteChatText((command) => {
       if (command === 'delete_chat_text') {
         fixture.messages = [{ ...fixture.messages[0], text: null, deleted: true }, theirs];
         return Promise.reject('nodeFailed');
@@ -294,7 +303,7 @@
     const departures = [
       () => document.getElementById('chat-back').click(),
       () => {
-        identityGeneration += 1;
+        appBindings.identityGeneration += 1;
       },
     ];
     for (const leave of departures) {
@@ -306,7 +315,7 @@
         held.answer = resolve;
       });
       fixture.stop = held;
-      const opening = openChat(peer, call);
+      const opening = appBindings.openChat(peer, call);
       await held.asked;
       leave();
       held.answer(true);
@@ -318,32 +327,32 @@
   };
   const checkNewDevice = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = newDeviceFixture();
     const { peer, notice, status, call } = fixture;
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     if (notice.hidden) throw new Error('a raised new-device notice stayed hidden');
-    await shot('chat-new-device');
+    await smoke.shot('chat-new-device');
     for (const flag of [true, null]) {
       fixture.raised = flag;
-      await window.mailUpdated(0, call);
+      await appApi.mailUpdated(0, call);
       if (notice.hidden) throw new Error('a mail pass hid the new-device notice');
     }
     fixture.raised = true;
-    await acknowledgeDevice(call);
-    if (notice.hidden || !status.textContent.includes(window.strings['chats.newDevice.failed'])) {
+    await appBindings.acknowledgeDevice(call);
+    if (notice.hidden || !status.textContent.includes(appApi.strings['chats.newDevice.failed'])) {
       throw new Error('a failed acknowledgement dismissed the notice silently');
     }
     fixture.acknowledge = () => {
       fixture.raised = false;
       return Promise.resolve();
     };
-    await acknowledgeDevice(call);
-    if (!notice.hidden || document.activeElement !== chatInput) {
+    await appBindings.acknowledgeDevice(call);
+    if (!notice.hidden || document.activeElement !== appBindings.chatInput) {
       throw new Error('the acknowledgement left the notice or lost focus');
     }
     fixture.raised = true;
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     if (notice.hidden) throw new Error('reopening lost a raised notice');
     document.getElementById('chat-back').click();
     if (!notice.hidden) throw new Error('leaving the chat kept the notice');
@@ -352,24 +361,28 @@
   };
   const assertChatDeliveryPendingOwnMessageOrPeerDeliveryStatus = () => {
     if (
-      !chatMessages.textContent.includes(window.strings['chats.delivery.pending']) ||
-      chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])
+      !appBindings.chatMessages.textContent.includes(appApi.strings['chats.delivery.pending']) ||
+      appBindings.chatMessages.textContent.includes(appApi.strings['chats.delivery.nodeAccepted'])
     ) {
       throw new Error('pending own message or peer delivery status rendered incorrectly');
     }
   };
   const assertChatDeliveryNodeAcceptanceDidNotRefreshAnOpen = () => {
     if (
-      !chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted']) ||
-      chatMessages.textContent.includes(window.strings['chats.delivery.pending'])
+      !appBindings.chatMessages.textContent.includes(
+        appApi.strings['chats.delivery.nodeAccepted'],
+      ) ||
+      appBindings.chatMessages.textContent.includes(appApi.strings['chats.delivery.pending'])
     ) {
       throw new Error('node acceptance did not refresh an open chat');
     }
   };
   const assertChatDeliveryDeviceReceiptStatusDidNotSurviveReopening = () => {
     if (
-      !chatMessages.textContent.includes(window.strings['chats.delivery.deviceReceived']) ||
-      chatMessages.textContent.includes(window.strings['chats.delivery.nodeAccepted'])
+      !appBindings.chatMessages.textContent.includes(
+        appApi.strings['chats.delivery.deviceReceived'],
+      ) ||
+      appBindings.chatMessages.textContent.includes(appApi.strings['chats.delivery.nodeAccepted'])
     ) {
       throw new Error('device receipt status did not survive reopening');
     }
@@ -377,17 +390,17 @@
   const assertChatDeliveryAFailedPassHidTheCommittedMessage = () => {
     if (
       document.querySelectorAll('#chat-list button').length !== 1 ||
-      !chatList.textContent.includes('incoming')
+      !appBindings.chatList.textContent.includes('incoming')
     ) {
       throw new Error('a failed pass hid the committed message');
     }
   };
   const checkChatDelivery = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = '8'.repeat(64);
     const own = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       groupId: [1],
       id: [1],
       text: 'outgoing',
@@ -405,19 +418,19 @@
       if (command === 'chat_rows') return Promise.resolve([]);
       throw new Error(`unexpected delivery command: ${command}`);
     };
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     assertChatDeliveryPendingOwnMessageOrPeerDeliveryStatus();
     delivery = 'nodeAccepted';
-    await window.mailUpdated(0, call);
+    await appApi.mailUpdated(0, call);
     assertChatDeliveryNodeAcceptanceDidNotRefreshAnOpen();
     delivery = 'deviceReceived';
     document.getElementById('chat-back').click();
-    await openChat(peer, call);
+    await appBindings.openChat(peer, call);
     assertChatDeliveryDeviceReceiptStatusDidNotSurviveReopening();
     document.getElementById('chat-back').click();
     // A lost ACK fails the pass after the commit; the committed row still appears, once.
     const committed = [{ peerId: peer, state: 'open', lastMessage: theirs, unreadCount: 1 }];
-    await window.mailUpdated(null, (command) => {
+    await appApi.mailUpdated(null, (command) => {
       if (command === 'chat_rows') return Promise.resolve(committed);
       throw new Error(`unexpected refresh command: ${command}`);
     });
@@ -426,16 +439,16 @@
   const assertChatForwardedForwardedHistoryMarkerOrVerifiedMLSSender = (messages, peer) => {
     if (
       messages.length !== 2 ||
-      !messages[0].textContent.includes(window.strings['chats.forwarded']) ||
-      messages[1].textContent.includes(window.strings['chats.forwarded']) ||
-      !messages[0].textContent.startsWith(shortPeerId(peer, knownPeers))
+      !messages[0].textContent.includes(appApi.strings['chats.forwarded']) ||
+      messages[1].textContent.includes(appApi.strings['chats.forwarded']) ||
+      !messages[0].textContent.startsWith(appBindings.shortPeerId(peer, appBindings.knownPeers))
     ) {
       throw new Error('forwarded history marker or verified MLS sender was lost');
     }
   };
   const checkChatForwarded = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = '7'.repeat(64);
     const forwarded = {
       author: peer,
@@ -448,27 +461,29 @@
       sentAtMs: null,
     };
     const ordinary = { ...forwarded, id: [2], text: 'own words', forwarded: false };
-    renderChatRows([{ peerId: peer, state: 'open', lastMessage: forwarded, unreadCount: 0 }]);
+    appBindings.renderChatRows([
+      { peerId: peer, state: 'open', lastMessage: forwarded, unreadCount: 0 },
+    ]);
     const preview = document.querySelector('#chat-list button .caption');
-    if (!preview?.textContent.startsWith(`${window.strings['chats.forwarded']} · shared words`)) {
+    if (!preview?.textContent.startsWith(`${appApi.strings['chats.forwarded']} · shared words`)) {
       throw new Error('forwarded label missing from chat list preview');
     }
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [forwarded, ordinary] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
       if (command === 'chat_rows') return Promise.resolve([]);
       throw new Error(`unexpected forwarded command: ${command}`);
     });
-    const messages = chatMessages.querySelectorAll('p');
+    const messages = appBindings.chatMessages.querySelectorAll('p');
     assertChatForwardedForwardedHistoryMarkerOrVerifiedMLSSender(messages, peer);
     document.getElementById('chat-back').click();
   };
   const assertChatForwardActionForwardPickerIncludedARequestOrSource = (targetPeer) => {
     if (
-      !forwardDialog.open ||
-      forwardSelect.options.length !== 1 ||
-      forwardSelect.value !== targetPeer
+      !appBindings.forwardDialog.open ||
+      appBindings.forwardSelect.options.length !== 1 ||
+      appBindings.forwardSelect.value !== targetPeer
     )
       throw new Error('Forward picker included a request or source');
   };
@@ -485,27 +500,27 @@
       JSON.stringify(sentArgs.sourceGroupId) !== JSON.stringify(source.groupId) ||
       JSON.stringify(sentArgs.sourceMessageId) !== JSON.stringify(source.id) ||
       sentArgs.targetPeerId !== targetPeer ||
-      forwardDialog.open ||
-      activeChat?.peerId !== targetPeer ||
-      chatComposeStatus.textContent !== window.strings['chats.forwardSent']
+      appBindings.forwardDialog.open ||
+      appBindings.activeChat?.peerId !== targetPeer ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.forwardSent']
     ) {
       throw new Error('Forward action did not send the selected source to the open target');
     }
   };
   const assertChatForwardActionStagedForwardWasReportedAsUnstagedFailure = (targetPeer) => {
     if (
-      forwardDialog.open ||
-      activeChat?.peerId !== targetPeer ||
-      chatComposeStatus.textContent !== window.strings['chats.forwardQueued']
+      appBindings.forwardDialog.open ||
+      appBindings.activeChat?.peerId !== targetPeer ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.forwardQueued']
     ) {
       throw new Error('staged Forward was reported as unstaged failure');
     }
   };
   const assertChatForwardActionForwardPickerDidNotRejectAnAbsent = () => {
     if (
-      !forwardDialog.open ||
-      !forwardConfirm.disabled ||
-      !forwardError.textContent.includes(window.strings['chats.forwardNoTargets'])
+      !appBindings.forwardDialog.open ||
+      !appBindings.forwardConfirm.disabled ||
+      !appBindings.forwardError.textContent.includes(appApi.strings['chats.forwardNoTargets'])
     ) {
       throw new Error('Forward picker did not reject an absent target');
     }
@@ -516,7 +531,7 @@
       fixture.targetMessages = [
         {
           ...source,
-          author: current.peerId,
+          author: appBindings.current.peerId,
           groupId: [8],
           id: [9],
           forwarded: true,
@@ -560,17 +575,17 @@
       if (command === 'forward_chat_text') return stageForwardFixture(fixture, source, args);
       throw new Error(`unexpected Forward command: ${command}`);
     };
-    renderChatRows(rows);
+    appBindings.renderChatRows(rows);
     return Object.assign(fixture, { sourcePeer, targetPeer, source, rows, call });
   };
   const checkChatForwardStale = async (sourcePeer, rows, call, forwardButton) => {
-    renderChatRows(rows);
-    await openChat(sourcePeer, call);
+    appBindings.renderChatRows(rows);
+    await appBindings.openChat(sourcePeer, call);
     forwardButton().click();
     let finishForward;
-    const commandStartedCall = pendingSmokeCall();
+    const commandStartedCall = smoke.pendingSmokeCall();
     const started = commandStartedCall.call();
-    const late = forwardChatText((command, args) =>
+    const late = appBindings.forwardChatText((command, args) =>
       command === 'forward_chat_text'
         ? new Promise((resolve) => {
             finishForward = resolve;
@@ -579,54 +594,58 @@
         : call(command, args),
     );
     await started;
-    const readyState = current;
-    await act(Promise.resolve({ status: 'picker' }));
-    await act(Promise.resolve(readyState));
+    const readyState = appBindings.current;
+    await appBindings.act(Promise.resolve({ status: 'picker' }));
+    await appBindings.act(Promise.resolve(readyState));
     finishForward([10]);
     await late;
-    if (forwardDialog.open || !chatDetail.hidden)
+    if (appBindings.forwardDialog.open || !appBindings.chatDetail.hidden)
       throw new Error('old Forward painted new identity');
   };
   const checkChatForwardAction = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = chatForwardFixture();
     const { sourcePeer, targetPeer, source, rows, call } = fixture;
-    await openChat(sourcePeer, call);
+    await appBindings.openChat(sourcePeer, call);
     const forwardButton = () =>
-      Array.from(chatMessages.querySelectorAll('button')).find(
-        (button) => button.textContent === window.strings['chats.forward'],
+      Array.from(appBindings.chatMessages.querySelectorAll('button')).find(
+        (button) => button.textContent === appApi.strings['chats.forward'],
       );
     forwardButton().click();
     assertChatForwardActionForwardPickerIncludedARequestOrSource(targetPeer);
-    forwardCancel.click();
-    if (forwardDialog.open || fixture.sentArgs) throw new Error('Forward cancel staged a message');
+    appBindings.forwardCancel.click();
+    if (appBindings.forwardDialog.open || fixture.sentArgs)
+      throw new Error('Forward cancel staged a message');
     forwardButton().click();
     fixture.sendError = 'diskFailed';
-    await forwardChatText(call);
-    if (!forwardDialog.open || !forwardError.textContent.includes('diskFailed')) {
+    await appBindings.forwardChatText(call);
+    if (
+      !appBindings.forwardDialog.open ||
+      !appBindings.forwardError.textContent.includes('diskFailed')
+    ) {
       throw new Error('unstaged Forward closed the target picker');
     }
     fixture.sendError = null;
-    await forwardChatText(call);
+    await appBindings.forwardChatText(call);
     assertChatForwardActionForwardActionDidNotSendTheSelected(
       fixture.sentArgs,
       sourcePeer,
       source,
       targetPeer,
     );
-    await openChat(sourcePeer, call);
+    await appBindings.openChat(sourcePeer, call);
     fixture.targetMessages = [];
     fixture.sendError = 'nodeFailed';
     forwardButton().click();
-    await forwardChatText(call);
+    await appBindings.forwardChatText(call);
     assertChatForwardActionStagedForwardWasReportedAsUnstagedFailure(targetPeer);
-    await openChat(sourcePeer, call);
-    renderChatRows([rows[0]]);
+    await appBindings.openChat(sourcePeer, call);
+    appBindings.renderChatRows([rows[0]]);
     forwardButton().click();
     assertChatForwardActionForwardPickerDidNotRejectAnAbsent();
     document.getElementById('chat-back').click();
-    if (forwardDialog.open) throw new Error('Forward dialog survived chat navigation');
+    if (appBindings.forwardDialog.open) throw new Error('Forward dialog survived chat navigation');
     await checkChatForwardStale(sourcePeer, rows, call, forwardButton);
   };
   const assertChatLinkHostsIDNOrUserinfoLinkHostWasMisidentified = (hosts) => {
@@ -634,14 +653,14 @@
       hosts.length !== 2 ||
       hosts[0] !== 'xn--bcher-kva.example' ||
       hosts[1] !== 'evil.example' ||
-      chatLinkHosts('javascript:alert(1)').length
+      appBindings.chatLinkHosts('javascript:alert(1)').length
     ) {
       throw new Error('IDN or userinfo link host was misidentified');
     }
   };
   const assertChatLinkHostsLinkHostMissingOrLinkPreviewWas = (rendered, hosts) => {
     if (
-      !rendered?.textContent.includes(`${window.strings['chats.linkHost']}: ${hosts.join(', ')}`) ||
+      !rendered?.textContent.includes(`${appApi.strings['chats.linkHost']}: ${hosts.join(', ')}`) ||
       rendered.querySelector('a, img, iframe')
     ) {
       throw new Error('link host missing or link preview was created');
@@ -649,10 +668,10 @@
   };
   const checkChatLinkHosts = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = '3'.repeat(64);
     const text = 'See https://bücher.example/path and https://paypal.com@evil.example/login';
-    const hosts = chatLinkHosts(text);
+    const hosts = appBindings.chatLinkHosts(text);
     assertChatLinkHostsIDNOrUserinfoLinkHostWasMisidentified(hosts);
     const message = {
       author: peer,
@@ -663,33 +682,33 @@
       edited: false,
       sentAtMs: null,
     };
-    await openChat(peer, (command) => {
+    await appBindings.openChat(peer, (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'requestReceived', messages: [message] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
       if (command === 'chat_rows') return Promise.resolve([]);
       throw new Error(`unexpected link host command: ${command}`);
     });
-    const rendered = chatMessages.querySelector('p');
+    const rendered = appBindings.chatMessages.querySelector('p');
     assertChatLinkHostsLinkHostMissingOrLinkPreviewWas(rendered, hosts);
     document.getElementById('chat-back').click();
   };
   const assertChatReadReadMarkIsNotOnTheCovered = (seen, delivered, later) => {
     if (
-      !seen.textContent.includes(window.strings['chats.delivery.read']) ||
+      !seen.textContent.includes(appApi.strings['chats.delivery.read']) ||
       seen.textContent.includes(delivered) ||
       !later.textContent.includes(delivered) ||
-      later.textContent.includes(window.strings['chats.delivery.read'])
+      later.textContent.includes(appApi.strings['chats.delivery.read'])
     ) {
       throw new Error('read mark is not on the covered text alone');
     }
   };
   const checkChatRead = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const peer = '5'.repeat(64);
     const own = {
-      author: current.peerId,
+      author: appBindings.current.peerId,
       groupId: [1],
       text: 'seen',
       deleted: false,
@@ -708,29 +727,29 @@
       return Promise.resolve(command === 'chat_rows' ? [] : 0);
     };
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-    await openChat(peer, call);
-    const [seen, later] = chatMessages.querySelectorAll('.msg');
-    const delivered = window.strings['chats.delivery.nodeAccepted'];
+    await appBindings.openChat(peer, call);
+    const [seen, later] = appBindings.chatMessages.querySelectorAll('.msg');
+    const delivered = appApi.strings['chats.delivery.nodeAccepted'];
     assertChatReadReadMarkIsNotOnTheCovered(seen, delivered, later);
     if (sent.includes('mark_chat_read') || sent.includes('send_read_receipts')) {
       throw new Error('a hidden window counted as reading');
     }
     delete document.hidden;
-    const shown = window.mailUpdated;
+    const shown = appApi.mailUpdated;
     let pass;
-    window.mailUpdated = (changed) => {
+    appApi.mailUpdated = (changed) => {
       pass = shown(changed, call);
     };
     document.dispatchEvent(new Event('visibilitychange'));
-    window.mailUpdated = shown;
+    appApi.mailUpdated = shown;
     await pass;
-    await window.chatRead;
+    await appApi.chatRead;
     if (!sent.includes('mark_chat_read') || !sent.includes('send_read_receipts')) {
       throw new Error('returning to the window did not read the chat');
     }
     document.getElementById('chat-back').click();
   };
-  globalThis.uiSmokeChatMessages = Object.freeze({
+  smoke.uiSmokeChatMessages = Object.freeze({
     checkChatEdit,
     checkChatDelete,
     checkNewDevice,

@@ -1,3 +1,10 @@
+import { identityCurrent, identityState } from './identity-state.js';
+import { invoke } from './ipc.js';
+import { strings } from './locale.js';
+import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
+import { withPlaces, searchMain, openFound } from './search.js';
+export const controller = {};
+
 // The list reads local IDs and labels; only pressing a row fetches a verified profile.
 const savedPanel = document.getElementById('saved-profiles');
 const savedRows = document.getElementById('saved-profile-rows');
@@ -9,7 +16,7 @@ let savedCall = invoke;
 const savedCurrent = (context) =>
   context.run === savedRun && identityCurrent(context.generation) && savedPanel.open;
 const savedMessage = (key) => {
-  savedStatus.textContent = key ? window.strings[`favorites.${key}`] : '';
+  savedStatus.textContent = key ? strings[`favorites.${key}`] : '';
 };
 const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
   const [found] = await withPlaces([await context.call('shared_profile', { peerId })]);
@@ -25,7 +32,7 @@ const openSavedProfile = async ({ peerId, context, row, open, selection }) => {
 const removeSavedProfile = async ({ peerId, context, row }) => {
   await context.call('set_favorite', { peerId, favorite: false });
   if (!savedCurrent(context) || !row.isConnected) return;
-  await window.showSaved(context.call);
+  await controller.showSaved(context.call);
   if (savedPanel.open && identityCurrent(context.generation)) savedRefresh.focus();
 };
 const savedRowFailure = (opening, selection, context, row) => {
@@ -64,28 +71,28 @@ const savedRow = (peerId, context) => {
   const open = document.createElement('button');
   open.type = 'button';
   open.className = 'btn';
-  open.textContent = window.peerName(peerId);
+  open.textContent = peerNamesController.peerName(peerId);
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'btn quiet';
-  remove.textContent = window.strings['favorites.remove'];
+  remove.textContent = strings['favorites.remove'];
   remove.setAttribute(
     'aria-label',
-    `${window.strings['favorites.remove']} ${window.peerName(peerId)}`,
+    `${strings['favorites.remove']} ${peerNamesController.peerName(peerId)}`,
   );
   const run = savedRowAction({ peerId, context, row, open, remove });
   open.addEventListener('click', () => {
-    window.savedOpened = run(true);
+    controller.savedOpened = run(true);
   });
   remove.addEventListener('click', () => {
-    window.savedRemoved = run(false);
+    controller.savedRemoved = run(false);
   });
   row.append(open, remove);
   return row;
 };
-window.showSaved = async (call = savedCall) => {
+controller.showSaved = async (call = savedCall) => {
   savedCall = call;
-  const context = { run: ++savedRun, generation: identityGeneration, call };
+  const context = { run: ++savedRun, generation: identityState.generation, call };
   savedRows.replaceChildren();
   savedRefresh.disabled = true;
   savedMessage('listLoading');
@@ -102,9 +109,9 @@ window.showSaved = async (call = savedCall) => {
     if (savedCurrent(context)) savedRefresh.disabled = false;
   }
 };
-window.refreshSaved = () => {
+controller.refreshSaved = () => {
   if (savedPanel.open && !searchMain.hidden && !document.getElementById('search-area').hidden) {
-    window.savedShown = window.showSaved();
+    controller.savedShown = controller.showSaved();
   }
 };
 const closeSaved = () => {
@@ -116,14 +123,14 @@ const closeSaved = () => {
 };
 savedPanel.addEventListener('toggle', () => {
   if (savedPanel.open) {
-    if (!savedRefresh.disabled) window.savedShown = window.showSaved();
+    if (!savedRefresh.disabled) controller.savedShown = controller.showSaved();
   } else {
     ++savedRun;
     savedRefresh.disabled = false;
   }
 });
 savedRefresh.addEventListener('click', () => {
-  window.savedShown = window.showSaved();
+  controller.savedShown = controller.showSaved();
 });
 document.addEventListener('dyapp:identity-change', () => {
   closeSaved();

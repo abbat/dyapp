@@ -2,15 +2,19 @@
 """Save every static prototype screen, en and ru, at each width.
 
 Runs under xvfb-run in the prototype image: loads
-/<platform>/prototype/index.html?lang=X#screen in a WebKitGTK view and writes
+/<platform>/prototype/index.html?lang=X#screen from a loopback HTTP server
+rooted at /assets in a WebKitGTK view and writes
 /shots/<screen>-<lang>-<width>.png. The platform is desktop (default) or
 android; optional screen names select a subset. Android shots also come in the
 dark theme as <screen>-dark-... It also measures the gaps between visible
 neighbouring blocks and writes them to /shots/layout.json for
 check-layout.py.
 """
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import sys
+import threading
 
 import gi
 
@@ -231,6 +235,11 @@ jobs = [(s, lang, w, theme) for theme in THEMES for w in WIDTHS
 total = len(jobs)
 failed = []
 layout = {}
+# A loopback origin lets the shared identifier ES module load normally.
+server = ThreadingHTTPServer(
+    ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="/assets"))
+threading.Thread(target=server.serve_forever, daemon=True).start()
+origin = f"http://127.0.0.1:{server.server_port}"
 window = Gtk.OffscreenWindow()
 view = WebKit2.WebView()
 window.add(view)
@@ -246,7 +255,7 @@ def next_job():
     view.set_size_request(width, HEIGHT)
     # A changed hash alone is a same-page jump with no load event,
     # so the query differs too.
-    view.load_uri(f"file://{SOURCE}?lang={lang}&theme={theme}"
+    view.load_uri(f"{origin}{SOURCE}?lang={lang}&theme={theme}"
                   f"&shot={len(jobs)}#{screen}")
 
 
@@ -297,6 +306,8 @@ view.connect("load-changed", loaded)
 view.connect("load-failed", load_failed)
 GLib.idle_add(lambda: next_job() and False)
 Gtk.main()
+server.shutdown()
+server.server_close()
 with open(f"{OUT}/layout.json", "w", encoding="utf-8") as out:
     json.dump(layout, out, indent=1, sort_keys=True)
 for line in failed:

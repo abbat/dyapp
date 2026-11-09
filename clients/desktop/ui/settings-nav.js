@@ -1,3 +1,5 @@
+export const controller = {};
+
 // Keep category navigation local to Settings; backend availability owns inner cards.
 (() => {
   const root = document.getElementById('settings-root');
@@ -50,5 +52,5 @@
     input.setAttribute('role', 'switch');
     input.classList.add('switch');
   }
-  window.openSettingsPane = open;
+  controller.openSettingsPane = open;
 })();

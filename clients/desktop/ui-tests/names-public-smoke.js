@@ -42,35 +42,42 @@
     const input = document.getElementById('profile-name');
     const before = input.value;
     input.value = 'Anna';
-    if (profileDraft().name !== 'Anna') throw new Error('the draft lost the public name');
+    if (appBindings.profileDraft().name !== 'Anna')
+      throw new Error('the draft lost the public name');
     input.value = before;
-    await shot('profile-public-name');
-    const fields = publicFields({
+    await smoke.shot('profile-public-name');
+    const fields = appBindings.publicFields({
       name: 'Anna',
       birthYear: null,
       birthMonth: null,
       birthDay: null,
     });
-    if (fields[0] !== `${window.strings['profile.name']}: Anna`) {
+    if (fields[0] !== `${appApi.strings['profile.name']}: Anna`) {
       throw new Error('the publish list left out the public name');
     }
     let refused = '';
-    await saveProfile(() => Promise.reject('invalidName')).catch((error) => {
-      refused = error;
-    });
-    if (refused !== window.strings['profile.nameInvalid']) {
+    await appBindings
+      .saveProfile(() => Promise.reject('invalidName'))
+      .catch((error) => {
+        refused = error;
+      });
+    if (refused !== appApi.strings['profile.nameInvalid']) {
       throw new Error(`a refused public name was not explained: ${refused}`);
     }
-    await saveProfile(() => Promise.reject('invalidHeight')).catch((error) => {
-      refused = error;
-    });
-    if (refused !== window.strings['profile.heightInvalid']) {
+    await appBindings
+      .saveProfile(() => Promise.reject('invalidHeight'))
+      .catch((error) => {
+        refused = error;
+      });
+    if (refused !== appApi.strings['profile.heightInvalid']) {
       throw new Error(`a refused height was not explained: ${refused}`);
     }
-    await saveProfile(() => Promise.reject('invalidAbout')).catch((error) => {
-      refused = error;
-    });
-    if (refused !== window.strings['profile.aboutInvalid']) {
+    await appBindings
+      .saveProfile(() => Promise.reject('invalidAbout'))
+      .catch((error) => {
+        refused = error;
+      });
+    if (refused !== appApi.strings['profile.aboutInvalid']) {
       throw new Error(`a refused about was not explained: ${refused}`);
     }
   };
@@ -79,24 +86,27 @@
     await checkPublicNameEditor();
     await openArea('search-area');
     const { peer, found, call } = publicNameFixture();
-    await runSearch(call);
+    await appBindings.runSearch(call);
     const card = liveRow('search-results', peer);
-    const marked = (mark) => card.textContent.includes(`Anna · ${window.strings[mark]}`);
+    const marked = (mark) => card.textContent.includes(`Anna · ${appApi.strings[mark]}`);
     if (!marked('peer.unverified')) throw new Error(`no unverified card: ${card.textContent}`);
-    if (card.querySelector('.avatar').textContent !== shortPeerId(peer, knownPeers).slice(1, 3)) {
+    if (
+      card.querySelector('.avatar').textContent !==
+      appBindings.shortPeerId(peer, appBindings.knownPeers).slice(1, 3)
+    ) {
       throw new Error('the avatar left the short Peer ID');
     }
-    await shot('search-public-name');
-    openFound(found, card, call);
+    await smoke.shot('search-public-name');
+    appBindings.openFound(found, card, call);
     const title = document.getElementById('view-title');
-    const peerShort = shortPeerId(peer, knownPeers);
+    const peerShort = appBindings.shortPeerId(peer, appBindings.knownPeers);
     assertPublicNameTheViewLostTheNameOrThe(title, peerShort);
-    await confirmContact(call);
+    await appBindings.confirmContact(call);
     if (!marked('peer.verified')) throw new Error('the card did not follow the mark');
-    await removeMark(call);
+    await appBindings.removeMark(call);
     if (!marked('peer.unverified')) throw new Error('the card did not follow the removed mark');
     document.getElementById('view-back').click();
-    clearSearch();
+    appBindings.clearSearch();
     document.dispatchEvent(new Event('dyapp:identity-change'));
   };
   // Mute: the action and the row follow the stored flag, and a refusal leaves both alone.
@@ -139,29 +149,29 @@
   };
   const checkChatMute = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = chatMuteFixture();
     const { peer, call } = fixture;
-    await window.showChats(call);
-    await openChat(peer, call);
+    await appApi.showChats(call);
+    await appBindings.openChat(peer, call);
     const button = document.getElementById('chat-mute');
     const shows = (key, mark) =>
-      button.textContent === window.strings[key] &&
-      liveRow('chat-list', peer).textContent.includes(window.strings['chats.muted']) === mark;
+      button.textContent === appApi.strings[key] &&
+      liveRow('chat-list', peer).textContent.includes(appApi.strings['chats.muted']) === mark;
     if (!shows('chats.mute', false)) throw new Error('an unmuted chat looks muted');
-    await muteChat(call);
+    await appBindings.muteChat(call);
     if (!fixture.muted || !shows('chats.unmute', true)) throw new Error('Mute did not show');
     fixture.refuse = 'disk full';
-    await muteChat(call);
+    await appBindings.muteChat(call);
     if (
       !fixture.muted ||
       !shows('chats.unmute', true) ||
-      !chatComposeStatus.textContent.includes(fixture.refuse)
+      !appBindings.chatComposeStatus.textContent.includes(fixture.refuse)
     ) {
       throw new Error('a refused unmute did not explain itself');
     }
     fixture.refuse = null;
-    await muteChat(call);
+    await appBindings.muteChat(call);
     if (fixture.muted || !shows('chats.mute', false)) throw new Error('Unmute did not show');
     document.getElementById('chat-back').click();
     document.dispatchEvent(new Event('dyapp:identity-change'));
@@ -231,12 +241,12 @@
   };
   const assertSharePicker = (chatPeer) => {
     if (
-      !forwardDialog.open ||
-      forwardSelect.options.length !== 1 ||
-      forwardSelect.value !== chatPeer ||
+      !appBindings.forwardDialog.open ||
+      appBindings.forwardSelect.options.length !== 1 ||
+      appBindings.forwardSelect.value !== chatPeer ||
       document.getElementById('chat-forward-title').textContent !==
-        window.strings['chats.shareTitle'] ||
-      forwardConfirm.textContent !== window.strings['chats.share']
+        appApi.strings['chats.shareTitle'] ||
+      appBindings.forwardConfirm.textContent !== appApi.strings['chats.share']
     ) {
       throw new Error('Share picker included a request or the shared peer');
     }
@@ -245,9 +255,9 @@
     if (
       fixture.sharedArgs?.peerId !== sharedPeer ||
       fixture.sharedArgs.targetPeerId !== chatPeer ||
-      forwardDialog.open ||
-      activeChat?.peerId !== chatPeer ||
-      chatComposeStatus.textContent !== window.strings['chats.shareSent']
+      appBindings.forwardDialog.open ||
+      appBindings.activeChat?.peerId !== chatPeer ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.shareSent']
     ) {
       throw new Error('Share did not send the profile to the chosen chat');
     }
@@ -261,60 +271,67 @@
   };
   const assertProfileShareFailedProfileCardWasSilent = () => {
     if (
-      !chatComposeStatus.textContent.includes(window.strings['chats.profileFailed']) ||
-      !chatComposeStatus.textContent.includes('unpublished')
+      !appBindings.chatComposeStatus.textContent.includes(appApi.strings['chats.profileFailed']) ||
+      !appBindings.chatComposeStatus.textContent.includes('unpublished')
     ) {
       throw new Error('failed profile card was silent');
     }
   };
   const assertProfileShareFailedShareClosedThePicker = () => {
     if (
-      !forwardDialog.open ||
-      forwardConfirm.disabled ||
-      !forwardError.textContent.includes(window.strings['chats.shareFailed'])
+      !appBindings.forwardDialog.open ||
+      appBindings.forwardConfirm.disabled ||
+      !appBindings.forwardError.textContent.includes(appApi.strings['chats.shareFailed'])
     ) {
       throw new Error('failed Share closed the picker');
     }
   };
   const checkProfileShare = async () => {
     await openArea('chats-area');
-    await window.chatsDone;
+    await appApi.chatsDone;
     const fixture = profileShareFixture();
     const { chatPeer, sharedPeer, rows, call } = fixture;
-    renderChatRows(rows);
-    const text = `${window.strings['chats.profileCard']} ${window.shortPeer(sharedPeer)}`;
+    appBindings.renderChatRows(rows);
+    const text = `${appApi.strings['chats.profileCard']} ${appApi.shortPeer(sharedPeer)}`;
     assertProfileShareChatPreviewDidNotNameTheShared(chatPeer, text);
-    await openChat(chatPeer, call);
-    const card = chatMessages.querySelector(`button[data-peer-id="${sharedPeer}"]`);
-    if (!card || card.textContent !== text || chatMessages.textContent.includes('dyapp-profile:')) {
+    await appBindings.openChat(chatPeer, call);
+    const card = appBindings.chatMessages.querySelector(`button[data-peer-id="${sharedPeer}"]`);
+    if (
+      !card ||
+      card.textContent !== text ||
+      appBindings.chatMessages.textContent.includes('dyapp-profile:')
+    ) {
       throw new Error('profile link did not render as a card');
     }
     fixture.fetchError = 'unpublished';
     card.click();
-    await window.sharedOpened;
+    await appApi.sharedOpened;
     assertProfileShareFailedProfileCardWasSilent();
     fixture.fetchError = 'blocked';
     card.click();
-    await window.sharedOpened;
-    if (!profileView.hidden || !chatComposeStatus.textContent.includes('blocked')) {
+    await appApi.sharedOpened;
+    if (
+      !appBindings.profileView.hidden ||
+      !appBindings.chatComposeStatus.textContent.includes('blocked')
+    ) {
       throw new Error('a blocked shared profile opened or failed silently');
     }
     fixture.fetchError = null;
     card.click();
-    await window.sharedOpened;
-    if (profileView.hidden || viewed?.found.peerId !== sharedPeer) {
+    await appApi.sharedOpened;
+    if (appBindings.profileView.hidden || appBindings.viewed?.found.peerId !== sharedPeer) {
       throw new Error('profile card did not open the page');
     }
     if (!document.getElementById('view-share')) throw new Error('profile page has no Share');
-    await openShare(sharedPeer, call);
+    await appBindings.openShare(sharedPeer, call);
     assertSharePicker(chatPeer);
     fixture.shareError = 'nodeFailed';
-    await shareProfile(call);
+    await appBindings.shareProfile(call);
     assertProfileShareFailedShareClosedThePicker();
     fixture.shareError = null;
-    await shareProfile(call);
+    await appBindings.shareProfile(call);
     assertProfileShared(fixture, sharedPeer, chatPeer);
-    closeFound();
+    appBindings.closeFound();
     document.getElementById('chat-back').click();
   };
   const checkInterests = async () => {
@@ -322,49 +339,58 @@
     const input = document.getElementById('profile-interests');
     const before = input.value;
     input.value = '  Музыка  \nJazz, blues\n\n';
-    const tags = profileDraft().interests;
+    const tags = appBindings.profileDraft().interests;
     if (tags.join('|') !== 'Музыка|Jazz, blues')
       throw new Error('interest lines lost tags or punctuation');
     input.value = Array(33).fill('music').join('\n');
     input.dispatchEvent(new Event('input'));
     if (input.checkValidity()) throw new Error('too many interests passed the form');
-    window.showProfileInterests(['Музыка', 'Jazz, blues']);
+    appApi.showProfileInterests(['Музыка', 'Jazz, blues']);
     if (!input.checkValidity()) throw new Error('loaded interests retained an old error');
     const canonical = ['музыка', 'jazz, blues'];
-    await saveProfile(() =>
-      Promise.resolve({ draft: { ...profileDraft(), interests: canonical }, ages: null }),
+    await appBindings.saveProfile(() =>
+      Promise.resolve({
+        draft: { ...appBindings.profileDraft(), interests: canonical },
+        ages: null,
+      }),
     );
     if (input.value !== canonical.join('\n'))
       throw new Error('save did not show canonical interests');
-    const fields = publicFields({ ...profileDraft(), interests: canonical });
-    if (!fields.includes(`${window.strings['profile.interests']}: ${canonical.join('; ')}`)) {
+    const fields = appBindings.publicFields({
+      ...appBindings.profileDraft(),
+      interests: canonical,
+    });
+    if (!fields.includes(`${appApi.strings['profile.interests']}: ${canonical.join('; ')}`)) {
       throw new Error('public preview lost canonical interests');
     }
-    await shot('profile-interests');
+    await smoke.shot('profile-interests');
     let refusal;
-    await saveProfile(() => Promise.reject('invalidInterests')).catch((error) => {
-      refusal = error;
-    });
-    if (refusal !== window.strings['profile.interestsInvalid'])
+    await appBindings
+      .saveProfile(() => Promise.reject('invalidInterests'))
+      .catch((error) => {
+        refusal = error;
+      });
+    if (refusal !== appApi.strings['profile.interestsInvalid'])
       throw new Error('interest error not explained');
-    window.showProfileInterests([]);
-    if (profileDraft().interests.length) throw new Error('clearing interests retained tags');
+    appApi.showProfileInterests([]);
+    if (appBindings.profileDraft().interests.length)
+      throw new Error('clearing interests retained tags');
     input.value = before;
     await openArea('search-area');
     const search = document.getElementById('search-interest');
-    showSearchFilters([19]);
+    appBindings.showSearchFilters([19]);
     search.value = ' Музыка ';
-    const filter = searchQuery().conditions.find((condition) => condition.field === 19);
+    const filter = appBindings.searchQuery().conditions.find((condition) => condition.field === 19);
     if (filter?.op !== 'eq' || filter.strings[0] !== 'Музыка')
       throw new Error('interest filter was not sent');
-    await shot('search-interest');
-    showSearchFilters([]);
-    if (searchQuery().conditions.some((condition) => condition.field === 19)) {
+    await smoke.shot('search-interest');
+    appBindings.showSearchFilters([]);
+    if (appBindings.searchQuery().conditions.some((condition) => condition.field === 19)) {
       throw new Error('unsupported interest filter leaked into query');
     }
     search.value = '';
   };
-  globalThis.uiSmokeNamesPublic = Object.freeze({
+  smoke.uiSmokeNamesPublic = Object.freeze({
     checkPublicName,
     checkChatMute,
     checkProfileShare,

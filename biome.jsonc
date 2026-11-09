@@ -24,6 +24,9 @@
         }
       }
     } }
+  }, {
+    "includes": ["clients/desktop/ui/**/*.js"],
+    "linter": { "rules": { "correctness": { "noUndeclaredVariables": "error" } } }
   }],
   "assist": { "enabled": false },
   "html": { "linter": { "enabled": true } },

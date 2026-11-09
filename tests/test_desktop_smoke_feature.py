@@ -48,8 +48,9 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
         directory = self.directory("embedding")
         bundle = directory / "bundle.rs"
         source_dir = ROOT / "clients/desktop/ui-tests"
-        source = function((source_dir / "mod.rs").read_text(), "scripts")
-        source = "pub(crate) " + source
+        module = (source_dir / "mod.rs").read_text()
+        source = module[module.index("const SCRIPTS:"):
+                        module.index("/// Enable the isolated")]
         source = re.sub(
             r'include_str!\("([^"]+)"\)',
             lambda match: 'include_str!("{}")'.format(
@@ -67,6 +68,10 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
             binary = self.compile(case, probe, enabled)
             result = subprocess.check_output([str(binary)])
             if enabled:
+                self.assertTrue(result.startswith(b"(async () => {"))
+                self.assertIn(b"const appApi = {", result)
+                self.assertIn(b"const appBindings = {", result)
+                self.assertNotIn(b"window.identityShown", result)
                 self.assertIn(b"ui_test_result", result)
                 self.assertIn(b"ui_test_result", binary.read_bytes())
             else:
