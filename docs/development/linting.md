@@ -29,7 +29,7 @@ dev Docker container without compiling code. Protobuf lint/format and Python lin
 | Language | Tool | Config | Quality container / CI `quality` | Other CI | Status |
 |----------|------|--------|-----------------------------------|----------|--------|
 | Rust | `cargo fmt`, `cargo clippy` | built-in defaults (no `rustfmt.toml`); Cargo `[lints]` for [unsafe](code-quality.md#unsafe-policy), docs and suppression policy | yes | `codeql.yml` (clippy, see below) | enforced |
-| Python | flake8 | `.flake8` | yes, on `scripts tools tests` | `python-lint.yml`: `flake8 .` | enforced |
+| Python | flake8; Ruff format 0.17.2 | `.flake8`, `.ruff.toml` | yes, on `tools tests` | `python-lint.yml`: shared Python stage | enforced |
 | GitHub Actions | actionlint | none | yes | — | enforced |
 | GitHub Actions security | zizmor (offline audits) | `.github/zizmor.yml` | yes | — | enforced |
 | Shell | ShellCheck on `tests/scripts/*.sh`, `tools/scripts/*.sh`, `tools/build-scripts/*.sh` | none (defaults) | yes | — | enforced |
@@ -254,19 +254,20 @@ cover unused keys, aliases, scope isolation, metadata and malformed inputs.
 ## Python
 
 ```bash
-python3 -m flake8 scripts tools tests   # quality container
-flake8 .                                # python-lint.yml, only when *.py or .flake8 change
+make lint-python                         # Docker, also part of quick-check
+bash tests/scripts/rust-check.sh python-check  # provisioned native CI runner
 ```
 
 `.flake8`: `max-line-length = 79`, empty `ignore`, standard excludes (`.git`, `__pycache__`,
 `.venv`, `venv`, `build`, `dist`, …). McCabe complexity (`C901`) is limited to 10 for every
 Python function, including test helpers; there are no complexity baselines or suppressions.
-`make lint-python` runs flake8 and validates exact `noqa` reasons in Docker; quality, CI and
+`make lint-python` checks Ruff formatting, runs flake8 and validates exact `noqa` reasons in Docker; quality, CI and
 `make quick-check` share that stage. A real-tool fixture checks the complexity-10 boundary.
 Ruff 0.17.2 is provisioned from the same SHA-256-verified wheel in Docker and native CI.
-`.ruff.toml` fixes 79 columns, double quotes and Python 3.12-compatible syntax; `make fmt-python`
-formats all Python in `tests/` and `tools/` through a writable Docker mount. Repository-wide
-format checking is planned after the single formatting pass. flake8 remains the lint tool:
+`.ruff.toml` fixes 79 columns, double quotes and Python 3.11-compatible syntax, preserving
+host-side script compatibility. `make fmt-python` formats all Python in `tests/` and `tools/`
+through a writable Docker mount. The shared Python stage checks that same complete inventory
+without writing or compiling code. flake8 remains the lint tool:
 Ruff's lint rules do not reproduce every existing flake8 check. Only `E203` (slice spacing) and
 `W503` (operator placement) are excluded because they conflict with Ruff formatting; complexity
 and unused-code checks remain enabled. The formatter fixture rejects drift and accepts canonical

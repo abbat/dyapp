@@ -5,6 +5,9 @@ on:
     paths:
       - '**.py'
       - '.flake8'
+      - '.ruff.toml'
+      - 'tests/scripts/rust-check.sh'
+      - 'tools/scripts/check-output.json'
       - '.github/requirements-lint.txt'
       - '.github/workflows/python-lint.yml'
   pull_request:
@@ -31,8 +34,11 @@ jobs:
       - name: install flake8
         run: pip install --require-hashes --no-deps -r .github/requirements-lint.txt
 
+      - name: install pinned formatter
+        run: python3 -B tools/build-scripts/install-ruff.py "$pythonLocation/bin/ruff"
+
       - name: run
-        run: python3 tools/scripts/run-check.py --log-dir build/check-output flake8 -- flake8 .
+        run: bash tests/scripts/rust-check.sh python-check
         continue-on-error: false
 
       - name: check logs
