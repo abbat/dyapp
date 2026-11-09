@@ -10,6 +10,8 @@ One-off study: stdlib only, no CI. Identifiers are backtick-quoted; runtime
 values are bound.
 """
 
+from __future__ import annotations
+
 import typing
 
 import argparse
@@ -24,6 +26,9 @@ import statistics
 import sys
 import threading
 import time
+
+if typing.TYPE_CHECKING:
+    import search_contracts as sc
 
 PAGE, CAP, BUDGET_S = 50, 10_000, 600
 MINR, MAXR = -(2**63), 2**63 - 1
@@ -102,7 +107,7 @@ def zipf_exponent(n: "int", top_share: "float") -> "float":
     return (lo + hi) / 2
 
 
-def place_weights():
+def place_weights() -> list[tuple[float, float, str, str | None]]:
     """Cumulative [lo, hi) intervals: countries Zipf (top 30 %), places
     Zipf (top 9 %).
     """
@@ -110,7 +115,8 @@ def place_weights():
     cw = [k**-sc for k in range(1, len(COUNTRIES) + 1)]
     pw = [k**-sp for k in range(1, PLACES + 1)]
     ctot, ptot = sum(cw), sum(pw)
-    rows, acc = [], 0.0
+    rows: list[tuple[float, float, str, str | None]] = []
+    acc = 0.0
     for c, w in zip(COUNTRIES, cw):
         for k in range(TOP):
             share = w / ctot * pw[k] / ptot
@@ -167,7 +173,7 @@ WHERE `t`.`k` <= 3 OR (`t`.`k` = 4 AND abs(random()) % 2 = 0)
 """
 
 
-def build(path, rows):
+def build(path: str, rows: int) -> dict[str, float]:
     for ext in ("", "-journal"):
         if os.path.exists(path + ext):
             os.remove(path + ext)
@@ -182,13 +188,14 @@ def build(path, rows):
         "INSERT INTO `place_weight` VALUES (?, ?, ?, ?)", place_weights()
     )
     t = {}
-    for name, run in (
+    steps: tuple[tuple[str, typing.Callable[[], sqlite3.Cursor]], ...] = (
         (
             "fill_profile",
             lambda: db.execute(fill_sql(), {"rows": rows, **ENUM_PARAMS}),
         ),
         ("fill_interest", lambda: db.execute(INTEREST_SQL)),
-    ):
+    )
+    for name, run in steps:
         s = time.monotonic()
         run()
         t[name] = time.monotonic() - s
@@ -215,8 +222,13 @@ class Q:
     bound values."""
 
     def __init__(
-        self, cls: "str", rank: "int", country: "str", rng: "random.Random"
+        self,
+        cls: "str",
+        rank: "int | None",
+        country: "str",
+        rng: "random.Random",
     ) -> None:
+        self.sp: list[str | int]
         self.cls, self.rank, self.rng = cls, rank, rng
         if cls == "place_in":
             places = [f"place-{k}" for k in range(1, 9)]
@@ -262,7 +274,7 @@ class Q:
             f"AND `r` BETWEEN ? AND ? ORDER BY `r` LIMIT ?)"
         )
 
-    def fp(self):
+    def fp(self) -> list[str | int]:
         """Filter values: typical = orientation 50 % x age +-5 (22 %); rare
         adds education 30 % x has_kids 30 %; country_rare narrows age to
         +-2 and adds fitness_level 50 %.
@@ -271,19 +283,21 @@ class Q:
             return []
         half = 2 if self.cls == "country_rare" else 5
         a = self.rng.randint(18 + half, 67 - half)
-        f = ["str", a - half, a + half]
+        f: list[str | int] = ["str", a - half, a + half]
         if self.cls in ("rare", "country_rare"):
             f += ["ed1", 1]
         if self.cls == "country_rare":
             f += ["fl1"]
         return f
 
-    def plan(self, db):
+    def plan(self, db: sqlite3.Connection) -> str:
         args = self.sp + [0, MAXR, CAP] + self.fp() + [PAGE]
         rows = db.execute("EXPLAIN QUERY PLAN " + self.sql, args)
         return "\n".join(r[3] for r in rows)
 
-    def run(self, db: "sqlite3.Connection", stats: "bool"):
+    def run(
+        self, db: "sqlite3.Connection", stats: "bool"
+    ) -> tuple[float, int, int | None, bool]:
         """One search: returns (seconds, found, scanned or None, partial).
 
         Counting is untimed.
@@ -322,8 +336,10 @@ def pct(xs: "typing.Sequence[float]", p: "int") -> "float":
     return statistics.quantiles(xs, n=100, method="inclusive")[p - 1]
 
 
-def measure_cell(db, q, n):
-    times, scans, partial, found = [], [], 0, 0
+def measure_cell(db: sqlite3.Connection, q: Q, n: int) -> sc.Cell:
+    times: list[float] = []
+    scans: list[int] = []
+    partial, found = 0, 0
     for i in range(n):
         guard()
         t, f, sc, p = q.run(db, stats=i % 5 == 0)
@@ -344,10 +360,10 @@ def measure_cell(db, q, n):
     }
 
 
-def qps(path, country, seconds: int = 5, threads: int = 2):
+def qps(path: str, country: str, seconds: int = 5, threads: int = 2) -> float:
     done, stop = [0] * threads, time.monotonic() + seconds
 
-    def work(k) -> None:
+    def work(k: int) -> None:
         db = sqlite3.connect(path)
         q = Q("typical", 1, country, random.Random(k))
         while time.monotonic() < stop:
@@ -355,12 +371,16 @@ def qps(path, country, seconds: int = 5, threads: int = 2):
             done[k] += 1
 
     ts = [threading.Thread(target=work, args=(k,)) for k in range(threads)]
-    [t.start() for t in ts]
-    [t.join() for t in ts]
+    for thread in ts:
+        thread.start()
+    for thread in ts:
+        thread.join()
     return sum(done) / seconds
 
 
-CELLS = [  # class, ranks, queries per cell
+CELLS: list[
+    tuple[str, list[int | None], int]
+] = [  # class, ranks, queries per cell
     ("place_only", [1, 100, 10_000], 1000),
     ("typical", [1, 100, 10_000], 1000),
     ("place_in", [None], 1000),
@@ -369,7 +389,7 @@ CELLS = [  # class, ranks, queries per cell
 ]
 
 
-def measure(path, rows, run) -> None:
+def measure(path: str, rows: int, run: sc.BenchmarkRun) -> None:
     db = sqlite3.connect(path)
     db.execute("PRAGMA cache_size = -65536")
     rng, country = random.Random(42), COUNTRIES[0]
@@ -391,7 +411,7 @@ def measure(path, rows, run) -> None:
     say(f"  qps typical on 2 threads: {run['qps_typical_2threads']:.0f}")
 
 
-def extrapolate(out) -> None:
+def extrapolate(out: sc.Benchmark) -> None:
     runs = out["runs"]
     done = sorted(
         int(n)
@@ -406,15 +426,16 @@ def extrapolate(out) -> None:
     out["error_2_5m"], out["extrapolation_ok"] = None, False
     if len(done) >= 3:
 
-        def t(n):
+        def t(n: int) -> float:
             return runs[str(n)]["classes"]["typical"]["1"]["p50_ms"]
 
         (n1, n2), n3 = done[:2], done[-1]
         b = (t(n2) - t(n1)) / (math.log2(n2) - math.log2(n1))
         a = t(n1) - b * math.log2(n1)
         pred = a + b * math.log2(n3)
-        out["error_2_5m"] = abs(pred - t(n3)) / t(n3)
-        out["extrapolation_ok"] = out["error_2_5m"] <= 0.30
+        relative_error = abs(pred - t(n3)) / t(n3)
+        out["error_2_5m"] = relative_error
+        out["extrapolation_ok"] = relative_error <= 0.30
         # latency never falls with N
         t10 = max(a + b * math.log2(10_000_000), t(n3))
         out["qps"] = out["qps"] * t(n3) / t10
@@ -439,7 +460,11 @@ def main() -> None:
             f"refusing to start: expected {need / 2**30:.1f} GiB, "
             f"limit 10 GiB, free {free / 2**30:.1f} GiB"
         )
-    out = {"sqlite": sqlite3.sqlite_version, "runs": {}, "partial_run": False}
+    out: sc.Benchmark = {
+        "sqlite": sqlite3.sqlite_version,
+        "runs": {},
+        "partial_run": False,
+    }
     try:
         for rows in sorted(a.rows):
             say(f"== {rows} rows")

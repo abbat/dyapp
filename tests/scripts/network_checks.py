@@ -1,5 +1,10 @@
 """Checks against live dyappd peers for network-test.py, and a STUN client."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Literal, overload
+
 import base64
 import hashlib
 import hmac
@@ -10,24 +15,85 @@ import struct
 import subprocess
 import time
 
+if TYPE_CHECKING:
+    import network_contracts as nc
+
 # Node-ID proof of work of test nodes; see tests/docker/compose.network.yml.
 POW_BITS = "8"
 # coturn static-auth-secret, as in tests/docker/compose.network.yml.
 TURN_SECRET = "network-test-secret"
 
 
-def call(client, *args, env=None):
+ReplyCommand = Literal[
+    "info",
+    "sign-profile",
+    "replicate",
+    "get",
+    "device-key",
+    "fetch",
+    "ack",
+    "watch",
+    "media",
+    "turn",
+    "closest",
+    "media-sized",
+    "media-get",
+    "put-replicas",
+    "put-local",
+    "put",
+    "publish",
+    "heartbeat",
+    "media-refresh",
+    "media-owned",
+    "media-keep",
+    "relays",
+]
+
+
+@overload
+def call(
+    client: str,
+    command: Literal["flood"],
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, int]:
+    """Count flood replies by status."""
+    ...
+
+
+@overload
+def call(
+    client: str,
+    command: ReplyCommand,
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> nc.Reply:
+    """Read the command's JSON fields."""
+    ...
+
+
+def call(
+    client: str,
+    command: str,
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> nc.Reply | dict[str, int]:
     result = subprocess.run(
-        [client, *args], capture_output=True, text=True, timeout=90, env=env
+        [client, command, *args],
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env=env,
     )
     if result.returncode:
         raise subprocess.SubprocessError(
-            f"dyappd {args[0]}: {result.stderr.strip()}"
+            f"dyappd {command}: {result.stderr.strip()}"
         )
-    return json.loads(result.stdout)
+    reply: nc.Reply | dict[str, int] = json.loads(result.stdout)
+    return reply
 
 
-def replicate(client, entry, ids):
+def replicate(client: str, entry: str, ids: Mapping[str, str]) -> list[str]:
     """Replicate a fresh profile; every holder is a live node serving it."""
     for _ in range(40):
         signed = call(client, "sign-profile")
@@ -51,7 +117,7 @@ def replicate(client, entry, ids):
     return holders
 
 
-def mailbox(client, tcp, quic, other) -> None:
+def mailbox(client: str, tcp: str, quic: str, other: str) -> None:
     """Put over TCP, fetch over QUIC, a stranger reads nothing, ack empties,
     a watching fetch gets the next envelope pushed."""
     device, put, _ = spread(client, tcp)
@@ -75,7 +141,7 @@ def mailbox(client, tcp, quic, other) -> None:
         raise RuntimeError(f"Envelope not pushed to the watcher: {watched}")
 
 
-def media(client, tcp, quic):
+def media(client: str, tcp: str, quic: str) -> bool:
     """A blob kept, put and read back over QUIC on a media node; a
     node without the role answers UNSUPPORTED."""
     serves = "ROLE_MEDIA" in call(client, "info", tcp)["roles"]
@@ -97,7 +163,7 @@ def media(client, tcp, quic):
     return serves
 
 
-def turn(client, tcp, relay):
+def turn(client: str, tcp: str, relay: bool) -> bool:
     """A turn node's credentials follow coturn's use-auth-secret scheme
     and, with `relay`, allocate on the coturn relay while a wrong password
     does not; other nodes answer UNSUPPORTED."""
@@ -123,7 +189,7 @@ def turn(client, tcp, relay):
     return True
 
 
-def allocate(address, username, password):
+def allocate(address: tuple[str, int], username: str, password: str) -> int:
     """A STUN Allocate with long-term credentials (RFC 5766): 0 on success,
     else the error code."""
     udp = attribute(0x0019, b"\x11\0\0\0")
@@ -153,7 +219,12 @@ def attribute(kind: "int", value: "bytes") -> "bytes":
     return struct.pack("!HH", kind, len(value)) + value + padding
 
 
-def stun(sock, address, body, key=None):
+def stun(
+    sock: socket.socket,
+    address: tuple[str, int],
+    body: bytes,
+    key: bytes | None = None,
+) -> dict[int, bytes]:
     """Attributes of the answer to an Allocate; coturn may still be
     starting, so a lost datagram is sent again."""
     txid = os.urandom(12)
@@ -177,19 +248,27 @@ def stun(sock, address, body, key=None):
     raise RuntimeError(f"No STUN answer from {address}")
 
 
-def error_code(attrs):
+def error_code(attrs: Mapping[int, bytes]) -> int:
     code = attrs.get(0x0009)
     return (code[2] & 7) * 100 + code[3] if code else 0
 
 
-def replica_holders(client, entry, key, count: int = 5):
+def replica_holders(
+    client: str, entry: str, key: str, count: int = 5
+) -> list[str]:
     return [
         call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
         for i in range(count)
     ]
 
 
-def media_spread(client, entry, peers, ids, size=512 * 1024):
+def media_spread(
+    client: str,
+    entry: str,
+    peers: Sequence[nc.Peer],
+    ids: Mapping[str, str],
+    size: int = 512 * 1024,
+) -> str:
     """One upload reaches all manifest holders, over TCP and QUIC."""
     for _ in range(40):
         seed = os.urandom(32)
@@ -229,7 +308,7 @@ def media_spread(client, entry, peers, ids, size=512 * 1024):
     return blob_hash
 
 
-def spread(client, entry):
+def spread(client: str, entry: str) -> tuple[nc.Reply, nc.Reply, list[str]]:
     """One client put reaches all three holders via acceptor fan-out."""
     nodes = set(call(client, "closest", entry, os.urandom(8).hex())["peers"])
     for _ in range(40):
@@ -242,7 +321,7 @@ def spread(client, entry):
     raise RuntimeError(f"Replicas never spanned all nodes: {holders}")
 
 
-def repaired(client, entry, ids):
+def repaired(client: str, entry: str, ids: Mapping[str, str]) -> list[str]:
     """An envelope on one replica node reaches another on a watching fetch."""
     device, _, holders = spread(client, entry)
     lone = call(
@@ -260,7 +339,9 @@ def repaired(client, entry, ids):
     raise RuntimeError(f"Envelope not repaired onto {holders[1]}")
 
 
-def acked_everywhere(client, entry, ids):
+def acked_everywhere(
+    client: str, entry: str, ids: Mapping[str, str]
+) -> list[str]:
     """An envelope on every replica node; an ack on one clears them all."""
     device, put, holders = spread(client, entry)
     reply = call(client, "ack", ids[holders[0]], device["secret"], put["id"])

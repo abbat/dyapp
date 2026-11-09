@@ -299,6 +299,10 @@ intentionally corrupt a record. Type-only imports keep those schemas out of test
 reports, release artifacts, priority proposals and advisory records. Repository validators retain
 concrete text-map, XML resource and size-policy inputs; raw budget validators narrow external
 values before returning typed measurements. These schemas are imported only while type checking.
+Network scenario helpers share CLI reply, peer, flood-count and RSS observation records in
+`tools/scripts/network_contracts.py`; flood calls return status counts separately from command
+reply fields. Search model and SQLite measurement helpers share numeric parameters, capacity
+rows, benchmark cells and partial-run records in `tools/scripts/search_contracts.py`.
 Project-wide strict type checking remains planned.
 
 ## Swift (`.swiftlint.yml`)

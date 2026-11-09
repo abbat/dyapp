@@ -4,12 +4,20 @@
 Design: docs/architecture/search-capacity.md.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, cast
+
 import argparse
 import json
 import math
 import sys
 
-P = {
+if TYPE_CHECKING:
+    import search_contracts as sc
+
+P: sc.Parameters = {
     "steps": [1e3, 1e4, 1e5, 1e6, 1e7, 5e7],
     "activity": {
         "base": {"dau": 0.3, "queries": 10, "edit_days": 7},
@@ -81,7 +89,7 @@ LIMITS = {
 EXPECTED_PARTIAL = {"country_rare"}
 
 
-def zipf(n, top):
+def zipf(n: int, top: float) -> list[float]:
     """Shares of n ranks with share[0] == top, found by bisection on s."""
     lo, hi = 0.0, 5.0
     for _ in range(100):
@@ -95,7 +103,7 @@ def zipf(n, top):
     return [x / t for x in w]
 
 
-def partial_model(p):
+def partial_model(p: sc.Parameters) -> dict[str, tuple[float, bool]]:
     """Per class: expected matches in max_scan_rows, and if under a page."""
     rows = {}
     for k, s in p["select"].items():
@@ -104,7 +112,7 @@ def partial_model(p):
     return rows
 
 
-def nodes_needed(p, total, sample):
+def nodes_needed(p: sc.Parameters, total: float, sample: float) -> float:
     """Nodes a client asks, each holding an independent uniform sample.
 
     It needs to see a full page, or 95 % of the matches when the whole network
@@ -119,7 +127,14 @@ def nodes_needed(p, total, sample):
     return max(1, math.ceil(miss))
 
 
-def row(p, users, act, node_share, search_share, places):
+def row(
+    p: sc.Parameters,
+    users: float,
+    act: str,
+    node_share: float,
+    search_share: float,
+    places: Sequence[float],
+) -> sc.CapacityRow:
     a = p["activity"][act]
     D = p["D"]
     dau = users * a["dau"]
@@ -144,7 +159,7 @@ def row(p, users, act, node_share, search_share, places):
     sync_bps = LIMITS["gossip"] * p["link"]
     country = users * p["top_country"]
     at = {rank: country * places[rank - 1] for rank in (1, 100, 10_000)}
-    r = {
+    r: sc.CapacityRow = {
         "users": users,
         "dau": dau,
         "nodes": nodes,
@@ -201,7 +216,9 @@ def row(p, users, act, node_share, search_share, places):
     return r
 
 
-def threshold(rs):
+def threshold(
+    rs: Sequence[sc.CapacityRow],
+) -> tuple[sc.CapacityRow | None, sc.CapacityRow | None]:
     """First holding step, and the first failing step above it.
 
     Returns (None, None) if no step holds.
@@ -213,7 +230,7 @@ def threshold(rs):
     return rs[h], f
 
 
-def adversary(p):
+def adversary(p: sc.Parameters) -> list[sc.Adversary]:
     out = []
     per_key = p["profile"] + p["bytes_per_row"]
     for bits in p["pow_bits"]:
@@ -229,7 +246,7 @@ def adversary(p):
     return out
 
 
-def water_fill(counts, capacity):
+def water_fill(counts: Sequence[float], capacity: float) -> float:
     """Ideal established-profile ceiling under largest-place eviction."""
     lo, hi = 0.0, max(counts, default=0.0)
     if sum(counts) <= capacity:
@@ -243,7 +260,9 @@ def water_fill(counts, capacity):
     return lo
 
 
-def defences(p, users, places):
+def defences(
+    p: sc.Parameters, users: float, places: Sequence[float]
+) -> sc.Defences:
     per_key = p["profile"] + p["bytes_per_row"]
     quota = p["max_bytes"] * p["newcomer_share"]
     # Equal-size profiles; newcomer quota charges record bytes, not index rows.
@@ -276,7 +295,7 @@ def defences(p, users, places):
     }
 
 
-def puzzle_rates(p):
+def puzzle_rates(p: sc.Parameters) -> list[tuple[str, int, float, float]]:
     fair = p["qps"] / p["active_groups"]
     return [
         (name, bits, rate / 2**bits, fair)
@@ -285,10 +304,10 @@ def puzzle_rates(p):
     ]
 
 
-def self_check(p) -> None:
+def self_check(p: sc.Parameters) -> None:
     places = zipf(p["places"], p["top_place"])
 
-    def near(a, b, tol: float = 0.01):
+    def near(a: float, b: float, tol: float = 0.01) -> bool:
         return abs(a - b) <= tol * abs(b)
 
     assert abs(sum(places) - 1) < 1e-9
@@ -345,7 +364,9 @@ def self_check(p) -> None:
     assert d["rare_sample"] == 1 and d["rare_nodes"] == 1
     assert d["growth"][0.001] == 1.5
     assert d["full_fake_share"] > p["newcomer_share"]
-    constrained = defences(dict(p, max_bytes=1000), 50e6, places)
+    constrained = defences(
+        cast("sc.Parameters", dict(p, max_bytes=1000)), 50e6, places
+    )
     assert constrained["rare_sample"] < 1 and constrained["rare_nodes"] > 3
     rates = puzzle_rates(p)
     assert near(rates[0][2], 244.140625) and rates[0][3] == 10
@@ -353,7 +374,9 @@ def self_check(p) -> None:
     assert near(rates[3][2], 9536.74316)
 
 
-def report_partial(p, measured_partial) -> None:
+def report_partial(
+    p: sc.Parameters, measured_partial: Mapping[str, float]
+) -> None:
     print(
         f"## Partial share (max_scan_rows = {p['max_scan']:,.0f}, "
         f"page = {p['page']})\n"
@@ -372,7 +395,9 @@ def report_partial(p, measured_partial) -> None:
     print()
 
 
-def report_thresholds(p, places, grid) -> None:
+def report_thresholds(
+    p: sc.Parameters, places: Sequence[float], grid: sc.Grid
+) -> None:
     print("## Thresholds\n")
     print(
         "Holds from = lowest step with no failure; first failure above = "
@@ -405,7 +430,7 @@ def report_thresholds(p, places, grid) -> None:
         "| Limiting resource |"
     )
     print("|---|---|---|---|")
-    variants = [
+    variants: list[tuple[str, sc.Variation]] = [
         ("baseline", {}),
         ("search.max_bytes x0.5", {"max_bytes": p["max_bytes"] * 0.5}),
         ("search.max_bytes x2", {"max_bytes": p["max_bytes"] * 2}),
@@ -416,7 +441,7 @@ def report_thresholds(p, places, grid) -> None:
         ("max_scan_rows 20000", {"max_scan": 20000}),
     ]
     for name, kw in variants:
-        q = dict(p, **kw)
+        q = cast("sc.Parameters", dict(p, **kw))
         rs = [row(q, u, "base", 0.005, 0.5, places) for u in q["steps"]]
         h, f = threshold(rs)
         holds = "never" if h is None else format(h["users"], ",.0f")
@@ -430,8 +455,10 @@ def report_thresholds(p, places, grid) -> None:
         print(f"| {name} | {holds} | {first} | {limit} |")
 
 
-def report_activity(p, places, D):
-    grid = {}
+def report_activity(
+    p: sc.Parameters, places: Sequence[float], D: int
+) -> sc.Grid:
+    grid: sc.Grid = {}
     for act in p["activity"]:
         print(f"## {act.capitalize()} activity\n")
         print(
@@ -475,7 +502,9 @@ def report_activity(p, places, D):
     return grid
 
 
-def report(p, source, measured_partial) -> None:
+def report(
+    p: sc.Parameters, source: str, measured_partial: Mapping[str, float]
+) -> None:
     places = zipf(p["places"], p["top_place"])
     D = p["D"]
     print("# Search capacity model\n")
@@ -555,13 +584,13 @@ def main() -> None:
     ap.add_argument("--self-check", action="store_true")
     args = ap.parse_args()
     # always on the defaults: the hand numbers assume them
-    self_check(dict(P))
+    self_check(P.copy())
     if args.self_check:
         print("self-check OK")
         return
-    p = dict(P)
+    p = P.copy()
     source = "defaults (no --bench)"
-    measured = {}
+    measured: dict[str, float] = {}
     if args.bench:
         with open(args.bench) as f:
             b = json.load(f)

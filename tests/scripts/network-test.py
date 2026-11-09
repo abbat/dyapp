@@ -13,6 +13,12 @@ The second and third nodes join through the first; the third allows
 first serves TURN credentials and, in Docker, hands out a coturn relay.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from threading import Thread
+from typing import TYPE_CHECKING
+
 import hashlib
 import json
 import os
@@ -42,6 +48,9 @@ from network_checks import (
     turn,
 )
 
+if TYPE_CHECKING:
+    import network_contracts as nc
+
 CLIENT = "/workspace/build/debug/dyappd"
 FLOOD_LIMIT = 5
 PLATEAU_SECONDS = 300
@@ -50,11 +59,11 @@ PLATEAU_SECONDS = 300
 PLATEAU_GROWTH = 0.10
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 # Output of every local node by port, across restarts, and its drain threads.
-LOGS = {}
-DRAINS = []
+LOGS: dict[str, Capture] = {}
+DRAINS: list[Thread] = []
 
 
-def healthy(client, addr):
+def healthy(client: str, addr: str) -> bool:
     try:
         reply = call(client, "info", addr)
     except (subprocess.SubprocessError, OSError):
@@ -62,12 +71,14 @@ def healthy(client, addr):
     return reply["status"] == "STATUS_OK" and "ROLE_STORE" in reply["roles"]
 
 
-def addresses(host: "str", port: "int"):
+def addresses(host: "str", port: "int") -> nc.Peer:
     """(TCP, QUIC) multiaddrs of a node."""
     return f"/ip4/{host}/tcp/{port}", f"/ip4/{host}/udp/{port}/quic-v1"
 
 
-def start_node(bin_dir, environment):
+def start_node(
+    bin_dir: str, environment: Mapping[str, str]
+) -> subprocess.Popen[bytes]:
     """Capture every incarnation of a local node in its port's buffer."""
     if environment.get("DYAPP_VERBOSE") == "1":
         return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment)
@@ -85,7 +96,7 @@ def start_node(bin_dir, environment):
         os.close(output)
 
 
-def dyappd(bin_dir, env, *args) -> str:
+def dyappd(bin_dir: str, env: Mapping[str, str], *args: str) -> str:
     """Run a dyappd subcommand on a node's storage; its standard output."""
     return subprocess.run(
         [f"{bin_dir}/dyappd", *args],
@@ -97,7 +108,12 @@ def dyappd(bin_dir, env, *args) -> str:
 
 
 def start(
-    bin_dir, storage, peers, processes, environments, flood: bool = True
+    bin_dir: str,
+    storage: str,
+    peers: list[nc.Peer],
+    processes: list[subprocess.Popen[bytes]],
+    environments: list[dict[str, str]],
+    flood: bool = True,
 ) -> None:
     """Start three loopback nodes, appending to the lists the caller stops.
 
@@ -179,7 +195,7 @@ def friendly_addresses(client: "str") -> None:
             raise RuntimeError(f"info {addr} failed")
 
 
-def stop(processes, failed) -> None:
+def stop(processes: Sequence[subprocess.Popen[bytes]], failed: bool) -> None:
     """Stop every node; after a failure print their output."""
     if failed:
         # The node state line shows what each node still held.
@@ -204,7 +220,9 @@ def local(bin_dir: "str") -> None:
     client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
-        peers, processes, environments = [], [], []
+        peers: list[nc.Peer] = []
+        processes: list[subprocess.Popen[bytes]] = []
+        environments: list[dict[str, str]] = []
         failed = False
         try:
             start(bin_dir, storage, peers, processes, environments)
@@ -214,7 +232,7 @@ def local(bin_dir: "str") -> None:
             profile_repair(client, bin_dir, peers, processes, environments)
             media_repair(client, bin_dir, storage, peers)
 
-            def churn():
+            def churn() -> str:
                 processes[1].terminate()
                 processes[1].wait()
                 return peers[1][0]
@@ -255,7 +273,12 @@ def local(bin_dir: "str") -> None:
             stop(processes, failed)
 
 
-def named_network(client, bin_dir, storage, processes) -> None:
+def named_network(
+    client: str,
+    bin_dir: str,
+    storage: str,
+    processes: list[subprocess.Popen[bytes]],
+) -> None:
     """A node of a named network serves only clients of that name and its
     storage refuses a start under another name."""
     tcp, _ = addresses("127.0.0.1", 7074)
@@ -313,7 +336,9 @@ def plateau(bin_dir: "str") -> None:
     client = f"{bin_dir}/dyappd"
     Path("/tmp/ai").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir="/tmp/ai") as storage:
-        peers, processes, environments = [], [], []
+        peers: list[nc.Peer] = []
+        processes: list[subprocess.Popen[bytes]] = []
+        environments: list[dict[str, str]] = []
         failed = False
         try:
             # Without the flood limit: node-to-node replication would hit it.
@@ -331,7 +356,8 @@ def plateau(bin_dir: "str") -> None:
                     media(client, tcp, quic)
 
             load()
-            samples, started = [], time.monotonic()
+            samples: list[nc.MemorySample] = []
+            started = time.monotonic()
             end = started + PLATEAU_SECONDS
             while time.monotonic() < end:
                 load()
@@ -370,13 +396,17 @@ def plateau(bin_dir: "str") -> None:
             stop(processes, failed)
 
 
-def rss(process):
+def rss(process: subprocess.Popen[bytes]) -> int:
     """Resident memory of a running process in kB."""
     status = Path(f"/proc/{process.pid}/status").read_text()
-    return int(re.search(r"^VmRSS:\s+(\d+)", status, re.M).group(1))
+    match = re.search(r"^VmRSS:\s+(\d+)", status, re.M)
+    assert match is not None, "Running process has no resident-memory sample"
+    return int(match.group(1))
 
 
-def node_state(process, captured):
+def node_state(
+    process: subprocess.Popen[bytes], captured: Capture
+) -> dict[str, int]:
     """Send SIGHUP and return the fields of the node state line it logs."""
     mark = captured.total
     process.send_signal(signal.SIGHUP)
@@ -392,7 +422,9 @@ def node_state(process, captured):
     raise RuntimeError("No node state line after SIGHUP")
 
 
-def drained(processes, indexes) -> None:
+def drained(
+    processes: Sequence[subprocess.Popen[bytes]], indexes: Iterable[int]
+) -> None:
     """Idle nodes hold no pending request and nothing of a closed connection.
 
     Pending requests end by answer or the 20 s request timeout; lookups that
@@ -414,7 +446,13 @@ def drained(processes, indexes) -> None:
     print("Node state: no pending request or closed connection left")
 
 
-def deny_mailbox(client, bin_dir, peer, process, env):
+def deny_mailbox(
+    client: str,
+    bin_dir: str,
+    peer: nc.Peer,
+    process: subprocess.Popen[bytes],
+    env: Mapping[str, str],
+) -> str:
     """An operator entry refuses a mailbox on the running node after SIGHUP."""
     mailbox = call(client, "device-key")["mailbox"]
     dyappd(bin_dir, env, "deny", "add", mailbox, "network test")
@@ -430,7 +468,9 @@ def deny_mailbox(client, bin_dir, peer, process, env):
     return mailbox
 
 
-def shared_deny(bin_dir, env, sharer, entry) -> None:
+def shared_deny(
+    bin_dir: str, env: Mapping[str, str], sharer: str, entry: str
+) -> None:
     """The accepting node stores the sharing node's signed list."""
     for _ in range(90):
         received = dyappd(bin_dir, env, "deny", "received")
@@ -442,7 +482,13 @@ def shared_deny(bin_dir, env, sharer, entry) -> None:
     print("Deny list: a shared list reaches an accepting node")
 
 
-def deny_group(client, bin_dir, peer, process, env) -> None:
+def deny_group(
+    client: str,
+    bin_dir: str,
+    peer: nc.Peer,
+    process: subprocess.Popen[bytes],
+    env: Mapping[str, str],
+) -> None:
     """The client's IP group is refused while listed, served once removed."""
     group = "127.0.0.1/24"
     for action, refused in (("add", True), ("remove", False)):
@@ -459,7 +505,9 @@ def deny_group(client, bin_dir, peer, process, env) -> None:
     print("Deny list: a listed IP group is refused, served once removed")
 
 
-def initial_profile_replicas(client, peers):
+def initial_profile_replicas(
+    client: str, peers: Sequence[nc.Peer]
+) -> tuple[list[str], set[str], nc.Reply]:
     node_ids = [call(client, "info", tcp)["peer_id"] for tcp, _ in peers]
     ids = set(node_ids)
     for _ in range(40):
@@ -483,8 +531,13 @@ def initial_profile_replicas(client, peers):
 
 
 def publish_with_offline_holder(
-    client, peers, processes, node_ids, ids, signed
-):
+    client: str,
+    peers: Sequence[nc.Peer],
+    processes: Sequence[subprocess.Popen[bytes]],
+    node_ids: Sequence[str],
+    ids: set[str],
+    signed: nc.Reply,
+) -> nc.Reply:
     processes[1].terminate()
     processes[1].wait()
     # Let DHT lookups discard the departed holder before the bounded write.
@@ -509,7 +562,13 @@ def publish_with_offline_holder(
     return newer
 
 
-def profile_repair(client, bin_dir, peers, processes, environments) -> None:
+def profile_repair(
+    client: str,
+    bin_dir: str,
+    peers: Sequence[nc.Peer],
+    processes: list[subprocess.Popen[bytes]],
+    environments: Sequence[dict[str, str]],
+) -> None:
     """A holder misses a newer publish while offline; heartbeat repairs it."""
     node_ids, ids, signed = initial_profile_replicas(client, peers)
     newer = publish_with_offline_holder(
@@ -549,7 +608,7 @@ def profile_repair(client, bin_dir, peers, processes, environments) -> None:
     print("Profile repair: restarted holder receives the newer version")
 
 
-def media_cache(client, storage, peer, blob_hash) -> None:
+def media_cache(client: str, storage: str, peer: str, blob_hash: str) -> None:
     """A later get uses the cache after this node loses its shard metadata."""
     target = Path(storage) / "7072"
     hash_bytes = bytes.fromhex(blob_hash)
@@ -574,7 +633,13 @@ def media_cache(client, storage, peer, blob_hash) -> None:
     print("Media cache: later pieces survive loss of local shard metadata")
 
 
-def initial_media_replicas(client, peers, entry, ids, size):
+def initial_media_replicas(
+    client: str,
+    peers: Sequence[nc.Peer],
+    entry: str,
+    ids: Mapping[str, str],
+    size: int,
+) -> tuple[str, nc.MediaDetails]:
     for _ in range(40):
         seed = os.urandom(32)
         blob_hash = hashlib.sha256(seed * (size // 32)).hexdigest()
@@ -601,7 +666,9 @@ def initial_media_replicas(client, peers, entry, ids, size):
     return blob_hash, details
 
 
-def media_repair(client, bin_dir, storage, peers) -> None:
+def media_repair(
+    client: str, bin_dir: str, storage: str, peers: Sequence[nc.Peer]
+) -> None:
     """Remove only temporary fixture copies/shards and repair them by keep."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry = peers[0][0]
@@ -615,7 +682,7 @@ def media_repair(client, bin_dir, storage, peers) -> None:
             copy = target / "data" / blob_hash[:2] / blob_hash[2:4]
             (copy / blob_hash).unlink()
 
-            def check():
+            def check() -> bool | int:
                 return (copy / blob_hash).is_file()
         else:
             with sqlite3.connect(target / "media.db") as db:
@@ -631,13 +698,14 @@ def media_repair(client, bin_dir, storage, peers) -> None:
                     (hash_bytes, index),
                 )
 
-            def check():
+            def check() -> bool | int:
                 with sqlite3.connect(target / "media.db") as db:
-                    return db.execute(
+                    present: int = db.execute(
                         "SELECT EXISTS (SELECT 1 FROM shards "
                         "WHERE hash = ? AND idx = ?)",
                         (hash_bytes, index),
                     ).fetchone()[0]
+                    return present
 
         # The initial keep already inventoried this hash on the acceptor.
         # Another holder has its own hourly schedule, as on a real owner visit.
@@ -667,7 +735,7 @@ def media_repair(client, bin_dir, storage, peers) -> None:
     print("Media repair: keep restores a whole copy and a missing shard")
 
 
-def isolated_media_acceptor(client, tcp, peer_id) -> None:
+def isolated_media_acceptor(client: str, tcp: str, peer_id: str) -> None:
     for _ in range(60):
         if healthy(client, tcp):
             break
@@ -678,7 +746,14 @@ def isolated_media_acceptor(client, tcp, peer_id) -> None:
         raise RuntimeError("Restarted node changed its peer ID")
 
 
-def media_retention(client, bin_dir, storage, peer, processes, env) -> None:
+def media_retention(
+    client: str,
+    bin_dir: str,
+    storage: str,
+    peer: nc.Peer,
+    processes: list[subprocess.Popen[bytes]],
+    env: Mapping[str, str],
+) -> None:
     """Age fixture rows, refresh one keep, then exercise startup cleanup.
 
     This runs on the three-node loopback network inside the dev Docker image.
@@ -758,7 +833,9 @@ def main() -> None:
     )
 
 
-def profile_roundtrip(client, tcp, quic):
+def profile_roundtrip(
+    client: str, tcp: str, quic: str
+) -> tuple[str, list[str]]:
     for addr in (tcp, quic):
         if not healthy(client, addr):
             raise RuntimeError(f"Unhealthy node: {addr}")
@@ -785,9 +862,14 @@ def profile_roundtrip(client, tcp, quic):
 
 
 def suite(
-    peers, client, churn=None, relay: bool = False, reports=None, storage=None
+    peers: Sequence[nc.Peer],
+    client: str,
+    churn: Callable[[], str] | None = None,
+    relay: bool = False,
+    reports: Path | None = None,
+    storage: str | None = None,
 ) -> None:
-    cases = []
+    cases: list[nc.PeerCase | nc.NetworkCase] = []
     for index, (tcp, quic) in enumerate(peers):
         peer_id, holders = profile_roundtrip(client, tcp, quic)
         other = peers[(index + 1) % len(peers)][0]
@@ -828,7 +910,9 @@ def suite(
     )
 
 
-def routing_relays(client, entry, limited, ids):
+def routing_relays(
+    client: str, entry: str, limited: str, ids: Mapping[str, str]
+) -> list[str]:
     for _ in range(30):
         found = call(client, "closest", limited, os.urandom(8).hex())
         if set(found["peers"]) == set(ids):
@@ -848,7 +932,12 @@ def routing_relays(client, entry, limited, ids):
     return relays
 
 
-def network(peers, client, churn, storage):
+def network(
+    peers: Sequence[nc.Peer],
+    client: str,
+    churn: Callable[[], str] | None,
+    storage: str | None,
+) -> nc.NetworkCase:
     """Routing, replication, ack forwarding, the rate limit and churn."""
     ids = {call(client, "info", tcp)["peer_id"]: tcp for tcp, _ in peers}
     entry, limited = peers[0][0], peers[-1][0]
@@ -869,7 +958,7 @@ def network(peers, client, churn, storage):
     )
     if answered < FLOOD_LIMIT or "failed" in counts:
         raise RuntimeError(f"Rate limit boundary missed: {counts}")
-    case = {
+    case: nc.NetworkCase = {
         "routing": True,
         "relays": relays,
         "holders": holders,
