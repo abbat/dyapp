@@ -88,6 +88,8 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
     Ok(rows)
 }
 
+// shortcut: the whole history per call, fine up to about 1000 messages; page it when longer chats
+// slow the open.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn chat_history(
     dir: &Path,
