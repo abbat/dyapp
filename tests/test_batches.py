@@ -1,4 +1,5 @@
 """Small-batch parser and real Git-history regressions."""
+
 import importlib.util
 import json
 from pathlib import Path
@@ -17,29 +18,50 @@ SPEC.loader.exec_module(CHECK)
 
 class Batches(unittest.TestCase):
     def test_numstat_exclusions_and_unusual_names(self):
-        names = ["Cargo.lock", "clients/linux/Cargo.lock", "yarn.lock",
-                 "clients/android/gradle.lockfile", "package-lock.json",
-                 "npm-shrinkwrap.json", "tests/a.snap",
-                 "tests/snapshots/a.txt", "tests/__snapshots__/a.js",
-                 "generated/a.rs", "src/generated/a.rs", "dyapp.uniffi.rs"]
+        names = [
+            "Cargo.lock",
+            "clients/linux/Cargo.lock",
+            "yarn.lock",
+            "clients/android/gradle.lockfile",
+            "package-lock.json",
+            "npm-shrinkwrap.json",
+            "tests/a.snap",
+            "tests/snapshots/a.txt",
+            "tests/__snapshots__/a.js",
+            "generated/a.rs",
+            "src/generated/a.rs",
+            "dyapp.uniffi.rs",
+        ]
         stats = b"".join(f"999\t999\t{name}\0".encode() for name in names)
-        stats += (b"200\t200\tsrc/ordinary.rs\0"
-                  b"1\t2\tweird\tname\n.rs\0-\t-\timage.png\0")
+        stats += (
+            b"200\t200\tsrc/ordinary.rs\0"
+            b"1\t2\tweird\tname\n.rs\0-\t-\timage.png\0"
+        )
         self.assertEqual(CHECK.changed_lines(stats), 403)
         self.assertFalse(CHECK.excluded("src/lock.rs"))
         self.assertFalse(CHECK.excluded("docs/snapshots.md"))
 
     def test_large_change_reason_in_final_metadata(self):
-        message = ("Change code\n\nDetails.\n\n"
-                   "Large-Change: Keep platform changes together\n\n"
-                   "Co-Authored-By: Codex <noreply@openai.com>\n")
-        self.assertEqual(CHECK.large_change_reason(message),
-                         "Keep platform changes together")
-        message = ("Change code\n\nLarge-Change: \n\n"
-                   "Co-Authored-By: Codex <noreply@openai.com>")
+        message = (
+            "Change code\n\nDetails.\n\n"
+            "Large-Change: Keep platform changes together\n\n"
+            "Co-Authored-By: Codex <noreply@openai.com>\n"
+        )
+        self.assertEqual(
+            CHECK.large_change_reason(message),
+            "Keep platform changes together",
+        )
+        message = (
+            "Change code\n\nLarge-Change: \n\n"
+            "Co-Authored-By: Codex <noreply@openai.com>"
+        )
         self.assertEqual(CHECK.large_change_reason(message), "")
-        self.assertEqual(CHECK.large_change_reason(
-            "Change code\n\nLarge-Change: Apparent reason\n\nMore prose."), "")
+        self.assertEqual(
+            CHECK.large_change_reason(
+                "Change code\n\nLarge-Change: Apparent reason\n\nMore prose."
+            ),
+            "",
+        )
 
     def test_shallow_history_fails(self):
         with patch.object(CHECK, "git", return_value=b"true\n"):
@@ -53,8 +75,16 @@ class Batches(unittest.TestCase):
 
         def git(*args):
             return subprocess.check_output(
-                ["git", "-c", "core.hooksPath=/dev/null",
-                 "-c", "commit.gpgsign=false", *args], cwd=repo)
+                [
+                    "git",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "-c",
+                    "commit.gpgsign=false",
+                    *args,
+                ],
+                cwd=repo,
+            )
 
         def commit(text, message):
             (repo / "code.txt").write_text(text)
@@ -70,9 +100,21 @@ class Batches(unittest.TestCase):
 
         def run(base, head="HEAD"):
             result = subprocess.run(
-                [sys.executable, "-B", str(SCRIPT), "--base", base,
-                 "--head", head, "--report", str(repo / "report.json")],
-                cwd=repo, capture_output=True, text=True)
+                [
+                    sys.executable,
+                    "-B",
+                    str(SCRIPT),
+                    "--base",
+                    base,
+                    "--head",
+                    head,
+                    "--report",
+                    str(repo / "report.json"),
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            )
             return result, json.loads((repo / "report.json").read_text())
 
         result, report = run(base)
@@ -96,8 +138,11 @@ class Batches(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertTrue(report["errors"])
         blank = git("rev-parse", "HEAD").decode().strip()
-        commit("replacement\n", "Replace code\n\n"
-               "Large-Change: Keep the atomic fixture update together\n")
+        commit(
+            "replacement\n",
+            "Replace code\n\n"
+            "Large-Change: Keep the atomic fixture update together\n",
+        )
         result, report = run(blank)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(report["large_commits"], 1)
@@ -108,18 +153,38 @@ class Batches(unittest.TestCase):
         message_file = repo / "message.txt"
         message_file.write_text("Change code\n")
         preflight = subprocess.run(
-            [sys.executable, "-B", str(SCRIPT), "--staged",
-             "--message-file", str(message_file)],
-            cwd=repo, capture_output=True, text=True)
+            [
+                sys.executable,
+                "-B",
+                str(SCRIPT),
+                "--staged",
+                "--message-file",
+                str(message_file),
+            ],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+        )
         self.assertEqual(preflight.returncode, 1)
         self.assertIn("402 > 400", preflight.stdout)
-        message_file.write_text("Change code\n\n"
-                                "Large-Change: Keep fixture together\n\n"
-                                "Co-Authored-By: Codex <noreply@openai.com>\n")
+        message_file.write_text(
+            "Change code\n\n"
+            "Large-Change: Keep fixture together\n\n"
+            "Co-Authored-By: Codex <noreply@openai.com>\n"
+        )
         preflight = subprocess.run(
-            [sys.executable, "-B", str(SCRIPT), "--staged",
-             "--message-file", str(message_file)],
-            cwd=repo, capture_output=True, text=True)
+            [
+                sys.executable,
+                "-B",
+                str(SCRIPT),
+                "--staged",
+                "--message-file",
+                str(message_file),
+            ],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+        )
         self.assertEqual(preflight.returncode, 0, preflight.stdout)
         result, report = run(exact, exact)
         self.assertEqual(result.returncode, 0, result.stderr)

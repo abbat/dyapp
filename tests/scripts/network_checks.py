@@ -1,4 +1,5 @@
 """Checks against live dyappd peers for network-test.py, and a STUN client."""
+
 import base64
 import hashlib
 import hmac
@@ -16,11 +17,13 @@ TURN_SECRET = "network-test-secret"
 
 
 def call(client, *args, env=None):
-    result = subprocess.run([client, *args], capture_output=True, text=True,
-                            timeout=90, env=env)
+    result = subprocess.run(
+        [client, *args], capture_output=True, text=True, timeout=90, env=env
+    )
     if result.returncode:
         raise subprocess.SubprocessError(
-            f"dyappd {args[0]}: {result.stderr.strip()}")
+            f"dyappd {args[0]}: {result.stderr.strip()}"
+        )
     return json.loads(result.stdout)
 
 
@@ -32,8 +35,9 @@ def replicate(client, entry, ids):
             break
     else:
         raise RuntimeError("No replica keys spanning every live node")
-    holders = call(client, "replicate", entry, signed["peer_id"],
-                   signed["record"])["holders"]
+    holders = call(
+        client, "replicate", entry, signed["peer_id"], signed["record"]
+    )["holders"]
     for holder in set(holders):
         if holder not in ids:
             raise RuntimeError(f"Replica on an unknown node: {holder}")
@@ -78,8 +82,9 @@ def media(client, tcp, quic):
     own = call(client, "info", tcp)["peer_id"]
     for _ in range(40):
         blob = os.urandom(64)
-        holders = replica_holders(client, tcp,
-                                  hashlib.sha256(blob).hexdigest())
+        holders = replica_holders(
+            client, tcp, hashlib.sha256(blob).hexdigest()
+        )
         # A put needs a second holder; all three keys may land on one node.
         if not serves or (own in holders and len(set(holders)) >= 2):
             break
@@ -101,8 +106,9 @@ def turn(client, tcp, relay):
         if reply["status"] != "STATUS_UNSUPPORTED":
             raise RuntimeError(f"TURN on {tcp}: {reply}")
         return False
-    digest = hmac.new(TURN_SECRET.encode(), reply["username"].encode(),
-                      "sha1").digest()
+    digest = hmac.new(
+        TURN_SECRET.encode(), reply["username"].encode(), "sha1"
+    ).digest()
     password = base64.b64encode(digest).decode()
     if reply["status"] != "STATUS_OK" or reply["password"] != password:
         raise RuntimeError(f"TURN credentials on {tcp}: {reply}")
@@ -127,12 +133,18 @@ def allocate(address, username, password):
         if 0x0015 not in attrs:
             return error_code(attrs)
         realm, nonce = attrs[0x0014], attrs[0x0015]
-        body = b"".join((udp, attribute(0x0006, username.encode()),
-                         attribute(0x0014, realm),
-                         attribute(0x0015, nonce)))
-        key = hashlib.md5(b":".join((username.encode(), realm,
-                                     password.encode())),
-                          usedforsecurity=False)
+        body = b"".join(
+            (
+                udp,
+                attribute(0x0006, username.encode()),
+                attribute(0x0014, realm),
+                attribute(0x0015, nonce),
+            )
+        )
+        key = hashlib.md5(
+            b":".join((username.encode(), realm, password.encode())),
+            usedforsecurity=False,
+        )
         return error_code(stun(sock, address, body, key.digest()))
 
 
@@ -159,8 +171,8 @@ def stun(sock, address, body, key=None):
         attrs, rest = {}, reply[20:]
         while len(rest) >= 4:
             kind, size = struct.unpack("!HH", rest[:4])
-            attrs[kind] = rest[4:4 + size]
-            rest = rest[4 + size + (-size % 4):]
+            attrs[kind] = rest[4 : 4 + size]
+            rest = rest[4 + size + (-size % 4) :]
         return attrs
     raise RuntimeError(f"No STUN answer from {address}")
 
@@ -171,8 +183,10 @@ def error_code(attrs):
 
 
 def replica_holders(client, entry, key, count=5):
-    return [call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
-            for i in range(count)]
+    return [
+        call(client, "closest", entry, key + f"{i:02x}")["peers"][0]
+        for i in range(count)
+    ]
 
 
 def media_spread(client, entry, peers, ids, size=512 * 1024):
@@ -184,8 +198,9 @@ def media_spread(client, entry, peers, ids, size=512 * 1024):
             continue
         if size > 1024 * 1024:
             shard_holders = replica_holders(client, entry, blob_hash, 7)
-            departed = next(key for key, value in ids.items()
-                            if value == peers[1][0])
+            departed = next(
+                key for key, value in ids.items() if value == peers[1][0]
+            )
             if shard_holders.count(departed) > 4:
                 continue
         break
@@ -198,8 +213,9 @@ def media_spread(client, entry, peers, ids, size=512 * 1024):
         raise RuntimeError(f"{size} byte media upload failed: {reply}")
     for index, (tcp, quic) in enumerate(peers):
         for _ in range(20):
-            stored = call(client, "media-get", quic if index % 2 else tcp,
-                          blob_hash)
+            stored = call(
+                client, "media-get", quic if index % 2 else tcp, blob_hash
+            )
             if stored["status"] == "STATUS_OK":
                 data = bytes.fromhex(stored["data"])
                 actual_hash = hashlib.sha256(data).hexdigest()
@@ -235,8 +251,10 @@ def repaired(client, entry, ids):
     call(client, "watch", ids[holders[1]], device["secret"])
     # The inventory and its answer run after the fetch.
     for _ in range(10):
-        if lone["id"] in call(client, "fetch", ids[holders[1]],
-                              device["secret"])["ids"]:
+        if (
+            lone["id"]
+            in call(client, "fetch", ids[holders[1]], device["secret"])["ids"]
+        ):
             return holders[:2]
         time.sleep(1)
     raise RuntimeError(f"Envelope not repaired onto {holders[1]}")
@@ -250,8 +268,11 @@ def acked_everywhere(client, entry, ids):
         raise RuntimeError("Mailbox ack failed")
     # The node forwards the ack after it answers.
     for _ in range(10):
-        left = [holder for holder in holders
-                if call(client, "fetch", ids[holder], device["secret"])["ids"]]
+        left = [
+            holder
+            for holder in holders
+            if call(client, "fetch", ids[holder], device["secret"])["ids"]
+        ]
         if not left:
             return holders
         time.sleep(1)

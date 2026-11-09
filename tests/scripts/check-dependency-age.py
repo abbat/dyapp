@@ -3,6 +3,7 @@
 Publish times come from the sparse index cache that `cargo fetch` leaves in
 CARGO_HOME, so the check runs offline in the dev container.
 """
+
 from datetime import date, datetime, timedelta, timezone
 import json
 import os
@@ -19,7 +20,9 @@ ZBUS = "clears RUSTSEC-2026-0370, 0371 and 0372 on Linux"
 EXCEPTIONS = {
     # arboard requires ^5.3.1; every older matching release is yanked.
     ("clipboard-win", "5.4.3"): (
-        "2026-11-01", "only non-yanked arboard-compatible release"),
+        "2026-11-01",
+        "only non-yanked arboard-compatible release",
+    ),
     # zbus 6 is what drops the retired zvariant crates from the Linux lockfile.
     ("zbus", "6.2.1"): ("2026-11-03", ZBUS),
     ("zbus_macros", "6.2.1"): ("2026-11-03", ZBUS),
@@ -73,29 +76,48 @@ def errors(lockfiles, indexes, now, exceptions=EXCEPTIONS):
                 continue
             seen.add((name, version))
             caches = [index / ".cache" / index_path(name) for index in indexes]
-            stamp = next((published(cache.read_bytes(), version)
-                          for cache in caches if cache.is_file()), None)
+            stamp = next(
+                (
+                    published(cache.read_bytes(), version)
+                    for cache in caches
+                    if cache.is_file()
+                ),
+                None,
+            )
             if stamp is None:
-                found.append(f"{name} {version} ({lockfile}): not in the "
-                             "index cache; rebuild the dev image")
+                found.append(
+                    f"{name} {version} ({lockfile}): not in the "
+                    "index cache; rebuild the dev image"
+                )
             elif now - stamp < MIN_AGE:
-                found.append(f"{name} {version} ({lockfile}): published "
-                             f"{stamp:%Y-%m-%d}, younger than 14 days")
+                found.append(
+                    f"{name} {version} ({lockfile}): published "
+                    f"{stamp:%Y-%m-%d}, younger than 14 days"
+                )
     return found
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("dependency-age")
-    lockfiles = [ROOT / name for name in subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-files", "*Cargo.lock"],
-        text=True).split()]
+    lockfiles = [
+        ROOT / name
+        for name in subprocess.check_output(
+            ["git", "-C", str(ROOT), "ls-files", "*Cargo.lock"], text=True
+        ).split()
+    ]
     home = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))
     indexes = sorted((home / "registry/index").glob("index.crates.io-*"))
     found = errors(lockfiles, indexes, datetime.now(timezone.utc))
     if found:
-        found.insert(0, "Dependency age (docs/development/code-quality.md"
-                        "#dependency-age):")
+        found.insert(
+            0,
+            "Dependency age (docs/development/code-quality.md"
+            "#dependency-age):",
+        )
         raise ValueError("\n".join(found))
-    print(f"{len(lockfiles)} lockfiles: every crates.io version is at least "
-          "14 days old")
+    print(
+        f"{len(lockfiles)} lockfiles: every crates.io version is at least "
+        "14 days old"
+    )

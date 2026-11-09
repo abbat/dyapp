@@ -33,8 +33,9 @@ def copy_verified_file(snapshot, scratch, record):
 def check_database(path):
     deadline = time.monotonic() + 120
     with closing(sqlite3.connect(path)) as database:
-        database.set_progress_handler(lambda: int(time.monotonic() > deadline),
-                                      1000)
+        database.set_progress_handler(
+            lambda: int(time.monotonic() > deadline), 1000
+        )
         result = database.execute("PRAGMA integrity_check(1)").fetchone()
         if result != ("ok",):
             raise ValueError(f"SQLite integrity check failed: {path.name}")
@@ -50,13 +51,17 @@ def probe(snapshot, scratch=None):
     VERIFY.check_inventory(root, count, dirs)
     if header["hot_journal"]:
         raise ValueError("hot rollback journal blocks automatic preflight")
-    with tempfile.TemporaryDirectory(prefix="dyappd-restore-",
-                                     dir=scratch) as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="dyappd-restore-", dir=scratch
+    ) as temporary:
         scratch = Path(temporary)
         for record in records:
             copy_verified_file(root, scratch, record)
-        databases = [record["path"] for record in records
-                     if Path(record["path"]).name in VERIFY.BACKUP.DATABASES]
+        databases = [
+            record["path"]
+            for record in records
+            if Path(record["path"]).name in VERIFY.BACKUP.DATABASES
+        ]
         for path in databases:
             check_database(scratch / path)
     return header, keys, len(databases)
@@ -65,8 +70,11 @@ def probe(snapshot, scratch=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
-    parser.add_argument("--scratch", type=Path,
-                        help="directory for restored copies (default: TMPDIR)")
+    parser.add_argument(
+        "--scratch",
+        type=Path,
+        help="directory for restored copies (default: TMPDIR)",
+    )
     args = parser.parse_args()
     try:
         header, _, count = probe(args.snapshot, args.scratch)

@@ -1,4 +1,5 @@
 """Finite desktop translation domains from shared native contracts."""
+
 import re
 
 from repository_translations import code, literals, scale_options
@@ -32,8 +33,9 @@ def typedef_values(source: str, name: str) -> list[str]:
 
 def function_bodies(source: str, name: str) -> list[str]:
     source = code(source)
-    masked = re.sub(r'"(?:\\.|[^"\\])*"',
-                    lambda match: " " * len(match[0]), source)
+    masked = re.sub(
+        r'"(?:\\.|[^"\\])*"', lambda match: " " * len(match[0]), source
+    )
     result = []
     for match in re.finditer(r"\bfn\s+" + re.escape(name) + r"\b", masked):
         start = masked.index("{", match.end())
@@ -41,7 +43,7 @@ def function_bodies(source: str, name: str) -> list[str]:
         for token in re.finditer(r"[{}]", masked[start:]):
             depth += 1 if token[0] == "{" else -1
             if depth == 0:
-                result.append(source[start:start + token.end()])
+                result.append(source[start : start + token.end()])
                 break
         else:
             raise ValueError(f"Unclosed native function: {name}")
@@ -51,14 +53,17 @@ def function_bodies(source: str, name: str) -> list[str]:
 
 
 def function_values(source: str, name: str) -> set[str]:
-    return set().union(*(literals(body)
-                         for body in function_bodies(source, name)))
+    return set().union(
+        *(literals(body) for body in function_bodies(source, name))
+    )
 
 
 def documented_errors(source: str, name: str) -> list[str]:
-    pattern = (r"((?:^///[^\n]*\n)+)(?:#\[[^\]]*\]\s*)*"
-               r"(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+"
-               r"NAME\b").replace("NAME", re.escape(name))
+    pattern = (
+        r"((?:^///[^\n]*\n)+)(?:#\[[^\]]*\]\s*)*"
+        r"(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+"
+        r"NAME\b"
+    ).replace("NAME", re.escape(name))
     matches = list(re.finditer(pattern, source, re.M))
     if len(matches) != 1:
         raise ValueError(f"Missing or ambiguous error contract: {name}")
@@ -66,8 +71,9 @@ def documented_errors(source: str, name: str) -> list[str]:
     section = re.search(r"Errors are([\s\S]*)", docs)
     if section is None:
         raise ValueError(f"No explicit error contract: {name}")
-    values = re.findall(chr(96) + r"([A-Za-z][A-Za-z0-9]*)" + chr(96),
-                        section[1])
+    values = re.findall(
+        chr(96) + r"([A-Za-z][A-Za-z0-9]*)" + chr(96), section[1]
+    )
     if not values:
         raise ValueError(f"Empty error contract: {name}")
     return sorted(set(values))
@@ -75,27 +81,41 @@ def documented_errors(source: str, name: str) -> list[str]:
 
 def native_domains(texts: dict[str, str]) -> dict[str, list[str]]:
     domains = {
-        prefix: [prefix + value for value in typedef_values(
-            texts[UI + filename], name)]
-        for prefix, filename, name in TYPE_DOMAINS}
+        prefix: [
+            prefix + value
+            for value in typedef_values(texts[UI + filename], name)
+        ]
+        for prefix, filename, name in TYPE_DOMAINS
+    }
     options = scale_options(texts["rust/profile/src/scales.rs"])
     domains["profile.field."] = ["profile.field." + key for key in options]
     domains["profile.value."] = [
         f"profile.value.{key}.{value}"
-        for key, values in options.items() for value in values]
+        for key, values in options.items()
+        for value in values
+    ]
     domains["profile.value.gender."] = [
-        "profile.value.gender." + value for value in options["gender"]]
+        "profile.value.gender." + value for value in options["gender"]
+    ]
     for prefix, path, name in (
         ("view.like.", "clients/desktop/chats.rs", "like"),
         ("view.safety.confirm.", "clients/desktop/safety.rs", "confirm"),
     ):
-        domains[prefix] = [prefix + value for value in documented_errors(
-            texts[path], name)]
+        domains[prefix] = [
+            prefix + value for value in documented_errors(texts[path], name)
+        ]
     domains["recovery."] = [
-        "recovery." + value for value in sorted(function_values(
-            texts["clients/desktop/slots.rs"], "open_slot"))]
-    profile = {"profile.problem." + value for value in function_values(
-        texts["clients/desktop/profile.rs"], "code")}
+        "recovery." + value
+        for value in sorted(
+            function_values(texts["clients/desktop/slots.rs"], "open_slot")
+        )
+    ]
+    profile = {
+        "profile.problem." + value
+        for value in function_values(
+            texts["clients/desktop/profile.rs"], "code"
+        )
+    }
     if profile != set(domains["profile.problem."]):
         raise ValueError("ProfileView problem codes differ from native codes")
     return domains

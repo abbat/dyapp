@@ -13,6 +13,7 @@ The trailer `ADR: docs/decisions/NNNN-title.md` must name an ADR that exists
 in that commit; an older ADR that covers the change is fine. A routine change
 that records no decision says why instead: `ADR: none — <reason>`.
 """
+
 import os
 from pathlib import PurePosixPath
 import re
@@ -21,30 +22,48 @@ import tomllib
 
 TRAILER = re.compile(r"^ADR: (docs/decisions/\d{4}-[\w.-]+\.md)$", re.M)
 NONE = re.compile(r"^ADR: none [—-] \S.{9,}$", re.M)
-GRADLE = re.compile(r"^\s*\w*[iI]mplementation\s*\(?\s*(?:platform\()?\s*"
-                    r"""['"]([\w.-]+:[\w.-]+)""", re.M)
-SCHEMA = re.compile(r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
-                    r"|PRAGMA user_version|`\w+` (?:BLOB|INTEGER|TEXT|REAL)\b")
+GRADLE = re.compile(
+    r"^\s*\w*[iI]mplementation\s*\(?\s*(?:platform\()?\s*"
+    r"""['"]([\w.-]+:[\w.-]+)""",
+    re.M,
+)
+SCHEMA = re.compile(
+    r"\b(?:CREATE|ALTER|DROP) (?:TABLE|INDEX)\b"
+    r"|PRAGMA user_version|`\w+` (?:BLOB|INTEGER|TEXT|REAL)\b"
+)
 GIT = ["git", "-c", "safe.directory=*"]
 WATCHED = ("Cargo.toml", ".gradle", ".kts", ".proto", ".rs")
 # Approved development-only parser inputs do not change app architecture.
-TOOLING = {"tools/rust-functions/Cargo.toml": {
-    "proc-macro2", "quote", "serde_json", "syn"}}
+TOOLING = {
+    "tools/rust-functions/Cargo.toml": {
+        "proc-macro2",
+        "quote",
+        "serde_json",
+        "syn",
+    }
+}
 
 
 def dependencies(text):
     """Names in every dependency table of a Cargo.toml but path and
     workspace ones."""
     data = tomllib.loads(text) if text else {}
-    tables = [data, data.get("workspace", {}),
-              *data.get("target", {}).values()]
-    specs = [(name, spec if isinstance(spec, dict) else {})
-             for table in tables
-             for kind in ("dependencies", "dev-dependencies",
-                          "build-dependencies")
-             for name, spec in table.get(kind, {}).items()]
-    return {name for name, spec in specs
-            if "path" not in spec and not spec.get("workspace")}
+    tables = [
+        data,
+        data.get("workspace", {}),
+        *data.get("target", {}).values(),
+    ]
+    specs = [
+        (name, spec if isinstance(spec, dict) else {})
+        for table in tables
+        for kind in ("dependencies", "dev-dependencies", "build-dependencies")
+        for name, spec in table.get(kind, {}).items()
+    ]
+    return {
+        name
+        for name, spec in specs
+        if "path" not in spec and not spec.get("workspace")
+    }
 
 
 def triggers(path, old, new, diff):
@@ -55,42 +74,59 @@ def triggers(path, old, new, diff):
         exempt = TOOLING.get(path, set())
         if not old and "[package]" in new and path not in TOOLING:
             found.append(f"new crate {path}")
-        found += [f"new dependency {dep} in {path}"
-                  for dep in sorted(
-                      dependencies(new) - dependencies(old) - exempt)]
+        found += [
+            f"new dependency {dep} in {path}"
+            for dep in sorted(dependencies(new) - dependencies(old) - exempt)
+        ]
     elif name.suffix in (".gradle", ".kts"):
-        found += [f"new dependency {dep} in {path}" for dep in sorted(
-            set(GRADLE.findall(new)) - set(GRADLE.findall(old)))]
+        found += [
+            f"new dependency {dep} in {path}"
+            for dep in sorted(
+                set(GRADLE.findall(new)) - set(GRADLE.findall(old))
+            )
+        ]
     elif name.match("proto/*.proto"):
         found.append(f"wire format {path}")
     elif name.suffix == ".rs" and any(
-            line[:1] in "+-" and SCHEMA.search(line)
-            for line in diff.splitlines()
-            if not line.startswith(("+++", "---"))):
+        line[:1] in "+-" and SCHEMA.search(line)
+        for line in diff.splitlines()
+        if not line.startswith(("+++", "---"))
+    ):
         found.append(f"storage schema {path}")
     return found
 
 
 def show(sha, path):
-    result = subprocess.run(GIT + ["show", f"{sha}:{path}"],
-                            capture_output=True, check=False)
-    return result.stdout.decode(errors="replace") \
-        if result.returncode == 0 else ""
+    result = subprocess.run(
+        GIT + ["show", f"{sha}:{path}"], capture_output=True, check=False
+    )
+    return (
+        result.stdout.decode(errors="replace")
+        if result.returncode == 0
+        else ""
+    )
 
 
 def commit_errors(sha):
     message = subprocess.check_output(
-        GIT + ["log", "-1", "--format=%B", sha], text=True)
+        GIT + ["log", "-1", "--format=%B", sha], text=True
+    )
     paths = subprocess.check_output(
-        GIT + ["diff-tree", "--root", "--no-commit-id", "-r", "--name-only",
-               sha], text=True).split()
+        GIT
+        + ["diff-tree", "--root", "--no-commit-id", "-r", "--name-only", sha],
+        text=True,
+    ).split()
     found = []
     for path in paths:
         if not path.endswith(WATCHED):
             continue
-        diff = subprocess.check_output(
-            GIT + ["diff", "-U0", f"{sha}^!", "--", path], text=True) \
-            if path.endswith(".rs") else ""
+        diff = (
+            subprocess.check_output(
+                GIT + ["diff", "-U0", f"{sha}^!", "--", path], text=True
+            )
+            if path.endswith(".rs")
+            else ""
+        )
         found += triggers(path, show(f"{sha}^", path), show(sha, path), diff)
     reason = trailer_error(message, sha) if found else None
     return [f"{sha[:12]} {reason}: " + "; ".join(found)] if reason else []
@@ -109,18 +145,21 @@ def trailer_error(message, sha):
 def base():
     """ADR_BASE, or origin/main for a new branch or a forced push."""
     base = os.environ.get("ADR_BASE") or "origin/main"
-    if subprocess.run(GIT + ["cat-file", "-e", base + "^{commit}"],
-                      stderr=subprocess.DEVNULL).returncode:
+    if subprocess.run(
+        GIT + ["cat-file", "-e", base + "^{commit}"], stderr=subprocess.DEVNULL
+    ).returncode:
         base = "origin/main"
     return base
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("adr")
     shas = subprocess.check_output(
         GIT + ["rev-list", "--no-merges", "--reverse", base() + "..HEAD"],
-        text=True).split()
+        text=True,
+    ).split()
     errors = [error for sha in shas for error in commit_errors(sha)]
     if errors:
         errors.insert(0, "ADR triggers (docs/decisions/README.md#triggers):")

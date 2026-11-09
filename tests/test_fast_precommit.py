@@ -13,18 +13,18 @@ SPEC.loader.exec_module(CHECK)
 
 class FastPrecommit(unittest.TestCase):
     def test_cleared_environment_requires_coverage_path(self):
-        source = '''let output = Command::new("dyappd")
+        source = """let output = Command::new("dyappd")
     .env_clear()
     .env("LANG", "C")
-    .output();'''
+    .output();"""
         self.assertEqual(CHECK.missing_profile_lines(source), [2])
 
     def test_forwarded_coverage_path_passes(self):
-        source = '''let output = Command::new("dyappd")
+        source = """let output = Command::new("dyappd")
     .env_clear()
     .envs(std::env::var_os("LLVM_PROFILE_FILE")
         .map(|p| ("LLVM_PROFILE_FILE", p)))
-    .output();'''
+    .output();"""
         self.assertEqual(CHECK.missing_profile_lines(source), [])
 
 

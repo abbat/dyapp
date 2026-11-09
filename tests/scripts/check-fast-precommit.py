@@ -18,7 +18,7 @@ def missing_profile_lines(source: str) -> list[int]:
     missing = []
     for index, line in enumerate(lines):
         if ENV_CLEAR.search(line):
-            following = "\n".join(lines[index + 1:index + 7])
+            following = "\n".join(lines[index + 1 : index + 7])
             if not PROFILE_FORWARD.search(following):
                 missing.append(index + 1)
     return missing
@@ -38,12 +38,14 @@ def main() -> int:
         for raw_path in filter(None, paths):
             path = raw_path.decode("utf-8", "surrogateescape")
             parts = path.split("/")
-            if not all((
-                len(parts) >= 4,
-                parts[0] == "rust",
-                "tests" in parts[2:],
-                path.endswith(".rs"),
-            )):
+            if not all(
+                (
+                    len(parts) >= 4,
+                    parts[0] == "rust",
+                    "tests" in parts[2:],
+                    path.endswith(".rs"),
+                )
+            ):
                 continue
             source = git("show", ":" + path).decode("utf-8")
             failures.extend(
@@ -53,12 +55,18 @@ def main() -> int:
         print(f"pre-commit: staged check failed: {error}", file=sys.stderr)
         return 1
     if failures:
-        print("pre-commit: .env_clear() drops LLVM_PROFILE_FILE "
-              "in Rust integration tests:", file=sys.stderr)
+        print(
+            "pre-commit: .env_clear() drops LLVM_PROFILE_FILE "
+            "in Rust integration tests:",
+            file=sys.stderr,
+        )
         for location in failures:
             print(f"  {location}", file=sys.stderr)
-        print("Forward LLVM_PROFILE_FILE after env_clear(); see "
-              "docs/testing/README.md#coverage-subprocesses", file=sys.stderr)
+        print(
+            "Forward LLVM_PROFILE_FILE after env_clear(); see "
+            "docs/testing/README.md#coverage-subprocesses",
+            file=sys.stderr,
+        )
         return 1
     print("OK fast pre-commit")
     return 0

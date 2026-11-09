@@ -64,7 +64,9 @@ def package_metadata(asset, name):
     if type(size) is not int or not 0 < size <= 1024**3:
         raise ValueError("invalid client package size")
     return {
-        "name": name, "sha256": digest[7:], "size": size,
+        "name": name,
+        "sha256": digest[7:],
+        "size": size,
     }
 
 
@@ -97,7 +99,10 @@ def candidates(release, tag, commit):
             continue
         packages[target] = package_metadata(asset, name)
     return {
-        "schema": 1, "tag": tag, "commit": commit, "packages": packages,
+        "schema": 1,
+        "tag": tag,
+        "commit": commit,
+        "packages": packages,
     }
 
 

@@ -1,4 +1,5 @@
 """Build Apple apps and run hosted XCTest/XCUITest in approved native CI."""
+
 from contextlib import contextmanager
 import json
 import os
@@ -13,38 +14,65 @@ import time
 def run(arguments, log, env=None, timeout=None):
     with log.open("w") as output:
         result = subprocess.run(
-            arguments, stdout=output, stderr=subprocess.STDOUT,
-            check=False, env=env, timeout=timeout)
+            arguments,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            check=False,
+            env=env,
+            timeout=timeout,
+        )
     text = log.read_text()
     print(text)
     if result.returncode:
         # The check wrapper shows only this error, so it carries the log tail.
         raise RuntimeError(
             f"Command failed ({result.returncode}): {arguments}\n"
-            f"{text[-4096:]}")
+            f"{text[-4096:]}"
+        )
 
 
 @contextmanager
 def local_node(reports):
     """Run loopback dyappd for native UI tests without public peers."""
-    run(["cargo", "build", "--locked", "-p", "dyapp-bootstrap",
-         "--bin", "dyappd"],
-        reports / "node-build.log")
+    run(
+        [
+            "cargo",
+            "build",
+            "--locked",
+            "-p",
+            "dyapp-bootstrap",
+            "--bin",
+            "dyappd",
+        ],
+        reports / "node-build.log",
+    )
     address = "127.0.0.1:33445"
     storage = reports / "node-storage"
-    env = dict(os.environ, DYAPPD_LISTEN=json.dumps([address]),
-               DYAPPD_EXTERNAL=json.dumps([address]),
-               DYAPPD_STORAGE_DIR=str(storage), DYAPPD_NETWORK_ID_POW_BITS="8",
-               DYAPPD_SEARCH_MIN_PROFILE_POW_BITS="4",
-               DYAPPD_ROLES='["store", "search", "media"]')
-    run(["build/debug/dyappd", "keygen"], reports / "node-keygen.log", env=env,
-        timeout=60)
+    env = dict(
+        os.environ,
+        DYAPPD_LISTEN=json.dumps([address]),
+        DYAPPD_EXTERNAL=json.dumps([address]),
+        DYAPPD_STORAGE_DIR=str(storage),
+        DYAPPD_NETWORK_ID_POW_BITS="8",
+        DYAPPD_SEARCH_MIN_PROFILE_POW_BITS="4",
+        DYAPPD_ROLES='["store", "search", "media"]',
+    )
+    run(
+        ["build/debug/dyappd", "keygen"],
+        reports / "node-keygen.log",
+        env=env,
+        timeout=60,
+    )
     peer_id = (storage / "node.id").read_text().strip()
     metadata = {"address": address, "peer_id": peer_id}
     (reports / "node.json").write_text(json.dumps(metadata))
     with (reports / "node.log").open("w") as log:
-        server = subprocess.Popen(["build/debug/dyappd"], env=env,
-                                  stdout=log, stderr=subprocess.STDOUT)
+        server = subprocess.Popen(
+            ["build/debug/dyappd"],
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
     try:
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
@@ -121,10 +149,22 @@ def keep_log(reports, simulator, name, predicate):
     with (reports / name).open("w") as output:
         try:
             subprocess.run(
-                spawn + ["log", "show", "--last", "3h", "--style", "compact",
-                         "--predicate", predicate],
-                stdout=output, stderr=subprocess.STDOUT, check=False,
-                timeout=5 * 60)
+                spawn
+                + [
+                    "log",
+                    "show",
+                    "--last",
+                    "3h",
+                    "--style",
+                    "compact",
+                    "--predicate",
+                    predicate,
+                ],
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=5 * 60,
+            )
         except subprocess.TimeoutExpired:
             output.write("log show timed out\n")
 
@@ -139,87 +179,168 @@ def main():
     reports.mkdir(parents=True, exist_ok=True)
     os.environ["DYAPP_CHECK_LOG_DIR"] = str(reports / "check-output")
     derived = reports / "DerivedData"
-    common = ["xcodebuild", "-project", f"clients/{platform}/DYApp.xcodeproj",
-              "-scheme", "DYApp", "-derivedDataPath", str(derived)]
+    common = [
+        "xcodebuild",
+        "-project",
+        f"clients/{platform}/DYApp.xcodeproj",
+        "-scheme",
+        "DYApp",
+        "-derivedDataPath",
+        str(derived),
+    ]
     unsigned = ["CODE_SIGNING_ALLOWED=NO"]
     build = common + unsigned
     # The iOS Simulator refuses an unsigned app the Keychain (OSStatus
     # -34018); an ad-hoc signature gives it an application identifier.
     # macOS uses the login keychain unsigned.
-    test = common + (["CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-"]
-                     if platform == "ios" else unsigned)
+    test = common + (
+        ["CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-"]
+        if platform == "ios"
+        else unsigned
+    )
     simulator = None
     run(["xcodebuild", "-version"], reports / "xcode-version.txt")
     if platform == "ios":
-        run(build + ["-destination", "generic/platform=iOS", "build"],
-            reports / "device-build.log")
-        devices = json.loads(subprocess.check_output(
-            ["xcrun", "simctl", "list", "devices", "available", "--json"],
-            text=True))
-        candidates = [device for runtime, values in devices["devices"].items()
-                      if ".iOS-" in runtime
-                      for device in values
-                      if device.get("isAvailable")
-                      if device["name"].startswith("iPhone")]
+        run(
+            build + ["-destination", "generic/platform=iOS", "build"],
+            reports / "device-build.log",
+        )
+        devices = json.loads(
+            subprocess.check_output(
+                ["xcrun", "simctl", "list", "devices", "available", "--json"],
+                text=True,
+            )
+        )
+        candidates = [
+            device
+            for runtime, values in devices["devices"].items()
+            if ".iOS-" in runtime
+            for device in values
+            if device.get("isAvailable")
+            if device["name"].startswith("iPhone")
+        ]
         if not candidates:
             raise RuntimeError(
-                "No available iPhone simulator; required suite cannot skip")
+                "No available iPhone simulator; required suite cannot skip"
+            )
         device = sorted(candidates, key=lambda item: item["name"])[0]
         simulator = device["udid"]
-        destination = (f"platform=iOS Simulator,id={simulator},"
-                       f"arch={os.uname().machine}")
+        destination = (
+            f"platform=iOS Simulator,id={simulator},arch={os.uname().machine}"
+        )
     else:
-        run(build + ["-destination", "generic/platform=macOS",
-                     "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "build"],
-            reports / "universal-build.log")
+        run(
+            build
+            + [
+                "-destination",
+                "generic/platform=macOS",
+                "ARCHS=arm64 x86_64",
+                "ONLY_ACTIVE_ARCH=NO",
+                "build",
+            ],
+            reports / "universal-build.log",
+        )
         destination = f"platform=macOS,arch={os.uname().machine}"
     result_bundle = reports / f"{platform}.xcresult"
     try:
         with local_node(reports), silent_endpoint():
             # Ends before the job's limit, which would skip the upload of
             # everything that says why the tests ran so long.
-            run(test + ["-destination", destination,
-                        "-parallel-testing-enabled", "NO",
-                        "-retry-tests-on-failure", "-test-iterations", "3",
-                        # One wedged test must fail alone, or it takes all
-                        # of the time limit below and no results are left.
-                        "-test-timeouts-enabled", "YES",
-                        "-default-test-execution-time-allowance", "600",
-                        "-resultBundlePath", str(result_bundle), "test"],
-                reports / "tests.log", timeout=70 * 60)
+            run(
+                test
+                + [
+                    "-destination",
+                    destination,
+                    "-parallel-testing-enabled",
+                    "NO",
+                    "-retry-tests-on-failure",
+                    "-test-iterations",
+                    "3",
+                    # One wedged test must fail alone, or it takes all
+                    # of the time limit below and no results are left.
+                    "-test-timeouts-enabled",
+                    "YES",
+                    "-default-test-execution-time-allowance",
+                    "600",
+                    "-resultBundlePath",
+                    str(result_bundle),
+                    "test",
+                ],
+                reports / "tests.log",
+                timeout=70 * 60,
+            )
     finally:
         # The test peer's NSLog reaches neither tests.log nor the xcresult.
-        keep_log(reports, simulator, "chat-peer.log",
-                 'eventMessage CONTAINS "ChatTestPeer"')
+        keep_log(
+            reports,
+            simulator,
+            "chat-peer.log",
+            'eventMessage CONTAINS "ChatTestPeer"',
+        )
         # A crash report lacks an uncaught exception's reason; the log has it.
         if keep_crash_reports(reports):
-            keep_log(reports, simulator, "app-errors.log",
-                     'process == "DYApp" AND (messageType == error OR '
-                     'messageType == fault OR '
-                     'eventMessage CONTAINS[c] "exception")')
+            keep_log(
+                reports,
+                simulator,
+                "app-errors.log",
+                'process == "DYApp" AND (messageType == error OR '
+                "messageType == fault OR "
+                'eventMessage CONTAINS[c] "exception")',
+            )
     summary = subprocess.check_output(
-        ["xcrun", "xcresulttool", "get", "test-results", "summary",
-         "--path", str(result_bundle)], text=True)
+        [
+            "xcrun",
+            "xcresulttool",
+            "get",
+            "test-results",
+            "summary",
+            "--path",
+            str(result_bundle),
+        ],
+        text=True,
+    )
     (reports / "summary.json").write_text(summary)
-    run(["python3", "tests/scripts/check-apple-results.py",
-         str(reports / "summary.json")],
-        reports / "inventory.log")
+    run(
+        [
+            "python3",
+            "tests/scripts/check-apple-results.py",
+            str(reports / "summary.json"),
+        ],
+        reports / "inventory.log",
+    )
     tests = subprocess.check_output(
-        ["xcrun", "xcresulttool", "get", "test-results", "tests",
-         "--path", str(result_bundle)], text=True)
+        [
+            "xcrun",
+            "xcresulttool",
+            "get",
+            "test-results",
+            "tests",
+            "--path",
+            str(result_bundle),
+        ],
+        text=True,
+    )
     (reports / "tests.json").write_text(tests)
-    run(["python3", "tests/scripts/check-flaky.py", "--raw",
-         str(reports / "tests.json")],
-        reports / "flaky.log")
+    run(
+        [
+            "python3",
+            "tests/scripts/check-flaky.py",
+            "--raw",
+            str(reports / "tests.json"),
+        ],
+        reports / "flaky.log",
+    )
     apps = list((derived / "Build" / "Products").glob("*/DYApp.app"))
     if not apps:
         raise RuntimeError("Application artifact missing")
     (reports / "artifacts.json").write_text(
-        json.dumps([str(path) for path in apps]))
+        json.dumps([str(path) for path in apps])
+    )
     print(f"{platform}: application artifacts and native tests verified")
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("apple-tests")
     main()

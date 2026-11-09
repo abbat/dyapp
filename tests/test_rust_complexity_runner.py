@@ -1,4 +1,5 @@
 """Reject malformed budgets, stale source and incomplete parser output."""
+
 import copy
 import importlib.util
 import json
@@ -14,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def load(name, filename):
     spec = importlib.util.spec_from_file_location(
-        name, ROOT / "tests/scripts" / filename)
+        name, ROOT / "tests/scripts" / filename
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -26,15 +28,20 @@ with mock.patch.dict(sys.modules, rust_complexity=POLICY):
 
 
 def budget():
-    return {"path": "rust/example.rs", "function": "fn retained",
-            "metrics": {"lines": 70}}
+    return {
+        "path": "rust/example.rs",
+        "function": "fn retained",
+        "metrics": {"lines": 70},
+    }
 
 
 class ComplexityRunnerTest(unittest.TestCase):
     def test_budget_schema_and_nesting_pair_are_strict(self):
         row = budget()
-        self.assertEqual(RUNNER.budgets([row]),
-                         {("rust/example.rs", "fn retained"): {"lines": 70}})
+        self.assertEqual(
+            RUNNER.budgets([row]),
+            {("rust/example.rs", "fn retained"): {"lines": 70}},
+        )
         malformed = [None, {}, [row, row]]
         for value in (False, 0, -1, "70"):
             invalid = copy.deepcopy(row)
@@ -48,8 +55,13 @@ class ComplexityRunnerTest(unittest.TestCase):
                 RUNNER.budgets(rows)
 
     def test_paths_cannot_escape_or_use_platform_separators(self):
-        for path in ("/outside.rs", "../outside.rs", "rust/../../outside.rs",
-                     "rust\\example.rs", "C:/outside.rs"):
+        for path in (
+            "/outside.rs",
+            "../outside.rs",
+            "rust/../../outside.rs",
+            "rust\\example.rs",
+            "C:/outside.rs",
+        ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):
                     RUNNER.budgets([dict(budget(), path=path)])
@@ -61,20 +73,25 @@ class ComplexityRunnerTest(unittest.TestCase):
         with mock.patch.dict(os.environ, COMPLEXITY_BASE="fixture-base"):
             with mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.stdout = path.relative_to(ROOT).as_posix()
-                with mock.patch.object(RUNNER.subprocess, "check_output",
-                                       return_value=json.dumps(old)):
+                with mock.patch.object(
+                    RUNNER.subprocess,
+                    "check_output",
+                    return_value=json.dumps(old),
+                ):
                     errors = RUNNER.budget_changes(path, current)
                 self.assertTrue(errors)
-                self.assertIn("fixture-base^{commit}", run.call_args_list[0]
-                              .args[0])
+                self.assertIn(
+                    "fixture-base^{commit}", run.call_args_list[0].args[0]
+                )
 
     def test_threshold_guard_checks_untracked_sources_and_fails_closed(self):
         directory = ROOT / "build/tool-fixtures/complexity-thresholds"
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)
         paths = b"rust/old.rs\0rust/new.rs\0"
-        with mock.patch.object(RUNNER.subprocess, "check_output",
-                               return_value=paths) as inventory:
+        with mock.patch.object(
+            RUNNER.subprocess, "check_output", return_value=paths
+        ) as inventory:
             with mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.returncode = 1
                 with self.assertRaises(ValueError):
@@ -104,8 +121,11 @@ class ComplexityRunnerTest(unittest.TestCase):
         directory.mkdir(parents=True)
         contents = {"example.rs": b"fn example() {}"}
         entry = {"path": "example.rs", "functions": []}
-        for records in ([], [entry, entry],
-                        [{"path": "other.rs", "functions": []}]):
+        for records in (
+            [],
+            [entry, entry],
+            [{"path": "other.rs", "functions": []}],
+        ):
             output = "\n".join(map(json.dumps, records))
             with mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.returncode = 0

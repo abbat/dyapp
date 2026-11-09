@@ -27,8 +27,10 @@ def main(path: Path) -> None:
         if shown == 8:
             break
     if not shown:
-        print("cargo test failed without compiler-message errors",
-              file=sys.stderr)
+        print(
+            "cargo test failed without compiler-message errors",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

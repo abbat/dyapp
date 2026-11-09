@@ -1,4 +1,5 @@
 """The workspace API gate rejects findings and incomplete coverage."""
+
 import copy
 import importlib.util
 from pathlib import Path
@@ -6,7 +7,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "unused_public_gate", ROOT / "tests/scripts/check-unused-public.py")
+    "unused_public_gate", ROOT / "tests/scripts/check-unused-public.py"
+)
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
 
@@ -35,21 +37,27 @@ class UnusedPublicGateTest(unittest.TestCase):
     def test_a_new_finding_fails_even_if_tool_exits_zero(self):
         report = complete()
         report["summary"]["diagnostic_count"] = 1
-        report["diagnostics"] = [{
-            "code": "hawk::dead_public",
-            "identity": {"crate": "fixture", "item": "new_unused"},
-            "location": {"file": "src/lib.rs", "line": 12},
-        }]
-        self.assertIn("src/lib.rs:12: hawk::dead_public: fixture:new_unused",
-                      GATE.failures(report, 0))
+        report["diagnostics"] = [
+            {
+                "code": "hawk::dead_public",
+                "identity": {"crate": "fixture", "item": "new_unused"},
+                "location": {"file": "src/lib.rs", "line": 12},
+            }
+        ]
+        self.assertIn(
+            "src/lib.rs:12: hawk::dead_public: fixture:new_unused",
+            GATE.failures(report, 0),
+        )
 
     def test_stale_marker_fails(self):
         report = complete()
         report["summary"]["diagnostic_count"] = 1
-        report["diagnostics"] = [{
-            "code": "hawk::unfulfilled_expectation",
-            "message": "unused marker became stale",
-        }]
+        report["diagnostics"] = [
+            {
+                "code": "hawk::unfulfilled_expectation",
+                "message": "unused marker became stale",
+            }
+        ]
         self.assertTrue(GATE.failures(report, 1))
 
     def test_tool_failure_cannot_be_reported_as_clean(self):

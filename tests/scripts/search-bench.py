@@ -9,6 +9,7 @@ extrapolation inputs as JSON.
 One-off study: stdlib only, no CI. Identifiers are backtick-quoted; runtime
 values are bound.
 """
+
 import argparse
 import json
 import math
@@ -94,7 +95,7 @@ def zipf_exponent(n, top_share):
     lo, hi = 0.0, 4.0
     for _ in range(60):
         s = (lo + hi) / 2
-        share = 1 / sum(k ** -s for k in range(1, n + 1))
+        share = 1 / sum(k**-s for k in range(1, n + 1))
         lo, hi = (s, hi) if share < top_share else (lo, s)
     return (lo + hi) / 2
 
@@ -104,8 +105,8 @@ def place_weights():
     Zipf (top 9 %).
     """
     sc, sp = zipf_exponent(len(COUNTRIES), 0.30), zipf_exponent(PLACES, 0.09)
-    cw = [k ** -sc for k in range(1, len(COUNTRIES) + 1)]
-    pw = [k ** -sp for k in range(1, PLACES + 1)]
+    cw = [k**-sc for k in range(1, len(COUNTRIES) + 1)]
+    pw = [k**-sp for k in range(1, PLACES + 1)]
     ctot, ptot = sum(cw), sum(pw)
     rows, acc = [], 0.0
     for c, w in zip(COUNTRIES, cw):
@@ -143,6 +144,8 @@ FROM `n` CROSS JOIN `place_weight` AS `w`
   WHERE `lo` <= (random() & 9007199254740991) / 9007199254740992.0
   + 0 * `n`.`i`)
 """
+
+
 # `+ 0 * n.i` makes the subquery correlated, so random() is drawn once per
 # row. ENUMS order equals the profile column order after `wants_more_kids`.
 
@@ -398,6 +401,7 @@ def extrapolate(out):
     out["qps"] = runs[big]["qps_typical_2threads"]
     out["error_2_5m"], out["extrapolation_ok"] = None, False
     if len(done) >= 3:
+
         def t(n):
             return runs[str(n)]["classes"]["typical"]["1"]["p50_ms"]
 

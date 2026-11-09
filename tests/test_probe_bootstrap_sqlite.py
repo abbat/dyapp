@@ -30,8 +30,11 @@ class ProbeBootstrapSqlite(unittest.TestCase):
         self.source = root / "source"
         self.source.mkdir()
         self.snapshot = root / "snapshot"
-        for name, value in {"node.id": b"peer-id", "network": b"network",
-                            "node.key": b"key"}.items():
+        for name, value in {
+            "node.id": b"peer-id",
+            "network": b"network",
+            "node.key": b"key",
+        }.items():
             (self.source / name).write_bytes(value)
         for name in ("profiles.db", "messages.db"):
             with closing(sqlite3.connect(self.source / name)) as db, db:
@@ -43,18 +46,23 @@ class ProbeBootstrapSqlite(unittest.TestCase):
 
     def test_valid_databases_leave_snapshot_unchanged(self):
         self.snapshot_now()
-        before = {p.relative_to(self.snapshot): p.read_bytes()
-                  for p in self.snapshot.rglob("*") if p.is_file()}
+        before = {
+            p.relative_to(self.snapshot): p.read_bytes()
+            for p in self.snapshot.rglob("*")
+            if p.is_file()
+        }
         header, keys, count = PROBE.probe(self.snapshot, self.scratch)
         self.assertEqual((header["peer_id"], count), ("peer-id", 2))
         self.assertIn("storage/node.key", keys)
-        after = {p.relative_to(self.snapshot): p.read_bytes()
-                 for p in self.snapshot.rglob("*") if p.is_file()}
+        after = {
+            p.relative_to(self.snapshot): p.read_bytes()
+            for p in self.snapshot.rglob("*")
+            if p.is_file()
+        }
         self.assertEqual(after, before)
 
     def test_valid_wal_restores_from_copy(self):
-        with closing(sqlite3.connect(self.source / "profiles.db")) as db, \
-                db:
+        with closing(sqlite3.connect(self.source / "profiles.db")) as db, db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("INSERT INTO records DEFAULT VALUES")
             self.snapshot_now()

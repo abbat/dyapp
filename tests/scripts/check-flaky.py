@@ -9,6 +9,7 @@ entry in [flaky] of tests/scripts/baselines.toml, dated the day it was
 found; an
 entry stops covering its test after QUARANTINE_DAYS.
 """
+
 from datetime import date, timedelta
 from pathlib import Path
 import json
@@ -26,8 +27,11 @@ def flaky_tests(report):
     return sorted(
         f"{case.get('classname')} {case.get('name')}"
         for case in ET.fromstring(report).iter("testcase")
-        if any(case.find(tag) is not None
-               for tag in ("flakyFailure", "flakyError")))
+        if any(
+            case.find(tag) is not None
+            for tag in ("flakyFailure", "flakyError")
+        )
+    )
 
 
 def xcresult_flaky(report, suite=""):
@@ -36,21 +40,30 @@ def xcresult_flaky(report, suite=""):
     for node in report.get("testNodes", report.get("children", [])):
         children = node.get("children", [])
         if node.get("nodeType") == "Test Case":
-            runs = [child.get("result") for child in children
-                    if child.get("nodeType") == "Repetition"]
+            runs = [
+                child.get("result")
+                for child in children
+                if child.get("nodeType") == "Repetition"
+            ]
             if node.get("result") == "Passed" and "Failed" in runs:
                 found.append(f"{suite} {node.get('name')}")
         else:
             found += xcresult_flaky(
-                {"children": children}, node.get("name", suite)
-                if node.get("nodeType") == "Test Suite" else suite)
+                {"children": children},
+                node.get("name", suite)
+                if node.get("nodeType") == "Test Suite"
+                else suite,
+            )
     return sorted(found)
 
 
 def instrumentation_failures(output):
     """Tests listed as failed by `am instrument -w`; the run if none is."""
-    return sorted(f"{cls} {name}" for name, cls in re.findall(
-        r"^\d+\) (\w+)\(([\w.$]+)\)$", output, re.MULTILINE)
+    return sorted(
+        f"{cls} {name}"
+        for name, cls in re.findall(
+            r"^\d+\) (\w+)\(([\w.$]+)\)$", output, re.MULTILINE
+        )
     ) or ["android instrumentation"]
 
 
@@ -65,18 +78,25 @@ def report_flaky(path):
 
 def flaky_errors(flaky, quarantine, today):
     """Unlisted flaky tests and quarantine entries past their deadline."""
-    errors = [f"{test}: flaky, open a bead and add it to [flaky] in "
-              f"baselines.toml with {today.isoformat()}"
-              for test in flaky if test not in quarantine]
+    errors = [
+        f"{test}: flaky, open a bead and add it to [flaky] in "
+        f"baselines.toml with {today.isoformat()}"
+        for test in flaky
+        if test not in quarantine
+    ]
     oldest = today - timedelta(days=QUARANTINE_DAYS)
-    errors += [f"{test}: quarantined since {found}, more than "
-               f"{QUARANTINE_DAYS} days; fix it and remove the entry"
-               for test, found in sorted(quarantine.items()) if found < oldest]
+    errors += [
+        f"{test}: quarantined since {found}, more than "
+        f"{QUARANTINE_DAYS} days; fix it and remove the entry"
+        for test, found in sorted(quarantine.items())
+        if found < oldest
+    ]
     return errors
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("flaky")
     flaky = []
     for name in sys.argv[1:]:

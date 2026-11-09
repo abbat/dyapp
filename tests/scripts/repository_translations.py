@@ -1,4 +1,5 @@
 """Check Apple catalogue references and finite native metadata."""
+
 import json
 import re
 
@@ -8,14 +9,16 @@ PUBLISH = "rust/ffi/src/profile_publish.rs"
 TOKENS = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*', re.S)
 SCALE = re.compile(
     r"scale!\(\s*(\w+),\s*\d+,\s*(?:true|false),\s*"
-    r"\[([^]]*)]\s*,?\s*\)", re.S)
+    r"\[([^]]*)]\s*,?\s*\)",
+    re.S,
+)
 VARIANT = re.compile(r"(\w+)\s*=\s*\d[\d_]*")
 ENTRY = re.compile(r'entry!\(\s*(\w+),\s*"([^"]+)"\s*\)')
 
 
 def block_end(source: str, start: int) -> int:
     depth = 1
-    for marker in re.finditer(r"/\*|\*/", source[start + 2:]):
+    for marker in re.finditer(r"/\*|\*/", source[start + 2 :]):
         depth += 1 if marker[0] == "/*" else -1
         if depth == 0:
             return start + 2 + marker.end()
@@ -26,7 +29,7 @@ def code(source: str) -> str:
     parts = []
     cursor = 0
     while match := TOKENS.search(source, cursor):
-        parts.append(source[cursor:match.start()])
+        parts.append(source[cursor : match.start()])
         if match[0].startswith('"'):
             parts.append(match[0])
             cursor = match.end()
@@ -39,8 +42,11 @@ def code(source: str) -> str:
 
 
 def literals(source: str) -> set[str]:
-    return {match[0][1:-1] for match in TOKENS.finditer(code(source))
-            if match[0].startswith('"')}
+    return {
+        match[0][1:-1]
+        for match in TOKENS.finditer(code(source))
+        if match[0].startswith('"')
+    }
 
 
 def scale_options(source: str) -> dict[str, list[str]]:
@@ -53,8 +59,8 @@ def scale_options(source: str) -> dict[str, list[str]]:
             raise ValueError(f"Duplicate profile scale definition: {name}")
         definitions[name] = variants
     registry = re.search(
-        r"pub const SCALES:\s*&\[Scale]\s*=\s*&\[(.*?)];",
-        code(source), re.S)
+        r"pub const SCALES:\s*&\[Scale]\s*=\s*&\[(.*?)];", code(source), re.S
+    )
     if registry is None:
         raise ValueError("Missing shared profile scale registry")
     entries = ENTRY.findall(registry[1])
@@ -77,11 +83,13 @@ def dynamic_apple_keys(texts: dict[str, str], sources: str) -> set[str]:
             if fields:
                 result.add("profile.field." + field)
             if values:
-                result.update(f"profile.value.{field}.{option}"
-                              for option in options)
+                result.update(
+                    f"profile.value.{field}.{option}" for option in options
+                )
     if re.search(r'"profile\.publishBlocked\."\s*\+', sources):
         reasons = re.findall(
-            r'Block::\w+\s*=>\s*"([^"]+)"', code(texts[PUBLISH]))
+            r'Block::\w+\s*=>\s*"([^"]+)"', code(texts[PUBLISH])
+        )
         if not reasons:
             raise ValueError("Missing native publication block codes")
         result.update("profile.publishBlocked." + reason for reason in reasons)
@@ -90,10 +98,15 @@ def dynamic_apple_keys(texts: dict[str, str], sources: str) -> set[str]:
 
 def unused_apple_errors(texts: dict[str, str]) -> list[str]:
     catalogue = json.loads(texts[APPLE])["strings"]
-    sources = [source for name, source in texts.items()
-               if name.startswith(("clients/ios/DYApp/", "clients/macos/src/"))
-               if name.endswith(".swift")]
+    sources = [
+        source
+        for name, source in texts.items()
+        if name.startswith(("clients/ios/DYApp/", "clients/macos/src/"))
+        if name.endswith(".swift")
+    ]
     used = set().union(*(literals(source) for source in sources))
     used.update(dynamic_apple_keys(texts, "\n".join(map(code, sources))))
-    return [f"{APPLE}: unused translation key {key}"
-            for key in sorted(catalogue.keys() - used)]
+    return [
+        f"{APPLE}: unused translation key {key}"
+        for key in sorted(catalogue.keys() - used)
+    ]

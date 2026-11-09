@@ -26,12 +26,17 @@ class PreflightBootstrapUpdate(unittest.TestCase):
         self.source = self.root / "source"
         self.source.mkdir()
         self.snapshot = self.root / "snapshot"
-        for name, data in {"node.id": b"peer-id", "network": b"network",
-                           "node.key": b"good-key"}.items():
+        for name, data in {
+            "node.id": b"peer-id",
+            "network": b"network",
+            "node.key": b"good-key",
+        }.items():
             (self.source / name).write_bytes(data)
         for name in ("profiles.db", "messages.db"):
-            with closing(sqlite3.connect(self.source / name)) as database, \
-                    database:
+            with (
+                closing(sqlite3.connect(self.source / name)) as database,
+                database,
+            ):
                 database.execute("CREATE TABLE records (id INTEGER)")
         self.dyappd = self.root / "dyappd"
         self.dyappd.write_text(
@@ -42,14 +47,22 @@ class PreflightBootstrapUpdate(unittest.TestCase):
             "storage = pathlib.Path(args['--storage.dir'])\n"
             "key = pathlib.Path(args['--storage.key']).read_bytes()\n"
             "if key != b'good-key': sys.exit(1)\n"
-            "print((storage / 'node.id').read_text())\n")
+            "print((storage / 'node.id').read_text())\n"
+        )
         self.dyappd.chmod(0o700)
 
     def run_preflight(self, mode="inline", recovery=None, **options):
         with PREFLIGHT.stopped(self.source):
-            return PREFLIGHT.preflight(self.source, self.snapshot, mode,
-                                       recovery, self.dyappd, 0,
-                                       scratch=self.root, **options)
+            return PREFLIGHT.preflight(
+                self.source,
+                self.snapshot,
+                mode,
+                recovery,
+                self.dyappd,
+                0,
+                scratch=self.root,
+                **options,
+            )
 
     def live(self):
         return {p.name: p.read_bytes() for p in self.source.iterdir()}

@@ -19,42 +19,51 @@ WINDOWS = "dyapp-0.0.1-x86_64-windows.zip"
 
 def release(*assets):
     return {
-        "tag_name": TAG, "draft": False, "prerelease": False,
+        "tag_name": TAG,
+        "draft": False,
+        "prerelease": False,
         "published_at": "2026-10-23T00:00:00Z",
-        "target_commitish": "main", "assets": list(assets),
+        "target_commitish": "main",
+        "assets": list(assets),
     }
 
 
 def asset(name, digest=DIGEST, state="uploaded", size=42):
     return {
-        "name": name, "digest": f"sha256:{digest}",
-        "state": state, "size": size,
+        "name": name,
+        "digest": f"sha256:{digest}",
+        "state": state,
+        "size": size,
     }
 
 
 class ReleaseCandidates(unittest.TestCase):
     def test_server_only_release_has_no_client_claim(self):
         actual = CANDIDATES.candidates(
-            release(asset("dyappd_0.0.1_amd64.deb")), TAG, COMMIT)
+            release(asset("dyappd_0.0.1_amd64.deb")), TAG, COMMIT
+        )
         self.assertEqual(actual["packages"], {})
         self.assertNotIn("releases", actual)
         self.assertNotIn("targets", actual)
 
     def test_exact_linux_and_windows_package_candidates(self):
         actual = CANDIDATES.candidates(
-            release(asset(WINDOWS), asset(LINUX)), TAG, COMMIT)
-        self.assertEqual(set(actual["packages"]),
-                         {"linux-x86_64", "windows-x86_64"})
-        self.assertEqual(actual["packages"]["linux-x86_64"]["sha256"],
-                         DIGEST)
+            release(asset(WINDOWS), asset(LINUX)), TAG, COMMIT
+        )
+        self.assertEqual(
+            set(actual["packages"]), {"linux-x86_64", "windows-x86_64"}
+        )
+        self.assertEqual(actual["packages"]["linux-x86_64"]["sha256"], DIGEST)
         self.assertEqual(actual["commit"], COMMIT)
 
     def test_release_identity_and_state_must_match(self):
         for change in ("tag_name", "draft", "prerelease", "published_at"):
             item = release(asset(LINUX))
             item[change] = {
-                "tag_name": "v0.0.2", "draft": True,
-                "prerelease": True, "published_at": None,
+                "tag_name": "v0.0.2",
+                "draft": True,
+                "prerelease": True,
+                "published_at": None,
             }[change]
             with self.subTest(change=change), self.assertRaises(ValueError):
                 CANDIDATES.candidates(item, TAG, COMMIT)
@@ -75,12 +84,15 @@ class ReleaseCandidates(unittest.TestCase):
                 CANDIDATES.candidates(release(item), TAG, COMMIT)
         with self.assertRaisesRegex(ValueError, "duplicate"):
             CANDIDATES.candidates(
-                release(asset(LINUX), asset(LINUX)), TAG, COMMIT)
+                release(asset(LINUX), asset(LINUX)), TAG, COMMIT
+            )
 
     def test_duplicate_json_keys_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "duplicate"):
-            json.loads('{"tag_name":"v0.0.1","tag_name":"v0.0.1"}',
-                       object_pairs_hook=CANDIDATES.unique_object)
+            json.loads(
+                '{"tag_name":"v0.0.1","tag_name":"v0.0.1"}',
+                object_pairs_hook=CANDIDATES.unique_object,
+            )
 
 
 if __name__ == "__main__":

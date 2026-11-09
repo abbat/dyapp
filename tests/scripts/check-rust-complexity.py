@@ -1,4 +1,5 @@
 """Run strict Clippy with exact legacy function complexity budgets."""
+
 import argparse
 import json
 import os
@@ -11,10 +12,16 @@ import tomllib
 import rust_complexity as policy
 
 ROOT = Path(__file__).resolve().parents[2]
-SCOPES = {"workspace": "Cargo.toml", "linux": "clients/linux/Cargo.toml",
-          "windows": "clients/windows/Cargo.toml"}
-THRESHOLDS = {"cognitive-complexity-threshold": 15,
-              "too-many-lines-threshold": 50, "excessive-nesting-threshold": 5}
+SCOPES = {
+    "workspace": "Cargo.toml",
+    "linux": "clients/linux/Cargo.toml",
+    "windows": "clients/windows/Cargo.toml",
+}
+THRESHOLDS = {
+    "cognitive-complexity-threshold": 15,
+    "too-many-lines-threshold": 50,
+    "excessive-nesting-threshold": 5,
+}
 
 
 def row_key(row):
@@ -25,8 +32,13 @@ def row_key(row):
     if not all(isinstance(value, str) and value.strip() for value in key):
         raise ValueError("Invalid function identity")
     path = PurePosixPath(key[0])
-    invalid = [path.is_absolute(), ".." in path.parts,
-               path.as_posix() != key[0], chr(92) in key[0], ":" in key[0]]
+    invalid = [
+        path.is_absolute(),
+        ".." in path.parts,
+        path.as_posix() != key[0],
+        chr(92) in key[0],
+        ":" in key[0],
+    ]
     if any(invalid):
         raise ValueError("Budget path must be repository-relative")
     return key
@@ -62,30 +74,57 @@ def budget_changes(path, current):
     if set(base) == {"0"}:
         base = "origin/main"
     git = ["git", "-c", f"safe.directory={ROOT}"]
-    subprocess.run([*git, "rev-parse", "--verify", base + "^{commit}"],
-                   cwd=ROOT, check=True, capture_output=True)
+    subprocess.run(
+        [*git, "rev-parse", "--verify", base + "^{commit}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
     relative = path.relative_to(ROOT).as_posix()
-    tree = subprocess.run([*git, "ls-tree", "--name-only", base, "--",
-                           relative], cwd=ROOT, check=True,
-                          capture_output=True, text=True)
+    tree = subprocess.run(
+        [*git, "ls-tree", "--name-only", base, "--", relative],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     if not tree.stdout.strip():
         return []  # First measured baseline; later revisions can only shrink.
-    old = subprocess.check_output([*git, "show", f"{base}:{relative}"],
-                                  cwd=ROOT, text=True)
+    old = subprocess.check_output(
+        [*git, "show", f"{base}:{relative}"], cwd=ROOT, text=True
+    )
     return policy.growth_errors(current, budgets(json.loads(old)))
 
 
 def check_thresholds(directory):
     git = ["git", "-c", f"safe.directory={ROOT}"]
     raw = subprocess.check_output(
-        [*git, "ls-files", "-z", "--cached", "--others", "--exclude-standard",
-         "--", "*.rs"], cwd=ROOT)
+        [
+            *git,
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "*.rs",
+        ],
+        cwd=ROOT,
+    )
     paths = sorted(set(os.fsdecode(path) for path in raw.split(b"\0") if path))
     if not paths:
         raise ValueError("Missing Rust source inventory")
-    command = ["cargo", "run", "--quiet", "--locked", "--manifest-path",
-               str(ROOT / "tools/rust-functions/Cargo.toml"), "--",
-               "--check-thresholds", *paths]
+    command = [
+        "cargo",
+        "run",
+        "--quiet",
+        "--locked",
+        "--manifest-path",
+        str(ROOT / "tools/rust-functions/Cargo.toml"),
+        "--",
+        "--check-thresholds",
+        *paths,
+    ]
     log = directory / "thresholds.stderr"
     with log.open("w") as stderr:
         run = subprocess.run(command, cwd=ROOT, stderr=stderr, check=False)
@@ -106,21 +145,42 @@ def clippy(scope, directory):
     common = ["--manifest-path", str(manifest), "--locked", "--all-features"]
     metadata = subprocess.check_output(
         ["cargo", "metadata", *common, "--no-deps", "--format-version=1"],
-        cwd=manifest.parent, text=True)
+        cwd=manifest.parent,
+        text=True,
+    )
     (directory / "metadata.json").write_text(metadata)
     flags = [flag for lint in policy.LINTS for flag in ("--force-warn", lint)]
-    command = ["cargo", "clippy", *common, "--workspace", "--all-targets",
-               "--message-format=json", "--", "-D", "warnings",
-               "-D", "clippy::todo", *flags]
+    command = [
+        "cargo",
+        "clippy",
+        *common,
+        "--workspace",
+        "--all-targets",
+        "--message-format=json",
+        "--",
+        "-D",
+        "warnings",
+        "-D",
+        "clippy::todo",
+        *flags,
+    ]
     started = time.time_ns()
     with (directory / "clippy.jsonl").open("w") as output:
         with (directory / "clippy.stderr").open("w") as stderr:
-            run = subprocess.run(command, cwd=manifest.parent, env=env,
-                                 stdout=output, stderr=stderr, check=False)
+            run = subprocess.run(
+                command,
+                cwd=manifest.parent,
+                env=env,
+                stdout=output,
+                stderr=stderr,
+                check=False,
+            )
     if run.returncode:
         raise ValueError(f"Clippy failed; see {directory / 'clippy.stderr'}")
-    records = [json.loads(line) for line in
-               (directory / "clippy.jsonl").read_text().splitlines()]
+    records = [
+        json.loads(line)
+        for line in (directory / "clippy.jsonl").read_text().splitlines()
+    ]
     if (ROOT / "clippy.toml").read_text() != text:
         raise ValueError("Clippy configuration changed during analysis")
     findings = policy.diagnostics(json.loads(metadata), records)
@@ -145,13 +205,26 @@ def sources(cwd, started, findings):
 def measure(findings, contents, directory):
     if not contents:
         return {}
-    command = ["cargo", "run", "--quiet", "--locked", "--manifest-path",
-               str(ROOT / "tools/rust-functions/Cargo.toml"), "--",
-               *sorted(contents)]
+    command = [
+        "cargo",
+        "run",
+        "--quiet",
+        "--locked",
+        "--manifest-path",
+        str(ROOT / "tools/rust-functions/Cargo.toml"),
+        "--",
+        *sorted(contents),
+    ]
     with (directory / "parser.stderr").open("w") as stderr:
-        run = subprocess.run(command, cwd=ROOT, capture_output=False,
-                             stdout=subprocess.PIPE, stderr=stderr,
-                             text=True, check=False)
+        run = subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=False,
+            stdout=subprocess.PIPE,
+            stderr=stderr,
+            text=True,
+            check=False,
+        )
     (directory / "functions.jsonl").write_text(run.stdout)
     if run.returncode:
         log = directory / "parser.stderr"
@@ -183,10 +256,16 @@ def main():
         measured = measure(findings, contents, directory)
         report["functions"] = [
             {"path": key[0], "function": key[1], "metrics": value}
-            for key, value in sorted(measured.items())]
+            for key, value in sorted(measured.items())
+        ]
         report["errors"] = changes + policy.errors(measured, allowed)
-    except (ValueError, KeyError, TypeError, OSError,
-            subprocess.CalledProcessError) as error:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as error:
         report["errors"].append(str(error))
     destination = directory / "report.json"
     destination.write_text(json.dumps(report, indent=2) + "\n")

@@ -43,8 +43,11 @@ def storage_entries(source):
             if not stat.S_ISDIR(item.lstat().st_mode):
                 raise ValueError("data is not a directory")
             root[name] = item
-        elif any(name == f"{db}{suffix}" for db in DATABASES
-                 for suffix in ("-wal", "-journal", "-shm")):
+        elif any(
+            name == f"{db}{suffix}"
+            for db in DATABASES
+            for suffix in ("-wal", "-journal", "-shm")
+        ):
             regular_file(item)
             root[name] = item
         elif name in DISPOSABLE or INDEX.fullmatch(name):
@@ -55,8 +58,11 @@ def storage_entries(source):
 
 
 def storage_files(source, root):
-    result = [(f"storage/{name}", item) for name, item in root.items()
-              if name != "data" and not name.endswith("-shm")]
+    result = [
+        (f"storage/{name}", item)
+        for name, item in root.items()
+        if name != "data" and not name.endswith("-shm")
+    ]
     if "data" in root:
         stack = [root["data"]]
         directories = 0
@@ -136,10 +142,18 @@ def write_manifest(destination, header, files):
     pending = destination / "manifest.pending"
     total = 0
     with pending.open("x", encoding="utf-8") as output:
+
         def write_record(record):
             nonlocal total
-            line = json.dumps(record, ensure_ascii=False, sort_keys=True,
-                              separators=(",", ":")) + "\n"
+            line = (
+                json.dumps(
+                    record,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            )
             encoded = line.encode("utf-8")
             too_long = len(encoded) > MAX_RECORD
             too_large = total + len(encoded) > MAX_MANIFEST
@@ -183,7 +197,8 @@ def snapshot_paths(source, destination, key_mode, recovery_key):
 
 def snapshot(source, destination, key_mode, recovery_key):
     source, destination = snapshot_paths(
-        source, destination, key_mode, recovery_key)
+        source, destination, key_mode, recovery_key
+    )
 
     files, absent = paths(source, key_mode)
     if (source / "node.id").stat().st_size > 256:
@@ -207,10 +222,14 @@ def snapshot(source, destination, key_mode, recovery_key):
     (destination / "recovery").mkdir(mode=0o700)
     if "data" not in absent:
         (destination / "storage/data").mkdir(mode=0o700)
-    header = {"schema": 1, "peer_id": peer_id, "network": network,
-              "key_mode": key_mode, "absent": absent,
-              "hot_journal": any(name.endswith(".db-journal")
-                                 for name, _ in files)}
+    header = {
+        "schema": 1,
+        "peer_id": peer_id,
+        "network": network,
+        "key_mode": key_mode,
+        "absent": absent,
+        "hot_journal": any(name.endswith(".db-journal") for name, _ in files),
+    }
     write_manifest(destination, header, files)
 
 
@@ -218,13 +237,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("destination", type=Path)
-    parser.add_argument("--key-mode", choices=("inline", "external", "age"),
-                        required=True)
+    parser.add_argument(
+        "--key-mode", choices=("inline", "external", "age"), required=True
+    )
     parser.add_argument("--recovery-key", type=Path)
     args = parser.parse_args()
     try:
-        snapshot(args.source, args.destination, args.key_mode,
-                 args.recovery_key)
+        snapshot(
+            args.source, args.destination, args.key_mode, args.recovery_key
+        )
     except (OSError, UnicodeError, ValueError) as error:
         parser.exit(1, f"backup failed: {error}\n")
 

@@ -12,6 +12,7 @@ The second and third nodes join through the first; the third allows
 `FLOOD_LIMIT` requests per second per peer. Every node serves media; only the
 first serves TURN credentials and, in Docker, hands out a coturn relay.
 """
+
 import hashlib
 import json
 import os
@@ -28,8 +29,18 @@ import time
 from check_wrapper import Capture
 from memory_report import write_report
 from network_checks import (
-    POW_BITS, TURN_SECRET, acked_everywhere, call, mailbox, media,
-    media_spread, repaired, replica_holders, replicate, turn)
+    POW_BITS,
+    TURN_SECRET,
+    acked_everywhere,
+    call,
+    mailbox,
+    media,
+    media_spread,
+    repaired,
+    replica_holders,
+    replicate,
+    turn,
+)
 
 CLIENT = "/workspace/build/debug/dyappd"
 FLOOD_LIMIT = 5
@@ -64,20 +75,28 @@ def start_node(bin_dir, environment):
     output, drain = LOGS.setdefault(port, Capture()).pipe()
     DRAINS.append(drain)
     try:
-        return subprocess.Popen([f"{bin_dir}/dyappd"], env=environment,
-                                stdout=output, stderr=subprocess.STDOUT)
+        return subprocess.Popen(
+            [f"{bin_dir}/dyappd"],
+            env=environment,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+        )
     finally:
         os.close(output)
 
 
 def dyappd(bin_dir, env, *args):
     """Run a dyappd subcommand on a node's storage; its standard output."""
-    return subprocess.run([f"{bin_dir}/dyappd", *args], env=env, check=True,
-                          capture_output=True, text=True).stdout
+    return subprocess.run(
+        [f"{bin_dir}/dyappd", *args],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
 
 
-def start(bin_dir, storage, peers, processes, environments,
-          flood=True):
+def start(bin_dir, storage, peers, processes, environments, flood=True):
     """Start three loopback nodes, appending to the lists the caller stops.
 
     The first serves TURN and shares its deny list; the third accepts deny
@@ -87,20 +106,22 @@ def start(bin_dir, storage, peers, processes, environments,
     client = f"{bin_dir}/dyappd"
     for port in (7071, 7072, 7073):
         tcp, quic = addresses("127.0.0.1", port)
-        env = {**os.environ,
-               "DYAPPD_LISTEN": f'["127.0.0.1:{port}"]',
-               "DYAPPD_EXTERNAL": f'["127.0.0.1:{port}"]',
-               "DYAPPD_STORAGE_DIR": f"{storage}/{port}",
-               "DYAPPD_ROLES": '["store", "search", "media"]',
-               "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
-               # The test client signs zero-difficulty profiles.
-               "DYAPPD_SEARCH_MIN_PROFILE_POW_BITS": "0",
-               # Loopback nodes share one /16.
-               "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
-               "DYAPPD_NETWORK_GUARD_DIALS": "false",
-               # Repair and ack forwarding run seconds after
-               # the nodes meet.
-               "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES": "0"}
+        env = {
+            **os.environ,
+            "DYAPPD_LISTEN": f'["127.0.0.1:{port}"]',
+            "DYAPPD_EXTERNAL": f'["127.0.0.1:{port}"]',
+            "DYAPPD_STORAGE_DIR": f"{storage}/{port}",
+            "DYAPPD_ROLES": '["store", "search", "media"]',
+            "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
+            # The test client signs zero-difficulty profiles.
+            "DYAPPD_SEARCH_MIN_PROFILE_POW_BITS": "0",
+            # Loopback nodes share one /16.
+            "DYAPPD_NETWORK_DISTINCT_OUTBOUND_GROUPS": "false",
+            "DYAPPD_NETWORK_GUARD_DIALS": "false",
+            # Repair and ack forwarding run seconds after
+            # the nodes meet.
+            "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES": "0",
+        }
         # Local suite clients share loopback and outpace idle cleanup.
         env["DYAPPD_LIMITS_MAX_CONNECTIONS_PER_IP_GROUP"] = "1000"
         if not peers:
@@ -117,8 +138,12 @@ def start(bin_dir, storage, peers, processes, environments,
         if port == 7073:
             env["DYAPPD_NETWORK_ACCEPT_DENY_LISTS"] = "true"
             env["DYAPPD_MAINTENANCE_INTERVAL_MINUTES"] = "1"
-        subprocess.run([f"{bin_dir}/dyappd", "keygen"], env=env,
-                       check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(
+            [f"{bin_dir}/dyappd", "keygen"],
+            env=env,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
         environments.append(env)
         processes.append(start_node(bin_dir, env))
         peers.append((tcp, quic))
@@ -181,8 +206,9 @@ def local(bin_dir):
         failed = False
         try:
             start(bin_dir, storage, peers, processes, environments)
-            denied = deny_mailbox(client, bin_dir, peers[0], processes[0],
-                                  environments[0])
+            denied = deny_mailbox(
+                client, bin_dir, peers[0], processes[0], environments[0]
+            )
             profile_repair(client, bin_dir, peers, processes, environments)
             media_repair(client, bin_dir, storage, peers)
 
@@ -191,13 +217,20 @@ def local(bin_dir):
                 processes[1].wait()
                 return peers[1][0]
 
-            suite(peers, client, churn, relay=False,
-                  reports=Path(storage) / "reports", storage=storage)
+            suite(
+                peers,
+                client,
+                churn,
+                relay=False,
+                reports=Path(storage) / "reports",
+                storage=storage,
+            )
             drained(processes, (0, 2))
             sharer = call(client, "info", peers[0][0])["peer_id"]
             shared_deny(bin_dir, environments[2], sharer, denied)
-            deny_group(client, bin_dir, peers[2], processes[2],
-                       environments[2])
+            deny_group(
+                client, bin_dir, peers[2], processes[2], environments[2]
+            )
             processes[2].terminate()
             processes[2].wait()
             signed = call(client, "sign-profile")
@@ -209,8 +242,9 @@ def local(bin_dir):
             if reply["status"] != "STATUS_FULL":
                 raise RuntimeError(f"No second mailbox holder: {reply}")
             print("Missing second holder: profile and mailbox refused")
-            media_retention(client, bin_dir, storage, peers[0], processes,
-                            environments[0])
+            media_retention(
+                client, bin_dir, storage, peers[0], processes, environments[0]
+            )
             named_network(client, bin_dir, storage, processes)
         except BaseException:
             failed = True
@@ -223,11 +257,13 @@ def named_network(client, bin_dir, storage, processes):
     """A node of a named network serves only clients of that name and its
     storage refuses a start under another name."""
     tcp, _ = addresses("127.0.0.1", 7074)
-    env = {**os.environ,
-           "DYAPPD_LISTEN": '["127.0.0.1:7074"]',
-           "DYAPPD_STORAGE_DIR": f"{storage}/7074",
-           "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
-           "DYAPPD_NETWORK_NAME": "lab"}
+    env = {
+        **os.environ,
+        "DYAPPD_LISTEN": '["127.0.0.1:7074"]',
+        "DYAPPD_STORAGE_DIR": f"{storage}/7074",
+        "DYAPPD_NETWORK_ID_POW_BITS": POW_BITS,
+        "DYAPPD_NETWORK_NAME": "lab",
+    }
     dyappd(bin_dir, env, "keygen")
     if (Path(storage) / "7074" / "network").read_text() != "lab":
         raise RuntimeError("keygen did not bind the storage to lab")
@@ -251,12 +287,18 @@ def named_network(client, bin_dir, storage, processes):
     processes[-1].terminate()
     processes[-1].wait()
     public = {k: v for k, v in env.items() if k != "DYAPPD_NETWORK_NAME"}
-    result = subprocess.run([f"{bin_dir}/dyappd"], env=public,
-                            capture_output=True, text=True, timeout=30)
+    result = subprocess.run(
+        [f"{bin_dir}/dyappd"],
+        env=public,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     if result.returncode == 0 or "storage belongs to" not in result.stderr:
         raise RuntimeError(f"Lab storage started as public: {result.stderr}")
-    print("Named network: lab client served, public client and storage "
-          "refused")
+    print(
+        "Named network: lab client served, public client and storage refused"
+    )
 
 
 def plateau(bin_dir):
@@ -273,15 +315,17 @@ def plateau(bin_dir):
         failed = False
         try:
             # Without the flood limit: node-to-node replication would hit it.
-            start(bin_dir, storage, peers, processes, environments,
-                  flood=False)
+            start(
+                bin_dir, storage, peers, processes, environments, flood=False
+            )
 
             def load():
                 # The suite's per-node load; the full suite assumes one pass
                 # (repair is shed under load).
                 for index, (tcp, quic) in enumerate(peers):
-                    mailbox(client, tcp, quic,
-                            peers[(index + 1) % len(peers)][0])
+                    mailbox(
+                        client, tcp, quic, peers[(index + 1) % len(peers)][0]
+                    )
                     media(client, tcp, quic)
 
             load()
@@ -289,23 +333,33 @@ def plateau(bin_dir):
             end = started + PLATEAU_SECONDS
             while time.monotonic() < end:
                 load()
-                samples.append({
-                    "elapsed_seconds": time.monotonic() - started,
-                    "rss_kib": [rss(process) for process in processes]})
+                samples.append(
+                    {
+                        "elapsed_seconds": time.monotonic() - started,
+                        "rss_kib": [rss(process) for process in processes],
+                    }
+                )
             path, report = write_report(
-                samples, time.monotonic() - started, PLATEAU_SECONDS,
-                PLATEAU_GROWTH, Path(bin_dir) / "dyappd",
-                os.environ.get("DYAPP_MEMORY_REPORT_DIR", "build"))
+                samples,
+                time.monotonic() - started,
+                PLATEAU_SECONDS,
+                PLATEAU_GROWTH,
+                Path(bin_dir) / "dyappd",
+                os.environ.get("DYAPP_MEMORY_REPORT_DIR", "build"),
+            )
             print(f"Memory plateau report: {path}")
             for node in report["nodes"]:
-                print(f"Node {node['node']} RSS peak: "
-                      f"{node['first_peak_kib']} kB, then "
-                      f"{node['second_peak_kib']} kB "
-                      f"over {len(samples)} rounds")
+                print(
+                    f"Node {node['node']} RSS peak: "
+                    f"{node['first_peak_kib']} kB, then "
+                    f"{node['second_peak_kib']} kB "
+                    f"over {len(samples)} rounds"
+                )
             if report["failed_nodes"]:
                 raise RuntimeError(
                     f"Nodes {report['failed_nodes']} memory still grows; "
-                    f"RSS report: {path}")
+                    f"RSS report: {path}"
+                )
             print("Memory plateau: every node levels off")
         except BaseException:
             failed = True
@@ -328,8 +382,10 @@ def node_state(process, captured):
         text = ANSI.sub("", captured.since(mark).decode(errors="replace"))
         found = [line for line in text.splitlines() if "node state" in line]
         if found:
-            return {key: int(value)
-                    for key, value in re.findall(r"(\w+)=(\d+)", found[-1])}
+            return {
+                key: int(value)
+                for key, value in re.findall(r"(\w+)=(\d+)", found[-1])
+            }
         time.sleep(0.1)
     raise RuntimeError("No node state line after SIGHUP")
 
@@ -424,8 +480,9 @@ def initial_profile_replicas(client, peers):
     return node_ids, ids, signed
 
 
-def publish_with_offline_holder(client, peers, processes, node_ids, ids,
-                                signed):
+def publish_with_offline_holder(
+    client, peers, processes, node_ids, ids, signed
+):
     processes[1].terminate()
     processes[1].wait()
     # Let DHT lookups discard the departed holder before the bounded write.
@@ -454,7 +511,8 @@ def profile_repair(client, bin_dir, peers, processes, environments):
     """A holder misses a newer publish while offline; heartbeat repairs it."""
     node_ids, ids, signed = initial_profile_replicas(client, peers)
     newer = publish_with_offline_holder(
-        client, peers, processes, node_ids, ids, signed)
+        client, peers, processes, node_ids, ids, signed
+    )
     processes[1] = start_node(bin_dir, environments[1])
     for _ in range(60):
         if healthy(client, peers[1][0]):
@@ -494,17 +552,22 @@ def media_cache(client, storage, peer, blob_hash):
     target = Path(storage) / "7072"
     hash_bytes = bytes.fromhex(blob_hash)
     with sqlite3.connect(target / "media.db") as db:
-        cached = db.execute("SELECT `size` FROM `cache` WHERE `hash` = ?",
-                            (hash_bytes,)).fetchone()
-        shards = db.execute("SELECT COUNT(*) FROM `shards` WHERE `hash` = ?",
-                            (hash_bytes,)).fetchone()[0]
+        cached = db.execute(
+            "SELECT `size` FROM `cache` WHERE `hash` = ?", (hash_bytes,)
+        ).fetchone()
+        shards = db.execute(
+            "SELECT COUNT(*) FROM `shards` WHERE `hash` = ?", (hash_bytes,)
+        ).fetchone()[0]
         if cached != (3 * 1024 * 1024,) or shards == 0:
             raise RuntimeError("Sharded media was not assembled and cached")
         db.execute("DELETE FROM `shards` WHERE `hash` = ?", (hash_bytes,))
         db.execute("DELETE FROM `manifests` WHERE `hash` = ?", (hash_bytes,))
     stored = call(client, "media-get", peer, blob_hash)
-    if stored["status"] != "STATUS_OK" or hashlib.sha256(
-            bytes.fromhex(stored["data"])).hexdigest() != blob_hash:
+    if (
+        stored["status"] != "STATUS_OK"
+        or hashlib.sha256(bytes.fromhex(stored["data"])).hexdigest()
+        != blob_hash
+    ):
         raise RuntimeError("Cached media unreadable after losing local shards")
     print("Media cache: later pieces survive loss of local shard metadata")
 
@@ -527,7 +590,8 @@ def initial_media_replicas(client, peers, entry, ids, size):
     for tcp, _ in peers:
         for _ in range(30):
             if call(client, "media-get", tcp, blob_hash)["status"] == (
-                    "STATUS_OK"):
+                "STATUS_OK"
+            ):
                 break
             time.sleep(0.2)
         else:
@@ -541,7 +605,8 @@ def media_repair(client, bin_dir, storage, peers):
     entry = peers[0][0]
     for size in (512 * 1024, 3 * 1024 * 1024):
         blob_hash, details = initial_media_replicas(
-            client, peers, entry, ids, size)
+            client, peers, entry, ids, size
+        )
         target = Path(storage) / "7072"
         hash_bytes = bytes.fromhex(blob_hash)
         if size <= 1024 * 1024:
@@ -552,28 +617,40 @@ def media_repair(client, bin_dir, storage, peers):
                 return (copy / blob_hash).is_file()
         else:
             with sqlite3.connect(target / "media.db") as db:
-                row = db.execute("SELECT idx FROM shards WHERE hash = ? "
-                                 "LIMIT 1", (hash_bytes,)).fetchone()
+                row = db.execute(
+                    "SELECT idx FROM shards WHERE hash = ? LIMIT 1",
+                    (hash_bytes,),
+                ).fetchone()
                 if row is None:
                     raise RuntimeError("Media repair target has no shard")
                 index = row[0]
-                db.execute("DELETE FROM shards WHERE hash = ? AND idx = ?",
-                           (hash_bytes, index))
+                db.execute(
+                    "DELETE FROM shards WHERE hash = ? AND idx = ?",
+                    (hash_bytes, index),
+                )
 
             def check():
                 with sqlite3.connect(target / "media.db") as db:
                     return db.execute(
                         "SELECT EXISTS (SELECT 1 FROM shards "
                         "WHERE hash = ? AND idx = ?)",
-                        (hash_bytes, index)).fetchone()[0]
+                        (hash_bytes, index),
+                    ).fetchone()[0]
 
         # The initial keep already inventoried this hash on the acceptor.
         # Another holder has its own hourly schedule, as on a real owner visit.
         visit = peers[2][0]
-        refreshed = call(client, "media-refresh", visit,
-                         details["keep_record"], details["secret"])
-        if refreshed["status"] != "STATUS_OK" or blob_hash in (
-                refreshed["missing"]):
+        refreshed = call(
+            client,
+            "media-refresh",
+            visit,
+            details["keep_record"],
+            details["secret"],
+        )
+        if (
+            refreshed["status"] != "STATUS_OK"
+            or blob_hash in (refreshed["missing"])
+        ):
             raise RuntimeError(f"Media keep repair failed: {refreshed}")
         for _ in range(30):
             if check():
@@ -582,7 +659,8 @@ def media_repair(client, bin_dir, storage, peers):
         else:
             raise RuntimeError("Keep did not restore the missing media item")
         if call(client, "media-get", peers[1][0], blob_hash)["status"] != (
-                "STATUS_OK"):
+            "STATUS_OK"
+        ):
             raise RuntimeError("Repaired media unreadable")
     print("Media repair: keep restores a whole copy and a missing shard")
 
@@ -621,8 +699,10 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
     with sqlite3.connect(f"{storage}/7071/media.db") as db:
         cutoff = int(time.time()) - 31 * 86400
         for result in (expired, refreshed):
-            db.execute("UPDATE owners SET last_seen = ? WHERE owner = ?",
-                       (cutoff, result["details"]["owner"]))
+            db.execute(
+                "UPDATE owners SET last_seen = ? WHERE owner = ?",
+                (cutoff, result["details"]["owner"]),
+            )
     record = refreshed["details"]["keep_record"]
     if call(client, "media-keep", quic, record)["status"] != "STATUS_OK":
         raise RuntimeError("Fresh signed keep did not refresh media liveness")
@@ -635,8 +715,10 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
         time.sleep(1)
     else:
         raise RuntimeError("Media node did not restart")
-    for result, expected in ((expired, "STATUS_NOT_FOUND"),
-                             (refreshed, "STATUS_OK")):
+    for result, expected in (
+        (expired, "STATUS_NOT_FOUND"),
+        (refreshed, "STATUS_OK"),
+    ):
         reply = call(client, "media-get", quic, result["details"]["hash"])
         if reply["status"] != expected:
             raise RuntimeError(f"Media retention cleanup failed: {reply}")
@@ -644,8 +726,10 @@ def media_retention(client, bin_dir, storage, peer, processes, env):
 
 
 def main():
-    usage = ("Usage: network-test.py [--health MULTIADDR | --local BIN_DIR "
-             "| --plateau BIN_DIR]")
+    usage = (
+        "Usage: network-test.py [--health MULTIADDR | --local BIN_DIR "
+        "| --plateau BIN_DIR]"
+    )
     if sys.argv[1:] in (["--help"], ["-h"]):
         print(usage)
         return
@@ -662,9 +746,14 @@ def main():
     if len(sys.argv) != 1:
         raise ValueError(usage)
     # The client has no DNS transport: resolve the container names here.
-    suite([addresses(socket.gethostbyname(host), 33445)
-           for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")], CLIENT,
-          relay=True)
+    suite(
+        [
+            addresses(socket.gethostbyname(host), 33445)
+            for host in ("bootstrap-a", "bootstrap-b", "bootstrap-c")
+        ],
+        CLIENT,
+        relay=True,
+    )
 
 
 def profile_roundtrip(client, tcp, quic):
@@ -699,8 +788,9 @@ def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
         peer_id, holders = profile_roundtrip(client, tcp, quic)
         other = peers[(index + 1) % len(peers)][0]
         other_id = call(client, "info", other)["peer_id"]
-        expected_status = ("STATUS_OK" if other_id in holders
-                           else "STATUS_NOT_FOUND")
+        expected_status = (
+            "STATUS_OK" if other_id in holders else "STATUS_NOT_FOUND"
+        )
         for _ in range(10):
             reply = call(client, "get", other, peer_id)
             if reply["status"] == expected_status:
@@ -709,20 +799,29 @@ def suite(peers, client, churn=None, relay=False, reports=None, storage=None):
         else:
             raise RuntimeError("Profile placement differs from holders")
         mailbox(client, tcp, quic, other)
-        cases.append({"peer": tcp, "health": True, "roundtrip": True,
-                      "holder_placement": True, "mailbox": True,
-                      "media": media(client, tcp, quic),
-                      "turn": turn(client, tcp, relay)})
+        cases.append(
+            {
+                "peer": tcp,
+                "health": True,
+                "roundtrip": True,
+                "holder_placement": True,
+                "mailbox": True,
+                "media": media(client, tcp, quic),
+                "turn": turn(client, tcp, relay),
+            }
+        )
     cases.append(network(peers, client, churn, storage))
     reports = reports or Path(os.environ.get("RUNNER_TEMP", "/reports"))
     reports.mkdir(exist_ok=True)
     (reports / "network-results.json").write_text(json.dumps(cases, indent=2))
     churned = ", churn" if churn else ""
-    print(f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
-          f"stale, mailbox, push, media, TURN, holder placement, routing, "
-          f"relay announcement, replication, "
-          f"ack forwarding, repair, rate limit"
-          f"{churned} passed")
+    print(
+        f"{len(peers)} nodes over TCP and QUIC: info, profile roundtrip, "
+        f"stale, mailbox, push, media, TURN, holder placement, routing, "
+        f"relay announcement, replication, "
+        f"ack forwarding, repair, rate limit"
+        f"{churned} passed"
+    )
 
 
 def routing_relays(client, entry, limited, ids):
@@ -761,14 +860,19 @@ def network(peers, client, churn, storage):
     # one connection; more are dropped unanswered.
     counts = call(client, "flood", limited, str(3 * FLOOD_LIMIT))
     # The burst passes, the rest is refused, nothing is dropped.
-    answered = min(counts.get("STATUS_NOT_FOUND", 0),
-                   counts.get("STATUS_RATE_LIMITED", 0))
+    answered = min(
+        counts.get("STATUS_NOT_FOUND", 0), counts.get("STATUS_RATE_LIMITED", 0)
+    )
     if answered < FLOOD_LIMIT or "failed" in counts:
         raise RuntimeError(f"Rate limit boundary missed: {counts}")
-    case = {"routing": True, "relays": relays, "holders": holders,
-            "flood": counts,
-            "acked_on": acked_everywhere(client, entry, ids),
-            "repaired_on": repaired(client, entry, ids)}
+    case = {
+        "routing": True,
+        "relays": relays,
+        "holders": holders,
+        "flood": counts,
+        "acked_on": acked_everywhere(client, entry, ids),
+        "repaired_on": repaired(client, entry, ids),
+    }
     if churn:
         gone = churn()
         live = {peer: tcp for peer, tcp in ids.items() if tcp != gone}
@@ -785,5 +889,6 @@ def network(peers, client, churn, storage):
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("rust-network")
     main()

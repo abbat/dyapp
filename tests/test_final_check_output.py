@@ -1,4 +1,5 @@
 """Negative controls for CI inventory, isolation and Gradle diagnostics."""
+
 import json
 import os
 import socket
@@ -13,28 +14,45 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class FinalChecks(unittest.TestCase):
     def test_summary_rejects_empty_missing_cancelled_and_skipped_jobs(self):
-        good = {name: {"result": "success"} for name in
-                ("core", "docker", "linux", "apple", "windows")}
-        missing = {name: value for name, value in good.items()
-                   if name != "apple"}
-        cases = [good, {}, [], dict(good, apple={"result": "failure"}),
-                 dict(good, apple={"result": "cancelled"}),
-                 dict(good, apple={"result": "skipped"}),
-                 missing]
+        good = {
+            name: {"result": "success"}
+            for name in ("core", "docker", "linux", "apple", "windows")
+        }
+        missing = {
+            name: value for name, value in good.items() if name != "apple"
+        }
+        cases = [
+            good,
+            {},
+            [],
+            dict(good, apple={"result": "failure"}),
+            dict(good, apple={"result": "cancelled"}),
+            dict(good, apple={"result": "skipped"}),
+            missing,
+        ]
         with tempfile.TemporaryDirectory() as directory:
             for index, data in enumerate(cases):
                 result = subprocess.run(
-                    [sys.executable,
-                     str(ROOT / "tests/scripts/check-ci-results.py")],
-                    capture_output=True, text=True, check=False,
-                    env=dict(os.environ, RESULTS=json.dumps(data),
-                             DYAPP_CHECK_LOG_DIR=directory))
+                    [
+                        sys.executable,
+                        str(ROOT / "tests/scripts/check-ci-results.py"),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=dict(
+                        os.environ,
+                        RESULTS=json.dumps(data),
+                        DYAPP_CHECK_LOG_DIR=directory,
+                    ),
+                )
                 self.assertEqual(result.returncode, int(index != 0))
                 if index == 0:
                     self.assertEqual(result.stdout, "OK ci-results\n")
                 else:
                     self.assertTrue(
-                        result.stdout.startswith("FAIL ci-results:"))
+                        result.stdout.startswith("FAIL ci-results:")
+                    )
                     self.assertNotIn("'success'", result.stdout)
                     self.assertNotIn('"outputs"', result.stdout)
 
@@ -53,21 +71,27 @@ class FinalChecks(unittest.TestCase):
             script.write_text(source)
             identity = root / "id"
             identity.write_text(
-                "#!/bin/sh\nprintf '%s\\n' \"$DYAPP_FIXTURE_UID\"\n")
+                "#!/bin/sh\nprintf '%s\\n' \"$DYAPP_FIXTURE_UID\"\n"
+            )
             identity.chmod(0o755)
 
             def run(uid="1000", args=()):
                 return subprocess.run(
                     ["bash", str(script), *args],
-                    capture_output=True, text=True,
-                    env=dict(os.environ,
-                             PATH=f"{directory}:{os.environ['PATH']}",
-                             DYAPP_FIXTURE_UID=uid))
+                    capture_output=True,
+                    text=True,
+                    env=dict(
+                        os.environ,
+                        PATH=f"{directory}:{os.environ['PATH']}",
+                        DYAPP_FIXTURE_UID=uid,
+                    ),
+                )
 
             def facts(capabilities=0, privileges=1):
                 status.write_text(
                     f"CapEff:\t{capabilities:016x}\n"
-                    f"NoNewPrivs:\t{privileges}\n")
+                    f"NoNewPrivs:\t{privileges}\n"
+                )
 
             facts()
             good = run()
@@ -80,9 +104,11 @@ class FinalChecks(unittest.TestCase):
             self.assertEqual(bad.returncode, 1)
             self.assertIn("Runtime must not be root", bad.stdout)
             policies = json.loads(
-                (ROOT / "tools/scripts/check-output.json").read_text())
+                (ROOT / "tools/scripts/check-output.json").read_text()
+            )
             self.assertIn(
-                f'FIX: {policies["container-isolation"]["fix"]}\n', bad.stdout)
+                f"FIX: {policies['container-isolation']['fix']}\n", bad.stdout
+            )
             for capabilities, privileges in [(1, 1), (0, 0)]:
                 facts(capabilities, privileges)
                 self.assertEqual(run().returncode, 1)
@@ -93,30 +119,52 @@ class FinalChecks(unittest.TestCase):
 
     def test_network_android_args_fail_before_setup(self):
         commands = [
-            [sys.executable, str(ROOT / "tests/scripts/network-test.py"),
-             "--invalid"],
+            [
+                sys.executable,
+                str(ROOT / "tests/scripts/network-test.py"),
+                "--invalid",
+            ],
             ["bash", str(ROOT / "tools/scripts/build-android-release.sh")],
         ]
         with tempfile.TemporaryDirectory() as directory:
             for command in commands:
                 result = subprocess.run(
-                    command, capture_output=True, text=True, check=False,
-                    env=dict(os.environ, DYAPP_CHECK_LOG_DIR=directory))
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=dict(os.environ, DYAPP_CHECK_LOG_DIR=directory),
+                )
                 self.assertEqual(result.returncode, 1, result.stdout)
                 self.assertTrue(result.stdout.startswith("FAIL "))
                 self.assertIn(
-                    "Usage:", result.stdout.replace("usage:", "Usage:"))
+                    "Usage:", result.stdout.replace("usage:", "Usage:")
+                )
 
     def test_ascii_terminal_keeps_unicode_raw_evidence_and_child_status(self):
         with tempfile.TemporaryDirectory() as directory:
-            program = ("import os; os.write(1, "
-                       "bytes([101,114,114,111,114,58,32,226,152,131,10])); "
-                       "raise SystemExit(23)")
+            program = (
+                "import os; os.write(1, "
+                "bytes([101,114,114,111,114,58,32,226,152,131,10])); "
+                "raise SystemExit(23)"
+            )
             result = subprocess.run(
-                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
-                 "--log-dir", directory, "cargo", "--", sys.executable,
-                 "-c", program], capture_output=True, text=True, check=False,
-                env=dict(os.environ, PYTHONIOENCODING="ascii"))
+                [
+                    sys.executable,
+                    str(ROOT / "tools/scripts/run-check.py"),
+                    "--log-dir",
+                    directory,
+                    "cargo",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    program,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=dict(os.environ, PYTHONIOENCODING="ascii"),
+            )
             self.assertEqual(result.returncode, 23, result.stdout)
             self.assertTrue(result.stdout.startswith("FAIL cargo:"))
             self.assertIn("\\u2603", result.stdout)
@@ -128,17 +176,35 @@ class FinalChecks(unittest.TestCase):
         known = "docs/testing/docker.md#troubleshooting"
         unknown = "docs/missing.md#unknown"
         for fix in (known, unknown):
-            frame = (f"FAIL docker: fixture failure\nFIX: {fix}\n"
-                     "DETAILS:\nactual-failing-item\n")
+            frame = (
+                f"FAIL docker: fixture failure\nFIX: {fix}\n"
+                "DETAILS:\nactual-failing-item\n"
+            )
             with tempfile.TemporaryDirectory() as directory:
                 result = subprocess.run(
-                    [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
-                     "--log-dir", directory, "docker", "--", sys.executable,
-                     "-c", f"print({frame!r}); raise SystemExit(23)"],
-                    capture_output=True, text=True, check=False)
+                    [
+                        sys.executable,
+                        str(ROOT / "tools/scripts/run-check.py"),
+                        "--log-dir",
+                        directory,
+                        "docker",
+                        "--",
+                        sys.executable,
+                        "-c",
+                        f"print({frame!r}); raise SystemExit(23)",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
                 self.assertEqual(result.returncode, 23)
-                self.assertEqual(sum(line.startswith("FAIL ") for line in
-                                     result.stdout.splitlines()), 1)
+                self.assertEqual(
+                    sum(
+                        line.startswith("FAIL ")
+                        for line in result.stdout.splitlines()
+                    ),
+                    1,
+                )
                 self.assertEqual(result.stdout.count("\nFIX:"), 1)
                 self.assertIn(f"FIX: {known}\n", result.stdout)
                 self.assertIn("actual-failing-item", result.stdout)
@@ -150,17 +216,30 @@ class FinalChecks(unittest.TestCase):
 
     def test_nested_keeps_every_inner_frame_but_not_later_output(self):
         # The inner wrapper strips the FAIL header of the second frame.
-        output = ("FAIL docker: first\n"
-                  "FIX: docs/testing/docker.md#troubleshooting\n"
-                  "DETAILS:\nfirst-item\na.log: raw captured output\n"
-                  "second-item\nb.log: raw captured output\n"
-                  "cleanup progress\n")
+        output = (
+            "FAIL docker: first\n"
+            "FIX: docs/testing/docker.md#troubleshooting\n"
+            "DETAILS:\nfirst-item\na.log: raw captured output\n"
+            "second-item\nb.log: raw captured output\n"
+            "cleanup progress\n"
+        )
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run(
-                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
-                 "--log-dir", directory, "docker", "--", sys.executable,
-                 "-c", f"print({output!r}); raise SystemExit(2)"],
-                capture_output=True, text=True, check=False)
+                [
+                    sys.executable,
+                    str(ROOT / "tools/scripts/run-check.py"),
+                    "--log-dir",
+                    directory,
+                    "docker",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    f"print({output!r}); raise SystemExit(2)",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(result.returncode, 2)
             self.assertIn("first-item", result.stdout)
             self.assertIn("second-item", result.stdout)
@@ -173,13 +252,25 @@ class FinalChecks(unittest.TestCase):
             "Execution failed for task ':app:lintVitalAnalyzeRelease'.\n"
             "> Could not resolve com.android.tools.lint:lint-gradle:32.4.1.\n"
             "  > No cached version available for offline mode.\n"
-            "* Try:\n> Run with --stacktrace option.\nBUILD FAILED in 12s\n")
+            "* Try:\n> Run with --stacktrace option.\nBUILD FAILED in 12s\n"
+        )
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run(
-                [sys.executable, str(ROOT / "tools/scripts/run-check.py"),
-                 "--log-dir", directory, "docker", "--", sys.executable,
-                 "-c", f"print({failure!r}); raise SystemExit(7)"],
-                capture_output=True, text=True, check=False)
+                [
+                    sys.executable,
+                    str(ROOT / "tools/scripts/run-check.py"),
+                    "--log-dir",
+                    directory,
+                    "docker",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    f"print({failure!r}); raise SystemExit(7)",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(result.returncode, 7)
             self.assertIn("lintVitalAnalyzeRelease", result.stdout)
             self.assertIn("No cached version", result.stdout)

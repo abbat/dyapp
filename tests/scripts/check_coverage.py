@@ -6,6 +6,7 @@ Total line coverage must not drop below the baseline in baselines.toml.
 With the lcov report, lines changed since COVERAGE_BASE (default
 origin/main; the working tree is compared) must be >= 80% covered.
 """
+
 import json
 import os
 from pathlib import Path
@@ -18,7 +19,13 @@ ROOT = Path(__file__).resolve().parents[2]
 BASELINES = ROOT / "tests/scripts/baselines.toml"
 MIN_DIFF = 80
 CRATES = (
-    "bootstrap", "ffi", "identity", "messaging", "p2p-net", "profile", "video",
+    "bootstrap",
+    "ffi",
+    "identity",
+    "messaging",
+    "p2p-net",
+    "profile",
+    "video",
 )
 HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
@@ -33,8 +40,11 @@ def validate(report, baseline):
     if not isinstance(files, list) or not files:
         raise ValueError("Empty coverage file inventory")
     paths = [item["filename"].replace("\\", "/") for item in files]
-    missing = [crate for crate in CRATES
-               if not any(f"/rust/{crate}/src/" in path for path in paths)]
+    missing = [
+        crate
+        for crate in CRATES
+        if not any(f"/rust/{crate}/src/" in path for path in paths)
+    ]
     if missing:
         raise ValueError(f"Partial workspace coverage: missing {missing}")
     lines = data[0]["totals"]["lines"]
@@ -45,8 +55,10 @@ def validate(report, baseline):
         raise ValueError("Empty or invalid covered line counts")
     percentage = covered * 100 / count
     if percentage < baseline:
-        raise ValueError(f"Line coverage {percentage:.2f}% < baseline "
-                         f"{baseline}% (tests/scripts/baselines.toml)")
+        raise ValueError(
+            f"Line coverage {percentage:.2f}% < baseline "
+            f"{baseline}% (tests/scripts/baselines.toml)"
+        )
     return percentage
 
 
@@ -55,11 +67,10 @@ def changed(diff):
     result, path = {}, None
     for line in diff.splitlines():
         if line.startswith("+++ "):
-            path = line[len("+++ b/"):] if line != "+++ /dev/null" else None
+            path = line[len("+++ b/") :] if line != "+++ /dev/null" else None
         elif path and (hunk := HUNK.match(line)):
             start, length = int(hunk.group(1)), int(hunk.group(2) or 1)
-            result.setdefault(path, set()).update(
-                range(start, start + length))
+            result.setdefault(path, set()).update(range(start, start + length))
     return result
 
 
@@ -70,8 +81,11 @@ def instrumented(lcov, root):
         if line.startswith("SF:"):
             path = Path(line[3:])
             lines = result.setdefault(
-                str(path.relative_to(root)) if path.is_relative_to(root)
-                else str(path), {})
+                str(path.relative_to(root))
+                if path.is_relative_to(root)
+                else str(path),
+                {},
+            )
         elif line.startswith("DA:") and lines is not None:
             number, hits = line[3:].split(",")[:2]
             lines[int(number)] = int(hits)
@@ -94,33 +108,63 @@ def check_diff(lcov):
     base = os.environ.get("COVERAGE_BASE") or "origin/main"
     # A push that creates a branch (zeros) or is forced (the old head is gone).
     if subprocess.run(
-            ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}",
-             "cat-file", "-e", f"{base}^{{commit}}"],
-            stderr=subprocess.DEVNULL).returncode:
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "-c",
+            f"safe.directory={ROOT}",
+            "cat-file",
+            "-e",
+            f"{base}^{{commit}}",
+        ],
+        stderr=subprocess.DEVNULL,
+    ).returncode:
         base = "origin/main"
     diff = subprocess.check_output(
-        ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}", "diff",
-         "-U0", "--no-renames", "--no-color", "--no-ext-diff", base, "--",
-         "*.rs"], text=True)
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "-c",
+            f"safe.directory={ROOT}",
+            "diff",
+            "-U0",
+            "--no-renames",
+            "--no-color",
+            "--no-ext-diff",
+            base,
+            "--",
+            "*.rs",
+        ],
+        text=True,
+    )
     covered, total, missed = diff_coverage(
-        changed(diff), instrumented(lcov, ROOT))
+        changed(diff), instrumented(lcov, ROOT)
+    )
     if covered * 100 < MIN_DIFF * total:
         raise ValueError(
             f"Changed-line coverage {covered}/{total} < {MIN_DIFF}% since "
-            f"{base}; uncovered (first 50):\n" + "\n".join(missed[:50]))
+            f"{base}; uncovered (first 50):\n" + "\n".join(missed[:50])
+        )
     return covered, total
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("coverage")
     baseline = tomllib.loads(BASELINES.read_text())["coverage"]["lines"]
     percentage = validate(json.loads(Path(sys.argv[1]).read_text()), baseline)
-    print(f"Complete Rust workspace: {percentage:.2f}% line coverage "
-          f"(baseline {baseline}%)")
+    print(
+        f"Complete Rust workspace: {percentage:.2f}% line coverage "
+        f"(baseline {baseline}%)"
+    )
     if percentage >= baseline + 0.5:
-        print(f"Raise [coverage] lines in tests/scripts/baselines.toml to "
-              f"{int(percentage * 10) / 10}")
+        print(
+            f"Raise [coverage] lines in tests/scripts/baselines.toml to "
+            f"{int(percentage * 10) / 10}"
+        )
     if len(sys.argv) > 2:
         covered, total = check_diff(Path(sys.argv[2]).read_text())
         print(f"Changed lines: {covered}/{total} covered")

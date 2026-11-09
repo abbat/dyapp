@@ -4,6 +4,7 @@ A read-only filesystem must never fail a run on logging, so captured output
 lives in memory: the first HEAD and the last TAIL bytes, with a marker for
 what was dropped between them. Only an explicit log file gets a full copy.
 """
+
 import os
 import threading
 
@@ -24,9 +25,9 @@ class Capture:
             self.total += len(data)
             room = self.head_limit - len(self.head)
             self.head += data[:room]
-            self.tail += data[max(room, 0):]
+            self.tail += data[max(room, 0) :]
             if len(self.tail) > self.tail_limit:
-                del self.tail[:len(self.tail) - self.tail_limit]
+                del self.tail[: len(self.tail) - self.tail_limit]
             if self.copy is not None:
                 self.copy.write(data)
 
@@ -36,8 +37,11 @@ class Capture:
     def getvalue(self):
         with self.lock:
             dropped = self.dropped()
-            marker = (f"\n[... {dropped} bytes truncated ...]\n".encode()
-                      if dropped else b"")
+            marker = (
+                f"\n[... {dropped} bytes truncated ...]\n".encode()
+                if dropped
+                else b""
+            )
             return bytes(self.head) + marker + bytes(self.tail)
 
     def since(self, offset):
@@ -46,7 +50,7 @@ class Capture:
             if not self.dropped():
                 return bytes(self.head + self.tail)[offset:]
             start = len(self.tail) - (self.total - offset)
-            return bytes(self.tail[max(0, start):])
+            return bytes(self.tail[max(0, start) :])
 
     def pipe(self):
         """A write descriptor for a child; a thread copies it here until

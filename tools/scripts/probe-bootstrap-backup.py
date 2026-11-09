@@ -28,9 +28,19 @@ def decrypt_age(encrypted, identity, output, age_binary):
     try:
         with os.fdopen(fd, "wb", closefd=False) as plaintext:
             result = subprocess.run(
-                [str(age_binary), "--decrypt", "--identity", str(identity),
-                 str(encrypted)], stdout=plaintext, stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL, timeout=60, check=False)
+                [
+                    str(age_binary),
+                    "--decrypt",
+                    "--identity",
+                    str(identity),
+                    str(encrypted),
+                ],
+                stdout=plaintext,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                timeout=60,
+                check=False,
+            )
         if result.returncode:
             raise ValueError("age decryption failed")
     finally:
@@ -39,8 +49,14 @@ def decrypt_age(encrypted, identity, output, age_binary):
         raise ValueError("decrypted node key has invalid size")
 
 
-def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None,
-          scratch=None):
+def probe(
+    snapshot,
+    dyappd,
+    id_pow_bits,
+    age_identity=None,
+    age_binary=None,
+    scratch=None,
+):
     if not 0 <= id_pow_bits <= 32:
         raise ValueError("ID proof-of-work difficulty must be 0..32")
     header, records, _ = SQLITE.probe(snapshot, scratch)
@@ -50,8 +66,9 @@ def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None,
         raise ValueError("age identity and binary are required")
     if mode != "age" and (age_identity is not None or age_binary is not None):
         raise ValueError("age options are only valid for age snapshots")
-    with tempfile.TemporaryDirectory(prefix="dyappd-key-restore-",
-                                     dir=scratch) as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="dyappd-key-restore-", dir=scratch
+    ) as temporary:
         scratch = Path(temporary)
         for name in ("storage/node.id", "storage/network"):
             SQLITE.copy_verified_file(root, scratch, records[name])
@@ -63,24 +80,35 @@ def probe(snapshot, dyappd, id_pow_bits, age_identity=None, age_binary=None,
             key = scratch / "storage/node.key"
             decrypt_age(scratch / source, age_identity, key, age_binary)
         else:
-            source = ("storage/node.key" if mode == "inline"
-                      else "recovery/node.key")
+            source = (
+                "storage/node.key" if mode == "inline" else "recovery/node.key"
+            )
             if records[source]["size"] > 4096:
                 raise ValueError("node key exceeds size limit")
             SQLITE.copy_verified_file(root, scratch, records[source])
             key = scratch / source
         config = scratch / "empty.toml"
         config.write_text("")
-        command = [str(dyappd), "probe-key", "--config", str(config),
-                   f"--storage.dir={scratch / 'storage'}",
-                   f"--storage.key={key}",
-                   f"--network.name={header['network']}",
-                   f"--network.id-pow-bits={id_pow_bits}"]
+        command = [
+            str(dyappd),
+            "probe-key",
+            "--config",
+            str(config),
+            f"--storage.dir={scratch / 'storage'}",
+            f"--storage.key={key}",
+            f"--network.name={header['network']}",
+            f"--network.id-pow-bits={id_pow_bits}",
+        ]
         # Keep host credentials and DYAPPD_* overrides out of the probe.
-        result = subprocess.run(command, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL,
-                                stdin=subprocess.DEVNULL,
-                                env={"LANG": "C"}, timeout=30, check=False)
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            env={"LANG": "C"},
+            timeout=30,
+            check=False,
+        )
         peer_id = result.stdout.decode("utf-8").strip()
         if result.returncode or peer_id != header["peer_id"]:
             raise ValueError("restored node key does not match saved peer ID")
@@ -94,14 +122,27 @@ def main():
     parser.add_argument("--id-pow-bits", type=int, required=True)
     parser.add_argument("--age-identity", type=Path)
     parser.add_argument("--age-binary", type=Path)
-    parser.add_argument("--scratch", type=Path,
-                        help="directory for restored copies (default: TMPDIR)")
+    parser.add_argument(
+        "--scratch",
+        type=Path,
+        help="directory for restored copies (default: TMPDIR)",
+    )
     args = parser.parse_args()
     try:
-        peer_id = probe(args.snapshot, args.dyappd, args.id_pow_bits,
-                        args.age_identity, args.age_binary, args.scratch)
-    except (OSError, UnicodeError, ValueError,
-            subprocess.TimeoutExpired) as error:
+        peer_id = probe(
+            args.snapshot,
+            args.dyappd,
+            args.id_pow_bits,
+            args.age_identity,
+            args.age_binary,
+            args.scratch,
+        )
+    except (
+        OSError,
+        UnicodeError,
+        ValueError,
+        subprocess.TimeoutExpired,
+    ) as error:
         parser.exit(1, f"backup preflight failed: {error}\n")
     print(f"backup preflight passed; peer ID: {peer_id}")
 

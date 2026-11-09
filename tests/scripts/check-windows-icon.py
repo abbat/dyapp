@@ -3,6 +3,7 @@ holds the 16, 32 and 256 px images of the ICO byte for byte. Explorer, the
 taskbar and the window take their icon from that group.
 
 Usage: check-windows-icon.py EXE ICO. Windows only."""
+
 import ctypes
 import ctypes.wintypes as wintypes
 from pathlib import Path
@@ -20,8 +21,9 @@ def ico_images(data):
     images = {}
     for i in range(count):
         width, _, _, _, _, _, size, offset = struct.unpack_from(
-            "<BBBBHHII", data, 6 + 16 * i)
-        images[width or 256] = data[offset:offset + size]
+            "<BBBBHHII", data, 6 + 16 * i
+        )
+        images[width or 256] = data[offset : offset + size]
     return images
 
 
@@ -29,21 +31,35 @@ def exe_images(path):
     """{size: image bytes} of the first RT_GROUP_ICON in the executable."""
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.LoadLibraryExW.restype = wintypes.HMODULE
-    kernel32.LoadLibraryExW.argtypes = [wintypes.LPCWSTR, wintypes.HANDLE,
-                                        wintypes.DWORD]
+    kernel32.LoadLibraryExW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.HANDLE,
+        wintypes.DWORD,
+    ]
     kernel32.FindResourceW.restype = wintypes.HRSRC
-    kernel32.FindResourceW.argtypes = [wintypes.HMODULE, ctypes.c_void_p,
-                                       ctypes.c_void_p]
+    kernel32.FindResourceW.argtypes = [
+        wintypes.HMODULE,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
     kernel32.SizeofResource.argtypes = [wintypes.HMODULE, wintypes.HRSRC]
     kernel32.LoadResource.restype = wintypes.HGLOBAL
     kernel32.LoadResource.argtypes = [wintypes.HMODULE, wintypes.HRSRC]
     kernel32.LockResource.restype = ctypes.c_void_p
     kernel32.LockResource.argtypes = [wintypes.HGLOBAL]
-    callback = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE,
-                                  ctypes.c_void_p, ctypes.c_void_p,
-                                  ctypes.c_void_p)
-    kernel32.EnumResourceNamesW.argtypes = [wintypes.HMODULE, ctypes.c_void_p,
-                                            callback, ctypes.c_void_p]
+    callback = ctypes.WINFUNCTYPE(
+        wintypes.BOOL,
+        wintypes.HMODULE,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    )
+    kernel32.EnumResourceNamesW.argtypes = [
+        wintypes.HMODULE,
+        ctypes.c_void_p,
+        callback,
+        ctypes.c_void_p,
+    ]
 
     module = kernel32.LoadLibraryExW(str(path), None, LOAD_AS_DATA)
     if not module:

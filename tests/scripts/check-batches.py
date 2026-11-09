@@ -1,4 +1,5 @@
 """Practice A4: count changed text lines per non-merge commit."""
+
 import argparse
 import json
 import re
@@ -11,16 +12,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def git(*args):
     return subprocess.check_output(
-        ["git", "-c", f"safe.directory={Path.cwd()}", *args])
+        ["git", "-c", f"safe.directory={Path.cwd()}", *args]
+    )
 
 
 def excluded(name):
     path = PurePosixPath(name)
-    return any((
-        path.name.endswith((".lock", ".lockfile", ".snap", ".uniffi.rs")),
-        path.name in {"package-lock.json", "npm-shrinkwrap.json"},
-        set(path.parts) & {"generated", "snapshots", "__snapshots__"},
-    ))
+    return any(
+        (
+            path.name.endswith((".lock", ".lockfile", ".snap", ".uniffi.rs")),
+            path.name in {"package-lock.json", "npm-shrinkwrap.json"},
+            set(path.parts) & {"generated", "snapshots", "__snapshots__"},
+        )
+    )
 
 
 def changed_lines(stats):
@@ -50,14 +54,24 @@ def large_change_reason(message):
 
 
 def staged(message_file, limit):
-    lines = changed_lines(git(
-        "diff", "--cached", "--numstat", "-z", "--no-renames",
-        "--no-ext-diff", "--no-textconv"))
+    lines = changed_lines(
+        git(
+            "diff",
+            "--cached",
+            "--numstat",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+        )
+    )
     reason = large_change_reason(message_file.read_text())
     errors = []
     if lines > limit and not reason:
-        errors.append(f"staged: {lines} > {limit} changed lines; "
-                      "split the commit or add Large-Change: <reason>")
+        errors.append(
+            f"staged: {lines} > {limit} changed lines; "
+            "split the commit or add Large-Change: <reason>"
+        )
     return {"staged_lines": lines, "reason": reason, "errors": errors}
 
 
@@ -66,33 +80,62 @@ def inspect(base, head, limit):
     if git("rev-parse", "--is-shallow-repository").strip() != b"false":
         raise ValueError("Small batches require a full-history checkout")
     subprocess.check_call(
-        ["git", "-c", f"safe.directory={Path.cwd()}", "merge-base",
-         "--is-ancestor", base, head])
+        [
+            "git",
+            "-c",
+            f"safe.directory={Path.cwd()}",
+            "merge-base",
+            "--is-ancestor",
+            base,
+            head,
+        ]
+    )
     commits, errors = [], []
     for sha in git("rev-list", "--no-merges", f"{base}..{head}").split():
         sha = sha.decode("ascii")
-        lines = changed_lines(git(
-            "diff-tree", "--root", "--no-commit-id", "-r", "--numstat",
-            "-z", "--no-renames", "--no-ext-diff", "--no-textconv", sha))
+        lines = changed_lines(
+            git(
+                "diff-tree",
+                "--root",
+                "--no-commit-id",
+                "-r",
+                "--numstat",
+                "-z",
+                "--no-renames",
+                "--no-ext-diff",
+                "--no-textconv",
+                sha,
+            )
+        )
         message = git("show", "-s", "--format=%B", sha).decode()
         reason = large_change_reason(message)
         large = lines > limit
-        commits.append({"commit": sha, "lines": lines, "large": large,
-                        "reason": reason})
+        commits.append(
+            {"commit": sha, "lines": lines, "large": large, "reason": reason}
+        )
         if large and not reason:
-            errors.append(f"{sha[:12]}: {lines} > {limit} changed lines; "
-                          "split the commit or add Large-Change: <reason>")
+            errors.append(
+                f"{sha[:12]}: {lines} > {limit} changed lines; "
+                "split the commit or add Large-Change: <reason>"
+            )
     large = sum(commit["large"] for commit in commits)
-    return {"base": base, "head": head, "max_lines": limit,
-            "commits": commits, "large_commits": large,
-            "total_commits": len(commits),
-            "large_percent": 100 * large / len(commits) if commits else 0,
-            "target_percent": 10, "errors": errors}
+    return {
+        "base": base,
+        "head": head,
+        "max_lines": limit,
+        "commits": commits,
+        "large_commits": large,
+        "total_commits": len(commits),
+        "large_percent": 100 * large / len(commits) if commits else 0,
+        "target_percent": 10,
+        "errors": errors,
+    }
 
 
 def main():
     policy = tomllib.loads(
-        (ROOT / "tests/scripts/baselines.toml").read_text())["batches"]
+        (ROOT / "tests/scripts/baselines.toml").read_text()
+    )["batches"]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default=policy["base"])
     parser.add_argument("--head", default="HEAD")

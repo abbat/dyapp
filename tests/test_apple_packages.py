@@ -1,4 +1,5 @@
 """Apple package structure is checked without native SDKs in Docker."""
+
 import importlib.util
 from pathlib import Path
 import plistlib
@@ -9,7 +10,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "apple_package", ROOT / "tools/scripts/package-apple-release.py")
+    "apple_package", ROOT / "tools/scripts/package-apple-release.py"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -17,14 +19,20 @@ SPEC.loader.exec_module(CHECK)
 def app_fixture(root, target):
     app = root / "DYApp.app"
     content = app if target == "ios" else app / "Contents"
-    binary = content / "DYApp" if target == "ios" else (
-        content / "MacOS" / "DYApp")
+    binary = (
+        content / "DYApp" if target == "ios" else (content / "MacOS" / "DYApp")
+    )
     binary.parent.mkdir(parents=True)
     binary.write_bytes(b"executable fixture")
     binary.chmod(0o755)
-    (content / "Info.plist").write_bytes(plistlib.dumps({
-        "CFBundleExecutable": "DYApp",
-        "DTPlatformName": CHECK.PLATFORMS[target][0]}))
+    (content / "Info.plist").write_bytes(
+        plistlib.dumps(
+            {
+                "CFBundleExecutable": "DYApp",
+                "DTPlatformName": CHECK.PLATFORMS[target][0],
+            }
+        )
+    )
     return app, binary
 
 
@@ -53,11 +61,17 @@ class ApplePackages(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             app, _ = app_fixture(Path(directory), "ios")
             for platform, executable, cause in (
-                    ("iphonesimulator", "DYApp", "platform"),
-                    ("iphoneos", "../secret", "basename")):
-                (app / "Info.plist").write_bytes(plistlib.dumps({
-                    "CFBundleExecutable": executable,
-                    "DTPlatformName": platform}))
+                ("iphonesimulator", "DYApp", "platform"),
+                ("iphoneos", "../secret", "basename"),
+            ):
+                (app / "Info.plist").write_bytes(
+                    plistlib.dumps(
+                        {
+                            "CFBundleExecutable": executable,
+                            "DTPlatformName": platform,
+                        }
+                    )
+                )
                 with self.assertRaisesRegex(ValueError, cause):
                     CHECK.executable(app, "ios")
 

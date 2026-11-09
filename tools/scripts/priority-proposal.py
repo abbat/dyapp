@@ -1,4 +1,5 @@
 """A11: propose WSJF order locally; never change bead priorities."""
+
 import argparse
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -51,17 +52,34 @@ def proposal(beads, now, practices_first=False):
             reason = rating["rationale"].strip()
             if not reason:
                 raise ValueError("WSJF rationale is required")
-        ranked.append({"id": bead["id"], "title": bead["title"],
-                       "cost_of_delay": delay, "job_size": size,
-                       "wsjf": delay / size, "provisional": rating is None,
-                       "rationale": reason,
-                       "practices": "practices" in bead.get("labels", [])})
-    ranked.sort(key=lambda b: (practices_first and not b["practices"],
-                               -b["wsjf"], b["id"]))
+        ranked.append(
+            {
+                "id": bead["id"],
+                "title": bead["title"],
+                "cost_of_delay": delay,
+                "job_size": size,
+                "wsjf": delay / size,
+                "provisional": rating is None,
+                "rationale": reason,
+                "practices": "practices" in bead.get("labels", []),
+            }
+        )
+    ranked.sort(
+        key=lambda b: (
+            practices_first and not b["practices"],
+            -b["wsjf"],
+            b["id"],
+        )
+    )
     policy = "practices-first" if practices_first else "wsjf"
-    return {"schema": 1, "generated_at": now,
-            "proposal_sha256": fingerprint(ranked, policy), "policy": policy,
-            "order": ranked, "approval": "pending"}
+    return {
+        "schema": 1,
+        "generated_at": now,
+        "proposal_sha256": fingerprint(ranked, policy),
+        "policy": policy,
+        "order": ranked,
+        "approval": "pending",
+    }
 
 
 def check(document, approval, now):
@@ -105,23 +123,40 @@ def main():
         if args.proposal:
             document = json.loads(args.proposal.read_text())
         else:
-            text = args.input.read_text() if args.input else \
-                subprocess.check_output(
-                    ["bd", "list", "--all", "--limit", "0",
-                     "--brief", "--json"],
-                    text=True)
+            text = (
+                args.input.read_text()
+                if args.input
+                else subprocess.check_output(
+                    [
+                        "bd",
+                        "list",
+                        "--all",
+                        "--limit",
+                        "0",
+                        "--brief",
+                        "--json",
+                    ],
+                    text=True,
+                )
+            )
             document = proposal(json.loads(text), now, args.practices_first)
         if args.practices_first:
             if document.get("policy") != "practices-first":
                 raise ValueError("Saved proposal is not Practices-first")
-        approval = json.loads(args.approval.read_text()) \
-            if args.approval else None
+        approval = (
+            json.loads(args.approval.read_text()) if args.approval else None
+        )
         errors = check(document, approval, now) if args.check else []
         document["errors"] = errors
         if args.check and not document["errors"]:
             document["approval"] = "approved"
-    except (ValueError, KeyError, TypeError, OSError,
-            subprocess.CalledProcessError) as error:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as error:
         document = {"errors": [str(error)]}
     text = json.dumps(document, indent=2) + "\n"
     if args.report:

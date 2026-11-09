@@ -33,8 +33,12 @@ class BackupBootstrap(unittest.TestCase):
             (self.source / name).write_bytes(value)
 
     def records(self):
-        return [json.loads(line) for line in
-                (self.destination / "manifest.jsonl").read_text().splitlines()]
+        return [
+            json.loads(line)
+            for line in (self.destination / "manifest.jsonl")
+            .read_text()
+            .splitlines()
+        ]
 
     def test_inline_snapshot_contains_sorted_hashes_and_wal(self):
         (self.source / "profiles.db-wal").write_bytes(b"committed")

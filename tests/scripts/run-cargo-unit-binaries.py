@@ -2,12 +2,14 @@
 
 Arguments after the inventory go to every test binary, such as a name filter.
 """
+
 import json
 import subprocess
 import sys
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("rust-test")
 
 executables = set()
@@ -20,8 +22,9 @@ with open(sys.argv[1], encoding="utf-8") as inventory_file:
 if not executables:
     raise RuntimeError("No unit test binaries in build inventory")
 for executable in sorted(executables):
-    listed = subprocess.run([executable, "--list"], check=False,
-                            capture_output=True, text=True)
+    listed = subprocess.run(
+        [executable, "--list"], check=False, capture_output=True, text=True
+    )
     if listed.returncode:
         print(listed.stdout, end="")
         print(listed.stderr, end="", file=sys.stderr)
@@ -30,7 +33,8 @@ for executable in sorted(executables):
     inventory = listed.stdout
     if not any(line.endswith(": test") for line in inventory.splitlines()):
         raise RuntimeError(f"Empty unit suite: {executable}")
-    status = subprocess.run([executable, *sys.argv[2:]],
-                            check=False).returncode
+    status = subprocess.run(
+        [executable, *sys.argv[2:]], check=False
+    ).returncode
     if status:
         raise SystemExit(128 - status if status < 0 else status)

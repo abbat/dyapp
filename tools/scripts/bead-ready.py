@@ -9,6 +9,7 @@ the description, acceptance criteria, design or notes.
     bead-ready.py --claim ID     check, then `bd update ID --claim`
     bead-ready.py --in-progress  check every claimed bead
 """
+
 import json
 import re
 import subprocess
@@ -16,14 +17,17 @@ import sys
 
 TYPES = {"task", "feature", "bug"}
 FIELDS = ("description", "acceptance_criteria", "design", "notes")
-LINE = {name: re.compile(rf"^[ \t]*{name}:[ \t]*\S", re.M | re.I)
-        for name in ("Docs", "Verify")}
+LINE = {
+    name: re.compile(rf"^[ \t]*{name}:[ \t]*\S", re.M | re.I)
+    for name in ("Docs", "Verify")
+}
 WHOLE_LINE = re.compile(r"^\s*(?:Docs|Verify):.*$", re.M | re.I)
 
 
 def bd(*args):
-    return json.loads(subprocess.check_output(["bd", *args, "--json"],
-                                              text=True))
+    return json.loads(
+        subprocess.check_output(["bd", *args, "--json"], text=True)
+    )
 
 
 def errors(bead):
@@ -35,8 +39,11 @@ def errors(bead):
     found = [] if goal else ["no goal (empty description)"]
     if not (bead.get("acceptance_criteria") or "").strip():
         found.append("no acceptance criterion")
-    found += [f"no {name}: line" for name, line in LINE.items()
-              if not line.search(text)]
+    found += [
+        f"no {name}: line"
+        for name, line in LINE.items()
+        if not line.search(text)
+    ]
     return [f"{bead['id']}: {error}" for error in found]
 
 
@@ -51,8 +58,10 @@ def main(args):
         raise SystemExit(__doc__)
     found = [error for bead in beads for error in errors(bead)]
     if found:
-        raise SystemExit("Not ready (docs/agents/beads.md#definition-of-"
-                         "ready):\n" + "\n".join(found))
+        raise SystemExit(
+            "Not ready (docs/agents/beads.md#definition-of-"
+            "ready):\n" + "\n".join(found)
+        )
     if args[0] == "--claim":
         subprocess.check_call(["bd", "update", args[1], "--claim"])
     print(f"{len(beads)} beads ready")

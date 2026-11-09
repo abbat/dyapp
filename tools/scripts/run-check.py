@@ -1,4 +1,5 @@
 """Run a mapped check with concise diagnostics and a retained raw log."""
+
 import argparse
 import json
 import os
@@ -16,13 +17,18 @@ ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def gradle_errors(lines):
-    start = next((i for i, line in enumerate(lines)
-                  if line.startswith("FAILURE:")), None)
+    start = next(
+        (i for i, line in enumerate(lines) if line.startswith("FAILURE:")),
+        None,
+    )
     if start is None:
         return []
-    selected = [line for line in lines[:start]
-                if re.search(r"^(?:e:|.+: error:)", line)]
-    for line in lines[start + 1:]:
+    selected = [
+        line
+        for line in lines[:start]
+        if re.search(r"^(?:e:|.+: error:)", line)
+    ]
+    for line in lines[start + 1 :]:
         if line.startswith("* Try:"):
             break
         if line and not line.startswith(("* ", "> Task ", "BUILD ")):
@@ -42,8 +48,11 @@ def json_diagnostics(text, policy):
             error = ANSI.sub("", error)
             parts = error.splitlines()
             if "pattern" in policy and len(parts) > 1:
-                selected.extend(line for line in parts
-                                if re.search(policy["pattern"], line))
+                selected.extend(
+                    line
+                    for line in parts
+                    if re.search(policy["pattern"], line)
+                )
             else:
                 selected.append(error)
         return selected
@@ -52,12 +61,19 @@ def json_diagnostics(text, policy):
 
 
 def rust_diagnostics(text, lines):
-    start = next((i for i, line in enumerate(lines)
-                  if line == "failures:"), None)
+    start = next(
+        (i for i, line in enumerate(lines) if line == "failures:"), None
+    )
     if start is None:
         # cargo-nextest reports each failure as `FAIL [ time] test`.
-        start = next((i for i, line in enumerate(lines) if re.match(
-            r"^\s+(?:FAIL|TIMEOUT|SIG\w+) \[", line)), None)
+        start = next(
+            (
+                i
+                for i, line in enumerate(lines)
+                if re.match(r"^\s+(?:FAIL|TIMEOUT|SIG\w+) \[", line)
+            ),
+            None,
+        )
     if start is not None:
         return [line for line in lines[start:] if line]
     pattern = r"^(?:error(?:\[[^]]+\])?:|\s*-->\s)"
@@ -65,12 +81,15 @@ def rust_diagnostics(text, lines):
 
 
 def unittest_diagnostics(lines):
-    starts = [i for i, line in enumerate(lines)
-              if line.startswith(("FAIL:", "ERROR:"))]
+    starts = [
+        i
+        for i, line in enumerate(lines)
+        if line.startswith(("FAIL:", "ERROR:"))
+    ]
     if not starts:
         return []
     selected = []
-    for line in lines[starts[0]:]:
+    for line in lines[starts[0] :]:
         if line.startswith("Ran "):
             break
         if line and set(line) not in ({"="}, {"-"}):
@@ -80,19 +99,21 @@ def unittest_diagnostics(lines):
 
 def line_diagnostics(lines, policy):
     if policy.get("details") and "DETAILS:" in lines:
-        return [line for line in lines[lines.index("DETAILS:") + 1:]
-                if line]
+        return [line for line in lines[lines.index("DETAILS:") + 1 :] if line]
     if policy.get("nested"):
         # First frame to last log line: an inner wrapper drops the FAIL
         # headers of later frames, so all frames before it are kept.
-        starts = [i for i, line in enumerate(lines)
-                  if line.startswith("FAIL ")]
-        ends = [i for i, line in enumerate(lines)
-                if line.endswith(": raw captured output")]
+        starts = [
+            i for i, line in enumerate(lines) if line.startswith("FAIL ")
+        ]
+        ends = [
+            i
+            for i, line in enumerate(lines)
+            if line.endswith(": raw captured output")
+        ]
         if starts:
-            end = (ends[-1] + 1 if ends and ends[-1] > starts[0]
-                   else len(lines))
-            return lines[starts[0]:end]
+            end = ends[-1] + 1 if ends and ends[-1] > starts[0] else len(lines)
+            return lines[starts[0] : end]
     if policy.get("gradle"):
         selected = gradle_errors(lines)
         if selected:
@@ -104,17 +125,20 @@ def line_diagnostics(lines, policy):
 def diagnostics(text, policy):
     lines = ANSI.sub("", text).splitlines()
     kind = policy["format"]
-    if kind == 'json':
+    if kind == "json":
         return json_diagnostics(text, policy)
     if kind == "python":
-        starts = [i for i, line in enumerate(lines)
-                  if re.match(r"^[\w.]*(?:Error|Exception):", line)]
-        return [line for line in lines[starts[-1]:] if line] if starts else []
-    if kind == 'rust-test':
+        starts = [
+            i
+            for i, line in enumerate(lines)
+            if re.match(r"^[\w.]*(?:Error|Exception):", line)
+        ]
+        return [line for line in lines[starts[-1] :] if line] if starts else []
+    if kind == "rust-test":
         return rust_diagnostics(text, lines)
-    if kind == 'unittest':
+    if kind == "unittest":
         return unittest_diagnostics(lines)
-    if kind == 'lines':
+    if kind == "lines":
         return line_diagnostics(lines, policy)
     raise ValueError(f"Unknown diagnostic format: {kind!r}")
 
@@ -132,10 +156,13 @@ def mapped_frame(selected):
         return False
     try:
         policies = json.loads(
-            (ROOT / "tools/scripts/check-output.json").read_text())
+            (ROOT / "tools/scripts/check-output.json").read_text()
+        )
         return any(
             policy.get("fix") == selected[1][5:]
-            for policy in policies.values() if isinstance(policy, dict))
+            for policy in policies.values()
+            if isinstance(policy, dict)
+        )
     except (OSError, ValueError, AttributeError):
         return False
 
@@ -145,10 +172,16 @@ def failure(name, fix, status, selected, log=None):
         print("\n".join(selected))
     else:
         if selected and selected[0].startswith("FAIL "):
-            selected = [line for line in selected if not line.startswith(
-                ("FAIL ", "FIX:", "DETAILS:"))]
-        cause = (selected[0] if selected
-                 else f"exit {status}; no recognized diagnostic")
+            selected = [
+                line
+                for line in selected
+                if not line.startswith(("FAIL ", "FIX:", "DETAILS:"))
+            ]
+        cause = (
+            selected[0]
+            if selected
+            else f"exit {status}; no recognized diagnostic"
+        )
         if status < 0:
             cause = f"terminated by signal {-status}"
         cause = " ".join(cause.splitlines())[:200]
@@ -171,8 +204,11 @@ def run(name, command, policy, directory):
     try:
         try:
             status = subprocess.run(
-                command, stdout=descriptor, stderr=subprocess.STDOUT,
-                check=False).returncode
+                command,
+                stdout=descriptor,
+                stderr=subprocess.STDOUT,
+                check=False,
+            ).returncode
         except OSError as error:
             captured.write(f"{type(error).__name__}: {error}\n".encode())
             status = 127
@@ -196,14 +232,16 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--log-dir", type=Path,
-                        default=ROOT / "build" / "check-output")
+    parser.add_argument(
+        "--log-dir", type=Path, default=ROOT / "build" / "check-output"
+    )
     parser.add_argument("check")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     try:
         policies = json.loads(
-            (ROOT / "tools/scripts/check-output.json").read_text())
+            (ROOT / "tools/scripts/check-output.json").read_text()
+        )
         if not re.fullmatch(r"[a-z][a-z0-9-]*", args.check):
             raise ValueError(f"Invalid check name: {args.check!r}")
         if args.check not in policies:

@@ -1,4 +1,5 @@
 """Persist complete observations for the existing RSS plateau policy."""
+
 import hashlib
 import json
 from pathlib import Path
@@ -15,17 +16,26 @@ def write_report(samples, elapsed, seconds, growth, binary, directory):
     for index in range(len(samples[0]["rss_kib"])):
         first = max(sample["rss_kib"][index] for sample in samples[:half])
         second = max(sample["rss_kib"][index] for sample in samples[half:])
-        nodes.append({"node": index + 1, "first_peak_kib": first,
-                      "second_peak_kib": second,
-                      "failed": second > first * (1 + growth)})
+        nodes.append(
+            {
+                "node": index + 1,
+                "first_peak_kib": first,
+                "second_peak_kib": second,
+                "failed": second > first * (1 + growth),
+            }
+        )
     with Path(binary).open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
-    report = {"duration_limit_seconds": seconds,
-              "measured_seconds": elapsed, "growth_limit": growth,
-              "binary_sha256": digest, "rounds": len(samples),
-              "nodes": nodes, "samples": samples,
-              "failed_nodes": [node["node"] for node in nodes
-                               if node["failed"]]}
+    report = {
+        "duration_limit_seconds": seconds,
+        "measured_seconds": elapsed,
+        "growth_limit": growth,
+        "binary_sha256": digest,
+        "rounds": len(samples),
+        "nodes": nodes,
+        "samples": samples,
+        "failed_nodes": [node["node"] for node in nodes if node["failed"]],
+    }
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"memory-plateau-{uuid.uuid4().hex}.json"

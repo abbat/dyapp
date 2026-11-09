@@ -17,23 +17,44 @@ class WebTypecheckTest(unittest.TestCase):
             ("invoke('unknown_command');", 1),
             ("invoke('remove_profile_photo', {index: 'zero'});", 1),
             ("invoke('remove_profile_photo');", 1),
-            ("/** @type {string | null} */ let value = null; "
-             "value.toUpperCase();", 1),
+            (
+                "/** @type {string | null} */ let value = null; "
+                "value.toUpperCase();",
+                1,
+            ),
         )
         for source, expected in cases:
             with self.subTest(source=source):
                 with tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:
                     fixture = Path(tmp) / "contract.js"
                     fixture.write_text(
-                        f"import {{ invoke }} from '{bridge}';\n{source}\n")
+                        f"import {{ invoke }} from '{bridge}';\n{source}\n"
+                    )
                     result = subprocess.run(
-                        ["tsc", "--allowJs", "--checkJs", "--noEmit",
-                         "--strict", "--target", "es2022", "--module",
-                         "esnext", "--lib", "es2022,dom", "--pretty",
-                         "false", str(fixture)], cwd=ROOT, text=True,
-                        capture_output=True, check=False)
-                self.assertEqual(result.returncode, expected,
-                                 result.stdout + result.stderr)
+                        [
+                            "tsc",
+                            "--allowJs",
+                            "--checkJs",
+                            "--noEmit",
+                            "--strict",
+                            "--target",
+                            "es2022",
+                            "--module",
+                            "esnext",
+                            "--lib",
+                            "es2022,dom",
+                            "--pretty",
+                            "false",
+                            str(fixture),
+                        ],
+                        cwd=ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                self.assertEqual(
+                    result.returncode, expected, result.stdout + result.stderr
+                )
                 if expected:
                     self.assertIn("contract.js(", result.stdout)
                     self.assertIn("error TS", result.stdout)

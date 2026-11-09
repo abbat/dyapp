@@ -229,22 +229,21 @@ class DesktopSmoke:
         (pending / "storage-mode").write_bytes(b"file\n")
         (pending / "state").write_bytes(b"pending\n")
         if (
-            self.case(
-                "crash-restart", [*file, "--ui-test-existing"], profile
-            ) != second
+            self.case("crash-restart", [*file, "--ui-test-existing"], profile)
+            != second
         ):
             raise RuntimeError("pending slot replaced the active identity")
         (root / "active-profile").write_bytes(b"../escape\n")
         if (
             self.case(
                 "corrupt-pointer-pick", [*file, "--ui-test-step=pick"], profile
-            ) != second
+            )
+            != second
         ):
             raise RuntimeError("picker did not reopen the file identity")
         if (
-            self.case(
-                "pick-restart", [*file, "--ui-test-existing"], profile
-            ) != second
+            self.case("pick-restart", [*file, "--ui-test-existing"], profile)
+            != second
         ):
             raise RuntimeError("picked identity was not reopened")
         self.remove("remove-ready", profile, added, first)
@@ -316,7 +315,8 @@ class DesktopSmoke:
                 "legacy-upgrade",
                 ["--ui-test-file", "--ui-test-existing"],
                 profile,
-            ) != peer_id
+            )
+            != peer_id
         ):
             raise RuntimeError("legacy key changed Peer ID")
 
@@ -336,7 +336,8 @@ class DesktopSmoke:
                 "network-restart",
                 [*file, "--ui-test-step=network-restart"],
                 profile,
-            ) != peer_id
+            )
+            != peer_id
         ):
             raise RuntimeError("the network step replaced the identity")
         # Leaving the Network area keeps the draft and the failed rows.
@@ -345,7 +346,8 @@ class DesktopSmoke:
                 "network-settings-draft",
                 [*file, "--ui-test-step=network-settings-failure"],
                 profile,
-            ) != peer_id
+            )
+            != peer_id
         ):
             raise RuntimeError("the Settings check replaced the identity")
         # The kernel completes the handshake of a listener that never
@@ -439,9 +441,10 @@ class DesktopSmoke:
             "network-wrong", [*file, f"--ui-test-step=wrong:{seed}"], profile
         )
         if (
-            storage / "profiles" / (
-                (storage / "active-profile").read_text().strip()
-            ) / "network"
+            storage
+            / "profiles"
+            / ((storage / "active-profile").read_text().strip())
+            / "network"
         ).exists():
             raise RuntimeError("a wrong network was activated")
         # The relaunch reopens the failed draft and the retry connects.
@@ -465,7 +468,8 @@ class DesktopSmoke:
         if (
             self.case(
                 "node", [*file, "--ui-test-step=node"], profile, timeout=180
-            ) != peer_id
+            )
+            != peer_id
         ):
             raise RuntimeError("the node step replaced the identity")
         folder = storage / "profiles" / slot
@@ -527,7 +531,8 @@ class DesktopSmoke:
         if (
             check_profile_readback(
                 node, seed, peer_id, env, storage, hidden=True
-            ) != visible_payload
+            )
+            != visible_payload
         ):
             raise RuntimeError("Hide changed the direct profile record")
         self.case(
@@ -552,7 +557,8 @@ class DesktopSmoke:
                 "peer-connect",
                 [*file, f"--ui-test-step=connect:{seed}"],
                 peer_root,
-            ) != other_peer
+            )
+            != other_peer
         ):
             raise RuntimeError(
                 "connecting the second client changed its Peer ID"
@@ -565,7 +571,8 @@ class DesktopSmoke:
                 [*file, "--ui-test-step=profile-publish-photo"],
                 peer_root,
                 timeout=180,
-            ) != other_peer
+            )
+            != other_peer
         ):
             raise RuntimeError(
                 "publishing the second client changed its Peer ID"
@@ -695,7 +702,8 @@ class DesktopSmoke:
                     [*file, "--ui-test-step=remove-offline"],
                     profile,
                     timeout=120,
-                ) != peer_id
+                )
+                != peer_id
             ):
                 raise RuntimeError("a failed withdrawal changed the identity")
             if not folder.is_dir():
@@ -707,7 +715,9 @@ class DesktopSmoke:
                     [*file, "--ui-test-step=remove-tombstone"],
                     profile,
                     timeout=120,
-                ) == peer_id or folder.exists()
+                )
+                == peer_id
+                or folder.exists()
             ):
                 raise RuntimeError("the removed identity is still there")
         except RuntimeError as error:
@@ -810,7 +820,8 @@ class DesktopSmoke:
                         ],
                         profile,
                         timeout=180,
-                    ) != peer_id
+                    )
+                    != peer_id
                 ):
                     raise RuntimeError("failed publish replaced the identity")
                 self.case(

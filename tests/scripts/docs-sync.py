@@ -6,6 +6,7 @@ origin/main for a local run before a push. A commit fails when it changes a
 public interface line (RULES) but no file under docs/, unless its message
 has a `Docs-Unchanged: <reason>` trailer for a heuristic false positive.
 """
+
 import importlib.util
 import os
 from pathlib import Path
@@ -15,19 +16,29 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
-    "triggers", ROOT / "tests/scripts/triggers.py")
+    "triggers", ROOT / "tests/scripts/triggers.py"
+)
 TRIGGERS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TRIGGERS)
 # (interface, globs, changed-line regex), the shape of triggers.load().
 RULES = [
     # Config keys; dyappd derives its --section.key flags from them.
-    ("config key or CLI flag", ["rust/bootstrap/src/config.rs"],
-     re.compile(r"^\s*pub \w+:")),
+    (
+        "config key or CLI flag",
+        ["rust/bootstrap/src/config.rs"],
+        re.compile(r"^\s*pub \w+:"),
+    ),
     ("CLI flag", ["rust/bootstrap/src/bin/*.rs"], re.compile(r'"--?\w')),
-    ("public API", ["rust/ffi/src/*"],
-     re.compile(r"^\s*pub (fn|struct|enum)\b|uniffi::")),
-    ("public API", ["proto/*.proto"],
-     re.compile(r"^\s*(message|enum|service|rpc)\b|=\s*\d+\s*;")),
+    (
+        "public API",
+        ["rust/ffi/src/*"],
+        re.compile(r"^\s*pub (fn|struct|enum)\b|uniffi::"),
+    ),
+    (
+        "public API",
+        ["proto/*.proto"],
+        re.compile(r"^\s*(message|enum|service|rpc)\b|=\s*\d+\s*;"),
+    ),
     ("Make target", ["Makefile"], re.compile(r"^[\w.-]+:")),
 ]
 TRAILER = re.compile(r"^Docs-Unchanged: \S", re.M)
@@ -41,30 +52,53 @@ def errors(files, message):
 
 
 def main():
-    git = ["git", "-C", str(ROOT), "-c", f"safe.directory={ROOT}",
-           "-c", "core.quotePath=false"]
+    git = [
+        "git",
+        "-C",
+        str(ROOT),
+        "-c",
+        f"safe.directory={ROOT}",
+        "-c",
+        "core.quotePath=false",
+    ]
     base = os.environ.get("DOCS_SYNC_BASE") or "origin/main"
     # A push that creates a branch (zeros) or is forced (the old head is gone).
-    if subprocess.run(git + ["cat-file", "-e", base + "^{commit}"],
-                      stderr=subprocess.DEVNULL).returncode:
+    if subprocess.run(
+        git + ["cat-file", "-e", base + "^{commit}"], stderr=subprocess.DEVNULL
+    ).returncode:
         base = "origin/main"
     shas = subprocess.check_output(
-        git + ["rev-list", "--no-merges", base + "..HEAD"],
-        text=True).split()
+        git + ["rev-list", "--no-merges", base + "..HEAD"], text=True
+    ).split()
     failed = []
     for sha in shas:
         message = subprocess.check_output(
-            git + ["log", "-1", "--format=%B", sha], text=True)
+            git + ["log", "-1", "--format=%B", sha], text=True
+        )
         diff = subprocess.check_output(
-            git + ["show", "--format=", "--unified=0", "--no-renames",
-                   "--no-color", "--no-ext-diff", sha],
-            text=True, errors="replace")
-        failed += [f"{sha[:12]}: {line}"
-                   for line in errors(TRIGGERS.changes(diff), message)]
+            git
+            + [
+                "show",
+                "--format=",
+                "--unified=0",
+                "--no-renames",
+                "--no-color",
+                "--no-ext-diff",
+                sha,
+            ],
+            text=True,
+            errors="replace",
+        )
+        failed += [
+            f"{sha[:12]}: {line}"
+            for line in errors(TRIGGERS.changes(diff), message)
+        ]
     if failed:
-        sys.exit("docs-sync failed: interface changed without docs/ "
-                 "(docs/development/code-quality.md#docs-change-with-the-"
-                 "code):\n" + "\n".join(failed))
+        sys.exit(
+            "docs-sync failed: interface changed without docs/ "
+            "(docs/development/code-quality.md#docs-change-with-the-"
+            "code):\n" + "\n".join(failed)
+        )
     print("OK")
 
 

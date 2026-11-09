@@ -1,4 +1,5 @@
 """Check the Linux release UI through AT-SPI without injected commands."""
+
 import json
 import os
 from pathlib import Path
@@ -24,17 +25,24 @@ def labels():
 def rendered_setup(nodes, expected):
     """Require visible setup text and an enabled button in the same locale."""
     headings = {name for name, showing, _, _ in nodes if showing}
-    buttons = {name for name, showing, enabled, button in nodes
-               if showing and enabled and button}
-    return any(heading in headings and button in buttons
-               for heading, button in expected)
+    buttons = {
+        name
+        for name, showing, enabled, button in nodes
+        if showing and enabled and button
+    }
+    return any(
+        heading in headings and button in buttons
+        for heading, button in expected
+    )
 
 
 class Accessibility:
     def __init__(self):
         import gi
+
         gi.require_version("Atspi", "2.0")
         from gi.repository import Atspi, GLib
+
         self.api = Atspi
         self.transient = GLib.Error
         self.context = GLib.MainContext.default()
@@ -54,14 +62,22 @@ class Accessibility:
             count += 1
             if count > 4096:
                 raise RuntimeError(
-                    "Production accessibility tree exceeds 4096 nodes")
+                    "Production accessibility tree exceeds 4096 nodes"
+                )
             states = node.get_state_set()
-            result.append((node.get_name(),
-                           states.contains(self.api.StateType.SHOWING),
-                           states.contains(self.api.StateType.ENABLED),
-                           node.get_role() == self.api.Role.PUSH_BUTTON, node))
-            pending.extend(node.get_child_at_index(index)
-                           for index in range(node.get_child_count()))
+            result.append(
+                (
+                    node.get_name(),
+                    states.contains(self.api.StateType.SHOWING),
+                    states.contains(self.api.StateType.ENABLED),
+                    node.get_role() == self.api.Role.PUSH_BUTTON,
+                    node,
+                )
+            )
+            pending.extend(
+                node.get_child_at_index(index)
+                for index in range(node.get_child_count())
+            )
         return result
 
     def setup_button(self, application, expected):
@@ -69,8 +85,11 @@ class Accessibility:
         if not rendered_setup([row[:4] for row in nodes], expected):
             return None
         names = {button for _, button in expected}
-        return next(node for name, showing, enabled, button, node in nodes
-                    if name in names and showing and enabled and button)
+        return next(
+            node
+            for name, showing, enabled, button, node in nodes
+            if name in names and showing and enabled and button
+        )
 
     def ready(self, process_id, expected):
         for _ in range(100):
@@ -102,7 +121,8 @@ def wait_for_setup(process, accessibility, expected, timeout=45):
             return button
         time.sleep(0.1)
     raise RuntimeError(
-        "Production app did not expose a rendered setup heading and button")
+        "Production app did not expose a rendered setup heading and button"
+    )
 
 
 def launch(executable, directory, accessibility, expected, timeout=45):
@@ -113,18 +133,28 @@ def launch(executable, directory, accessibility, expected, timeout=45):
         env["XDG_" + key + "_HOME"] = str(path)
     env.pop("NO_AT_BRIDGE", None)
     with (directory / "app.log").open("w") as log:
-        process = subprocess.Popen([str(executable)], env=env, stdout=log,
-                                   stderr=log, start_new_session=True)
+        process = subprocess.Popen(
+            [str(executable)],
+            env=env,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+        )
         try:
             button = wait_for_setup(process, accessibility, expected, timeout)
             if not button.get_component_iface().grab_focus():
                 raise RuntimeError(
-                    "Could not focus the production setup button")
-            subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+q"],
-                           check=True, timeout=10)
+                    "Could not focus the production setup button"
+                )
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", "ctrl+q"],
+                check=True,
+                timeout=10,
+            )
             if process.wait(timeout=15) != 0:
                 raise RuntimeError(
-                    "Production app did not exit cleanly after Ctrl+Q")
+                    "Production app did not exit cleanly after Ctrl+Q"
+                )
         finally:
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGKILL)
@@ -143,11 +173,13 @@ def smoke(executable):
     directory.mkdir(parents=True)
     launch(executable, directory, accessibility, expected)
     print(
-        "Production desktop rendered setup and closed without injected hooks")
+        "Production desktop rendered setup and closed without injected hooks"
+    )
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("production-desktop-smoke")
     if len(sys.argv) != 2:
         raise SystemExit("Usage: production-desktop-smoke.py <native-binary>")

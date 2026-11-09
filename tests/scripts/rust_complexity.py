@@ -1,4 +1,5 @@
 """Validate complete Clippy reports and enforce exact per-function limits."""
+
 from collections import Counter
 import re
 
@@ -13,11 +14,16 @@ def diagnostics(metadata, records):
     """Check compilation completeness and retain workspace diagnostics."""
     members = set(metadata["workspace_members"])
     artifacts = {
-        record["package_id"] for record in records
+        record["package_id"]
+        for record in records
         if record.get("reason") == "compiler-artifact"
-        if record["target"]["kind"] != ["custom-build"]}
-    finished = [record for record in records
-                if record.get("reason") == "build-finished"]
+        if record["target"]["kind"] != ["custom-build"]
+    }
+    finished = [
+        record
+        for record in records
+        if record.get("reason") == "build-finished"
+    ]
     if not members or not members <= artifacts:
         raise ValueError("Missing compiled workspace members")
     if len(finished) != 1 or finished[0].get("success") is not True:
@@ -38,8 +44,11 @@ def diagnostics(metadata, records):
         span = spans[0]
         key = (code, span["file_name"], span["byte_start"], span["byte_end"])
         key += (message["message"],)
-        result[key] = {"code": code, "span": span,
-                       "message": message["message"]}
+        result[key] = {
+            "code": code,
+            "span": span,
+            "message": message["message"],
+        }
     return list(result.values())
 
 
@@ -92,8 +101,11 @@ def identity(entry, entries):
     if entry["kind"] != "function":
         raise ValueError("New complex anonymous closure")
     name = entry["id"]
-    same = [item for item in entries
-            if item["kind"] == "function" and item["id"] == name]
+    same = [
+        item
+        for item in entries
+        if item["kind"] == "function" and item["id"] == name
+    ]
     if len(same) != 1:
         raise ValueError("Ambiguous function identity")
     return name
@@ -115,8 +127,13 @@ def measure(findings, sources, functions):
     for finding in findings:
         span = finding["span"]
         path = span["file_name"]
-        diagnostic = (finding["code"], path, span["byte_start"],
-                      span["byte_end"], finding["message"])
+        diagnostic = (
+            finding["code"],
+            path,
+            span["byte_start"],
+            span["byte_end"],
+            finding["message"],
+        )
         if diagnostic in seen:
             continue
         seen.add(diagnostic)
@@ -142,7 +159,8 @@ def growth_errors(current, previous):
             old = previous.get(key, {}).get(metric, 0)
             if value > old:
                 result.append(
-                    f"{key}: increased {metric} budget {old} -> {value}")
+                    f"{key}: increased {metric} budget {old} -> {value}"
+                )
     return result
 
 

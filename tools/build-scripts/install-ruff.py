@@ -1,4 +1,5 @@
 """Install the same checksum-verified Ruff binary in Docker and CI."""
+
 import hashlib
 import io
 from pathlib import Path
@@ -20,8 +21,7 @@ def wheel_binary(data: bytes) -> bytes:
     if hashlib.sha256(data).hexdigest() != SHA256:
         raise ValueError("Ruff wheel checksum mismatch")
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        names = [name for name in archive.namelist()
-                 if name.endswith("/ruff")]
+        names = [name for name in archive.namelist() if name.endswith("/ruff")]
         if len(names) != 1:
             raise ValueError("Ruff wheel must contain exactly one binary")
         return archive.read(names[0])

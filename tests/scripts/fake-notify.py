@@ -1,6 +1,7 @@
 """A notification server for the desktop smoke: owns the freedesktop name on
 the session bus, keeps each notice in notices.json of the config dir, and
 clicks the newest one once the app writes hidden there."""
+
 import json
 from pathlib import Path
 import sys
@@ -31,8 +32,14 @@ def method(_bus, sender, _path, _interface, _name, params, invocation):
     global owner  # pylint: disable=global-statement
     owner = sender
     _, replaces, _, summary, body, actions, _, _ = params.unpack()
-    notices.append({"replaces": replaces, "summary": summary, "body": body,
-                    "actions": actions})
+    notices.append(
+        {
+            "replaces": replaces,
+            "summary": summary,
+            "body": body,
+            "actions": actions,
+        }
+    )
     (folder / "notices.json").write_text(json.dumps(notices))
     invocation.return_value(GLib.Variant("(u)", (len(notices),)))
 
@@ -41,14 +48,23 @@ def tick():
     # Clicks again until stopped: a click before the app listens is lost. Only
     # the asking connection hears it, as from a real server.
     if notices and (folder / "hidden").exists():
-        bus.emit_signal(owner, PATH, NAME, "ActionInvoked",
-                        GLib.Variant("(us)", (len(notices), "default")))
+        bus.emit_signal(
+            owner,
+            PATH,
+            NAME,
+            "ActionInvoked",
+            GLib.Variant("(us)", (len(notices), "default")),
+        )
     return True
 
 
 bus.register_object(PATH, NODE.interfaces[0], method, None, None)
 Gio.bus_own_name_on_connection(
-    bus, NAME, Gio.BusNameOwnerFlags.NONE,
-    lambda *_: print("ready", flush=True), lambda *_: loop.quit())
+    bus,
+    NAME,
+    Gio.BusNameOwnerFlags.NONE,
+    lambda *_: print("ready", flush=True),
+    lambda *_: loop.quit(),
+)
 GLib.timeout_add(500, tick)
 loop.run()

@@ -24,12 +24,21 @@ def inventory(tag, platform=None):
         assets.append({"name": name, "state": "uploaded", "sha256": DIGEST})
         attestations.append({"name": name, "sha256": DIGEST})
         targets[platform] = {"method": "package", "asset": name}
-    return {"schema": 1, "releases": [{
-        "tag": tag, "commit": COMMIT, "draft": False,
-        "prerelease": False, "assets": assets,
-        "attestations": attestations, "source_builds": [],
-        "targets": targets,
-    }]}
+    return {
+        "schema": 1,
+        "releases": [
+            {
+                "tag": tag,
+                "commit": COMMIT,
+                "draft": False,
+                "prerelease": False,
+                "assets": assets,
+                "attestations": attestations,
+                "source_builds": [],
+                "targets": targets,
+            }
+        ],
+    }
 
 
 class Response:
@@ -69,26 +78,29 @@ def missing():
 class StageUpdateFeed(unittest.TestCase):
     def test_first_release_may_start_empty_feed(self):
         feed = STAGE.stage(
-            "v0.0.1", Opener(missing()),
-            inventory_fn=lambda tag: inventory(tag, "linux-x86_64"))
+            "v0.0.1",
+            Opener(missing()),
+            inventory_fn=lambda tag: inventory(tag, "linux-x86_64"),
+        )
         self.assertEqual(feed["targets"]["linux-x86_64"]["tag"], "v0.0.1")
 
     def test_server_only_release_preserves_prior_target(self):
-        prior = STAGE.BUILD.build(
-            inventory("v0.0.1", "linux-x86_64"))
+        prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
         response = Response(json.dumps(prior).encode())
-        feed = STAGE.stage(
-            "v0.0.2", Opener(response), inventory_fn=inventory)
+        feed = STAGE.stage("v0.0.2", Opener(response), inventory_fn=inventory)
         self.assertEqual(feed, prior)
 
     def test_prior_fetch_and_validation_fail_closed(self):
-        prior = STAGE.BUILD.build(
-            inventory("v0.0.1", "linux-x86_64"))
+        prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
         failures = (
             Opener(missing()),
             Opener(Response(b"{}")),
-            Opener(Response(json.dumps(prior).encode(),
-                            "https://other.example/stable.json")),
+            Opener(
+                Response(
+                    json.dumps(prior).encode(),
+                    "https://other.example/stable.json",
+                )
+            ),
             Opener(Response(b"x" * (STAGE.MAX_PRIOR_BYTES + 1))),
         )
         for opener in failures:
@@ -96,13 +108,14 @@ class StageUpdateFeed(unittest.TestCase):
                 STAGE.stage("v0.0.2", opener, inventory_fn=inventory)
 
     def test_rollback_is_rejected(self):
-        prior = STAGE.BUILD.build(
-            inventory("v0.0.2", "linux-x86_64"))
+        prior = STAGE.BUILD.build(inventory("v0.0.2", "linux-x86_64"))
         response = Response(json.dumps(prior).encode())
         with self.assertRaisesRegex(ValueError, "rollback"):
             STAGE.stage(
-                "v0.0.1", Opener(response),
-                inventory_fn=lambda tag: inventory(tag, "linux-x86_64"))
+                "v0.0.1",
+                Opener(response),
+                inventory_fn=lambda tag: inventory(tag, "linux-x86_64"),
+            )
 
 
 if __name__ == "__main__":

@@ -13,7 +13,11 @@ import sys
 
 
 TARGETS = {
-    "linux-x86_64", "windows-x86_64", "macos-universal", "android", "ios",
+    "linux-x86_64",
+    "windows-x86_64",
+    "macos-universal",
+    "android",
+    "ios",
 }
 SOURCE_TARGETS = {"macos-universal", "ios"}
 VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
@@ -69,7 +73,9 @@ def prior_targets(prior):
         tag = entry["tag"]
         version(tag)
         if entry["version"] != tag[1:] or entry["method"] not in (
-            "package", "store", "build-from-source"
+            "package",
+            "store",
+            "build-from-source",
         ):
             raise ValueError("invalid prior target entry")
         result[target] = entry.copy()
@@ -139,8 +145,9 @@ def validated_source_builds(release):
     return source_builds
 
 
-def verified_claim(target, claim, tag, commit, assets, attestations,
-                   source_builds):
+def verified_claim(
+    target, claim, tag, commit, assets, attestations, source_builds
+):
     if target not in TARGETS or not isinstance(claim, dict):
         raise ValueError("unknown client target")
     method = claim.get("method")
@@ -167,10 +174,19 @@ def verified_claim(target, claim, tag, commit, assets, attestations,
 
 
 def validated_release(release):
-    fields(release, (
-        "tag", "commit", "draft", "prerelease", "assets", "attestations",
-        "source_builds", "targets",
-    ))
+    fields(
+        release,
+        (
+            "tag",
+            "commit",
+            "draft",
+            "prerelease",
+            "assets",
+            "attestations",
+            "source_builds",
+            "targets",
+        ),
+    )
     tag = release["tag"]
     version(tag)
     commit = release["commit"]
@@ -191,8 +207,8 @@ def validated_release(release):
     result = {}
     for target, claim in targets.items():
         result[target] = verified_claim(
-            target, claim, tag, commit, assets, attestations,
-            source_builds)
+            target, claim, tag, commit, assets, attestations, source_builds
+        )
     return result
 
 
@@ -206,7 +222,8 @@ def merge_target_claims(ordered, targets):
                     continue
                 if entry["tag"] == previous["tag"] and entry != previous:
                     raise ValueError(
-                        "published target changed without version bump")
+                        "published target changed without version bump"
+                    )
             targets[target] = entry
 
 
@@ -232,8 +249,9 @@ def build(inventory, prior=None):
     merge_target_claims(ordered, targets)
     for target in targets:
         candidates = [entry[target] for _, entry in ordered if target in entry]
-        newest = max((version(item["tag"]) for item in candidates),
-                     default=None)
+        newest = max(
+            (version(item["tag"]) for item in candidates), default=None
+        )
         if newest is not None and newest < version(targets[target]["tag"]):
             raise ValueError("target rollback")
     return {"schema": 1, "channel": "stable", "targets": targets}

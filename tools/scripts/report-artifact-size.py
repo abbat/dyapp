@@ -1,4 +1,5 @@
 """Record measured artifact bytes and provenance, without claiming a budget."""
+
 import argparse
 import hashlib
 import json
@@ -17,9 +18,13 @@ def file_record(name, artifact, environment):
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     sha = digest.hexdigest()
-    return {"artifact": name, "path": str(artifact.resolve()),
-            "bytes": artifact.stat().st_size, "sha256": sha,
-            "environment": environment}
+    return {
+        "artifact": name,
+        "path": str(artifact.resolve()),
+        "bytes": artifact.stat().st_size,
+        "sha256": sha,
+        "environment": environment,
+    }
 
 
 def main():
@@ -34,9 +39,13 @@ def main():
         result.update(file_record(args.name, args.artifact, args.environment))
         result["revision"] = subprocess.check_output(
             ["git", "-c", f"safe.directory={ROOT}", "rev-parse", "HEAD"],
-            cwd=ROOT, text=True, stderr=subprocess.PIPE).strip()
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.PIPE,
+        ).strip()
         result["rustc"] = subprocess.check_output(
-            ["rustc", "-Vv"], text=True, stderr=subprocess.PIPE).strip()
+            ["rustc", "-Vv"], text=True, stderr=subprocess.PIPE
+        ).strip()
         result["platform"] = platform.platform()
         result["machine"] = platform.machine()
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
@@ -55,5 +64,6 @@ def main():
 
 if __name__ == "__main__":
     from check_dispatch import wrap
+
     wrap("artifact-measurement")
     raise SystemExit(main())

@@ -1,4 +1,5 @@
 """Image cleanup precedence and shell CLI preflight use real child statuses."""
+
 import os
 from pathlib import Path
 import subprocess
@@ -32,8 +33,10 @@ class ShellOutput(unittest.TestCase):
     def test_image_cleanup_failure_never_masks_primary_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name, code in [("docker", DOCKER),
-                               ("sleep", "#!/bin/sh\nexit 0\n")]:
+            for name, code in [
+                ("docker", DOCKER),
+                ("sleep", "#!/bin/sh\nexit 0\n"),
+            ]:
                 path = root / name
                 path.write_text(code)
                 path.chmod(0o755)
@@ -41,26 +44,40 @@ class ShellOutput(unittest.TestCase):
             for primary, cleanup, expected in cases:
                 result = subprocess.run(
                     ["bash", str(ROOT / "tests/scripts/image-test.sh")],
-                    capture_output=True, text=True, check=False,
-                    env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
-                             DYAPP_VERBOSE="0", DYAPP_CHECK_LOG_DIR=str(root),
-                             DYAPP_FIXTURE_PRIMARY=str(primary),
-                             DYAPP_FIXTURE_CLEANUP=str(cleanup)))
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=dict(
+                        os.environ,
+                        PATH=f"{root}:{os.environ['PATH']}",
+                        DYAPP_VERBOSE="0",
+                        DYAPP_CHECK_LOG_DIR=str(root),
+                        DYAPP_FIXTURE_PRIMARY=str(primary),
+                        DYAPP_FIXTURE_CLEANUP=str(cleanup),
+                    ),
+                )
                 self.assertEqual(result.returncode, expected, result.stdout)
                 if expected:
                     self.assertTrue(
-                        result.stdout.startswith("FAIL image-test:"))
+                        result.stdout.startswith("FAIL image-test:")
+                    )
                     self.assertIn("FIX: docs/", result.stdout)
                 else:
                     self.assertEqual(result.stdout, "OK image-test\n")
 
     def test_ui_cli_errors_and_help_do_not_probe_kvm(self):
-        for args, status in [(["--help"], 0), (["invalid"], 2),
-                             (["shell", "invalid"], 2)]:
+        for args, status in [
+            (["--help"], 0),
+            (["invalid"], 2),
+            (["shell", "invalid"], 2),
+        ]:
             result = subprocess.run(
                 ["bash", str(ROOT / "tests/scripts/ui-test.sh"), *args],
-                capture_output=True, text=True, check=False,
-                env=dict(os.environ, DYAPP_KVM="1", DYAPP_VERBOSE="0"))
+                capture_output=True,
+                text=True,
+                check=False,
+                env=dict(os.environ, DYAPP_KVM="1", DYAPP_VERBOSE="0"),
+            )
             self.assertEqual(result.returncode, status, result.stdout)
             self.assertNotIn("stat:", result.stdout + result.stderr)
             if status:

@@ -1,4 +1,5 @@
 """Check fuzz build selection and limits without compiling fuzz binaries."""
+
 import json
 import os
 from pathlib import Path
@@ -43,8 +44,9 @@ with (root / "calls.jsonl").open("a") as stream:
 
 
 class FuzzRunner(unittest.TestCase):
-    def run_stage(self, selected=None, fail=None, fail_list=False,
-                  empty_list=False):
+    def run_stage(
+        self, selected=None, fail=None, fail_list=False, empty_list=False
+    ):
         build = ROOT / "build"
         build.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=build) as directory:
@@ -62,8 +64,11 @@ class FuzzRunner(unittest.TestCase):
                 path = tools / name
                 path.write_text(source)
                 path.chmod(0o755)
-            env = dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}",
-                       FUZZ_SECONDS="1")
+            env = dict(
+                os.environ,
+                PATH=f"{tools}:{os.environ['PATH']}",
+                FUZZ_SECONDS="1",
+            )
             env.pop("FUZZ_TARGETS", None)
             env.pop("FAIL_TARGET", None)
             env.pop("FAIL_LIST", None)
@@ -77,21 +82,30 @@ class FuzzRunner(unittest.TestCase):
             if fail:
                 env["FAIL_TARGET"] = fail
             result = subprocess.run(
-                ["bash", str(script), "--raw", "fuzz"], env=env,
-                capture_output=True, text=True, check=False)
+                ["bash", str(script), "--raw", "fuzz"],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             log = root / "calls.jsonl"
             lines = log.read_text().splitlines() if log.exists() else []
             calls = [json.loads(line) for line in lines]
             return result, calls
 
     def test_default_and_selected_builds_preserve_limits(self):
-        for selected in [None, "sticker_webp", "node sticker_webp",
-                         "sticker_webp node"]:
+        for selected in [
+            None,
+            "sticker_webp",
+            "node sticker_webp",
+            "sticker_webp node",
+        ]:
             with self.subTest(selected=selected):
                 result, calls = self.run_stage(selected)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                builds = [row for row in calls
-                          if row[1:3] == ["fuzz", "build"]]
+                builds = [
+                    row for row in calls if row[1:3] == ["fuzz", "build"]
+                ]
                 requested = selected.split() if selected else TARGETS
                 if selected:
                     self.assertEqual([row[-1] for row in builds], requested)
@@ -102,20 +116,27 @@ class FuzzRunner(unittest.TestCase):
                 self.assertEqual([row[1] for row in runs], requested)
                 for row in runs:
                     self.assertIn("-max_total_time=1", row)
-                    self.assertEqual("-max_len=262144" in row,
-                                     row[1] == "sticker_webp")
-                    self.assertTrue(any(arg.endswith(f"/{row[1]}/")
-                                        for arg in row if arg.startswith(
-                                            "-artifact_prefix=")))
+                    self.assertEqual(
+                        "-max_len=262144" in row, row[1] == "sticker_webp"
+                    )
+                    self.assertTrue(
+                        any(
+                            arg.endswith(f"/{row[1]}/")
+                            for arg in row
+                            if arg.startswith("-artifact_prefix=")
+                        )
+                    )
 
     def test_discovery_failure_or_empty_selection_cannot_pass(self):
         for selected, fail, empty, status in [
-            (None, True, False, 43), (None, False, True, 2),
+            (None, True, False, 43),
+            (None, False, True, 2),
             ("  ", False, False, 2),
         ]:
             with self.subTest(selected=selected, fail=fail, empty=empty):
-                result, calls = self.run_stage(selected, fail_list=fail,
-                                               empty_list=empty)
+                result, calls = self.run_stage(
+                    selected, fail_list=fail, empty_list=empty
+                )
                 self.assertEqual(result.returncode, status, result.stderr)
                 self.assertFalse(any(row[0] == "run" for row in calls))
 

@@ -1,4 +1,5 @@
 """Retrieve Docker coverage artifacts; the host only copies files."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -6,20 +7,30 @@ import sys
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("coverage-export")
     if sys.argv[1:] in (["--help"], ["-h"]):
         print("Usage: export-coverage.py [--raw] DESTINATION")
         raise SystemExit(0)
 
-output = subprocess.check_output([
-    "docker", "ps", "--all", "--quiet",
-    "--filter", "label=com.docker.compose.project=dyapp",
-    "--filter", "label=com.docker.compose.service=coverage",
-], text=True).splitlines()
+output = subprocess.check_output(
+    [
+        "docker",
+        "ps",
+        "--all",
+        "--quiet",
+        "--filter",
+        "label=com.docker.compose.project=dyapp",
+        "--filter",
+        "label=com.docker.compose.service=coverage",
+    ],
+    text=True,
+).splitlines()
 if not output:
     sys.exit("No coverage container; report export failed")
-container = json.loads(subprocess.check_output(
-    ["docker", "inspect", output[0]], text=True))[0]
+container = json.loads(
+    subprocess.check_output(["docker", "inspect", output[0]], text=True)
+)[0]
 variables = dict(item.split("=", 1) for item in container["Config"]["Env"])
 run_id = variables.get("COVERAGE_RUN_ID", "")
 if len(run_id) != 32 or any(c not in "0123456789abcdef" for c in run_id):
@@ -29,7 +40,12 @@ destination = Path(sys.argv[1])
 destination.mkdir(parents=True, exist_ok=True)
 for extension in ("txt", "json", "lcov"):
     filename = f"coverage.{extension}"
-    subprocess.run([
-        "docker", "cp", f"{source}/{filename}",
-        str(destination / filename),
-    ], check=True)
+    subprocess.run(
+        [
+            "docker",
+            "cp",
+            f"{source}/{filename}",
+            str(destination / filename),
+        ],
+        check=True,
+    )

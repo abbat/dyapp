@@ -1,4 +1,5 @@
 """D5: compare a release artifact against its measured environment baseline."""
+
 import argparse
 import json
 from pathlib import Path
@@ -31,13 +32,19 @@ def exceptions(base, head="HEAD", root=ROOT):
     def git(*args):
         return subprocess.check_output(
             ["git", "-c", f"safe.directory={root}", *args],
-            cwd=root, text=True, stderr=subprocess.PIPE).strip()
+            cwd=root,
+            text=True,
+            stderr=subprocess.PIPE,
+        ).strip()
 
     if git("rev-parse", "--is-shallow-repository") != "false":
         raise ValueError("Artifact sizes require full Git history")
     git("merge-base", "--is-ancestor", base, head)
-    text = git("log", "--format=%(trailers:key=Size-Increase,valueonly)",
-               f"{base}..{head}")
+    text = git(
+        "log",
+        "--format=%(trailers:key=Size-Increase,valueonly)",
+        f"{base}..{head}",
+    )
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
@@ -52,26 +59,42 @@ def measure(name, artifact, entries, reasons):
     errors = []
     if overflow and not reasons:
         errors.append("Growth exceeds 5%; Size-Increase trailer required")
-    return {"artifact": name, "path": str(artifact), "actual_bytes": actual,
-            "baseline": baseline, "growth_percent": (
-                100 * (actual - baseline["bytes"]) / baseline["bytes"]),
-            "exception_reasons": reasons if overflow else [],
-            "errors": errors}
+    return {
+        "artifact": name,
+        "path": str(artifact),
+        "actual_bytes": actual,
+        "baseline": baseline,
+        "growth_percent": (
+            100 * (actual - baseline["bytes"]) / baseline["bytes"]
+        ),
+        "exception_reasons": reasons if overflow else [],
+        "errors": errors,
+    }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name")
     parser.add_argument("artifact", type=Path)
-    parser.add_argument("--base", required=True,
-                        help="ancestor starting the actual change range")
+    parser.add_argument(
+        "--base",
+        required=True,
+        help="ancestor starting the actual change range",
+    )
     parser.add_argument("--head", default="HEAD")
-    parser.add_argument("--inventory", type=Path,
-                        default=ROOT / "tests/scripts/artifact-sizes.json")
+    parser.add_argument(
+        "--inventory",
+        type=Path,
+        default=ROOT / "tests/scripts/artifact-sizes.json",
+    )
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    report = {"artifact": args.name, "errors": [],
-              "base": args.base, "head": args.head}
+    report = {
+        "artifact": args.name,
+        "errors": [],
+        "base": args.base,
+        "head": args.head,
+    }
     try:
         entries = inventory(args.inventory)
         reasons = exceptions(args.base, args.head)
@@ -93,5 +116,6 @@ def main():
 
 if __name__ == "__main__":
     from check_dispatch import wrap
+
     wrap("artifact-size")
     raise SystemExit(main())

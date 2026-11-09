@@ -1,4 +1,5 @@
 """Reject missing, empty, failed or skipped native XCTest inventories."""
+
 import json
 from pathlib import Path
 import sys
@@ -21,6 +22,7 @@ def validate(summary):
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("apple-results")
     count = validate(json.loads(Path(sys.argv[1]).read_text()))
     print(f"{count} native tests passed")

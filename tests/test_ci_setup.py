@@ -1,4 +1,5 @@
 """Build-only CI setup must not fetch unrelated quality or UI tools."""
+
 import json
 import os
 from pathlib import Path
@@ -38,53 +39,82 @@ class CiSetupTest(unittest.TestCase):
         log = directory / "commands.jsonl"
         exports = directory / "github-env"
         search_path = str(binaries) + os.pathsep + os.environ["PATH"]
-        env = dict(os.environ, PATH=search_path, GITHUB_ENV=str(exports),
-                   DYAPP_SETUP_COMMAND_LOG=str(log))
+        env = dict(
+            os.environ,
+            PATH=search_path,
+            GITHUB_ENV=str(exports),
+            DYAPP_SETUP_COMMAND_LOG=str(log),
+        )
         env.pop("BASH_ENV", None)
         result = subprocess.run(
             ["bash", str(ROOT / "tools/scripts/ci-setup.sh"), profile],
-            env=env, capture_output=True, text=True, check=False)
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         commands = [json.loads(line) for line in log.read_text().splitlines()]
         return result, commands, exports
 
     def test_build_profiles_request_only_build_prerequisites(self):
         channel = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())
         channel = channel["toolchain"]["channel"]
-        unrelated = {"python3-flake8", "shellcheck", "xvfb", "xauth",
-                     "dbus-x11", "gnome-keyring", "libsecret-tools"}
+        unrelated = {
+            "python3-flake8",
+            "shellcheck",
+            "xvfb",
+            "xauth",
+            "dbus-x11",
+            "gnome-keyring",
+            "libsecret-tools",
+        }
         for profile in ("rust-build", "linux-build"):
             with self.subTest(profile=profile):
                 result, commands, exports = self.run_setup(profile)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual([row[0] for row in commands],
-                                 ["sudo", "sudo", "rustup"])
+                self.assertEqual(
+                    [row[0] for row in commands], ["sudo", "sudo", "rustup"]
+                )
                 packages = set(commands[1][6:])
-                self.assertTrue({"build-essential", "pkg-config",
-                                 "libssl-dev"} <= packages)
+                self.assertTrue(
+                    {"build-essential", "pkg-config", "libssl-dev"} <= packages
+                )
                 self.assertFalse(packages & unrelated)
-                needed = ("protobuf-compiler" if profile == "rust-build"
-                          else "libwebkit2gtk-4.1-dev")
+                needed = (
+                    "protobuf-compiler"
+                    if profile == "rust-build"
+                    else "libwebkit2gtk-4.1-dev"
+                )
                 self.assertIn(needed, packages)
-                expected = ["rustup", "toolchain", "install", channel,
-                            "--profile", "minimal"]
+                expected = [
+                    "rustup",
+                    "toolchain",
+                    "install",
+                    channel,
+                    "--profile",
+                    "minimal",
+                ]
                 self.assertEqual(commands[2], expected)
-                self.assertEqual(exports.read_text(),
-                                 f"RUSTUP_TOOLCHAIN={channel}\n")
+                self.assertEqual(
+                    exports.read_text(), f"RUSTUP_TOOLCHAIN={channel}\n"
+                )
 
     def test_quality_profile_keeps_its_tool_downloads(self):
         result, commands, _ = self.run_setup("rust")
         self.assertEqual(result.returncode, 94)
         self.assertIn("python3-flake8", commands[1])
         self.assertEqual(commands[2][:2], ["docker", "create"])
-        self.assertTrue(
-            commands[2][2].startswith("rhysd/actionlint@sha256:"))
+        self.assertTrue(commands[2][2].startswith("rhysd/actionlint@sha256:"))
 
     def test_reproducibility_selects_both_build_profiles(self):
         workflow = yaml.safe_load(
-            (ROOT / ".github/workflows/reproducible.yml").read_text())
+            (ROOT / ".github/workflows/reproducible.yml").read_text()
+        )
         matrix = workflow["jobs"]["compare"]["strategy"]["matrix"]["include"]
-        self.assertEqual({row["target"]: row["setup"] for row in matrix},
-                         {"dyappd": "rust-build", "linux": "linux-build"})
+        self.assertEqual(
+            {row["target"]: row["setup"] for row in matrix},
+            {"dyappd": "rust-build", "linux": "linux-build"},
+        )
 
 
 if __name__ == "__main__":

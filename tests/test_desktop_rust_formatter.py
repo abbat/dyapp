@@ -1,4 +1,5 @@
 """Check included and unreferenced desktop Rust with the real formatter."""
+
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,8 +20,12 @@ class DesktopRustFormatterTest(unittest.TestCase):
         return root, script
 
     def run_formatter(self, script, mode):
-        return subprocess.run([sys.executable, "-B", str(script), mode],
-                              capture_output=True, text=True, check=False)
+        return subprocess.run(
+            [sys.executable, "-B", str(script), mode],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     def test_included_and_unreferenced_files_cannot_escape_formatting(self):
         root, script = self.fixture()
@@ -30,19 +35,30 @@ class DesktopRustFormatterTest(unittest.TestCase):
         (source / "included.rs").write_text("fn included( ){ }\n")
         (source / "orphan.rs").write_text("fn orphan( ){ }\n")
         direct = subprocess.run(
-            ["rustfmt", "--edition", "2021", "--check",
-             str(source / "main.rs")], capture_output=True, check=False)
+            [
+                "rustfmt",
+                "--edition",
+                "2021",
+                "--check",
+                str(source / "main.rs"),
+            ],
+            capture_output=True,
+            check=False,
+        )
         self.assertEqual(direct.returncode, 0)
         self.assertNotEqual(self.run_formatter(script, "check").returncode, 0)
         written = self.run_formatter(script, "write")
         self.assertEqual(written.returncode, 0, written.stderr)
         checked = self.run_formatter(script, "check")
-        self.assertEqual(checked.returncode, 0,
-                         checked.stdout + checked.stderr)
-        self.assertEqual((source / "included.rs").read_text(),
-                         "fn included() {}\n")
-        self.assertEqual((source / "orphan.rs").read_text(),
-                         "fn orphan() {}\n")
+        self.assertEqual(
+            checked.returncode, 0, checked.stdout + checked.stderr
+        )
+        self.assertEqual(
+            (source / "included.rs").read_text(), "fn included() {}\n"
+        )
+        self.assertEqual(
+            (source / "orphan.rs").read_text(), "fn orphan() {}\n"
+        )
 
     def test_empty_source_inventory_fails_closed(self):
         _, script = self.fixture()

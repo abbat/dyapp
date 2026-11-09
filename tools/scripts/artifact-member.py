@@ -30,22 +30,26 @@ def members(fetch, size):
     end = tail.rfind(b"PK\x05\x06")
     if end < 0:
         raise RuntimeError("no end of central directory in the tail")
-    cd_size, cd_offset = struct.unpack("<II", tail[end + 12:end + 20])
+    cd_size, cd_offset = struct.unpack("<II", tail[end + 12 : end + 20])
     # shortcut: no zip64, a member past 4 GiB stops here;
     # add it when an artifact gets there.
     if cd_offset == 0xFFFFFFFF:
         raise RuntimeError("zip64 archive")
-    cd = (tail[cd_offset - tail_start:] if cd_offset >= tail_start
-          else fetch(cd_offset, cd_offset + cd_size - 1))
+    cd = (
+        tail[cd_offset - tail_start :]
+        if cd_offset >= tail_start
+        else fetch(cd_offset, cd_offset + cd_size - 1)
+    )
     found = []
     pos = 0
-    while cd[pos:pos + 4] == b"PK\x01\x02":
-        method = struct.unpack("<H", cd[pos + 10:pos + 12])[0]
-        packed, plain = struct.unpack("<II", cd[pos + 20:pos + 28])
+    while cd[pos : pos + 4] == b"PK\x01\x02":
+        method = struct.unpack("<H", cd[pos + 10 : pos + 12])[0]
+        packed, plain = struct.unpack("<II", cd[pos + 20 : pos + 28])
         name_len, extra_len, comment_len = struct.unpack(
-            "<HHH", cd[pos + 28:pos + 34])
-        offset = struct.unpack("<I", cd[pos + 42:pos + 46])[0]
-        name = cd[pos + 46:pos + 46 + name_len].decode("utf-8", "replace")
+            "<HHH", cd[pos + 28 : pos + 34]
+        )
+        offset = struct.unpack("<I", cd[pos + 42 : pos + 46])[0]
+        name = cd[pos + 46 : pos + 46 + name_len].decode("utf-8", "replace")
         found.append((name, method, packed, plain, offset))
         pos += 46 + name_len + extra_len + comment_len
     return found
@@ -68,7 +72,7 @@ def self_test():
     raw = buffer.getvalue()
 
     def fetch(start, end):
-        return raw[start:end + 1]
+        return raw[start : end + 1]
 
     found = {m[0]: m for m in members(fetch, len(raw))}
     assert sorted(found) == ["a/b/tests.log", "a/empty.log"]
@@ -83,15 +87,27 @@ def main():
         return
     run, artifact, out = sys.argv[1:4]
     suffixes = tuple(sys.argv[4:])
-    listing = json.loads(subprocess.check_output(
-        ["gh", "api",
-         f"repos/{REPO}/actions/runs/{run}/artifacts?per_page=100"]))
+    listing = json.loads(
+        subprocess.check_output(
+            [
+                "gh",
+                "api",
+                f"repos/{REPO}/actions/runs/{run}/artifacts?per_page=100",
+            ]
+        )
+    )
     chosen = next(a for a in listing["artifacts"] if a["name"] == artifact)
 
     def fetch(start, end):
         return subprocess.check_output(
-            ["gh", "api", "-H", f"Range: bytes={start}-{end}",
-             f"repos/{REPO}/actions/artifacts/{chosen['id']}/zip"])
+            [
+                "gh",
+                "api",
+                "-H",
+                f"Range: bytes={start}-{end}",
+                f"repos/{REPO}/actions/artifacts/{chosen['id']}/zip",
+            ]
+        )
 
     found = members(fetch, chosen["size_in_bytes"])
     os.makedirs(out, exist_ok=True)

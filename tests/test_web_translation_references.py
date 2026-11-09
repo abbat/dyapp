@@ -1,4 +1,5 @@
 """Exercise real-parser translation gates with positive and negative inputs."""
+
 from pathlib import Path
 import subprocess
 import unittest
@@ -10,7 +11,10 @@ class WebTranslationReferences(unittest.TestCase):
     def test_real_parser_and_gate_fixtures(self) -> None:
         result = subprocess.run(
             ["node", str(ROOT / "tools/web-lint/translation-fixtures.mjs")],
-            capture_output=True, text=True, check=False)
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertIn("translation parser fixtures", result.stdout)
 

@@ -13,6 +13,7 @@ fails on a new finding and names listed ones that no longer occur.
 
     check-layout.py <desktop|android> <layout.json>
 """
+
 import json
 from pathlib import Path
 import sys
@@ -32,15 +33,18 @@ def findings(layout):
                 rule = "L2"
             else:
                 continue
-            key = f'{rule} {gap["scope"]} {gap["a"]} | {gap["b"]}'.strip()
-            found.setdefault(key, []).append(f'{shot} ({gap["gap"]} px)')
+            key = f"{rule} {gap['scope']} {gap['a']} | {gap['b']}".strip()
+            found.setdefault(key, []).append(f"{shot} ({gap['gap']} px)")
     return found
 
 
 def errors(found, known):
     """New findings fail; known ones that are gone are reported as stale."""
-    new = [f"{key}: {', '.join(shots[:3])}"
-           for key, shots in found.items() if key not in known]
+    new = [
+        f"{key}: {', '.join(shots[:3])}"
+        for key, shots in found.items()
+        if key not in known
+    ]
     stale = [key for key in known if key not in found]
     return new, stale
 
@@ -52,8 +56,12 @@ def main(platform, path):
     for key in stale:
         print(f"fixed, remove from [layout] {platform}: {key}")
     if new:
-        print("Layout (L2/I1, docs/design/review-criteria.md):",
-              "\n".join(new), sep="\n", file=sys.stderr)
+        print(
+            "Layout (L2/I1, docs/design/review-criteria.md):",
+            "\n".join(new),
+            sep="\n",
+            file=sys.stderr,
+        )
         return 1
     print(f"layout: {len(found)} known findings, no new ones")
     return 0

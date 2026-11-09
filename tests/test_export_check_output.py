@@ -1,4 +1,5 @@
 """Exporter payload and failure controls without Docker or SDK preparation."""
+
 import json
 import os
 from pathlib import Path
@@ -34,31 +35,49 @@ class ExportChecks(unittest.TestCase):
                 " ('bad' if mode == 'run-id' else 'a' * 32)]}}]))\n"
                 "elif args[0] == 'cp':\n"
                 " if os.environ['MODE'] == 'copy': sys.exit(23)\n"
-                " Path(args[-1]).write_text(args[-2])\n")
+                " Path(args[-1]).write_text(args[-2])\n"
+            )
             docker.chmod(0o755)
             calls = root / "calls"
-            env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
-                       CALLS=str(calls),
-                       DYAPP_CHECK_LOG_DIR=str(root / "logs"))
+            env = dict(
+                os.environ,
+                PATH=f"{root}:{os.environ['PATH']}",
+                CALLS=str(calls),
+                DYAPP_CHECK_LOG_DIR=str(root / "logs"),
+            )
 
             def run(script, args, mode="good"):
                 return subprocess.run(
-                    [sys.executable, str(ROOT / "tests/scripts" / script),
-                     *args],
-                    env=dict(env, MODE=mode), capture_output=True, text=True)
+                    [
+                        sys.executable,
+                        str(ROOT / "tests/scripts" / script),
+                        *args,
+                    ],
+                    env=dict(env, MODE=mode),
+                    capture_output=True,
+                    text=True,
+                )
 
             for script, name, args in [
-                ("export-coverage.py", "coverage-export",
-                 [str(root / "coverage")]),
-                ("export-ui-results.py", "ui-export",
-                 ["android", str(root / "android")]),
+                (
+                    "export-coverage.py",
+                    "coverage-export",
+                    [str(root / "coverage")],
+                ),
+                (
+                    "export-ui-results.py",
+                    "ui-export",
+                    ["android", str(root / "android")],
+                ),
             ]:
                 good = run(script, args)
                 self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
                 self.assertEqual(good.stdout, f"OK {name}\n")
-                for mode in ("empty", "copy",
-                             "run-id" if name == "coverage-export"
-                             else "hostname"):
+                for mode in (
+                    "empty",
+                    "copy",
+                    "run-id" if name == "coverage-export" else "hostname",
+                ):
                     bad = run(script, args, mode)
                     self.assertEqual(bad.returncode, 1)
                     self.assertTrue(bad.stdout.startswith(f"FAIL {name}:"))
@@ -70,28 +89,39 @@ class ExportChecks(unittest.TestCase):
                 raw = run(script, ["--raw", *args])
                 self.assertEqual(raw.returncode, 0)
                 self.assertEqual(raw.stdout, "")
-            coverage_source = ("abcdef123456:/workspace/build/coverage."
-                               f'{"a" * 32}/coverage.json')
-            self.assertEqual((root / "coverage/coverage.json").read_text(),
-                             coverage_source)
+            coverage_source = (
+                "abcdef123456:/workspace/build/coverage."
+                f"{'a' * 32}/coverage.json"
+            )
+            self.assertEqual(
+                (root / "coverage/coverage.json").read_text(), coverage_source
+            )
             self.assertEqual(
                 (root / "android/app-debug.apk").read_text(),
                 "abcdef123456:/app/build/android/app/outputs/apk/"
-                "debug/app-debug.apk")
+                "debug/app-debug.apk",
+            )
             self.assertTrue(json.loads(calls.read_text().splitlines()[0]))
 
     def test_model_report_is_data_and_self_check_is_a_check(self):
         with tempfile.TemporaryDirectory() as directory:
+
             def run(*args):
                 return subprocess.run(
-                    [sys.executable,
-                     str(ROOT / "tests/scripts/search-model.py"),
-                     *args], capture_output=True, text=True,
-                    env=dict(os.environ, DYAPP_CHECK_LOG_DIR=directory))
+                    [
+                        sys.executable,
+                        str(ROOT / "tests/scripts/search-model.py"),
+                        *args,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=dict(os.environ, DYAPP_CHECK_LOG_DIR=directory),
+                )
 
             self.assertEqual(run("--self-check").stdout, "OK search-model\n")
-            self.assertEqual(run("--raw", "--self-check").stdout,
-                             "self-check OK\n")
+            self.assertEqual(
+                run("--raw", "--self-check").stdout, "self-check OK\n"
+            )
             report = run()
             self.assertEqual(report.returncode, 0)
             self.assertIn("defaults (no --bench)", report.stdout)

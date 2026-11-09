@@ -19,20 +19,31 @@ class LinuxLintTests(unittest.TestCase):
                 directory.mkdir(parents=True)
                 checker = directory / "python3"
                 checker.write_text(
-                    '#!/bin/sh\n'
+                    "#!/bin/sh\n"
                     '[ "$#" -eq 4 ] && [ "$1" = -B ] && '
                     '[ "$2" = "$EXPECTED_CHECKER" ] && '
                     '[ "$3" = --scope ] && [ "$4" = linux ] || exit 99\n'
-                    f'exit {status}\n')
+                    f"exit {status}\n"
+                )
                 checker.chmod(0o755)
                 cargo = directory / "cargo"
                 cargo.write_text("#!/bin/sh\nexit 98\n")
                 cargo.chmod(0o755)
                 expected = ROOT / "tests/scripts/check-rust-complexity.py"
                 result = subprocess.run(
-                    ["bash", str(ROOT / "tests/scripts/linux-test.sh"),
-                     "--raw", "--lint"],
-                    env=dict(os.environ, EXPECTED_CHECKER=str(expected),
-                             PATH=f"{directory}:{os.environ['PATH']}"),
-                    capture_output=True, text=True, check=False)
+                    [
+                        "bash",
+                        str(ROOT / "tests/scripts/linux-test.sh"),
+                        "--raw",
+                        "--lint",
+                    ],
+                    env=dict(
+                        os.environ,
+                        EXPECTED_CHECKER=str(expected),
+                        PATH=f"{directory}:{os.environ['PATH']}",
+                    ),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
                 self.assertEqual(result.returncode, status, result.stderr)

@@ -28,12 +28,17 @@ class RestoreBootstrap(unittest.TestCase):
         self.storage = self.root / "storage"
         self.storage.mkdir(mode=0o750)
         self.snapshot = self.root / "snapshot"
-        for name, data in {"node.id": b"peer-id", "network": b"network",
-                           "node.key": b"good-key"}.items():
+        for name, data in {
+            "node.id": b"peer-id",
+            "network": b"network",
+            "node.key": b"good-key",
+        }.items():
             (self.storage / name).write_bytes(data)
         for name in ("profiles.db", "messages.db"):
-            with closing(sqlite3.connect(self.storage / name)) as database, \
-                    database:
+            with (
+                closing(sqlite3.connect(self.storage / name)) as database,
+                database,
+            ):
                 database.execute("CREATE TABLE records (id INTEGER)")
                 database.execute("INSERT INTO records VALUES (1)")
         self.dyappd = self.root / "dyappd"
@@ -45,17 +50,28 @@ class RestoreBootstrap(unittest.TestCase):
             "storage = pathlib.Path(args['--storage.dir'])\n"
             "key = pathlib.Path(args['--storage.key']).read_bytes()\n"
             "if key != b'good-key': sys.exit(1)\n"
-            "print((storage / 'node.id').read_text())\n")
+            "print((storage / 'node.id').read_text())\n"
+        )
         self.dyappd.chmod(0o700)
         with PREFLIGHT.stopped(self.storage):
-            PREFLIGHT.preflight(self.storage, self.snapshot, "inline", None,
-                                self.dyappd, 0, scratch=self.root)
+            PREFLIGHT.preflight(
+                self.storage,
+                self.snapshot,
+                "inline",
+                None,
+                self.dyappd,
+                0,
+                scratch=self.root,
+            )
         self.saved = self.live()
 
     def live(self, path=None):
         path = path or self.storage
-        return {p.name: p.read_bytes() for p in path.iterdir()
-                if p.name != "dyappd.lock"}
+        return {
+            p.name: p.read_bytes()
+            for p in path.iterdir()
+            if p.name != "dyappd.lock"
+        }
 
     def migrate(self):
         """What a failed new dyappd leaves behind: a newer, changed store."""
@@ -66,8 +82,14 @@ class RestoreBootstrap(unittest.TestCase):
 
     def run_restore(self, **options):
         with PREFLIGHT.stopped(self.storage):
-            return RESTORE.restore(self.snapshot, self.storage, self.dyappd,
-                                   0, scratch=self.root, **options)
+            return RESTORE.restore(
+                self.snapshot,
+                self.storage,
+                self.dyappd,
+                0,
+                scratch=self.root,
+                **options,
+            )
 
     def test_restores_snapshot_and_keeps_failed_store(self):
         self.migrate()
@@ -78,11 +100,13 @@ class RestoreBootstrap(unittest.TestCase):
         self.assertEqual(self.storage.stat().st_mode & 0o777, 0o750)
         path = self.storage / "profiles.db"
         with closing(sqlite3.connect(path)) as database:
-            self.assertEqual(database.execute(
-                "PRAGMA user_version").fetchone(), (0,))
-        self.assertEqual(sorted(p.name for p in self.root.iterdir()),
-                         sorted(["dyappd", "snapshot", "storage",
-                                 failed.name]))
+            self.assertEqual(
+                database.execute("PRAGMA user_version").fetchone(), (0,)
+            )
+        self.assertEqual(
+            sorted(p.name for p in self.root.iterdir()),
+            sorted(["dyappd", "snapshot", "storage", failed.name]),
+        )
         # The restored directory's lock is free again once restore ends.
         fd = os.open(self.storage / "dyappd.lock", os.O_RDWR)
         self.addCleanup(os.close, fd)
@@ -105,19 +129,32 @@ class RestoreBootstrap(unittest.TestCase):
             "database.execute('INSERT INTO records VALUES (2)')\n"
             "database.commit()\n"
             "database.close()\n"
-            "sys.exit('migrated store rejected')\n")
+            "sys.exit('migrated store rejected')\n"
+        )
         new.chmod(0o700)
         started = subprocess.run(
-            [new, f"--storage.dir={self.storage}"], capture_output=True,
-            check=False)
+            [new, f"--storage.dir={self.storage}"],
+            capture_output=True,
+            check=False,
+        )
         self.assertNotEqual(started.returncode, 0)
         failed_state = self.live()
 
         restored = subprocess.run(
-            [sys.executable, "-B", SCRIPT, self.snapshot, self.storage,
-             f"--dyappd={self.dyappd}", "--id-pow-bits=0",
-             f"--scratch={self.root}"],
-            capture_output=True, text=True, check=False)
+            [
+                sys.executable,
+                "-B",
+                SCRIPT,
+                self.snapshot,
+                self.storage,
+                f"--dyappd={self.dyappd}",
+                "--id-pow-bits=0",
+                f"--scratch={self.root}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertEqual(restored.returncode, 0, restored.stderr)
         failed = Path(restored.stdout.rsplit(" ", 1)[1].strip())
         # Data and identity are the snapshot's; the write after it is lost.
@@ -141,8 +178,10 @@ class RestoreBootstrap(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, pattern):
             self.run_restore(**options)
         self.assertEqual(self.live(), migrated)
-        self.assertEqual(sorted(p.name for p in self.root.iterdir()),
-                         ["dyappd", "snapshot", "storage"])
+        self.assertEqual(
+            sorted(p.name for p in self.root.iterdir()),
+            ["dyappd", "snapshot", "storage"],
+        )
 
     def test_corrupt_snapshot_is_refused_before_live_data_changes(self):
         (self.snapshot / "storage/messages.db").write_bytes(b"corrupt")
@@ -153,8 +192,9 @@ class RestoreBootstrap(unittest.TestCase):
         self.assert_refused_untouched("another node")
 
     def test_insufficient_space_is_refused(self):
-        self.assert_refused_untouched("not enough free space",
-                                      free=lambda path: 0)
+        self.assert_refused_untouched(
+            "not enough free space", free=lambda path: 0
+        )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """Fixture diffs for the pull request review guard."""
+
 import contextlib
 import datetime as dt
 import importlib.util
@@ -19,9 +20,11 @@ NOW = dt.datetime(2026, 10, 23, tzinfo=dt.timezone.utc)
 
 
 def lock(source=SOURCE):
-    return ("version = 4\n\n[[package]]\nname = \"example\"\n"
-            "version = \"1.0.0\"\n"
-            f"source = \"{source}\"\nchecksum = \"{'a' * 64}\"\n")
+    return (
+        'version = 4\n\n[[package]]\nname = "example"\n'
+        'version = "1.0.0"\n'
+        f'source = "{source}"\nchecksum = "{"a" * 64}"\n'
+    )
 
 
 class PullRequestGuardTests(unittest.TestCase):
@@ -38,10 +41,21 @@ class PullRequestGuardTests(unittest.TestCase):
         self.base = self.commit()
 
     def git(self, *args):
-        result = subprocess.run(["git", "-c", "user.name=Test",
-                                 "-c", "user.email=test@example.com",
-                                 "-c", "commit.gpgsign=false", *args],
-                                capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         return result.stdout.strip()
 
     def write(self, path, content="changed\n"):
@@ -77,29 +91,46 @@ class PullRequestGuardTests(unittest.TestCase):
         self.assertIn("Changed paths: 1", output.getvalue())
 
     def test_script_with_code_fails(self):
-        ok, _ = self.check({"tests/scripts/entry.sh": "exit 0\n",
-                            "rust/example.rs": "fn main() {}\n"})
+        ok, _ = self.check(
+            {
+                "tests/scripts/entry.sh": "exit 0\n",
+                "rust/example.rs": "fn main() {}\n",
+            }
+        )
         self.assertFalse(ok)
 
     def test_infra_with_code_fails(self):
-        ok, text = self.check({".github/workflows/ci.yml": "on: push\n",
-                               "rust/example.rs": "fn main() {}\n"})
+        ok, text = self.check(
+            {
+                ".github/workflows/ci.yml": "on: push\n",
+                "rust/example.rs": "fn main() {}\n",
+            }
+        )
         self.assertFalse(ok)
         self.assertIn("separate pull request", text)
 
     def test_deps_with_code_passes(self):
-        ok, _ = self.check({"Cargo.toml": "[workspace]\n",
-                            "rust/example.rs": "fn main() {}\n"})
+        ok, _ = self.check(
+            {
+                "Cargo.toml": "[workspace]\n",
+                "rust/example.rs": "fn main() {}\n",
+            }
+        )
         self.assertTrue(ok)
 
     def test_infra_with_deps_fails(self):
-        ok, _ = self.check({".github/dependabot.yml": "version: 2\n",
-                            "Cargo.toml": "[workspace]\n"})
+        ok, _ = self.check(
+            {
+                ".github/dependabot.yml": "version: 2\n",
+                "Cargo.toml": "[workspace]\n",
+            }
+        )
         self.assertFalse(ok)
 
     def test_git_source_fails(self):
         ok, text = self.check(
-            {"Cargo.lock": lock("git+https://example.com/repo")})
+            {"Cargo.lock": lock("git+https://example.com/repo")}
+        )
         self.assertFalse(ok)
         self.assertIn("non-crates.io source", text)
 
@@ -110,8 +141,12 @@ class PullRequestGuardTests(unittest.TestCase):
         self.assertIn("example 1.0.0", text)
 
     def test_infra_only_passes(self):
-        ok, _ = self.check({".github/workflows/ci.yml": "on: push\n",
-                            "tests/test_pr_guard.py": "fixture\n"})
+        ok, _ = self.check(
+            {
+                ".github/workflows/ci.yml": "on: push\n",
+                "tests/test_pr_guard.py": "fixture\n",
+            }
+        )
         self.assertTrue(ok)
 
     def test_young_version_fails(self):

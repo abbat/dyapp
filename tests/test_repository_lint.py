@@ -1,4 +1,5 @@
 """Tracker-ID and commit-message checks of check-repository.py."""
+
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -8,7 +9,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "check_repository", ROOT / "tests/scripts/check-repository.py")
+    "check_repository", ROOT / "tests/scripts/check-repository.py"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -27,9 +29,14 @@ class Lint(unittest.TestCase):
         self.assertEqual(CHECK.bead_ids(text, ALLOWED), [ID, CHILD])
 
     def test_good_messages(self):
-        for subject in ("Add a check", "ci: Pin the image",
-                        "test(bootstrap): Verify media", "Embed the key",
-                        "Process the queue", "Focus on dyapp-ffi"):
+        for subject in (
+            "Add a check",
+            "ci: Pin the image",
+            "test(bootstrap): Verify media",
+            "Embed the key",
+            "Process the queue",
+            "Focus on dyapp-ffi",
+        ):
             self.assertEqual(self.errors(subject + TRAILER), "", subject)
 
     def test_bad_messages(self):
@@ -46,44 +53,69 @@ class Lint(unittest.TestCase):
             self.assertIn(error, self.errors(subject + TRAILER), subject)
         self.assertIn("no Co-Authored-By trailer", self.errors("Add a check"))
         self.assertEqual(CHECK.message_errors("Bump x", ALLOWED, True), [])
-        self.assertIn("no blank line",
-                      self.errors("Add a check\nbody" + TRAILER))
+        self.assertIn(
+            "no blank line", self.errors("Add a check\nbody" + TRAILER)
+        )
 
     def test_commit_message_cli(self):
         Path("/tmp/ai").mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
             path = Path(directory) / "message"
-            for subject, expected in (("test(bootstrap): verify media", 1),
-                                      ("test(bootstrap): Verify media", 0)):
+            for subject, expected in (
+                ("test(bootstrap): verify media", 1),
+                ("test(bootstrap): Verify media", 0),
+            ):
                 path.write_text(subject + TRAILER)
                 result = subprocess.run(
-                    [sys.executable, "-B",
-                     str(ROOT / "tests/scripts/check-repository.py"),
-                     "--message-file", str(path)],
-                    cwd=ROOT, capture_output=True, text=True)
+                    [
+                        sys.executable,
+                        "-B",
+                        str(ROOT / "tests/scripts/check-repository.py"),
+                        "--message-file",
+                        str(path),
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                )
                 self.assertEqual(result.returncode, expected, result.stderr)
 
     def test_orphans(self):
-        documents = {"docs/README.md": "[a](a/README.md)\n[x](https://x)\n",
-                     "docs/a/README.md": "[b](../b.md#top)\n",
-                     "docs/b.md": "", "docs/c.md": "[b](b.md)\n"}
+        documents = {
+            "docs/README.md": "[a](a/README.md)\n[x](https://x)\n",
+            "docs/a/README.md": "[b](../b.md#top)\n",
+            "docs/b.md": "",
+            "docs/c.md": "[b](b.md)\n",
+        }
         files = list(documents) + ["docs/img.png", "README.md"]
-        self.assertEqual(CHECK.orphans(documents, files),
-                         ["docs/c.md", "docs/img.png"])
+        self.assertEqual(
+            CHECK.orphans(documents, files), ["docs/c.md", "docs/img.png"]
+        )
 
     def test_size_budgets(self):
         size = {"max_lines": 2, "files": {"big.rs": 3, "gone.rs": 5}}
         texts = {"big.rs": "\n" * 3, "a.py": "\n" * 2, "doc.md": "\n" * 9}
-        self.assertEqual(CHECK.size_errors(texts, size),
-                         ["gone.rs: budgeted but not tracked"])
+        self.assertEqual(
+            CHECK.size_errors(texts, size),
+            ["gone.rs: budgeted but not tracked"],
+        )
         texts.update({"big.rs": "\n" * 4, "a.py": "\n" * 3})
-        self.assertEqual(CHECK.size_errors(texts, size), [
-            "a.py: 3 > 2 lines", "big.rs: 4 > 3 lines",
-            "gone.rs: budgeted but not tracked"])
+        self.assertEqual(
+            CHECK.size_errors(texts, size),
+            [
+                "a.py: 3 > 2 lines",
+                "big.rs: 4 > 3 lines",
+                "gone.rs: budgeted but not tracked",
+            ],
+        )
         texts = {"big.rs": "\n", "gone.rs": "\n" * 4}
-        self.assertEqual(CHECK.size_errors(texts, size), [
-            "big.rs: 1 lines, lower its budget (or drop it)",
-            "gone.rs: 4 lines, lower its budget"])
+        self.assertEqual(
+            CHECK.size_errors(texts, size),
+            [
+                "big.rs: 1 lines, lower its budget (or drop it)",
+                "gone.rs: 4 lines, lower its budget",
+            ],
+        )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """Android package checks reject missing or mismatched native payloads."""
+
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -8,7 +9,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "android_release", ROOT / "tools/scripts/check-android-release.py")
+    "android_release", ROOT / "tools/scripts/check-android-release.py"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -16,7 +18,8 @@ SPEC.loader.exec_module(CHECK)
 def fixture(path, kind, missing=None, wrong_machine=False, duplicate=False):
     prefix = "" if kind == "apk" else "base/"
     names = {
-        "AndroidManifest.xml" if kind == "apk"
+        "AndroidManifest.xml"
+        if kind == "apk"
         else "base/manifest/AndroidManifest.xml": b"manifest",
         "classes.dex" if kind == "apk" else "base/dex/classes.dex": b"dex",
     }
@@ -46,8 +49,11 @@ class AndroidPackages(unittest.TestCase):
                     self.assertEqual(report["abis"], ["arm64-v8a", "x86_64"])
                     self.assertGreater(report["bytes"], 0)
                     prefix = "" if kind == "apk" else "base/"
-                    fixture(path, kind, missing=(
-                        f"{prefix}lib/x86_64/libdyapp_ffi.so"))
+                    fixture(
+                        path,
+                        kind,
+                        missing=(f"{prefix}lib/x86_64/libdyapp_ffi.so"),
+                    )
                     with self.assertRaisesRegex(ValueError, "missing"):
                         CHECK.verify(path, kind)
                     fixture(path, kind, wrong_machine=True)

@@ -40,8 +40,10 @@ class Verdict(unittest.TestCase):
             self.assertEqual(WAIT.verdict([run]), "failed", conclusion)
 
     def test_green_jobs_must_share_one_run(self):
-        runs = [[job(MACOS), job(IOS, "failure")],
-                [job(MACOS, "failure"), job(IOS)]]
+        runs = [
+            [job(MACOS), job(IOS, "failure")],
+            [job(MACOS, "failure"), job(IOS)],
+        ]
         self.assertEqual(WAIT.verdict(runs), "failed")
 
 
@@ -56,7 +58,8 @@ class TagRuns(unittest.TestCase):
             return {"jobs": [job(MACOS)]}
 
         self.assertEqual(
-            WAIT.tag_runs("v1.2.3", "a" * 40, fetch), [[job(MACOS)]])
+            WAIT.tag_runs("v1.2.3", "a" * 40, fetch), [[job(MACOS)]]
+        )
         self.assertIn(f"head_sha={'a' * 40}&branch=v1.2.3", asked[0])
         self.assertIn("/runs/7/jobs", asked[1])
 

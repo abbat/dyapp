@@ -7,6 +7,7 @@ ahead. make quality checks the format only, so a clean commit never turns red
 as time passes; `--expiry`, run by the scheduled security workflow, also
 fails on a date that has passed or is less than 14 days away.
 """
+
 from datetime import date, timedelta
 from pathlib import Path
 import re
@@ -27,11 +28,14 @@ def dated(path, entries, today, expiry):
         if day is None:
             errors.append(f"{where}: no review date")
         elif day > today + MAX_AHEAD:
-            errors.append(f"{where}: review date {day} is more than 90 days "
-                          "ahead")
+            errors.append(
+                f"{where}: review date {day} is more than 90 days ahead"
+            )
         elif expiry and day < today + WARN:
-            errors.append(f"{where}: review date {day} is due; review the "
-                          "ignore, then move the date or drop it")
+            errors.append(
+                f"{where}: review date {day} is due; review the "
+                "ignore, then move the date or drop it"
+            )
     return errors
 
 
@@ -48,8 +52,10 @@ def deny_dates(text):
 
 
 def osv_dates(text):
-    return [(row["id"], row.get("ignoreUntil"))
-            for row in tomllib.loads(text).get("IgnoredVulns", [])]
+    return [
+        (row["id"], row.get("ignoreUntil"))
+        for row in tomllib.loads(text).get("IgnoredVulns", [])
+    ]
 
 
 def errors(deny, audit, osvs, today, expiry=False):
@@ -60,23 +66,32 @@ def errors(deny, audit, osvs, today, expiry=False):
         found += dated(path, osv_dates(text), today, expiry)
     ignored = set(tomllib.loads(audit)["advisories"].get("ignore", []))
     if ignored != {vuln for vuln, _ in entries}:
-        found.append(".cargo/audit.toml: ignore differs from deny.toml: "
-                     f"{sorted(ignored ^ {vuln for vuln, _ in entries})}")
+        found.append(
+            ".cargo/audit.toml: ignore differs from deny.toml: "
+            f"{sorted(ignored ^ {vuln for vuln, _ in entries})}"
+        )
     return found
 
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("advisory-ignores")
     names = subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-files", "*osv-scanner.toml"],
-        text=True).split()
-    found = errors((ROOT / "deny.toml").read_text(),
-                   (ROOT / ".cargo/audit.toml").read_text(),
-                   {name: (ROOT / name).read_text() for name in names},
-                   date.today(), "--expiry" in sys.argv[1:])
+        ["git", "-C", str(ROOT), "ls-files", "*osv-scanner.toml"], text=True
+    ).split()
+    found = errors(
+        (ROOT / "deny.toml").read_text(),
+        (ROOT / ".cargo/audit.toml").read_text(),
+        {name: (ROOT / name).read_text() for name in names},
+        date.today(),
+        "--expiry" in sys.argv[1:],
+    )
     if found:
-        found.insert(0, "Advisory ignores (docs/development/code-quality.md"
-                        "#dependency-checks-cargo-deny):")
+        found.insert(
+            0,
+            "Advisory ignores (docs/development/code-quality.md"
+            "#dependency-checks-cargo-deny):",
+        )
         raise ValueError("\n".join(found))
     print(f"{2 + len(names)} files: every advisory ignore has a review date")

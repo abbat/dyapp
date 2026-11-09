@@ -27,7 +27,8 @@ def load_module(name, script):
 
 BUILD = load_module("build_update_feed", "tools/scripts/build-update-feed.py")
 VERIFY = load_module(
-    "verify_release_packages", "tools/scripts/verify-release-packages.py")
+    "verify_release_packages", "tools/scripts/verify-release-packages.py"
+)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -39,7 +40,8 @@ def prior_feed(tag, opener=None):
     if opener is None:
         opener = urllib.request.build_opener(NoRedirect())
     request = urllib.request.Request(
-        FEED_URL, headers={"Accept": "application/json"})
+        FEED_URL, headers={"Accept": "application/json"}
+    )
     try:
         with opener.open(request, timeout=15) as response:
             if response.geturl() != FEED_URL:
@@ -66,8 +68,13 @@ def main():
         return 2
     try:
         result = stage(sys.argv[1])
-    except (OSError, ValueError, TypeError, KeyError,
-            urllib.error.URLError) as error:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        urllib.error.URLError,
+    ) as error:
         print(f"update feed staging rejected: {error}", file=sys.stderr)
         return 1
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))

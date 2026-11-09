@@ -1,4 +1,5 @@
 """Run actual window geometry tests without linking Tauri."""
+
 import json
 from pathlib import Path
 import re
@@ -15,8 +16,9 @@ class WindowGeometryTest(unittest.TestCase):
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)
         source = (ROOT / "clients/desktop/window.rs").read_text()
-        rectangle = re.search(r"pub struct Rect \{.*?^\}", source,
-                              flags=re.DOTALL | re.MULTILINE)
+        rectangle = re.search(
+            r"pub struct Rect \{.*?^\}", source, flags=re.DOTALL | re.MULTILINE
+        )
         self.assertIsNotNone(rectangle)
         module = ROOT / "clients/desktop/window/geometry.rs"
         harness = directory / "harness.rs"
@@ -27,13 +29,30 @@ class WindowGeometryTest(unittest.TestCase):
         harness.write_text(program)
         binary = directory / "geometry-tests"
         compiled = subprocess.run(
-            ["rustc", "--edition", "2021", "--test", "-D", "warnings",
-             str(harness), "-o", str(binary)],
-            capture_output=True, text=True, check=False)
-        self.assertEqual(compiled.returncode, 0,
-                         compiled.stdout + compiled.stderr)
-        result = subprocess.run([str(binary), "--quiet"],
-                                capture_output=True, text=True, check=False)
+            [
+                "rustc",
+                "--edition",
+                "2021",
+                "--test",
+                "-D",
+                "warnings",
+                str(harness),
+                "-o",
+                str(binary),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            compiled.returncode, 0, compiled.stdout + compiled.stderr
+        )
+        result = subprocess.run(
+            [str(binary), "--quiet"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 

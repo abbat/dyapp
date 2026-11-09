@@ -4,6 +4,7 @@ The ZIP holds dyapp.exe and LICENSE in one folder.
 
 Usage: package-windows-zip.py EXE OUT_DIR. Prints the ZIP path and its SHA-256.
 """
+
 import hashlib
 from pathlib import Path
 import re

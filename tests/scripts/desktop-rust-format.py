@@ -1,4 +1,5 @@
 """Format shared desktop Rust that Cargo fmt cannot reach through include!."""
+
 import argparse
 from pathlib import Path
 import subprocess
@@ -16,8 +17,9 @@ def main():
     command = ["rustfmt", "--edition", "2021"]
     if args.mode == "check":
         command.append("--check")
-    return subprocess.run([*command, *map(str, sources)], cwd=ROOT,
-                          check=False).returncode
+    return subprocess.run(
+        [*command, *map(str, sources)], cwd=ROOT, check=False
+    ).returncode
 
 
 if __name__ == "__main__":

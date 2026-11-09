@@ -1,4 +1,5 @@
 """Quiet check output preserves failures and full raw evidence."""
+
 from pathlib import Path
 import signal
 import subprocess
@@ -12,14 +13,29 @@ ROOT = Path(__file__).resolve().parents[1]
 class CheckOutput(unittest.TestCase):
     def run_check(self, directory, name, command):
         return subprocess.run(
-            [sys.executable, "-B", str(ROOT / "tools/scripts/run-check.py"),
-             "--log-dir", str(directory), name, "--", *command],
-            cwd=ROOT, text=True, capture_output=True, check=False)
+            [
+                sys.executable,
+                "-B",
+                str(ROOT / "tools/scripts/run-check.py"),
+                "--log-dir",
+                str(directory),
+                name,
+                "--",
+                *command,
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
 
     def test_noisy_success_is_one_ok_line(self):
         with tempfile.TemporaryDirectory() as directory:
-            result = self.run_check(directory, "flake8", [
-                sys.executable, "-c", "print('passing progress')"])
+            result = self.run_check(
+                directory,
+                "flake8",
+                [sys.executable, "-c", "print('passing progress')"],
+            )
             self.assertEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "OK flake8\n")
             self.assertEqual(result.stderr, "")
@@ -32,9 +48,12 @@ class CheckOutput(unittest.TestCase):
             bad = root / "bad.py"
             bad.write_text("bad =\n")
             commands = {
-                "junit": [sys.executable, str(
-                    ROOT / "tests/scripts/check-junit-results.py"),
-                    "--raw", str(root)],
+                "junit": [
+                    sys.executable,
+                    str(ROOT / "tests/scripts/check-junit-results.py"),
+                    "--raw",
+                    str(root),
+                ],
                 "flake8": [sys.executable, "-m", "flake8", str(bad)],
             }
             for name, command in commands.items():
@@ -55,18 +74,24 @@ class CheckOutput(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             payload = '{"errors":["broken fixture"],"passing":100}'
             command = f"print({payload!r}); exit(4)"
-            result = self.run_check(directory, "json-check", [
-                sys.executable, "-c", command])
+            result = self.run_check(
+                directory, "json-check", [sys.executable, "-c", command]
+            )
             self.assertEqual(result.returncode, 4)
             self.assertIn("broken fixture", result.stdout)
             self.assertNotIn("passing", result.stdout)
 
     def test_multiline_cargo_json_omits_passing_progress(self):
         with tempfile.TemporaryDirectory() as directory:
-            payload = ('{"errors":["Checking fixture\\n'
-                       'error[E0308]: mismatch\\n --> src/main.rs:1:1"]}')
-            result = self.run_check(directory, "panics", [
-                sys.executable, "-c", f"print({payload!r}); exit(1)"])
+            payload = (
+                '{"errors":["Checking fixture\\n'
+                'error[E0308]: mismatch\\n --> src/main.rs:1:1"]}'
+            )
+            result = self.run_check(
+                directory,
+                "panics",
+                [sys.executable, "-c", f"print({payload!r}); exit(1)"],
+            )
             self.assertEqual(result.returncode, 1)
             self.assertIn("E0308", result.stdout)
             self.assertIn("src/main.rs:1:1", result.stdout)
@@ -78,22 +103,35 @@ class CheckOutput(unittest.TestCase):
             workflow = root / "fixture.yml"
             workflow.write_text(
                 "on: push\njobs:\n  bad:\n    runs-on: ubuntu-latest\n"
-                "    steps:\n      - run: echo ${{ unknown.value }}\n")
+                "    steps:\n      - run: echo ${{ unknown.value }}\n"
+            )
             shell = root / "fixture.sh"
             shell.write_text("#!/bin/sh\necho $missing_var\n")
             crate = root / "crate"
             (crate / "src").mkdir(parents=True)
             (crate / "Cargo.toml").write_text(
                 '[package]\nname="output-fixture"\nversion="0.0.0"\n'
-                'edition="2021"\n')
+                'edition="2021"\n'
+            )
             (crate / "src/main.rs").write_text(
-                'fn main() { let _value: u8 = "wrong"; }\n')
+                'fn main() { let _value: u8 = "wrong"; }\n'
+            )
             cases = [
                 ("actionlint", ["actionlint", str(workflow)], "unknown"),
                 ("shellcheck", ["shellcheck", str(shell)], "SC2086"),
-                ("cargo", ["cargo", "clippy", "--offline", "--target-dir",
-                           str(root / "target"), "--manifest-path",
-                           str(crate / "Cargo.toml")], "E0308"),
+                (
+                    "cargo",
+                    [
+                        "cargo",
+                        "clippy",
+                        "--offline",
+                        "--target-dir",
+                        str(root / "target"),
+                        "--manifest-path",
+                        str(crate / "Cargo.toml"),
+                    ],
+                    "E0308",
+                ),
             ]
             for name, command, diagnostic in cases:
                 with self.subTest(name=name):
@@ -104,24 +142,37 @@ class CheckOutput(unittest.TestCase):
 
     def test_large_unknown_failure_retains_raw_output(self):
         with tempfile.TemporaryDirectory() as directory:
-            result = self.run_check(directory, "flake8", [
-                sys.executable, "-c",
-                "print('P' * 400000); print('unknown cause'); exit(7)"])
+            result = self.run_check(
+                directory,
+                "flake8",
+                [
+                    sys.executable,
+                    "-c",
+                    "print('P' * 400000); print('unknown cause'); exit(7)",
+                ],
+            )
             self.assertEqual(result.returncode, 7)
             self.assertNotIn("P" * 100, result.stdout)
-            log, = Path(directory).glob("*.log")
+            (log,) = Path(directory).glob("*.log")
             self.assertIn("P" * 400000, log.read_text())
             self.assertIn("unknown cause", log.read_text())
             self.assertIn(str(log), result.stdout)
 
     def test_missing_command_and_signal_remain_failures(self):
         with tempfile.TemporaryDirectory() as directory:
-            missing = self.run_check(directory, "flake8",
-                                     ["missing-check-fixture-command"])
+            missing = self.run_check(
+                directory, "flake8", ["missing-check-fixture-command"]
+            )
             self.assertEqual(missing.returncode, 127)
-            stopped = self.run_check(directory, "flake8", [
-                sys.executable, "-c",
-                "import os,signal; os.kill(os.getpid(), signal.SIGTERM)"])
+            stopped = self.run_check(
+                directory,
+                "flake8",
+                [
+                    sys.executable,
+                    "-c",
+                    "import os,signal; os.kill(os.getpid(), signal.SIGTERM)",
+                ],
+            )
             self.assertEqual(stopped.returncode, 128 + signal.SIGTERM)
             self.assertIn("signal 15", stopped.stdout)
 

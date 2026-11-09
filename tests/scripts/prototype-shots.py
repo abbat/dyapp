@@ -10,6 +10,7 @@ dark theme as <screen>-dark-... It also measures the gaps between visible
 neighbouring blocks and writes them to /shots/layout.json for
 check-layout.py.
 """
+
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -152,55 +153,144 @@ MEASURE = """JSON.stringify((() => {
 })())"""
 
 DESKTOP = [
-    "wizard-identity", "wizard-network", "picker", "recovery",
-    "profile", "profile-hidden", "profile-dark",
-    "publish-dialog", "photo-remove-dialog", "publish-progress",
-    "network", "network-checking", "network-error",
-    "search", "search-loading", "search-empty", "search-error",
-    "profile-view", "profile-view-safety", "verify-dialog",
-    "profile-view-verified", "profile-view-match", "unlike-dialog",
-    "chats", "chat", "chat-draft", "chat-closed", "chat-first", "chat-request",
+    "wizard-identity",
+    "wizard-network",
+    "picker",
+    "recovery",
+    "profile",
+    "profile-hidden",
+    "profile-dark",
+    "publish-dialog",
+    "photo-remove-dialog",
+    "publish-progress",
+    "network",
+    "network-checking",
+    "network-error",
+    "search",
+    "search-loading",
+    "search-empty",
+    "search-error",
+    "profile-view",
+    "profile-view-safety",
+    "verify-dialog",
+    "profile-view-verified",
+    "profile-view-match",
+    "unlike-dialog",
+    "chats",
+    "chat",
+    "chat-draft",
+    "chat-closed",
+    "chat-first",
+    "chat-request",
     "chat-new-device",
-    "chat-menu", "chat-rename-dialog", "chat-clear-dialog", "chat-cleared",
+    "chat-menu",
+    "chat-rename-dialog",
+    "chat-clear-dialog",
+    "chat-cleared",
     "delete-dialog",
-    "settings", "settings-appearance", "settings-privacy",
+    "settings",
+    "settings-appearance",
+    "settings-privacy",
     "settings-notifications",
-    "settings-photos", "settings-node", "settings-account", "settings-about",
-    "settings-identities-screen", "settings-devices", "settings-blocked",
+    "settings-photos",
+    "settings-node",
+    "settings-account",
+    "settings-about",
+    "settings-identities-screen",
+    "settings-devices",
+    "settings-blocked",
     "settings-passed",
-    "sticker-picker-empty", "sticker-picker-ready", "sticker-picker-recent",
-    "sticker-picker-loading", "sticker-picker-error", "sticker-picker-sending",
-    "chat-sticker-image", "chat-sticker-fallback", "chat-sticker-pending",
-    "chat-sticker-downloading", "chat-sticker-failed",
-    "chat-sticker-quota", "chat-sticker-saved",
-    "chat-sticker-checking", "chat-sticker-fetch", "chat-sticker-storage",
-    "chat-sticker-storage-idle", "chat-sticker-missing",
-    "chat-sticker-read-error", "chat-sticker-request-error",
-    "stickers-empty", "stickers-ready", "stickers-loading",
-    "stickers-error", "stickers-importing", "stickers-quota",
-    "stickers-remove-dialog", "stickers-remove-unreadable",
+    "sticker-picker-empty",
+    "sticker-picker-ready",
+    "sticker-picker-recent",
+    "sticker-picker-loading",
+    "sticker-picker-error",
+    "sticker-picker-sending",
+    "chat-sticker-image",
+    "chat-sticker-fallback",
+    "chat-sticker-pending",
+    "chat-sticker-downloading",
+    "chat-sticker-failed",
+    "chat-sticker-quota",
+    "chat-sticker-saved",
+    "chat-sticker-checking",
+    "chat-sticker-fetch",
+    "chat-sticker-storage",
+    "chat-sticker-storage-idle",
+    "chat-sticker-missing",
+    "chat-sticker-read-error",
+    "chat-sticker-request-error",
+    "stickers-empty",
+    "stickers-ready",
+    "stickers-loading",
+    "stickers-error",
+    "stickers-importing",
+    "stickers-quota",
+    "stickers-remove-dialog",
+    "stickers-remove-unreadable",
     "stickers-removing",
-    "stickers-removed", "stickers-remove-error",
-    "switcher", "menu", "remove-dialog", "remove-offline",
-    "revoked-dialog", "wizard-network-link", "link-show", "link-offline",
-    "link-expired", "link-finishing", "link-done", "link-done-pending",
-    "chat-linked", "devices-sent", "device-code-dialog", "device-code-error",
+    "stickers-removed",
+    "stickers-remove-error",
+    "switcher",
+    "menu",
+    "remove-dialog",
+    "remove-offline",
+    "revoked-dialog",
+    "wizard-network-link",
+    "link-show",
+    "link-offline",
+    "link-expired",
+    "link-finishing",
+    "link-done",
+    "link-done-pending",
+    "chat-linked",
+    "devices-sent",
+    "device-code-dialog",
+    "device-code-error",
     "device-code-bad",
-    "device-confirm-dialog", "disconnect-dialog", "disconnect-offline",
+    "device-confirm-dialog",
+    "disconnect-dialog",
+    "disconnect-offline",
 ]
 ANDROID = [
-    "lock-setup", "lock-unlock",
-    "wizard-identity", "wizard-network", "picker", "recovery",
-    "profile", "profile-hidden", "publish-dialog", "publish-progress",
-    "network", "network-checking", "network-error",
-    "search", "search-loading", "search-empty", "search-error",
-    "profile-view", "profile-view-match", "unlike-dialog",
-    "chats", "chat", "chat-closed", "chat-first", "chat-request",
-    "chat-menu", "chat-clear-dialog", "chat-cleared", "delete-dialog",
-    "settings", "lock-settings", "switcher", "remove-dialog", "remove-offline",
+    "lock-setup",
+    "lock-unlock",
+    "wizard-identity",
+    "wizard-network",
+    "picker",
+    "recovery",
+    "profile",
+    "profile-hidden",
+    "publish-dialog",
+    "publish-progress",
+    "network",
+    "network-checking",
+    "network-error",
+    "search",
+    "search-loading",
+    "search-empty",
+    "search-error",
+    "profile-view",
+    "profile-view-match",
+    "unlike-dialog",
+    "chats",
+    "chat",
+    "chat-closed",
+    "chat-first",
+    "chat-request",
+    "chat-menu",
+    "chat-clear-dialog",
+    "chat-cleared",
+    "delete-dialog",
+    "settings",
+    "lock-settings",
+    "switcher",
+    "remove-dialog",
+    "remove-offline",
 ]
 # Await actual font/layout readiness; the timer is a failure deadline.
-READY_MEASURE = """
+READY_MEASURE = (
+    """
 let timer;
 try {
   await Promise.race([
@@ -211,17 +301,22 @@ try {
                          30000);
     })
   ]);
-  return """ + MEASURE + """;
+  return """
+    + MEASURE
+    + """;
 } finally { clearTimeout(timer); }
 """
+)
 
 PLATFORM = sys.argv[1] if len(sys.argv) > 1 else "desktop"
 ALL_SCREENS = {"desktop": DESKTOP, "android": ANDROID}[PLATFORM]
 requested = sys.argv[2:]
 if len(requested) != len(set(requested)) or any(
-        s not in ALL_SCREENS for s in requested):
-    raise SystemExit("screen names must be unique and available "
-                     "on this platform")
+    s not in ALL_SCREENS for s in requested
+):
+    raise SystemExit(
+        "screen names must be unique and available on this platform"
+    )
 SCREENS = requested or ALL_SCREENS
 # Phone widths for Android: a small and a common one.
 WIDTHS = [360, 412] if PLATFORM == "android" else [440, 1280]
@@ -230,14 +325,20 @@ LANGS = ["en", "ru"]
 HEIGHT = 800
 SOURCE, OUT = f"/{PLATFORM}/prototype/index.html", "/shots"
 
-jobs = [(s, lang, w, theme) for theme in THEMES for w in WIDTHS
-        for lang in LANGS for s in SCREENS]
+jobs = [
+    (s, lang, w, theme)
+    for theme in THEMES
+    for w in WIDTHS
+    for lang in LANGS
+    for s in SCREENS
+]
 total = len(jobs)
 failed = []
 layout = {}
 # A loopback origin lets the shared identifier ES module load normally.
 server = ThreadingHTTPServer(
-    ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="/assets"))
+    ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="/assets")
+)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 origin = f"http://127.0.0.1:{server.server_port}"
 window = Gtk.OffscreenWindow()
@@ -255,8 +356,9 @@ def next_job():
     view.set_size_request(width, HEIGHT)
     # A changed hash alone is a same-page jump with no load event,
     # so the query differs too.
-    view.load_uri(f"{origin}{SOURCE}?lang={lang}&theme={theme}"
-                  f"&shot={len(jobs)}#{screen}")
+    view.load_uri(
+        f"{origin}{SOURCE}?lang={lang}&theme={theme}&shot={len(jobs)}#{screen}"
+    )
 
 
 def shot_name():
@@ -266,14 +368,19 @@ def shot_name():
 
 
 def snapshot():
-    view.get_snapshot(WebKit2.SnapshotRegion.FULL_DOCUMENT,
-                      WebKit2.SnapshotOptions.NONE, None, saved)
+    view.get_snapshot(
+        WebKit2.SnapshotRegion.FULL_DOCUMENT,
+        WebKit2.SnapshotOptions.NONE,
+        None,
+        saved,
+    )
 
 
 def measured(_view, result):
     try:
         layout[shot_name()] = json.loads(
-            view.call_async_javascript_function_finish(result).to_string())
+            view.call_async_javascript_function_finish(result).to_string()
+        )
     except GLib.Error as error:
         failed.append(f"{shot_name()} layout: {error.message}")
     snapshot()
@@ -292,7 +399,8 @@ def saved(_view, result):
 def loaded(_view, event):
     if event == WebKit2.LoadEvent.FINISHED:
         view.call_async_javascript_function(
-            READY_MEASURE, -1, None, None, None, None, measured)
+            READY_MEASURE, -1, None, None, None, None, measured
+        )
 
 
 def load_failed(_view, _event, uri, error):

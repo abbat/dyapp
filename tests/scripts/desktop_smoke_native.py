@@ -154,7 +154,7 @@ def signed_profile_payload(record_hex):
         size, offset = read_varint(data, offset)
         if tag not in (10, 18, 26) or offset + size > len(data):
             raise RuntimeError("invalid signed profile fields")
-        fields[tag >> 3] = data[offset:offset + size]
+        fields[tag >> 3] = data[offset : offset + size]
         offset += size
     if set(fields) != {1, 2, 3}:
         raise RuntimeError("incomplete signed profile")

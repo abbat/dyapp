@@ -9,12 +9,14 @@ import unittest
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/verify-release-packages.py"
 SPEC = importlib.util.spec_from_file_location(
-    "verify_release_packages", SCRIPT)
+    "verify_release_packages", SCRIPT
+)
 VERIFY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VERIFY)
 BUILD_SCRIPT = Path(__file__).parents[1] / "tools/scripts/build-update-feed.py"
 BUILD_SPEC = importlib.util.spec_from_file_location(
-    "build_update_feed", BUILD_SCRIPT)
+    "build_update_feed", BUILD_SCRIPT
+)
 BUILD = importlib.util.module_from_spec(BUILD_SPEC)
 BUILD_SPEC.loader.exec_module(BUILD)
 TAG = "v0.0.1"
@@ -24,15 +26,22 @@ BYTES = b"tested Linux package"
 DIGEST = hashlib.sha256(BYTES).hexdigest()
 
 
-def fake_runner(payload=BYTES, attestation=None, head=COMMIT,
-                state="uploaded"):
+def fake_runner(
+    payload=BYTES, attestation=None, head=COMMIT, state="uploaded"
+):
     release = {
-        "tag_name": TAG, "draft": False, "prerelease": False,
+        "tag_name": TAG,
+        "draft": False,
+        "prerelease": False,
         "published_at": "2026-10-23T00:00:00Z",
-        "assets": [{
-            "name": NAME, "digest": "sha256:" + DIGEST,
-            "state": state, "size": len(BYTES),
-        }],
+        "assets": [
+            {
+                "name": NAME,
+                "digest": "sha256:" + DIGEST,
+                "state": state,
+                "size": len(BYTES),
+            }
+        ],
     }
     if attestation is None:
         attestation = [{"verificationResult": {"statement": {}}}]
@@ -63,18 +72,23 @@ class VerifyReleasePackages(unittest.TestCase):
         self.assertEqual(item["targets"]["linux-x86_64"]["asset"], NAME)
         self.assertEqual(item["assets"][0]["sha256"], DIGEST)
         self.assertEqual(item["attestations"][0]["sha256"], DIGEST)
-        self.assertEqual(BUILD.build(result)["targets"]["linux-x86_64"]["tag"],
-                         TAG)
-        verification = next(args for args in calls
-                            if args[:3] == ["gh", "attestation", "verify"])
+        self.assertEqual(
+            BUILD.build(result)["targets"]["linux-x86_64"]["tag"], TAG
+        )
+        verification = next(
+            args
+            for args in calls
+            if args[:3] == ["gh", "attestation", "verify"]
+        )
         for option, expected in (
             ("--repo", "abbat/dyapp"),
             ("--signer-workflow", VERIFY.SIGNER),
             ("--source-ref", "refs/tags/" + TAG),
             ("--source-digest", COMMIT),
         ):
-            self.assertEqual(verification[verification.index(option) + 1],
-                             expected)
+            self.assertEqual(
+                verification[verification.index(option) + 1], expected
+            )
         self.assertIn("--deny-self-hosted-runners", verification)
 
     def test_wrong_bytes_and_empty_attestation_fail(self):

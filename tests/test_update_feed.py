@@ -16,8 +16,13 @@ DIGEST = "b" * 64
 
 def release(tag="v0.0.1", targets=None):
     return {
-        "tag": tag, "commit": COMMIT, "draft": False, "prerelease": False,
-        "assets": [], "attestations": [], "source_builds": [],
+        "tag": tag,
+        "commit": COMMIT,
+        "draft": False,
+        "prerelease": False,
+        "assets": [],
+        "attestations": [],
+        "source_builds": [],
         "targets": targets or {},
     }
 
@@ -65,7 +70,11 @@ class UpdateFeed(unittest.TestCase):
 
     def test_package_requires_exact_uploaded_attested_asset(self):
         changes = (
-            "missing", "failed", "unattested", "wrong-digest", "wrong-name",
+            "missing",
+            "failed",
+            "unattested",
+            "wrong-digest",
+            "wrong-name",
         )
         for change in changes:
             item = package("windows-x86_64")
@@ -99,15 +108,20 @@ class UpdateFeed(unittest.TestCase):
         prior = FEED.build(inventory(package("windows-x86_64", "v0.0.2")))
         with self.assertRaisesRegex(ValueError, "rollback"):
             FEED.build(inventory(package("windows-x86_64", "v0.0.1")), prior)
-        store_prior = previous(**{
-            "windows-x86_64": {
-                "version": "0.0.2", "tag": "v0.0.2", "method": "store"
+        store_prior = previous(
+            **{
+                "windows-x86_64": {
+                    "version": "0.0.2",
+                    "tag": "v0.0.2",
+                    "method": "store",
+                }
             }
-        })
+        )
         message = "changed without version bump"
         with self.assertRaisesRegex(ValueError, message):
-            FEED.build(inventory(package("windows-x86_64", "v0.0.2")),
-                       store_prior)
+            FEED.build(
+                inventory(package("windows-x86_64", "v0.0.2")), store_prior
+            )
 
     def test_bad_versions_methods_and_prior_are_rejected(self):
         for tag in ("v01.0.0", "v0.0.1-rc1", "v2147483648.0.0", "0.0.1"):
@@ -119,8 +133,9 @@ class UpdateFeed(unittest.TestCase):
         with self.assertRaises(ValueError):
             FEED.build(inventory(), {})
         with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
-            json.loads('{"schema":1,"schema":1}',
-                       object_pairs_hook=FEED.unique_object)
+            json.loads(
+                '{"schema":1,"schema":1}', object_pairs_hook=FEED.unique_object
+            )
 
 
 if __name__ == "__main__":

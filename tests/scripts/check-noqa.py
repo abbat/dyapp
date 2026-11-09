@@ -1,6 +1,7 @@
 """Fail on a Python `# noqa` without codes and a reason, or one flake8 no
 longer needs: flake8 has no unused-noqa check, so rerun it with
 `--disable-noqa` and require every suppressed code on its line."""
+
 import io
 from pathlib import Path
 import re
@@ -19,7 +20,8 @@ def suppressions(text):
     malformed. Strings that mention noqa are not comments."""
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
         if token.type == tokenize.COMMENT and (
-                match := NOQA.search(token.string)):
+            match := NOQA.search(token.string)
+        ):
             form = FORM.match(match.group(1))
             yield token.start[0], form.group(1).split(",") if form else None
 
@@ -30,8 +32,7 @@ def errors(sources, reported):
     for path, text in sorted(sources.items()):
         for line, codes in suppressions(text):
             if codes is None:
-                result.append(
-                    f"{path}:{line}: write `# noqa: CODE -- reason`")
+                result.append(f"{path}:{line}: write `# noqa: CODE -- reason`")
                 continue
             for code in codes:
                 if (path, line, code) not in reported:
@@ -42,12 +43,26 @@ def errors(sources, reported):
 def flake8(paths):
     """Findings flake8 reports with every noqa ignored."""
     run = subprocess.run(
-        [sys.executable, "-m", "flake8", "--disable-noqa", "--exit-zero",
-         *paths], cwd=ROOT, capture_output=True, text=True, check=False)
+        [
+            sys.executable,
+            "-m",
+            "flake8",
+            "--disable-noqa",
+            "--exit-zero",
+            *paths,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if run.returncode:
         raise SystemExit(run.stderr or "flake8 failed")
-    return {(m[1], int(m[2]), m[3]) for line in run.stdout.splitlines()
-            if (m := REPORT.match(line))}
+    return {
+        (m[1], int(m[2]), m[3])
+        for line in run.stdout.splitlines()
+        if (m := REPORT.match(line))
+    }
 
 
 def main(dirs):

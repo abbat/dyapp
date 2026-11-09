@@ -12,6 +12,7 @@ DIR holds cities15000.zip, admin1CodesASCII.txt and alternateNamesV2.zip from
 https://download.geonames.org/export/dump/; download them into an empty
 directory first.
 """
+
 import io
 import sys
 import zipfile
@@ -45,7 +46,7 @@ def server_ids():
 
     at = 0
     while at < len(data):
-        country = data[at:at + 2].decode()
+        country = data[at : at + 2].decode()
         length, at = leb128(at + 2)
         end, gid = at + length, 0
         while at < end:
@@ -86,32 +87,41 @@ def main():
         size = int(c[14] or 0).bit_length()
         places.append((c[8], key[1], size, c[1], region))
     used = {f"{p[0]}.{p[4]}" for p in places if p[4]}
-    ru = russian(src / "alternateNamesV2.zip",
-                 {p[1] for p in places} | {regions[r][1] for r in used})
+    ru = russian(
+        src / "alternateNamesV2.zip",
+        {p[1] for p in places} | {regions[r][1] for r in used},
+    )
 
     def other(name, gid):
         return "" if ru.get(gid, name) == name else ru[gid]
 
     text = "".join(
         f"{code}\t{name}\t{other(name, gid)}\n"
-        for code, (name, gid) in sorted(regions.items()) if code in used)
+        for code, (name, gid) in sorted(regions.items())
+        if code in used
+    )
     text += "\n"
     last = (None, 0)
     for country, gid, size, name, region in sorted(places):
         delta = gid - last[1] if country == last[0] else gid
         last = (country, gid)
-        text += (f"{country}\t{delta}\t{size}\t{region}\t{name}"
-                 f"\t{other(name, gid)}\n")
-    if any(ch in field for p in places for field in (p[3], p[4])
-           for ch in "\t\n"):
+        text += (
+            f"{country}\t{delta}\t{size}\t{region}\t{name}"
+            f"\t{other(name, gid)}\n"
+        )
+    if any(
+        ch in field for p in places for field in (p[3], p[4]) for ch in "\t\n"
+    ):
         raise SystemExit("a name holds a tab or newline")
     data = zlib.compress(text.encode(), 9)
     out = sys.argv[2] if len(sys.argv) > 2 else OUT
     with open(out, "wb") as f:
         f.write(data)
-    print(f"{len(places)} places ({unknown} not in places.bin skipped), "
-          f"{len(ru)} Russian names, "
-          f"{len(data)} bytes -> {out}")
+    print(
+        f"{len(places)} places ({unknown} not in places.bin skipped), "
+        f"{len(ru)} Russian names, "
+        f"{len(data)} bytes -> {out}"
+    )
 
 
 if __name__ == "__main__":

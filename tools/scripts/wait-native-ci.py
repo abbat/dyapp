@@ -33,16 +33,24 @@ def verdict(runs):
 
 
 def api(path):
-    return json.loads(subprocess.run(
-        ["gh", "api", path], check=True, capture_output=True, timeout=60
-    ).stdout)
+    return json.loads(
+        subprocess.run(
+            ["gh", "api", path], check=True, capture_output=True, timeout=60
+        ).stdout
+    )
 
 
 def tag_runs(tag, commit, fetch=api):
-    listed = fetch(f"repos/{REPO}/actions/workflows/ci.yml/runs"
-                   f"?event=push&head_sha={commit}&branch={tag}")
-    return [fetch(f"repos/{REPO}/actions/runs/{run['id']}/jobs?per_page=100")
-            ["jobs"] for run in listed["workflow_runs"]]
+    listed = fetch(
+        f"repos/{REPO}/actions/workflows/ci.yml/runs"
+        f"?event=push&head_sha={commit}&branch={tag}"
+    )
+    return [
+        fetch(f"repos/{REPO}/actions/runs/{run['id']}/jobs?per_page=100")[
+            "jobs"
+        ]
+        for run in listed["workflow_runs"]
+    ]
 
 
 def main():
@@ -52,8 +60,13 @@ def main():
     while True:
         try:
             result = verdict(tag_runs(sys.argv[1], sys.argv[2]))
-        except (OSError, ValueError, KeyError, TypeError,
-                subprocess.SubprocessError) as error:
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            subprocess.SubprocessError,
+        ) as error:
             # A passing gate must not be lost to one failed request.
             print(f"retrying after: {error}", flush=True)
             result = "waiting"

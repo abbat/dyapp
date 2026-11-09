@@ -33,12 +33,17 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.source = root / "source"
         self.source.mkdir()
         self.snapshot = root / "snapshot"
-        for name, data in {"node.id": b"peer-id", "network": b"network",
-                           "node.key": b"good-key"}.items():
+        for name, data in {
+            "node.id": b"peer-id",
+            "network": b"network",
+            "node.key": b"good-key",
+        }.items():
             (self.source / name).write_bytes(data)
         for name in ("profiles.db", "messages.db"):
-            with closing(sqlite3.connect(self.source / name)) as database, \
-                    database:
+            with (
+                closing(sqlite3.connect(self.source / name)) as database,
+                database,
+            ):
                 database.execute("CREATE TABLE records (id INTEGER)")
         self.dyappd = root / "dyappd"
         self.dyappd.write_text(
@@ -51,7 +56,8 @@ class ProbeBootstrapBackup(unittest.TestCase):
             "assert args['--network.id-pow-bits'] == '0'\n"
             "key = pathlib.Path(args['--storage.key']).read_bytes()\n"
             "if key != b'good-key': sys.exit(1)\n"
-            "print((storage / 'node.id').read_text())\n")
+            "print((storage / 'node.id').read_text())\n"
+        )
         self.dyappd.chmod(0o700)
         self.age = root / "age"
         self.age.write_text(
@@ -61,7 +67,8 @@ class ProbeBootstrapBackup(unittest.TestCase):
             "encrypted = pathlib.Path(sys.argv[4]).read_bytes()\n"
             "if identity != b'age-secret' or encrypted != b'ciphertext': "
             "sys.exit(1)\n"
-            "sys.stdout.buffer.write(b'good-key')\n")
+            "sys.stdout.buffer.write(b'good-key')\n"
+        )
         self.age.chmod(0o700)
         self.age_identity = root / "age-identity"
         self.age_identity.write_bytes(b"age-secret")
@@ -73,12 +80,18 @@ class ProbeBootstrapBackup(unittest.TestCase):
             (self.source / "node.key").unlink()
             recovery = self.source.parent / "portable-key"
             recovery.write_bytes(
-                b"ciphertext" if mode == "age" else b"good-key")
+                b"ciphertext" if mode == "age" else b"good-key"
+            )
         BACKUP.snapshot(self.source, self.snapshot, mode, recovery)
 
     def probe(self, **options):
-        return PROBE.probe(self.snapshot, self.dyappd, 0,
-                           scratch=Path(self.temp.name), **options)
+        return PROBE.probe(
+            self.snapshot,
+            self.dyappd,
+            0,
+            scratch=Path(self.temp.name),
+            **options,
+        )
 
     def test_inline_and_external_use_snapshot_key(self):
         for mode in ("inline", "external"):
@@ -96,8 +109,10 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.create("age")
         with self.assertRaisesRegex(ValueError, "age identity and binary"):
             self.probe()
-        self.assertEqual(self.probe(age_identity=self.age_identity,
-                                    age_binary=self.age), "peer-id")
+        self.assertEqual(
+            self.probe(age_identity=self.age_identity, age_binary=self.age),
+            "peer-id",
+        )
         self.age_identity.write_bytes(b"wrong")
         with self.assertRaisesRegex(ValueError, "age decryption failed"):
             self.probe(age_identity=self.age_identity, age_binary=self.age)
@@ -109,20 +124,35 @@ class ProbeBootstrapBackup(unittest.TestCase):
         root = self.source.parent
         identity, wrong = root / "real-identity", root / "wrong-identity"
         for path in (identity, wrong):
-            subprocess.run(["age-keygen", "-o", str(path)], check=True,
-                           stderr=subprocess.DEVNULL)
+            subprocess.run(
+                ["age-keygen", "-o", str(path)],
+                check=True,
+                stderr=subprocess.DEVNULL,
+            )
             path.chmod(0o600)
         recipient = subprocess.run(
-            ["age-keygen", "-y", str(identity)], check=True,
-            capture_output=True, text=True).stdout.strip()
+            ["age-keygen", "-y", str(identity)],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
         plain = root / "plain-key"
         plain.write_bytes(b"good-key")
 
         def snapshot(name, tamper=False):
             encrypted = root / f"{name}.age"
-            subprocess.run([str(age), "--encrypt", "--recipient", recipient,
-                            "--output", str(encrypted), str(plain)],
-                           check=True)
+            subprocess.run(
+                [
+                    str(age),
+                    "--encrypt",
+                    "--recipient",
+                    recipient,
+                    "--output",
+                    str(encrypted),
+                    str(plain),
+                ],
+                check=True,
+            )
             if tamper:
                 data = bytearray(encrypted.read_bytes())
                 data[-1] ^= 1
@@ -132,8 +162,9 @@ class ProbeBootstrapBackup(unittest.TestCase):
             BACKUP.snapshot(self.source, self.snapshot, "age", encrypted)
 
         snapshot("real")
-        self.assertEqual(self.probe(age_identity=identity, age_binary=age),
-                         "peer-id")
+        self.assertEqual(
+            self.probe(age_identity=identity, age_binary=age), "peer-id"
+        )
         with self.assertRaisesRegex(ValueError, "age decryption failed"):
             self.probe(age_identity=wrong, age_binary=age)
         with self.assertRaises(FileNotFoundError):
@@ -164,27 +195,35 @@ class ProbeBootstrapBackup(unittest.TestCase):
         self.create("inline")
         wal = self.snapshot / "storage/profiles.db-wal"
         self.assertTrue(wal.exists())
-        source_bytes = {p.name: p.read_bytes() for p in self.source.iterdir()
-                        if p.is_file()}
+        source_bytes = {
+            p.name: p.read_bytes()
+            for p in self.source.iterdir()
+            if p.is_file()
+        }
         store = self.snapshot / "storage"
-        snapshot_bytes = {p.name: p.read_bytes()
-                          for p in store.iterdir()
-                          if p.is_file()}
+        snapshot_bytes = {
+            p.name: p.read_bytes() for p in store.iterdir() if p.is_file()
+        }
         self.assertEqual(self.probe(), "peer-id")
         restored = self.source.parent / "restored"
         restored.mkdir()
         for name in ("profiles.db", "profiles.db-wal"):
             shutil.copy2(self.snapshot / "storage" / name, restored / name)
-        with closing(sqlite3.connect(restored / "profiles.db")) as copy, \
-                copy:
+        with closing(sqlite3.connect(restored / "profiles.db")) as copy, copy:
             value = copy.execute("SELECT id FROM records").fetchone()
         self.assertEqual(value, (42,))
-        self.assertEqual(source_bytes, {p.name: p.read_bytes()
-                                        for p in self.source.iterdir()
-                                        if p.is_file()})
-        self.assertEqual(snapshot_bytes, {p.name: p.read_bytes()
-                                          for p in store.iterdir()
-                                          if p.is_file()})
+        self.assertEqual(
+            source_bytes,
+            {
+                p.name: p.read_bytes()
+                for p in self.source.iterdir()
+                if p.is_file()
+            },
+        )
+        self.assertEqual(
+            snapshot_bytes,
+            {p.name: p.read_bytes() for p in store.iterdir() if p.is_file()},
+        )
 
     def test_missing_recovery_evidence_and_changed_byte_fail(self):
         with self.assertRaisesRegex(ValueError, "portable recovery key"):

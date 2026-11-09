@@ -1,4 +1,5 @@
 """B2 mutation score over cargo-mutants shards."""
+
 import importlib.util
 import json
 from pathlib import Path
@@ -13,14 +14,19 @@ SPEC = importlib.util.spec_from_file_location("check_mutants", SCRIPT)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 SPEC = importlib.util.spec_from_file_location(
-    "repository_skips", ROOT / "tests/scripts/check-repository.py")
+    "repository_skips", ROOT / "tests/scripts/check-repository.py"
+)
 REPOSITORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPOSITORY)
 
 
 def shard(caught, timeout, missed, unviable=0):
-    return {"caught": caught, "timeout": timeout, "missed": missed,
-            "unviable": unviable}
+    return {
+        "caught": caught,
+        "timeout": timeout,
+        "missed": missed,
+        "unviable": unviable,
+    }
 
 
 class Mutants(unittest.TestCase):
@@ -34,19 +40,26 @@ class Mutants(unittest.TestCase):
     def test_score_below_the_baseline_fails(self):
         with self.assertRaisesRegex(ValueError, "80.0% < baseline 80.5%"):
             CHECK.check([shard(8, 0, 2)], 80.5)
-        self.assertIn("Raise [mutants] score in "
-                      "tests/scripts/baselines.toml to "
-                      "80.0", CHECK.check([shard(8, 0, 2)], 79.5))
+        self.assertIn(
+            "Raise [mutants] score in tests/scripts/baselines.toml to 80.0",
+            CHECK.check([shard(8, 0, 2)], 79.5),
+        )
 
     def test_package_with_only_unviable_mutants_fails(self):
         def outcome(package, summary):
-            return {"scenario": {"Mutant": {"package": package}},
-                    "summary": summary}
+            return {
+                "scenario": {"Mutant": {"package": package}},
+                "summary": summary,
+            }
 
-        report = shard(8, 0, 2, 2) | {"outcomes": [
-            {"scenario": "Baseline", "summary": "Success"},
-            outcome("a", "Unviable"), outcome("a", "CaughtMutant"),
-            outcome("b", "Unviable")]}
+        report = shard(8, 0, 2, 2) | {
+            "outcomes": [
+                {"scenario": "Baseline", "summary": "Success"},
+                outcome("a", "Unviable"),
+                outcome("a", "CaughtMutant"),
+                outcome("b", "Unviable"),
+            ]
+        }
         with self.assertRaisesRegex(ValueError, "Every mutant in b is"):
             CHECK.check([report], 70)
         report["outcomes"][-1]["summary"] = "MissedMutant"
@@ -54,22 +67,32 @@ class Mutants(unittest.TestCase):
 
     def test_missed_invariant_mutant_fails_regardless_of_the_score(self):
         def outcome(file, function, summary, line=1):
-            return {"scenario": {"Mutant": {
-                "name": f"{file}:{line}:1: replace in {function}",
-                "package": "p", "file": file,
-                "function": {"function_name": function}}},
-                "summary": summary}
+            return {
+                "scenario": {
+                    "Mutant": {
+                        "name": f"{file}:{line}:1: replace in {function}",
+                        "package": "p",
+                        "file": file,
+                        "function": {"function_name": function},
+                    }
+                },
+                "summary": summary,
+            }
 
         scope = {"a.rs": "^verify$", "b.rs": ""}
-        report = shard(9, 1, 1) | {"outcomes": [
-            outcome("a.rs", "verify", "CaughtMutant"),
-            outcome("a.rs", "verify_more", "MissedMutant"),
-            outcome("b.rs", "any", "Timeout"),
-            outcome("c.rs", "verify", "MissedMutant")]}
+        report = shard(9, 1, 1) | {
+            "outcomes": [
+                outcome("a.rs", "verify", "CaughtMutant"),
+                outcome("a.rs", "verify_more", "MissedMutant"),
+                outcome("b.rs", "any", "Timeout"),
+                outcome("c.rs", "verify", "MissedMutant"),
+            ]
+        }
         self.assertIn("90.9%", CHECK.check([report], 50, scope))
         report["outcomes"].append(outcome("b.rs", "any", "MissedMutant", 7))
-        with self.assertRaisesRegex(ValueError,
-                                    "invariant mutants:\nb.rs:7:1"):
+        with self.assertRaisesRegex(
+            ValueError, "invariant mutants:\nb.rs:7:1"
+        ):
             CHECK.check([report], 50, scope)
         with self.assertRaisesRegex(ValueError, "match no mutant: d.rs"):
             CHECK.check([report], 50, scope | {"d.rs": ""})
@@ -80,23 +103,33 @@ class Mutants(unittest.TestCase):
             report.write_text(json.dumps(shard(1, 0, 0)))
             result = subprocess.run(
                 [sys.executable, "-B", str(SCRIPT), "--raw", str(report)],
-                capture_output=True, text=True, check=False)
+                capture_output=True,
+                text=True,
+                check=False,
+            )
         # The repository's invariant scope applies; these outcomes miss it.
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("rust/bootstrap/src/media_repair.rs",
-                      result.stdout + result.stderr)
+        self.assertIn(
+            "rust/bootstrap/src/media_repair.rs", result.stdout + result.stderr
+        )
 
     def test_mutants_attributes_need_a_reason(self):
-        text = ("#[mutants::skip]\nfn a() {}\n"
-                "// Returning false would hang the loop.\n"
-                "#[mutants::skip]\nfn b() {}\n"
-                "#[cfg_attr(test, mutants::skip)] // hangs\nfn c() {}\n"
-                "    #[mutants::exclude_re(\"with 0\")]\nfn d() {}\n")
-        self.assertEqual(REPOSITORY.skip_errors(
-            {"rust/x/src/lib.rs": text, "notes.md": "#[mutants::skip]\n"}), [
-            "rust/x/src/lib.rs:1: mutants attribute without a reason",
-            "rust/x/src/lib.rs:8: mutants attribute without a reason",
-        ])
+        text = (
+            "#[mutants::skip]\nfn a() {}\n"
+            "// Returning false would hang the loop.\n"
+            "#[mutants::skip]\nfn b() {}\n"
+            "#[cfg_attr(test, mutants::skip)] // hangs\nfn c() {}\n"
+            '    #[mutants::exclude_re("with 0")]\nfn d() {}\n'
+        )
+        self.assertEqual(
+            REPOSITORY.skip_errors(
+                {"rust/x/src/lib.rs": text, "notes.md": "#[mutants::skip]\n"}
+            ),
+            [
+                "rust/x/src/lib.rs:1: mutants attribute without a reason",
+                "rust/x/src/lib.rs:8: mutants attribute without a reason",
+            ],
+        )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 Usage: check-instrumentation-results.py REPORT [MIN_TESTS]; MIN_TESTS (3) is
 lowered for a rerun of only the failed tests.
 """
+
 import json
 from pathlib import Path
 import re
@@ -10,6 +11,7 @@ import sys
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("instrumentation")
 
 output = Path(sys.argv[1]).read_text()
@@ -25,5 +27,9 @@ if "INSTRUMENTATION_" in output:
 elif last_line != match.group(0):
     raise RuntimeError("Incomplete or failed human-readable instrumentation")
 Path(sys.argv[1]).with_suffix(".json").write_text(
-    json.dumps({"platform": "android", "tests": int(match.group(1)),
-                "passed": True}, indent=2) + "\n")
+    json.dumps(
+        {"platform": "android", "tests": int(match.group(1)), "passed": True},
+        indent=2,
+    )
+    + "\n"
+)

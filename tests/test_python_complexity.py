@@ -1,4 +1,5 @@
 """The real Python lint gate rejects functions above complexity ten."""
+
 from pathlib import Path
 import subprocess
 import sys
@@ -16,15 +17,31 @@ class PythonComplexity(unittest.TestCase):
                 with self.subTest(branches=branches):
                     code = "def branch(value):\n"
                     for index in range(branches):
-                        code += (f"    if value == {index}:\n"
-                                 f"        return {index}\n")
+                        code += (
+                            f"    if value == {index}:\n"
+                            f"        return {index}\n"
+                        )
                     path.write_text(code + "    return -1\n")
                     result = subprocess.run(
-                        [sys.executable, "-m", "flake8", "--config",
-                         str(ROOT / ".flake8"), "--select", "C901", str(path)],
-                        capture_output=True, text=True, check=False)
-                    self.assertEqual(result.returncode, expected,
-                                     result.stdout + result.stderr)
+                        [
+                            sys.executable,
+                            "-m",
+                            "flake8",
+                            "--config",
+                            str(ROOT / ".flake8"),
+                            "--select",
+                            "C901",
+                            str(path),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        result.returncode,
+                        expected,
+                        result.stdout + result.stderr,
+                    )
                     if expected:
                         self.assertIn("C901", result.stdout)
                         self.assertIn("(11)", result.stdout)

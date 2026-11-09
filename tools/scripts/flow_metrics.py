@@ -1,4 +1,5 @@
 """Pure A7 calculations over a local, versioned snapshot schema."""
+
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 import math
@@ -15,8 +16,11 @@ def instant(value):
 
 
 def percentile(values, fraction):
-    return sorted(values)[math.ceil(len(values) * fraction) - 1] \
-        if values else None
+    return (
+        sorted(values)[math.ceil(len(values) * fraction) - 1]
+        if values
+        else None
+    )
 
 
 def ratio(count, total):
@@ -34,8 +38,11 @@ def job_minutes(runs, since, now):
             if not job.get("started_at"):
                 continue
             start = instant(job["started_at"])
-            end = instant(job["completed_at"]) if job.get("completed_at") \
+            end = (
+                instant(job["completed_at"])
+                if job.get("completed_at")
                 else now
+            )
             if end < start:
                 raise ValueError("Job completion precedes start")
             clipped_start, clipped_end = max(start, since), min(end, now)
@@ -91,23 +98,30 @@ def ci_metrics(runs, since, now):
     if not ci:
         raise ValueError("No canonical main CI history")
     red, intervals, recovery, outcomes = red_history(ci, since, now)
-    red_hours = [(end - start).total_seconds() / 3600
-                 for start, end in intervals if end >= since]
+    red_hours = [
+        (end - start).total_seconds() / 3600
+        for start, end in intervals
+        if end >= since
+    ]
     minutes = job_minutes(runs, since, now)
     failed = sum(bool(results & BAD) for results in outcomes.values())
     state = main_state(ci, red, now)
     return {
         "main_state": state,
         "red_commit_percent": ratio(failed, len(outcomes)),
-        "failed_commits": failed, "completed_commits": len(outcomes),
+        "failed_commits": failed,
+        "completed_commits": len(outcomes),
         "max_red_hours": max(red_hours, default=0),
-        "red_intervals": [{"started_at": start.isoformat(),
-                           "ended_at": end.isoformat()}
-                          for start, end in intervals if end >= since],
+        "red_intervals": [
+            {"started_at": start.isoformat(), "ended_at": end.isoformat()}
+            for start, end in intervals
+            if end >= since
+        ],
         "current_red_hours": (now - red).total_seconds() / 3600
-        if red is not None else 0,
-        "time_to_green_hours_p50": percentile(recovery, .5),
-        "time_to_green_hours_p85": percentile(recovery, .85),
+        if red is not None
+        else 0,
+        "time_to_green_hours_p50": percentile(recovery, 0.5),
+        "time_to_green_hours_p85": percentile(recovery, 0.85),
         "recovered_intervals": len(recovery),
         "job_minutes": minutes,
         "pending_runs": sum(not r["completed_at"] for r in runs),
@@ -117,17 +131,23 @@ def ci_metrics(runs, since, now):
 def postmortems(snapshot, ci, now):
     """A8: each trigger after adoption needs a `postmortem:<key>` bead
     created within 48 hours of the trigger."""
-    adopted = [instant(p["adopted_at"]) for p in snapshot["practices"]
-               if p["id"] == "A8"]
+    adopted = [
+        instant(p["adopted_at"])
+        for p in snapshot["practices"]
+        if p["id"] == "A8"
+    ]
     if not adopted:
         return [], []
     day = timedelta(hours=24)
-    triggers = [(f"ci-red:{red['started_at']}",
-                 instant(red["started_at"]) + day)
-                for red in ci["red_intervals"]
-                if instant(red["started_at"]) + day < instant(red["ended_at"])]
-    triggers += [(f"advisory:{alert['ghsa_id']}", instant(alert["created_at"]))
-                 for alert in snapshot.get("alerts", [])]
+    triggers = [
+        (f"ci-red:{red['started_at']}", instant(red["started_at"]) + day)
+        for red in ci["red_intervals"]
+        if instant(red["started_at"]) + day < instant(red["ended_at"])
+    ]
+    triggers += [
+        (f"advisory:{alert['ghsa_id']}", instant(alert["created_at"]))
+        for alert in snapshot.get("alerts", [])
+    ]
     beads = {b.get("external_ref"): b for b in snapshot["beads"]}
     rows, errors = [], []
     first = {}
@@ -139,12 +159,19 @@ def postmortems(snapshot, ci, now):
         due = at + timedelta(hours=48)
         bead = beads.get(f"postmortem:{key}")
         late = instant(bead["created_at"]) > due if bead else due <= now
-        rows.append({"trigger": key, "at": at.isoformat(),
-                     "due_at": due.isoformat(),
-                     "bead": bead and bead["id"], "late": late})
+        rows.append(
+            {
+                "trigger": key,
+                "at": at.isoformat(),
+                "due_at": due.isoformat(),
+                "bead": bead and bead["id"],
+                "late": late,
+            }
+        )
         if late:
-            errors.append(f"Postmortem for {key} missing or later than "
-                          f"{due.isoformat()}")
+            errors.append(
+                f"Postmortem for {key} missing or later than {due.isoformat()}"
+            )
     return rows, errors
 
 
@@ -159,21 +186,27 @@ def health(snapshot):
     if ci["current_red_hours"] > 24:
         errors.append(f"Main red {ci['current_red_hours']:.2f} hours > 24")
     elif ci["main_state"] == "red":
-        warnings.append(f"Main red {ci['current_red_hours']:.2f} hours; "
-                        "fix before 24")
+        warnings.append(
+            f"Main red {ci['current_red_hours']:.2f} hours; fix before 24"
+        )
     elif ci["main_state"] == "unknown":
         warnings.append("Main state unknown: latest run is not a success")
-    return {"schema": 1, "until": now.isoformat(),
-            "sources": snapshot.get("sources"),
-            "main_state": ci["main_state"],
-            "current_red_hours": ci["current_red_hours"],
-            "red_intervals": ci["red_intervals"],
-            "errors": errors, "warnings": warnings}
+    return {
+        "schema": 1,
+        "until": now.isoformat(),
+        "sources": snapshot.get("sources"),
+        "main_state": ci["main_state"],
+        "current_red_hours": ci["current_red_hours"],
+        "red_intervals": ci["red_intervals"],
+        "errors": errors,
+        "warnings": warnings,
+    }
 
 
 def bead_metrics(snapshot, since, now):
     def within(value):
         return since <= instant(value) < now
+
     errors, leads, wip = [], [], Counter()
     completed = 0
     for bead in snapshot["beads"]:
@@ -192,8 +225,11 @@ def bead_metrics(snapshot, since, now):
                 raise ValueError("Bead closure precedes creation")
             leads.append(hours)
             completed += 1
-    errors += [f"WIP {agent}: {count} > 3" for agent, count in wip.items()
-               if count > 3]
+    errors += [
+        f"WIP {agent}: {count} > 3"
+        for agent, count in wip.items()
+        if count > 3
+    ]
     return errors, leads, wip, completed
 
 
@@ -208,13 +244,14 @@ def commit_metrics(commits):
         used.update(commit.get("annotations", {}))
         hatches.update(used)
         hatch_commits += bool(used)
-        reverts += 'This reverts commit ' in commit["message"]
+        reverts += "This reverts commit " in commit["message"]
     return hatches, hatch_commits, reverts
 
 
 def false_positive_metrics(snapshot, since, now):
     def within(value):
         return since <= instant(value) < now
+
     checks = {}
     for sample in snapshot["observations"]:
         if not isinstance(sample["false_positive"], bool):
@@ -224,9 +261,13 @@ def false_positive_metrics(snapshot, since, now):
             counts[0] += 1
             counts[1] += sample["false_positive"]
     false_positives = {
-        name: {"samples": total, "false_positives": false,
-               "percent": ratio(false, total)}
-        for name, (total, false) in checks.items()}
+        name: {
+            "samples": total,
+            "false_positives": false,
+            "percent": ratio(false, total),
+        }
+        for name, (total, false) in checks.items()
+    }
     return false_positives
 
 
@@ -238,6 +279,7 @@ def report(snapshot):
 
     def within(value):
         return since <= instant(value) < now
+
     errors, leads, wip, completed = bead_metrics(snapshot, since, now)
     ci = ci_metrics(snapshot["runs"], since, now)
     if ci["max_red_hours"] > 24:
@@ -251,28 +293,46 @@ def report(snapshot):
     for practice in snapshot["practices"]:
         adopted = instant(practice["adopted_at"])
         due = adopted + timedelta(days=28)
-        done = [r for r in snapshot["reviews"]
-                if all((r["practice"] == practice["id"],
-                        due <= instant(r["at"]) <= now))]
-        reviews.append({"practice": practice["id"],
-                        "due_at": due.isoformat(),
-                        "reviewed": bool(done),
-                        "overdue": due <= now and not done})
+        done = [
+            r
+            for r in snapshot["reviews"]
+            if all(
+                (
+                    r["practice"] == practice["id"],
+                    due <= instant(r["at"]) <= now,
+                )
+            )
+        ]
+        reviews.append(
+            {
+                "practice": practice["id"],
+                "due_at": due.isoformat(),
+                "reviewed": bool(done),
+                "overdue": due <= now and not done,
+            }
+        )
     return {
-        "schema": 1, "since": since.isoformat(), "until": now.isoformat(),
+        "schema": 1,
+        "since": since.isoformat(),
+        "until": now.isoformat(),
         "sources": snapshot.get("sources"),
         "throughput": completed,
-        "lead_hours_p50": percentile(leads, .5),
-        "lead_hours_p85": percentile(leads, .85),
-        "wip_by_assignee": dict(wip), "ci": ci,
+        "lead_hours_p50": percentile(leads, 0.5),
+        "lead_hours_p85": percentile(leads, 0.85),
+        "wip_by_assignee": dict(wip),
+        "ci": ci,
         "commits": len(commits),
         "revert_percent": ratio(reverts, len(commits)),
-        "hatches": dict(hatches), "hatch_commits": hatch_commits,
+        "hatches": dict(hatches),
+        "hatch_commits": hatch_commits,
         "hatch_commit_percent": ratio(hatch_commits, len(commits)),
         "false_positive_share": false_positives or None,
         "practice_reviews": reviews,
         "postmortems": reviewed,
         "errors": errors,
-        "warnings": (["Escape hatches exceed 10%; A8 follow-up is due"]
-                     if hatch_commits > len(commits) / 10 else []),
+        "warnings": (
+            ["Escape hatches exceed 10%; A8 follow-up is due"]
+            if hatch_commits > len(commits) / 10
+            else []
+        ),
     }

@@ -1,4 +1,5 @@
 """A release must render usable setup; a blank window is insufficient."""
+
 import html
 import importlib.util
 import os
@@ -10,7 +11,8 @@ from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "production_smoke", ROOT / "tests/scripts/production-desktop-smoke.py")
+    "production_smoke", ROOT / "tests/scripts/production-desktop-smoke.py"
+)
 DRIVER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DRIVER)
 
@@ -28,12 +30,16 @@ class ProductionSetupTest(unittest.TestCase):
         heading = ("Setup", True, True, False)
         button = ("Create", True, True, True)
         self.assertTrue(DRIVER.rendered_setup([heading, button], expected))
-        invalid = ([], [heading], [button],
-                   [("Setup", False, True, False), button],
-                   [heading, ("Create", False, True, True)],
-                   [heading, ("Create", True, False, True)],
-                   [heading, ("Create", True, True, False)],
-                   [heading, ("Создать", True, True, True)])
+        invalid = (
+            [],
+            [heading],
+            [button],
+            [("Setup", False, True, False), button],
+            [heading, ("Create", False, True, True)],
+            [heading, ("Create", True, False, True)],
+            [heading, ("Create", True, True, False)],
+            [heading, ("Создать", True, True, True)],
+        )
         for nodes in invalid:
             self.assertFalse(DRIVER.rendered_setup(nodes, expected), nodes)
 
@@ -54,7 +60,8 @@ class ProductionSetupTest(unittest.TestCase):
         accessibility.ready.return_value = button
         with (
             patch.object(
-                DRIVER.subprocess, "Popen", return_value=process) as start,
+                DRIVER.subprocess, "Popen", return_value=process
+            ) as start,
             patch.object(DRIVER, "wait_for_setup", return_value=button),
             patch.object(DRIVER.subprocess, "run"),
         ):
@@ -62,14 +69,17 @@ class ProductionSetupTest(unittest.TestCase):
         args, kwargs = start.call_args
         self.assertEqual(args[0], ["/fixture/app"])
         for key in ("CONFIG", "CACHE", "DATA"):
-            self.assertEqual(kwargs["env"]["XDG_" + key + "_HOME"],
-                             str(target / key.lower()))
+            self.assertEqual(
+                kwargs["env"]["XDG_" + key + "_HOME"],
+                str(target / key.lower()),
+            )
         self.assertNotIn("NO_AT_BRIDGE", kwargs["env"])
 
 
 @unittest.skipUnless(
     os.environ.get("DYAPP_NATIVE_ACCESSIBILITY") == "1",
-    "Real AT-SPI/WebKit fixtures run in the package-test session")
+    "Real AT-SPI/WebKit fixtures run in the package-test session",
+)
 class NativeProductionSetupTest(unittest.TestCase):
     def test_real_webkit_rejects_broken_pages_and_closes_a_valid_page(self):
         accessibility = DRIVER.Accessibility()
@@ -82,9 +92,11 @@ class NativeProductionSetupTest(unittest.TestCase):
             caption = expected[1][1] if mode == "mixed" else button
             hidden = ' style="display:none"' if mode == "hidden" else ""
             disabled = " disabled" if mode == "disabled" else ""
-            page = (f'<html><body><h1{hidden}>{html.escape(title)}</h1>'
-                    f'<button{disabled}>{html.escape(caption)}</button>'
-                    '</body></html>')
+            page = (
+                f"<html><body><h1{hidden}>{html.escape(title)}</h1>"
+                f"<button{disabled}>{html.escape(caption)}</button>"
+                "</body></html>"
+            )
             fixture.write_text(
                 "#!" + sys.executable + "\nimport gi\n"
                 "gi.require_version('Gtk', '3.0')\n"
@@ -96,14 +108,16 @@ class NativeProductionSetupTest(unittest.TestCase):
                 "(Gtk.main_quit() or True) if e.keyval == Gdk.KEY_q "
                 "and e.state & Gdk.ModifierType.CONTROL_MASK else False)\n"
                 "view.load_html(" + repr(page) + ", None)\n"
-                "window.show_all()\nwindow.present()\nGtk.main()\n")
+                "window.show_all()\nwindow.present()\nGtk.main()\n"
+            )
             fixture.chmod(0o755)
             if mode == "valid":
                 DRIVER.launch(fixture, target, accessibility, expected)
             else:
                 with self.assertRaisesRegex(RuntimeError, "did not expose"):
                     DRIVER.launch(
-                        fixture, target, accessibility, expected, timeout=3)
+                        fixture, target, accessibility, expected, timeout=3
+                    )
 
 
 if __name__ == "__main__":

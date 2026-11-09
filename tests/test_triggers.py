@@ -1,11 +1,13 @@
 """Trigger list checks and diff detection of triggers.py."""
+
 import importlib.util
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "triggers", ROOT / "tests/scripts/triggers.py")
+    "triggers", ROOT / "tests/scripts/triggers.py"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -38,32 +40,45 @@ diff --git a/README.md b/README.md
 
 class Triggers(unittest.TestCase):
     def test_diff(self):
-        self.assertEqual(CHECK.fired(TRIGGERS, CHECK.changes(DIFF)), [
-            "crypto-dependency: rust/ffi/Cargo.toml",
-            "protocol: proto/node.proto",
-            "unsafe: rust/a b/x.rs",
-        ])
+        self.assertEqual(
+            CHECK.fired(TRIGGERS, CHECK.changes(DIFF)),
+            [
+                "crypto-dependency: rust/ffi/Cargo.toml",
+                "protocol: proto/node.proto",
+                "unsafe: rust/a b/x.rs",
+            ],
+        )
 
     def test_path_and_line_rules(self):
-        files = {"rust/bootstrap/src/storage.rs":
-                 ["conn.execute(\"CREATE TABLE IF NOT EXISTS `deny`\")"],
-                 "tests/scripts/triggers.toml": [],
-                 "rust/identity/src/lib.rs": []}
-        self.assertEqual(CHECK.fired(TRIGGERS, files), [
-            "checks: tests/scripts/triggers.toml",
-            "identity: rust/identity/src/lib.rs",
-            "storage-migration: rust/bootstrap/src/storage.rs",
-        ])
+        files = {
+            "rust/bootstrap/src/storage.rs": [
+                'conn.execute("CREATE TABLE IF NOT EXISTS `deny`")'
+            ],
+            "tests/scripts/triggers.toml": [],
+            "rust/identity/src/lib.rs": [],
+        }
+        self.assertEqual(
+            CHECK.fired(TRIGGERS, files),
+            [
+                "checks: tests/scripts/triggers.toml",
+                "identity: rust/identity/src/lib.rs",
+                "storage-migration: rust/bootstrap/src/storage.rs",
+            ],
+        )
 
     def test_uncovered_glob(self):
-        triggers = CHECK.load('[[trigger]]\nname = "x"\n'
-                              'paths = ["clippy.toml", "src/*"]\n')
-        self.assertEqual(CHECK.uncovered(triggers, ["src/lib.rs"]),
-                         ["x: clippy.toml"])
+        triggers = CHECK.load(
+            '[[trigger]]\nname = "x"\npaths = ["clippy.toml", "src/*"]\n'
+        )
+        self.assertEqual(
+            CHECK.uncovered(triggers, ["src/lib.rs"]), ["x: clippy.toml"]
+        )
 
     def test_list_covers_itself(self):
-        self.assertIn("checks: tests/scripts/triggers.toml", CHECK.fired(
-            TRIGGERS, {"tests/scripts/triggers.toml": []}))
+        self.assertIn(
+            "checks: tests/scripts/triggers.toml",
+            CHECK.fired(TRIGGERS, {"tests/scripts/triggers.toml": []}),
+        )
 
 
 if __name__ == "__main__":

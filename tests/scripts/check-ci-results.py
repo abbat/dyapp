@@ -1,4 +1,5 @@
 """Require every expected platform CI job to complete successfully."""
+
 import argparse
 import json
 import os
@@ -20,6 +21,7 @@ def validate(results):
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("ci-results")
     argparse.ArgumentParser(description=__doc__).parse_args()
     validate(json.loads(os.environ["RESULTS"]))

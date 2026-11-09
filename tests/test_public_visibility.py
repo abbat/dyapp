@@ -1,4 +1,5 @@
 """Classify retained public visibility without removing implementations."""
+
 import json
 import os
 from pathlib import Path
@@ -17,40 +18,61 @@ class VisibilityPolicyTest(unittest.TestCase):
         keys = ("unreachable_pub", "unfulfilled_lint_expectations")
         root = ROOT / "build/tool-fixtures/visibility" / str(time.time_ns())
         (root / "src").mkdir(parents=True)
-        settings = "".join(f"{key} = {json.dumps(lints[key])}\n"
-                           for key in keys)
+        settings = "".join(
+            f"{key} = {json.dumps(lints[key])}\n" for key in keys
+        )
         manifest = (
             '[workspace]\n[package]\nname = "visibility-fixture"\n'
-            'version = "0.1.0"\nedition = "2021"\n[lints.rust]\n')
+            'version = "0.1.0"\nedition = "2021"\n[lints.rust]\n'
+        )
         (root / "Cargo.toml").write_text(manifest + settings)
         env = dict(os.environ, CARGO_TARGET_DIR=str(root / "target"))
         base = (
-            'mod internal {\n'
-            '    pub fn retained() {}\n'
-            '}\n'
-            'pub fn call_internal() { internal::retained(); }\n')
+            "mod internal {\n"
+            "    pub fn retained() {}\n"
+            "}\n"
+            "pub fn call_internal() { internal::retained(); }\n"
+        )
         self.run_case(root, env, "unmarked", base, "unreachable_pub")
         marker = (
-            '    #[expect(unreachable_pub, '
-            'reason = "Retained module API visibility")]\n')
+            "    #[expect(unreachable_pub, "
+            'reason = "Retained module API visibility")]\n'
+        )
         declaration = marker + "    pub fn retained()"
         marked = base.replace("    pub fn retained()", declaration)
         self.run_case(root, env, "retained", marked)
         added = marked.replace(
             "    pub fn retained() {}",
-            "    pub fn retained() {}\n    pub fn new_unclassified() {}")
+            "    pub fn retained() {}\n    pub fn new_unclassified() {}",
+        )
         self.run_case(root, env, "new-finding", added, "unreachable_pub")
         exported = marked.replace("mod internal", "pub mod internal")
-        self.run_case(root, env, "now-exported", exported,
-                      "unfulfilled_lint_expectations")
+        self.run_case(
+            root,
+            env,
+            "now-exported",
+            exported,
+            "unfulfilled_lint_expectations",
+        )
 
     def run_case(self, root, env, name, source, expected=None):
         (root / "src/lib.rs").write_text(source)
         result = subprocess.run(
-            ["cargo", "check", "--manifest-path", str(root / "Cargo.toml"),
-             "--offline", "--message-format=json"],
-            cwd=root, env=env, capture_output=True, text=True,
-            check=False, timeout=120)
+            [
+                "cargo",
+                "check",
+                "--manifest-path",
+                str(root / "Cargo.toml"),
+                "--offline",
+                "--message-format=json",
+            ],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
         (root / f"{name}.jsonl").write_text(result.stdout)
         (root / f"{name}.stderr").write_text(result.stderr)
         if expected is None:

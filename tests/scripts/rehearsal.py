@@ -13,6 +13,7 @@ upgrade one node at a time, and a rollback of the last node within the
 store-format limit. Every step prints one line; the run takes about three
 storage trust periods.
 """
+
 import importlib.util
 import os
 from pathlib import Path
@@ -24,14 +25,16 @@ import threading
 import time
 
 spec = importlib.util.spec_from_file_location(
-    "network_test", Path(__file__).with_name("network-test.py"))
+    "network_test", Path(__file__).with_name("network-test.py")
+)
 net = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(net)
 
 HOSTS = ("127.1.0.1", "127.2.0.1", "127.3.0.1")
 PORT = 33445
-TRUST_MINUTES = int(os.environ.get(
-    "DYAPPD_NETWORK_STORAGE_TRUST_MINUTES", "60"))
+TRUST_MINUTES = int(
+    os.environ.get("DYAPPD_NETWORK_STORAGE_TRUST_MINUTES", "60")
+)
 STARTED = time.monotonic()
 
 
@@ -43,13 +46,15 @@ def log(message):
 def environment(storage, index):
     host = HOSTS[index]
     seeds = [f"{other}:{PORT}" for other in HOSTS if other != host]
-    return {**os.environ,
-            "DYAPPD_LISTEN": f'["{host}:{PORT}"]',
-            "DYAPPD_EXTERNAL": f'["{host}:{PORT}"]',
-            "DYAPPD_STORAGE_DIR": f"{storage}/{'abc'[index]}",
-            "DYAPPD_ROLES": '["store", "search"]',
-            "DYAPPD_NETWORK_GUARD_DIALS": "false",
-            "DYAPPD_SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]"}
+    return {
+        **os.environ,
+        "DYAPPD_LISTEN": f'["{host}:{PORT}"]',
+        "DYAPPD_EXTERNAL": f'["{host}:{PORT}"]',
+        "DYAPPD_STORAGE_DIR": f"{storage}/{'abc'[index]}",
+        "DYAPPD_ROLES": '["store", "search"]',
+        "DYAPPD_NETWORK_GUARD_DIALS": "false",
+        "DYAPPD_SEEDS": "[" + ", ".join(f'"{s}"' for s in seeds) + "]",
+    }
 
 
 def start(bin_dir, env, client, tcp):
@@ -76,8 +81,10 @@ def canary(client, entry):
 
 
 def holders(client, addresses, signed):
-    records = [net.call(client, "get", tcp, signed["peer_id"]).get("record")
-               for tcp in addresses]
+    records = [
+        net.call(client, "get", tcp, signed["peer_id"]).get("record")
+        for tcp in addresses
+    ]
     return records.count(signed["record"])
 
 
@@ -109,22 +116,34 @@ def wait_trust(reason):
 
 def refused(old_dir, env):
     """The old dyappd exits on a store a newer one upgraded; its error line."""
-    result = subprocess.run([f"{old_dir}/dyappd"], env=env,
-                            capture_output=True, text=True, timeout=60)
-    lines = [line for line in net.ANSI.sub("", result.stdout + result.stderr)
-             .splitlines() if "store format" in line]
+    result = subprocess.run(
+        [f"{old_dir}/dyappd"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    lines = [
+        line
+        for line in net.ANSI.sub(
+            "", result.stdout + result.stderr
+        ).splitlines()
+        if "store format" in line
+    ]
     if result.returncode == 0 or not lines:
         raise RuntimeError("The old dyappd started on an upgraded store")
     return lines[-1].strip()
 
 
-def upgrade_nodes(old_dir, new_dir, storage, client, envs, addresses,
-                  processes, before):
+def upgrade_nodes(
+    old_dir, new_dir, storage, client, envs, addresses, processes, before
+):
     backup = f"{storage}/c.old"
     for i, (env, tcp) in enumerate(zip(envs, addresses)):
         if i == 2:
-            kept = [signed for signed in before
-                    if holders(client, [tcp], signed)]
+            kept = [
+                signed for signed in before if holders(client, [tcp], signed)
+            ]
         halt(processes[i])
         if i == 2:
             shutil.copytree(env["DYAPPD_STORAGE_DIR"], backup)
@@ -147,24 +166,34 @@ def rehearse(old_dir, new_dir, storage):
     addresses = [net.addresses(host, PORT)[0] for host in HOSTS]
     keygens = []
     for env in envs:
-        keygens.append(threading.Thread(target=net.dyappd,
-                                        args=(old_dir, env, "keygen")))
+        keygens.append(
+            threading.Thread(target=net.dyappd, args=(old_dir, env, "keygen"))
+        )
         keygens[-1].start()
     for thread in keygens:
         thread.join()
     log("node keys generated")
-    processes = [start(old_dir, env, client, tcp)
-                 for env, tcp in zip(envs, addresses)]
+    processes = [
+        start(old_dir, env, client, tcp) for env, tcp in zip(envs, addresses)
+    ]
     try:
         log("cold start: three old nodes healthy")
         if TRUST_MINUTES:
             expect(client, addresses[0], addresses, "STATUS_FULL")
         wait_trust("storage trust after the cold start")
-        before = [expect(client, tcp, addresses, "STATUS_OK")
-                  for tcp in addresses]
+        before = [
+            expect(client, tcp, addresses, "STATUS_OK") for tcp in addresses
+        ]
         backup, kept = upgrade_nodes(
-            old_dir, new_dir, storage, client, envs, addresses,
-            processes, before)
+            old_dir,
+            new_dir,
+            storage,
+            client,
+            envs,
+            addresses,
+            processes,
+            before,
+        )
         halt(processes[2])
         log(f"rollback refused: {refused(old_dir, envs[2])}")
         shutil.rmtree(envs[2]["DYAPPD_STORAGE_DIR"])
@@ -192,5 +221,6 @@ def main():
 
 if __name__ == "__main__":
     from check_wrapper import wrap
+
     wrap("rust-network")
     main()

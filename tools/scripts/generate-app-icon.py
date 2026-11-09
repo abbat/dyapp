@@ -24,7 +24,8 @@ def render(size: int) -> Image.Image:
     svg = SMALL if size <= SMALL_MAX else APP
     png = subprocess.run(
         ["rsvg-convert", "-w", str(size), "-h", str(size), str(svg)],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     ).stdout
     image = Image.open(BytesIO(png)).convert("RGBA")
     if image.size != (size, size):

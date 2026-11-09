@@ -1,4 +1,5 @@
 """Concise check defaults with an explicit legacy machine-output mode."""
+
 import importlib.util
 import os
 from pathlib import Path
@@ -25,14 +26,27 @@ def wrap(name, data=False):
     script = Path(sys.argv[0]).resolve()
     runner_path = Path(__file__).with_name("run-check.py")
     runner = load_runner()
-    base = (Path(tempfile.gettempdir()) / "ai" if os.name == "nt"
-            else Path("/tmp/ai"))
-    directory = os.environ.get("DYAPP_CHECK_LOG_DIR",
-                               str(base / "check-output"))
+    base = (
+        Path(tempfile.gettempdir()) / "ai"
+        if os.name == "nt"
+        else Path("/tmp/ai")
+    )
+    directory = os.environ.get(
+        "DYAPP_CHECK_LOG_DIR", str(base / "check-output")
+    )
     previous = sys.argv
     sys.argv = [
-        str(runner_path), "--log-dir", directory, name, "--",
-        sys.executable, "-B", str(script), "--raw", *previous[1:]]
+        str(runner_path),
+        "--log-dir",
+        directory,
+        name,
+        "--",
+        sys.executable,
+        "-B",
+        str(script),
+        "--raw",
+        *previous[1:],
+    ]
     try:
         status = runner.main()
     finally:

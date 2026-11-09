@@ -1,4 +1,5 @@
 """Reproducibility must reject changed bytes and cached or missing outputs."""
+
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -8,7 +9,8 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "reproducible", ROOT / "tests/scripts/check-reproducible.py")
+    "reproducible", ROOT / "tests/scripts/check-reproducible.py"
+)
 CHECK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK)
 
@@ -29,10 +31,14 @@ class Reproducibility(unittest.TestCase):
     def test_no_git_host_metadata_and_failed_build_report(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(CHECK, "output", return_value="rustc") as query:
-                with patch.object(CHECK.subprocess, "run", return_value=(
-                        SimpleNamespace(returncode=7))):
+                with patch.object(
+                    CHECK.subprocess,
+                    "run",
+                    return_value=(SimpleNamespace(returncode=7)),
+                ):
                     report = CHECK.build_pair(
-                        "linux", Path(directory), "a" * 40, "123")
+                        "linux", Path(directory), "a" * 40, "123"
+                    )
             query.assert_called_once_with("rustc", "-Vv")
             self.assertEqual(report["revision"], "a" * 40)
             self.assertEqual(report["source_date_epoch"], "123")
@@ -62,14 +68,17 @@ class Reproducibility(unittest.TestCase):
                     with patch.object(CHECK, "output", return_value="1"):
                         with patch.object(CHECK.subprocess, "run", cargo):
                             report = CHECK.build_pair(
-                                "dyappd", Path(directory))
+                                "dyappd", Path(directory)
+                            )
                     self.assertEqual(len(set(seen)), 2)
-                    self.assertEqual(bool(report["errors"]),
-                                     not produce_second)
+                    self.assertEqual(
+                        bool(report["errors"]), not produce_second
+                    )
                     for entry in report["builds"]:
                         if "sha256" in entry:
-                            self.assertEqual(entry["bytes"],
-                                             len(b"same executable"))
+                            self.assertEqual(
+                                entry["bytes"], len(b"same executable")
+                            )
 
 
 if __name__ == "__main__":

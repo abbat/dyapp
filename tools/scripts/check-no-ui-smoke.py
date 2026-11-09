@@ -1,4 +1,5 @@
 """Reject native release artifacts containing injected UI smoke hooks."""
+
 from pathlib import Path
 import sys
 

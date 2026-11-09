@@ -1,4 +1,5 @@
 """Nonmutating equivalents of basic repository hooks, run inside Docker."""
+
 from html.parser import HTMLParser
 import json
 from pathlib import Path, PurePosixPath
@@ -31,54 +32,105 @@ BASELINE = "abcabf4ae222083c6373022ba019234392dde333"
 # Practice A9: every docs/ file is reachable from the index; AGENTS.md short.
 INDEX = "docs/README.md"
 AGENTS_LINES = 80
-FORBID = re.compile(r'^\[lints\]\nworkspace = true$'
-                    r'|^unsafe_code = "forbid"$', re.M)
+FORBID = re.compile(
+    r"^\[lints\]\nworkspace = true$"
+    r'|^unsafe_code = "forbid"$',
+    re.M,
+)
 DOCUMENTED = re.compile(r'^undocumented_unsafe_blocks = "deny"$', re.M)
-UNSAFE = {"rust/bootstrap/Cargo.toml": DOCUMENTED,
-          "rust/ffi/Cargo.toml": DOCUMENTED}
+UNSAFE = {
+    "rust/bootstrap/Cargo.toml": DOCUMENTED,
+    "rust/ffi/Cargo.toml": DOCUMENTED,
+}
 # Practice B6: source files whose line count is budgeted.
-SOURCE = {".rs", ".py", ".sh", ".kt", ".kts", ".swift", ".ts", ".tsx", ".js",
-          ".mjs", ".proto"}
-DEBT_SOURCE = SOURCE | {".html", ".css", ".scss", ".java", ".gradle", ".c",
-                        ".h", ".cpp", ".hpp", ".m", ".mm", ".ps1"}
+SOURCE = {
+    ".rs",
+    ".py",
+    ".sh",
+    ".kt",
+    ".kts",
+    ".swift",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".mjs",
+    ".proto",
+}
+DEBT_SOURCE = SOURCE | {
+    ".html",
+    ".css",
+    ".scss",
+    ".java",
+    ".gradle",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".m",
+    ".mm",
+    ".ps1",
+}
 # Split marker spellings so this source also passes its own check.
 DEBT = re.compile(r"\b(?:T[O]DO|F[I]XME)\b")
 SCOPE = re.compile(r"^[\w./-]+(?:\([\w./-]+\))?: ")
 # Imperative words that look like past tense or a gerund.
-IMPERATIVE = {"Bring", "Embed", "Exceed", "Feed", "Need", "Proceed", "Seed",
-              "Shed", "Speed", "String", "Succeed"}
+IMPERATIVE = {
+    "Bring",
+    "Embed",
+    "Exceed",
+    "Feed",
+    "Need",
+    "Proceed",
+    "Seed",
+    "Shed",
+    "Speed",
+    "String",
+    "Succeed",
+}
 # Practice B3: protobuf and serde types each have a round-trip property.
 PROPERTIES = "rust/bootstrap/tests/properties.rs"
 PROTO_TYPE = re.compile(r"^\s*(?:message|enum)\s+(\w+)", re.M)
-DERIVE = re.compile(r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)",
-                    re.S)
+DERIVE = re.compile(
+    r"#\[derive\(([^\]]*)\)\][^{;]*?\b(?:struct|enum)\s+(\w+)", re.S
+)
 PROPERTY = re.compile(r"^\s*\w+: (\w+)", re.M)
 # Operator-written TOML, covered by the config tests instead.
-ROUND_TRIP_EXEMPT = {"rust/bootstrap/src/config.rs",
-                     "rust/bootstrap/src/config/relay.rs"}
+ROUND_TRIP_EXEMPT = {
+    "rust/bootstrap/src/config.rs",
+    "rust/bootstrap/src/config/relay.rs",
+}
 # Practice D1: visible UI strings live in the platform catalogues.
-CATALOGUES = {"android": "clients/android/app/src/main/res/values/strings.xml",
-              "apple": "clients/ios/DYApp/Localizable.xcstrings",
-              "desktop": "clients/desktop/ui/i18n/en.json"}
-RUSSIAN = {"android": "clients/android/app/src/main/res/values-ru/strings.xml",
-           "apple": CATALOGUES["apple"],
-           "desktop": "clients/desktop/ui/i18n/ru.json"}
+CATALOGUES = {
+    "android": "clients/android/app/src/main/res/values/strings.xml",
+    "apple": "clients/ios/DYApp/Localizable.xcstrings",
+    "desktop": "clients/desktop/ui/i18n/en.json",
+}
+RUSSIAN = {
+    "android": "clients/android/app/src/main/res/values-ru/strings.xml",
+    "apple": CATALOGUES["apple"],
+    "desktop": "clients/desktop/ui/i18n/ru.json",
+}
 KOTLIN_LITERAL = re.compile(r'\bText\(\s*"')
 SWIFT_TEXT = re.compile(r'\bText\(\s*"((?:[^"\\]|\\.)*)"')
 HTML_KEY = re.compile(r'data-i18n="([^"]+)"')
 # Screen pages list control IDs and states that their prototype must contain.
 SCREENS = {
     "docs/design/desktop-screens.md": "clients/desktop/prototype/index.html",
-    "docs/design/mobile-screens.md": "clients/android/prototype/index.html"}
+    "docs/design/mobile-screens.md": "clients/android/prototype/index.html",
+}
 SCREEN_ID = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`")
 PROTOTYPE_ID = re.compile(r'\b(?:id|data-on)="([^"]+)"')
 # Practice B4: every Service handler of a network request has a fuzz target.
-HANDLERS = ("rust/bootstrap/src/service.rs",
-            "rust/bootstrap/src/service/mailbox.rs",
-            "rust/bootstrap/src/service/media.rs",
-            "rust/bootstrap/src/service/search.rs")
-HANDLER = re.compile(r"pub fn (\w+)\(\s*&self,[^)]*?"
-                     r"(?:request: \w+Request|data: &\[u8\])")
+HANDLERS = (
+    "rust/bootstrap/src/service.rs",
+    "rust/bootstrap/src/service/mailbox.rs",
+    "rust/bootstrap/src/service/media.rs",
+    "rust/bootstrap/src/service/search.rs",
+)
+HANDLER = re.compile(
+    r"pub fn (\w+)\(\s*&self,[^)]*?"
+    r"(?:request: \w+Request|data: &\[u8\])"
+)
 SKIP = re.compile(r"^\s*#!?\[(?:cfg_attr\(.*)?mutants::(?:skip|exclude_re)\b")
 
 
@@ -125,8 +177,9 @@ def broken_links(documents, exists):
         for number, target, resolved, anchor in links(name, text):
             if resolved.startswith("../") or not exists(resolved):
                 errors.append(f"{name}:{number}: missing {target}")
-            elif anchor and resolved in slugs \
-                    and anchor not in slugs[resolved]:
+            elif (
+                anchor and resolved in slugs and anchor not in slugs[resolved]
+            ):
                 errors.append(f"{name}:{number}: missing anchor {target}")
     return errors
 
@@ -144,8 +197,15 @@ def output_map_errors(entries, documents, exists):
             continue
         fix = entry.get("fix", "")
         path, separator, anchor = str(fix).partition("#")
-        valid = all((path.startswith("docs/"), path.endswith(".md"),
-                     ".." not in PurePosixPath(path).parts, separator, anchor))
+        valid = all(
+            (
+                path.startswith("docs/"),
+                path.endswith(".md"),
+                ".." not in PurePosixPath(path).parts,
+                separator,
+                anchor,
+            )
+        )
         if not valid:
             errors.append(f"{name}: FIX needs a docs/*.md#anchor")
         else:
@@ -185,8 +245,9 @@ def orphans(documents, files, index=INDEX):
             if resolved not in seen:
                 seen.add(resolved)
                 queue.append(resolved)
-    return [name for name in files
-            if name.startswith("docs/") and name not in seen]
+    return [
+        name for name in files if name.startswith("docs/") and name not in seen
+    ]
 
 
 def bead_ids(text, allowed):
@@ -226,25 +287,36 @@ def commit_errors(allowed):
     # A shallow clone without the baseline cannot run the check: fail.
     subprocess.check_call(git + ["cat-file", "-e", BASELINE + "^{commit}"])
     output = subprocess.check_output(
-        git + ["log", "--no-merges", "--format=%H %ae%n%B%x00",
-               BASELINE + "..HEAD"]).decode()
+        git
+        + [
+            "log",
+            "--no-merges",
+            "--format=%H %ae%n%B%x00",
+            BASELINE + "..HEAD",
+        ]
+    ).decode()
     errors = []
     for entry in filter(str.strip, output.split("\0")):
         head, _, message = entry.strip().partition("\n")
         sha, _, author = head.partition(" ")
         bot = author.endswith("[bot]@users.noreply.github.com")
-        errors += [f"{sha[:12]}: {error}"
-                   for error in message_errors(message, allowed, bot)]
+        errors += [
+            f"{sha[:12]}: {error}"
+            for error in message_errors(message, allowed, bot)
+        ]
     return errors
 
 
 def message_file_errors(path):
     """Apply the history check to a proposed commit before Git records it."""
     names = subprocess.check_output(
-        ["git", "ls-files", "--", "*Cargo.toml"], text=True).splitlines()
+        ["git", "ls-files", "--", "*Cargo.toml"], text=True
+    ).splitlines()
     allowed = NOT_TRACKER | {
-        crate for name in names
-        for crate in CRATE.findall(Path(name).read_text())}
+        crate
+        for name in names
+        for crate in CRATE.findall(Path(name).read_text())
+    }
     return message_errors(Path(path).read_text(), allowed)
 
 
@@ -262,25 +334,30 @@ def size_errors(texts, size):
         elif name in budgets and lines < budget:
             drop = " (or drop it)" if lines <= limit else ""
             errors.append(f"{name}: {lines} lines, lower its budget{drop}")
-    errors += [f"{name}: budgeted but not tracked"
-               for name in sorted(budgets.keys() - texts.keys())]
+    errors += [
+        f"{name}: budgeted but not tracked"
+        for name in sorted(budgets.keys() - texts.keys())
+    ]
     return errors
 
 
 def debt_errors(texts):
     """Debt markers in source, including comments and string literals."""
-    return [f"{name}:{number}: {match.group()} debt marker"
-            for name, text in sorted(texts.items())
-            if PurePosixPath(name).suffix in DEBT_SOURCE
-            for number, line in enumerate(text.splitlines(), 1)
-            for match in DEBT.finditer(line)]
+    return [
+        f"{name}:{number}: {match.group()} debt marker"
+        for name, text in sorted(texts.items())
+        if PurePosixPath(name).suffix in DEBT_SOURCE
+        for number, line in enumerate(text.splitlines(), 1)
+        for match in DEBT.finditer(line)
+    ]
 
 
 def unicode_errors(names, texts):
     """Format (Cf: bidi, zero-width) and private-use (Co) characters, and
     non-ASCII paths: Trojan Source and lookalike file names."""
-    errors = [f"{name}: non-ASCII path" for name in names
-              if not name.isascii()]
+    errors = [
+        f"{name}: non-ASCII path" for name in names if not name.isascii()
+    ]
     for name, text in sorted(texts.items()):
         if text.isascii():
             continue
@@ -290,18 +367,25 @@ def unicode_errors(names, texts):
         for number, line in enumerate(text.splitlines(), 1):
             for column, char in enumerate(line):
                 if ascii_only and not char.isascii():
-                    errors.append(f"{name}:{number}: U+{ord(char):04X} "
-                                  "in ASCII-only source")
+                    errors.append(
+                        f"{name}:{number}: U+{ord(char):04X} "
+                        "in ASCII-only source"
+                    )
                     continue
                 category = unicodedata.category(char)
                 if category not in ("Cf", "Co"):
                     continue
                 # An emoji ZWJ sequence joins two pictographs.
-                if char == "\u200d" and 0 < column < len(line) - 1 and \
-                        unicodedata.category(line[column + 1]) == "So":
+                if (
+                    char == "\u200d"
+                    and 0 < column < len(line) - 1
+                    and unicodedata.category(line[column + 1]) == "So"
+                ):
                     continue
-                errors.append(f"{name}:{number}: U+{ord(char):04X} "
-                              f"({category}) character")
+                errors.append(
+                    f"{name}:{number}: U+{ord(char):04X} "
+                    f"({category}) character"
+                )
     return errors
 
 
@@ -320,10 +404,12 @@ def manifest_errors(name, text):
     for component in app:
         launcher = "android.intent.category.LAUNCHER" in {
             category.get(android + "name")
-            for category in component.iter("category")}
+            for category in component.iter("category")
+        }
         if component.get(android + "exported") == "true" and not launcher:
-            errors.append(f"{name}: {component.get(android + 'name')} "
-                          "is exported")
+            errors.append(
+                f"{name}: {component.get(android + 'name')} is exported"
+            )
     return errors
 
 
@@ -335,13 +421,23 @@ def round_trip_errors(texts):
         path = PurePosixPath(name)
         if path.match("proto/*.proto"):
             types += [(name, kind) for kind in PROTO_TYPE.findall(text)]
-        elif path.suffix == ".rs" and path.parts[0] == "rust" \
-                and "src" in path.parts and name not in ROUND_TRIP_EXEMPT:
-            types += [(name, kind) for derive, kind in DERIVE.findall(text)
-                      if {"Serialize", "Deserialize"} <= set(
-                          re.findall(r"\w+", derive))]
-    return [f"{name}: {kind} has no round-trip property"
-            for name, kind in types if kind not in tested]
+        elif (
+            path.suffix == ".rs"
+            and path.parts[0] == "rust"
+            and "src" in path.parts
+            and name not in ROUND_TRIP_EXEMPT
+        ):
+            types += [
+                (name, kind)
+                for derive, kind in DERIVE.findall(text)
+                if {"Serialize", "Deserialize"}
+                <= set(re.findall(r"\w+", derive))
+            ]
+    return [
+        f"{name}: {kind} has no round-trip property"
+        for name, kind in types
+        if kind not in tested
+    ]
 
 
 class _Visible(HTMLParser):
@@ -370,38 +466,55 @@ def i18n_errors(texts):
     for name, text in sorted(texts.items()):
         path = PurePosixPath(name)
         if path.suffix == ".kt" and name.startswith(
-                "clients/android/app/src/main/"):
-            errors += [f"{name}: Text with a literal; use stringResource"
-                       for _ in KOTLIN_LITERAL.finditer(text)]
-        elif name.startswith(("clients/ios/DYApp/", "clients/macos/src/")) \
-                and path.suffix == ".swift":
-            errors += [f"{name}: Text key {key!r} not in "
-                       f"{CATALOGUES['apple']}"
-                       for key in SWIFT_TEXT.findall(text) if key not in apple]
+            "clients/android/app/src/main/"
+        ):
+            errors += [
+                f"{name}: Text with a literal; use stringResource"
+                for _ in KOTLIN_LITERAL.finditer(text)
+            ]
+        elif (
+            name.startswith(("clients/ios/DYApp/", "clients/macos/src/"))
+            and path.suffix == ".swift"
+        ):
+            errors += [
+                f"{name}: Text key {key!r} not in {CATALOGUES['apple']}"
+                for key in SWIFT_TEXT.findall(text)
+                if key not in apple
+            ]
         elif name.startswith("clients/desktop/ui/") and path.suffix == ".html":
             visible = _Visible()
             visible.feed(text)
-            errors += [f"{name}: literal text {data!r}; use data-i18n"
-                       for data in visible.found]
-            errors += [f"{name}: data-i18n key {key!r} not in "
-                       f"{CATALOGUES['desktop']}"
-                       for key in HTML_KEY.findall(text) if key not in desktop]
+            errors += [
+                f"{name}: literal text {data!r}; use data-i18n"
+                for data in visible.found
+            ]
+            errors += [
+                f"{name}: data-i18n key {key!r} not in {CATALOGUES['desktop']}"
+                for key in HTML_KEY.findall(text)
+                if key not in desktop
+            ]
     return errors
 
 
 def translation_errors(texts):
     """Require Russian values for every source catalogue key."""
-    errors = [f"{path}: missing Russian catalogue"
-              for path in (RUSSIAN["android"], RUSSIAN["desktop"])
-              if path not in texts]
+    errors = [
+        f"{path}: missing Russian catalogue"
+        for path in (RUSSIAN["android"], RUSSIAN["desktop"])
+        if path not in texts
+    ]
     if errors:
         return errors
     english = ElementTree.fromstring(texts[CATALOGUES["android"]])
     russian = ElementTree.fromstring(texts[RUSSIAN["android"]])
 
     def resources(root):
-        return {(item.tag, item.get("name")): item
-                for item in root if item.get("name")}
+        return {
+            (item.tag, item.get("name")): item
+            for item in root
+            if item.get("name")
+        }
+
     source, translated = resources(english), resources(russian)
     for key in sorted(source.keys() | translated.keys()):
         item = translated.get(key)
@@ -410,12 +523,14 @@ def translation_errors(texts):
         if missing or empty:
             errors.append(f"{RUSSIAN['android']}: missing or extra {key}")
         elif item.tag == "plurals" and any(
-                not "".join(value.itertext()).strip() for value in item):
+            not "".join(value.itertext()).strip() for value in item
+        ):
             errors.append(f"{RUSSIAN['android']}: empty plural form {key}")
     apple = json.loads(texts[CATALOGUES["apple"]]).get("strings", {})
     for key, entry in sorted(apple.items()):
-        unit = (entry.get("localizations", {}).get("ru", {})
-                .get("stringUnit", {}))
+        unit = (
+            entry.get("localizations", {}).get("ru", {}).get("stringUnit", {})
+        )
         translated = unit.get("state") == "translated"
         if not translated or not unit.get("value", "").strip():
             errors.append(f"{CATALOGUES['apple']}: no Russian value for {key}")
@@ -431,12 +546,17 @@ def screen_errors(texts):
     """Screen-page IDs and states missing from the matching prototype."""
     errors = []
     for page, prototype in SCREENS.items():
-        known = {name
-                 for found in PROTOTYPE_ID.findall(texts.get(prototype, ""))
-                 for name in found.split()}
+        known = {
+            name
+            for found in PROTOTYPE_ID.findall(texts.get(prototype, ""))
+            for name in found.split()
+        }
         listed = dict.fromkeys(SCREEN_ID.findall(texts.get(page, "")))
-        errors += [f"{page}: `{name}` not in {prototype}"
-                   for name in listed if name not in known]
+        errors += [
+            f"{page}: `{name}` not in {prototype}"
+            for name in listed
+            if name not in known
+        ]
     return errors
 
 
@@ -460,19 +580,26 @@ def settings_errors(texts, budgets):
             budget = budgets[platform][name]
             if count != budget:
                 change = "more than" if count > budget else "fewer: lower"
-                errors.append(f"{prototype}: {count} settings {name}, "
-                              f"{change} the budget {budget}")
+                errors.append(
+                    f"{prototype}: {count} settings {name}, "
+                    f"{change} the budget {budget}"
+                )
     return errors
 
 
 def fuzz_errors(texts):
     """Network request handlers that no fuzz target calls."""
-    targets = "".join(text for name, text in texts.items()
-                      if name.startswith("tests/fuzz/fuzz_targets/"))
-    return [f"{name}: Service::{handler} has no fuzz target"
-            for name in HANDLERS
-            for handler in HANDLER.findall(texts.get(name, ""))
-            if f"SERVICE.{handler}(" not in targets]
+    targets = "".join(
+        text
+        for name, text in texts.items()
+        if name.startswith("tests/fuzz/fuzz_targets/")
+    )
+    return [
+        f"{name}: Service::{handler} has no fuzz target"
+        for name in HANDLERS
+        for handler in HANDLER.findall(texts.get(name, ""))
+        if f"SERVICE.{handler}(" not in targets
+    ]
 
 
 def skip_errors(texts):
@@ -482,11 +609,15 @@ def skip_errors(texts):
         if not name.endswith(".rs"):
             continue
         lines = [""] + text.splitlines()
-        errors += [f"{name}:{number}: mutants attribute without a reason"
-                   for number, line in enumerate(lines)
-                   if SKIP.match(line) and not any(
-                       "//" in reason for reason in (
-                           line, lines[number - 1].lstrip()[:2]))]
+        errors += [
+            f"{name}:{number}: mutants attribute without a reason"
+            for number, line in enumerate(lines)
+            if SKIP.match(line)
+            and not any(
+                "//" in reason
+                for reason in (line, lines[number - 1].lstrip()[:2])
+            )
+        ]
     return errors
 
 
@@ -494,7 +625,7 @@ def validate_text_lines(name, path, text):
     for number, line in enumerate(text.splitlines(), 1):
         if line.startswith(("<<<<<<< ", ">>>>>>> ")):
             raise ValueError(f"Merge conflict: {name}:{number}")
-        trailing = line[len(line.rstrip(" \t")):]
+        trailing = line[len(line.rstrip(" \t")) :]
         if trailing and not (path.suffix == ".md" and trailing == "  "):
             raise ValueError(f"Trailing whitespace: {name}:{number}")
 
@@ -569,10 +700,16 @@ def validate_sources(names, texts):
     if errors:
         raise ValueError("Hidden or non-ASCII Unicode:\n" + "\n".join(errors))
     allowed = NOT_TRACKER | {
-        crate for name, text in texts.items()
-        if name.endswith("Cargo.toml") for crate in CRATE.findall(text)}
-    leaks = [f"{name}: {', '.join(found)}" for name, text in texts.items()
-             if (found := bead_ids(text, allowed))]
+        crate
+        for name, text in texts.items()
+        if name.endswith("Cargo.toml")
+        for crate in CRATE.findall(text)
+    }
+    leaks = [
+        f"{name}: {', '.join(found)}"
+        for name, text in texts.items()
+        if (found := bead_ids(text, allowed))
+    ]
     if leaks:
         raise ValueError("Tracker IDs in files:\n" + "\n".join(leaks))
     errors = round_trip_errors(texts)
@@ -614,7 +751,9 @@ def validate_documentation(documents, folded, texts, allowed):
         raise ValueError("Broken Markdown links:\n" + "\n".join(errors))
     errors = output_map_errors(
         json.loads(texts["tools/scripts/check-output.json"]),
-        documents, lambda name: Path(name).exists())
+        documents,
+        lambda name: Path(name).exists(),
+    )
     if errors:
         raise ValueError("Check output map:\n" + "\n".join(errors))
     errors = orphans(documents, folded.values())
@@ -631,35 +770,50 @@ def validate_documentation(documents, folded, texts, allowed):
     errors = "\n".join(settings_errors(texts, baselines["settings"]))
     if errors:
         raise ValueError(
-            f"Settings budgets ([settings] in baselines.toml):\n{errors}")
+            f"Settings budgets ([settings] in baselines.toml):\n{errors}"
+        )
     return size
 
 
 def main():
     output = subprocess.check_output(
-        ["git", "-c", "safe.directory=/workspace", "ls-files", "--cached",
-         "--others", "--exclude-standard", "-z", "--", ".",
-         ":(exclude).beads/**", ":(exclude).beads.gate.lock",
-         ":(exclude)tests/fuzz/corpus/**"])
+        [
+            "git",
+            "-c",
+            "safe.directory=/workspace",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            ".",
+            ":(exclude).beads/**",
+            ":(exclude).beads.gate.lock",
+            ":(exclude)tests/fuzz/corpus/**",
+        ]
+    )
     names = sorted(set(output.decode().strip("\0").split("\0")))
     folded, documents, texts, checked = repository_sources(names)
     allowed = validate_sources(names, texts)
     validate_clients(texts)
     size = validate_documentation(documents, folded, texts, allowed)
-    print(f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
-          "workflows set top-level permissions, no format or private-use "
-          "characters, ASCII paths, crates follow the unsafe "
-          "policy, no tracker IDs, protobuf and serde types have round-trip "
-          "properties, network handlers have fuzz targets, UI strings "
-          "come from catalogues, screen pages match their prototypes, "
-          "prototype settings keep their checkbox and row budgets, "
-          "mutants skips give a reason, "
-          f"source files <= {size['max_lines']} "
-          "lines or their budget; "
-          f"{len(documents)} Markdown files: relative links "
-          f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
-          f"{AGENTS_LINES} lines; commit messages after the baseline follow "
-          "the rules")
+    print(
+        f"{checked} text files: whitespace, conflicts, JSON/YAML valid, "
+        "workflows set top-level permissions, no format or private-use "
+        "characters, ASCII paths, crates follow the unsafe "
+        "policy, no tracker IDs, protobuf and serde types have round-trip "
+        "properties, network handlers have fuzz targets, UI strings "
+        "come from catalogues, screen pages match their prototypes, "
+        "prototype settings keep their checkbox and row budgets, "
+        "mutants skips give a reason, "
+        f"source files <= {size['max_lines']} "
+        "lines or their budget; "
+        f"{len(documents)} Markdown files: relative links "
+        f"resolve, docs/ reachable from {INDEX}, AGENTS.md <= "
+        f"{AGENTS_LINES} lines; commit messages after the baseline follow "
+        "the rules"
+    )
 
 
 if __name__ == "__main__":

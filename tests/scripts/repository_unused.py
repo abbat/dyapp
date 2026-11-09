@@ -1,4 +1,5 @@
 """Find script files without a repository entry point."""
+
 import ast
 from pathlib import PurePosixPath
 
@@ -47,7 +48,8 @@ def reachable(graph: dict[str, set[str]], roots: set[str]) -> set[str]:
 
 
 def script_reference_errors(
-    texts: dict[str, str], entries: dict[str, str] | None = None,
+    texts: dict[str, str],
+    entries: dict[str, str] | None = None,
 ) -> list[str]:
     entries = SCRIPT_ENTRIES if entries is None else entries
     scripts = {name for name in texts if is_script(name)}
@@ -55,8 +57,12 @@ def script_reference_errors(
     roots: set[str] = set()
     for name, source in texts.items():
         modules = imported_modules(source) if name.endswith(".py") else set()
-        targets = {script for script in scripts if script != name
-                   if references(source, script, modules)}
+        targets = {
+            script
+            for script in scripts
+            if script != name
+            if references(source, script, modules)
+        }
         if name in scripts:
             graph[name] = targets
         else:
@@ -69,6 +75,7 @@ def script_reference_errors(
         elif name not in scripts or name in ordinary:
             errors.append(f"{name}: stale script entry")
     found = reachable(graph, roots | (scripts & entries.keys()))
-    errors.extend(f"{name}: unreferenced script"
-                  for name in sorted(scripts - found))
+    errors.extend(
+        f"{name}: unreferenced script" for name in sorted(scripts - found)
+    )
     return errors

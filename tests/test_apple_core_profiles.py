@@ -1,4 +1,5 @@
 """Inspect Apple core command plans using fake native tools in Docker."""
+
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-FAKE = r'''#!/usr/bin/env python3
+FAKE = r"""#!/usr/bin/env python3
 import json
 import os
 from pathlib import Path
@@ -39,13 +40,16 @@ elif tool == "lipo":
     Path(args[args.index("-output") + 1]).write_bytes(b"fixture")
 elif tool == "xcodebuild":
     Path(args[args.index("-output") + 1]).mkdir()
-'''
+"""
 
 
 class AppleCoreProfiles(unittest.TestCase):
     def test_release_device_and_default_simulator_command_plans(self):
-        cases = [("ios-device", "release", 1), ("ios", "debug", 3),
-                 ("macos", "release", 2)]
+        cases = [
+            ("ios-device", "release", 1),
+            ("ios", "debug", 3),
+            ("macos", "release", 2),
+        ]
         for scope, profile, count in cases:
             with self.subTest(scope=scope, profile=profile):
                 with tempfile.TemporaryDirectory() as directory:
@@ -67,22 +71,30 @@ class AppleCoreProfiles(unittest.TestCase):
                     arguments = ["bash", str(script), "--raw", scope]
                     if profile == "release":
                         arguments.append(profile)
-                    subprocess.run(arguments, env=env, check=True,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-                    calls = [json.loads(row)
-                             for row in log.read_text().splitlines()]
-                    builds = [row for row in calls
-                              if row[:2] == ["cargo", "rustc"]]
+                    subprocess.run(
+                        arguments,
+                        env=env,
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    calls = [
+                        json.loads(row) for row in log.read_text().splitlines()
+                    ]
+                    builds = [
+                        row for row in calls if row[:2] == ["cargo", "rustc"]
+                    ]
                     self.assertEqual(len(builds), count)
                     for row in builds:
-                        self.assertEqual("--release" in row,
-                                         profile == "release")
+                        self.assertEqual(
+                            "--release" in row, profile == "release"
+                        )
                     for row in calls:
                         if row[0] == "lipo":
-                            sources = row[2:row.index("-output")]
-                            self.assertTrue(all(
-                                f"/{profile}/" in item for item in sources))
+                            sources = row[2 : row.index("-output")]
+                            self.assertTrue(
+                                all(f"/{profile}/" in item for item in sources)
+                            )
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ Usage: python3 -I tools/scripts/geonames-places.py cities1000.zip [out]
 Download cities1000.zip from https://download.geonames.org/export/dump/
 into an empty directory first.
 """
+
 import io
 import itertools
 import sys

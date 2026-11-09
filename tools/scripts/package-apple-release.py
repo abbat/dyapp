@@ -1,4 +1,5 @@
 """Verify Apple bundle structure and archive unsigned CI Release packages."""
+
 import argparse
 import os
 from pathlib import Path
@@ -79,8 +80,10 @@ def main():
             raise ValueError("Native Apple packaging requires approved CI")
         binary = executable(args.app, args.target)
         architectures = subprocess.check_output(
-            ["xcrun", "lipo", "-archs", str(binary)], text=True,
-            stderr=subprocess.PIPE).split()
+            ["xcrun", "lipo", "-archs", str(binary)],
+            text=True,
+            stderr=subprocess.PIPE,
+        ).split()
         package(args.app, args.target, args.destination, architectures)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print("FAIL apple-package: bundle verification or archiving failed")
@@ -94,5 +97,6 @@ def main():
 
 if __name__ == "__main__":
     from check_dispatch import wrap
+
     wrap("apple-package")
     raise SystemExit(main())

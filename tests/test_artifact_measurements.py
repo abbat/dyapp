@@ -1,4 +1,5 @@
 """Measurements must not turn absent artifacts into zero-byte successes."""
+
 import hashlib
 import importlib.util
 from pathlib import Path
@@ -7,7 +8,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "artifact_measurement", ROOT / "tools/scripts/report-artifact-size.py")
+    "artifact_measurement", ROOT / "tools/scripts/report-artifact-size.py"
+)
 REPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPORT)
 
@@ -19,8 +21,9 @@ class ArtifactMeasurements(unittest.TestCase):
             content = b"x" * (1024 * 1024) + b"tail"
             artifact.write_bytes(content)
             result = REPORT.file_record("app", artifact, "fixture")
-            self.assertEqual(result["sha256"],
-                             hashlib.sha256(content).hexdigest())
+            self.assertEqual(
+                result["sha256"], hashlib.sha256(content).hexdigest()
+            )
 
     def test_missing_empty_and_real_file(self):
         with tempfile.TemporaryDirectory() as directory:

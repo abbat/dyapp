@@ -16,7 +16,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
-    "release_candidates", ROOT / "tools/scripts/release-candidates.py")
+    "release_candidates", ROOT / "tools/scripts/release-candidates.py"
+)
 CANDIDATES = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CANDIDATES)
 REPO = "abbat/dyapp"
@@ -28,8 +29,11 @@ def command(args, timeout=120):
         return subprocess.run(
             args, check=True, capture_output=True, timeout=timeout
         ).stdout
-    except (OSError, subprocess.CalledProcessError,
-            subprocess.TimeoutExpired) as error:
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+    ) as error:
         raise ValueError(f"verification command failed: {args[0]}") from error
 
 
@@ -55,21 +59,46 @@ def digest_file(path):
 
 def verify_package(package, tag, commit, directory, run=command):
     name = package["name"]
-    run([
-        "gh", "release", "download", tag, "-R", REPO,
-        "-p", name, "-D", str(directory),
-    ], timeout=600)
+    run(
+        [
+            "gh",
+            "release",
+            "download",
+            tag,
+            "-R",
+            REPO,
+            "-p",
+            name,
+            "-D",
+            str(directory),
+        ],
+        timeout=600,
+    )
     path = directory / name
     if not path.is_file() or path.stat().st_size != package["size"]:
         raise ValueError("downloaded package size mismatch")
     if digest_file(path) != package["sha256"]:
         raise ValueError("downloaded package digest mismatch")
-    output = run([
-        "gh", "attestation", "verify", str(path),
-        "--repo", REPO, "--signer-workflow", SIGNER,
-        "--source-ref", f"refs/tags/{tag}", "--source-digest", commit,
-        "--deny-self-hosted-runners", "--format", "json",
-    ], timeout=120)
+    output = run(
+        [
+            "gh",
+            "attestation",
+            "verify",
+            str(path),
+            "--repo",
+            REPO,
+            "--signer-workflow",
+            SIGNER,
+            "--source-ref",
+            f"refs/tags/{tag}",
+            "--source-digest",
+            commit,
+            "--deny-self-hosted-runners",
+            "--format",
+            "json",
+        ],
+        timeout=120,
+    )
     results = json.loads(output, object_pairs_hook=CANDIDATES.unique_object)
     if not isinstance(results, list) or not any(
         isinstance(row, dict) and row.get("verificationResult")
@@ -80,9 +109,13 @@ def verify_package(package, tag, commit, directory, run=command):
 
 def inventory(tag, run=command):
     commit = release_commit(tag, run)
-    response = run([
-        "gh", "api", f"repos/{REPO}/releases/tags/{tag}",
-    ])
+    response = run(
+        [
+            "gh",
+            "api",
+            f"repos/{REPO}/releases/tags/{tag}",
+        ]
+    )
     if len(response) > CANDIDATES.MAX_BYTES:
         raise ValueError("release response exceeds size limit")
     release = json.loads(response, object_pairs_hook=CANDIDATES.unique_object)
@@ -95,22 +128,36 @@ def inventory(tag, run=command):
         for target, package in sorted(found["packages"].items()):
             verify_package(package, tag, commit, directory, run)
             asset = {
-                "name": package["name"], "state": "uploaded",
+                "name": package["name"],
+                "state": "uploaded",
                 "sha256": package["sha256"],
             }
             assets.append(asset)
-            attestations.append({
-                "name": package["name"], "sha256": package["sha256"],
-            })
+            attestations.append(
+                {
+                    "name": package["name"],
+                    "sha256": package["sha256"],
+                }
+            )
             targets[target] = {
-                "method": "package", "asset": package["name"],
+                "method": "package",
+                "asset": package["name"],
             }
-    return {"schema": 1, "releases": [{
-        "tag": tag, "commit": commit, "draft": False,
-        "prerelease": False, "assets": assets,
-        "attestations": attestations, "source_builds": [],
-        "targets": targets,
-    }]}
+    return {
+        "schema": 1,
+        "releases": [
+            {
+                "tag": tag,
+                "commit": commit,
+                "draft": False,
+                "prerelease": False,
+                "assets": assets,
+                "attestations": attestations,
+                "source_builds": [],
+                "targets": targets,
+            }
+        ],
+    }
 
 
 def main():

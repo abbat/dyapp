@@ -3,6 +3,7 @@
 
 Design: docs/architecture/search-capacity.md.
 """
+
 import argparse
 import json
 import math
@@ -10,37 +11,71 @@ import sys
 
 P = {
     "steps": [1e3, 1e4, 1e5, 1e6, 1e7, 5e7],
-    "activity": {"base": {"dau": 0.3, "queries": 10, "edit_days": 7},
-                 "stress": {"dau": 0.5, "queries": 30, "edit_days": 1}},
-    "devices": 1.5, "heartbeats_per_key_max": 2, "beats_per_day": 1,
+    "activity": {
+        "base": {"dau": 0.3, "queries": 10, "edit_days": 7},
+        "stress": {"dau": 0.5, "queries": 30, "edit_days": 1},
+    },
+    "devices": 1.5,
+    "heartbeats_per_key_max": 2,
+    "beats_per_day": 1,
     "peak": 3,
-    "node_share": [0.001, 0.005, 0.01], "search_share": [0.1, 0.5, 1.0],
-    "link": 100e6 / 8, "max_bytes": 50e9, "profile": 5e3, "heartbeat": 200,
+    "node_share": [0.001, 0.005, 0.01],
+    "search_share": [0.1, 0.5, 1.0],
+    "link": 100e6 / 8,
+    "max_bytes": 50e9,
+    "profile": 5e3,
+    "heartbeat": 200,
     # gossip copies of one message; the verdict uses D, c1 and c3 are shown
     # for comparison
     "D": 6,
-    "page": 50, "key_version": 40, "sync_peers": 3,
-    "top_country": 0.30, "top_place": 0.09, "places": 10_000,
-    "select": {"place": 1.0, "typical": 0.11, "rare": 0.01,
-               "country_rare": 0.0025, "in8": 0.11},
-    "max_scan": 10_000, "bytes_per_row": 300, "qps": 500,
+    "page": 50,
+    "key_version": 40,
+    "sync_peers": 3,
+    "top_country": 0.30,
+    "top_place": 0.09,
+    "places": 10_000,
+    "select": {
+        "place": 1.0,
+        "typical": 0.11,
+        "rare": 0.01,
+        "country_rare": 0.0025,
+        "in8": 0.11,
+    },
+    "max_scan": 10_000,
+    "bytes_per_row": 300,
+    "qps": 500,
     # phone: calibrated so 11 bits = 30 s per bootstrap.md (30000 ms / 2^11
     # tries); 11 bits is the ceiling
     "argon_ms": {"pc_core": 5, "phone": 30000 / 2048},
-    "ssd_read_ms": 0.1, "ram": 4e9, "attacker_cores": 16,
+    "ssd_read_ms": 0.1,
+    "ram": 4e9,
+    "attacker_cores": 16,
     "pow_bits": [11, 14, 17, 20],
-    "peers": 50, "peer_rps": 100, "group_rps": 1000,
-    "newcomer_share": 0.1, "newcomer_days": 30, "heartbeat_bits": 8,
+    "peers": 50,
+    "peer_rps": 100,
+    "group_rps": 1000,
+    "newcomer_share": 0.1,
+    "newcomer_days": 30,
+    "heartbeat_bits": 8,
     # Measured release heartbeat hashes on one Docker CPU; see docs.
     "heartbeat_argon_ms": 2.674,
     "growth_daily": [0.001, 0.005, 0.01],
     # SHA-256 rates are hardware scenarios, not measurements.
     "puzzle_hashes_s": {"cpu": 1e6, "gpu": 1e10},
-    "puzzle_bits": [12, 20], "active_groups": 50,
+    "puzzle_bits": [12, 20],
+    "active_groups": 50,
 }
-LIMITS = {"gossip": 0.30, "inventory": 0.10, "get": 0.30, "qps": 0.50,
-          "sync_h": 24, "nodes_per_query": 3, "min_search_nodes": 2,
-          "phone_s": 30, "partial": 50}
+LIMITS = {
+    "gossip": 0.30,
+    "inventory": 0.10,
+    "get": 0.30,
+    "qps": 0.50,
+    "sync_h": 24,
+    "nodes_per_query": 3,
+    "min_search_nodes": 2,
+    "phone_s": 30,
+    "partial": 50,
+}
 # Verdict-free classes: a `country + rare` partial is expected (spec), so it
 # is reported, not failing.
 EXPECTED_PARTIAL = {"country_rare"}
@@ -51,7 +86,7 @@ def zipf(n, top):
     lo, hi = 0.0, 5.0
     for _ in range(100):
         s = (lo + hi) / 2
-        w = [1 / (r ** s) for r in range(1, n + 1)]
+        w = [1 / (r**s) for r in range(1, n + 1)]
         if w[0] / sum(w) < top:
             lo = s
         else:
@@ -110,22 +145,33 @@ def row(p, users, act, node_share, search_share, places):
     country = users * p["top_country"]
     at = {rank: country * places[rank - 1] for rank in (1, 100, 10_000)}
     r = {
-        "users": users, "dau": dau, "nodes": nodes, "search": search,
+        "users": users,
+        "dau": dau,
+        "nodes": nodes,
+        "search": search,
         "sample": sample,
-        "disk": held * per_key, "index": index, "cold": cold,
+        "disk": held * per_key,
+        "index": index,
+        "cold": cold,
         "cold_ms": cold_ms,
-        "cold_qps": cold_qps, "qps_cap": qps_cap, "scan": scan,
+        "cold_qps": cold_qps,
+        "qps_cap": qps_cap,
+        "scan": scan,
         "gossip": {c: (edits + beats) * c for c in (1, 3, D)},
         "inventory": held * p["key_version"] / 3600,
         "sync_h": held * per_key / sync_bps / 3600,
         # sync runs at the cap, spread over the peers pulled from
         "sync_peer": sync_bps / p["sync_peers"],
-        "q_node": q_node, "get": q_node * p["page"] * p["profile"],
-        "coverage": {rank: at[rank] * sample * p["select"]["typical"]
-                     for rank in (1, 100, 10_000)},
+        "q_node": q_node,
+        "get": q_node * p["page"] * p["profile"],
+        "coverage": {
+            rank: at[rank] * sample * p["select"]["typical"]
+            for rank in (1, 100, 10_000)
+        },
         "nodes_per_query": {
             (cls, rank): nodes_needed(p, at[rank] * p["select"][cls], sample)
-            for cls in ("typical", "rare") for rank in (1, 100, 10_000)
+            for cls in ("typical", "rare")
+            for rank in (1, 100, 10_000)
         },
     }
     # Coverage rank 10 000 and the `country_rare` partial are reported, not
@@ -171,7 +217,7 @@ def adversary(p):
     out = []
     per_key = p["profile"] + p["bytes_per_row"]
     for bits in p["pow_bits"]:
-        tries = 2 ** bits
+        tries = 2**bits
         per_core_ms = p["argon_ms"]["pc_core"] * tries
         keys_day = p["attacker_cores"] * 86400e3 / per_core_ms
         fill_days = p["max_bytes"] / per_key / keys_day
@@ -212,14 +258,19 @@ def defences(p, users, places):
     rare = country[-1]
     sample = min(1.0, ceiling / rare)
     return {
-        "new_fakes": fakes, "fake_share": fake_share,
+        "new_fakes": fakes,
+        "fake_share": fake_share,
         "full_fake_share": fakes / (fakes + established),
         "heartbeat_s": beat_s,
         "sustainable_fakes": p["attacker_cores"] * 86400 / beat_s,
         "quota_growth": quota / (p["newcomer_days"] * p["profile"]),
-        "growth": {g: users * g * p["newcomer_days"] * p["profile"] / quota
-                   for g in p["growth_daily"]},
-        "place_ceiling": ceiling, "rare_profiles": rare, "rare_sample": sample,
+        "growth": {
+            g: users * g * p["newcomer_days"] * p["profile"] / quota
+            for g in p["growth_daily"]
+        },
+        "place_ceiling": ceiling,
+        "rare_profiles": rare,
+        "rare_sample": sample,
         "rare_nodes": nodes_needed(p, rare, sample),
         "full": honest_bytes >= p["max_bytes"],
     }
@@ -227,9 +278,11 @@ def defences(p, users, places):
 
 def puzzle_rates(p):
     fair = p["qps"] / p["active_groups"]
-    return [(name, bits, rate / 2 ** bits, fair)
-            for name, rate in p["puzzle_hashes_s"].items()
-            for bits in p["puzzle_bits"]]
+    return [
+        (name, bits, rate / 2**bits, fair)
+        for name, rate in p["puzzle_hashes_s"].items()
+        for bits in p["puzzle_bits"]
+    ]
 
 
 def self_check(p):
@@ -301,10 +354,14 @@ def self_check(p):
 
 
 def report_partial(p, measured_partial):
-    print(f"## Partial share (max_scan_rows = {p['max_scan']:,.0f}, "
-          f"page = {p['page']})\n")
-    print("| Class | Expected matches in max_scan_rows | Partial (model) "
-          "| Partial (measured) |")
+    print(
+        f"## Partial share (max_scan_rows = {p['max_scan']:,.0f}, "
+        f"page = {p['page']})\n"
+    )
+    print(
+        "| Class | Expected matches in max_scan_rows | Partial (model) "
+        "| Partial (measured) |"
+    )
     print("|---|---|---|---|")
     for k, (exp, part) in partial_model(p).items():
         m = measured_partial.get(k)
@@ -317,12 +374,16 @@ def report_partial(p, measured_partial):
 
 def report_thresholds(p, places, grid):
     print("## Thresholds\n")
-    print("Holds from = lowest step with no failure; first failure above = "
-          "the next failing step after it, with the first limiting "
-          "resource.\n")
-    print("| Activity | Node % | Search % | Holds from users "
-          "| First failure above | Limiting resource "
-          "| DAU with search >= 2 | DAU with search >= 3 |")
+    print(
+        "Holds from = lowest step with no failure; first failure above = "
+        "the next failing step after it, with the first limiting "
+        "resource.\n"
+    )
+    print(
+        "| Activity | Node % | Search % | Holds from users "
+        "| First failure above | Limiting resource "
+        "| DAU with search >= 2 | DAU with search >= 3 |"
+    )
     print("|---|---|---|---|---|---|---|---|")
     for (act, ns, ss), rs in grid.items():
         h, f = threshold(rs)
@@ -334,11 +395,15 @@ def report_thresholds(p, places, grid):
         else:
             first = "none up to 50M"
         limit = f["fails"][0] if f else "-"
-        print(f"| {act} | {ns:.1%} | {ss:.0%} | {holds} | {first} "
-              f"| {limit} | {2 / (ns * ss):,.0f} | {3 / (ns * ss):,.0f} |")
+        print(
+            f"| {act} | {ns:.1%} | {ss:.0%} | {holds} | {first} "
+            f"| {limit} | {2 / (ns * ss):,.0f} | {3 / (ns * ss):,.0f} |"
+        )
     print("\n## Sensitivity (base activity, node 0.5 %, search 50 %)\n")
-    print("| Variation | Holds from users | First failure above "
-          "| Limiting resource |")
+    print(
+        "| Variation | Holds from users | First failure above "
+        "| Limiting resource |"
+    )
     print("|---|---|---|---|")
     variants = [
         ("baseline", {}),
@@ -369,13 +434,15 @@ def report_activity(p, places, D):
     grid = {}
     for act in p["activity"]:
         print(f"## {act.capitalize()} activity\n")
-        print("| Users | Node % | Search % | Nodes | Search nodes | Disk GB "
-              f"| Sample | Gossip MB/s c1/c3/c{D} "
-              "| Inventory MB/s | First sync h | Sync MB/s per peer "
-              "| Queries/s per node | Qps cap warm/cold "
-              "| Get MB/s | Typical matches per node r1/r100/r10k "
-              "| Nodes per query typical r1/r100/r10k "
-              "| Nodes per query rare r1/r100/r10k | Verdict |")
+        print(
+            "| Users | Node % | Search % | Nodes | Search nodes | Disk GB "
+            f"| Sample | Gossip MB/s c1/c3/c{D} "
+            "| Inventory MB/s | First sync h | Sync MB/s per peer "
+            "| Queries/s per node | Qps cap warm/cold "
+            "| Get MB/s | Typical matches per node r1/r100/r10k "
+            "| Nodes per query typical r1/r100/r10k "
+            "| Nodes per query rare r1/r100/r10k | Verdict |"
+        )
         print("|" + "---|" * 18)
         for ns in p["node_share"]:
             for ss in p["search_share"]:
@@ -412,8 +479,10 @@ def report(p, source, measured_partial):
     places = zipf(p["places"], p["top_place"])
     D = p["D"]
     print("# Search capacity model\n")
-    print(f"Source: {source}; bytes_per_row = {p['bytes_per_row']}, "
-          f"warm qps = {p['qps']}.\n")
+    print(
+        f"Source: {source}; bytes_per_row = {p['bytes_per_row']}, "
+        f"warm qps = {p['qps']}.\n"
+    )
     scan = {k: p["page"] / s for k, s in p["select"].items()}
     joined = ", ".join(f"{k} {v:,.0f}" for k, v in scan.items())
     print("Rows scanned per query class: " + joined + ".\n")
@@ -421,43 +490,60 @@ def report(p, source, measured_partial):
     grid = report_activity(p, places, D)
     report_thresholds(p, places, grid)
     print("\n## Adversary\n")
-    print("| PoW bits | Fake keys/day | Days to fill 50 GB "
-          "| Phone s per bootstrap | Phone ok "
-          "| Real profiles evicted/day once full |")
+    print(
+        "| PoW bits | Fake keys/day | Days to fill 50 GB "
+        "| Phone s per bootstrap | Phone ok "
+        "| Real profiles evicted/day once full |"
+    )
     print("|---|---|---|---|---|---|")
     for bits, kd, fd, ps, ok, ev in adversary(p):
         yes = "yes" if ok else "no"
-        print(f"| {bits} | {kd:,.0f} | {fd:.2f} | {ps:.1f} "
-              f"| {yes} | {ev:,.0f} |")
-    print(f"\nQuery rate many peers reach past the per-peer limits: "
-          f"{p['peers']} peers x {p['peer_rps']}/s "
-          f"= {p['peers'] * p['peer_rps']:,}/s per node, "
-          f"against a warm cap of {p['qps']}/s "
-          f"(IP-group cap {p['group_rps']}/s per group).")
+        print(
+            f"| {bits} | {kd:,.0f} | {fd:.2f} | {ps:.1f} | {yes} | {ev:,.0f} |"
+        )
+    print(
+        f"\nQuery rate many peers reach past the per-peer limits: "
+        f"{p['peers']} peers x {p['peer_rps']}/s "
+        f"= {p['peers'] * p['peer_rps']:,}/s per node, "
+        f"against a warm cap of {p['qps']}/s "
+        f"(IP-group cap {p['group_rps']}/s per group)."
+    )
     print("\n### Implemented defences (equal 5 KB profiles)\n")
-    print(f"Newcomer quota: {p['newcomer_share']:.0%} of max bytes; "
-          f"{p['newcomer_days']} days; heartbeat {p['heartbeat_bits']} bits.")
-    print("| Users | New fakes / honest + fakes (unbounded) | "
-          "Rank-10000 profiles | Established ceiling/place | "
-          "Rare place kept | Nodes for whole rare place | "
-          "Quota used by 0.1/0.5/1 % daily growth |")
+    print(
+        f"Newcomer quota: {p['newcomer_share']:.0%} of max bytes; "
+        f"{p['newcomer_days']} days; heartbeat {p['heartbeat_bits']} bits."
+    )
+    print(
+        "| Users | New fakes / honest + fakes (unbounded) | "
+        "Rank-10000 profiles | Established ceiling/place | "
+        "Rare place kept | Nodes for whole rare place | "
+        "Quota used by 0.1/0.5/1 % daily growth |"
+    )
     print("|" + "---|" * 7)
     for users in p["steps"]:
         d = defences(p, users, places)
         growth = "/".join(f"{v:.1%}" for v in d["growth"].values())
-        print(f"| {users:,.0f} | {d['fake_share']:.1%} | "
-              f"{d['rare_profiles']:.1f} | {d['place_ceiling']:.1f} | "
-              f"{d['rare_sample']:.0%} | {d['rare_nodes']} | {growth} |")
-    print(f"\nFull-node newcomer fake share at 95 % low-water: "
-          f"{d['full_fake_share']:.2%}; "
-          f"quota binds above {d['quota_growth']:,.0f} honest new keys/day.")
-    print(f"Heartbeat: {p['heartbeat_argon_ms']:.3f} ms/Argon2id hash; "
-          f"{d['heartbeat_s']:.3f} core-s/fake/day; "
-          f"1M fakes cost {d['heartbeat_s'] * 1e6 / 3600:,.1f} core-h/day; "
-          f"{p['attacker_cores']} cores sustain "
-          f"{d['sustainable_fakes']:,.0f} fakes (heartbeat only).")
-    print("\n| SHA-256 scenario | Puzzle bits | Attacker requests/s | "
-          "One fair share requests/s (warm) |")
+        print(
+            f"| {users:,.0f} | {d['fake_share']:.1%} | "
+            f"{d['rare_profiles']:.1f} | {d['place_ceiling']:.1f} | "
+            f"{d['rare_sample']:.0%} | {d['rare_nodes']} | {growth} |"
+        )
+    print(
+        f"\nFull-node newcomer fake share at 95 % low-water: "
+        f"{d['full_fake_share']:.2%}; "
+        f"quota binds above {d['quota_growth']:,.0f} honest new keys/day."
+    )
+    print(
+        f"Heartbeat: {p['heartbeat_argon_ms']:.3f} ms/Argon2id hash; "
+        f"{d['heartbeat_s']:.3f} core-s/fake/day; "
+        f"1M fakes cost {d['heartbeat_s'] * 1e6 / 3600:,.1f} core-h/day; "
+        f"{p['attacker_cores']} cores sustain "
+        f"{d['sustainable_fakes']:,.0f} fakes (heartbeat only)."
+    )
+    print(
+        "\n| SHA-256 scenario | Puzzle bits | Attacker requests/s | "
+        "One fair share requests/s (warm) |"
+    )
     print("|---|---|---|---|")
     for name, bits, rate, fair in puzzle_rates(p):
         print(f"| {name} | {bits} | {rate:,.3f} | {fair:.1f} |")
@@ -489,7 +575,9 @@ def main():
 if __name__ == "__main__":
     # -I omits the script directory; load the adjacent output wrapper.
     from pathlib import Path
+
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from check_wrapper import wrap
+
     wrap("search-model", data="--self-check" not in sys.argv[1:])
     main()

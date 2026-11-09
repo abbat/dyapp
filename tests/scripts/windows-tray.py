@@ -4,6 +4,7 @@ on Windows, as fake-tray.py does through a StatusNotifierItem host on Linux.
 quit: clicks Quit once the icon is there and the window has its small
 icon; open: clicks Open once the app writes hidden to the config dir.
 Each step goes to stderr, which the smoke log in the CI artifact keeps."""
+
 import ctypes
 import ctypes.wintypes as wintypes
 from pathlib import Path
@@ -13,18 +14,25 @@ import time
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 user32.FindWindowW.restype = wintypes.HWND
 user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
-user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
-                                wintypes.LPARAM]
+user32.PostMessageW.argtypes = [
+    wintypes.HWND,
+    wintypes.UINT,
+    wintypes.WPARAM,
+    wintypes.LPARAM,
+]
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
 user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.SendMessageW.restype = wintypes.LPARAM
 user32.SendMessageW.argtypes = user32.PostMessageW.argtypes
 user32.GetMenuItemCount.argtypes = [wintypes.HMENU]
 user32.FindWindowExW.restype = wintypes.HWND
-user32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND,
-                                 wintypes.LPCWSTR, wintypes.LPCWSTR]
-user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR,
-                                 ctypes.c_int]
+user32.FindWindowExW.argtypes = [
+    wintypes.HWND,
+    wintypes.HWND,
+    wintypes.LPCWSTR,
+    wintypes.LPCWSTR,
+]
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 user32.GetClassLongPtrW.restype = ctypes.c_size_t
 user32.GetClassLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
 
@@ -42,8 +50,12 @@ def log(message):
 
 
 class NotifyIconIdentifier(ctypes.Structure):
-    _fields_ = [("cbSize", wintypes.DWORD), ("hWnd", wintypes.HWND),
-                ("uID", wintypes.UINT), ("guidItem", ctypes.c_byte * 16)]
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("hWnd", wintypes.HWND),
+        ("uID", wintypes.UINT),
+        ("guidItem", ctypes.c_byte * 16),
+    ]
 
 
 def log_menu_needs(tray):
@@ -54,12 +66,16 @@ def log_menu_needs(tray):
     shell32 = ctypes.WinDLL("shell32")
     for uid in range(1, 9):
         rect = wintypes.RECT()
-        found = NotifyIconIdentifier(ctypes.sizeof(NotifyIconIdentifier),
-                                     tray, uid)
-        result = shell32.Shell_NotifyIconGetRect(ctypes.byref(found),
-                                                 ctypes.byref(rect))
-        log(f"icon {uid} rect: result {result & 0xFFFFFFFF:#x}, "
-            f"{rect.left},{rect.top},{rect.right},{rect.bottom}")
+        found = NotifyIconIdentifier(
+            ctypes.sizeof(NotifyIconIdentifier), tray, uid
+        )
+        result = shell32.Shell_NotifyIconGetRect(
+            ctypes.byref(found), ctypes.byref(rect)
+        )
+        log(
+            f"icon {uid} rect: result {result & 0xFFFFFFFF:#x}, "
+            f"{rect.left},{rect.top},{rect.right},{rect.bottom}"
+        )
 
 
 def shows_icons():
@@ -111,8 +127,9 @@ while True:
         log("right click on the icon")
         user32.PostMessageW(tray, WM_USER_TRAYICON, 0, WM_RBUTTONUP)
         continue
-    count = user32.GetMenuItemCount(user32.SendMessageW(menu, MN_GETHMENU,
-                                                        0, 0))
+    count = user32.GetMenuItemCount(
+        user32.SendMessageW(menu, MN_GETHMENU, 0, 0)
+    )
     log(f"menu of {count} items open, choosing item {item}")
     user32.SendMessageW(menu, MN_SELECTITEM, item, 0)
     user32.PostMessageW(menu, WM_KEYDOWN, VK_RETURN, 0)

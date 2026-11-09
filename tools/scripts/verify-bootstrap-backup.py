@@ -20,8 +20,14 @@ SPEC = importlib.util.spec_from_file_location("backup_bootstrap", SCRIPT)
 BACKUP = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BACKUP)
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
-HEADER_FIELDS = {"schema", "peer_id", "network", "key_mode", "absent",
-                 "hot_journal"}
+HEADER_FIELDS = {
+    "schema",
+    "peer_id",
+    "network",
+    "key_mode",
+    "absent",
+    "hot_journal",
+}
 FILE_FIELDS = {"path", "size", "sha256"}
 
 
@@ -39,12 +45,16 @@ def open_beneath(root, relative):
     directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         for part in parts[:-1]:
-            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                            dir_fd=directory)
+            child = os.open(
+                part,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=directory,
+            )
             os.close(directory)
             directory = child
-        return os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW,
-                       dir_fd=directory)
+        return os.open(
+            parts[-1], os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory
+        )
     finally:
         os.close(directory)
 
@@ -72,8 +82,13 @@ def check_file(root, record):
             digest.update(block)
             size += len(block)
         after = os.fstat(fd)
-        if any((size != record["size"], size != before.st_size,
-                before.st_size != after.st_size)):
+        if any(
+            (
+                size != record["size"],
+                size != before.st_size,
+                before.st_size != after.st_size,
+            )
+        ):
             raise ValueError(f"size mismatch: {record['path']}")
         if before.st_mtime_ns != after.st_mtime_ns:
             raise ValueError(f"file changed while checking: {record['path']}")
@@ -92,8 +107,11 @@ def storage_path(parts, key_mode):
     files = BACKUP.REQUIRED | (BACKUP.OPTIONAL - {"data"})
     if (name == "node.key" and key_mode == "inline") or name in files:
         return parts
-    if any(name == f"{db}{suffix}" for db in BACKUP.DATABASES
-           for suffix in ("-wal", "-journal")):
+    if any(
+        name == f"{db}{suffix}"
+        for db in BACKUP.DATABASES
+        for suffix in ("-wal", "-journal")
+    ):
         return parts
     raise ValueError("unknown storage path")
 
@@ -104,9 +122,14 @@ def validate_path(value, key_mode):
     if len(value.encode("utf-8")) > BACKUP.MAX_PATH:
         raise ValueError("manifest path exceeds size limit")
     path = PurePosixPath(value)
-    if any((path.is_absolute(), path.as_posix() != value,
+    if any(
+        (
+            path.is_absolute(),
+            path.as_posix() != value,
             len(path.parts) < 2,
-            any(part in (".", "..") for part in path.parts))):
+            any(part in (".", "..") for part in path.parts),
+        )
+    ):
         raise ValueError("unsafe manifest path")
     parts = path.parts
     if parts[0] == "recovery":
@@ -123,7 +146,8 @@ def validate_path(value, key_mode):
 def header_inventory(value):
     absent = value["absent"]
     if not isinstance(absent, list) or any(
-            not isinstance(item, str) for item in absent):
+        not isinstance(item, str) for item in absent
+    ):
         raise ValueError("invalid absent-store list")
     if absent != sorted(set(absent)) or not set(absent) <= BACKUP.OPTIONAL:
         raise ValueError("invalid absent-store list")
@@ -145,7 +169,10 @@ def header_record(value):
     if len(value["network"].encode("utf-8")) > 64:
         raise ValueError("invalid network marker")
     if not isinstance(value["key_mode"], str) or value["key_mode"] not in (
-            "inline", "external", "age"):
+        "inline",
+        "external",
+        "age",
+    ):
         raise ValueError("invalid key mode")
     header_inventory(value)
     return value
@@ -160,13 +187,15 @@ def file_record(value, previous, key_mode):
     if type(size) is not int or not 0 <= size <= 2**63 - 1:
         raise ValueError("invalid file size")
     if not isinstance(value["sha256"], str) or not DIGEST.fullmatch(
-            value["sha256"]):
+        value["sha256"]
+    ):
         raise ValueError("invalid file digest")
     return parts
 
 
 class ManifestFiles:
     """Accumulate checked records without reopening the manifest."""
+
     def __init__(self, root, header):
         self.root = root
         self.header = header
@@ -193,9 +222,13 @@ class ManifestFiles:
         check_file(self.root, value)
         self.count += 1
         self.previous = path
-        if path in {"storage/node.id", "storage/network",
-                    "storage/node.key", "recovery/node.key",
-                    "recovery/node.key.age"}:
+        if path in {
+            "storage/node.id",
+            "storage/network",
+            "storage/node.key",
+            "recovery/node.key",
+            "recovery/node.key.age",
+        }:
             self.key_records[path] = value
         if parts[0] == "recovery":
             self.recovery_key_seen = True
@@ -209,13 +242,12 @@ class ManifestFiles:
     def storage_record(self, parts, value):
         if parts[0] == "storage" and len(parts) == 2:
             self.seen.add(parts[1])
-            is_wal = any(parts[1] == f"{db}-wal"
-                         for db in BACKUP.DATABASES)
+            is_wal = any(parts[1] == f"{db}-wal" for db in BACKUP.DATABASES)
             if parts[1] in BACKUP.DATABASES or is_wal:
                 self.sqlite_records.append(value)
             for suffix in ("-wal", "-journal"):
                 if parts[1].endswith(suffix):
-                    self.sidecars.add(parts[1][:-len(suffix)])
+                    self.sidecars.add(parts[1][: -len(suffix)])
 
     def validate(self):
         required = set(BACKUP.REQUIRED)
@@ -248,14 +280,25 @@ def parse_and_hash(root):
     fd = open_beneath(root, "manifest.jsonl")
     try:
         metadata = os.fstat(fd)
-        if any((not stat.S_ISREG(metadata.st_mode), metadata.st_nlink != 1,
-                metadata.st_size > BACKUP.MAX_MANIFEST)):
+        if any(
+            (
+                not stat.S_ISREG(metadata.st_mode),
+                metadata.st_nlink != 1,
+                metadata.st_size > BACKUP.MAX_MANIFEST,
+            )
+        ):
             raise ValueError("unsafe or oversized manifest")
         with os.fdopen(fd, "rb", closefd=False) as stream:
+
             def record():
                 line = stream.readline(BACKUP.MAX_RECORD + 1)
-                if any((not line, len(line) > BACKUP.MAX_RECORD,
-                        not line.endswith(b"\n"))):
+                if any(
+                    (
+                        not line,
+                        len(line) > BACKUP.MAX_RECORD,
+                        not line.endswith(b"\n"),
+                    )
+                ):
                     raise ValueError("invalid or oversized manifest record")
                 return json.loads(line, object_pairs_hook=unique_object)
 
@@ -268,8 +311,13 @@ def parse_and_hash(root):
     finally:
         os.close(fd)
     records.validate()
-    return (header, records.count, records.expected_dirs,
-            records.sqlite_records, records.key_records)
+    return (
+        header,
+        records.count,
+        records.expected_dirs,
+        records.sqlite_records,
+        records.key_records,
+    )
 
 
 def inventory_files(directory, parent, files):
@@ -294,14 +342,19 @@ def check_inventory(root, expected_count, expected_dirs):
 
     found = 0
     actual_dirs = set()
-    for directory, dirs, files in os.walk(root, followlinks=False,
-                                          onerror=fail_walk):
+    for directory, dirs, files in os.walk(
+        root, followlinks=False, onerror=fail_walk
+    ):
         parent = Path(directory).relative_to(root)
         for name in dirs:
             relative = (parent / name).as_posix()
             path = Path(directory) / name
-            if any((relative not in expected_dirs,
-                    not stat.S_ISDIR(path.lstat().st_mode))):
+            if any(
+                (
+                    relative not in expected_dirs,
+                    not stat.S_ISDIR(path.lstat().st_mode),
+                )
+            ):
                 raise ValueError(f"unexpected directory: {relative}")
             actual_dirs.add(relative)
         found += inventory_files(directory, parent, files)

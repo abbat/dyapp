@@ -27,9 +27,13 @@ class VerifyBootstrapBackup(unittest.TestCase):
         self.source = root / "source"
         self.source.mkdir()
         self.snapshot = root / "snapshot"
-        for name, data in {"node.id": b"peer-id", "network": b"network",
-                           "node.key": b"key", "profiles.db": b"profiles",
-                           "messages.db": b"messages"}.items():
+        for name, data in {
+            "node.id": b"peer-id",
+            "network": b"network",
+            "node.key": b"key",
+            "profiles.db": b"profiles",
+            "messages.db": b"messages",
+        }.items():
             (self.source / name).write_bytes(data)
 
     def create(self, mode="inline"):
@@ -42,8 +46,9 @@ class VerifyBootstrapBackup(unittest.TestCase):
 
     def change_manifest(self, change):
         manifest = self.snapshot / "manifest.jsonl"
-        lines = [json.loads(line) for line in
-                 manifest.read_text().splitlines()]
+        lines = [
+            json.loads(line) for line in manifest.read_text().splitlines()
+        ]
         change(lines)
         manifest.write_text("".join(json.dumps(item) + "\n" for item in lines))
 
