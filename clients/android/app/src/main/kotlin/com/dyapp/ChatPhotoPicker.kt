@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.PhotoPurpose
 
 internal val LocalChatPhotoSender =
     androidx.compose.runtime.staticCompositionLocalOf<((PreparedPhoto) -> ChatStatus?)?> { null }
@@ -31,7 +32,9 @@ internal fun ChatPhotoPicker(enabled: Boolean) {
             state.busy = true
             state.status = null
             val result = try {
-                withContext(Dispatchers.IO) { runCatching { preparePhoto(readPicked(context, uri)) } }
+                withContext(
+                    Dispatchers.IO
+                ) { runCatching { preparePhoto(readPicked(context, uri), PhotoPurpose.CHAT) } }
             } finally {
                 state.busy = false
             }

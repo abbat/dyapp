@@ -76,7 +76,9 @@ Source headers are bounded before decoder allocation; malformed pixels and overs
 fail with typed errors. The common FFI exports `PhotoPurpose`, `photo_picked_byte_limit`,
 `photo_decode_plan` and `prepare_photo_pixels`, with `PhotoDecodePlan`, `PreparedPhotoData`
 and typed `PhotoPreparationError` conversions. Kotlin/Swift use this one surface; adapters
-contain no fitting/encoding policy. Platform pipeline switches remain planned.
+contain no fitting/encoding policy. Android's picker and original display use core decode
+plans; its software bitmap pixels enter the same core encoder for both profile and chat.
+iOS and desktop pipeline switches remain planned.
 `validate_original` checks the selected purpose's encoded byte limit, JPEG framing, the
 64-million-pixel cap and descriptor/frame dimension agreement before native decoding.
 Mobile chat send and both cached/network original retrieval use the chat budget of

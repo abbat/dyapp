@@ -9,7 +9,7 @@ import org.junit.Test
 class ChatPhotoSendTests {
     @Test
     fun refusalRetainsPreparedPhotoButQueuedSendClearsIt() = runBlocking {
-        val photo = PreparedPhoto(byteArrayOf(1), byteArrayOf(2))
+        val photo = PreparedPhoto(byteArrayOf(1), byteArrayOf(2), 1u, 1u)
         val draft = ChatPhotoDraft().apply { this.photo = photo }
         draft.send { photoSendStatus(IllegalStateException("full"), false) }
         assertSame(photo, draft.photo)
@@ -22,7 +22,7 @@ class ChatPhotoSendTests {
 
     @Test
     fun successfulSendClearsPreparedBytes() = runBlocking {
-        val draft = ChatPhotoDraft().apply { photo = PreparedPhoto(byteArrayOf(1), byteArrayOf(2)) }
+        val draft = ChatPhotoDraft().apply { photo = PreparedPhoto(byteArrayOf(1), byteArrayOf(2), 1u, 1u) }
         draft.send { null }
         assertNull(draft.photo)
         assertNull(draft.status)

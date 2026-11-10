@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatBlock
-import uniffi.dyapp.ChatLikes
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatSession
@@ -41,8 +40,7 @@ internal class ChatsLists {
  * This identity's chat rows; the shell owns them because the tab badge shows on every section.
  * The blocking calls belong on IO.
  */
-@Suppress("TooManyFunctions") // One per chat call the screens make through the bridge.
-internal class ChatFeed(private val opened: Opened.Ready) {
+internal class ChatFeed(internal val opened: Opened.Ready) {
     var rows by mutableStateOf(emptyList<ChatRow>())
         private set
 
@@ -51,13 +49,14 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         private set
 
     val lists = ChatsLists()
+    private val photos = ChatPhotoFeed(opened, ::read)
 
     /** Counts the reads, so an open chat reloads for a change the rows do not show. */
     var version by mutableIntStateOf(0)
         private set
 
     // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
-    private fun read() {
+    internal fun read() {
         runCatching {
             RustBridge.withChats(opened) {
                 rows = it.chatRows()
@@ -74,52 +73,11 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         ChatThreadSnapshot(
             it.chatHistory(peer),
             it.chatItems(peer),
-            { photo -> photoOriginal(peer, photo) },
-            { photoAuto(peer) },
-            { photo -> sendPhoto(peer, photo) }
+            { photo -> photos.original(peer, photo) },
+            { photos.auto(peer) },
+            { photo -> photos.send(peer, photo) }
         )
     }.also { markRead(peer) }
-
-    fun photoOriginal(peer: String, photo: uniffi.dyapp.ChatPhoto) = RustBridge.withChats(opened) {
-        it.chatPhotoOriginal(peer, photo.groupId, photo.author, photo.id)
-    }
-
-    fun photoAuto(peer: String) = RustBridge.withChats(opened) { it.chatPhotoAuto(peer) }
-
-    /** Prepared pixels have no metadata; compare stored identities before retrying a failed send. */
-    fun sendPhoto(peer: String, photo: PreparedPhoto): ChatStatus? {
-        val dimensions = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        android.graphics.BitmapFactory.decodeByteArray(photo.full, 0, photo.full.size, dimensions)
-        val status = RustBridge.withChats(opened) { chats ->
-            val before = chats.chatPhotos(peer).map(::photoKey).toSet()
-            val error = runCatching {
-                chats.sendChatPhoto(
-                    peer, photo.full, photo.thumbnail,
-                    dimensions.outWidth.toUInt(), dimensions.outHeight.toUInt()
-                )
-            }.exceptionOrNull() ?: return@withChats null
-            val staged = chats.chatPhotos(peer).any { it.author == opened.peerId && photoKey(it) !in before }
-            photoSendStatus(error, staged)
-        }
-        read()
-        return status
-    }
-
-    fun likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
-
-    /** The verified profiles of [peers]; a peer no node returns is left out. */
-    fun profiles(peers: List<String>) = RustBridge.withChats(opened) { it.profiles(peers) }
-
-    /** Likes [peer] or takes the like back, then reads the rows, which also rereads the page's likes. */
-    fun like(peer: String, liked: Boolean): Result<ChatLikes> {
-        val result = runCatching { RustBridge.withChats(opened) { it.like(peer, liked) } }
-        read()
-        return result
-    }
-
-    /** Passes on [peer] or undoes that, here only and unseen by the peer, then reads the rows. */
-    fun pass(peer: String, passed: Boolean): Result<ChatLikes> =
-        runCatching { RustBridge.withChats(opened) { it.setPassed(peer, passed) } }.also { read() }
 
     /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
     fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {
@@ -129,14 +87,6 @@ internal class ChatFeed(private val opened: Opened.Ready) {
             val after = runCatching { history(peer).messages }.getOrDefault(before)
             sendStatus(failed, stagedNew(before, after, opened.peerId))
         }
-    }
-
-    /** Shares a core-formatted profile link, only into a still-open conversation. Call on IO. */
-    fun shareProfile(peer: String, sharedPeer: String): ChatStatus? {
-        val text = requireNotNull(uniffi.dyapp.profileLinkText(sharedPeer)) { "invalid profile peer" }
-        val before = history(peer)
-        require(before.state == ChatState.OPEN && peer != sharedPeer) { "not an eligible chat" }
-        return send(peer, text, before.messages)
     }
 
     /** Replaces the text of the own [message]; the outcome to show, null when a node took it. */
@@ -170,35 +120,17 @@ internal class ChatFeed(private val opened: Opened.Ready) {
         runCatching { RustBridge.withChats(opened) { it.sendReads(peer) } }
         if (marked > 0u) read()
     }
+}
 
-    /** Clears the chat with [peer] on this device only, then reads the rows. */
-    fun clear(peer: String): Result<UInt> =
-        runCatching { RustBridge.withChats(opened) { it.clearChat(peer) } }.also { read() }
-
-    /** Mutes [peer] or ends that; only the new-mail notice changes. */
-    fun mute(peer: String, muted: Boolean): Result<Unit> =
-        runCatching { RustBridge.withChats(opened) { it.setMuted(peer, muted) } }.also { read() }
-
-    /** Names [peer] on this device only; an empty [name] removes the name. */
-    fun rename(peer: String, name: String): Result<Unit> =
-        runCatching { RustBridge.withChats(opened) { it.setContactName(peer, name) } }
-
-    /** Blocks [peer]; the rows read after it leave the peer out, and [lists] keeps the outcome. */
-    fun block(peer: String): Result<ChatBlock> =
-        runCatching { RustBridge.withChats(opened) { it.block(peer) } }
-            .onSuccess { lists.blocked = it }
-            .also { read() }
-
-    // shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
-    // hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
-    // Upgrade when removal moves off the UI thread: take the chats lock there.
-    suspend fun poll() {
+// shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
+// hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
+// Upgrade when removal moves off the UI thread: take the chats lock there.
+private suspend fun ChatFeed.poll() {
+    read()
+    while (true) {
+        runCatching { RustBridge.withChats(opened) { it.receive() } }
         read()
-        while (true) {
-            runCatching { RustBridge.withChats(opened) { it.receive() } }
-            read()
-            delay(RECEIVE_INTERVAL_MS)
-        }
+        delay(RECEIVE_INTERVAL_MS)
     }
 }
 

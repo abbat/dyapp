@@ -37,16 +37,19 @@ then shows the node's `FULL` reply and keeps the photo local.
 pipeline. Profile originals use the limits above and qualities 85, 70, 55; chat originals use
 6,000,000 bytes, sides 2560, 1920, 1280 and quality 85. Both share preview encoding and flatten
 transparency onto white. The platform must decode upright straight RGBA within the returned
-size before calling preparation. Native and desktop pipeline migration is still planned;
-the current client preparation paths below remain in use until their adapters are switched.
+size before calling preparation. Android uses this common API for profile and chat picking,
+including decoder targets for displaying originals. iOS and desktop preparation migration
+remains planned.
 
 ## Publishing
 
 1. The page decodes the picked file and draws it on a canvas, which writes a bare JPEG. EXIF, GPS,
    colour profiles and anything appended to the file never leave the computer, and a rotated
-   photo comes out upright. Android does the same with `ImageDecoder`, which applies the EXIF
-   orientation, flattens onto white and writes the JPEG with `Bitmap.compress`; the core's
-   `make_preview` writes the thumbnail. The system photo picker needs no storage permission.
+   photo comes out upright. Android uses software `ImageDecoder` with the core's header-driven
+   target, then converts `Bitmap.getPixels` straight sRGB ARGB into RGBA. The shared Rust pipeline
+   flattens transparency onto white and encodes both original and preview. Core dimensions travel
+   with the prepared bytes to chat sending; Kotlin does not parse the JPEG again. Bitmaps are
+   recycled after preparation. The system photo picker needs no storage permission.
    Apple clients do this with ImageIO, then pass the JPEG through the core's `strip_metadata`,
    because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. iOS
    uses the system photo picker and macOS a file dialog.

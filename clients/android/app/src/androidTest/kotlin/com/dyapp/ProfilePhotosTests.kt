@@ -52,7 +52,7 @@ class ProfilePhotosTests {
     }
 
     @Test
-    fun aGifIsRefusedBeforeTheCore() {
+    fun aGifIsRefused() {
         val gif = "GIF89a".toByteArray() + ByteArray(32)
         val problem = assertThrows(PhotoProblem::class.java) { preparePhoto(gif) }
         assertEquals(R.string.profile_photo_unsupported, problem.text)

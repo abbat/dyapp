@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatPhoto
+import uniffi.dyapp.PhotoPurpose
 
 internal val LocalChatPhotoAuto = staticCompositionLocalOf<(() -> Boolean)?> { null }
 
@@ -23,7 +24,7 @@ internal class ChatPhotoState {
         loading = true
         error = null
         val result = try {
-            withContext(Dispatchers.IO) { runCatching { fullImage(fetch(photo)) } }
+            withContext(Dispatchers.IO) { runCatching { fullImage(fetch(photo), PhotoPurpose.CHAT) } }
         } finally {
             loading = false
         }

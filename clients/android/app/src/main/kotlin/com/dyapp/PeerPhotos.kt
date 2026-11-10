@@ -1,7 +1,6 @@
 package com.dyapp
 
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -46,12 +45,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ContactNameView
 import uniffi.dyapp.FoundProfile
+import uniffi.dyapp.PhotoPurpose
 import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.checkPreview
 import uniffi.dyapp.peerPhotoAuto
 import java.nio.ByteBuffer
-
-private const val FULL_SIDE = 2048
 
 /**
  * Other people's photos in the searcher's memory cache; see docs/design/profile-photos.md. A page
@@ -106,11 +104,9 @@ internal fun thumbnail(bytes: ByteArray): ImageBitmap {
     return bitmap.asImageBitmap()
 }
 
-// The cache admits a full image within 64 megapixels; it decodes at most 2048 px on the long side.
-internal fun fullImage(bytes: ByteArray): ImageBitmap =
-    ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
-        fitted(info.size.width, info.size.height, FULL_SIDE)?.let { (w, h) -> decoder.setTargetSize(w, h) }
-    }.asImageBitmap()
+// Use the core's purpose-specific target before allocating a full image for display.
+internal fun fullImage(bytes: ByteArray, purpose: PhotoPurpose = PhotoPurpose.PROFILE): ImageBitmap =
+    decodePhoto(bytes, purpose).asImageBitmap()
 
 /** [hash] decoded from the cache, read again after each fetch; null while missing. */
 @Composable
