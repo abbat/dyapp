@@ -224,7 +224,8 @@ the number of excessively nested regions. The explicit runner
 Clippy output, parser output and its verdict under `build/complexity/`. It preserves production
 secret/crypto lint settings and rejects per-item cognitive threshold overrides, including those
 in files without diagnostics. CI compares budgets against the push or PR base through
-`COMPLEXITY_BASE`; local runs use `origin/main`. Allowances can only shrink. Detailed reports
+`COMPLEXITY_BASE`; local runs, a new branch and a forced push whose old head is gone use
+`origin/main`. Allowances can only shrink. Detailed reports
 remain in the local/container build directory; no extra report artifact is uploaded.
 Windows measurements and native CI wiring remain planned. Run local checks through the existing
 Docker containers; Git and parser dependencies are provisioned in the Linux image.

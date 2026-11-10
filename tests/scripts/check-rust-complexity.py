@@ -79,9 +79,14 @@ def budgets(rows: object) -> qc.Measurements:
 
 def budget_changes(path: Path, current: qc.MetricMap) -> list[str]:
     base = os.environ.get("COMPLEXITY_BASE") or "origin/main"
-    if set(base) == {"0"}:
-        base = "origin/main"
     git = ["git", "-c", f"safe.directory={ROOT}"]
+    # A push that creates a branch (zeros) or is forced (the old head is gone).
+    if subprocess.run(
+        [*git, "cat-file", "-e", base + "^{commit}"],
+        cwd=ROOT,
+        stderr=subprocess.DEVNULL,
+    ).returncode:
+        base = "origin/main"
     subprocess.run(
         [*git, "rev-parse", "--verify", base + "^{commit}"],
         cwd=ROOT,

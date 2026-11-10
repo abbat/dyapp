@@ -83,20 +83,25 @@ class ComplexityRunnerTest(unittest.TestCase):
         path = ROOT / "tests/scripts/rust-complexity/workspace.json"
         old = [budget()]
         current = RUNNER.budgets([dict(budget(), metrics={"lines": 71})])
-        with unittest.mock.patch.dict(
-            os.environ, COMPLEXITY_BASE="fixture-base"
-        ):
-            with unittest.mock.patch.object(RUNNER.subprocess, "run") as run:
-                run.return_value.stdout = path.relative_to(ROOT).as_posix()
-                with unittest.mock.patch.object(
+        # A missing base (a forced push drops the old head) means origin/main.
+        for missing, expected in ((0, "fixture-base"), (1, "origin/main")):
+            with (
+                self.subTest(missing=missing),
+                unittest.mock.patch.dict(
+                    os.environ, COMPLEXITY_BASE="fixture-base"
+                ),
+                unittest.mock.patch.object(RUNNER.subprocess, "run") as run,
+                unittest.mock.patch.object(
                     RUNNER.subprocess,
                     "check_output",
                     return_value=json.dumps(old),
-                ):
-                    errors = RUNNER.budget_changes(path, current)
-                self.assertTrue(errors)
+                ),
+            ):
+                run.return_value.stdout = path.relative_to(ROOT).as_posix()
+                run.return_value.returncode = missing
+                self.assertTrue(RUNNER.budget_changes(path, current))
                 self.assertIn(
-                    "fixture-base^{commit}", run.call_args_list[0].args[0]
+                    expected + "^{commit}", run.call_args_list[1].args[0]
                 )
 
     def test_threshold_guard_checks_untracked_sources_and_fails_closed(
