@@ -42,6 +42,10 @@ extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `se
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
 must compile the changed callers and generated bindings.
 
+Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
+uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
+publishing a fetch result; preserve both guards when changing retries or data sources.
+
 Workspace proptest enables `std` and `bit-set`, with in-process execution, shrinking and failure
 persistence. Its unused default `fork`/`timeout` features pull `rusty-fork` and `quick-error` 1,
 which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property tests would need

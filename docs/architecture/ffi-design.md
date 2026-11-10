@@ -141,6 +141,11 @@ form belongs to the peer/identity; local operations version background reads, an
 operation restarts the read effect. Older read/operation completions cannot replace a newer
 intent. Native Android CI verification remains pending.
 
+`ProfileLoad.kt` owns the displayed profile state by peer, feed/identity and matching verified
+known snapshot. A different owner recreates remembered state immediately; retries restart only
+the current fetch and preserve an already shown profile. Blocking bridge calls stay on IO.
+A fetch completion must still belong to an active producer before it can publish a value.
+
 ## Shared profile editor policy
 
 `dyapp_client::profile_editor` validates editable fields with stable draft errors and separately

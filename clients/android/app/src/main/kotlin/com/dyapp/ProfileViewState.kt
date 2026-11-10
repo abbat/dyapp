@@ -1,28 +1,16 @@
 package com.dyapp
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatLikes
-import uniffi.dyapp.FoundProfile
 
 private const val NOT_CONNECTED = "notConnected"
-
-/** The profile behind the page: being fetched, verified, returned by no node, or a failed fetch. */
-internal sealed interface ProfileLoad {
-    data object Loading : ProfileLoad
-    data class Shown(val found: FoundProfile) : ProfileLoad
-    data object Missing : ProfileLoad
-    data class Failed(val status: ChatStatus) : ProfileLoad
-}
 
 /**
  * The like and pass controls: [likes] is null until read; [status] is a failure and [info] a plain
@@ -61,25 +49,6 @@ internal fun profileLoadStatus(error: Throwable): ChatStatus {
     val details = error.toString()
     val text = if (NOT_CONNECTED in details) R.string.search_not_connected else R.string.view_load_failed
     return ChatStatus(text, details)
-}
-
-/** The fetch behind the page; a retry has something to do only until a profile is shown. */
-@Composable
-internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatFeed, attempt: Int): State<ProfileLoad> {
-    // Through the searcher when there is one, so the profile also names and shows the peer elsewhere.
-    val photos = LocalPeerPhotos.current
-    return produceState(known?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Loading, attempt) {
-        if (value !is ProfileLoad.Shown) {
-            value = ProfileLoad.Loading
-            val fetched = withContext(Dispatchers.IO) {
-                runCatching { (photos?.profiles(listOf(peer)) ?: feed.profiles(listOf(peer))).firstOrNull() }
-            }
-            value = fetched.fold(
-                { found -> found?.let { ProfileLoad.Shown(it) } ?: ProfileLoad.Missing },
-                { ProfileLoad.Failed(profileLoadStatus(it)) },
-            )
-        }
-    }
 }
 
 /** Likes [peer] or takes the like back, and shows the outcome on [form]. */
