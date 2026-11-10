@@ -1,10 +1,20 @@
 package com.dyapp
 
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class BirthPartsTests {
+    @Test
+    fun unknownAndNegativeStoredPartsAreRejected() {
+        assertFalse(validBirthParts(mapOf("unknown" to 1)))
+        assertFalse(validBirthParts(mapOf(BIRTH_DAY to -1)))
+    }
+
     @Test
     fun optionalPartsStayAbsentAndCanBeCleared() {
         assertEquals(emptyMap<String, Int>(), parseBirthParts("", "", ""))

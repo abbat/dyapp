@@ -44,6 +44,8 @@ pub use profile_photos::{
 };
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
+mod birth_input;
+pub use birth_input::{parse_profile_birth_parts, valid_profile_birth_parts};
 mod search_input;
 pub use search_input::{search_range_conditions, SearchRangeInputs};
 mod profile_search;

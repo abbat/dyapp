@@ -62,6 +62,14 @@ and advances the cache epoch under one lock, so late search and chat results can
 Repeating the same settings retains the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Raw birth field input
+
+`parse_profile_birth_parts(year, month, day)` and `valid_profile_birth_parts(values)` delegate
+to `dyapp_profile::birth_input`, which reuses `Profile::valid_birth_parts`. Empty parts remain
+absent; invalid integers, unknown keys and impossible partial dates are rejected. Kotlin
+retains field keys and rendering only. Tests crossing this adapter belong in Android
+instrumentation, where the native library is available, rather than host JVM-only tests.
+
 ## Raw search range input
 
 `search_range_conditions(offered, SearchRangeInputs)` interprets the Android form's raw age
