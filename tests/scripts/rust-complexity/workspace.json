@@ -154,8 +154,6 @@
   {"path":"rust/client/src/chat/tests.rs","function":"fn applies_a_welcome_then_a_message_and_acks_both ","metrics":{"lines":94}},
   {"path":"rust/client/src/chat/tests.rs","function":"fn message_operations_have_strict_frames ","metrics":{"lines":73}},
   {"path":"rust/client/src/chat/tests.rs","function":"fn peer_changes_are_strict ","metrics":{"lines":53}},
-  {"path":"rust/client/src/lib.rs","function":"impl Node ::fn providers ","metrics":{"nesting":8,"lines":63,"nested_regions":1}},
-  {"path":"rust/client/src/lib.rs","function":"impl Node ::fn wait ","metrics":{"nesting":6,"nested_regions":1}},
   {"path":"rust/client/src/search.rs","function":"fn search ","metrics":{"cognitive":17,"lines":67}},
   {"path":"rust/client/src/search.rs","function":"mod tests # [cfg (test)]::fn merges_nodes_skips_cached_hits_and_resends_cut_gets ","metrics":{"lines":71}},
   {"path":"rust/client/src/seeds.rs","function":"fn check ","metrics":{"lines":101}},

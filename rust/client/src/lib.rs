@@ -15,6 +15,7 @@ mod prepared;
 pub(crate) use prepared::prepare;
 pub use prepared::{prepare_put, prepare_tokened_put, PreparedEnvelope};
 pub mod profiles;
+mod providers;
 pub mod publish;
 pub mod scores;
 pub mod search;
@@ -34,19 +35,15 @@ use dyapp_p2p_net::proto::{
     search_request, Status,
 };
 use dyapp_p2p_net::{build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols};
-use dyapp_p2p_net::{id_has_pow, id_pow_bits};
 use dyapp_p2p_net::{SwarmOptions, WireBytes, REPLICAS};
 use dyapp_profile::VerifiedProfile;
-use libp2p::core::ConnectedPoint;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::kad;
 use libp2p::request_response::{Event, Message as RrMessage};
-use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
-use std::collections::HashSet;
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -214,71 +211,16 @@ impl Node {
     /// set order; fewer when the lookup or [`TIMEOUT`] ends first. Each is dialed once to learn
     /// a working address, since the DHT keeps a provider's addresses only during the lookup.
     pub async fn providers(&mut self, key: &[u8], max: usize) -> Vec<Multiaddr> {
-        let swarm = &mut self.swarm;
-        let query = swarm
+        let query = self
+            .swarm
             .behaviour_mut()
             .kad
             .get_providers(kad::RecordKey::new(&key));
-        let (mut found, mut seen, mut dials, mut closing, mut done) = (
-            Vec::new(),
-            HashSet::new(),
-            HashSet::new(),
-            HashSet::new(),
-            false,
-        );
-        let lookup = async {
-            // Kademlia may send the next lookup down a closing connection, where it goes
-            // unanswered: return only once the swarm has dropped them.
-            while (found.len() < max && !(done && dials.is_empty())) || !closing.is_empty() {
-                match swarm.select_next_some().await {
-                    SwarmEvent::Behaviour(BehaviourEvent::Kad(
-                        kad::Event::OutboundQueryProgressed {
-                            id,
-                            result: kad::QueryResult::GetProviders(result),
-                            step,
-                            ..
-                        },
-                    )) if id == query => {
-                        if let Ok(kad::GetProvidersOk::FoundProviders { providers, .. }) = result {
-                            for provider in providers {
-                                if !seen.insert(provider) || !id_has_pow(&provider, id_pow_bits()) {
-                                    continue;
-                                }
-                                // A second connection even to the node we are on: its address.
-                                let dial = DialOpts::peer_id(provider)
-                                    .condition(PeerCondition::Always)
-                                    .build();
-                                let connection = dial.connection_id();
-                                if swarm.dial(dial).is_ok() {
-                                    dials.insert(connection);
-                                }
-                            }
-                        }
-                        done |= step.last;
-                    }
-                    SwarmEvent::ConnectionEstablished {
-                        connection_id,
-                        endpoint: ConnectedPoint::Dialer { address, .. },
-                        ..
-                    } if dials.remove(&connection_id) => {
-                        swarm.close_connection(connection_id);
-                        closing.insert(connection_id);
-                        found.push(address);
-                    }
-                    SwarmEvent::ConnectionClosed { connection_id, .. } => {
-                        closing.remove(&connection_id);
-                    }
-                    SwarmEvent::OutgoingConnectionError { connection_id, .. } => {
-                        dials.remove(&connection_id);
-                    }
-                    _ => {}
-                }
-            }
-        };
-        let _ = tokio::time::timeout(TIMEOUT, lookup).await;
+        let mut providers = providers::Providers::default();
+        let _ = tokio::time::timeout(TIMEOUT, providers.collect(&mut self.swarm, query, max)).await;
         // Dials may still connect while the others close.
-        found.truncate(max);
-        found
+        providers.found.truncate(max);
+        providers.found
     }
 
     /// Publishes a signed profile.
@@ -878,22 +820,25 @@ impl Node {
         &mut self,
         pick: impl Fn(BehaviourEvent) -> Option<Result<R, Error>>,
     ) -> Result<R, Error> {
-        timeout(async {
-            loop {
-                match self.swarm.select_next_some().await {
-                    SwarmEvent::Behaviour(event) => {
-                        if let Some(result) = pick(event) {
-                            return result;
-                        }
-                    }
-                    SwarmEvent::ConnectionClosed { peer_id, .. } if peer_id == self.peer => {
-                        return Err(Error::Request("connection closed".into()));
-                    }
-                    _ => {}
+        timeout(self.wait_reply(pick)).await
+    }
+
+    async fn wait_reply<R>(
+        &mut self,
+        pick: impl Fn(BehaviourEvent) -> Option<Result<R, Error>>,
+    ) -> Result<R, Error> {
+        loop {
+            let result = match self.swarm.select_next_some().await {
+                SwarmEvent::Behaviour(event) => pick(event),
+                SwarmEvent::ConnectionClosed { peer_id, .. } if peer_id == self.peer => {
+                    Some(Err(Error::Request("connection closed".into())))
                 }
+                _ => None,
+            };
+            if let Some(result) = result {
+                return result;
             }
-        })
-        .await
+        }
     }
 }
 
