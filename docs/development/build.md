@@ -22,7 +22,7 @@
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
 | Swift | language mode 6, strict concurrency (`SWIFT_VERSION`) | `clients/ios/project.yml` |
 | iOS / macOS minimum | iOS 15, macOS 12 | same |
-| Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `clients/android/app/build.gradle` |
+| Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 37` | `clients/android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |
 
 Run every script from any directory: each resolves the repository root from
