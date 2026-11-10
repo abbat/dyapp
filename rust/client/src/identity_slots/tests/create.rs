@@ -10,11 +10,12 @@ struct Writer {
     fail: bool,
     mismatch: bool,
     collision: bool,
+    blocked: Option<String>,
 }
 
 impl KeyReader for Writer {
-    fn contains(&self, _: &Slot) -> Result<bool, String> {
-        Ok(self.collision)
+    fn contains(&self, slot: &Slot) -> Result<bool, String> {
+        Ok(self.collision || self.blocked.as_deref() == Some(slot.id.as_str()))
     }
 
     fn open(&self, _: &Slot, wrapped: Option<&[u8]>) -> Result<Option<Identity>, String> {
@@ -113,6 +114,36 @@ fn denial_or_reopen_mismatch_preserves_the_previous_selection_and_pending_state(
         assert_eq!(slots.len(), 1);
         assert_eq!(slots[0].state, State::Pending);
     }
+}
+
+#[test]
+fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwriting() {
+    let root = root();
+    let profiles = root.join("profiles");
+    let old = super::slot(&root, FIRST, b"ready\n");
+    fs::write(old.join("identity.key"), b"keep old key").unwrap();
+    let second = "22222222-2222-2222-2222-222222222222";
+    let third = "33333333-3333-3333-3333-333333333333";
+    let fourth = "44444444-4444-4444-4444-444444444444";
+    let tombstone = profiles.join(format!("{second}.deleting"));
+    fs::write(&tombstone, b"deleting\n").unwrap();
+    let keys = Writer {
+        blocked: Some(third.into()),
+        ..Writer::default()
+    };
+    let registry = Registry::new(root, Layout::Ios);
+    let _guard = registry.lock().unwrap();
+    let mut ids = [FIRST, second, third, fourth].into_iter();
+    let reserved = registry
+        .reserve_with(Storage::Wrapped, &keys, || {
+            Ok(ids.next().expect("collision sequence").into())
+        })
+        .unwrap();
+    assert_eq!(reserved.id, fourth);
+    assert_eq!(fs::read(old.join("identity.key")).unwrap(), b"keep old key");
+    assert_eq!(fs::read(tombstone).unwrap(), b"deleting\n");
+    assert!(!profiles.join(second).exists());
+    assert!(!profiles.join(third).exists());
 }
 
 #[test]

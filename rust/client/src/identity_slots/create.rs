@@ -43,6 +43,15 @@ impl Registry {
     }
 
     fn reserve(&self, storage: Storage, keys: &dyn KeyWriter) -> Result<Slot, String> {
+        self.reserve_with(storage, keys, new_id)
+    }
+
+    pub(super) fn reserve_with(
+        &self,
+        storage: Storage,
+        keys: &dyn KeyWriter,
+        mut next_id: impl FnMut() -> Result<String, String>,
+    ) -> Result<Slot, String> {
         let profiles = self.root.join("profiles");
         match fs::symlink_metadata(&profiles) {
             Ok(metadata) if !metadata.is_dir() => return Err("Profiles is not a directory".into()),
@@ -53,7 +62,10 @@ impl Registry {
             Err(error) => return Err(error.to_string()),
         }
         for _ in 0..8 {
-            let id = new_id()?;
+            let id = next_id()?;
+            if !is_uuid(&id) {
+                return Err("Invalid generated slot identifier".into());
+            }
             let slot = Slot {
                 dir: profiles.join(&id),
                 id,
