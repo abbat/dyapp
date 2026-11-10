@@ -2,7 +2,7 @@
 
 use crate::{CoreError, IdentityKey};
 use dyapp_client::store::Store;
-use dyapp_profile::{self, Profile};
+use dyapp_profile::Profile;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -109,111 +109,43 @@ impl From<&Profile> for PublicProfileDraft {
     }
 }
 
+impl From<&PublicProfileDraft> for Profile {
+    fn from(draft: &PublicProfileDraft) -> Self {
+        Self {
+            name: draft.name.clone(),
+            gender: draft.gender,
+            orientation: draft.orientation,
+            relationship_goal: draft.relationship_goal,
+            role_preference: draft.role_preference,
+            career_ambition: draft.career_ambition,
+            financial_philosophy: draft.financial_philosophy,
+            employment_status: draft.employment_status,
+            fitness_level: draft.fitness_level,
+            zodiac: draft.zodiac,
+            birth_year: draft.birth_year,
+            birth_month: draft.birth_month,
+            birth_day: draft.birth_day,
+            country: draft.country.clone(),
+            place: draft.place.clone(),
+            height: draft.height,
+            about: draft.about.clone(),
+            smoking: draft.smoking,
+            drinking: draft.drinking,
+            tattoos: draft.tattoos,
+            marital_status: draft.marital_status,
+            pets: draft.pets,
+            seeking_genders: draft.seeking_genders.clone(),
+            seeking_age_from: draft.seeking_age_from,
+            seeking_age_to: draft.seeking_age_to,
+            not_looking: draft.not_looking,
+            ..Self::default()
+        }
+    }
+}
+
 impl PublicProfileDraft {
-    fn validate(&self) -> Result<(), CoreError> {
-        let name = self.name.trim();
-        if name.chars().count() > dyapp_profile::MAX_FIELD_CHARS
-            || !dyapp_profile::is_clean_text(name)
-        {
-            return Err(CoreError::Failed("invalidName".into()));
-        }
-        if !dyapp_profile::valid_height(self.height) {
-            return Err(CoreError::Failed("invalidHeight".into()));
-        }
-        if !dyapp_profile::valid_about(self.about.trim()) {
-            return Err(CoreError::Failed("invalidAbout".into()));
-        }
-        if !dyapp_profile::editor_input::valid_editor_seeking(
-            &self.seeking_genders,
-            self.seeking_age_from,
-            self.seeking_age_to,
-        ) {
-            return Err(CoreError::Failed("invalidSeeking".into()));
-        }
-        self.validate_scales()?;
-        let birth = Profile {
-            birth_year: self.birth_year,
-            birth_month: self.birth_month,
-            birth_day: self.birth_day,
-            ..Profile::default()
-        };
-        if !birth.valid_birth_parts() {
-            return Err(CoreError::Failed("invalid birth date".into()));
-        }
-        if !dyapp_client::places::known(&self.country, &self.place) {
-            return Err(CoreError::Failed("invalid place".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_scales(&self) -> Result<(), CoreError> {
-        for (field, value) in [
-            (dyapp_profile::Gender::FIELD, self.gender),
-            (dyapp_profile::Orientation::FIELD, self.orientation),
-            (
-                dyapp_profile::RelationshipGoal::FIELD,
-                self.relationship_goal,
-            ),
-            (dyapp_profile::RolePreference::FIELD, self.role_preference),
-            (dyapp_profile::CareerAmbition::FIELD, self.career_ambition),
-            (
-                dyapp_profile::FinancialPhilosophy::FIELD,
-                self.financial_philosophy,
-            ),
-            (
-                dyapp_profile::EmploymentStatus::FIELD,
-                self.employment_status,
-            ),
-            (dyapp_profile::FitnessLevel::FIELD, self.fitness_level),
-            (dyapp_profile::Zodiac::FIELD, self.zodiac),
-            (dyapp_profile::Smoking::FIELD, self.smoking),
-            (dyapp_profile::Drinking::FIELD, self.drinking),
-            (dyapp_profile::Tattoos::FIELD, self.tattoos),
-            (dyapp_profile::MaritalStatus::FIELD, self.marital_status),
-            (dyapp_profile::Pets::FIELD, self.pets),
-        ] {
-            let scale = dyapp_profile::scale(field)
-                .ok_or_else(|| CoreError::Failed("unknown profile scale".into()))?;
-            if !scale.knows(value) {
-                return Err(CoreError::Failed("invalid profile scale".into()));
-            }
-        }
-        Ok(())
-    }
-
     pub(crate) fn apply_to(&self, profile: &mut Profile) {
-        self.name.trim().clone_into(&mut profile.name);
-        profile.gender = self.gender;
-        profile.orientation = self.orientation;
-        profile.relationship_goal = self.relationship_goal;
-        profile.role_preference = self.role_preference;
-        profile.career_ambition = self.career_ambition;
-        profile.financial_philosophy = self.financial_philosophy;
-        profile.employment_status = self.employment_status;
-        profile.fitness_level = self.fitness_level;
-        profile.zodiac = self.zodiac;
-        profile.birth_year = self.birth_year;
-        profile.birth_month = self.birth_month;
-        profile.birth_day = self.birth_day;
-        profile.country.clone_from(&self.country);
-        profile.place.clone_from(&self.place);
-        profile.height = self.height;
-        self.about.trim().clone_into(&mut profile.about);
-        profile.smoking = self.smoking;
-        profile.drinking = self.drinking;
-        profile.tattoos = self.tattoos;
-        profile.marital_status = self.marital_status;
-        profile.pets = self.pets;
-        profile.not_looking = self.not_looking;
-        if self.not_looking {
-            profile.seeking_genders.clear();
-            profile.seeking_age_from = None;
-            profile.seeking_age_to = None;
-        } else {
-            profile.seeking_genders.clone_from(&self.seeking_genders);
-            profile.seeking_age_from = self.seeking_age_from;
-            profile.seeking_age_to = self.seeking_age_to;
-        }
+        dyapp_client::profile_editor::apply(&Profile::from(self), profile);
     }
 }
 
@@ -273,11 +205,12 @@ pub fn save_profile_draft(
     key: Arc<IdentityKey>,
     draft: PublicProfileDraft,
 ) -> Result<(), CoreError> {
-    draft.validate()?;
+    let editable = Profile::from(&draft);
+    dyapp_client::profile_editor::validate(&editable).map_err(failed)?;
     let path = database(&dir)?.join("client.db");
     let store = Store::open(&path, &key.identity).map_err(failed)?;
     let mut profile = store.profile_draft().map_err(failed)?.unwrap_or_default();
-    draft.apply_to(&mut profile);
+    dyapp_client::profile_editor::apply(&editable, &mut profile);
     store.save_profile_draft(&profile).map_err(failed)
 }
 
@@ -294,6 +227,39 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-ffi-profile-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir.to_str().unwrap().to_owned()
+    }
+
+    #[test]
+    fn every_native_editable_field_roundtrips_through_the_core_projection() {
+        let draft = PublicProfileDraft {
+            name: "  Owner  ".into(),
+            about: "  About  ".into(),
+            gender: 1,
+            orientation: 2,
+            relationship_goal: 3,
+            role_preference: 4,
+            career_ambition: 10,
+            financial_philosophy: 20,
+            employment_status: 30,
+            fitness_level: 40,
+            zodiac: 5,
+            birth_year: Some(2000),
+            birth_month: Some(2),
+            birth_day: Some(29),
+            country: "DE".into(),
+            place: "2950159".into(),
+            height: Some(180),
+            smoking: 1,
+            drinking: 2,
+            tattoos: 3,
+            marital_status: 4,
+            pets: 5,
+            seeking_genders: vec![1, 2],
+            seeking_age_from: Some(18),
+            seeking_age_to: Some(50),
+            not_looking: true,
+        };
+        assert_eq!(PublicProfileDraft::from(&Profile::from(&draft)), draft);
     }
 
     #[test]

@@ -41,6 +41,22 @@ fn validation_preserves_error_order_and_messages() {
 }
 
 #[test]
+fn node_verification_accepts_future_codes_that_the_editor_does_not_offer() {
+    let mut draft = Profile {
+        version: 1,
+        gender: u32::MAX,
+        seeking_genders: vec![u32::MAX],
+        ..Profile::default()
+    };
+    let owner = dyapp_identity::Identity::generate();
+    assert!(profile::verify(&draft.sign(&owner)).is_ok());
+    assert_eq!(validate(&draft), Err(DraftError::Seeking));
+    draft.seeking_genders.clear();
+    assert!(profile::verify(&draft.sign(&owner)).is_ok());
+    assert_eq!(validate(&draft), Err(DraftError::Scale));
+}
+
+#[test]
 fn categorical_editor_choices_are_closed_and_partial_dates_are_valid() {
     assert_eq!(validate(&Profile::default()), Ok(()));
     let mut draft = Profile {

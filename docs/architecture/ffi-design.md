@@ -96,7 +96,9 @@ applies normalized fields to an existing `dyapp_profile::Profile`. It trims name
 seeking fields for not-looking, and preserves proof progress, photos, devices and all other
 noneditable fields. Editor categorical/seeking codes use the closed vocabulary; node verification
 retains its separate forward-compatible contract. Apply alone supports eligibility and search
-projections; persistence callers must validate first. Native draft adapter migration is planned.
+projections; persistence callers must validate first. The common native draft adapter converts
+records and errors, validates through this API before opening storage, and delegates save and
+eligibility/search projections to the same normalized application. Its exported API is unchanged.
 
 ## Profile editor height and seeking input
 
