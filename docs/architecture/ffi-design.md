@@ -27,7 +27,7 @@ and security invariants; test the shared rules independently of platform callbac
 
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
 creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
-credential presence and wrapping/opening by slot ID, reusing opaque `IdentityKey` objects
+credential presence, `open_wrapped`, `wrap` and `erase` by slot ID, reusing opaque `IdentityKey` objects
 and the existing `KeyStore` interface. No additional foreign plaintext-key API is introduced.
 Rust owns file access, lifecycle markers, reservation, locking and recovery classification.
 The core inventory also recognizes old Android/desktop `.<uuid>.removed` directories as

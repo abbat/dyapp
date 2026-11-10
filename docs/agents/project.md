@@ -46,6 +46,10 @@ Compose `produceState` restart keys do not recreate its remembered initial state
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
 
+UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
+leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
+it as C with Clang after callback changes. Binding generation alone does not validate it.
+
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).

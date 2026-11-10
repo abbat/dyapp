@@ -30,7 +30,11 @@ impl MobileSlotKeys for Credentials {
         Ok(self.aliases.lock().unwrap().contains(&id))
     }
 
-    fn open(&self, id: String, wrapped: Vec<u8>) -> Result<Option<Arc<IdentityKey>>, WrapError> {
+    fn open_wrapped(
+        &self,
+        id: String,
+        wrapped: Vec<u8>,
+    ) -> Result<Option<Arc<IdentityKey>>, WrapError> {
         if !self.contains(id)? {
             return Ok(None);
         }
@@ -251,7 +255,7 @@ impl MobileSlotKeys for Denied {
         })
     }
 
-    fn open(&self, _: String, _: Vec<u8>) -> Result<Option<Arc<IdentityKey>>, WrapError> {
+    fn open_wrapped(&self, _: String, _: Vec<u8>) -> Result<Option<Arc<IdentityKey>>, WrapError> {
         self.contains(String::new())?;
         unreachable!()
     }

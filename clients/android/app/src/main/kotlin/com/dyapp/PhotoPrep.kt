@@ -71,7 +71,8 @@ internal fun decodePhoto(bytes: ByteArray, purpose: PhotoPurpose): Bitmap = try 
         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         decoder.setTargetSize(target.width.toInt(), target.height.toInt())
     }
-    if (bitmap.width.toUInt() != plan?.width || bitmap.height.toUInt() != plan?.height) {
+    val decoded = plan
+    if (decoded == null || bitmap.width.toUInt() != decoded.width || bitmap.height.toUInt() != decoded.height) {
         bitmap.recycle()
         throw PhotoProblem(R.string.profile_photo_unsupported)
     }

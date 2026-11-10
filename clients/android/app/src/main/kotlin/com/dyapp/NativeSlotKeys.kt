@@ -14,7 +14,7 @@ internal object NativeSlotKeys : MobileSlotKeys {
         PlatformKeyStore.exists(identityAlias(slotId))
     }
 
-    override fun open(slotId: String, wrapped: ByteArray): IdentityKey? = credentialCall {
+    override fun openWrapped(slotId: String, wrapped: ByteArray): IdentityKey? = credentialCall {
         val alias = identityAlias(slotId)
         if (PlatformKeyStore.exists(alias)) IdentityKey.unwrap(PlatformKeyStore(alias), wrapped) else null
     }

@@ -18,7 +18,7 @@ pub trait MobileSlotKeys: Send + Sync {
     ///
     /// # Errors
     /// Returns access or unwrap failures; None means confirmed missing credentials.
-    fn open(
+    fn open_wrapped(
         &self,
         slot_id: String,
         wrapped: Vec<u8>,
@@ -67,7 +67,7 @@ impl KeyReader for SlotKeys {
     fn open(&self, slot: &Slot, wrapped: Option<&[u8]>) -> Result<Option<Identity>, String> {
         let wrapped = wrapped.ok_or("Mobile registry requires wrapped key storage")?;
         self.0
-            .open(slot.id.clone(), wrapped.to_vec())
+            .open_wrapped(slot.id.clone(), wrapped.to_vec())
             .map(|key| key.map(|key| Identity::from_secret(&key.identity.secret())))
             .map_err(|error| error.to_string())
     }
