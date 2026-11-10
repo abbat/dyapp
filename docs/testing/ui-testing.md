@@ -1,11 +1,11 @@
 # UI Testing: Practical Guide
 
-Linux and Windows injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.
+Linux, Windows and macOS injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.
 `linux-test.sh` and native Windows CI enable it explicitly; ordinary builds and release packages
 leave it off. The feature includes script embedding, test-only IPC, isolated config paths,
 reduced proof-of-work settings, video fixtures and screenshot/failure injection. The production
 `locale_options` query returns pseudo-localization and a feature-only Russian override together;
-ordinary builds ignore test flags. macOS uses its separate Swift test configuration.
+ordinary builds ignore test flags. Native macOS CI enables the same desktop feature.
 
 Release packages are checked externally: `production-desktop-smoke.py` uses Linux AT-SPI,
 and the shared `production-windows-smoke` action uses Windows UI Automation. A fresh profile
@@ -71,7 +71,7 @@ failed, queued and busy states.
 These checks require Android instrumentation; lint alone does not execute them.
 
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
-> `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/{ios,macos}/project.yml` and the test sources on
+> `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not
 > from logs. For the target contract see [empty-app-contract.md](../platforms/empty-app-contract.md);
 > for the CI jobs see [ci-matrix.md](../development/ci-matrix.md).
@@ -105,26 +105,25 @@ artifacts, not a local native build.
 The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
 The shells call the Rust core for a peer ID (see
 [ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)); shared
-iOS/macOS unit tests also check per-slot Keychain wrapping account isolation and network draft
+iOS unit tests also check per-slot Keychain wrapping account isolation and network draft
 file separation/corruption. They verify that erasing one UUID wrapping item leaves another slot
 and the legacy account readable, and that a valid deleting tombstone remains visible when its
 slot directory is missing while malformed or symlink markers are refused. Native tests also
 check confirmed removal, unknown-file and damaged-slot refusal, survivor key/draft isolation,
 legacy-account preservation, failed or incomplete Keychain erase with a visible deleting
-candidate, confirmation recheck on retry, and retry after partial file cleanup. iOS and macOS UI
+candidate, confirmation recheck on retry, and retry after partial file cleanup. iOS UI
 tests cancel removal, then confirm it, select the surviving Peer ID in the picker and reopen it
 after restart. A shared native unit test also reopens the surviving slot after another slot is
-removed and checks its active and draft network files plus stable Peer ID. Both Apple UI suites
-also verify Russian removal labels and that the double-length pseudo-language confirmation
+removed and checks its active and draft network files plus stable Peer ID. The iOS UI suite
+also verifies Russian removal labels and that the double-length pseudo-language confirmation
 remains hittable. The removal alert is presented from the stable Settings screen, outside its
-conditional scrolling section. The macOS withdrawal test opens it with one click and waits for
-the sheet; a second click must not mask a lost presentation.
+conditional scrolling section.
 Shared native unit tests additionally check that an unreadable slot cannot
 replace the active selection and that a lost selected Keychain item produces recovery without
 creating another key. An isolated debug UI fixture corrupts only the wrapped key file after
-creation: both Apple UI suites check the Russian unavailable label, hidden Remove action, and
-recovery after restart with Retry but no implicit Create. `IdentityRecoveryTests` on both Apple
-suites seeds a legacy root identity, a malformed pointer, a missing slot or legacy key and a
+creation: the iOS UI suite checks the Russian unavailable label, hidden Remove action, and
+recovery after restart with Retry but no implicit Create. `IdentityRecoveryTests` on iOS
+seeds a legacy root identity, a malformed pointer, a missing slot or legacy key and a
 pending slot in the isolated root (`--ui-test-identity-fixture=`), then checks a stable Peer ID or
 recovery without Create across a relaunch. A shared native unit test also checks
 that UUID profile drafts stay separate and a peer-named root draft is copied once into its slot.
@@ -139,26 +138,24 @@ remain in CI.
 The Apple draft adapter unit test imports old JSON without deleting it, confirms `client.db` takes
 precedence on later loads, and checks that another identity keeps an independent empty draft.
 The Apple publication view maps the Rust signed readback to a separate, immutable snapshot before
-rendering the version and public fields. The iOS and macOS UI tests save a birth month, restart,
+rendering the version and public fields. The iOS UI tests save a birth month, restart,
 see a localized publish failure in Russian and the double-length pseudo-language with fresh
 confirmations required, then publish to the local node and find the signed readback with only the
 saved fields and version 1.
 No suite
 exercises messaging, matching or video. The tests check launch, render, app identity and close;
-the Android, iOS and macOS UI tests and the desktop smoke also check that the peer ID is 64
+the Android and iOS UI tests and the shared desktop smoke also check that the peer ID is 64
 lowercase hex characters. Desktop smoke chooses each storage mode and verifies the same Peer ID
 after a second launch. Before Create it checks the first-run screen: the recommended available
 store is preselected, a choice alone creates nothing, no identity action is shown and no element
 with the `hidden` attribute is rendered; the ready screen repeats the last two checks. File-mode cases check the visible key-file path and backup guidance;
 system-mode cases check that no file path is shown. The Android UI test also recreates the activity and
 checks that the peer ID, unwrapped again from the stored identity key, stays the same; the
-iOS and macOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
+iOS `testRelaunchKeepsPeerId` relaunches the app for the same check.
 The Android place picker test picks Germany, refuses to save unlisted text, picks Berlin from
 the "Berl" suggestions, checks the country and place in the publish dialog, then clears the
 country and checks both are gone from the dialog. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
-Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it. The macOS
-`testPlacePickerOpensASheetAndSavesASuggestedPlace` opens the country sheet, cancels it, opens it again,
-picks Germany, then Berlin, saves and previews it.
+Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it.
 The Android publish test checks that closing the dialog clears both confirmations and an unsaved
 edit disables publishing until saved, then confirms both, runs the proof without an active network
 and expects the localized not-connected failure, retry label and cleared confirmations.
@@ -445,7 +442,7 @@ on a pseudo-locale:
 | Shell | Catalogue | Pseudo-locale test |
 |-------|-----------|--------------------|
 | Android | `res/values/strings.xml` and `res/values-ru/strings.xml`, read with `stringResource`; plurals go in `<plurals>` | `pseudoLocalesEnabled` in the debug build; `PseudoLocaleTests` renders the start screen with an en-XA context and expects its accented strings, and renders the start screen and Settings in Russian |
-| iOS, macOS | `clients/ios/DYApp/Localizable.xcstrings` (String Catalog, shared by both projects); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
+| iOS | `clients/ios/DYApp/Localizable.xcstrings` (String Catalog); `Text("key")` looks the key up, plurals are catalogue variations | `testDoubleLengthPseudoLanguage` launches with `-NSDoubleLocalizedStrings YES` and expects the doubled, hittable ready text |
 | Linux, Windows | `clients/desktop/ui/i18n/{en,ru}.json`; `app.js` fills each `data-i18n` element, plurals use `Intl.PluralRules` | `--pseudo-locale`: `app.js` accents every string and pads it by 40%, the smoke expects `[Réádý··]` |
 
 The tests compare against the selected catalogue (Android, desktop) or expected language text (Apple).
@@ -465,8 +462,7 @@ The full profile proof of 11 bits took from 5 s to over 3 minutes on the iOS run
 nonces a second, and a slow one failed chat tests on their readback wait. So the UI suites of every
 client lower it to 4 bits, a second or two, while still running the real proof. Both ends must agree:
 the test node gets `DYAPPD_SEARCH_MIN_PROFILE_POW_BITS=4`, and a client gets
-`set_test_profile_pow_bits(4)` from its test code (Android), its `--ui-test-slot-root` launch (iOS,
-macOS), or `--ui-test` with `DYAPP_TEST_CONFIG_DIR` (desktop). Clients do not read the node's hint for this
+`set_test_profile_pow_bits(4)` from its test code (Android), its `--ui-test-slot-root` launch (iOS), or `--ui-test` with `DYAPP_TEST_CONFIG_DIR` (desktop). Clients do not read the node's hint for this
 value yet, so the node setting alone changes nothing. The value also sets the minimum a search accepts, so
 a test process that reads a lowered profile needs it as well. Production clients and nodes keep 11.
 
@@ -733,19 +729,19 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
   stay in `$RUNNER_TEMP/apple-results/`; the runner waits at most 30 seconds for its loopback
   listener and terminates the process after tests. It never contacts a public bootstrap node.
   Shared native unit tests first discover the local node's Peer ID, then check a pinned address:
-  the active file must be absent before Activate and contain that address afterward. iOS and
-  macOS UI tests show Continue disabled before Check, enabled after the local node answers, and
+  the active file must be absent before Activate and contain that address afterward. iOS
+  UI tests show Continue disabled before Check, enabled after the local node answers, and
   open the profile editor after explicit activation.
   The failure cases use `127.0.0.1:33446` as a closed loopback endpoint, alongside malformed,
   repeated and invalid-pin rows. They assert the row order and keep Continue disabled when no
   compatible node answered.
   A second local listener on `127.0.0.1:33447` accepts TCP without answering the peer handshake.
   Shared native tests cancel that pending check and retry it while asserting the previously
-  activated network remains unchanged. iOS/macOS UI cases cancel, retry, and reopen the same
+  activated network remains unchanged. iOS UI cases cancel, retry, and reopen the same
   saved draft after a process restart.
   Another shared unit case derives a valid wrong pin from the local node's Peer ID and checks
   both wrong-peer and wrong-network results with fresh sessions; both must reject Activate.
-  iOS and macOS UI cases show the wrong-network row and disabled Continue for a named network
+  iOS UI cases show the wrong-network row and disabled Continue for a named network
   against the public loopback node.
   `apple-test-in-ci.sh` exits 2 unless `GITHUB_ACTIONS=true`, so there is no supported local
   command. On a Mac you can run `tools/scripts/build-apple-core.sh`, generate the project with
@@ -808,9 +804,6 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
   `snapshot()`, which throws instead, and calls `isHittable` only for a row it sees on screen.
   When the drag that moves a row loses it, `reveal` first looks past the edge it moved the row
   toward.
-- With a `--ui-test-slot-root` the macOS window saves its frame under a name of that root, so
-  each test starts at the default frame. To seed a frame, pass
-  `-NSWindow Frame main-<root> "x y w h sx sy sw sh"` before the root.
 
 ## Not covered
 
@@ -831,7 +824,9 @@ Linux unit/smoke stages, the standalone desktop smoke CLI, the Ubuntu release-ta
 smoke and Windows Cargo checks use mapped concise output. Native Linux/Windows CI archives full
 logs from `build/platform-check-output`; JSON unit manifests and desktop result
 files keep their existing roles. If the Linux test binary fails to compile, the script prints up
-to eight compiler errors from its JSON manifest into the mapped failure output. Desktop failures
+to eight compiler errors from its JSON manifest into the mapped failure output. Linux CI also
+archives native Clippy JSON, stderr and its complexity report. Desktop smoke failure markers
+preserve up to 8192 characters on one line, including the underlying axe checks. Desktop failures
 include only the failed app invocation output, so the expected `--break-ui` rejection is not
 mistaken for a regression. Prepared Rust unit binaries retain their actual failure exit code
 (including 101) and reject empty inventories. Add `--raw` to `linux-test.sh`,

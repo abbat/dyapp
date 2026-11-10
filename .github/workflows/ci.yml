@@ -171,7 +171,11 @@ jobs:
         if: always()
         with:
           name: linux-check-output
-          path: build/platform-check-output/
+          path: |
+            build/platform-check-output/
+            build/complexity/linux/*/clippy.stderr
+            build/complexity/linux/*/clippy.jsonl
+            build/complexity/linux/*/report.json
           if-no-files-found: error
 
   apple:

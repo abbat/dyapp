@@ -281,7 +281,7 @@ fn send(app: &AppHandle, summary: &str, body: &str, open: &str) {
     use tauri_plugin_notification::{Action, ActionType, NotificationExt};
     let notifications = app.notification();
     let actions = ActionType::builder("mail")
-        .action(Action::builder("open", open).build())
+        .actions(vec![Action::builder("open", open).build()])
         .build();
     let result = notifications
         .register_action_types(vec![actions])

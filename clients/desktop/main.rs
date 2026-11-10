@@ -694,10 +694,11 @@ fn ui_test_result(
         }
         println!("UI_SMOKE_PASS:{peer_id}");
     } else {
-        let reason = reason.lines().next().unwrap_or("unknown");
+        // Keep bounded diagnostics on one line without losing axe's underlying check failure.
+        let reason = reason.replace(['\r', '\n'], " ");
         println!(
             "UI_SMOKE_FAIL: {}",
-            reason.chars().take(160).collect::<String>()
+            reason.chars().take(8192).collect::<String>()
         );
     }
     app.exit(i32::from(!success));

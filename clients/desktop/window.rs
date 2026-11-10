@@ -116,17 +116,17 @@ pub(crate) fn event(window: &tauri::Window, event: &tauri::WindowEvent) {
         tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
             track(window, &window.state::<WindowState>());
         }
+        #[cfg(target_os = "macos")]
         tauri::WindowEvent::CloseRequested { api, .. } => {
-            #[cfg(target_os = "macos")]
-            {
-                api.prevent_close();
-                let _ = crate::macos::hide(window);
-            }
-            #[cfg(not(target_os = "macos"))]
-            if window.state::<crate::tray::Tray>().hides_on_close() {
-                api.prevent_close();
-                let _ = window.hide();
-            }
+            api.prevent_close();
+            let _ = crate::macos::hide(window);
+        }
+        #[cfg(not(target_os = "macos"))]
+        tauri::WindowEvent::CloseRequested { api, .. }
+            if window.state::<crate::tray::Tray>().hides_on_close() =>
+        {
+            api.prevent_close();
+            let _ = window.hide();
         }
         _ => {}
     }

@@ -228,6 +228,29 @@ mod tests {
         assert_eq!(config.search.max_bytes, 512 << 20);
     }
 
+    async fn check_profile_changes(
+        state: &NodeState,
+        dir: &Path,
+        profile: &Path,
+        started: &HashMap<&'static str, String>,
+    ) {
+        let task_id = state.0.lock().await.as_ref().unwrap().2.id();
+        let changed = network::Network {
+            seeds: vec![],
+            name: "other".into(),
+        };
+        network::save(profile, NetworkFile::Active, &changed).unwrap();
+        let persisted = network::load(&dir.join("node-config"), NetworkFile::Active)
+            .unwrap()
+            .unwrap();
+        assert_eq!(persisted.name, "");
+        assert_eq!(status(state, dir).await, *started);
+        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
+        fs::remove_dir_all(profile).unwrap();
+        assert_eq!(status(state, dir).await, *started);
+        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn the_node_runs_only_when_on_and_stops_with_its_stores_closed() {
         dyapp_p2p_net::set_id_pow_bits(0);
@@ -253,7 +276,7 @@ mod tests {
             .unwrap();
         assert_eq!(started["status"], "running");
         // Storage binding uses a different format from the saved seed-list configuration.
-        assert!(fs::read(dir.join("node/network")).unwrap().is_empty());
+        assert_eq!(fs::read(dir.join("node/network")).unwrap(), [] as [u8; 0]);
         assert_eq!(status(&state, &dir).await, started);
         let invalid = Settings {
             disk_mb: 0,
@@ -264,21 +287,7 @@ mod tests {
             Err("invalidLimits".into())
         );
         assert_eq!(status(&state, &dir).await, started);
-        let task_id = state.0.lock().await.as_ref().unwrap().2.id();
-        let changed = network::Network {
-            seeds: vec![],
-            name: "other".into(),
-        };
-        network::save(&profile, NetworkFile::Active, &changed).unwrap();
-        let persisted = network::load(&dir.join("node-config"), NetworkFile::Active)
-            .unwrap()
-            .unwrap();
-        assert!(persisted.name.is_empty());
-        assert_eq!(status(&state, &dir).await, started);
-        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
-        fs::remove_dir_all(&profile).unwrap();
-        assert_eq!(status(&state, &dir).await, started);
-        assert_eq!(state.0.lock().await.as_ref().unwrap().2.id(), task_id);
+        check_profile_changes(&state, &dir, &profile, &started).await;
         assert_eq!(status(&state, &temp_dir("other")).await["status"], "off");
         // A restart reuses the key and takes the storage lock again.
         assert_eq!(apply(&state, &dir).await.unwrap(), started);
