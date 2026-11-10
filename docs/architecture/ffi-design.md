@@ -220,8 +220,16 @@ markers or mobile wrapped-key files; iOS sibling deletion markers remain visible
 directory disappears. Active pointer syntax preserves absent, invalid, explicitly unselected and
 selected states; Android's existing pointer without LF remains readable. Candidate order is
 legacy first, then canonical lowercase UUIDs. Symlinked slots/markers cannot become ready, and
-a symlinked inventory root fails. Platform create/open/remove operations and native/client
-adoption remain planned; this read-only API does not itself verify keys or their availability.
+a symlinked inventory root fails.
+
+The shared `resolve`/`open_slot` layer opens existing keys without generating replacements or
+writing markers. Core validates regular key files, desktop private-file permissions and bounded
+lengths; `KeyReader` only reads system credentials or decodes supplied wrapped bytes. Pending
+and deleting slots remain recovery even when their Peer ID is known. Empty inventories with
+orphan legacy credentials, missing selected targets or invalid saved pointers cannot become
+fresh setup. iOS explicit unselection remains a picker, and a missing selected legacy key never
+silently switches to a UUID identity. Callers must serialize resolution with mutations.
+Platform create/remove operations and native/client adoption remain planned.
 
 ## Exported surface
 

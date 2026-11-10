@@ -1,3 +1,5 @@
+mod open;
+
 use super::*;
 use std::fs;
 use std::path::Path;

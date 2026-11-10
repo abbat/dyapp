@@ -1,9 +1,13 @@
 //! Shared registry reading for the existing desktop and wrapped mobile layouts.
 
 mod inventory;
+mod keys;
 mod markers;
+mod open;
 pub use inventory::list;
+pub use keys::KeyReader;
 pub use markers::active;
+pub use open::{open_slot, resolve, RecoveryReason, Resolution};
 use std::path::PathBuf;
 
 /// Virtual slot for the pre-registry root identity.
