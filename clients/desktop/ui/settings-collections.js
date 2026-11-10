@@ -1,5 +1,6 @@
 import { all as domAll, byId as domById, find as domFind } from './dom.js';
 import { identityState, identityCurrent } from './identity-state.js';
+import { settingsRemove } from './elements.js';
 import { strings } from './locale.js';
 export const controller = {};
 /** @type {Promise<unknown> | undefined} */
@@ -33,8 +34,7 @@ const render = (state) => {
   const pages = Math.max(1, Math.ceil(items.length / 32));
   state.page = Math.min(state.page, pages - 1);
   const rows = items.slice(state.page * 32, (state.page + 1) * 32);
-  const remove = domById('settings-remove', HTMLButtonElement);
-  if (state.name === 'identities' && remove) remove.hidden = true;
+  if (state.name === 'identities') settingsRemove.hidden = true;
   state.list.replaceChildren(...rows.map(({ item, index }) => item.row(index)));
   state.previous.disabled = state.page === 0;
   state.next.disabled = state.page === pages - 1;

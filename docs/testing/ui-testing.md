@@ -54,7 +54,10 @@ or add waits for navigation. Settings navigation has its own Back/focus/reset sm
 
 Removal smoke waits for the Cancel close event before reopening, with a fresh deadline for that
 transition. Cache identity-change checks also await the final close event before collection paging;
-collection focus assertions follow native document focus and rendered layout. Dialog readiness
+collection focus assertions follow native document focus and synchronous paging handlers, with no
+extra frame wait. Identity pagination
+also exercises a detached removal button: rendering uses its stable reference, preserving the
+control and its handlers for a later current-identity row. Dialog readiness
 requires both visible and open state, not only the hidden attribute.
 The removal close handler ignores an old queued event after a newer opening becomes active.
 

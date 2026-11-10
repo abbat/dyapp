@@ -74,8 +74,9 @@ for each chooser and capture its view in that element's change listener; a mutab
 can otherwise admit an old selection into a reopened manager. Tests can intercept only the chooser
 click default, then assign real File/DataTransfer files and dispatch change through the real listener.
 
-Paginated identity actions retain stable element references: a button can be detached with
-its old row, so a later page must reattach that reference instead of querying the document.
+Paginated identity actions retain the stable references from `ui/elements.js`: the removal button
+can be detached with its old row. Collection rendering must hide that reference directly; a later
+current-identity row reattaches it. Document lookup during paging fails while it is detached.
 Refresh reads also need a per-read sequence guard in addition to identity generation.
 
 Desktop photo/cache rendering lives in `ui/chat-photos.js`; message-row rendering lives in

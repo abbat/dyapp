@@ -15,7 +15,6 @@
   const checkSettingsCollection = async (name, id, items, row, selected, check) => {
     await documentFocused();
     openSettings(name);
-    await paintReady();
     let refreshes = 0;
     const reload = async () => {
       refreshes += 1;
@@ -37,7 +36,6 @@
     next.focus();
     next.click();
     next.click();
-    await paintReady();
     checkCollectionFocus(name, list, previous, next, check);
     list.querySelector('button').click();
     check(selected() === 64, 'Paged action targeted wrong item');
