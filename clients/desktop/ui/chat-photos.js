@@ -1,3 +1,4 @@
+import { find as domFind } from './dom.js';
 import { sizeText } from './formatting.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { strings } from './locale.js';
@@ -250,6 +251,20 @@ controller.chatPhotos = {
     if (clear || photoOriginalsPeer !== peerId) forgetPhotos();
     photoOriginalsPeer = peerId;
   },
+};
+
+/** @param {HTMLElement} avatar @param {HTMLCanvasElement | null} canvas */
+export const setAvatarPhoto = (avatar, canvas) => {
+  let letters = domFind(avatar, '[data-avatar-letters]', HTMLSpanElement);
+  if (!letters) {
+    letters = document.createElement('span');
+    letters.dataset.avatarLetters = '';
+    letters.textContent = avatar.textContent;
+    avatar.replaceChildren(letters);
+  }
+  letters.hidden = canvas !== null;
+  avatar.querySelector('canvas')?.remove();
+  if (canvas) avatar.append(canvas);
 };
 
 export { drawPhoto, fitCanvas };

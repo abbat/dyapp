@@ -1,6 +1,6 @@
 import { all as domAll, byId as domById, find as domFind, query as domQuery } from './dom.js';
 import { profileBusy, profileMessage, setProfileBusy } from './app.js';
-import { drawPhoto } from './chat-photos.js';
+import { drawPhoto, setAvatarPhoto } from './chat-photos.js';
 import { preparePhoto } from './chats-photo-send.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
@@ -119,12 +119,33 @@ const askProfilePhotoRemoval = (index, call) => {
 /** @param {string} key @param {number} index @param {number} count */
 const profilePhotoText = (key, index, count) =>
   strings[key].replace('{n}', String(index + 1)).replace('{count}', String(count));
-/** @param {string} glyph @param {string} name @param {string} label @param {() => void} click */
-const profilePhotoTool = (glyph, name, label, click) => {
+/** @param {'left' | 'right' | 'remove'} name */
+const profilePhotoIcon = (name) => {
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('width', '1em');
+  icon.setAttribute('height', '1em');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.setAttribute('focusable', 'false');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const paths = {
+    left: 'M20 12H4m7-7-7 7 7 7',
+    right: 'M4 12h16m-7-7 7 7-7 7',
+    remove: 'M6 6l12 12M6 18 18 6',
+  };
+  path.setAttribute('d', paths[name]);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  icon.append(path);
+  return icon;
+};
+/** @param {'left' | 'right' | 'remove'} name @param {string} label @param {() => void} click */
+const profilePhotoTool = (name, label, click) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `btn quiet ${name}`;
-  button.textContent = glyph;
+  button.append(profilePhotoIcon(name));
   button.title = label;
   button.setAttribute('aria-label', label);
   button.addEventListener('click', click);
@@ -162,7 +183,6 @@ const profilePhotoTile = (hash, index, count, call) => {
   if (index > 0) {
     tools.append(
       profilePhotoTool(
-        '←',
         'left',
         profilePhotoText('profile.photoLeft', index, count),
         moved(index - 1, 'left'),
@@ -172,7 +192,6 @@ const profilePhotoTile = (hash, index, count, call) => {
   if (index < count - 1) {
     tools.append(
       profilePhotoTool(
-        '→',
         'right',
         profilePhotoText('profile.photoRight', index, count),
         moved(index + 1, 'right'),
@@ -180,7 +199,7 @@ const profilePhotoTile = (hash, index, count, call) => {
     );
   }
   tools.append(
-    profilePhotoTool('×', 'remove', profilePhotoText('profile.photoRemove', index, count), () =>
+    profilePhotoTool('remove', profilePhotoText('profile.photoRemove', index, count), () =>
       askProfilePhotoRemoval(index, call),
     ),
   );
@@ -203,8 +222,7 @@ const paintOwnAvatar = async (avatar) => {
       () => false,
     ));
   if (photo !== ownPhoto) return;
-  avatar.querySelector('canvas')?.remove();
-  if (photo && drawn) avatar.append(canvas);
+  setAvatarPhoto(avatar, photo && drawn ? canvas : null);
 };
 /** @param {HTMLElement} avatar */
 controller.ownAvatar = (avatar) => {

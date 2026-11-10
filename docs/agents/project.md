@@ -81,7 +81,10 @@ current-identity row reattaches it. Document lookup during paging fails while it
 Refresh reads also need a per-read sequence guard in addition to identity generation.
 
 Desktop photo/cache rendering lives in `ui/chat-photos.js`; message-row rendering lives in
-`ui/chat-message.js`. The native ES-module entry is `ui/entry.js`; dependencies use imports, not
+`ui/chat-message.js`. Own and peer avatars use `setAvatarPhoto`: keep fallback letters in a hidden
+span only while a decoded canvas is present, then restore them on removal or decode failure.
+Do not hide real contrast findings globally to compensate for covered fallback text.
+The native ES-module entry is `ui/entry.js`; dependencies use imports, not
 script order or page globals. Shared identity/chat state, clipboard/place helpers and DOM refs
 have independent modules so controller cycles do not read uninitialized imports.
 Unchanged chat render inputs preserve mounted rows and their original message objects:

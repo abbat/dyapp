@@ -1,5 +1,5 @@
 import { byId as domById, query as domQuery } from './dom.js';
-import { drawPhoto } from './chat-photos.js';
+import { drawPhoto, setAvatarPhoto } from './chat-photos.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { shortPeer } from './peer-labels.js';
@@ -66,7 +66,7 @@ controller.showCardPhotos = async (found, cards, call = invoke) => {
   await Promise.all(
     wanted.map(async ({ hash, card }) => {
       const canvas = await peerCanvas(hash, call);
-      if (canvas) domQuery(card, '.avatar', HTMLElement).append(canvas);
+      setAvatarPhoto(domQuery(card, '.avatar', HTMLElement), canvas);
     }),
   );
 };

@@ -101,19 +101,32 @@
     const before = commands.length;
     await appBindings.addProfilePhoto(file, call);
     if (commands.length !== before) throw new Error('a photo changed while the form was busy');
+    await checkOwnAvatarPaint(fixture);
+    appBindings.setProfileBusy(false);
+    if (add.disabled) throw new Error('Add photo stayed disabled after the form was free');
+  };
+  const checkOwnAvatarPaint = async ({ call, commands }) => {
     const avatar = document.querySelector('#sidebar-identity .avatar');
     await appApi.ownAvatarsShown;
-    if (!avatar.querySelector('canvas') || !avatar.textContent) {
-      throw new Error('the identity avatar did not draw the first photo over its letters');
+    const letters = avatar.querySelector('[data-avatar-letters]');
+    if (!avatar.querySelector('canvas') || !letters?.hidden || !letters.textContent) {
+      throw new Error('the identity photo did not hide its letter fallback');
     }
     if (commands.some((name) => name.includes('peer') || name.includes('fetch'))) {
       throw new Error('the own photo touched a peer or node command');
     }
     appApi.showProfilePhotos([], call);
     await appApi.ownAvatarsShown;
-    if (avatar.querySelector('canvas')) throw new Error('an identity without photos kept one');
-    appBindings.setProfileBusy(false);
-    if (add.disabled) throw new Error('Add photo stayed disabled after the form was free');
+    if (avatar.querySelector('canvas') || letters.hidden) {
+      throw new Error('an identity without photos did not restore its letters');
+    }
+    appApi.showProfilePhotos([[1]], () => Promise.resolve(new ArrayBuffer(0)));
+    await appApi.ownAvatarsShown;
+    if (avatar.querySelector('canvas') || letters.hidden) {
+      throw new Error('an undecodable identity photo did not restore its letters');
+    }
+    appApi.showProfilePhotos([], call);
+    await appApi.ownAvatarsShown;
   };
   const checkPhotoPublication = async (fixture) => {
     const { status, strings } = fixture;

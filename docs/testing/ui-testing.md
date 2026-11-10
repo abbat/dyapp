@@ -64,6 +64,10 @@ The removal close handler ignores an old queued event after a newer opening beco
 The mixed-profile node fixture writes its LF-only network configuration as bytes on every OS;
 its regression intercepts the next native launch while simulating Windows text translation.
 
+Photo controls use labelled vector icons. Avatar tests require fallback letters to stay out of
+paint while a canvas is present and reappear after removal or decode failure; own and peer
+avatars share that rendering contract.
+
 Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,
 not DOM fragment rectangles: chunk spans and WBRs can produce many rectangles on one line.
 The check waits for fonts, retains narrow/wide wrapping assertions and rejects horizontal clipping.
