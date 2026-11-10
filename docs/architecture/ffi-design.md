@@ -44,6 +44,16 @@ missing versus unavailable credentials and recoverable Peer IDs. Creation and se
 a failed selection. Construction does not create an identity. Confirmed removal and migration
 of the existing Kotlin/Swift slot adapters to this API remain planned.
 
+`Registry::operation` admits only a listed ready identity whose actual key matches the expected
+Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
+and future confirmed removal use the exclusive lock. Inventory and resolution also use shared
+locks, so they can run alongside admitted operations. Every acquisition opens its own handle;
+never upgrade a held lease to a mutation lock. The common native `MobileIdentityOperation`
+exposes an opaque key and verified slot; retaining the key alone does not retain the lease.
+Move the operation object into blocking workers and keep it until actual completion, including
+after UI cancellation. Installation-owned node work must run outside identity leases.
+Kotlin/Swift adoption and confirmed-removal integration remain planned.
+
 ## Which source is the contract
 
 | Source | Status |

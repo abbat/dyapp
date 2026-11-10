@@ -1,5 +1,6 @@
 mod create;
 mod open;
+mod operation;
 mod registry;
 mod removed;
 mod write;

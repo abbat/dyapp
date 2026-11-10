@@ -176,6 +176,33 @@ fn interrupted_lifecycle_never_opens_as_ready() {
     }
 }
 
+#[test]
+fn native_operation_retains_mutation_protection_with_its_verified_key() {
+    use std::fs::{OpenOptions, TryLockError};
+    let root = root();
+    let registry = MobileIdentityRegistry::new(
+        root.to_str().unwrap().to_owned(),
+        MobileSlotLayout::Android,
+        Arc::new(Credentials::default()),
+    );
+    let created = registry.create().unwrap();
+    let operation = registry
+        .operation(created.slot.id.clone(), created.key.peer_id())
+        .unwrap();
+    assert_eq!(operation.slot().id, created.slot.id);
+    assert_eq!(operation.key().peer_id(), created.key.peer_id());
+    assert_eq!(registry.list().unwrap().len(), 1);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(root.join("profiles.lock"))
+        .unwrap();
+    assert!(matches!(file.try_lock(), Err(TryLockError::WouldBlock)));
+    drop(operation);
+    file.try_lock()
+        .expect("native operation released the core guard");
+}
+
 struct Denied;
 
 impl MobileSlotKeys for Denied {

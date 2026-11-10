@@ -20,7 +20,7 @@ impl Registry {
     /// # Errors
     /// Returns lock or filesystem failures, never an empty replacement inventory.
     pub fn list(&self) -> Result<Vec<Slot>, String> {
-        let _guard = self.lock()?;
+        let _guard = self.shared_lock()?;
         super::list(&self.root, self.layout).map_err(|error| error.to_string())
     }
 
@@ -29,7 +29,7 @@ impl Registry {
     /// # Errors
     /// Returns lock or inventory failures; platform key failures remain recovery states.
     pub fn resolve(&self, keys: &dyn KeyReader) -> Result<Resolution, String> {
-        let _guard = self.lock()?;
+        let _guard = self.shared_lock()?;
         super::resolve(&self.root, self.layout, keys)
     }
 
@@ -70,6 +70,18 @@ impl Registry {
     }
 
     pub(super) fn lock(&self) -> Result<File, String> {
+        let file = self.lock_handle()?;
+        file.lock().map_err(|error| error.to_string())?;
+        Ok(file)
+    }
+
+    pub(super) fn shared_lock(&self) -> Result<File, String> {
+        let file = self.lock_handle()?;
+        file.lock_shared().map_err(|error| error.to_string())?;
+        Ok(file)
+    }
+
+    fn lock_handle(&self) -> Result<File, String> {
         fs::create_dir_all(&self.root).map_err(|error| error.to_string())?;
         let name = if self.layout == Layout::Ios {
             ".identity-slots.lock"
@@ -89,13 +101,11 @@ fn lock_file(path: &Path) -> Result<File, String> {
         _ => {}
     }
     let mut options = OpenOptions::new();
-    options.create(true).truncate(false).write(true);
+    options.create(true).truncate(false).read(true).write(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let file = options.open(path).map_err(|error| error.to_string())?;
-    file.lock().map_err(|error| error.to_string())?;
-    Ok(file)
+    options.open(path).map_err(|error| error.to_string())
 }

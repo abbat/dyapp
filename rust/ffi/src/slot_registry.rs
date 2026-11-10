@@ -126,6 +126,26 @@ impl MobileIdentityRegistry {
             .map_err(CoreError::Failed)
     }
 
+    /// Admit a verified identity operation and exclude mutations until its lease drops.
+    ///
+    /// # Errors
+    /// Returns lock, inventory, lifecycle, key access and Peer ID mismatch failures.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned strings across the native boundary"
+    )]
+    pub fn operation(
+        &self,
+        id: String,
+        expected_peer: String,
+    ) -> Result<Arc<crate::MobileIdentityOperation>, CoreError> {
+        let operation = self
+            .registry
+            .operation(&id, &expected_peer, &self.keys)
+            .map_err(CoreError::Failed)?;
+        Ok(Arc::new(crate::MobileIdentityOperation { operation }))
+    }
+
     /// Explicitly create and verify a wrapped-key identity.
     ///
     /// # Errors

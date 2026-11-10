@@ -31,6 +31,8 @@ mod slot_keys;
 pub use slot_keys::MobileSlotKeys;
 mod slot_resolution;
 pub use slot_resolution::{MobileSlotRecovery, MobileSlotResolution};
+mod slot_operation;
+pub use slot_operation::MobileIdentityOperation;
 mod slot_registry;
 #[cfg(test)]
 mod slot_registry_tests;
