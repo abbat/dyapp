@@ -4,6 +4,9 @@ use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{self, FilterType};
 use image::{Rgb, RgbImage};
 use jpeg_decoder::{Decoder, PixelFormat};
+use std::borrow::Cow;
+
+pub mod prepare;
 
 /// Longest side of a preview, in pixels.
 pub const MAX_SIDE: u32 = 320;
@@ -16,8 +19,17 @@ const MAX_ALLOC: usize = 1024 * 1024;
 
 /// Why an image failed validation, encoding or bounded decoding.
 #[derive(Debug, thiserror::Error)]
-#[error("{0}")]
-pub struct PhotoError(String);
+pub enum PhotoError {
+    /// Invalid pixels or JPEG structure; the reason is safe to show to the caller.
+    #[error("{0}")]
+    Invalid(&'static str),
+    /// Encoder or decoder failure.
+    #[error("{0}")]
+    Codec(String),
+    /// No preview candidate fits the requested byte limit.
+    #[error("no preview fits the byte limit")]
+    ByteLimit,
+}
 
 /// Decoded preview pixels, four bytes per pixel, rows top to bottom.
 #[derive(Debug, PartialEq, Eq)]
@@ -30,8 +42,8 @@ pub struct Rgba {
     pub pixels: Vec<u8>,
 }
 
-fn failed(reason: &str) -> PhotoError {
-    PhotoError(reason.to_owned())
+fn failed(reason: &'static str) -> PhotoError {
+    PhotoError::Invalid(reason)
 }
 
 /// Encode a metadata-free preview, flattening transparency onto white.
@@ -46,6 +58,10 @@ pub fn make_preview(
     height: u32,
     max_bytes: u32,
 ) -> Result<Vec<u8>, PhotoError> {
+    preview_rgb(&flatten(rgba, width, height)?, max_bytes)
+}
+
+fn flatten(rgba: &[u8], width: u32, height: u32) -> Result<RgbImage, PhotoError> {
     let expected = u64::from(width)
         .checked_mul(u64::from(height))
         .and_then(|pixels| pixels.checked_mul(4))
@@ -53,8 +69,7 @@ pub fn make_preview(
     if width == 0 || height == 0 || u64::try_from(rgba.len()).ok() != Some(expected) {
         return Err(failed("pixels do not match width and height"));
     }
-    let limit = max_bytes.min(MAX_BYTES) as usize;
-    let mut image = RgbImage::from_fn(width, height, |x, y| {
+    Ok(RgbImage::from_fn(width, height, |x, y| {
         let at = (y as usize * width as usize + x as usize) * 4;
         let alpha = u32::from(rgba[at + 3]);
         #[expect(
@@ -64,23 +79,28 @@ pub fn make_preview(
         Rgb(std::array::from_fn(|i| {
             ((u32::from(rgba[at + i]) * alpha + 255 * (255 - alpha) + 127) / 255) as u8
         }))
-    });
+    }))
+}
+
+fn preview_rgb(flat: &RgbImage, max_bytes: u32) -> Result<Vec<u8>, PhotoError> {
+    let limit = max_bytes.min(MAX_BYTES) as usize;
+    let mut image = Cow::Borrowed(flat);
     for side in [MAX_SIDE, FALLBACK_SIDE] {
         let (w, h) = fit(image.width(), image.height(), side);
         if (w, h) != image.dimensions() {
-            image = imageops::resize(&image, w, h, FilterType::Triangle);
+            image = Cow::Owned(imageops::resize(image.as_ref(), w, h, FilterType::Triangle));
         }
         for quality in QUALITIES {
             let mut jpeg = Vec::new();
             JpegEncoder::new_with_quality(&mut jpeg, quality)
-                .encode_image(&image)
-                .map_err(|error| PhotoError(error.to_string()))?;
+                .encode_image(image.as_ref())
+                .map_err(|error| PhotoError::Codec(error.to_string()))?;
             if jpeg.len() <= limit {
                 return Ok(jpeg);
             }
         }
     }
-    Err(failed("no preview fits the byte limit"))
+    Err(PhotoError::ByteLimit)
 }
 
 fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
@@ -157,7 +177,7 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, PhotoError> {
     decoder.set_max_decoding_buffer_size(MAX_ALLOC);
     let buffer = decoder
         .decode()
-        .map_err(|error| PhotoError(error.to_string()))?;
+        .map_err(|error| PhotoError::Codec(error.to_string()))?;
     let info = decoder.info().ok_or_else(|| failed("missing JPEG frame"))?;
     if u32::from(info.width) != width || u32::from(info.height) != height {
         return Err(failed("JPEG frame changed during decoding"));

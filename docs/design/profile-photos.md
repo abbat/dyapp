@@ -31,6 +31,15 @@ six cost 30.7 MiB. `limits.media_per_owner_mb` therefore defaults to 64: chat at
 the quota, and one sharded 6 MiB chat photo costs about 9 MiB. An operator may set less; the client
 then shows the node's `FULL` reply and keeps the photo local.
 
+## Shared preparation core
+
+`dyapp_client::photo::prepare` supplies header-driven decode plans and a bounded RGBA-to-JPEG
+pipeline. Profile originals use the limits above and qualities 85, 70, 55; chat originals use
+6,000,000 bytes, sides 2560, 1920, 1280 and quality 85. Both share preview encoding and flatten
+transparency onto white. The platform must decode upright straight RGBA within the returned
+size before calling preparation. Native and desktop pipeline migration is still planned;
+the current client preparation paths below remain in use until their adapters are switched.
+
 ## Publishing
 
 1. The page decodes the picked file and draws it on a canvas, which writes a bare JPEG. EXIF, GPS,
@@ -57,7 +66,8 @@ then shows the node's `FULL` reply and keeps the photo local.
 failed publish can leave behind, so the client then moves past it, one version per refusal up to
 eight. The store holds own photos until a publish drops them, so a repair needs no original file.
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
-Android check pixels before that, because `rust/client` has no image decoder. On Android and Apple
+Android check full-image pixels before that; full-source decoding remains a platform service,
+while the shared core bounds and decodes previews. On Android and Apple
 every draft write (a save, a proof step, the publish and each photo change) holds one lock, because a
 step or save writes back the draft it read and a publish drops the blobs it did not publish.
 

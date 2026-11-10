@@ -69,7 +69,11 @@ directly to Rust clients, with no UniFFI dependency. It retains the current 320 
 preview policy and 1 MiB decoder allocation cap, and rejects overflowing raw pixel dimensions.
 The common UniFFI preview adapter delegates to this core and only converts pixel records and
 errors. Its Kotlin/Swift API stays unchanged; Tauri can call the same core functions directly.
-Preparing full photos and switching platform preparation pipelines to core remain planned.
+`dyapp_client::photo::prepare` now owns typed profile/chat purposes, source limits, decode
+plans and full-photo fitting/quality/byte decisions. It accepts upright straight RGBA within
+the returned purpose target, flattens once, and emits an original plus the shared preview.
+Source headers are bounded before decoder allocation; malformed pixels and oversize inputs
+fail with typed errors. Common FFI exposure and platform pipeline switches remain planned.
 
 ## Profile editor height and seeking input
 
