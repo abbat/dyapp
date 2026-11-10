@@ -36,8 +36,10 @@ or changing scroll/focus state. Calibration and audits wait for bounded paint ca
 fixture/style changes. Standalone prototype calibration owns its top-layer dialog. Counterexamples
 still reject real low contrast and foreground overlap; failures retain layout and axe check details.
 Synthetic fixtures hide unrelated page paint while preserving layout and restore it on every exit.
-Ready-screen hit testing scrolls the heading into view
-after restoring the reflow probe's width, then measures its current bounds after layout frames.
+Ready-screen checks release prior form-validation focus before the width reflow probe,
+then reveal the heading through intersection/scroll readiness callbacks. They use its live
+viewport bounds and hit test, retain genuine occlusion failures, and cancel observers,
+listeners and the failure-only deadline on completion.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
 Those entry scripts retain their existing exported check tables. Helpers share each scenario's

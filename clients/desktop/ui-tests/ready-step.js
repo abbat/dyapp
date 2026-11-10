@@ -25,6 +25,44 @@
     document.body.style.width = originalBodyWidth;
     return { narrowLines, wideLines };
   };
+  const readyRect = (area) => {
+    const rect = area.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const x = rect.x + rect.width / 2;
+    const y = rect.y + rect.height / 2;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    return document.elementFromPoint(x, y) === area ? rect : null;
+  };
+  const revealReady = (area) =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        observer.disconnect();
+        stopTimer(deadline);
+        window.removeEventListener('scroll', check, true);
+        window.removeEventListener('resize', check);
+      };
+      const check = () => {
+        if (settled) return;
+        const rect = readyRect(area);
+        if (!rect) return;
+        cleanup();
+        resolve(rect);
+      };
+      const observer = new IntersectionObserver(check);
+      const deadline = startTimer(() => {
+        cleanup();
+        const rect = area.getBoundingClientRect();
+        reject(
+          new Error(`ready heading not hit-testable at ${rect.x} ${rect.y}, scroll ${scrollY}`),
+        );
+      }, 10000);
+      observer.observe(area);
+      window.addEventListener('scroll', check, true);
+      window.addEventListener('resize', check);
+      area.scrollIntoView({ block: 'center', behavior: 'instant' });
+    });
   const checkBackup = (mode, strings) => {
     const backup = document.getElementById('file-backup');
     const keyPath = document.getElementById('key-path').textContent;
@@ -80,17 +118,15 @@
   smoke.uiSmokeReadyStep = async (mode, existing, step) => {
     if (!document.getElementById('identity').hidden) await openArea('profile-area');
     await document.fonts.ready;
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (existing && !step) await smoke.shot('ready');
     const ready = document.getElementById('app-ready');
     const area = document.querySelector('#profile-area h1');
     const { strings } = appApi;
     const peerId = document.getElementById('peer-id').textContent;
+    // Native validation can leave an offscreen input focused; reflow would reveal it again.
+    document.activeElement?.blur?.();
     const { narrowLines, wideLines } = peerReflow();
-    // Keyboard and viewport audits may leave the page scrolled; use the final live geometry.
-    area.scrollIntoView({ block: 'center', behavior: 'instant' });
-    await frames();
-    const rect = area.getBoundingClientRect();
+    const rect = await revealReady(area);
     const style = getComputedStyle(area);
     const context = { ready, area, rect, style, strings, peerId, narrowLines, wideLines };
     return reportReady(readyChecks(mode, context), context);
