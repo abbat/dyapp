@@ -53,7 +53,6 @@
   {"path":"rust/bootstrap/src/node/tests/groups.rs","function":"fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes ","metrics":{"lines":82}},
   {"path":"rust/bootstrap/src/search.rs","function":"fn insert_profile ","metrics":{"lines":63}},
   {"path":"rust/bootstrap/src/search.rs","function":"impl SearchIndex ::fn write ","metrics":{"lines":65}},
-  {"path":"rust/bootstrap/src/search/counts.rs","function":"impl SearchIndex ::fn bound_newcomers ","metrics":{"lines":54}},
   {"path":"rust/bootstrap/src/search/digest.rs","function":"fn slots_and_inventory_range_boundaries ","metrics":{"cognitive":17}},
   {"path":"rust/bootstrap/src/search/find.rs","function":"fn filter ","metrics":{"lines":91}},
   {"path":"rust/bootstrap/src/search/find.rs","function":"impl SearchIndex ::fn query ","metrics":{"cognitive":16,"lines":120}},

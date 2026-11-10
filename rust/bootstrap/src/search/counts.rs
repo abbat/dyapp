@@ -95,6 +95,18 @@ impl SearchIndex {
         total.saturating_sub(taken)
     }
 
+    /// Recounts only keys still inside the newcomer window before quota eviction.
+    fn newcomer_bytes_since(&self, since: i64) -> Result<u64> {
+        let bytes: i64 = lock(&self.db)?
+            .query_row(
+                "SELECT COALESCE(SUM(`bytes`), 0) FROM `key` WHERE `first_seen` > ?",
+                [since],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        Ok(bytes.unsigned_abs())
+    }
+
     /// Adds `delta` record bytes of newcomer `key`; past the quota, evicts other newcomers,
     /// oldest heartbeat first.
     pub(super) fn bound_newcomers(&self, key: &[u8; 32], delta: i64, now: i64) -> Result<()> {
@@ -108,14 +120,7 @@ impl SearchIndex {
             && now.saturating_sub(self.newcomer_checked.load(Ordering::Relaxed)) >= 3_600
         {
             self.newcomer_checked.store(now, Ordering::Relaxed);
-            held = lock(&self.db)?
-                .query_row(
-                    "SELECT COALESCE(SUM(`bytes`), 0) FROM `key` WHERE `first_seen` > ?",
-                    [since],
-                    |row| row.get::<_, i64>(0),
-                )
-                .map_err(storage_error)?
-                .unsigned_abs();
+            held = self.newcomer_bytes_since(since)?;
         }
         while held > self.newcomer_quota {
             let mut db = lock(&self.db)?;
