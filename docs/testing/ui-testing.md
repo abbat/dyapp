@@ -76,8 +76,8 @@ The check waits for fonts, retains narrow/wide wrapping assertions and rejects h
 
 Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
 including the shared identifier ES module. No external network access is needed.
-The required `desktop - prototypes` CI job runs the same desktop command and
-archives JSON measurements. D1-D3 are checked at each screenshot, including
+CI does not run it: run `make ui-prototype` locally after changing the prototype or its
+helpers; it writes JSON measurements to `build/ux-research/prototype/`. D1-D3 are checked at each screenshot, including
 negative fixtures for long titles, wrong Cancel keys and duplicate/missing defaults.
 Selection dialogs may have no default; other dialogs must declare exactly one.
 They wait for `document.fonts.ready` and two animation frames, with a
@@ -693,17 +693,9 @@ also saves the last compared frames as `keyboard-focus-before.png` and
 these keyboard/dialog transitions without backend actions. D1's two-line limit stays in the
 frozen matrix; stress variants check clipping and accessibility instead.
 
-CI selects the prototype matrix only when desktop UI/prototype assets, UI helpers,
-test scripts/images, checker tooling, workflows or the frozen criteria change. Pushes
-compare their before/after commits; pull requests compare their head with the merge
-base. Manual workflow runs and new branches run the full matrix. Comparison errors
-fail CI. Unrelated source/documentation changes keep the ordinary native smoke jobs
-and skip this matrix; `required` accepts that skip only after a successful selector
-explicitly reported no relevant changes.
-
-The selected prototype matrix splits theme, text scale and language across eight jobs.
-Each publishes `desktop-prototype-criteria-*` measurements and screenshots for seven days;
-any failed job fails the `required` summary.
+The prototype check runs only locally (`make ui-prototype`); CI does not run it. Set
+`DYAPP_PROTOTYPE_THEME`, `DYAPP_PROTOTYPE_TEXT_SCALE` and `DYAPP_PROTOTYPE_LANGUAGE` to check
+one theme, text scale or language.
 
 ### Android prototype screenshots
 

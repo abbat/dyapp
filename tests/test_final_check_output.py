@@ -25,15 +25,8 @@ class FinalChecks(unittest.TestCase):
                 "linux",
                 "apple",
                 "windows",
-                "prototype_changes",
-                "prototype",
             )
         }
-        good["prototype_changes"] = {
-            "result": "success",
-            "outputs": {"needed": "true"},
-        }
-        not_needed = {"result": "success", "outputs": {"needed": "false"}}
         missing = {
             name: value for name, value in good.items() if name != "apple"
         }
@@ -45,39 +38,6 @@ class FinalChecks(unittest.TestCase):
             (dict(good, apple={"result": "cancelled"}), False),
             (dict(good, apple={"result": "skipped"}), False),
             (missing, False),
-            (
-                dict(
-                    good,
-                    prototype={"result": "skipped"},
-                    prototype_changes=not_needed,
-                ),
-                True,
-            ),
-            (dict(good, prototype={"result": "skipped"}), False),
-            (
-                dict(
-                    good,
-                    prototype={"result": "skipped"},
-                    prototype_changes={"result": "failure"},
-                ),
-                False,
-            ),
-            (
-                dict(
-                    good,
-                    prototype={"result": "skipped"},
-                    prototype_changes={"result": "success"},
-                ),
-                False,
-            ),
-            (
-                dict(
-                    good,
-                    prototype={"result": "failure"},
-                    prototype_changes=not_needed,
-                ),
-                False,
-            ),
         ]
         with tempfile.TemporaryDirectory() as directory:
             for data, accepted in cases:
