@@ -27,6 +27,16 @@ pub use network::{
 };
 mod peer_photos;
 pub use peer_photos::peer_photo_auto;
+mod slot_keys;
+pub use slot_keys::MobileSlotKeys;
+mod slot_resolution;
+pub use slot_resolution::{MobileSlotRecovery, MobileSlotResolution};
+mod slot_registry;
+#[cfg(test)]
+mod slot_registry_tests;
+pub use slot_registry::{
+    MobileIdentityRegistry, MobileSlot, MobileSlotLayout, MobileSlotSelection, MobileSlotState,
+};
 mod pin;
 pub use pin::{hash_app_pin, verify_app_pin};
 mod profile_draft;

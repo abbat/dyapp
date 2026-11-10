@@ -23,6 +23,21 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+## Shared mobile identity registry
+
+`MobileIdentityRegistry` exposes core inventory, resolution, explicit creation and verified
+selection for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
+credential presence and wrapping/opening by slot ID, reusing opaque `IdentityKey` objects
+and the existing `KeyStore` interface. No additional foreign plaintext-key API is introduced.
+Rust owns file access, lifecycle markers, reservation, locking and recovery classification.
+
+`MobileSlotResolution` preserves setup, picker, ready and recovery outcomes, including
+missing versus unavailable credentials and recoverable Peer IDs. Creation and selection return
+`MobileSlotSelection`: its key is verified and its selection committed; a nonempty
+`durability_detail` reports unconfirmed directory persistence after that commit, rather than
+a failed selection. Construction does not create an identity. Confirmed removal and migration
+of the existing Kotlin/Swift slot adapters to this API remain planned.
+
 ## Which source is the contract
 
 | Source | Status |
