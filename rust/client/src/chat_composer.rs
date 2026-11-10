@@ -49,10 +49,7 @@ pub fn assess(state: Option<State>, text: &str) -> Assessment {
         Some(State::None | State::RequestReceived | State::Open)
     );
     let too_long = text.len() > MAX_TEXT_BYTES;
-    // ECMAScript whitespace differs from Unicode White_Space by excluding NEL and including BOM.
-    let nonblank = text
-        .chars()
-        .any(|ch| !((ch.is_whitespace() && ch != '\u{85}') || ch == '\u{feff}'));
+    let nonblank = !crate::text_input::trim(text).is_empty();
     Assessment {
         writable,
         too_long,

@@ -184,8 +184,14 @@ Desktop can use the same core module directly without a UniFFI dependency. Blank
 bound then defaults to 18 or 150. Blank height bounds remain open. Hidden fields are ignored,
 including malformed saved input. Offered malformed or impossible ranges retain the existing
 `invalid search age` / `invalid search height` errors. Date-dependent bounds use the current
-UTC date and the existing core `Filter` validator. Categorical, place, employer and mutual
-form interpretation remains client-owned pending the rest of the extraction.
+UTC date and the existing core `Filter` validator. Categorical, place and mutual form
+interpretation remains client-owned pending the rest of the extraction.
+
+`dyapp_client::search_input::employer_filter` interprets raw Any/Same/Exclude company text using
+the Linux desktop contract. Same preserves semicolons; Exclude splits on them, drops blank names
+and preserves order/duplicates. Matching remains local through `Employer::retain`, never node
+conditions. Composer and employer inputs share the ECMAScript trim predicate: BOM is blank, NEL
+is retained. Native/platform employer adapters remain planned.
 
 ## Exported surface
 
