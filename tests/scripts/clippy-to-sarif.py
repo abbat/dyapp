@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 results = []
+seen: set[str] = set()
 finished = None
 for line in Path(sys.argv[1]).read_text().splitlines():
     item = json.loads(line)
@@ -34,7 +35,13 @@ for line in Path(sys.argv[1]).read_text().splitlines():
                 }
             }
         ]
-    results.append(result)
+    # Cargo reports the same source diagnostic for library and test targets.
+    fingerprint = json.dumps(result, sort_keys=True)
+    if fingerprint not in seen:
+        seen.add(fingerprint)
+        results.append(result)
+if finished is not True:
+    raise RuntimeError("Collector failed or did not finish")
 print(
     json.dumps(
         {
@@ -45,5 +52,3 @@ print(
         }
     )
 )
-if finished is not True:
-    raise RuntimeError("Collector failed or did not finish")
