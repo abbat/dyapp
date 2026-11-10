@@ -6,6 +6,7 @@
 
 pub mod attachment;
 pub mod chat;
+pub mod chat_composer;
 pub mod compatibility;
 pub mod interactions;
 /// The device link code and record.

@@ -89,6 +89,16 @@ Android draft loading reads only the identity-bound `client.db` through `load_pr
 An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported
 nor modified. Publication and mutual search use the same loader.
 
+## Shared chat composer policy
+
+`dyapp_client::chat_composer::assess` projects conversation phase and text into writable,
+too-long and sendable controls. Loading, a pending outgoing request and a closed chat disable
+submission. The shared protocol limit is 65,536 UTF-8 bytes, inclusive. Blank text follows the
+Linux desktop's ECMAScript trim semantics, including BOM as blank and excluding NEL from blank.
+The common `chat_composer_policy` native adapter converts states/results; Android delegates its
+composer helpers to it. This presentation policy does not replace send authorization. Durable
+send outcome reporting remains planned; Android still infers staging until that API is adopted.
+
 ## Shared profile editor policy
 
 `dyapp_client::profile_editor` validates editable fields with stable draft errors and separately

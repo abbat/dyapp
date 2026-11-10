@@ -9,6 +9,8 @@ use zeroize::Zeroizing;
 
 #[cfg(target_os = "android")]
 mod android;
+mod chat_composer;
+pub use chat_composer::{chat_composer_policy, ChatComposerPolicy};
 mod chats;
 pub use chats::{
     chat_photo_hours_left, new_chat_state_key, ChatBlock, ChatDelivery, ChatHistory, ChatItem,

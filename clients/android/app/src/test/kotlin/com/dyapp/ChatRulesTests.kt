@@ -6,7 +6,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.ChatMessage
-import uniffi.dyapp.ChatState
 
 class ChatRulesTests {
     private fun message(author: String, id: Byte) = ChatMessage(
@@ -28,26 +27,6 @@ class ChatRulesTests {
         assertEquals(R.string.view_like_unpublished, likeStatus(RuntimeException("unpublished")).text)
         assertEquals(R.string.view_like_not_connected, likeStatus(RuntimeException("notConnected")).text)
         assertEquals(R.string.view_like_failed, likeStatus(RuntimeException("disk")).text)
-    }
-
-    @Test
-    fun onlyTheWaitingFirstMessageAndLoadingCloseTheComposer() {
-        assertTrue(chatWritable(ChatState.NONE))
-        assertTrue(chatWritable(ChatState.REQUEST_RECEIVED))
-        assertTrue(chatWritable(ChatState.OPEN))
-        assertFalse(chatWritable(ChatState.REQUEST_SENT))
-        assertFalse(chatWritable(null))
-    }
-
-    @Test
-    fun sendNeedsVisibleTextWithinTheLimitInBytes() {
-        assertTrue(chatSendable(ChatState.OPEN, "a".repeat(65_536)))
-        assertFalse(chatSendable(ChatState.OPEN, "a".repeat(65_537)))
-        // Two bytes each: the limit counts bytes, not characters.
-        assertFalse(chatSendable(ChatState.OPEN, Char(0x416).toString().repeat(32_769)))
-        assertFalse(chatSendable(ChatState.OPEN, " \n"))
-        assertFalse(chatSendable(ChatState.REQUEST_SENT, "text"))
-        assertFalse(chatSendable(ChatState.CLOSED, "text"))
     }
 
     @Test

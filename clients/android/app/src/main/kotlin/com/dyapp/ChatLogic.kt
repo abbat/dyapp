@@ -6,21 +6,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.chatComposerPolicy
 
-// As the core's limit and the desktop composer.
-private const val MAX_TEXT_BYTES = 65_536
+/** Shared composer policy; null means the conversation is still loading. */
+internal fun chatWritable(state: ChatState?) = chatComposerPolicy(state, "").writable
 
-/**
- * A shown chat takes text unless the first message waits for a reply or a match ended; null is
- * still loading.
- */
-internal fun chatWritable(state: ChatState?) =
-    state != null && state != ChatState.REQUEST_SENT && state != ChatState.CLOSED
+internal fun chatTooLong(text: String) = chatComposerPolicy(null, text).tooLong
 
-internal fun chatTooLong(text: String) = text.toByteArray().size > MAX_TEXT_BYTES
-
-internal fun chatSendable(state: ChatState?, text: String) =
-    chatWritable(state) && text.isNotBlank() && !chatTooLong(text)
+internal fun chatSendable(state: ChatState?, text: String) = chatComposerPolicy(state, text).sendable
 
 /** Whether a failed send still stored its text: another copy from the same draft must not go out. */
 internal fun stagedNew(before: List<ChatMessage>, after: List<ChatMessage>, me: String): Boolean {
