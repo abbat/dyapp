@@ -1,4 +1,8 @@
 use super::*;
+use libp2p::futures::StreamExt;
+use libp2p::identity::Keypair;
+use libp2p::swarm::{DialError, SwarmEvent};
+use std::time::Duration;
 
 #[test]
 fn seeds_can_pin_ipv4_ipv6_and_dns_without_accepting_multiaddrs() {
@@ -22,23 +26,21 @@ fn seeds_can_pin_ipv4_ipv6_and_dns_without_accepting_multiaddrs() {
     assert!(seed(&format!("seed.example:7070/{peer}/extra")).is_err());
 }
 
-#[tokio::test]
-async fn seed_pins_refuse_the_wrong_transport_key_and_plain_seeds_still_connect() {
-    use libp2p::futures::StreamExt;
-    use libp2p::identity::Keypair;
-    use libp2p::swarm::{DialError, SwarmEvent};
-    use std::time::Duration;
+async fn listening_seed() -> (libp2p::Swarm<dyapp_p2p_net::Behaviour>, u16) {
     let mut server =
         dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), dyapp_p2p_net::Mode::Auto).unwrap();
-    let real = *server.local_peer_id();
     server
         .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
         .unwrap();
-    let address = loop {
-        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-            break address;
+    let address = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+                break address;
+            }
         }
-    };
+    })
+    .await
+    .expect("seed never started listening");
     let port = address
         .iter()
         .find_map(|part| match part {
@@ -46,6 +48,13 @@ async fn seed_pins_refuse_the_wrong_transport_key_and_plain_seeds_still_connect(
             _ => None,
         })
         .unwrap();
+    (server, port)
+}
+
+#[tokio::test]
+async fn seed_pins_refuse_the_wrong_transport_key_and_plain_seeds_still_connect() {
+    let (mut server, port) = listening_seed().await;
+    let real = *server.local_peer_id();
     for expected in [None, Some(real), Some(PeerId::random())] {
         let mut client =
             dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), dyapp_p2p_net::Mode::Client)

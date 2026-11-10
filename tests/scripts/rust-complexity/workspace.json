@@ -6,7 +6,6 @@
   {"path":"rust/bootstrap/src/bin/dyappd/main.rs","function":"fn status ","metrics":{"lines":81}},
   {"path":"rust/bootstrap/src/config.rs","function":"impl NodeConfig ::fn load ","metrics":{"nesting":6,"lines":86,"nested_regions":1}},
   {"path":"rust/bootstrap/src/config/key.rs","function":"impl NodeConfig ::fn load_key ","metrics":{"lines":74}},
-  {"path":"rust/bootstrap/src/config/seeds.rs","function":"fn seed_pins_refuse_the_wrong_transport_key_and_plain_seeds_still_connect ","metrics":{"lines":54}},
   {"path":"rust/bootstrap/src/config/validation.rs","function":"fn invalid_config_fails ","metrics":{"cognitive":43,"lines":100}},
   {"path":"rust/bootstrap/src/config/validation.rs","function":"fn search_limits_are_checked ","metrics":{"cognitive":23}},
   {"path":"rust/bootstrap/src/config/validation_impl.rs","function":"impl NodeConfig ::fn validate ","metrics":{"lines":156}},
