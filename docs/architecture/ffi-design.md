@@ -190,8 +190,10 @@ interpretation remains client-owned pending the rest of the extraction.
 `dyapp_client::search_input::employer_filter` interprets raw Any/Same/Exclude company text using
 the Linux desktop contract. Same preserves semicolons; Exclude splits on them, drops blank names
 and preserves order/duplicates. Matching remains local through `Employer::retain`, never node
-conditions. Composer and employer inputs share the ECMAScript trim predicate: BOM is blank, NEL
-is retained. Native/platform employer adapters remain planned.
+conditions. Raw search ranges, composer and employer inputs share
+`dyapp_profile::text_input::trim`, the ECMAScript predicate: BOM is blank, NEL is retained.
+The same predicate controls numeric parsing and blank detection; hidden invalid ranges remain
+ignored. Native/platform employer adapters remain planned.
 
 ## Exported surface
 

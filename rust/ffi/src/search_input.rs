@@ -141,6 +141,32 @@ mod tests {
     }
 
     #[test]
+    fn desktop_whitespace_reaches_the_fixed_date_query_boundary() {
+        let blank = SearchRangeInputs {
+            age_min: "\u{feff}".into(),
+            height_max: "\u{feff}".into(),
+            ..SearchRangeInputs::default()
+        };
+        assert_eq!(
+            conditions(&[1001, 46], &blank, date()).unwrap(),
+            [] as [SearchCondition; 0]
+        );
+        let invalid = SearchRangeInputs {
+            age_min: "\u{85}".into(),
+            height_max: "\u{85}".into(),
+            ..SearchRangeInputs::default()
+        };
+        for (field, message) in [(1001, "invalid search age"), (46, "invalid search height")] {
+            assert_eq!(
+                conditions(&[field], &invalid, date())
+                    .unwrap_err()
+                    .to_string(),
+                message
+            );
+        }
+    }
+
+    #[test]
     fn invalid_numbers_and_impossible_ranges_keep_field_errors() {
         for (from, to) in [("wrong", ""), ("4294967296", ""), ("-1", ""), ("30", "20")] {
             let inputs = SearchRangeInputs {

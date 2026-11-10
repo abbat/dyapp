@@ -46,6 +46,10 @@ Compose `produceState` restart keys do not recreate its remembered initial state
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
 
+Raw search input uses `dyapp_profile::text_input::trim` for Linux-compatible whitespace:
+Rust `str::trim` treats BOM/NEL differently. Reuse the core helper for blank checks and parsing;
+do not implicitly change unrelated stored-domain normalization.
+
 Workspace proptest enables `std` and `bit-set`, with in-process execution, shrinking and failure
 persistence. Its unused default `fork`/`timeout` features pull `rusty-fork` and `quick-error` 1,
 which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property tests would need

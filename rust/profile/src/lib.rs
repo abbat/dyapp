@@ -71,6 +71,7 @@ mod birth_date;
 pub mod birth_input;
 pub mod editor_input;
 pub mod search_input;
+pub mod text_input;
 pub use birth_date::{BirthBounds, CivilDate};
 mod scales;
 pub use scales::{

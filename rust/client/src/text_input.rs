@@ -1,6 +1,3 @@
-//! Shared interpretation of text entered in clients using the desktop trim contract.
+//! Reuse the lower core's input contract without coupling profile parsers to the client crate.
 
-/// ECMAScript differs from Unicode whitespace by excluding NEL and including BOM.
-pub(crate) fn trim(text: &str) -> &str {
-    text.trim_matches(|ch: char| (ch.is_whitespace() && ch != '\u{85}') || ch == '\u{feff}')
-}
+pub(crate) use dyapp_profile::text_input::trim;

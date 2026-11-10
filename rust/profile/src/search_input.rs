@@ -1,5 +1,7 @@
 //! Presentation-independent interpretation of raw profile search ranges.
 
+use crate::text_input::trim;
+
 /// Raw age and height fields, before parsing or applying query conditions.
 #[derive(Clone, Debug, Default)]
 pub struct SearchRangeInputs {
@@ -36,7 +38,7 @@ pub enum SearchInputError {
 }
 
 fn number(text: &str, error: SearchInputError) -> Result<Option<u32>, SearchInputError> {
-    let text = text.trim();
+    let text = trim(text);
     if text.is_empty() {
         return Ok(None);
     }
@@ -57,7 +59,7 @@ impl SearchRangeInputs {
         height_offered: bool,
     ) -> Result<SearchRanges, SearchInputError> {
         let mut ranges = SearchRanges::default();
-        if age_offered && (!self.age_min.trim().is_empty() || !self.age_max.trim().is_empty()) {
+        if age_offered && (!trim(&self.age_min).is_empty() || !trim(&self.age_max).is_empty()) {
             ranges.age = Some((
                 number(&self.age_min, SearchInputError::Age)?.unwrap_or(18),
                 number(&self.age_max, SearchInputError::Age)?.unwrap_or(150),
@@ -102,6 +104,45 @@ mod tests {
             assert_eq!(parsed.age, Some(expected));
             assert_eq!(parsed.min_height, Some(50));
             assert_eq!(parsed.max_height, Some(272));
+        }
+    }
+
+    #[test]
+    fn desktop_whitespace_controls_both_blank_detection_and_numeric_parsing() {
+        for value in ["\u{feff}", "\u{a0}", " \t\n"] {
+            let inputs = SearchRangeInputs {
+                age_min: value.into(),
+                height_max: value.into(),
+                ..SearchRangeInputs::default()
+            };
+            assert_eq!(inputs.parse(true, true), Ok(SearchRanges::default()));
+        }
+        let inputs = SearchRangeInputs {
+            age_min: "\u{feff}21\u{feff}".into(),
+            height_max: "\u{feff}180\u{feff}".into(),
+            ..SearchRangeInputs::default()
+        };
+        assert_eq!(
+            inputs.parse(true, true),
+            Ok(SearchRanges {
+                age: Some((21, 150)),
+                min_height: None,
+                max_height: Some(180),
+            })
+        );
+    }
+
+    #[test]
+    fn non_desktop_whitespace_stays_invalid_only_when_its_field_is_offered() {
+        for value in ["\u{85}", "21\u{85}", "\u{1c}"] {
+            let inputs = SearchRangeInputs {
+                age_min: value.into(),
+                height_max: value.into(),
+                ..SearchRangeInputs::default()
+            };
+            assert_eq!(inputs.parse(true, false), Err(SearchInputError::Age));
+            assert_eq!(inputs.parse(false, true), Err(SearchInputError::Height));
+            assert_eq!(inputs.parse(false, false), Ok(SearchRanges::default()));
         }
     }
 
