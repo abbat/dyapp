@@ -49,9 +49,9 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let (id, writes) = self.stage_forwarded_text(group_id, text, seal_key)?;
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(id)
+        self.submit_forwarded_text(nodes, group_id, text, seal_key)
+            .await?
+            .into_accepted()
     }
 
     /// Forward into the pair's canonical joined group after the target profile was checked.
@@ -67,8 +67,8 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let group_id = self.pair_group(peer_id).ok_or(Error::UnknownGroup)?;
-        self.send_forwarded_text(nodes, &group_id, text, seal_key)
-            .await
+        self.submit_forwarded_text_to(nodes, peer_id, text, seal_key)
+            .await?
+            .into_accepted()
     }
 }

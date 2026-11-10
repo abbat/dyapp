@@ -22,14 +22,6 @@ reason = "Used by clients/desktop/chats/presence.rs outside this Cargo workspace
 [[override]]
 lint = "hawk::dead_public"
 crate = "dyapp_client"
-item = "session::forward::<impl session::Session>::send_forwarded_text_to"
-kind = "inherent_method"
-level = "expect"
-reason = "Used by clients/desktop/chats/forward.rs outside this Cargo workspace."
-
-[[override]]
-lint = "hawk::dead_public"
-crate = "dyapp_client"
 item = "session::forward::<impl session::Session>::send_forwarded_text"
 kind = "inherent_method"
 level = "expect"
@@ -48,14 +40,6 @@ reason = "Currently unused; retained for future-use review under the no-deletion
 lint = "hawk::dead_public"
 crate = "dyapp_client"
 item = "session::sticker::<impl session::Session>::send_sticker"
-kind = "inherent_method"
-level = "expect"
-reason = "Currently unused; retained for future-use review under the no-deletion policy."
-
-[[override]]
-lint = "hawk::dead_public"
-crate = "dyapp_client"
-item = "session::sticker::<impl session::Session>::send_sticker_to"
 kind = "inherent_method"
 level = "expect"
 reason = "Currently unused; retained for future-use review under the no-deletion policy."

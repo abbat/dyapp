@@ -168,6 +168,10 @@ pulls anything).
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
+Hawk includes test and other non-production consumers. New regression tests can make an old
+`hawk::dead_public` expectation stale; remove the stale marker instead of relaxing the audit.
+On failure, inspect only the `diagnostics` list in the container's `build/unused-public.json`.
+
 `make msrv` covers only the root Cargo workspace; it does not compile the separate
 `clients/linux`, `clients/windows` and `clients/macos` test binaries. Their native CI jobs cover them.
 For direct filtered Cargo tests in a read-only container, remember that test processes run from

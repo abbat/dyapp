@@ -106,8 +106,10 @@ node acceptance separately from peer receipts.
 `Accepted` or `Queued`, both with the logical message/operation ID; queued also retains the
 immediate delivery error. Profile/key-package/staging errors remain errors before successful
 commitment. Existing strict send methods use the same implementation and require node acceptance
-via `Submission::into_accepted`. Native/Android adoption and media submission outcomes remain
-planned; Kotlin must not treat this core API addition alone as completion of that migration.
+via `Submission::into_accepted`. Forwarded text and sticker metadata have matching
+`submit_forwarded_text(_to)` and `submit_sticker(_to)` methods with the same result and existing
+open-chat/blocked guards. Native/Android adoption and upload-path outcomes remain planned;
+Kotlin must not treat this core API addition alone as completion of that migration.
 
 ## Shared profile editor policy
 

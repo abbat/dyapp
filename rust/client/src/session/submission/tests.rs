@@ -1,3 +1,5 @@
+mod media;
+
 use super::*;
 use crate::store::messages::MessageKey;
 use crate::store::Store;

@@ -53,9 +53,9 @@ impl Session {
         template: &Sticker,
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let (id, writes) = self.stage_sticker(group_id, template, seal_key)?;
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(id)
+        self.submit_sticker(nodes, group_id, template, seal_key)
+            .await?
+            .into_accepted()
     }
 
     /// Send through the pair's canonical joined group; never opens a request.
@@ -70,7 +70,8 @@ impl Session {
         template: &Sticker,
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let group = self.pair_group(peer_id).ok_or(Error::UnknownGroup)?;
-        self.send_sticker(nodes, &group, template, seal_key).await
+        self.submit_sticker_to(nodes, peer_id, template, seal_key)
+            .await?
+            .into_accepted()
     }
 }
