@@ -62,6 +62,18 @@ and advances the cache epoch under one lock, so late search and chat results can
 Repeating the same settings retains the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Raw search range input
+
+`search_range_conditions(offered, SearchRangeInputs)` interprets the Android form's raw age
+and height strings through `dyapp_profile::search_input`. The core owns parsing, hidden-field
+exclusion and defaults; FFI only converts records and calls the existing query validator.
+Desktop can use the same core module directly without a UniFFI dependency. Blank ages add no filter unless either bound is entered; a missing
+bound then defaults to 18 or 150. Blank height bounds remain open. Hidden fields are ignored,
+including malformed saved input. Offered malformed or impossible ranges retain the existing
+`invalid search age` / `invalid search height` errors. Date-dependent bounds use the current
+UTC date and the existing core `Filter` validator. Categorical, place, employer and mutual
+form interpretation remains client-owned pending the rest of the extraction.
+
 ## Exported surface
 
 Authored Rust exports now carry API documentation, including explicit stub behavior.

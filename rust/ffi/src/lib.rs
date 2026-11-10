@@ -44,6 +44,8 @@ pub use profile_photos::{
 };
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
+mod search_input;
+pub use search_input::{search_range_conditions, SearchRangeInputs};
 mod profile_search;
 pub use profile_search::{
     FoundProfile, ProfileSearchFailure, ProfileSearchResult, ProfileSearcher, SearchCondition,

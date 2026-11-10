@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchOp
-import uniffi.dyapp.searchAgeCondition
-import uniffi.dyapp.searchHeightCondition
+import uniffi.dyapp.SearchRangeInputs
 import uniffi.dyapp.searchMutualConditions
+import uniffi.dyapp.searchRangeConditions
 
 // Node field numbers, as the desktop page uses them.
 private const val COUNTRY_FIELD = 4u
@@ -43,15 +43,6 @@ private const val PLACE_FIELD = 20u
 private const val BIRTH_AGE_FIELD = 1001u
 private const val SEEKING_GENDERS_FIELD = 53u
 private const val SEEKING_AGE_FIELD = 54u
-private const val YOUNGEST = 18u
-private const val OLDEST = 150u
-
-private fun age(typed: String, blank: UInt) =
-    if (typed.isBlank()) blank else typed.trim().toUIntOrNull() ?: throw IllegalArgumentException("invalid search age")
-
-private fun height(typed: String) = typed.trim().takeIf { it.isNotEmpty() }?.let {
-    it.toUIntOrNull() ?: throw IllegalArgumentException("invalid search height")
-}
 
 private fun text(field: UInt, value: String) = SearchCondition(field, SearchOp.EQ, emptyList(), listOf(value))
 
@@ -99,15 +90,8 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
         return out
     }
 
-    private fun ranges(): List<SearchCondition> {
-        val ages = if (BIRTH_AGE_FIELD in offered && (ageMin.isNotBlank() || ageMax.isNotBlank())) {
-            searchAgeCondition(age(ageMin, YOUNGEST), age(ageMax, OLDEST))
-        } else {
-            null
-        }
-        val heights = if (HEIGHT_FIELD in offered) searchHeightCondition(height(heightMin), height(heightMax)) else null
-        return listOfNotNull(ages, heights)
-    }
+    private fun ranges(): List<SearchCondition> =
+        searchRangeConditions(offered, SearchRangeInputs(ageMin, ageMax, heightMin, heightMax))
 }
 
 /**
