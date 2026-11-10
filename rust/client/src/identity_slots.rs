@@ -1,5 +1,8 @@
 //! Shared registry reading for the existing desktop and wrapped mobile layouts.
 
+mod create;
+mod write;
+pub use create::KeyWriter;
 mod inventory;
 mod keys;
 mod markers;

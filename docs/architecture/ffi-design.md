@@ -233,7 +233,13 @@ silently switches to a UUID identity. Callers must serialize resolution with mut
 or iOS `.identity-slots.lock`; Android uses `profiles.lock` when adopted. The guard remains held
 through backend callbacks and releases on failure. Construction does not write; operations may
 create the root and lock file, never an identity. Non-regular lock paths fail closed.
-Platform create/remove operations and native/client adoption remain planned.
+`Registry::create` reserves a fresh UUID under that lock, writes `pending` before asking the
+platform to store credentials, saves key files exclusively, verifies the reopened Peer ID, then
+writes `ready` and finally the active pointer. `KeyWriter` returns wrapped bytes or stores a
+fresh system credential; it must reject existing aliases. A failed verification leaves pending
+metadata and the old selection. An active-pointer write failure can leave a verified ready slot
+without changing the old pointer. Stranded `.tmp` files fail closed rather than being followed,
+truncated or deleted. Explicit selection, confirmed removal and native/client adoption remain planned.
 
 ## Exported surface
 
