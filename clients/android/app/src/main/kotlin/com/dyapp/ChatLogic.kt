@@ -15,27 +15,22 @@ internal fun chatTooLong(text: String) = chatComposerPolicy(null, text).tooLong
 
 internal fun chatSendable(state: ChatState?, text: String) = chatComposerPolicy(state, text).sendable
 
-/** Whether a failed send still stored its text: another copy from the same draft must not go out. */
-internal fun stagedNew(before: List<ChatMessage>, after: List<ChatMessage>, me: String): Boolean {
-    val known = before.map { it.id.toList() }.toSet()
-    return after.any { it.author == me && it.id.toList() !in known }
-}
-
-/** A failure's line; a change that was [staged] reads as [queued] instead, and keeps no details. */
+/** Localized presentation of an authoritative native outcome; no history-based inference. */
 internal fun sendStatus(
-    error: Throwable,
-    staged: Boolean,
+    result: Result<uniffi.dyapp.ChatSubmission>,
     queued: Int = R.string.chat_queued,
     failed: Int = R.string.chat_send_failed,
-): ChatStatus {
-    val details = error.toString()
-    return when {
-        staged -> ChatStatus(queued, null)
-        "notConnected" in details -> ChatStatus(R.string.search_not_connected, details)
-        "unpublished" in details -> ChatStatus(R.string.chat_unpublished, details)
-        else -> ChatStatus(failed, details)
-    }
-}
+): ChatStatus? = result.fold(
+    onSuccess = { if (it is uniffi.dyapp.ChatSubmission.Queued) ChatStatus(queued, null) else null },
+    onFailure = {
+        val details = it.toString()
+        when {
+            "notConnected" in details -> ChatStatus(R.string.search_not_connected, details)
+            "unpublished" in details -> ChatStatus(R.string.chat_unpublished, details)
+            else -> ChatStatus(failed, details)
+        }
+    },
+)
 
 /** A message's saveable key: its group and ID, as a rotation must keep the edit and delete targets. */
 internal fun messageKey(message: ChatMessage) = listOf(message.groupId, message.id)
@@ -58,23 +53,32 @@ internal fun CoroutineScope.sendDraft(form: ChatForm, feed: ChatFeed, peer: Stri
     form.sending = true
     form.status = null
     launch {
-        val status = withContext(Dispatchers.IO) {
-            if (editing == null) feed.send(peer, text, before) else feed.edit(peer, editing, text)
+        val result = withContext(Dispatchers.IO) {
+            if (editing == null) feed.send(peer, text) else feed.edit(peer, editing, text)
         }
         form.sending = false
-        form.status = status
-        if (status?.details == null) form.restoreDraft()
+        form.completeSubmission(result, editing != null)
     }
+}
+
+/** Restore the held draft only after the native operation committed. */
+internal fun ChatForm.completeSubmission(result: Result<uniffi.dyapp.ChatSubmission>, editing: Boolean) {
+    status = sendStatus(
+        result,
+        if (editing) R.string.chat_edit_queued else R.string.chat_queued,
+        if (editing) R.string.chat_edit_failed else R.string.chat_send_failed,
+    )
+    if (result.isSuccess) restoreDraft()
 }
 
 /** Deletes the confirmed message; a failure says why, and the thread rereads either way. */
 internal fun CoroutineScope.deleteMessage(form: ChatForm, feed: ChatFeed, peer: String, message: ChatMessage) {
     form.busy = true
     launch {
-        val status = withContext(Dispatchers.IO) { feed.delete(peer, message) }
-        form.status = status
+        val result = withContext(Dispatchers.IO) { feed.delete(peer, message) }
+        form.status = sendStatus(result, R.string.chat_delete_queued, R.string.chat_delete_failed)
         form.busy = false
-        // A deleted message has nothing left to edit.
-        if (status?.details == null && form.editing.value == messageKey(message)) form.restoreDraft()
+        // A committed deletion has nothing left to edit.
+        if (result.isSuccess && form.editing.value == messageKey(message)) form.restoreDraft()
     }
 }

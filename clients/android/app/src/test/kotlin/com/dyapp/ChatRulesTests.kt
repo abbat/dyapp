@@ -1,27 +1,11 @@
 package com.dyapp
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
-import uniffi.dyapp.ChatMessage
+import uniffi.dyapp.ChatSubmission
 
 class ChatRulesTests {
-    private fun message(author: String, id: Byte) = ChatMessage(
-        groupId = byteArrayOf(0),
-        author = author,
-        id = byteArrayOf(id),
-        text = "text",
-        edited = false,
-        deleted = false,
-        unread = false,
-        forwarded = false,
-        delivery = null,
-        read = false,
-        sentAtMs = null,
-    )
-
     @Test
     fun aFailedLikeSaysWhatToDoAboutIt() {
         assertEquals(R.string.view_like_unpublished, likeStatus(RuntimeException("unpublished")).text)
@@ -30,21 +14,23 @@ class ChatRulesTests {
     }
 
     @Test
-    fun aNewOwnMessageMeansTheFailedSendWasStored() {
-        val before = listOf(message("me", 1), message("peer", 2))
-        assertFalse(stagedNew(before, before, "me"))
-        assertFalse(stagedNew(before, before + message("peer", 3), "me"))
-        assertTrue(stagedNew(before, before + message("me", 3), "me"))
+    fun acceptedAndQueuedAreCommittedRegardlessOfErrorDetails() {
+        assertNull(sendStatus(Result.success(ChatSubmission.Accepted(byteArrayOf(1)))))
+        val queued = Result.success(ChatSubmission.Queued(byteArrayOf(2), "notConnected unpublished full"))
+        assertEquals(R.string.chat_queued, sendStatus(queued)?.text)
+        assertNull(sendStatus(queued)?.details)
+        assertEquals(R.string.chat_edit_queued, sendStatus(queued, R.string.chat_edit_queued)?.text)
+        assertEquals(R.string.chat_delete_queued, sendStatus(queued, R.string.chat_delete_queued)?.text)
     }
 
     @Test
-    fun aStoredSendIsQueuedAndClearsTheDraftOtherFailuresKeepIt() {
-        val error = IllegalStateException("notConnected")
-        assertEquals(R.string.chat_queued, sendStatus(error, staged = true).text)
-        assertNull(sendStatus(error, staged = true).details)
-        assertEquals(R.string.search_not_connected, sendStatus(error, staged = false).text)
-        val unpublished = sendStatus(IllegalStateException("unpublished"), staged = false)
-        assertEquals(R.string.chat_unpublished, unpublished.text)
-        assertEquals(R.string.chat_send_failed, sendStatus(IllegalStateException("x"), staged = false).text)
+    fun rejectedOperationsNeverBecomeQueuedFromTheirErrorText() {
+        val error = Result.failure<ChatSubmission>(IllegalStateException("notConnected"))
+        assertEquals(R.string.search_not_connected, sendStatus(error)?.text)
+        val unpublished = Result.failure<ChatSubmission>(IllegalStateException("unpublished"))
+        assertEquals(R.string.chat_unpublished, sendStatus(unpublished)?.text)
+        val failure = Result.failure<ChatSubmission>(IllegalStateException("Queued"))
+        assertEquals(R.string.chat_send_failed, sendStatus(failure)?.text)
+        assertEquals(R.string.chat_edit_failed, sendStatus(failure, failed = R.string.chat_edit_failed)?.text)
     }
 }

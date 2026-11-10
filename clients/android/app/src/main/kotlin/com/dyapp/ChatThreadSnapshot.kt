@@ -10,7 +10,7 @@ internal class ChatThreadSnapshot(
     val items: List<ChatItem>,
     val loadPhoto: ((ChatPhoto) -> ByteArray)? = null,
     val autoPhoto: (() -> Boolean)? = null,
-    val sendPhoto: ((PreparedPhoto) -> ChatStatus?)? = null,
+    val sendPhoto: ((PreparedPhoto) -> Result<uniffi.dyapp.ChatSubmission>)? = null,
 )
 
 @androidx.compose.runtime.Composable

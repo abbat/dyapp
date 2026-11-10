@@ -18,7 +18,13 @@ import kotlinx.coroutines.withContext
 import uniffi.dyapp.PhotoPurpose
 
 internal val LocalChatPhotoSender =
-    androidx.compose.runtime.staticCompositionLocalOf<((PreparedPhoto) -> ChatStatus?)?> { null }
+    androidx.compose.runtime.staticCompositionLocalOf<
+        (
+            (
+                PreparedPhoto
+            ) -> Result<uniffi.dyapp.ChatSubmission>
+        )?
+        > { null }
 
 @Composable
 internal fun ChatPhotoPicker(enabled: Boolean) {
@@ -55,14 +61,15 @@ internal class ChatPhotoDraft {
     var busy by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
 
-    suspend fun send(sender: (PreparedPhoto) -> ChatStatus?) {
+    suspend fun send(sender: (PreparedPhoto) -> Result<uniffi.dyapp.ChatSubmission>) {
         val prepared = photo ?: return
         busy = true
         try {
-            status = withContext(Dispatchers.IO) {
-                runCatching { sender(prepared) }.getOrElse { ChatStatus(R.string.chat_send_failed, it.toString()) }
+            val result = withContext(Dispatchers.IO) {
+                runCatching { sender(prepared) }.getOrElse { Result.failure(it) }
             }
-            if (status == null || status?.text == R.string.chat_queued) photo = null
+            status = photoSendStatus(result)
+            if (result.isSuccess) photo = null
         } finally {
             busy = false
         }
@@ -70,7 +77,11 @@ internal class ChatPhotoDraft {
 }
 
 @Composable
-private fun ChatPhotoDraftDialog(state: ChatPhotoDraft, send: (PreparedPhoto) -> ChatStatus?, enabled: Boolean) {
+private fun ChatPhotoDraftDialog(
+    state: ChatPhotoDraft,
+    send: (PreparedPhoto) -> Result<uniffi.dyapp.ChatSubmission>,
+    enabled: Boolean
+) {
     val scope = rememberCoroutineScope()
     if (state.photo == null) {
         state.status?.let { Text(androidx.compose.ui.res.stringResource(it.text)) }

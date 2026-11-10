@@ -66,8 +66,6 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
         }
     }
 
-    fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
-
     /** The core supplies order; never merge photos by wall time in Kotlin. */
     fun thread(peer: String) = RustBridge.withChats(opened) {
         ChatThreadSnapshot(
@@ -79,36 +77,17 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
         )
     }.also { markRead(peer) }
 
-    /** Sends [text] and reads the rows; the outcome to show, null when a node took it. */
-    fun send(peer: String, text: String, before: List<ChatMessage>): ChatStatus? {
-        val error = runCatching { RustBridge.withChats(opened) { it.sendText(peer, text) } }.exceptionOrNull()
-        read()
-        return error?.let { failed ->
-            val after = runCatching { history(peer).messages }.getOrDefault(before)
-            sendStatus(failed, stagedNew(before, after, opened.peerId))
-        }
-    }
+    /** Core commitment results stay distinct from pre-commit failures and display status. */
+    fun send(peer: String, text: String) = change { it.submitText(peer, text) }
 
-    /** Replaces the text of the own [message]; the outcome to show, null when a node took it. */
-    fun edit(peer: String, message: ChatMessage, text: String): ChatStatus? {
-        val error = change { it.editText(peer, message.groupId, message.id, text) } ?: return null
-        val stored = shown(peer, message)?.let { it.edited && !it.deleted && it.text == text } == true
-        return sendStatus(error, stored, R.string.chat_edit_queued, R.string.chat_edit_failed)
-    }
+    fun edit(peer: String, message: ChatMessage, text: String) =
+        change { it.submitEditText(peer, message.groupId, message.id, text) }
 
-    /** Deletes the own [message] here and asks the peer's app to delete it too. */
-    fun delete(peer: String, message: ChatMessage): ChatStatus? {
-        val error = change { it.deleteText(peer, message.groupId, message.id) } ?: return null
-        val stored = shown(peer, message)?.deleted == true
-        return sendStatus(error, stored, R.string.chat_delete_queued, R.string.chat_delete_failed)
-    }
+    fun delete(peer: String, message: ChatMessage) =
+        change { it.submitDeleteText(peer, message.groupId, message.id) }
 
-    // A failed delivery can follow a stored change, as for a send; the rows are read either way.
-    private fun change(action: (ChatSession) -> Unit): Throwable? =
-        runCatching { RustBridge.withChats(opened, action) }.exceptionOrNull().also { read() }
-
-    private fun shown(peer: String, message: ChatMessage): ChatMessage? =
-        runCatching { history(peer).messages.byKey(messageKey(message)) }.getOrNull()
+    private fun change(action: (ChatSession) -> uniffi.dyapp.ChatSubmission) =
+        runCatching { RustBridge.withChats(opened, action) }.also { read() }
 
     /**
      * Marks [peer]'s texts read; only a change reads the rows, so a failure cannot loop through an
