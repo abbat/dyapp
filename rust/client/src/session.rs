@@ -382,22 +382,10 @@ impl Session {
         kind: Kind,
         seal_key: &[u8; 32],
     ) -> Result<Option<Interaction>, Error> {
-        let peer = self.peer_in(profiles)?;
-        if self.store.blocked(&peer)? {
-            return Err(crate::store::Error::BlockedPeer.into());
-        }
-        if let Some(group_id) = self.pair_group(&peer) {
-            return self.interact(nodes, &group_id, kind, seal_key).await;
-        }
-        if kind != Kind::Like {
-            return Ok(None);
-        }
-        let packages = self.key_packages(nodes, profiles).await?;
-        let Some((event, writes)) = self.stage_first_like(profiles, &packages, seal_key)? else {
-            return Ok(None);
-        };
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(Some(event))
+        self.submit_interaction_with(nodes, profiles, kind, seal_key)
+            .await?
+            .map(InteractionSubmission::into_accepted)
+            .transpose()
     }
 
     /// Stage a Welcome to the other owner in `profiles` for a new pair group made from `packages`
@@ -586,14 +574,10 @@ impl Session {
         kind: Kind,
         seal_key: &[u8; 32],
     ) -> Result<Option<Interaction>, Error> {
-        let target = self.partner(group_id).ok_or(Error::UnknownGroup)?;
-        let wall_ms = crate::now() * 1000;
-        let Some(event) = self.store.draft_interaction(&target, kind, wall_ms)? else {
-            return Ok(None);
-        };
-        self.send_body(nodes, group_id, &Body::Interaction(event), seal_key)
-            .await?;
-        Ok(Some(event))
+        self.submit_interaction(nodes, group_id, kind, seal_key)
+            .await?
+            .map(InteractionSubmission::into_accepted)
+            .transpose()
     }
 
     /// When the app comes to the foreground: send one presence to each allowed match not sent one
@@ -952,5 +936,7 @@ mod state;
 mod sticker;
 mod submission;
 pub use submission::Submission;
+mod interaction_submission;
+pub use interaction_submission::InteractionSubmission;
 #[cfg(test)]
 mod tests;

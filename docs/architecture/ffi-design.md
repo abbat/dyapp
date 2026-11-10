@@ -122,6 +122,13 @@ submitted text/photo draft, while a pre-commit error keeps it. A stale edit targ
 submission instead of falling back to a new message. Photo drafts never infer commitment from
 localized status text. Forward/sticker send integration and native CI verification remain planned.
 
+`Session::submit_interaction(_with)` separately returns an optional committed
+`InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains
+the no-event meaning for a suppressed daily view or a non-like without a joined group. Errors
+before interaction commitment remain errors, including a failed first-like invitation; a
+separately staged invitation may already exist. Strict interaction methods share the same path.
+Native/Android like adoption remains planned and must not infer commitment from matching state.
+
 ## Shared profile editor policy
 
 `dyapp_client::profile_editor` validates editable fields with stable draft errors and separately
