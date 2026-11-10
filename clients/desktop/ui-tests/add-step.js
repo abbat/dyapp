@@ -99,6 +99,14 @@
     await guardChecks.checkStaleCopy();
     await guardChecks.checkStalePlaceSuggestions();
   };
+  const checkNodeUsage = async (settings) => {
+    await openArea('settings', 'node');
+    await appApi.usageShown;
+    const bar = document.getElementById('usage-node-bar');
+    if (bar.hidden || bar.max !== settings.diskMb * 1024 ** 2 || !(bar.value > 0)) {
+      throw new Error('running installation node has no usage bar');
+    }
+  };
   smoke.uiSmokeAddStep = async (state, mode, checks) => {
     await checkSharedUi(state);
     {
@@ -108,6 +116,7 @@
       });
       if (running.status !== 'running') throw new Error('installation node did not start');
       try {
+        await checkNodeUsage(settings);
         await createAdditionalIdentity(state, mode, async () => {
           const current = await appBindings.invoke('node_status');
           if (current.status !== 'running' || current.peerId !== running.peerId) {

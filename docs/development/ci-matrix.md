@@ -20,22 +20,29 @@ steps skip on cancel, so a long burst of pushes reuses the older cache until one
 ci.yml ("ci")
   ├─ core     ──▶ ci-base.yml ──▶ quality, build
   ├─ docker   (android)
-  ├─ prototype (desktop criteria in WebKit)
+  ├─ prototype_changes ──▶ prototype (desktop criteria, relevant changes only)
   ├─ linux
   ├─ apple    (matrix: ios, macos)
   ├─ windows
-  └─ summary  needs [core, docker, prototype, linux, apple, windows], if: always()
+  └─ summary  needs [core, docker, prototype_changes, prototype, linux, apple, windows], if: always()
 ```
 
 `ci-base.yml` is `workflow_call` only. Rust-core jobs are documented in [ci-base.md](ci-base.md).
 
 ## ci.yml jobs
 
+**desktop - prototype changes** selects the matrix for changes to desktop UI assets,
+UI helpers, test/check infrastructure, workflows or frozen criteria. Pushes use the
+before/after range; pull requests use the merge base. Manual runs and new branches
+run it unconditionally. Comparison errors fail CI. Unrelated changes keep native
+smoke checks and skip only the prototype matrix.
+
 **desktop - prototypes** runs the WebKit screenshot/criteria harness in Docker and
 splits light/dark, normal/200% text and EN/RU into eight jobs. Each publishes
 measurements and screenshots as `desktop-prototype-criteria-<theme>-<scale>-<language>`
 for seven days; a violation fails
-`required`. **docker - android** also runs in Docker; `core` and **native - linux** run directly on the
+`required`. Image preparation also uses `run-check.py`: CI prints a short result,
+while its full Docker build log goes into the job's check-output artifact. **docker - android** also runs in Docker; `core` and **native - linux** run directly on the
 runner (see [ci-base.md](ci-base.md#jobs)). The Docker job first deletes the
 runner's preinstalled .NET, Android SDK, GHC and tool cache (step `free disk`): with the buildx
 layer cache, each image exists twice, in the buildx builder and, after `--load`, in Docker. Only
@@ -47,12 +54,13 @@ cache past its 10 GB limit.
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
+| `prototype_changes` → **desktop - prototype changes** | ubuntu-24.04 | Compare the push range or PR merge base against UI/check infrastructure paths; manual runs and new branches select the matrix. | `prototype-change-check-output` | Required selector |
 | `prototype` → **desktop - prototypes (...)** | ubuntu-24.04 | Eight WebKitGTK Docker jobs run pinned axe-core, dialog and clipping checks at 320/440/1280 px. The normal light EN/RU slices also check real keyboard navigation and focus pixels in the frozen 440/1280 matrix; English includes en-XA captures. Full Git history enforces the shrink-only UI budget. | `desktop-prototype-criteria-*` (JSON, screenshots and check logs; seven days) | Required by summary |
 | `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `tests/docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `clients/linux/` with `--features ui-smoke` and writes `build/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
 | `docker` → **docker - android** | ubuntu-24.04 | build the `dyapp:android-tools` toolchain image (service `android-build`, BuildKit GHA layer cache); restore the Gradle and cargo dependency downloads in `build/android-build` (`actions/cache`, keyed by `Cargo.lock` and the Gradle files, saved on a miss); `ui-test.sh android` (service `android-build` compiles the debug `rust/ffi` for x86_64 only, generates Android-aware Kotlin bindings, builds the APKs from the checkout and runs strict `:app:lintDebug`; then `:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD in `build/android-avd` on disk because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `tests/docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, `am instrument`, `ready.png` screenshot) | `android-check-output` (check logs, test evidence and full Android Lint reports) | Shell app |
-| `apple` → **native - ios** / **native - macos** | macos-15 | Rust 1.99.0 with the platform's Apple targets, rust-cache, `build-apple-core.sh <platform>` (Swift bindings + XCFramework in `build/apple`); downloads XcodeGen 2.46.0 and checks its SHA-256, generates `<platform>/DYApp.xcodeproj`, runs `apple-test-in-ci.sh` → `apple-test-in-ci.py`: unsigned `xcodebuild build` (iOS device generic; macOS universal arm64+x86_64), builds a loopback `dyappd` fixture, then XCTest/XCUITest (iOS on first available iPhone simulator, signed ad hoc so the app may use the Keychain) | `apple-ios`, `apple-macos` (`$RUNNER_TEMP/apple-results/`) | Shell app |
+| `apple` → **native - ios** / **native - macos** | macos-15 | iOS: XCFramework, XcodeGen and XCTest/XCUITest. macOS: Cargo unit tests with login Keychain enabled, `build-macos-client.py --profile debug --features ui-smoke`, then shared `desktop-smoke.py` on the bundled executable with pinned axe-core. | `apple-ios`, `apple-macos` (native logs and test artifacts) | Native clients |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` with `--features ui-smoke` of `clients/windows/Cargo.toml`; full `desktop-smoke.py` on the test-enabled exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
-| `summary` → **required** | ubuntu-24.04 | Fails unless every `needs` result is `success` (failed, skipped or cancelled all fail) | — | Working |
+| `summary` → **required** | ubuntu-24.04 | Requires every job to succeed; prototype matrix may be skipped only when its successful selector explicitly reports no relevant changes | — | Working |
 
 The Android, Linux, Windows, iOS and macOS UI suites exercise Russian strings as well as their
 existing English or pseudo-locale cases. The `quality` job checks Russian catalogue parity with
@@ -64,9 +72,9 @@ The apps are shells that call one core function at most:
 
 - `clients/android/` loads `libdyapp_ffi.so` through the UniFFI Kotlin bindings and shows the peer ID
   of its stored `IdentityKey`.
-- `clients/ios/` and `clients/macos/` link `DyappFFI.xcframework` through the UniFFI Swift bindings and show
+- `clients/ios/` links `DyappFFI.xcframework` through the UniFFI Swift bindings and show
   the peer ID of their stored `IdentityKey`.
-- `clients/linux/` and `clients/windows/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
+- `clients/linux/`, `clients/windows/` and `clients/macos/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
   `rust/identity` and their platform credential provider to create and reopen a chosen identity key.
 
 So a green matrix means "the shells build and their own tests pass". It does **not** mean an

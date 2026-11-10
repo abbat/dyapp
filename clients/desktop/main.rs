@@ -29,6 +29,9 @@ mod ui_smoke;
 use identity_runtime::{describe, respond, IdentityState};
 #[path = "link.rs"]
 mod link;
+#[cfg(target_os = "macos")]
+#[path = "macos.rs"]
+mod macos;
 #[path = "network.rs"]
 mod network;
 // Installation-owned embedded node shared by desktop platforms (ADR 0030).
@@ -711,78 +714,6 @@ async fn set_tray(
     tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
 }
 
-/// UI test only: closes the window (to the tray) or hides it, expects it off screen, writes `hidden`
-/// to the test config dir for the smoke (a fake tray host or a second launch), then waits for the
-/// window to come back.
-#[cfg(feature = "ui-smoke")]
-#[tauri::command]
-async fn ui_test_hide(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-    close: bool,
-) -> Result<(), String> {
-    if !std::env::args().any(|arg| arg == "--ui-test") {
-        return Err("UI test only".into());
-    }
-    if close { window.close() } else { window.hide() }.map_err(|e| e.to_string())?;
-    std::thread::sleep(Duration::from_millis(600));
-    if window.is_visible().map_err(|e| e.to_string())? {
-        return Err("the window stayed on screen".into());
-    }
-    std::fs::write(config_dir(&app)?.join("hidden"), "").map_err(|e| e.to_string())?;
-    for _ in 0..40 {
-        std::thread::sleep(Duration::from_millis(500));
-        if window.is_visible().map_err(|e| e.to_string())? {
-            return Ok(());
-        }
-    }
-    Err("the window did not come back".into())
-}
-
-/// UI test only: moves and resizes the window when `set` is given, then returns its bounds and
-/// the primary display's, in physical pixels.
-#[cfg(feature = "ui-smoke")]
-#[tauri::command]
-async fn ui_test_window(
-    window: tauri::Window,
-    set: Option<window::Rect>,
-) -> Result<[window::Rect; 2], String> {
-    if !std::env::args().any(|arg| arg == "--ui-test") {
-        return Err("UI test only".into());
-    }
-    if let Some(at) = set {
-        window
-            .set_size(tauri::PhysicalSize::new(at.width, at.height))
-            .map_err(|e| e.to_string())?;
-        window
-            .set_position(tauri::PhysicalPosition::new(at.x, at.y))
-            .map_err(|e| e.to_string())?;
-        // Xvfb has no window manager: give the move time to land.
-        std::thread::sleep(Duration::from_millis(600));
-    }
-    let position = window.outer_position().map_err(|e| e.to_string())?;
-    let size = window.inner_size().map_err(|e| e.to_string())?;
-    let monitor = window
-        .primary_monitor()
-        .map_err(|e| e.to_string())?
-        .ok_or("no display")?;
-    let rect = |x, y, width, height| window::Rect {
-        x,
-        y,
-        width,
-        height,
-    };
-    Ok([
-        rect(position.x, position.y, size.width, size.height),
-        rect(
-            monitor.position().x,
-            monitor.position().y,
-            monitor.size().width,
-            monitor.size().height,
-        ),
-    ])
-}
-
 const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
     identity_state,
     storage_options,
@@ -903,9 +834,9 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     #[cfg(feature = "ui-smoke")]
     ui_test_shot,
     #[cfg(feature = "ui-smoke")]
-    ui_test_window,
+    ui_smoke::window::ui_test_window,
     #[cfg(feature = "ui-smoke")]
-    ui_test_hide,
+    ui_smoke::window::ui_test_hide,
     #[cfg(feature = "ui-smoke")]
     ui_test_result,
     #[cfg(all(feature = "ui-smoke", target_os = "linux", debug_assertions))]
@@ -921,6 +852,8 @@ fn main() {
         .plugin(tray::one_instance());
     #[cfg(target_os = "linux")]
     let builder = builder.on_permission_request(safety::camera_permission);
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_notification::init());
     let builder = builder.manage(node::NodeState::default());
     let builder = builder
         .manage(IdentityState::new())
@@ -932,6 +865,8 @@ fn main() {
         .manage(window::WindowState::default())
         .manage(tray::Tray::default())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            macos::setup(app.handle())?;
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main, config_dir(app.handle()).ok().as_deref());
             }
@@ -941,18 +876,7 @@ fn main() {
             chats::commands::watch_mail(app.handle().clone());
             Ok(())
         })
-        .on_window_event(|window, event| match event {
-            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
-                window::track(window, &window.state::<window::WindowState>());
-            }
-            tauri::WindowEvent::CloseRequested { api, .. }
-                if window.state::<tray::Tray>().hides_on_close() =>
-            {
-                api.prevent_close();
-                let _ = window.hide();
-            }
-            _ => {}
-        })
+        .on_window_event(window::event)
         .invoke_handler(COMMAND_HANDLER);
     #[cfg(feature = "ui-smoke")]
     let builder = ui_smoke::attach(builder);
@@ -960,6 +884,12 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("launch DYApp")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                #[cfg(feature = "ui-smoke")]
+                let _ = ui_smoke::window::marker(app, "dock-reopened");
+                tray::show(app);
+            }
             if let tauri::RunEvent::Exit = event {
                 node_usage_commands::shutdown(app);
                 if let Ok(config) = config_dir(app) {

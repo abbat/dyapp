@@ -143,6 +143,24 @@ fn apply(app: &AppHandle, tray: &Tray, inner: &mut Inner, rebuild: bool) {
     }
     let close = inner.prefs.is_some_and(|prefs| prefs.close_to_tray);
     tray.hides.store(inner.shown && close, Ordering::SeqCst);
+    #[cfg(all(feature = "ui-smoke", target_os = "macos"))]
+    if inner.shown {
+        let _ = crate::ui_smoke::window::marker(app, "tray-ready");
+    }
+    #[cfg(target_os = "macos")]
+    if !inner.shown || !close {
+        crate::macos::restore_dock(app);
+    }
+}
+
+fn menu_action(app: &AppHandle, action: &str) {
+    #[cfg(all(feature = "ui-smoke", target_os = "macos"))]
+    let _ = crate::ui_smoke::window::marker(app, &format!("tray-action-{action}"));
+    match action {
+        "open" => show(app),
+        "quit" => self::quit(app.clone()),
+        _ => {}
+    }
 }
 
 fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
@@ -151,11 +169,7 @@ fn build(app: &AppHandle, open: &str, quit: &str) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id(ID)
         .tooltip("DYApp")
         .menu(&Menu::with_items(app, &[&open, &quit])?)
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => show(app),
-            "quit" => self::quit(app.clone()),
-            _ => {}
-        });
+        .on_menu_event(|app, event| menu_action(app, event.id.as_ref()));
     // Without XDG_RUNTIME_DIR the default is /tmp/tray-icon, which another user may own.
     if let Ok(dir) = app.path().app_cache_dir() {
         builder = builder.temp_dir_path(dir.join("tray-icon"));
@@ -177,10 +191,14 @@ pub fn notice_labels(app: &AppHandle) -> Option<(String, String, String)> {
 
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn show(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    crate::macos::restore_dock(app);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+        #[cfg(feature = "ui-smoke")]
+        crate::ui_smoke::window::publish(&window.as_ref().window());
     }
 }
 
@@ -295,10 +313,32 @@ pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
+#[cfg(all(feature = "ui-smoke", target_os = "macos"))]
+fn forwarded_test_action(app: &AppHandle, args: &[String]) -> bool {
+    if !std::env::args().any(|arg| arg == "--ui-test") {
+        return false;
+    }
+    let action = args
+        .iter()
+        .find_map(|arg| arg.strip_prefix("--ui-test-tray-action="));
+    if let Some(action @ ("open" | "quit")) = action {
+        menu_action(app, action);
+        return true;
+    }
+    false
+}
+
 #[cfg(not(target_os = "linux"))]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn one_instance() -> tauri::plugin::TauriPlugin<tauri::Wry> {
-    tauri_plugin_single_instance::init(|app, _, _| show(app))
+    tauri_plugin_single_instance::init(|app, args, _| {
+        #[cfg(all(feature = "ui-smoke", target_os = "macos"))]
+        if forwarded_test_action(app, &args) {
+            return;
+        }
+        drop(args);
+        show(app);
+    })
 }
 
 #[cfg(not(target_os = "linux"))]

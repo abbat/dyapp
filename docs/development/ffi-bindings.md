@@ -62,7 +62,7 @@ emulator. Release always builds both ABIs.
 
 ## Apple
 
-`tools/scripts/build-apple-core.sh [ios|ios-device|macos|all] [debug|release]` runs
+`tools/scripts/build-apple-core.sh [ios|ios-device|all] [debug|release]` runs
 on macOS with Xcode. The defaults remain `all debug`; `ios-device` builds only
 the device slice. `release` optimizes the target static libraries while the host
 binding generator stays in the dev profile. Outputs land in `build/apple`:
@@ -71,17 +71,17 @@ binding generator stays in the dev profile. Outputs land in `build/apple`:
 |------|------|--------|
 | Bindings | `cargo build --locked -p dyapp-ffi --target <host>`, then `uniffi-bindgen generate --library …/libdyapp_ffi.dylib --language swift` | `swift/dyapp.swift`; `headers/dyappFFI.h` and `headers/module.modulemap` (module `dyappFFI`) |
 | Static libraries | `cargo rustc <profile flags> --locked -p dyapp-ffi --lib --crate-type staticlib --target <t>` per target, so `crate-type` stays `cdylib`/`rlib` for the other builds | `build/<t>/<debug-or-release>/libdyapp_ffi.a` |
-| Slices | `lipo` merges the architectures of one platform: `ios` = `aarch64-apple-ios`; `ios-simulator` = `aarch64-apple-ios-sim` + `x86_64-apple-ios`; `macos` = `aarch64-apple-darwin` + `x86_64-apple-darwin` | `<slice>/libdyapp_ffi.a` |
+| Slices | `lipo` merges the architectures of one platform: `ios` = `aarch64-apple-ios`; `ios-simulator` = `aarch64-apple-ios-sim` + `x86_64-apple-ios` | `<slice>/libdyapp_ffi.a` |
 | XCFramework | `xcodebuild -create-xcframework` with one `-library`/`-headers` pair per slice | `DyappFFI.xcframework` |
 
 The default libraries are unoptimised dev builds without debuginfo; `release`
 uses the workspace release profile. Both target iOS 15 and macOS 12 (`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`), the apps'
-deployment targets. `clients/ios/project.yml` and `clients/macos/project.yml` compile
+deployment targets. `clients/ios/project.yml` compiles
 `build/apple/swift/dyapp.swift` into the app and link the XCFramework without
 embedding it, so run the script before XcodeGen. There is no Xcode build phase:
 Xcode resolves an XCFramework before any script phase could build it.
 
-## Linux, Windows
+## Linux, Windows, macOS
 
 The Tauri apps call the core crates directly and need no bindings. UniFFI does
 not produce a public C API; the native symbols are UniFFI-internal (see the

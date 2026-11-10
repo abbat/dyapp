@@ -105,20 +105,15 @@ publishes the ZIP on the [release page](https://github.com/abbat/dyapp/releases)
 
 ## Build from source
 
-You need a Mac with Xcode 16, Rust 1.99 (`rustup`) and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-2.46. Check out the released tag, then build the Rust core and generate the Xcode project:
+You need a Mac with Xcode 16, Rust 1.99 (`rustup`). Check out the released tag, then build the shared Tauri client:
 
 ```sh
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-bash tools/scripts/build-apple-core.sh macos release
-xcodegen generate --spec clients/macos/project.yml --project clients/macos
-xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
-    -destination generic/platform=macOS -derivedDataPath build \
-    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO ARCHS="arm64 x86_64" build
+python3 tools/scripts/build-macos-client.py --profile release --universal
 ```
 
-The app is `build/Build/Products/Release/DYApp.app`. The project links the Rust core statically
+The app is `build/macos/release/DYApp.app`. The project links the Rust core statically
 and embeds no frameworks, so one signature covers the bundle.
 
 ## Run your own build
@@ -126,8 +121,8 @@ and embeds no frameworks, so one signature covers the bundle.
 A local build carries no quarantine flag. To open it on the Mac that built it, sign it ad hoc:
 
 ```sh
-codesign --force --sign - build/Build/Products/Release/DYApp.app
-open build/Build/Products/Release/DYApp.app
+codesign --force --sign - build/macos/release/DYApp.app
+open build/macos/release/DYApp.app
 ```
 
 The unsigned ZIP from CI can be run the same way after
@@ -140,7 +135,7 @@ For other Macs, an Apple Developer Program member signs the app with their own D
 Apple notarize it ([Apple: notarizing macOS software](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)):
 
 ```sh
-app=build/Build/Products/Release/DYApp.app
+app=build/macos/release/DYApp.app
 codesign --force --options runtime --timestamp \
     --sign "Developer ID Application: <Name> (<TEAMID>)" "$app"
 codesign --verify --strict --verbose=2 "$app"

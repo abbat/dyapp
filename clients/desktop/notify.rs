@@ -152,7 +152,12 @@ fn deliver(app: &AppHandle, name: &str, body: Preview) {
     }
     if let Some((open, fixed, sticker)) = crate::tray::notice_labels(app) {
         let body = body.render(&sticker);
-        send(if name.is_empty() { &fixed } else { name }, &body, &open);
+        send(
+            app,
+            if name.is_empty() { &fixed } else { name },
+            &body,
+            &open,
+        );
     }
 }
 
@@ -198,9 +203,21 @@ pub fn watch(app: AppHandle) {
     });
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn watch(_app: AppHandle) {}
+
+#[cfg(target_os = "macos")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
+pub fn watch(app: AppHandle) {
+    use tauri_plugin_notification::NotificationExt;
+    let restore = app.clone();
+    let _ = app.notification().on_action(move |action| {
+        if matches!(action.action_id(), "tap" | "open") {
+            crate::tray::show(&restore);
+        }
+    });
+}
 
 #[cfg(target_os = "linux")]
 type Notify<'a> = (
@@ -230,7 +247,7 @@ fn notice<'a>(
 /// Best effort, as a desktop may have no notification server. A new notice replaces the last one,
 /// and a click on it runs the `default` action.
 #[cfg(target_os = "linux")]
-fn send(summary: &str, body: &str, open: &str) {
+fn send(_app: &AppHandle, summary: &str, body: &str, open: &str) {
     let Some(bus) = BUS.get() else { return };
     let shown = tauri::async_runtime::block_on(async {
         let actions = ["default", open];
@@ -247,13 +264,53 @@ fn send(summary: &str, body: &str, open: &str) {
 }
 
 // ponytail: Windows shows no notice yet; add the toast API when that client ships.
-#[cfg(not(target_os = "linux"))]
-fn send(_summary: &str, _body: &str, _open: &str) {}
+#[cfg(target_os = "windows")]
+fn send(_app: &AppHandle, _summary: &str, _body: &str, _open: &str) {}
+
+/// macOS notification bodies are plain text; reverse only the three escapes made by Preview.
+#[cfg(target_os = "macos")]
+fn plain_body(escaped: &str) -> String {
+    escaped
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+#[cfg(target_os = "macos")]
+fn send(app: &AppHandle, summary: &str, body: &str, open: &str) {
+    use tauri_plugin_notification::{Action, ActionType, NotificationExt};
+    let notifications = app.notification();
+    let actions = ActionType::builder("mail")
+        .action(Action::builder("open", open).build())
+        .build();
+    let result = notifications
+        .register_action_types(vec![actions])
+        .and_then(|()| {
+            notifications
+                .builder()
+                .id(1)
+                .title(summary)
+                .body(plain_body(body))
+                .action_type_id("mail")
+                .show()
+        });
+    if let Err(error) = result {
+        eprintln!("Desktop notification dispatch failed: {error}");
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use dyapp_client::store::messages::{ChatMessage, CurrentMessage, MessageKey};
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_notice_preserves_literal_text_without_html_entities() {
+        let text = "<b>literal</b> & &lt;unchanged&gt;";
+        let rendered = Preview::Text(text.into()).render("Sticker");
+        assert_eq!(plain_body(&rendered), text);
+    }
 
     fn row(peer: &str, state: Conversation, text: &str, unread_count: usize) -> ChatRow {
         let last_message = ChatMessage {

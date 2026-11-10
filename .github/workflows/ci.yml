@@ -87,7 +87,34 @@ jobs:
             build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
+  prototype_changes:
+    name: desktop - prototype changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      needed: ${{ steps.filter.outputs.needed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: select prototype checks
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DIFF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 -B tests/scripts/check-prototype-changes.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: prototype-change-check-output
+          path: build/platform-check-output/
+          if-no-files-found: error
+
   prototype:
+    needs: prototype_changes
+    if: needs.prototype_changes.outputs.needed == 'true'
     name: desktop - prototypes (${{ matrix.theme }}, text${{ matrix.text-scale }}, ${{ matrix.language }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -107,7 +134,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0 # verify that the UI baseline only shrinks
       - name: prepare WebKit
-        run: docker build -t dyapp:prototype -f tests/docker/Dockerfile.prototype .
+        run: python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker build -t dyapp:prototype -f tests/docker/Dockerfile.prototype .
       - name: check desktop criteria
         run: bash tests/scripts/ui-test.sh prototype
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -174,17 +201,34 @@ jobs:
           key: ${{ matrix.platform }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: build core
+        if: matrix.platform == 'ios'
         run: bash tools/scripts/build-apple-core.sh "${{ matrix.platform }}"
       - name: prepare xcode
+        if: matrix.platform == 'ios'
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
           "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" generate --spec "clients/${{ matrix.platform }}/project.yml" --project "clients/${{ matrix.platform }}"
       - name: test
+        if: matrix.platform == 'ios'
         env:
           APP_PLATFORM: ${{ matrix.platform }}
         run: bash tests/scripts/apple-test-in-ci.sh
+      - name: Tauri macOS tests
+        if: matrix.platform == 'macos'
+        env:
+          DYAPP_TEST_KEYCHAIN: '1'
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
+          DYAPP_AXE: ${{ runner.temp }}/axe-core/axe.min.js
+        run: |
+          mkdir -p "$RUNNER_TEMP/axe-core" "$RUNNER_TEMP/apple-results"
+          curl -fL https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz -o "$RUNNER_TEMP/axe.tgz"
+          echo "2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af  $RUNNER_TEMP/axe.tgz" | shasum -a 256 -c
+          tar -xzf "$RUNNER_TEMP/axe.tgz" -C "$RUNNER_TEMP/axe-core" --strip-components=1 package/axe.min.js
+          python3 tools/scripts/run-check.py --log-dir build/platform-check-output rust-test -- cargo test --manifest-path clients/macos/Cargo.toml --features ui-smoke --locked
+          python3 tools/scripts/run-check.py --log-dir build/platform-check-output macos-build -- python3 tools/scripts/build-macos-client.py --profile debug --features ui-smoke --output "$RUNNER_TEMP/apple-results/DYApp.app" --log-dir "$RUNNER_TEMP/apple-results"
+          python3 tests/scripts/desktop-smoke.py "$RUNNER_TEMP/apple-results/DYApp.app/Contents/MacOS/dyapp-macos"
       # Only on `gh run rerun --debug`. A separate step, since a job that hits its time limit skips the test script's cleanup.
       - name: window diagnostics
         if: ${{ always() && runner.debug == '1' && matrix.platform == 'macos' }}
@@ -202,6 +246,7 @@ jobs:
           path: |
             build/platform-check-output/
             ${{ runner.temp }}/apple-results/
+            ${{ runner.temp }}/desktop-ui-results.json
           if-no-files-found: error
 
   windows:
@@ -253,7 +298,7 @@ jobs:
   summary:
     name: required
     runs-on: ubuntu-24.04
-    needs: [core, docker, prototype, linux, apple, windows]
+    needs: [core, docker, prototype_changes, prototype, linux, apple, windows]
     if: always()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

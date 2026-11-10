@@ -46,9 +46,9 @@ node, and there is no WebRTC signaling channel.
 | Node | `rust/bootstrap/src/bin/dyappd/main.rs`, `node.rs`, `node/open.rs`, `config.rs` | prototype | TOML/env config, startup checks, node key; `node::open` starts the libp2p node for `dyappd` and the Linux desktop app ([ADR 0030](../decisions/0030-desktop-full-node.md)) and serves the node protocol ([bootstrap](bootstrap.md#served-protocol)) |
 | Node client | `rust/bootstrap/src/bin/dyappd/client.rs` | prototype | `dyappd info` and the other libp2p client commands for the node protocol; used by network tests |
 | Android app | `clients/android/` | skeleton | Shows the peer ID of its stored identity key, wrapped by the Android Keystore, via UniFFI Kotlin bindings |
-| iOS / macOS apps | `clients/ios/`, `clients/macos/` | skeleton | Shows the peer ID of its stored identity key, wrapped by a Keychain key, via UniFFI Swift bindings. The SwiftUI macOS app is replaced by the Tauri desktop client before v0.0.1 (planned, [ADR 0002](../decisions/0002-rust-core-native-apps-tauri-desktop.md)) |
+| iOS app | `clients/ios/` | native client | SwiftUI and UniFFI Swift bindings with Keychain-backed identity storage |
 | Desktop | `clients/desktop/main.rs` | skeleton | Tauri shell; user chooses system credential storage or an app-data file before key creation, and the saved Peer ID reopens on restart |
-| Linux / Windows | `clients/linux/`, `clients/windows/` | skeleton | Tauri projects outside the Cargo workspace |
+| Linux / Windows / macOS | `clients/linux/`, `clients/windows/`, `clients/macos/` | desktop clients | Thin Tauri crates over shared desktop source, outside the root Cargo workspace |
 | Protobuf schemas | `proto/` | partial | `build.rs` in `identity`, `profile` and `p2p-net` generates `prost` types with protox (no `protoc`); `node.proto` defines every served node protocol; no gRPC/tonic |
 
 Distinctions that matter when reading the other docs:

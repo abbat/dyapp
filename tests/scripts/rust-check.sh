@@ -73,7 +73,7 @@ step() {
             compiler_stack check rustdoc env RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps
             ;;
         swift-check)
-            check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios clients/macos
+            check swiftlint swiftlint lint --strict --quiet --no-cache clients/ios
             check swift-format bash tests/scripts/swift-format.sh lint
             ;;
         python-format)
@@ -108,6 +108,7 @@ step() {
             cargo fmt --all
             cargo fmt --manifest-path clients/linux/Cargo.toml
             cargo fmt --manifest-path clients/windows/Cargo.toml
+            cargo fmt --manifest-path clients/macos/Cargo.toml
             cargo fmt --manifest-path tools/rust-functions/Cargo.toml
             python3 -B tests/scripts/desktop-rust-format.py write
             ;;
@@ -115,6 +116,7 @@ step() {
             check rustfmt cargo fmt --all -- --check
             check rustfmt cargo fmt --manifest-path clients/linux/Cargo.toml -- --check
             check rustfmt cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
+            check rustfmt cargo fmt --manifest-path clients/macos/Cargo.toml -- --check
             check rustfmt cargo fmt --manifest-path tools/rust-functions/Cargo.toml -- --check
             check rustfmt python3 -B tests/scripts/desktop-rust-format.py check
             ;;

@@ -7,7 +7,7 @@
 > what each script actually does; the packaging that is missing is in
 > [FFI bindings](ffi-bindings.md). The apps do not use these scripts: the Android Gradle
 > build compiles the core itself ([FFI bindings → Android](ffi-bindings.md#android)), and the
-> iOS and macOS apps link the XCFramework from `tools/scripts/build-apple-core.sh`
+> iOS app links the XCFramework from `tools/scripts/build-apple-core.sh`
 > ([FFI bindings → Apple](ffi-bindings.md#apple)).
 >
 > Everything below is read from the script sources. The scripts were **not
@@ -20,7 +20,7 @@
 |------|-------|--------|
 | Rust toolchain | `1.99.0` (pinned), components `rustfmt`, `clippy` | `rust-toolchain.toml` |
 | MSRV | `1.99` | `rust-version` in root `Cargo.toml` |
-| Swift | language mode 6, strict concurrency (`SWIFT_VERSION`) | `clients/ios/project.yml`, `clients/macos/project.yml` |
+| Swift | language mode 6, strict concurrency (`SWIFT_VERSION`) | `clients/ios/project.yml` |
 | iOS / macOS minimum | iOS 15, macOS 12 | same |
 | Android app | `minSdk 26`, `compileSdk 37`, `targetSdk 36` | `clients/android/app/build.gradle` |
 | Android NDK | any; `ANDROID_NDK_HOME` must be set | `build-android.sh` |
@@ -29,6 +29,14 @@ Run every script from any directory: each resolves the repository root from
 its own path and builds there.
 
 ## Local build and packaging
+
+macOS uses the shared Tauri desktop client. On macOS/Xcode,
+`python3 tools/scripts/build-macos-client.py --profile release --universal`
+builds both Darwin targets, verifies the merged architectures, and assembles
+`build/macos/release/DYApp.app` with localized camera descriptions and ICNS icon.
+The output must be fresh; the script never replaces an existing app. It requires
+no XcodeGen or UniFFI bindings. Native CI uses a debug bundle with `ui-smoke`;
+release workflows reject smoke markers before packaging the unsigned ZIP.
 
 `make build` runs `tools/scripts/build-rust.sh` in the shared development image.
 `make deb` runs `tools/scripts/build-deb.sh` in the Debian 12 packaging image,

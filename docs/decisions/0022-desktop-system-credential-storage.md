@@ -38,11 +38,14 @@ credential through the same native store API, and checks that its persistence is
 A successful probe is a current capability signal, not a guarantee that a later write
 cannot fail.
 
-On macOS (planned with the Tauri macOS client, [ADR 0002](0002-rust-core-native-apps-tauri-desktop.md))
-use the login Keychain through the same `keyring-core` API and its Apple native store, with an item
-that stays on this device and is not synced through iCloud Keychain. The probe writes, reads and
-removes its own test item like the Windows probe. The exact crate and version are pinned and
-recorded here when it is implemented. In file mode macOS uses mode `0600`, as Linux does.
+On macOS the Tauri client ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) uses
+`keyring-core` 1.0.0 with `apple-native-keyring-store` 1.0.2, feature `keychain`.
+`MacKeychainDomain::User` selects the local login Keychain, not the provisioned protected-data
+store or iCloud Keychain. The probe writes, reads, removes and verifies removal of its own test
+item. This provider ignores custom attributes, so the Windows `persistence=Local` check applies
+only to Windows. Secrets remain raw 32-byte values and existing items are never overwritten.
+Unavailable or denied access leaves the explicit file-storage choice, rather than silently
+changing modes. In file mode macOS uses mode `0600`, as Linux does.
 
 The file mode is an explicit user choice with a protection warning, never an automatic
 fallback. It stores the raw 32-byte secret in the app configuration directory. Linux creates
@@ -64,8 +67,8 @@ pointer is separate from every key. See the [storage layout and recovery rules](
 System storage is optional and may be unavailable on headless Linux, locked sessions or
 unsupported Secret Service implementations. Secret Service returns the stored secret to
 the application: this is protection at rest, not a non-exportable hardware key.
-Both platform backends add direct dependencies and lockfile changes. The real backend
-must create and reopen the same Peer ID in Linux and Windows CI before its option ships.
+The platform backends add direct dependencies and lockfile changes. Each real backend
+must create and reopen the same Peer ID in native Linux, Windows and macOS CI before its option ships.
 A controlled Linux test also reads an identity item written outside the client, with the
 attributes, label and hex value of the previous `secret-service` backend, without rewriting it.
 A temporary provider failure must leave the existing identity recoverable and must not

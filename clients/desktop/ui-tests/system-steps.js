@@ -37,23 +37,34 @@
   const windowBounds = async (step) => {
     // save: move the window and quit with Ctrl+Q; restore: the saved bounds are back;
     // centre: an off-screen saved window lands in the middle of the primary display.
-    const saved = { x: 120, y: 80, width: 900, height: 640 };
     const kind = step.slice('window:'.length);
+    const [initial, primary, environment] = await invokeTest('ui_test_window');
+    const saved = {
+      x:
+        initial.x +
+        Math.floor(Math.max(0, primary.x + primary.width - initial.x - initial.width) / 4),
+      y:
+        initial.y +
+        Math.floor(Math.max(0, primary.y + primary.height - initial.y - initial.height) / 4),
+      width: Math.max(environment.minSize[0], Math.round(initial.width * 0.9)),
+      height: Math.max(environment.minSize[1], Math.round(initial.height * 0.9)),
+    };
     if (kind === 'save') {
-      const [at] = await invokeTest('ui_test_window', { set: saved });
+      const [at] = await invokeTest('ui_test_window', { set: saved, remember: true });
       if (JSON.stringify(at) !== JSON.stringify(saved))
         throw new Error(`window not moved: ${JSON.stringify(at)}`);
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', ctrlKey: true }));
       return undefined;
     }
-    const [at, primary] = await invokeTest('ui_test_window');
+    const at = initial;
     const centred = {
       x: primary.x + Math.floor((primary.width - at.width) / 2),
       y: primary.y + Math.floor((primary.height - at.height) / 2),
       width: at.width,
       height: at.height,
     };
-    const expected = kind === 'restore' ? saved : centred;
+    const expected = kind === 'restore' ? environment.expected : centred;
+    if (!expected) throw new Error('missing independent saved-window fixture');
     if (JSON.stringify(at) !== JSON.stringify(expected)) {
       throw new Error(
         `window ${kind}: ${JSON.stringify(at)}, expected ${JSON.stringify(expected)}`,

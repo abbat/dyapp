@@ -23,6 +23,16 @@ if TYPE_CHECKING:
     import desktop_contracts as dc
 
 
+def tray_driver(executable: str, script: str) -> list[str]:
+    """Select the native driver; macOS requires a bundled executable."""
+    root = Path(__file__).parent
+    if sys.platform == "darwin":
+        return [sys.executable, str(root / "macos-tray.py"), executable]
+    if os.name == "nt":
+        return [sys.executable, str(root / "windows-tray.py")]
+    return ["/usr/bin/python3", str(root / script)]
+
+
 def display_diagnostics() -> "str":
     """Bounded, allowlisted state while xvfb-run still owns the server."""
     display = os.environ.get("DISPLAY", "")

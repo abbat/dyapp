@@ -12,8 +12,7 @@ args+=(--configuration .swift-format --recursive)
 if (($#)); then
     args+=("$@")
 else
-    args+=(clients/ios/DYApp clients/ios/Tests clients/ios/UITests
-           clients/macos/src clients/macos/Tests clients/macos/UITests)
+    args+=(clients/ios/DYApp clients/ios/Tests clients/ios/UITests)
 fi
 if [[ -f /.dockerenv ]]; then
     exec swift-format "${args[@]}"

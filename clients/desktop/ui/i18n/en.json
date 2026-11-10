@@ -131,6 +131,7 @@
   "storage.system.locked": "The system credential collection is locked.",
   "storage.system.denied": "The system credential store denied access.",
   "storage.system.unavailable": "Windows Credential Manager is unavailable for this account.",
+  "storage.system.noKeychain": "The login Keychain is unavailable for this account.",
   "storage.file.choice": "Use an app data file",
   "storage.file.warning": "Kept unencrypted: anyone who can read this file can copy your identity key. Protect your user profile and backups.",
   "storage.file.backup": "After closing the app, back up the whole folder containing this key. Keep the copy private.",

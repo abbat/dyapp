@@ -375,7 +375,7 @@ draft and offers the network, and search asks to connect.
 | Linux | Docker (local + CI) | Cargo tests for shell, slots, key stores, network settings, media/stickers and bundled frontend | Shared `desktop-smoke.py` under Xvfb and GNOME Keyring; node/tray availability selects additional cases, including real sticker import/restart in full-flow mode | `run-cargo-unit-binaries.py`, `desktop-smoke.py` |
 | Windows | CI only (windows-2022) | Shared desktop Cargo tests plus the credential backend and bundled frontend | Shared native smoke with platform-specific tray checks and real sticker import/restart; exact counts come from each run report | same |
 | iOS | CI only (macos-15) | Swift unit files in `clients/ios/Tests/`, including Keychain and network draft cases | XCUITest in `clients/ios/UITests/` | `check-apple-results.py` (≥3) |
-| macOS | CI only (macos-15) | macOS unit files plus shared Keychain and network draft cases | XCUITest in `clients/macos/UITests/` | `check-apple-results.py` (≥3) |
+| macOS | CI only (macos-15) | Shared desktop Cargo tests, including login Keychain | Shared in-process desktop smoke in a Tauri `.app` | `desktop-ui-results.json` |
 
 **Empty or skipped is failure.** Every checker rejects a missing report, zero tests, any skipped
 test and any failure: `check-junit-results.py` (JUnit XML), `run-cargo-unit-binaries.py` (empty
@@ -657,7 +657,15 @@ also saves the last compared frames as `keyboard-focus-before.png` and
 these keyboard/dialog transitions without backend actions. D1's two-line limit stays in the
 frozen matrix; stress variants check clipping and accessibility instead.
 
-The required CI prototype matrix splits theme, text scale and language across eight jobs.
+CI selects the prototype matrix only when desktop UI/prototype assets, UI helpers,
+test scripts/images, checker tooling, workflows or the frozen criteria change. Pushes
+compare their before/after commits; pull requests compare their head with the merge
+base. Manual workflow runs and new branches run the full matrix. Comparison errors
+fail CI. Unrelated source/documentation changes keep the ordinary native smoke jobs
+and skip this matrix; `required` accepts that skip only after a successful selector
+explicitly reported no relevant changes.
+
+The selected prototype matrix splits theme, text scale and language across eight jobs.
 Each publishes `desktop-prototype-criteria-*` measurements and screenshots for seven days;
 any failed job fails the `required` summary.
 
@@ -697,15 +705,16 @@ In CI the Docker jobs upload **no** artifacts (logs only).
 
 These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml-jobs).
 
-- **iOS / macOS:** XcodeGen 2.46.0 generates `<platform>/DYApp.xcodeproj` from
-  `<platform>/project.yml` (targets `DYApp`, `DYAppTests`, `DYAppUITests`; scheme
-  `DYApp`) after `tools/scripts/build-apple-core.sh <platform>` has built the XCFramework and Swift
-  bindings the app target needs. There is no `.xcworkspace`, and the generated project is not committed.
-  `apple-test-in-ci.sh` → `apple-test-in-ci.py` runs an unsigned `xcodebuild build`, then
-  `xcodebuild test` into `$RUNNER_TEMP/apple-results/<platform>.xcresult` (iOS on the first
-  available iPhone simulator, signed ad hoc because the simulator refuses an unsigned app the
-  Keychain; macOS unsigned on `platform=macOS`), summarizes it with `xcresulttool` and
-  applies `check-apple-results.py` and `check-flaky.py` (`tests.json`). Artifacts: `apple-ios`, `apple-macos`.
+- **macOS:** Cargo runs the shared desktop unit tests with `DYAPP_TEST_KEYCHAIN=1`.
+  `build-macos-client.py --profile debug --features ui-smoke` assembles a real
+  `.app`; `desktop-smoke.py` tests its bundled executable. Native window events
+  signal resize/hide/show readiness. The Mac driver uses process-bound markers
+  and kqueue for Dock reopen and registered tray callback coverage, without
+  coordinate clicks. Release builds omit these test hooks.
+- **iOS:** XcodeGen 2.46.0 generates `clients/ios/DYApp.xcodeproj` after
+  `build-apple-core.sh ios`. `apple-test-in-ci.py` builds the device app and runs
+  XCTest/XCUITest on an available iPhone simulator, signed ad hoc for Keychain.
+  `check-apple-results.py` and `check-flaky.py` validate its nonempty inventory.
   The artifact also keeps the runner's `DYApp*` crash reports in `crash-reports/`: a test
   that ends with "application is not running" says nothing about why, and the report does.
   When there is a crash report, `app-errors.log` keeps the app's error, fault and exception

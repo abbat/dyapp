@@ -45,8 +45,9 @@ No pre-release profile-node migration is provided.
 - The node is reachable only where AutoNAT says so; behind NAT it serves only the connections it
   opens until NAT traversal lands.
 - A desktop node is up only while the app runs, so replication must keep tolerating churn.
-- Linux and Windows share the embedded-node implementation. Unix keeps its 0600 key-file
+- Linux, Windows and macOS share the embedded-node implementation. Unix keeps its 0600 key-file
   checks, root refusal and SIGHUP reload; Windows inherits key access control from the user's
   app-config directory, queries free space with `GetDiskFreeSpaceExW`, and refreshes deny lists
   on the common timer. The macOS Tauri client
-  ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) runs the node as Linux does (planned).
+  ([ADR 0002](0002-rust-core-native-apps-tauri-desktop.md)) uses the same Unix node/storage path
+  as Linux; no separate daemon or Swift bridge is required.

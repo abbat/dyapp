@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
+use tauri::{Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
 
 /// A rectangle in physical pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -107,6 +107,38 @@ pub fn track<R: Runtime>(window: &tauri::Window<R>, state: &WindowState) {
             normal: rect(position, size),
             maximized: false,
         });
+    }
+}
+
+/// Native window events retain geometry and apply the platform's close behavior.
+pub(crate) fn event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    match event {
+        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+            track(window, &window.state::<WindowState>());
+        }
+        tauri::WindowEvent::CloseRequested { api, .. } => {
+            #[cfg(target_os = "macos")]
+            {
+                api.prevent_close();
+                let _ = crate::macos::hide(window);
+            }
+            #[cfg(not(target_os = "macos"))]
+            if window.state::<crate::tray::Tray>().hides_on_close() {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        }
+        _ => {}
+    }
+    #[cfg(feature = "ui-smoke")]
+    if matches!(
+        event,
+        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
+    ) {
+        // Geometry readiness follows track(), so a fast Quit cannot save stale bounds.
+        crate::ui_smoke::window::geometry(window);
+    } else {
+        crate::ui_smoke::window::publish(window);
     }
 }
 

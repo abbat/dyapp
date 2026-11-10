@@ -301,13 +301,18 @@ mod platform {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 mod platform {
+    #[cfg(target_os = "windows")]
     use std::collections::HashMap;
 
+    #[cfg(target_os = "macos")]
+    use apple_native_keyring_store::keychain::{Cred, MacKeychainDomain};
     use dyapp_identity::Identity;
+    #[cfg(target_os = "windows")]
     use keyring_core::api::CredentialStoreApi;
     use keyring_core::{Entry, Error};
+    #[cfg(target_os = "windows")]
     use windows_native_keyring_store::Store;
     use zeroize::Zeroizing;
 
@@ -316,7 +321,7 @@ mod platform {
     #[derive(Debug, PartialEq, Eq)]
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub enum Unavailable {
-        CredentialManagerUnavailable,
+        SystemStoreUnavailable,
         AccessDenied,
     }
 
@@ -324,12 +329,19 @@ mod platform {
         #[expect(unreachable_pub, reason = "Retained module API visibility")]
         pub fn key(&self) -> &'static str {
             match self {
-                Self::CredentialManagerUnavailable => "storage.system.unavailable",
+                Self::SystemStoreUnavailable => {
+                    if cfg!(target_os = "macos") {
+                        "storage.system.noKeychain"
+                    } else {
+                        "storage.system.unavailable"
+                    }
+                }
                 Self::AccessDenied => "storage.system.denied",
             }
         }
     }
 
+    #[cfg(target_os = "windows")]
     fn entry(user: &str) -> Result<Entry, Error> {
         let store = Store::new()?;
         store.build(
@@ -339,21 +351,33 @@ mod platform {
         )
     }
 
+    #[cfg(target_os = "macos")]
+    fn entry(user: &str) -> Result<Entry, Error> {
+        // The login keychain is local; the provisioned/iCloud protected store is not used.
+        Cred::build(MacKeychainDomain::User, SERVICE, user)
+    }
+
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn probe() -> Result<(), Unavailable> {
         let entry = entry("capability-probe").map_err(map_probe_error)?;
         entry.set_secret(b"probe").map_err(map_probe_error)?;
         let secret = entry.get_secret();
+        #[cfg(target_os = "windows")]
         let attributes = entry.get_attributes();
         entry.delete_credential().map_err(map_probe_error)?;
-        if secret.map_err(map_probe_error)?.as_slice() != b"probe"
-            || attributes
-                .map_err(map_probe_error)?
-                .get("persistence")
-                .map(String::as_str)
-                != Some("Local")
+        #[cfg(target_os = "windows")]
+        if attributes
+            .map_err(map_probe_error)?
+            .get("persistence")
+            .map(String::as_str)
+            != Some("Local")
         {
-            return Err(Unavailable::CredentialManagerUnavailable);
+            return Err(Unavailable::SystemStoreUnavailable);
+        }
+        if secret.map_err(map_probe_error)?.as_slice() != b"probe"
+            || !matches!(entry.get_secret(), Err(Error::NoEntry))
+        {
+            return Err(Unavailable::SystemStoreUnavailable);
         }
         Ok(())
     }
@@ -361,7 +385,7 @@ mod platform {
     fn map_probe_error(error: Error) -> Unavailable {
         match error {
             Error::NoStorageAccess(_) => Unavailable::AccessDenied,
-            _ => Unavailable::CredentialManagerUnavailable,
+            _ => Unavailable::SystemStoreUnavailable,
         }
     }
 
@@ -376,7 +400,7 @@ mod platform {
         let bytes: &[u8; 32] = secret
             .as_slice()
             .try_into()
-            .map_err(|_| "Invalid DYApp identity length in Credential Manager")?;
+            .map_err(|_| "Invalid DYApp identity length in system credential store")?;
         Ok(Some(Identity::from_secret(bytes)))
     }
 
@@ -387,7 +411,7 @@ mod platform {
             Err(Error::NoEntry) => (),
             Ok(secret) => {
                 let _secret = Zeroizing::new(secret);
-                return Err("DYApp identity already exists in Credential Manager".into());
+                return Err("DYApp identity already exists in system credential store".into());
             }
             Err(error) => return Err(error.to_string()),
         }
@@ -411,8 +435,13 @@ mod platform {
         use super::*;
 
         #[test]
-        fn controlled_credential_manager_round_trip() {
-            if std::env::var_os("DYAPP_TEST_CREDENTIAL_MANAGER").is_none() {
+        fn controlled_native_store_round_trip() {
+            let enabled = if cfg!(target_os = "macos") {
+                "DYAPP_TEST_KEYCHAIN"
+            } else {
+                "DYAPP_TEST_CREDENTIAL_MANAGER"
+            };
+            if std::env::var_os(enabled).is_none() {
                 return;
             }
             assert_eq!(probe(), Ok(()));
@@ -429,6 +458,7 @@ mod platform {
                 load_slot(user).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
+            #[cfg(target_os = "windows")]
             assert_eq!(
                 entry(user).unwrap().get_attributes().unwrap()["persistence"],
                 "Local"
@@ -440,6 +470,6 @@ mod platform {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub use platform::{delete_slot, load_slot, probe, save_slot};

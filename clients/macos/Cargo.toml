@@ -1,0 +1,86 @@
+[package]
+name = "dyapp-macos"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.99"
+
+[dependencies]
+tauri = { version = "=2.12.3", features = ["tray-icon"] }
+tauri-plugin-clipboard-manager = "=2.5.0"
+tauri-plugin-single-instance = "=2.5.4"
+tauri-plugin-notification = "=2.7.0"
+keyring-core = "=1.0.0"
+apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
+dyapp-bootstrap = { path = "../../rust/bootstrap" }
+dyapp-client = { path = "../../rust/client" }
+dyapp-identity = { path = "../../rust/identity" }
+dyapp-p2p-net = { path = "../../rust/p2p-net" }
+dyapp-profile = { path = "../../rust/profile" }
+qrcodegen = "=1.8.0"
+quircs = "=0.10.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt", "sync"] }
+zeroize = "1.9"
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "time"] }
+
+[build-dependencies]
+tauri-build = { version = "=2.7.2", features = [] }
+
+[features]
+ui-smoke = []
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[lints.rust]
+unreachable_pub = "deny"
+unfulfilled_lint_expectations = "deny"
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+assert_is_empty = "deny"
+assigning_clones = "deny"
+bool_to_int_with_if = "deny"
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+default_trait_access = "deny"
+doc_markdown = "deny"
+format_collect = "deny"
+match_wildcard_for_single_variants = "deny"
+similar_names = "deny"
+struct_excessive_bools = "deny"
+struct_field_names = "deny"
+ignored_unit_patterns = "deny"
+implicit_clone = "deny"
+manual_string_new = "deny"
+needless_pass_by_value = "deny"
+map_unwrap_or = "deny"
+redundant_closure_for_method_calls = "deny"
+uninlined_format_args = "deny"
+unreadable_literal = "deny"
+wildcard_imports = "deny"
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
+# Argon2 runs at release speed in debug and test builds, as in the root workspace: the UI smoke
+# solves a profile puzzle of thousands of hashes.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.test.package.argon2]
+opt-level = 3
+[profile.test.package.blake2]
+opt-level = 3

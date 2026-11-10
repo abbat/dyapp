@@ -182,8 +182,10 @@ pipeline). In short:
 ### Required Status Checks
 
 The `required` summary checks out the same source and runs `check-ci-results.py`.
-It requires the core, Docker, Linux, Apple and Windows job results, rejects empty
-or missing inventories and treats skipped/cancelled results as failures. Its
+It requires core, Docker, Linux, Apple, Windows and prototype selection/results,
+rejects empty or missing inventories, and treats skipped/cancelled results as
+failures. The prototype matrix alone may be skipped when its successful selector
+explicitly reports no relevant changes. Its
 concise output names only failed/missing jobs; the raw frontend log is archived
 as `summary-check-output`.
 

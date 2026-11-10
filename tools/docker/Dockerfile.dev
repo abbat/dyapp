@@ -92,6 +92,7 @@ COPY . .
 RUN cargo fetch --locked && cargo fetch --locked --manifest-path tests/fuzz/Cargo.toml && \
     cargo fetch --locked --manifest-path clients/linux/Cargo.toml && \
     cargo fetch --locked --manifest-path clients/windows/Cargo.toml && \
+    cargo fetch --locked --manifest-path clients/macos/Cargo.toml && \
     cargo fetch --locked --manifest-path tools/rust-functions/Cargo.toml && \
     chmod -R a+rX /usr/local/cargo/registry
 RUN cargo deny fetch db && cp -rf /tmp/ai/advisory-dbs /opt/advisory-dbs && \

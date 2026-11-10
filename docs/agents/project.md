@@ -123,8 +123,8 @@ storage ADR trailer even when the production schema does not change.
 | `rust/bootstrap/src/bin/` | `dyappd`: the libp2p node; `dyappd/client.rs` holds its client commands (`dyappd info`, ...) used by network tests. |
 | `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Android and Apple apps use identity, lock and profile-scale bindings. |
 | `clients/android/` | Gradle app (Kotlin) with generated Rust bindings. |
-| `clients/ios/`, `clients/macos/` | XcodeGen (`project.yml`) Swift apps with generated Rust bindings. |
-| `clients/linux/`, `clients/windows/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`. |
+| `clients/ios/` | XcodeGen (`project.yml`) Swift app with generated Rust bindings. |
+| `clients/linux/`, `clients/windows/`, `clients/macos/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`; macOS uses `build-macos-client.py` for `.app` assembly. |
 | `build/` | Ignored local output for Cargo, Gradle (`build/android/`), packages, reports and generated bindings. `.cargo/config.toml` sets Cargo's default target directory; `CARGO_TARGET_DIR` can override it. |
 | `proto/` | Protobuf schemas. |
 | `tools/` | Shared build, packaging and release scripts and images. `tools/docker/Dockerfile.linux-base` is the Debian 12 client build base for tests and `.deb` packages. |

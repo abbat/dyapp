@@ -158,8 +158,10 @@ jobs:
           workspaces: ". -> build"
           key: release-${{ matrix.platform }}
       - name: release core
+        if: matrix.platform == 'ios'
         run: bash tools/scripts/build-apple-core.sh "${{ matrix.core }}" release
       - name: prepare xcode
+        if: matrix.platform == 'ios'
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c

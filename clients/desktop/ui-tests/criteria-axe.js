@@ -16,7 +16,11 @@ smoke.accessibility = async () => {
       findings.push({
         rule: `axe:${violation.id}`,
         element: JSON.stringify(node.target),
-        detail: node.failureSummary ?? violation.description,
+        detail: JSON.stringify({
+          summary: node.failureSummary,
+          checks: node.any,
+          description: violation.description,
+        }),
       });
     }
   }
@@ -26,7 +30,11 @@ smoke.accessibility = async () => {
       findings.push({
         rule: `axe-review:${review.id}`,
         element: JSON.stringify(node.target),
-        detail: node.failureSummary ?? review.description,
+        detail: JSON.stringify({
+          summary: node.failureSummary,
+          checks: node.any,
+          description: review.description,
+        }),
       });
     }
   }

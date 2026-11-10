@@ -163,10 +163,10 @@ class DesktopSmoke:
             peer=False,
         )
         saved = json.loads(state.read_text())
-        if saved != {
-            "normal": {"x": 120, "y": 80, "width": 900, "height": 640},
-            "maximized": False,
-        }:
+        expected = json.loads(
+            (Path(profile) / "expected-window.json").read_text()
+        )
+        if saved != {"normal": expected["normal"], "maximized": False}:
             raise RuntimeError(f"window state not saved: {saved}")
         self.case(
             "window-restore",
@@ -174,7 +174,8 @@ class DesktopSmoke:
             profile,
             peer=False,
         )
-        saved["normal"]["x"] = -5000
+        left = min(display["x"] for display in expected["displays"])
+        saved["normal"]["x"] = left - saved["normal"]["width"] - 1
         state.write_text(json.dumps(saved))
         self.case(
             "window-off-screen",
@@ -253,6 +254,14 @@ class DesktopSmoke:
                 if second.returncode != 0:
                     raise RuntimeError(f"second launch failed: {second}")
             first.result()
+        if sys.platform == "darwin":
+            with self.fake_tray("reopen", profile):
+                self.case(
+                    "dock-reopen",
+                    ["--ui-test-file", "--ui-test-step=single"],
+                    profile,
+                    peer=False,
+                )
 
     def sticker_packs(
         self,
@@ -464,18 +473,9 @@ class DesktopSmoke:
         """A session bus host (`script`), or a click driver for the Windows
         notification area (windows-tray.py), for one case."""
         (Path(profile) / "hidden").unlink(missing_ok=True)
-        driver = (
-            [sys.executable, "windows-tray.py"]
-            if os.name == "nt"
-            else ["/usr/bin/python3", script]
-        )
+        driver = native.tray_driver(self.executable, script)
         host = subprocess.Popen(  # pylint: disable=consider-using-with
-            [
-                driver[0],
-                str(Path(__file__).with_name(driver[1])),
-                mode,
-                str(profile),
-            ],
+            [*driver, mode, str(profile)],
             stdout=subprocess.PIPE,
             text=True,
         )
@@ -486,8 +486,11 @@ class DesktopSmoke:
             if host.stdout.readline().strip() != "ready":
                 raise RuntimeError(f"fake tray host did not start: {mode}")
             yield
+            if sys.platform == "darwin" and host.wait(timeout=35) != 0:
+                raise RuntimeError(f"macOS tray driver failed: {mode}")
         finally:
-            host.terminate()
+            if host.poll() is None:
+                host.terminate()
             host.wait(timeout=10)
 
     def connect_identity(
@@ -832,7 +835,7 @@ class DesktopSmoke:
         relaunch, and a host that goes away brings the window back. Windows
         always has a notification area, so it has no none or vanish case."""
         file = ["--ui-test-file"]
-        if os.name == "posix":
+        if sys.platform.startswith("linux"):
             self.case(
                 "tray-none",
                 [*file, "--ui-test-step=tray:none"],
@@ -863,7 +866,7 @@ class DesktopSmoke:
                 profile,
                 peer=False,
             )
-        if os.name == "posix":
+        if sys.platform.startswith("linux"):
             with self.fake_tray("vanish", profile):
                 self.case(
                     "tray-vanish",

@@ -8,6 +8,7 @@ there."""
 from io import BytesIO
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 
 from PIL import Image
@@ -51,9 +52,26 @@ def main() -> None:
     ios.alpha_composite(render(1024))
     ios_icons = ROOT / "clients/ios/DYApp/Assets.xcassets/AppIcon.appiconset"
     ios.convert("RGB").save(ios_icons / "icon-1024.png")
-    mac = ROOT / "clients/macos/Assets.xcassets/AppIcon.appiconset"
-    for size in (16, 32, 64, 128, 256, 512, 1024):
-        render(size).save(mac / f"icon-{size}.png")
+    mac = ROOT / "clients/macos/icons"
+    mac.mkdir(exist_ok=True)
+    render(32).save(mac / "icon.png")
+    chunks = bytearray()
+    for kind, size in (
+        (b"icp4", 16),
+        (b"icp5", 32),
+        (b"icp6", 64),
+        (b"ic07", 128),
+        (b"ic08", 256),
+        (b"ic09", 512),
+        (b"ic10", 1024),
+    ):
+        image = BytesIO()
+        render(size).save(image, format="PNG")
+        payload = image.getvalue()
+        chunks.extend(kind + struct.pack(">I", len(payload) + 8) + payload)
+    (mac / "icon.icns").write_bytes(
+        b"icns" + struct.pack(">I", len(chunks) + 8) + chunks
+    )
 
 
 if __name__ == "__main__":

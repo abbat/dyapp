@@ -271,14 +271,21 @@ jobs:
       - name: version
         if: github.event_name == 'push'
         run: |
-          test "v$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' "clients/$PLATFORM/project.yml")" = "$GITHUB_REF_NAME"
+          if [[ $PLATFORM == macos ]]; then
+            version=$(python3 tools/scripts/build-macos-client.py --print-version)
+          else
+            version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' clients/ios/project.yml)
+          fi
+          test "v$version" = "$GITHUB_REF_NAME"
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: '1.99.0'
           targets: ${{ matrix.targets }}
       - name: release core
+        if: matrix.platform == 'ios'
         run: bash tools/scripts/build-apple-core.sh "${{ matrix.core }}" release
       - name: prepare xcode
+        if: matrix.platform == 'ios'
         run: |
           curl -fL https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip -o "$RUNNER_TEMP/xcodegen.zip"
           echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
@@ -288,7 +295,11 @@ jobs:
         run: python3 -B tools/scripts/apple-release-in-ci.py "$PLATFORM"
       - name: name package
         run: |
-          version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' "clients/$PLATFORM/project.yml")
+          if [[ $PLATFORM == macos ]]; then
+            version=$(python3 tools/scripts/build-macos-client.py --print-version)
+          else
+            version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' clients/ios/project.yml)
+          fi
           mv -f "$RUNNER_TEMP/release-$PLATFORM"/DYApp-unsigned.* "$RUNNER_TEMP/release-$PLATFORM/dyapp-$version-$SUFFIX"
       - name: evidence
         if: always()

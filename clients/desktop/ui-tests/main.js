@@ -122,8 +122,9 @@ const consent = (id) => {
   byId(id).dispatchEvent(new Event('change'));
 };
 const closePublishDialog = async () => {
+  const finished = closed(byId('publish-dialog'));
   byId('profile-cancel').click();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await finished;
   if (!byId('publish-dialog').hidden) throw new Error('Cancel left the publish dialog open');
 };
 const checkEmptyProfilePreview = async () => {

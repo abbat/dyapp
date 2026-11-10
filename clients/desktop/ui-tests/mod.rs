@@ -1,6 +1,9 @@
 //! Shared native smoke script order, kept separate from application command registration.
 use tauri::webview::PageLoadEvent;
 
+#[path = "window.rs"]
+pub(crate) mod window;
+
 const SCRIPTS: &[&str] = &[
     include_str!("interface.js"),
     include_str!("criteria-axe.js"),
@@ -78,17 +81,19 @@ pub(crate) fn attach(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<taur
             std::fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("axe-core {}: {e}", path.to_string_lossy()))
         });
-    builder.on_page_load(move |webview, payload| {
-        if test_mode && payload.event() == PageLoadEvent::Finished {
-            if break_ui {
-                webview
-                    .eval("document.querySelector('#profile-area h1').style.display = 'none'")
-                    .expect("inject UI failure");
+    builder
+        .manage(window::Signals::default())
+        .on_page_load(move |webview, payload| {
+            if test_mode && payload.event() == PageLoadEvent::Finished {
+                if break_ui {
+                    webview
+                        .eval("document.querySelector('#profile-area h1').style.display = 'none'")
+                        .expect("inject UI failure");
+                }
+                if let Some(axe) = &axe {
+                    webview.eval(axe.as_str()).expect("load axe-core");
+                }
+                webview.eval(scripts()).expect("start UI test");
             }
-            if let Some(axe) = &axe {
-                webview.eval(axe.as_str()).expect("load axe-core");
-            }
-            webview.eval(scripts()).expect("start UI test");
-        }
-    })
+        })
 }

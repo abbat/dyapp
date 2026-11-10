@@ -48,7 +48,7 @@ class AppleCoreProfiles(unittest.TestCase):
         cases = [
             ("ios-device", "release", 1),
             ("ios", "debug", 3),
-            ("macos", "release", 2),
+            ("all", "release", 3),
         ]
         for scope, profile, count in cases:
             with self.subTest(scope=scope, profile=profile):

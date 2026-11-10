@@ -16,9 +16,8 @@ export CARGO_PROFILE_DEV_DEBUG=0 IPHONEOS_DEPLOYMENT_TARGET=15.0 MACOSX_DEPLOYME
 case ${1:-all} in
     ios) slices=(ios ios-simulator) ;;
     ios-device) slices=(ios) ;;
-    macos) slices=(macos) ;;
-    all) slices=(ios ios-simulator macos) ;;
-    *) echo "usage: $0 [ios|ios-device|macos|all] [debug|release]" >&2; exit 2 ;;
+    all) slices=(ios ios-simulator) ;;
+    *) echo "usage: $0 [ios|ios-device|all] [debug|release]" >&2; exit 2 ;;
 esac
 profile=${2:-debug}
 case $profile in
@@ -32,11 +31,10 @@ targets() {
     case $1 in
         ios) echo aarch64-apple-ios ;;
         ios-simulator) echo aarch64-apple-ios-sim x86_64-apple-ios ;;
-        macos) echo aarch64-apple-darwin x86_64-apple-darwin ;;
     esac
 }
 
-# Library mode reads the interface from a host build of the library, as on Android.
+# iOS library-mode bindgen still needs the host macOS dylib. It is not an XCFramework slice.
 host=$(rustc -vV | sed -n 's/^host: //p')
 cargo build --locked -p dyapp-ffi --target "$host"
 rm -rf "$out"

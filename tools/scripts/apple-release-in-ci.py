@@ -25,6 +25,59 @@ def run(command: Sequence[str], log: Path) -> None:
         raise ValueError(f"Command exited {result.returncode}; see {log}")
 
 
+def build_app(target: str, reports: Path) -> tuple[Path, str, str]:
+    if target == "macos":
+        app = reports / "DYApp.app"
+        run(
+            [
+                sys.executable,
+                str(ROOT / "tools/scripts/build-macos-client.py"),
+                "--profile",
+                "release",
+                "--universal",
+                "--output",
+                str(app),
+                "--log-dir",
+                str(reports),
+            ],
+            reports / "build.log",
+        )
+        run(
+            [
+                sys.executable,
+                str(ROOT / "tools/scripts/check-no-ui-smoke.py"),
+                str(app / "Contents/MacOS/dyapp-macos"),
+            ],
+            reports / "instrumentation.log",
+        )
+        return app, "zip", "macos-macos15-universal-release-unsigned-zip"
+    derived = reports / "DerivedData"
+    run(
+        [
+            "xcodebuild",
+            "-project",
+            "clients/ios/DYApp.xcodeproj",
+            "-scheme",
+            "DYApp",
+            "-configuration",
+            "Release",
+            "-derivedDataPath",
+            str(derived),
+            "CODE_SIGNING_ALLOWED=NO",
+            "ONLY_ACTIVE_ARCH=NO",
+            "-destination",
+            "generic/platform=iOS",
+            "-sdk",
+            "iphoneos",
+            "ARCHS=arm64",
+            "build",
+        ],
+        reports / "build.log",
+    )
+    app = derived / "Build/Products/Release-iphoneos/DYApp.app"
+    return app, "ipa", "ios-macos15-arm64-release-unsigned-ipa"
+
+
 def main() -> "int":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=("ios", "macos"))
@@ -35,44 +88,7 @@ def main() -> "int":
         reports = Path(os.environ["RUNNER_TEMP"]) / f"release-{args.target}"
         reports.mkdir(parents=True, exist_ok=True)
         run(["xcodebuild", "-version"], reports / "xcode-version.txt")
-        derived = reports / "DerivedData"
-        command = [
-            "xcodebuild",
-            "-project",
-            f"clients/{args.target}/DYApp.xcodeproj",
-            "-scheme",
-            "DYApp",
-            "-configuration",
-            "Release",
-            "-derivedDataPath",
-            str(derived),
-            "CODE_SIGNING_ALLOWED=NO",
-            "ONLY_ACTIVE_ARCH=NO",
-        ]
-        if args.target == "ios":
-            command += [
-                "-destination",
-                "generic/platform=iOS",
-                "-sdk",
-                "iphoneos",
-                "ARCHS=arm64",
-                "build",
-            ]
-            product, suffix = "Release-iphoneos", "ipa"
-            name = "ios-macos15-arm64-release-unsigned-ipa"
-        else:
-            command += [
-                "-destination",
-                "generic/platform=macOS",
-                "-sdk",
-                "macosx",
-                "ARCHS=arm64 x86_64",
-                "build",
-            ]
-            product, suffix = "Release", "zip"
-            name = "macos-macos15-universal-release-unsigned-zip"
-        run(command, reports / "build.log")
-        app = derived / "Build" / "Products" / product / "DYApp.app"
+        app, suffix, name = build_app(args.target, reports)
         archive = reports / f"DYApp-unsigned.{suffix}"
         run(
             [

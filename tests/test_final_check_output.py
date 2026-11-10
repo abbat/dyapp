@@ -17,24 +17,70 @@ class FinalChecks(unittest.TestCase):
     def test_summary_rejects_empty_missing_cancelled_and_skipped_jobs(
         self,
     ) -> None:
-        good = {
+        good: dict[str, object] = {
             name: {"result": "success"}
-            for name in ("core", "docker", "linux", "apple", "windows")
+            for name in (
+                "core",
+                "docker",
+                "linux",
+                "apple",
+                "windows",
+                "prototype_changes",
+                "prototype",
+            )
         }
+        good["prototype_changes"] = {
+            "result": "success",
+            "outputs": {"needed": "true"},
+        }
+        not_needed = {"result": "success", "outputs": {"needed": "false"}}
         missing = {
             name: value for name, value in good.items() if name != "apple"
         }
         cases = [
-            good,
-            {},
-            [],
-            dict(good, apple={"result": "failure"}),
-            dict(good, apple={"result": "cancelled"}),
-            dict(good, apple={"result": "skipped"}),
-            missing,
+            (good, True),
+            ({}, False),
+            ([], False),
+            (dict(good, apple={"result": "failure"}), False),
+            (dict(good, apple={"result": "cancelled"}), False),
+            (dict(good, apple={"result": "skipped"}), False),
+            (missing, False),
+            (
+                dict(
+                    good,
+                    prototype={"result": "skipped"},
+                    prototype_changes=not_needed,
+                ),
+                True,
+            ),
+            (dict(good, prototype={"result": "skipped"}), False),
+            (
+                dict(
+                    good,
+                    prototype={"result": "skipped"},
+                    prototype_changes={"result": "failure"},
+                ),
+                False,
+            ),
+            (
+                dict(
+                    good,
+                    prototype={"result": "skipped"},
+                    prototype_changes={"result": "success"},
+                ),
+                False,
+            ),
+            (
+                dict(
+                    good,
+                    prototype={"result": "failure"},
+                    prototype_changes=not_needed,
+                ),
+                False,
+            ),
         ]
         with tempfile.TemporaryDirectory() as directory:
-            for index, data in enumerate(cases):
+            for data, accepted in cases:
                 result = subprocess.run(
                     [
                         sys.executable,
@@ -49,8 +95,8 @@ class FinalChecks(unittest.TestCase):
                         DYAPP_CHECK_LOG_DIR=directory,
                     ),
                 )
-                self.assertEqual(result.returncode, int(index != 0))
-                if index == 0:
+                self.assertEqual(result.returncode, int(not accepted))
+                if accepted:
                     self.assertEqual(result.stdout, "OK ci-results\n")
                 else:
                     self.assertTrue(

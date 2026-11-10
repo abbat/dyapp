@@ -37,6 +37,10 @@ class CaseRunner(Protocol):
 
 
 class NativeSmoke(Protocol):
+    def tray_driver(self, executable: str, script: str) -> list[str]:
+        """Select the platform tray automation command."""
+        ...
+
     def display_diagnostics(self) -> str:
         """Describe bounded display state."""
         ...

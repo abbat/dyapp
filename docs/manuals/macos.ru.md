@@ -100,20 +100,15 @@ Workflow `release` для тега собирает Release на `macos-15` с `
 
 ## Сборка из исходников
 
-Нужны Mac с Xcode 16, Rust 1.99 (`rustup`) и [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-2.46. Получите тег выпуска, соберите ядро на Rust и сгенерируйте проект Xcode:
+Нужны Mac с Xcode 16, Rust 1.99 (`rustup`). Получите тег выпуска и соберите общий клиент Tauri:
 
 ```sh
 git clone --branch v0.0.1 https://github.com/abbat/dyapp.git && cd dyapp
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-bash tools/scripts/build-apple-core.sh macos release
-xcodegen generate --spec clients/macos/project.yml --project clients/macos
-xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration Release \
-    -destination generic/platform=macOS -derivedDataPath build \
-    CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO ARCHS="arm64 x86_64" build
+python3 tools/scripts/build-macos-client.py --profile release --universal
 ```
 
-Приложение — `build/Build/Products/Release/DYApp.app`. Ядро на Rust слинковано статически,
+Приложение — `build/macos/release/DYApp.app`. Ядро на Rust слинковано статически,
 вложенных фреймворков нет, поэтому одна подпись покрывает весь бандл.
 
 ## Запуск своей сборки
@@ -122,8 +117,8 @@ xcodebuild -project clients/macos/DYApp.xcodeproj -scheme DYApp -configuration R
 ad hoc:
 
 ```sh
-codesign --force --sign - build/Build/Products/Release/DYApp.app
-open build/Build/Products/Release/DYApp.app
+codesign --force --sign - build/macos/release/DYApp.app
+open build/macos/release/DYApp.app
 ```
 
 Неподписанный ZIP из CI запускается так же после `xattr -dr com.apple.quarantine DYApp.app`.
@@ -137,7 +132,7 @@ open build/Build/Products/Release/DYApp.app
 ([Apple: нотаризация ПО для macOS](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)):
 
 ```sh
-app=build/Build/Products/Release/DYApp.app
+app=build/macos/release/DYApp.app
 codesign --force --options runtime --timestamp \
     --sign "Developer ID Application: <Name> (<TEAMID>)" "$app"
 codesign --verify --strict --verbose=2 "$app"
