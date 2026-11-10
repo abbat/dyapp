@@ -73,7 +73,10 @@ errors. Its Kotlin/Swift API stays unchanged; Tauri can call the same core funct
 plans and full-photo fitting/quality/byte decisions. It accepts upright straight RGBA within
 the returned purpose target, flattens once, and emits an original plus the shared preview.
 Source headers are bounded before decoder allocation; malformed pixels and oversize inputs
-fail with typed errors. Common FFI exposure and platform pipeline switches remain planned.
+fail with typed errors. The common FFI exports `PhotoPurpose`, `photo_picked_byte_limit`,
+`photo_decode_plan` and `prepare_photo_pixels`, with `PhotoDecodePlan`, `PreparedPhotoData`
+and typed `PhotoPreparationError` conversions. Kotlin/Swift use this one surface; adapters
+contain no fitting/encoding policy. Platform pipeline switches remain planned.
 
 ## Profile editor height and seeking input
 
