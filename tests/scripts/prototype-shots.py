@@ -21,6 +21,8 @@ from pathlib import Path
 import sys
 import threading
 
+from prototype_progress import Progress
+
 from typing import TYPE_CHECKING
 
 import gi
@@ -425,6 +427,26 @@ server = ThreadingHTTPServer(
 )
 threading.Thread(target=server.serve_forever, daemon=True).start()
 origin = f"http://127.0.0.1:{server.server_port}"
+
+
+def stalled(phase: str) -> None:
+    failed.append(f"{phase}: completion deadline")
+    Gtk.main_quit()
+
+
+progress = Progress(
+    lambda callback: GLib.timeout_add_seconds(120, callback),
+    GLib.source_remove,
+    stalled,
+)
+
+
+def phase(name: str) -> None:
+    label = f"{shot_name()}: {name}"
+    print(label, file=sys.stderr, flush=True)
+    progress.begin(label)
+
+
 window = Gtk.Window()
 view = WebKit2.WebView()
 window.add(view)
@@ -436,6 +458,7 @@ def next_job() -> None:
         Gtk.main_quit()
         return
     screen, lang, width, theme, scale = jobs[0]
+    phase("load")
     window.resize(width, HEIGHT)
     view.set_size_request(width, HEIGHT)
     # A changed hash alone is a same-page jump with no load event,
@@ -451,6 +474,7 @@ def shot_name() -> "str":
 
 
 def snapshot() -> None:
+    phase("snapshot")
     view.get_snapshot(
         WebKit2.SnapshotRegion.FULL_DOCUMENT,
         WebKit2.SnapshotOptions.NONE,
@@ -475,6 +499,7 @@ def measured(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
     except GLib.Error as error:
         failed.append(f"{shot_name()} layout: {error.message}")
     if CRITERIA:
+        phase("criteria")
         view.call_async_javascript_function(
             CRITERIA + (SELF_CHECK if not self_checked else "") + AUDIT,
             -1,
@@ -524,6 +549,7 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
         and theme == "light"
         and scale == 100
     ):
+        phase("keyboard")
         from prototype_keyboard import KeyboardAudit
         from prototype_keyboard_fixtures import KeyboardFixtures
 
@@ -536,6 +562,7 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def finish_job() -> None:
+    progress.close()
     jobs.pop(0)
     next_job()
 
@@ -558,6 +585,7 @@ def keyboard_done(errors: list[str]) -> None:
 
 def loaded(_view: WebKit2.WebView, event: WebKit2.LoadEvent) -> None:
     if event == WebKit2.LoadEvent.FINISHED:
+        phase("layout")
         window.present()
         view.grab_focus()
         view.call_async_javascript_function(
@@ -577,15 +605,24 @@ def load_failed(
     error: GLib.Error,
 ) -> bool:
     failed.append(f"{uri}: {error.message}")
+    progress.close()
     jobs.pop(0)
     GLib.idle_add(advance)
     return True
 
 
+def terminated(_view: WebKit2.WebView, reason: object) -> None:
+    progress.close()
+    failed.append(f"{shot_name()}: web process terminated: {reason}")
+    Gtk.main_quit()
+
+
+view.connect("web-process-terminated", terminated)
 view.connect("load-changed", loaded)
 view.connect("load-failed", load_failed)
 GLib.idle_add(advance)
 Gtk.main()
+progress.close()
 server.shutdown()
 server.server_close()
 with open(f"{OUT}/layout.json", "w", encoding="utf-8") as out:

@@ -126,6 +126,7 @@ services:
       - ../../build/ux-research/prototype:/shots
       # Mounted so a changed screen list needs no image rebuild.
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
+      - ../../tests/scripts/prototype_progress.py:/app/prototype_progress.py:ro
       - ../../tests/scripts/prototype_keyboard.py:/app/prototype_keyboard.py:ro
       - ../../tests/scripts/prototype_keyboard_fixtures.py:/app/prototype_keyboard_fixtures.py:ro
       - ../../tests/scripts/focus_pixels.py:/app/focus_pixels.py:ro
@@ -149,6 +150,7 @@ services:
       - ../../clients/android/prototype:/assets/android/prototype:ro
       - ../../build/ux-research/prototype-android:/shots
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
+      - ../../tests/scripts/prototype_progress.py:/app/prototype_progress.py:ro
     command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py, android]
 
 networks:

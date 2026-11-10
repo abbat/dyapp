@@ -656,6 +656,10 @@ The script accepts `desktop` followed by optional state names. Use a fresh `/sho
 under `build/` to preserve prior captures. `DYAPP_PROTOTYPE_THEME` (`light`/`dark`),
 `DYAPP_PROTOTYPE_TEXT_SCALE` (`100`/`200`) and `DYAPP_PROTOTYPE_LANGUAGE` (`en`/`ru`)
 select a matrix slice; each defaults to `all`. The English slice includes `en-XA`.
+Loading, font/layout readiness, criteria, snapshots and keyboard checks advance only
+from their completion callbacks. Each phase gets a fresh 120-second failure deadline;
+it never advances a test. Completion cancels the prior deadline. The raw log names the
+current shot and phase, and a terminated WebKit process fails immediately.
 
 Each capture writes axe, clipping and dialog findings to `criteria.json`; missing measurements
 fail. Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.json`.
