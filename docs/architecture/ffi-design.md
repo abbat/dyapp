@@ -198,6 +198,13 @@ enums and delegates to the core. Android and iOS pass raw field text through it,
 labels and rendering only. Employer tests crossing the native boundary belong in Android
 instrumentation. Desktop adoption remains planned under the shared-query extraction.
 
+`dyapp_client::search_input::SearchChoiceInputs` builds offered categorical, country,
+interest and selected-place equality conditions. It uses canonical scale order, ignores unknown
+keys and zero choices, and trims text with the same Linux predicate. Selected place IDs are
+independent of country-field availability; pickers must invalidate a selection when its source
+country/text changes. Free-form place labels are never wire conditions. Native and desktop
+adoption of this choice builder remains planned.
+
 ## Exported surface
 
 Authored Rust exports now carry API documentation, including explicit stub behavior.

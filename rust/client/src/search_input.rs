@@ -3,6 +3,9 @@
 use crate::search::Employer;
 use crate::text_input::trim;
 
+mod choices;
+pub use choices::SearchChoiceInputs;
+
 /// The selected local employer-filter mode before interpreting its text field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum EmployerMode {
