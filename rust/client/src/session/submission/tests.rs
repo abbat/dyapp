@@ -202,6 +202,46 @@ async fn failure_before_commit_reports_no_submission_and_preserves_the_snapshot(
 }
 
 #[tokio::test]
+async fn strict_edit_and_delete_keep_committed_changes_on_delivery_failure() {
+    let mut f = fixture();
+    let target = queued_text(&mut f).await;
+    assert!(matches!(
+        f.session
+            .send_edit(&mut [], &f.group, target, b"changed", &f.seal)
+            .await,
+        Err(Error::Client(crate::Error::Status(Status::NotFound)))
+    ));
+    let rows = f.session.store().current_chat_messages(&f.peer).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].key.id, target);
+    assert!(rows[0].current.edited);
+    assert_eq!(rows[0].current.text.as_deref(), Some(b"changed".as_slice()));
+    let edited_writes = writes(&f.session);
+    assert!(matches!(
+        f.session
+            .send_delete(&mut [], &f.group, target, &f.seal)
+            .await,
+        Err(Error::Client(crate::Error::Status(Status::NotFound)))
+    ));
+    let rows = f.session.store().current_chat_messages(&f.peer).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].key.id, target);
+    assert!(rows[0].current.deleted);
+    assert_eq!(rows[0].current.text, None);
+    let deleted_writes = writes(&f.session);
+    assert!(deleted_writes.len() > edited_writes.len());
+    drop(f.session);
+    let mut reopened = Session::open(Store::open(&f.path, &f.owner).unwrap(), &f.seal).unwrap();
+    reopened.retry_due(&mut [], 0, &f.seal).await.unwrap();
+    assert_eq!(writes(&reopened), deleted_writes);
+    assert!(
+        reopened.store().current_chat_messages(&f.peer).unwrap()[0]
+            .current
+            .deleted
+    );
+}
+
+#[tokio::test]
 async fn strict_send_still_reports_delivery_failure_after_a_single_committed_text() {
     let mut f = fixture();
     assert!(matches!(

@@ -1,6 +1,6 @@
 //! Clearing, reading, editing, deleting and blocking in one pair's chat, as on desktop.
 
-use super::{failed, ChatLikes, ChatSession};
+use super::{failed, ChatLikes, ChatSession, ChatSubmission};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
@@ -141,9 +141,24 @@ impl ChatSession {
         u32::try_from(read).map_err(failed)
     }
 
+    /// Strict compatibility edit: queued delivery remains an error.
+    ///
+    /// # Errors
+    /// Returns target/preflight/staging errors or the committed edit's delivery failure.
+    pub fn edit_text(
+        &self,
+        peer_id: String,
+        group_id: Vec<u8>,
+        message_id: Vec<u8>,
+        text: String,
+    ) -> Result<Vec<u8>, CoreError> {
+        self.submit_edit_text(peer_id, group_id, message_id, text)?
+            .into_accepted()
+    }
+
     /// Replace the live own text `message_id` in `group_id` with `text` and return the edit's
-    /// ID. A failed send stays staged. Errors are `invalidText`, `ownPeer`, `blocked`,
-    /// `unknownMessage`, `notConnected` or a node or storage message.
+    /// committed ID and delivery outcome. Queued edits stay staged. Errors are `invalidText`,
+    /// `ownPeer`, `blocked`, `unknownMessage`, `notConnected` or a node or storage message.
     ///
     /// # Errors
     ///
@@ -153,21 +168,35 @@ impl ChatSession {
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn edit_text(
+    pub fn submit_edit_text(
         &self,
         peer_id: String,
         group_id: Vec<u8>,
         message_id: Vec<u8>,
         text: String,
-    ) -> Result<Vec<u8>, CoreError> {
+    ) -> Result<ChatSubmission, CoreError> {
         if text.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err(code("invalidText"));
         }
         self.operate(&peer_id, &group_id, &message_id, Some(&text))
     }
 
+    /// Strict compatibility deletion: queued delivery remains an error.
+    ///
+    /// # Errors
+    /// Returns target/preflight/staging errors or the committed deletion's delivery failure.
+    pub fn delete_text(
+        &self,
+        peer_id: String,
+        group_id: Vec<u8>,
+        message_id: Vec<u8>,
+    ) -> Result<Vec<u8>, CoreError> {
+        self.submit_delete_text(peer_id, group_id, message_id)?
+            .into_accepted()
+    }
+
     /// Delete the live own text `message_id` in `group_id` for both sides and return the
-    /// delete's ID. Errors as in [`Self::edit_text`] without `invalidText`.
+    /// committed deletion outcome. Errors as in [`Self::submit_edit_text`] without `invalidText`.
     ///
     /// # Errors
     ///
@@ -177,12 +206,12 @@ impl ChatSession {
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn delete_text(
+    pub fn submit_delete_text(
         &self,
         peer_id: String,
         group_id: Vec<u8>,
         message_id: Vec<u8>,
-    ) -> Result<Vec<u8>, CoreError> {
+    ) -> Result<ChatSubmission, CoreError> {
         self.operate(&peer_id, &group_id, &message_id, None)
     }
 
@@ -362,7 +391,7 @@ impl ChatSession {
         group_id: &[u8],
         message_id: &[u8],
         text: Option<&str>,
-    ) -> Result<Vec<u8>, CoreError> {
+    ) -> Result<ChatSubmission, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
@@ -375,16 +404,16 @@ impl ChatSession {
                 let sent = match text {
                     Some(text) => {
                         session
-                            .send_edit(nodes, group_id, target, text.as_bytes(), &self.seal_key)
+                            .submit_edit(nodes, group_id, target, text.as_bytes(), &self.seal_key)
                             .await
                     }
                     None => {
                         session
-                            .send_delete(nodes, group_id, target, &self.seal_key)
+                            .submit_delete(nodes, group_id, target, &self.seal_key)
                             .await
                     }
                 };
-                sent.map(|id| id.to_vec()).map_err(failed)
+                sent.map(ChatSubmission::from).map_err(failed)
             })
         })
     }

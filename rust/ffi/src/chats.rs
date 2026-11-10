@@ -39,6 +39,8 @@ pub use photos::chat_photo_hours_left;
 pub use sticker_view::ChatSticker;
 mod reads;
 mod send_photo;
+mod submission;
+pub use submission::ChatSubmission;
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
 pub use notices::ChatNotice;
@@ -224,9 +226,17 @@ impl ChatSession {
         Ok(session.conversation(&peer_id).map_err(failed)?.into())
     }
 
-    /// Send `text` to `peer_id`, whose verified profile comes from the active network, and return
-    /// its logical ID. The first text invites the peer; a text to a pending request is the reply
-    /// that opens the chat. A failed send stays staged and is retried with the same bytes. Errors
+    /// Strict compatibility send: queued delivery remains an error.
+    ///
+    /// # Errors
+    /// Returns pre-commit errors or the committed operation's immediate delivery failure.
+    pub fn send_text(&self, peer_id: String, text: String) -> Result<Vec<u8>, CoreError> {
+        self.submit_text(peer_id, text)?.into_accepted()
+    }
+
+    /// Submit `text` to `peer_id`, whose verified profile comes from the active network, and return
+    /// its committed logical ID and delivery outcome. The first text invites the peer; a text to
+    /// a pending request opens the chat. Queued writes retry with the same bytes. Errors
     /// are `ownPeer`, `invalidText`, `blocked`, `unpublished` (this device or the peer has no
     /// published profile), `notConnected` or a node or storage message.
     ///
@@ -238,7 +248,7 @@ impl ChatSession {
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn send_text(&self, peer_id: String, text: String) -> Result<Vec<u8>, CoreError> {
+    pub fn submit_text(&self, peer_id: String, text: String) -> Result<ChatSubmission, CoreError> {
         if peer_id == self.key.identity.peer_id() {
             return Err(CoreError::Failed("ownPeer".into()));
         }
@@ -261,14 +271,14 @@ impl ChatSession {
                     return Err(CoreError::Failed("unpublished".into()));
                 }
                 session
-                    .send_text_to(
+                    .submit_text_to(
                         std::slice::from_mut(&mut node),
                         &[own, peer],
                         text.as_bytes(),
                         &self.seal_key,
                     )
                     .await
-                    .map(|id| id.to_vec())
+                    .map(ChatSubmission::from)
                     .map_err(failed)
             })
         })

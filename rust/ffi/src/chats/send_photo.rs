@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use super::{failed, listed_own, ChatSession};
+use super::{failed, listed_own, ChatSession, ChatSubmission};
 use crate::peer_photos::reachable;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
@@ -47,8 +47,24 @@ fn send_error(error: session::Error) -> CoreError {
 
 #[uniffi::export]
 impl ChatSession {
-    /// Sends a bounded prepared JPEG and its preview to an open chat, never a message request.
-    /// Nothing is staged if upload fails; a later delivery failure may leave a stored photo.
+    /// Strict compatibility photo send: queued delivery remains an error.
+    ///
+    /// # Errors
+    /// Returns validation/upload/staging errors or the immediate committed delivery failure.
+    pub fn send_chat_photo(
+        &self,
+        peer_id: String,
+        photo: Vec<u8>,
+        preview: Vec<u8>,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<u8>, CoreError> {
+        self.submit_chat_photo(peer_id, photo, preview, width, height)?
+            .into_accepted()
+    }
+
+    /// Submits a bounded prepared JPEG and its preview to an open chat, never a message request.
+    /// Upload failures stage nothing; committed photos report either node acceptance or queued delivery.
     /// Errors include unsupported, corrupted, blocked, conversationNotOpen, full and tooLarge.
     ///
     /// # Errors
@@ -60,14 +76,14 @@ impl ChatSession {
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn send_chat_photo(
+    pub fn submit_chat_photo(
         &self,
         peer_id: String,
         photo: Vec<u8>,
         preview: Vec<u8>,
         width: u32,
         height: u32,
-    ) -> Result<Vec<u8>, CoreError> {
+    ) -> Result<ChatSubmission, CoreError> {
         if peer_id == self.key.identity.peer_id() {
             return Err(failed("ownPeer"));
         }
@@ -89,7 +105,7 @@ impl ChatSession {
                     return Err(failed("notConnected"));
                 }
                 session
-                    .send_attachment_to(
+                    .submit_attachment_to(
                         &mut nodes,
                         &self.key.identity,
                         &peer_id,
@@ -98,7 +114,7 @@ impl ChatSession {
                         &self.seal_key,
                     )
                     .await
-                    .map(|id| id.to_vec())
+                    .map(|outcome| ChatSubmission::from_core(outcome, send_error))
                     .map_err(send_error)
             })
         })

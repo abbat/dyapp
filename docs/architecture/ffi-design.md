@@ -96,8 +96,8 @@ too-long and sendable controls. Loading, a pending outgoing request and a closed
 submission. The shared protocol limit is 65,536 UTF-8 bytes, inclusive. Blank text follows the
 Linux desktop's ECMAScript trim semantics, including BOM as blank and excluding NEL from blank.
 The common `chat_composer_policy` native adapter converts states/results; Android delegates its
-composer helpers to it. This presentation policy does not replace send authorization. Durable
-send outcome reporting remains planned; Android still infers staging until that API is adopted.
+composer helpers to it. This presentation policy does not replace send authorization. Android
+still infers staging until it adopts the committed submission APIs below.
 The session staging path separates preflight context, MLS preparation and atomic persistence;
 failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
 fallback replacements across ranked nodes, propagates local failures immediately, and records
@@ -112,8 +112,11 @@ open-chat/blocked guards. `submit_attachment(_to)` uploads the blob before messa
 `submit_pack_sticker_to` also retains upload reservations/reuse and strips the owner's release
 capability from the chat descriptor. Both expose queued post-commit failures. The existing
 saved-pack send API still returns an ID on committed client delivery errors and propagates other
-failures. Native/Android adoption remains planned; Kotlin must not treat these core APIs alone
-as completion of that migration.
+failures. Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
+`submit_chat_photo` return `ChatSubmission::Accepted` or `Queued` with the committed ID;
+pre-commit failures remain errors. The adapter only converts core outcomes and operation-specific
+error codes. Legacy native send/edit/delete methods keep strict delivery errors through the same
+path. Android adoption remains planned; exposing this API alone does not complete that migration.
 
 ## Shared profile editor policy
 
