@@ -31,6 +31,7 @@
     <string name="view_unlike_hint">Press Liked to take the like back; the match ends for both of you.</string>
     <string name="view_sending">Sending…</string>
     <string name="view_like_failed">The like was not sent.</string>
+    <string name="view_like_state_unavailable">Like state is unavailable. Reopen this profile to refresh it.</string>
     <string name="view_like_unpublished">Publish your profile first, so the other person sees who likes them.</string>
     <string name="view_like_not_connected">No active network node answered. Check the connection, then retry.</string>
     <string name="view_like_pending">Saved on this phone. It goes out when a node answers.</string>

@@ -134,7 +134,12 @@ The common native `submit_like` returns `ChatLikeAttempt`: an optional `ChatSubm
 by the real event ID, and an independent `ChatLikeState::Ready` or `Unavailable` projection.
 A state-read failure never erases commitment; absent submission explicitly means no event.
 Legacy `like` preserves delivery-error precedence over projection errors through the same path.
-Android adoption remains planned and must not infer commitment from matching state.
+Android uses this result directly: only queued native submissions show pending delivery;
+matching projection values never prove that an attempt committed. An unavailable projection
+clears the shown like state and disables like actions until a new successful read. The profile
+form belongs to the peer/identity; local operations version background reads, and completing an
+operation restarts the read effect. Older read/operation completions cannot replace a newer
+intent. Native Android CI verification remains pending.
 
 ## Shared profile editor policy
 

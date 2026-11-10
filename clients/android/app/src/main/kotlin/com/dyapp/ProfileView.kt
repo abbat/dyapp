@@ -57,12 +57,13 @@ internal fun ProfileViewScreen(
 ) {
     var attempt by remember { mutableIntStateOf(0) }
     val load by rememberProfileLoad(peer, known, feed, attempt)
-    val form = remember { ProfileForm() }
+    val form = remember(peer, opened.slot.id, feed) { ProfileForm() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(feed.version) {
-        withContext(Dispatchers.IO) { runCatching { feed.likes(peer) } }
-            .onSuccess { form.likes = it }
-            .onFailure { if (form.likes == null) form.status = profileLoadStatus(it) }
+    LaunchedEffect(peer, feed, feed.version, form.readVersion, form.sending) {
+        if (form.sending) return@LaunchedEffect
+        val request = form.readVersion
+        val result = withContext(Dispatchers.IO) { runCatching { feed.likes(peer) } }
+        form.finishRead(request, result)
     }
     BackHandler(onBack = actions.back)
     val onLike = { liked: Boolean -> scope.sendLike(form, feed, peer, liked) }
@@ -148,7 +149,7 @@ private fun ProfileLikes(form: ProfileForm, onMessage: () -> Unit, onLike: (Bool
 @Composable
 private fun LikeButtons(form: ProfileForm, onMessage: () -> Unit, onLike: (Boolean) -> Unit) {
     val ours = form.likes?.ours == true
-    val ready = form.likes != null && !form.sending
+    val ready = form.likeReady
     Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
         val side = Modifier.weight(1f)
         if (ours) {

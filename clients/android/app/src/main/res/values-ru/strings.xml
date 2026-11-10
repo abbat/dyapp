@@ -30,6 +30,7 @@
     <string name="view_unlike_hint">Нажмите «Вы отметили», чтобы отменить; взаимность пропадёт у обоих.</string>
     <string name="view_sending">Отправка…</string>
     <string name="view_like_failed">Симпатия не отправлена.</string>
+    <string name="view_like_state_unavailable">Состояние симпатии недоступно. Откройте профиль заново, чтобы обновить его.</string>
     <string name="view_like_unpublished">Сначала опубликуйте профиль, чтобы человек видел, кому он понравился.</string>
     <string name="view_like_not_connected">Нет ответа от узла действующей сети. Проверьте подключение и повторите.</string>
     <string name="view_like_pending">Сохранено на этом телефоне. Уйдёт, когда ответит узел.</string>

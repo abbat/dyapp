@@ -3,6 +3,7 @@ package com.dyapp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
@@ -34,6 +35,9 @@ internal class ProfileForm {
     var info by mutableStateOf<Int?>(null)
     var confirming by mutableStateOf(false)
     var blocking by mutableStateOf(false)
+    var readVersion by mutableIntStateOf(0)
+
+    val likeReady: Boolean get() = likes != null && !sending
 }
 
 /** Where the page leads: [backLabel] names what back returns to; [blocked] leaves after a block. */
@@ -80,30 +84,21 @@ internal fun rememberProfileLoad(peer: String, known: FoundProfile?, feed: ChatF
 
 /** Likes [peer] or takes the like back, and shows the outcome on [form]. */
 internal fun CoroutineScope.sendLike(form: ProfileForm, feed: ChatFeed, peer: String, liked: Boolean) {
-    form.start()
+    if (!form.likeReady) return
+    val request = form.start()
     launch {
-        // A failed send can still be staged: then the like stands and goes out with a later receive.
-        var staged: ChatLikes? = null
-        val result = withContext(Dispatchers.IO) {
-            feed.like(peer, liked).onFailure { staged = runCatching { feed.likes(peer) }.getOrNull() }
-        }
-        form.sending = false
-        val pending = staged?.takeIf { it.ours == liked }
-        if (pending != null) {
-            form.likes = pending
-            form.info = R.string.view_like_pending
-        } else {
-            result.onSuccess { form.likes = it }.onFailure { form.status = likeStatus(it) }
-        }
+        val result = withContext(Dispatchers.IO) { feed.like(peer, liked) }
+        form.completeLike(request, result)
     }
 }
 
 /** Passes on [peer] or undoes that, and shows the outcome on [form]. */
 internal fun CoroutineScope.sendPass(form: ProfileForm, feed: ChatFeed, peer: String, passed: Boolean) {
-    form.start()
+    if (!form.likeReady) return
+    val request = form.start()
     launch {
         val result = withContext(Dispatchers.IO) { feed.pass(peer, passed) }
-        form.sending = false
+        if (!form.finish(request)) return@launch
         result.onSuccess {
             form.likes = it
             form.info = if (passed) R.string.view_passed else R.string.view_unpassed
@@ -113,17 +108,52 @@ internal fun CoroutineScope.sendPass(form: ProfileForm, feed: ChatFeed, peer: St
 
 /** Blocks [peer] and leaves through [onBlocked]; a failure stays on the page and says why. */
 internal fun CoroutineScope.sendBlock(form: ProfileForm, feed: ChatFeed, peer: String, onBlocked: () -> Unit) {
-    form.start()
+    if (form.sending) return
+    val request = form.start()
     launch {
         val result = withContext(Dispatchers.IO) { feed.block(peer) }
-        form.sending = false
+        if (!form.finish(request)) return@launch
         result.onSuccess { onBlocked() }
             .onFailure { form.status = ChatStatus(R.string.chat_block_failed, it.toString()) }
     }
 }
 
-private fun ProfileForm.start() {
+internal fun ProfileForm.start(): Int {
+    readVersion += 1
     sending = true
     status = null
     info = null
+    return readVersion
+}
+
+/** Retire the operation before admitting a new read or action. */
+internal fun ProfileForm.finish(request: Int): Boolean {
+    if (request != readVersion) return false
+    readVersion += 1
+    sending = false
+    return true
+}
+
+/** Only the current local attempt can finish its controls. */
+internal fun ProfileForm.completeLike(request: Int, result: Result<uniffi.dyapp.ChatLikeAttempt>) {
+    if (!finish(request)) return
+    result.onSuccess {
+        info = if (it.submission is uniffi.dyapp.ChatSubmission.Queued) R.string.view_like_pending else null
+        when (val state = it.state) {
+            is uniffi.dyapp.ChatLikeState.Ready -> { likes = state.likes }
+            is uniffi.dyapp.ChatLikeState.Unavailable -> {
+                likes = null
+                status = ChatStatus(R.string.view_like_state_unavailable, state.detail)
+            }
+        }
+    }.onFailure { status = likeStatus(it) }
+}
+
+/** Read completions cannot replace a newer operation or its projection. */
+internal fun ProfileForm.finishRead(request: Int, result: Result<ChatLikes>) {
+    if (sending || request != readVersion) return
+    result.onSuccess {
+        likes = it
+        if (status?.text == R.string.view_like_state_unavailable) status = null
+    }.onFailure { if (likes == null && status == null) status = profileLoadStatus(it) }
 }

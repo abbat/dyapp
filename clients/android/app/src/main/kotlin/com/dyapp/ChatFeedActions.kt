@@ -11,8 +11,8 @@ internal fun ChatFeed.likes(peer: String) = RustBridge.withChats(opened) { it.li
 internal fun ChatFeed.profiles(peers: List<String>) = RustBridge.withChats(opened) { it.profiles(peers) }
 
 /** Sends or withdraws a like, then refreshes local rows. */
-internal fun ChatFeed.like(peer: String, liked: Boolean): Result<ChatLikes> =
-    runCatching { RustBridge.withChats(opened) { it.like(peer, liked) } }.also { read() }
+internal fun ChatFeed.like(peer: String, liked: Boolean): Result<uniffi.dyapp.ChatLikeAttempt> =
+    runCatching { RustBridge.withChats(opened) { it.submitLike(peer, liked) } }.also { read() }
 
 /** Passes on a peer locally, or undoes that, then refreshes rows. */
 internal fun ChatFeed.pass(peer: String, passed: Boolean): Result<ChatLikes> =
