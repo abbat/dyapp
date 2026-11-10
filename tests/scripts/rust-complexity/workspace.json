@@ -241,7 +241,6 @@
   {"path":"rust/client/src/tests.rs","function":"fn node_put_and_prepared_retry_reach_the_mailbox ","metrics":{"nesting":5,"lines":60,"nested_regions":1}},
   {"path":"rust/client/src/tests.rs","function":"fn providers_are_dialed_for_their_addresses ","metrics":{"lines":54}},
   {"path":"rust/client/src/tests.rs","function":"fn search_calls_solve_the_puzzle_and_surface_busy_nodes ","metrics":{"lines":137}},
-  {"path":"rust/ffi/src/chats.rs","function":"mod tests # [cfg (test)]::fn the_first_open_stores_the_device_for_later_opens ","metrics":{"cognitive":71,"lines":210}},
   {"path":"rust/p2p-net/src/auto_relay.rs","function":"mod tests # [cfg (test)]::fn a_private_node_listens_on_a_circuit_through_a_connected_relay ","metrics":{"lines":74}},
   {"path":"rust/p2p-net/src/dial_guard.rs","function":"mod tests # [cfg (test)]::fn specified_address_ranges_and_boundaries ","metrics":{"lines":68}},
   {"path":"rust/p2p-net/src/incoming_groups.rs","function":"mod tests # [cfg (test)]::fn group_masks_bound_unknown_endpoints_and_keep_address_families_separate ","metrics":{"lines":65}},
