@@ -285,8 +285,8 @@ class DesktopSmoke:
         # Offline fixture: no seeds or outgoing discovery. Installation-level
         # network settings let the node run in the account picker too.
         (root / "node-config").mkdir(exist_ok=True)
-        (root / "node-config" / "network").write_text(
-            "dyapp-network 1\nname \n"
+        (root / "node-config" / "network").write_bytes(
+            b"dyapp-network 1\nname \n"
         )
         file = ["--ui-test-file"]
         second = self.case(
