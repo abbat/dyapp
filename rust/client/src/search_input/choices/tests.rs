@@ -68,6 +68,22 @@ fn selected_place_is_independent_of_country_and_never_uses_typed_place_text() {
 }
 
 #[test]
+fn interest_queries_use_the_publication_canonical_spelling() {
+    for raw in [
+        " MUSIC E\u{301} ",
+        "\u{feff}MUSIC \u{c9}\u{a0}",
+        "\u{85}Music \u{e9}\u{85}",
+    ] {
+        let inputs = SearchChoiceInputs {
+            interest: raw.into(),
+            ..SearchChoiceInputs::default()
+        };
+        assert_eq!(inputs.conditions(&[19]), [text(19, "music \u{e9}")]);
+        assert_eq!(inputs.conditions(&[]), [] as [proto::Condition; 0]);
+    }
+}
+
+#[test]
 fn country_and_interest_use_linux_whitespace_and_fixed_wire_order() {
     let inputs = SearchChoiceInputs {
         country: "\u{feff}US\u{a0}".into(),
@@ -84,5 +100,5 @@ fn country_and_interest_use_linux_whitespace_and_fixed_wire_order() {
         interest: "\u{85}".into(),
         ..SearchChoiceInputs::default()
     };
-    assert_eq!(inputs.conditions(&[4, 19]), [text(19, "\u{85}")]);
+    assert_eq!(inputs.conditions(&[4, 19]), [] as [proto::Condition; 0]);
 }

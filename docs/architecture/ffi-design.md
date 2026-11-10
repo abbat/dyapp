@@ -200,7 +200,10 @@ instrumentation. Desktop adoption remains planned under the shared-query extract
 
 `dyapp_client::search_input::SearchChoiceInputs` builds offered categorical, country,
 interest and selected-place equality conditions. It uses canonical scale order, ignores unknown
-keys and zero choices, and trims text with the same Linux predicate. Selected place IDs are
+keys and zero choices, and trims raw text with the same Linux predicate. Interest tags then
+pass through `dyapp_profile::normalize_interest` (trim, lowercase, NFC), matching publication;
+its domain normalization also removes NEL at the edges. Country and employer retain their
+separate raw-input whitespace contracts. Selected place IDs are
 independent of country-field availability; pickers must invalidate a selection when its source
 country/text changes. Free-form place labels are never wire conditions. The common native
 `search_choice_conditions` adapter converts records only; Android and iOS use it for these

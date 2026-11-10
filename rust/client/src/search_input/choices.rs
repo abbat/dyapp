@@ -40,7 +40,8 @@ impl SearchChoiceInputs {
             })
             .collect();
         append_text(&mut out, offered, 4, &self.country);
-        append_text(&mut out, offered, 19, &self.interest);
+        let interest = dyapp_profile::normalize_interest(super::trim(&self.interest));
+        append_text(&mut out, offered, 19, &interest);
         if let Some(place) = self.place {
             append_text(&mut out, offered, 20, &place.to_string());
         }

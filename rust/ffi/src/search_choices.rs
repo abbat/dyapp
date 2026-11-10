@@ -53,7 +53,7 @@ mod tests {
         let inputs = SearchChoiceInputs {
             picked: [("gender".into(), 1)].into(),
             country: "\u{feff}DE ".into(),
-            interest: " music ".into(),
+            interest: "\u{feff}MUSIC E\u{301} \u{a0}".into(),
             place: Some(7),
         };
         let actual = search_choice_conditions(vec![20, 19, 4, 36], inputs);
@@ -63,7 +63,7 @@ mod tests {
         );
         assert_eq!(actual[0].ints, [1]);
         assert_eq!(actual[1].strings, ["DE"]);
-        assert_eq!(actual[2].strings, ["music"]);
+        assert_eq!(actual[2].strings, ["music \u{e9}"]);
         assert_eq!(actual[3].strings, ["7"]);
         assert!(actual.iter().all(|value| value.op == SearchOp::Eq));
     }
