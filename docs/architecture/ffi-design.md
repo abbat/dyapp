@@ -193,7 +193,10 @@ and preserves order/duplicates. Matching remains local through `Employer::retain
 conditions. Raw search ranges, composer and employer inputs share
 `dyapp_profile::text_input::trim`, the ECMAScript predicate: BOM is blank, NEL is retained.
 The same predicate controls numeric parsing and blank detection; hidden invalid ranges remain
-ignored. Native/platform employer adapters remain planned.
+ignored. The common native `search_employer_filter(SearchEmployerMode, text)` only converts
+enums and delegates to the core. Android and iOS pass raw field text through it, retaining mode
+labels and rendering only. Employer tests crossing the native boundary belong in Android
+instrumentation. Desktop adoption remains planned under the shared-query extraction.
 
 ## Exported surface
 

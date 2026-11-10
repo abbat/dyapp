@@ -53,6 +53,8 @@ mod birth_input;
 pub use birth_input::{parse_profile_birth_parts, valid_profile_birth_parts};
 mod search_input;
 pub use search_input::{search_range_conditions, SearchRangeInputs};
+mod search_employer;
+pub use search_employer::{search_employer_filter, SearchEmployerMode};
 mod profile_search;
 pub use profile_search::{
     FoundProfile, ProfileSearchFailure, ProfileSearchResult, ProfileSearcher, SearchCondition,

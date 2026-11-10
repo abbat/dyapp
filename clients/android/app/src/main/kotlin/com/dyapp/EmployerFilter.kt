@@ -12,13 +12,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import uniffi.dyapp.SearchEmployer
+import uniffi.dyapp.SearchEmployerMode
+import uniffi.dyapp.searchEmployerFilter
 
 /** The employer choices with their test tags and labels. */
-internal enum class EmployerKind(val tag: String, val label: Int) {
-    ANY("search-employer-any", R.string.search_employer_any),
-    SAME("search-employer-same", R.string.search_employer_same),
-    EXCLUDE("search-employer-exclude", R.string.search_employer_exclude),
+internal enum class EmployerKind(val tag: String, val label: Int, val mode: SearchEmployerMode) {
+    ANY("search-employer-any", R.string.search_employer_any, SearchEmployerMode.ANY),
+    SAME("search-employer-same", R.string.search_employer_same, SearchEmployerMode.SAME),
+    EXCLUDE("search-employer-exclude", R.string.search_employer_exclude, SearchEmployerMode.EXCLUDE),
 }
 
 /** The employer filter: it narrows verified results on this device, so it is shown whatever the nodes offer. */
@@ -26,15 +27,8 @@ internal class EmployerFilter {
     var kind by mutableStateOf(EmployerKind.ANY)
     var company by mutableStateOf("")
 
-    /** The core's filter; a blank company means any, and `;` separates the companies to hide. */
-    fun employer(): SearchEmployer {
-        val typed = company.trim()
-        return when {
-            typed.isEmpty() || kind == EmployerKind.ANY -> SearchEmployer.Any
-            kind == EmployerKind.SAME -> SearchEmployer.Same(typed)
-            else -> SearchEmployer.Exclude(typed.split(';').map(String::trim).filter(String::isNotEmpty))
-        }
-    }
+    /** The shared core interprets raw text; the platform owns only fields and labels. */
+    fun employer() = searchEmployerFilter(kind.mode, company)
 }
 
 @Composable

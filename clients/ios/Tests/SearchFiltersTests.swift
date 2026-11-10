@@ -80,6 +80,23 @@ final class SearchFiltersTests: XCTestCase {
             String(describing: inputs.employer()), String(describing: SearchEmployer.any))
     }
 
+    func testEmployerWhitespaceUsesTheLinuxCoreContract() {
+        var inputs = SearchFilterInputs()
+        inputs.employerKind = .same
+        inputs.company = "\u{feff}\u{a0}"
+        XCTAssertEqual(
+            String(describing: inputs.employer()), String(describing: SearchEmployer.any))
+        inputs.company = "\u{85}"
+        XCTAssertEqual(
+            String(describing: inputs.employer()),
+            String(describing: SearchEmployer.same(company: "\u{85}")))
+        inputs.employerKind = .exclude
+        inputs.company = "; ;"
+        XCTAssertEqual(
+            String(describing: inputs.employer()),
+            String(describing: SearchEmployer.exclude(companies: [])))
+    }
+
     func testCoreErrorsMapToStatusTexts() {
         XCTAssertEqual(
             searchErrorKey(CoreError.Failed(message: "notConnected")), "search.notConnected")

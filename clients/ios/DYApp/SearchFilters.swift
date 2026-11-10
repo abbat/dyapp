@@ -11,6 +11,19 @@ private enum SearchField {
 
 enum SearchEmployerKind: Hashable {
     case any, same, exclude
+
+    var coreMode: SearchEmployerMode {
+        switch self {
+        case .any:
+            .any
+
+        case .same:
+            .same
+
+        case .exclude:
+            .exclude
+        }
+    }
 }
 
 /// What the search form holds. The nodes name the fields they serve, so a filter shows only once a
@@ -74,20 +87,7 @@ struct SearchFilterInputs {
     }
 
     func employer() -> SearchEmployer {
-        let typed = company.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch (employerKind, typed.isEmpty) {
-        case (.any, _), (_, true):
-            return .any
-
-        case (.same, false):
-            return .same(company: typed)
-
-        case (.exclude, false):
-            return .exclude(
-                companies: typed.split(separator: ";")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty })
-        }
+        searchEmployerFilter(mode: employerKind.coreMode, text: company)
     }
 
     private func blank(_ text: String) -> Bool {
