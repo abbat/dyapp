@@ -17,5 +17,5 @@ fn missing_corrupted_and_transport_failures_remain_distinct() {
 
 #[test]
 fn invalid_original_bytes_never_reach_native_decoders() {
-    assert!(!acceptable(b"not an image", true));
+    assert!(validate_original(b"not an image", 1, 1, Purpose::Chat).is_err());
 }

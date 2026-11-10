@@ -1,5 +1,8 @@
 //! Purpose-specific full-photo preparation; platforms execute the core's decode plan.
 
+mod original;
+pub use original::validate_original;
+
 use super::{fit, flatten, preview_rgb, PhotoError, MAX_BYTES};
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{self, FilterType};

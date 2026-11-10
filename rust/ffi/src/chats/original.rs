@@ -4,10 +4,11 @@
 mod tests;
 
 use super::{failed, ChatSession};
-use crate::peer_photos::{acceptable, reachable};
+use crate::peer_photos::reachable;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 use dyapp_client::attachment;
+use dyapp_client::photo::prepare::{validate_original, Purpose};
 use dyapp_client::store::originals;
 use dyapp_client::Error;
 use dyapp_p2p_net::proto::Status;
@@ -62,7 +63,9 @@ impl ChatSession {
                 .message
                 .attachment;
             if let Some(bytes) = originals::read(&self.dir, &self.seal_key, &photo) {
-                return if acceptable(&bytes, true) {
+                return if validate_original(&bytes, photo.width, photo.height, Purpose::Chat)
+                    .is_ok()
+                {
                     Ok(bytes)
                 } else {
                     Err(failed("corrupted"))
@@ -78,7 +81,7 @@ impl ChatSession {
                     .await
                     .map_err(fetch_error)
             })?;
-            if !acceptable(&bytes, true) {
+            if validate_original(&bytes, photo.width, photo.height, Purpose::Chat).is_err() {
                 return Err(failed("corrupted"));
             }
             if store.kept_originals_mib().is_ok_and(|limit| limit > 0) {

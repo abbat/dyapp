@@ -4,10 +4,11 @@
 mod tests;
 
 use super::{failed, listed_own, ChatSession};
-use crate::peer_photos::{acceptable, reachable};
+use crate::peer_photos::reachable;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 use dyapp_client::attachment::{self, Attachment};
+use dyapp_client::photo::prepare::{validate_original, Purpose};
 use dyapp_client::session;
 use dyapp_client::store::Conversation;
 use dyapp_client::Error;
@@ -22,9 +23,7 @@ fn sealed(
     if !photo.starts_with(&[0xff, 0xd8]) {
         return Err(failed("unsupported"));
     }
-    if !acceptable(photo, true) {
-        return Err(failed("corrupted"));
-    }
+    validate_original(photo, width, height, Purpose::Chat).map_err(|_| failed("corrupted"))?;
     if !preview.is_empty() {
         crate::check_preview(preview.clone())?;
     }
