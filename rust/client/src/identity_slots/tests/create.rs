@@ -66,6 +66,29 @@ fn all_storage_layouts_reopen_before_becoming_ready_and_selected() {
 }
 
 #[test]
+fn selection_reopens_the_named_identity_and_rejects_missing_or_incomplete_slots() {
+    let root = root();
+    let registry = Registry::new(root.clone(), Layout::Desktop);
+    let keys = Writer::default();
+    let (first, identity) = registry.create(Storage::File, &keys).unwrap();
+    let (second, _) = registry.create(Storage::File, &keys).unwrap();
+    let (selected, reopened) = registry.select(&first.id, &keys).unwrap();
+    assert_eq!(selected.id, first.id);
+    assert_eq!(reopened.peer_id(), identity.peer_id());
+    assert_eq!(
+        active(&root, Layout::Desktop),
+        Active::Selected(first.id.clone())
+    );
+    assert!(registry.select("../identity.key", &keys).is_err());
+    fs::write(second.dir.join("state"), b"pending\n").unwrap();
+    assert!(registry.select(&second.id, &keys).is_err());
+    fs::write(second.dir.join("state"), b"ready\n").unwrap();
+    fs::write(second.dir.join("identity.key"), b"corrupt").unwrap();
+    assert!(registry.select(&second.id, &keys).is_err());
+    assert_eq!(active(&root, Layout::Desktop), Active::Selected(first.id));
+}
+
+#[test]
 fn denial_or_reopen_mismatch_preserves_the_previous_selection_and_pending_state() {
     for keys in [
         Writer {

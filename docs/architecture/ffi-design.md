@@ -239,7 +239,10 @@ writes `ready` and finally the active pointer. `KeyWriter` returns wrapped bytes
 fresh system credential; it must reject existing aliases. A failed verification leaves pending
 metadata and the old selection. An active-pointer write failure can leave a verified ready slot
 without changing the old pointer. Stranded `.tmp` files fail closed rather than being followed,
-truncated or deleted. Explicit selection, confirmed removal and native/client adoption remain planned.
+truncated or deleted. `Registry::select` finds the requested ID in the current inventory,
+requires ready metadata and opens its key before atomically changing the pointer; invalid IDs,
+incomplete slots and unavailable keys preserve the prior selection. Confirmed removal and
+native/client adoption remain planned.
 
 ## Exported surface
 

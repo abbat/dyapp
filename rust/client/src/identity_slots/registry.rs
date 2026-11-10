@@ -33,6 +33,35 @@ impl Registry {
         super::resolve(&self.root, self.layout, keys)
     }
 
+    /// Explicitly select a currently listed ready identity after opening its key.
+    ///
+    /// # Errors
+    /// Returns missing/non-ready candidate, key access, lock or pointer-write failures.
+    /// The prior selection is preserved until the final atomic pointer replacement.
+    pub fn select(
+        &self,
+        id: &str,
+        keys: &dyn KeyReader,
+    ) -> Result<(Slot, Box<dyapp_identity::Identity>), String> {
+        let _guard = self.lock()?;
+        let slot = super::list(&self.root, self.layout)
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .find(|slot| slot.id == id)
+            .ok_or("Identity slot is missing")?;
+        if slot.state != super::State::Ready {
+            return Err("Identity slot is not ready".into());
+        }
+        let super::Resolution::Ready(slot, identity) = super::open_slot(slot, keys) else {
+            return Err("Identity key is missing or unavailable".into());
+        };
+        super::write::replace(
+            &self.root.join("active-profile"),
+            format!("{}\n", slot.id).as_bytes(),
+        )?;
+        Ok((slot, identity))
+    }
+
     pub(super) fn lock(&self) -> Result<File, String> {
         fs::create_dir_all(&self.root).map_err(|error| error.to_string())?;
         let name = if self.layout == Layout::Ios {
