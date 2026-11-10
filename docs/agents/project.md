@@ -164,7 +164,11 @@ pulls anything).
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
 `make msrv` covers only the root Cargo workspace; it does not compile the separate
-`clients/linux` and `clients/windows` test binaries. Their native CI jobs cover those crates.
+`clients/linux`, `clients/windows` and `clients/macos` test binaries. Their native CI jobs cover them.
+For direct filtered Cargo tests in a read-only container, remember that test processes run from
+each crate directory. Relative `build/` fixtures need writable per-crate scratch mounts; create
+the empty host mountpoint before overlaying it with a UID-1000 tmpfs. The root target cache alone
+does not make these fixture paths writable.
 The Linux and Android UI services build the current checkout, mounted read-only; only a changed
 Dockerfile needs `make prepare`. The Android build (`android-build`) is online and fetches its
 Gradle and cargo dependencies into `build/android-build`.
@@ -323,11 +327,11 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   live only in the running query, so dial providers while it runs. After `close_connection`, wait
   for `ConnectionClosed` before the next query: Kademlia may send it down the closing connection,
   where it is never answered.
-- `clients/linux`, `clients/windows` and `tests/fuzz` have their own `Cargo.lock`, built
-  `--locked` in CI. A new dependency of a shared crate (`rust/client`, `rust/profile`, ...) or of
+- `clients/linux`, `clients/windows`, `clients/macos` and `tests/fuzz` have their own `Cargo.lock`,
+  built `--locked` in CI. A new dependency of a shared crate (`rust/client`, `rust/profile`, ...) or of
   `clients/desktop` code must be added to each of them; when two versions of a crate are locked,
   the dependency line names the version (`"miniz_oxide 0.8.9"`). Tests in `clients/desktop`
-  compile into both desktop apps, so their dev-dependencies go into both `Cargo.toml` files.
+  compile into all three desktop apps, so their dev-dependencies go into each `Cargo.toml` file.
   A new dependency needs an `ADR:` trailer ([triggers](../decisions/README.md#triggers)); the
   pre-commit hook does not check it, so run `make quality` before such a commit.
   Before merging a grouped Dependabot PR, check release dates despite the configured cooldown

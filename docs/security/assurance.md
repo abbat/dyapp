@@ -37,6 +37,12 @@ Maintained remains at 0 while the repository is younger than 90 days; Code-Revie
 Contributors are also at 0. The registered Best Practices badge scores 2 and branch
 protection scores 4. Improving these checks requires maintainer decisions.
 
+The workspace, desktop and fuzz locks use `rusqlite` 0.41.0 with bundled SQLite 3.54.1
+(`libsqlite3-sys` 0.39.1). This includes the fix for
+[RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html): a crafted database
+and sibling WAL with inconsistent page sizes could otherwise expose page-cache memory.
+Keep all five locks aligned when updating the shared storage dependency.
+
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over supported manifests.
 OSV-Scanner reads `osv-scanner.toml` from the scanned manifest's directory; a root exception
 therefore does not cover a child directory. Each reviewed exception needs a reason tied to its
