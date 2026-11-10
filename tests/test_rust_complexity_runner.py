@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 import time
 import unittest
-from unittest import mock
+import unittest.mock
 
 if typing.TYPE_CHECKING:
     import fixture_contracts as fc
@@ -35,7 +35,7 @@ def load(name: "str", filename: "str") -> "types.ModuleType":
 
 
 POLICY = load("complexity_policy", "rust_complexity.py")
-with mock.patch.dict(sys.modules, rust_complexity=POLICY):
+with unittest.mock.patch.dict(sys.modules, rust_complexity=POLICY):
     RUNNER = load("complexity_runner", "check-rust-complexity.py")
 
 
@@ -83,10 +83,12 @@ class ComplexityRunnerTest(unittest.TestCase):
         path = ROOT / "tests/scripts/rust-complexity/workspace.json"
         old = [budget()]
         current = RUNNER.budgets([dict(budget(), metrics={"lines": 71})])
-        with mock.patch.dict(os.environ, COMPLEXITY_BASE="fixture-base"):
-            with mock.patch.object(RUNNER.subprocess, "run") as run:
+        with unittest.mock.patch.dict(
+            os.environ, COMPLEXITY_BASE="fixture-base"
+        ):
+            with unittest.mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.stdout = path.relative_to(ROOT).as_posix()
-                with mock.patch.object(
+                with unittest.mock.patch.object(
                     RUNNER.subprocess,
                     "check_output",
                     return_value=json.dumps(old),
@@ -104,10 +106,10 @@ class ComplexityRunnerTest(unittest.TestCase):
         directory = directory / str(time.time_ns())
         directory.mkdir(parents=True)
         paths = b"rust/old.rs\0rust/new.rs\0"
-        with mock.patch.object(
+        with unittest.mock.patch.object(
             RUNNER.subprocess, "check_output", return_value=paths
         ) as inventory:
-            with mock.patch.object(RUNNER.subprocess, "run") as run:
+            with unittest.mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.returncode = 1
                 with self.assertRaises(ValueError):
                     RUNNER.check_thresholds(directory)
@@ -122,7 +124,7 @@ class ComplexityRunnerTest(unittest.TestCase):
         directory.mkdir(parents=True)
         path = directory / "example.rs"
         path.write_text("fn example() {}")
-        with mock.patch.object(RUNNER, "ROOT", directory):
+        with unittest.mock.patch.object(RUNNER, "ROOT", directory):
             outside = str(ROOT / "Cargo.toml")
             cases = ((outside, time.time_ns()), ("example.rs", 0))
             for filename, started in cases:
@@ -142,7 +144,7 @@ class ComplexityRunnerTest(unittest.TestCase):
             [{"path": "other.rs", "functions": []}],
         ):
             output = "\n".join(map(json.dumps, records))
-            with mock.patch.object(RUNNER.subprocess, "run") as run:
+            with unittest.mock.patch.object(RUNNER.subprocess, "run") as run:
                 run.return_value.returncode = 0
                 run.return_value.stdout = output
                 with self.assertRaises(ValueError):

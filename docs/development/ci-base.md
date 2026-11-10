@@ -204,7 +204,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Docs with the code | `tests/scripts/docs-sync.py`: commits since the push or PR base that change a config key, CLI flag, public API or Make target also change `docs/` ([rules](code-quality.md#docs-change-with-the-code)) |
 | Workflow lint | `actionlint` |
 | Workflow security | `zizmor --offline .github`: template injection, persisted checkout credentials, excessive permissions and the other offline audits; settings in `.github/zizmor.yml` |
-| Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line |
+| Secret scan | `gitleaks git --redact`: the whole git history; known false positives in `.gitleaksignore`, or `gitleaks:allow` on the line; lockfile `libcrux-secrets` dependency-name matches use exact commit/path/line fingerprints, including macOS |
 | Spelling | `typos`: the tracked source tree; allowed words in `_typos.toml` |
 | TOML format | `taplo fmt --check`: every `*.toml`, style in `.taplo.toml` (4-space indent, 100 columns) |
 | Web lint | `biome check --error-on-warnings clients/desktop clients/android/prototype`: JavaScript, HTML and CSS lint and formatting; rules in `biome.jsonc` ([linting](linting.md#web-biomejsonc)) |

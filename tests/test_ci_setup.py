@@ -78,8 +78,8 @@ class CiSetupTest(unittest.TestCase):
                     [row[0] for row in commands], ["sudo", "sudo", "rustup"]
                 )
                 packages = set(commands[1][6:])
-                self.assertTrue(
-                    {"build-essential", "pkg-config", "libssl-dev"} <= packages
+                self.assertLessEqual(
+                    {"build-essential", "pkg-config", "libssl-dev"}, packages
                 )
                 self.assertFalse(packages & unrelated)
                 needed = (
