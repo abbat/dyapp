@@ -34,7 +34,7 @@ fn digest_follows_mutations_and_rejections() {
 }
 
 #[test]
-fn slots_and_inventory_range_boundaries() {
+fn slot_arithmetic_boundaries() {
     let mut key = [0; 32];
     key[..3].copy_from_slice(&[0x5a, 0xbc, 0xde]);
     assert_eq!(slot(&key), 0x5bcd);
@@ -46,6 +46,10 @@ fn slots_and_inventory_range_boundaries() {
             assert_eq!(super::topic(&slot_start(topic, p)), topic);
         }
     }
+}
+
+#[test]
+fn inventory_range_boundaries() {
     let index = index();
     let (_, p, record) = signed(&Identity::generate(), profile(1));
     let keys: Vec<_> = [0, 1, 255, 256, SLOTS - 1]
