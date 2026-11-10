@@ -111,10 +111,12 @@
     );
     await appApi.showMediaCache(call);
     edit('256');
+    const finished = closed(dialog);
     document.dispatchEvent(new Event('dyapp:identity-change'));
     check(!dialog.open && el('enabled').disabled, 'Identity change retained destructive dialog');
     confirm.click();
     check(writes.length === count, 'Stale confirmation wrote cache');
+    await finished;
   };
   smoke.checkMediaCache = async () => {
     await openArea('settings', 'photos');

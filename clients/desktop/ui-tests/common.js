@@ -128,13 +128,20 @@ const audit = (() => {
     window.scrollTo(scrollLeft, scrollTop);
     if (overflow > 0) problems.push(`overflow ${overflow}px at 440: ${wide}`);
   };
-  let calibrated = false;
+  let calibration;
+  smoke.calibrateAccessibility = () => {
+    if (!calibration)
+      calibration = (async () => {
+        await documentFocused();
+        await document.fonts.ready;
+        await paintReady();
+        await smoke.accessibilitySelfCheck();
+        await smoke.modalAccessibilitySelfCheck();
+      })();
+    return calibration;
+  };
   return async (name) => {
-    if (!calibrated) {
-      await smoke.accessibilitySelfCheck();
-      await smoke.modalAccessibilitySelfCheck();
-      calibrated = true;
-    }
+    await smoke.calibrateAccessibility();
     const problems = [];
     await auditThemes(problems);
     await documentFocused();

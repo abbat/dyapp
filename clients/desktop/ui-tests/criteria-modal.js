@@ -1,17 +1,8 @@
 // Counterexamples for axe's opaque-modal background isolation.
 (() => {
   const fixture = () => {
-    // Lower top-layer dialogs would mask the normal-flow underlay counterexample.
-    const covered = [...document.querySelectorAll('dialog:modal')].map((dialog) => [
-      dialog,
-      dialog.style.getPropertyValue('visibility'),
-      dialog.style.getPropertyPriority('visibility'),
-    ]);
-    for (const [dialog] of covered) dialog.style.setProperty('visibility', 'hidden', 'important');
-    const restore = () => {
-      for (const [dialog, visibility, priority] of covered)
-        dialog.style.setProperty('visibility', visibility, priority);
-    };
+    // Keep actual page content from masking the controlled normal-flow underlay.
+    const restore = calibrationBackground();
     const modal = document.createElement('dialog');
     modal.className = 'modal';
     modal.setAttribute('aria-label', 'Accessibility calibration');
@@ -73,13 +64,14 @@
         child.style.getPropertyValue('visibility') !== visibility ||
         child.style.getPropertyPriority('visibility') !== priority
       )
-        throw new Error('audit failure left page paint hidden');
+        throw new Error(`audit restoration changed ${child.tagName}#${child.id} visibility`);
     }
   };
   smoke.modalAccessibilitySelfCheck = async () => {
     const previous = document.activeElement;
     const { modal, underlay, label, restore } = fixture();
     try {
+      await paintReady();
       const raw = await window.axe.run(document, smoke.accessibilityOptions());
       const reproduced = raw.incomplete.some(
         (finding) =>
@@ -92,15 +84,18 @@
       await checkForeground(modal, label);
       await checkRestoration();
     } finally {
-      if (modal.open) {
-        const finished = closed(modal);
-        modal.close();
-        await finished;
+      try {
+        if (modal.open) {
+          const finished = closed(modal);
+          modal.close();
+          await finished;
+        }
+      } finally {
+        modal.remove();
+        underlay.remove();
+        restore();
+        previous?.focus({ preventScroll: true });
       }
-      modal.remove();
-      underlay.remove();
-      restore();
-      previous?.focus({ preventScroll: true });
     }
   };
 })();

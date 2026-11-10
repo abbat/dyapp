@@ -1,6 +1,21 @@
 (() => {
+  const checkCollectionFocus = (name, list, previous, next, check) => {
+    check(
+      list.children.length === 1 && next.disabled && document.activeElement === previous,
+      `Last ${name} collection page lost focus: ${JSON.stringify({
+        rows: list.children.length,
+        nextDisabled: next.disabled,
+        previousDisabled: previous.disabled,
+        active: document.activeElement?.id || document.activeElement?.tagName,
+        focused: document.hasFocus(),
+        hidden: previous.closest('[hidden]')?.id,
+      })}`,
+    );
+  };
   const checkSettingsCollection = async (name, id, items, row, selected, check) => {
+    await documentFocused();
     openSettings(name);
+    await paintReady();
     let refreshes = 0;
     const reload = async () => {
       refreshes += 1;
@@ -22,10 +37,8 @@
     next.focus();
     next.click();
     next.click();
-    check(
-      list.children.length === 1 && next.disabled && document.activeElement === previous,
-      'Last collection page lost focus',
-    );
+    await paintReady();
+    checkCollectionFocus(name, list, previous, next, check);
     list.querySelector('button').click();
     check(selected() === 64, 'Paged action targeted wrong item');
     previous.click();

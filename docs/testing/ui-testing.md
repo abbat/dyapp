@@ -31,9 +31,12 @@ Native keyboard checks wait for document focus through the window focus event an
 restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
 hide background paint outside the active dialog, preserving layout and restoring inline visibility
 on success or failure. This avoids axe 4.14 counting occluded page blocks as text overlap.
-Calibration opens its own top-layer dialog so counterexamples remain visible even when the first
-audit starts inside an existing modal. It reproduces the background-stack failure and still rejects
-real low contrast and foreground overlap. Ready-screen hit testing scrolls the heading into view
+Normal native scenarios await one shared calibration promise at startup, before opening dialogs
+or changing scroll/focus state. Calibration and audits wait for bounded paint callbacks after
+fixture/style changes. Standalone prototype calibration owns its top-layer dialog. Counterexamples
+still reject real low contrast and foreground overlap; failures retain layout and axe check details.
+Synthetic fixtures hide unrelated page paint while preserving layout and restore it on every exit.
+Ready-screen hit testing scrolls the heading into view
 after restoring the reflow probe's width, then measures its current bounds after layout frames.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
@@ -50,7 +53,9 @@ The helper rejects a hidden destination; it does not expose panes directly
 or add waits for navigation. Settings navigation has its own Back/focus/reset smoke.
 
 Removal smoke waits for the Cancel close event before reopening, with a fresh deadline for that
-transition. Dialog readiness requires both visible and open state, not only the hidden attribute.
+transition. Cache identity-change checks also await the final close event before collection paging;
+collection focus assertions follow native document focus and rendered layout. Dialog readiness
+requires both visible and open state, not only the hidden attribute.
 The removal close handler ignores an old queued event after a newer opening becomes active.
 
 Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,

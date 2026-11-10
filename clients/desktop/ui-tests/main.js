@@ -781,6 +781,8 @@ Promise.all([
       const peerId = await smoke.uiSmokeGuards.linkStep(step, mode, state);
       return invokeTest('ui_test_result', { passed: true, peerId, reason: '' });
     }
+    // Calibrate before a scenario opens dialogs or changes focus/scroll state.
+    await smoke.calibrateAccessibility();
     if (!(await runSmokeIdentityStep(state, mode, step))) {
       if (!(await runSmokeNetworkStep(state, step)))
         await runSmokeFallbackStep(state, mode, existing, step, readySteps);
