@@ -39,7 +39,8 @@ quality/security to their mapped tools. `linux-test.sh`, `build-apple-core.sh`,
 Apple CI restrictions and Android offline dependency requirements still apply.
 
 `android-test-in-container.sh`, `rust-command-in-container.sh`, `build-deb.sh`,
-`deb-test.sh` and `tarball-test.sh` are internal stage bodies. Their raw compiler, package-manager
+`deb-test.sh`, `tarball-test.sh`, `prototype-run.sh` and `prototype-shots.py` are internal
+stage bodies. Their raw compiler, package-manager
 and test output is captured by the owning Docker stage. `client-deb-test.sh --session` also runs
 its accessibility unit fixture inside that enclosing capture; the production UI driver has its
 own mapped frontend. The production Windows composite action captures its PowerShell UI check

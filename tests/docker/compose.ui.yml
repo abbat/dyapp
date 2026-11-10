@@ -125,6 +125,7 @@ services:
       - ../../clients/desktop:/assets/desktop:ro
       - ../../build/ux-research/prototype:/shots
       # Mounted so a changed screen list needs no image rebuild.
+      - ../../tests/scripts/prototype-run.sh:/app/prototype-run.sh:ro
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
       - ../../tests/scripts/prototype_progress.py:/app/prototype_progress.py:ro
       - ../../tests/scripts/prototype_keyboard.py:/app/prototype_keyboard.py:ro
@@ -135,7 +136,7 @@ services:
       DYAPP_PROTOTYPE_THEME: ${DYAPP_PROTOTYPE_THEME:-all}
       DYAPP_PROTOTYPE_TEXT_SCALE: ${DYAPP_PROTOTYPE_TEXT_SCALE:-all}
       DYAPP_PROTOTYPE_LANGUAGE: ${DYAPP_PROTOTYPE_LANGUAGE:-all}
-    command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py]
+    command: [bash, /app/prototype-run.sh]
 
   # The Android prototype loads the desktop strings through ../../desktop, so both are mounted.
   prototype-shots-android:
@@ -149,9 +150,10 @@ services:
       - ../../clients/desktop:/assets/desktop:ro
       - ../../clients/android/prototype:/assets/android/prototype:ro
       - ../../build/ux-research/prototype-android:/shots
+      - ../../tests/scripts/prototype-run.sh:/app/prototype-run.sh:ro
       - ../../tests/scripts/prototype-shots.py:/app/prototype-shots.py:ro
       - ../../tests/scripts/prototype_progress.py:/app/prototype_progress.py:ro
-    command: [xvfb-run, -a, -s, "-screen 0 1280x800x24", python3, /app/prototype-shots.py, android]
+    command: [bash, /app/prototype-run.sh, android]
 
 networks:
   android-ui:

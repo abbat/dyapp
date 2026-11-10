@@ -662,6 +662,10 @@ Loading, font/layout readiness, criteria, snapshots and keyboard checks advance 
 from their completion callbacks. Each phase gets a fresh 120-second failure deadline;
 it never advances a test. Completion cancels the prior deadline. The raw log names the
 current shot and phase, and a terminated WebKit process fails immediately.
+Startup markers distinguish the launcher, Xvfb, GTK and WebKit initialization. A native
+Python watchdog also covers blocked initialization or a blocked GTK event loop; only
+verified phase progress resets it. It emits thread stacks and exits on failure, and is
+cancelled after report completion. Ordinary successful output stays captured.
 
 Each capture writes axe, clipping and dialog findings to `criteria.json`; missing measurements
 fail. Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.json`.

@@ -10,4 +10,4 @@ RUN curl -fsSL -o /tmp/axe.tgz https://registry.npmjs.org/axe-core/-/axe-core-4.
     && echo '2277b0a3ef47af9b52497faa3e71598e86e0a0e5e6eb295207a5657ede4709af  /tmp/axe.tgz' | sha256sum -c - \
     && mkdir -p /opt/axe-core \
     && tar -xzf /tmp/axe.tgz -C /opt/axe-core --strip-components=1 package/axe.min.js
-COPY tests/scripts/prototype-shots.py tests/scripts/prototype_progress.py tests/scripts/prototype_keyboard.py tests/scripts/prototype_keyboard_fixtures.py tests/scripts/focus_pixels.py /app/
+COPY tests/scripts/prototype-run.sh tests/scripts/prototype-shots.py tests/scripts/prototype_progress.py tests/scripts/prototype_keyboard.py tests/scripts/prototype_keyboard_fixtures.py tests/scripts/focus_pixels.py /app/

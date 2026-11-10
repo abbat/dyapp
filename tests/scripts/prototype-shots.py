@@ -13,6 +13,8 @@ check-layout.py.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+import faulthandler
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -26,6 +28,11 @@ from prototype_progress import Progress
 from typing import TYPE_CHECKING
 
 import gi
+
+PHASE_LIMIT_SECONDS = 120
+# GTK can block before its event loop can dispatch a failure timer.
+faulthandler.dump_traceback_later(PHASE_LIMIT_SECONDS, exit=True)
+print("prototype: importing GTK/WebKit", file=sys.stderr, flush=True)
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
@@ -422,6 +429,7 @@ keyboard_checked = False
 layout: dict[str, object] = {}
 criteria: dict[str, object] = {}
 # A loopback origin lets the shared identifier ES module load normally.
+print("prototype: starting loopback server", file=sys.stderr, flush=True)
 server = ThreadingHTTPServer(
     ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="/assets")
 )
@@ -434,8 +442,13 @@ def stalled(phase: str) -> None:
     Gtk.main_quit()
 
 
+def schedule(callback: Callable[[], bool]) -> int:
+    faulthandler.dump_traceback_later(PHASE_LIMIT_SECONDS, exit=True)
+    return GLib.timeout_add_seconds(PHASE_LIMIT_SECONDS, callback)
+
+
 progress = Progress(
-    lambda callback: GLib.timeout_add_seconds(120, callback),
+    schedule,
     GLib.source_remove,
     stalled,
 )
@@ -447,7 +460,9 @@ def phase(name: str) -> None:
     progress.begin(label)
 
 
+print("prototype: constructing GTK window", file=sys.stderr, flush=True)
 window = Gtk.Window()
+print("prototype: constructing WebKit view", file=sys.stderr, flush=True)
 view = WebKit2.WebView()
 window.add(view)
 window.show_all()
@@ -642,4 +657,5 @@ if CRITERIA:
 for line in failed:
     print(line, file=sys.stderr)
 print(f"{saved_count}/{total} screenshots in {OUT}")
+faulthandler.cancel_dump_traceback_later()
 sys.exit(1 if failed else 0)
