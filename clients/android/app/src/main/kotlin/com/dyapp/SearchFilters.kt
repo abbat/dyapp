@@ -30,9 +30,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileScale
+import uniffi.dyapp.SearchChoiceInputs
 import uniffi.dyapp.SearchCondition
-import uniffi.dyapp.SearchOp
 import uniffi.dyapp.SearchRangeInputs
+import uniffi.dyapp.searchChoiceConditions
 import uniffi.dyapp.searchMutualConditions
 import uniffi.dyapp.searchRangeConditions
 
@@ -43,8 +44,6 @@ private const val PLACE_FIELD = 20u
 private const val BIRTH_AGE_FIELD = 1001u
 private const val SEEKING_GENDERS_FIELD = 53u
 private const val SEEKING_AGE_FIELD = 54u
-
-private fun text(field: UInt, value: String) = SearchCondition(field, SearchOp.EQ, emptyList(), listOf(value))
 
 /** Filters for the fields every reached node offers; hidden ones never reach the query. */
 internal class SearchFilters(private val scales: List<ProfileScale>) {
@@ -75,20 +74,12 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
      * Node conditions; an age that is no whole number or fits no birth date fails as `invalid search age`,
      * a height that is no whole number or an impossible range as `invalid search height`.
      */
-    fun conditions(): List<SearchCondition> {
-        val out = shownScales.mapNotNull { scale ->
-            picked[scale.key]?.takeIf { it != 0 }?.let {
-                SearchCondition(scale.field, SearchOp.EQ, listOf(it.toLong()), emptyList())
-            }
-        }.toMutableList()
-        out += ranges()
-        if (COUNTRY_FIELD in offered && place.country.isNotEmpty()) {
-            out += text(COUNTRY_FIELD, place.country)
-            // Typed text that is no picked suggestion leaves the place open.
-            place.place?.takeIf { PLACE_FIELD in offered }?.let { out += text(PLACE_FIELD, it.toString()) }
-        }
-        return out
-    }
+    fun conditions(): List<SearchCondition> =
+        searchChoiceConditions(
+            offered,
+            // PlacePicker stores UInt32 IDs as Int; toUInt restores all bits, including the sign bit.
+            SearchChoiceInputs(picked.mapValues { it.value.toLong() }, place.country, "", place.place?.toUInt())
+        ) + ranges()
 
     private fun ranges(): List<SearchCondition> =
         searchRangeConditions(offered, SearchRangeInputs(ageMin, ageMax, heightMin, heightMax))

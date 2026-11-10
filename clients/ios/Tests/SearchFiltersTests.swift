@@ -23,6 +23,18 @@ final class SearchFiltersTests: XCTestCase {
         XCTAssertEqual(try inputs.conditions().map(\.strings), [["DE"], ["7"]])
     }
 
+    func testSelectedPlaceSurvivesHiddenCountryWithoutUsingTypedPlaceText() throws {
+        var inputs = SearchFilterInputs()
+        inputs.offered = [20]
+        inputs.country = "DE"
+        inputs.place = UInt32.max
+        XCTAssertEqual(try inputs.conditions().map(\.field), [20])
+        XCTAssertEqual(try inputs.conditions().map(\.strings), [["4294967295"]])
+        inputs.place = nil
+        inputs.placeText = "arbitrary city text"
+        XCTAssertTrue(try inputs.conditions().isEmpty)
+    }
+
     func testBadOrReversedRangesNameTheirField() throws {
         var inputs = SearchFilterInputs()
         inputs.offered = [1_001, 46]

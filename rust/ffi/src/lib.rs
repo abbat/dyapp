@@ -55,6 +55,8 @@ mod search_input;
 pub use search_input::{search_range_conditions, SearchRangeInputs};
 mod search_employer;
 pub use search_employer::{search_employer_filter, SearchEmployerMode};
+mod search_choices;
+pub use search_choices::{search_choice_conditions, SearchChoiceInputs};
 mod profile_search;
 pub use profile_search::{
     FoundProfile, ProfileSearchFailure, ProfileSearchResult, ProfileSearcher, SearchCondition,

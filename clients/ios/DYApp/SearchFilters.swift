@@ -58,10 +58,11 @@ struct SearchFilterInputs {
 
     /// The shared core refuses a reversed age or height range with the same errors as a bad number.
     func conditions() throws -> [SearchCondition] {
-        var found = shownScales.compactMap { scale -> SearchCondition? in
-            guard let code = picked[scale.key], code != 0 else { return nil }
-            return SearchCondition(field: scale.field, op: .eq, ints: [Int64(code)], strings: [])
-        }
+        var found = searchChoiceConditions(
+            offered: offered,
+            inputs: SearchChoiceInputs(
+                picked: picked.mapValues { Int64($0) }, country: country, interest: "", place: place
+            ))
         if ageOffered, !blank(ageMin) || !blank(ageMax) {
             found.append(
                 try searchAgeCondition(
@@ -73,15 +74,6 @@ struct SearchFilterInputs {
                 from: try height(heightMin), to: try height(heightMax))
         {
             found.append(heights)
-        }
-        if countryOffered, !country.isEmpty {
-            found.append(
-                SearchCondition(field: SearchField.country, op: .eq, ints: [], strings: [country]))
-            if placeOffered, let place {
-                found.append(
-                    SearchCondition(
-                        field: SearchField.place, op: .eq, ints: [], strings: [String(place)]))
-            }
         }
         return found
     }

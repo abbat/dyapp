@@ -202,8 +202,12 @@ instrumentation. Desktop adoption remains planned under the shared-query extract
 interest and selected-place equality conditions. It uses canonical scale order, ignores unknown
 keys and zero choices, and trims text with the same Linux predicate. Selected place IDs are
 independent of country-field availability; pickers must invalidate a selection when its source
-country/text changes. Free-form place labels are never wire conditions. Native and desktop
-adoption of this choice builder remains planned.
+country/text changes. Free-form place labels are never wire conditions. The common native
+`search_choice_conditions` adapter converts records only; Android and iOS use it for these
+choices and append range conditions separately. Choice conditions use canonical scale order,
+then country, interest and place. Android restores selected UInt32 IDs from the picker's Int
+storage with `toUInt`, preserving all bits. Desktop adoption remains planned. Interest input
+is supported by the shared API; the native forms currently pass blank interest text.
 
 ## Exported surface
 
