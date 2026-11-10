@@ -3,7 +3,7 @@
 use crate::chat::{self, Body, Event};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
-use crate::store::messages::{CurrentMessage, MessageKey, VerifiedChatSender};
+use crate::store::messages::{CurrentMessage, MessageKey};
 use crate::store::{LastResort, Store};
 use crate::{tokens, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
@@ -211,26 +211,7 @@ impl Session {
             return Err(crate::Error::Reply("use pack exchange operation").into());
         }
         let device = self.device.as_ref().ok_or(Error::Invalidated)?;
-        let interaction = match body {
-            Body::Interaction(event) => Some((
-                self.partner(group_id).ok_or(Error::UnknownGroup)?,
-                device.device_key()?,
-                *event,
-            )),
-            _ => None,
-        };
-        let presence = match body {
-            Body::Presence { hlc } => {
-                Some((self.partner(group_id).ok_or(Error::UnknownGroup)?, *hlc))
-            }
-            _ => None,
-        };
-        let read = match body {
-            Body::Read { up_to } => {
-                Some((self.partner(group_id).ok_or(Error::UnknownGroup)?, *up_to))
-            }
-            _ => None,
-        };
+        let context = staging::context(self, group_id, body, device)?;
         let group = self
             .groups
             .iter_mut()
@@ -246,47 +227,15 @@ impl Session {
             };
             let writes = prepare(&self.store, deliveries, class, seal_key)?;
             let sealed = device.seal(seal_key)?;
-            if let Some((target, source_device, event)) = interaction {
-                self.store
-                    .stage_interaction(&target, &source_device, event, &sealed, &writes)?;
-            } else if let Some((target, hlc)) = &presence {
-                self.store.stage_presence(target, *hlc, &sealed, &writes)?;
-            } else if let Some((peer, up_to)) = &read {
-                self.store
-                    .stage_read(group_id, peer, *up_to, &sealed, &writes)?;
-            } else if matches!(body, Body::Receipt(_)) {
-                self.store.stage_receipt(&sealed, &writes)?;
-            } else if let Body::PeerChange { peer, hlc, change } = body {
-                let actor = device.device_key()?;
-                self.store
-                    .stage_peer_change(peer, change, *hlc, &sealed, &writes, &actor)?;
-            } else if body.attachment_message().is_some()
-                || matches!(
-                    body,
-                    Body::Text { .. }
-                        | Body::Forwarded(_)
-                        | Body::Sticker(_)
-                        | Body::Edit { .. }
-                        | Body::Delete { .. }
-                )
-            {
-                let author = self.store.owner_peer_id().to_owned();
-                let source_device = device.device_key()?;
-                let sender = VerifiedChatSender {
-                    group: group_id,
-                    author: &author,
-                    device: &source_device,
-                };
-                self.store.stage_chat_outbound(
-                    &sealed,
-                    &writes,
-                    sender,
-                    body,
-                    crate::now() * 1000,
-                )?;
-            } else {
-                self.store.stage_outbound(&sealed, &writes)?;
-            }
+            staging::persist(
+                &mut self.store,
+                device,
+                group_id,
+                body,
+                context,
+                &sealed,
+                &writes,
+            )?;
             Ok(writes)
         })();
         if staged.is_err() {
@@ -795,31 +744,48 @@ impl Session {
         }
         let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
         for i in order {
-            loop {
-                match nodes[i].put_prepared(&write).await {
-                    Ok(()) => {
-                        let peer = peers[i].to_string();
-                        return Ok(self.store.accepted(&write, now_ms, &peer)?);
-                    }
-                    Err(crate::Error::Status(status)) => {
-                        match tokens::fallback(&self.store, &write, status, today, seal_key)? {
-                            Some(next) => {
-                                self.store.replace_outbound(&write, &next)?;
-                                write = next;
-                                continue;
-                            }
-                            None => last = crate::Error::Status(status),
-                        }
-                    }
-                    Err(error) => last = error,
-                }
-                break;
+            match self
+                .deliver_at(&mut nodes[i], &mut write, now_ms, today, seal_key)
+                .await?
+            {
+                None => return Ok(()),
+                Some(error) => last = error,
             }
             if scores::faulty(&last) {
                 self.scores.fault(peers[i], now);
             }
         }
         Err(last.into())
+    }
+
+    // Only network refusals try another node; local/fallback failures return immediately.
+    async fn deliver_at(
+        &mut self,
+        node: &mut Node,
+        write: &mut PreparedEnvelope,
+        now_ms: i64,
+        today: u32,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<crate::Error>, Error> {
+        loop {
+            match node.put_prepared(write).await {
+                Ok(()) => {
+                    self.store
+                        .accepted(write, now_ms, &node.peer().to_string())?;
+                    return Ok(None);
+                }
+                Err(crate::Error::Status(status)) => {
+                    match tokens::fallback(&self.store, write, status, today, seal_key)? {
+                        Some(next) => {
+                            self.store.replace_outbound(write, &next)?;
+                            *write = next;
+                        }
+                        None => return Ok(Some(crate::Error::Status(status))),
+                    }
+                }
+                Err(error) => return Ok(Some(error)),
+            }
+        }
     }
 
     /// Ask every group's other devices for missing write tokens. The desktop mailbox poll calls
@@ -910,18 +876,7 @@ impl Session {
                 body: Body::Receipt(receipt),
                 ..
             } => {
-                let mailbox = receipt.mailbox.as_slice().try_into().unwrap_or([0; 32]);
-                let ids = receipt
-                    .ids
-                    .iter()
-                    .filter_map(|id| id.as_slice().try_into().ok())
-                    .collect::<Vec<_>>();
-                let now = crate::now();
-                for peer in self.store.receipted(&mailbox, &ids)?.1 {
-                    if let Ok(peer) = peer.parse() {
-                        self.scores.fault(peer, now);
-                    }
-                }
+                self.record_receipt(&receipt)?;
                 Ok(None)
             }
             Event::Message {
@@ -940,6 +895,22 @@ impl Session {
             }
             event => Ok(Some(event)),
         }
+    }
+
+    fn record_receipt(&mut self, receipt: &chat::Receipt) -> Result<(), Error> {
+        let mailbox = receipt.mailbox.as_slice().try_into().unwrap_or([0; 32]);
+        let ids = receipt
+            .ids
+            .iter()
+            .filter_map(|id| id.as_slice().try_into().ok())
+            .collect::<Vec<_>>();
+        let now = crate::now();
+        for peer in self.store.receipted(&mailbox, &ids)?.1 {
+            if let Ok(peer) = peer.parse() {
+                self.scores.fault(peer, now);
+            }
+        }
+        Ok(())
     }
 
     /// Reopen exact signed bytes for the retry worker after a crash or failed node request.
@@ -981,6 +952,7 @@ mod link;
 mod local;
 mod operations;
 mod receive;
+mod staging;
 mod state;
 mod sticker;
 #[cfg(test)]

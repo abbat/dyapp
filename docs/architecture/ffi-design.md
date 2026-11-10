@@ -98,6 +98,10 @@ Linux desktop's ECMAScript trim semantics, including BOM as blank and excluding 
 The common `chat_composer_policy` native adapter converts states/results; Android delegates its
 composer helpers to it. This presentation policy does not replace send authorization. Durable
 send outcome reporting remains planned; Android still infers staging until that API is adopted.
+The session staging path separates preflight context, MLS preparation and atomic persistence;
+failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
+fallback replacements across ranked nodes, propagates local failures immediately, and records
+node acceptance separately from peer receipts.
 
 ## Shared profile editor policy
 
