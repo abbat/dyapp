@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      macos_only:
+        description: Build only the unsigned universal macOS app
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,6 +18,7 @@ env:
 
 jobs:
   windows:
+    if: ${{ !inputs.macos_only }}
     name: release - windows
     runs-on: windows-2022
     timeout-minutes: 30
@@ -77,6 +83,7 @@ jobs:
           if-no-files-found: error
 
   android:
+    if: ${{ !inputs.macos_only }}
     name: release - android
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -137,13 +144,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ios
-            core: ios-device
-            targets: aarch64-apple-ios
-          - platform: macos
-            core: macos
-            targets: aarch64-apple-darwin,x86_64-apple-darwin
+        include: >-
+          ${{ fromJSON(inputs.macos_only
+            && '[{"platform":"macos","core":"macos","targets":"aarch64-apple-darwin,x86_64-apple-darwin"}]'
+            || '[{"platform":"ios","core":"ios-device","targets":"aarch64-apple-ios"},{"platform":"macos","core":"macos","targets":"aarch64-apple-darwin,x86_64-apple-darwin"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

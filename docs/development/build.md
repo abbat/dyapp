@@ -226,14 +226,18 @@ existing archive outputs are rejected. Package structure checks cover platform,
 architecture and filesystem layout.
 
 `release-sizes.yml` requests native macOS-15 Release builds for device iOS arm64
-and universal macOS arm64/x86_64. It calls `build-apple-core.sh` with `release`
-(`ios-device` omits simulator libraries), generates the existing Xcode projects,
-and runs `tools/scripts/apple-release-in-ci.py <ios|macos>` with
-`CODE_SIGNING_ALLOWED=NO`. The producer builds configuration `Release`, packages
-the app and records bytes/hash/source/compiler in `measurement.json`, together
-with Xcode version and captured logs. The successful
-[native measurement run](https://github.com/abbat/dyapp/actions/runs/39458581481)
-refreshed the unsigned IPA and universal ZIP budgets on Xcode 16.4 (16F6).
+and universal macOS arm64/x86_64. iOS uses `build-apple-core.sh ios-device release`,
+XcodeGen and `CODE_SIGNING_ALLOWED=NO`. macOS uses
+`build-macos-client.py --profile release --universal` over the shared Tauri crate.
+`tools/scripts/apple-release-in-ci.py <ios|macos>` packages the app and records
+bytes/hash/source/compiler in `measurement.json`, together with Xcode version
+and captured logs. The existing universal ZIP budget predates Tauri; refresh it
+only from a native CI measurement with the correct compiler and profile.
+
+For a focused universal macOS packaging check, run
+`gh workflow run release-sizes.yml --ref main -f macos_only=true`.
+This keeps the unsigned app and size evidence as workflow artifacts. The optional
+input selects only macOS; scheduled runs and the default manual run build all platforms.
 The producer checks the real package bytes and writes `size.json`/`size.log`
 using the exact `HEAD^..HEAD` source range. Keep toolchain/profile measurements
 separate when changing the producer ([size policy](ci-base.md#artifact-size-budgets)).
