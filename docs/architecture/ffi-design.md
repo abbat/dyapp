@@ -102,6 +102,12 @@ The session staging path separates preflight context, MLS preparation and atomic
 failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
 fallback replacements across ranked nodes, propagates local failures immediately, and records
 node acceptance separately from peer receipts.
+`Session::submit_text_to`, `submit_edit` and `submit_delete` return a committed `Submission`:
+`Accepted` or `Queued`, both with the logical message/operation ID; queued also retains the
+immediate delivery error. Profile/key-package/staging errors remain errors before successful
+commitment. Existing strict send methods use the same implementation and require node acceptance
+via `Submission::into_accepted`. Native/Android adoption and media submission outcomes remain
+planned; Kotlin must not treat this core API addition alone as completion of that migration.
 
 ## Shared profile editor policy
 

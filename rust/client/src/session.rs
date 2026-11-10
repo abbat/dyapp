@@ -363,14 +363,9 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let peer = self.peer_in(profiles)?;
-        let packages = match self.pair_group(&peer) {
-            Some(_) => Vec::new(),
-            None => self.key_packages(nodes, profiles).await?,
-        };
-        let (id, writes) = self.stage_text_to(profiles, &packages, text, seal_key)?;
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(id)
+        self.submit_text_to(nodes, profiles, text, seal_key)
+            .await?
+            .into_accepted()
     }
 
     /// Like, unlike or view the other owner in `profiles` in the pair's canonical group, as
@@ -556,9 +551,9 @@ impl Session {
         text: &[u8],
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let (operation, writes) = self.stage_edit(group_id, target, text, seal_key)?;
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(operation)
+        self.submit_edit(nodes, group_id, target, text, seal_key)
+            .await?
+            .into_accepted()
     }
 
     /// Send a terminal delete after staging its exact encrypted writes and local placeholder.
@@ -573,9 +568,9 @@ impl Session {
         target: [u8; 16],
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
-        let (operation, writes) = self.stage_delete(group_id, target, seal_key)?;
-        self.send_staged(nodes, writes, seal_key).await?;
-        Ok(operation)
+        self.submit_delete(nodes, group_id, target, seal_key)
+            .await?
+            .into_accepted()
     }
 
     /// Like, unlike or view the other owner of `group_id` and send it as a signal, as
@@ -955,5 +950,7 @@ mod receive;
 mod staging;
 mod state;
 mod sticker;
+mod submission;
+pub use submission::Submission;
 #[cfg(test)]
 mod tests;
