@@ -1,6 +1,17 @@
 // Counterexamples for axe's opaque-modal background isolation.
 (() => {
   const fixture = () => {
+    // Lower top-layer dialogs would mask the normal-flow underlay counterexample.
+    const covered = [...document.querySelectorAll('dialog:modal')].map((dialog) => [
+      dialog,
+      dialog.style.getPropertyValue('visibility'),
+      dialog.style.getPropertyPriority('visibility'),
+    ]);
+    for (const [dialog] of covered) dialog.style.setProperty('visibility', 'hidden', 'important');
+    const restore = () => {
+      for (const [dialog, visibility, priority] of covered)
+        dialog.style.setProperty('visibility', visibility, priority);
+    };
     const modal = document.createElement('dialog');
     modal.className = 'modal';
     modal.setAttribute('aria-label', 'Accessibility calibration');
@@ -14,7 +25,7 @@
     const label = modal.querySelector('span');
     const at = label.getBoundingClientRect();
     underlay.style.cssText = `height:${at.top + at.height / 2}px;background:var(--accent)`;
-    return { modal, underlay, label };
+    return { modal, underlay, label, restore };
   };
   const contrastFinding = (findings) =>
     findings.some(
@@ -67,7 +78,7 @@
   };
   smoke.modalAccessibilitySelfCheck = async () => {
     const previous = document.activeElement;
-    const { modal, underlay, label } = fixture();
+    const { modal, underlay, label, restore } = fixture();
     try {
       const raw = await window.axe.run(document, smoke.accessibilityOptions());
       const reproduced = raw.incomplete.some(
@@ -88,6 +99,7 @@
       }
       modal.remove();
       underlay.remove();
+      restore();
       previous?.focus({ preventScroll: true });
     }
   };

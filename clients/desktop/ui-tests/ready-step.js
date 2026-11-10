@@ -84,11 +84,14 @@
     if (existing && !step) await smoke.shot('ready');
     const ready = document.getElementById('app-ready');
     const area = document.querySelector('#profile-area h1');
-    const rect = area.getBoundingClientRect();
-    const style = getComputedStyle(area);
     const { strings } = appApi;
     const peerId = document.getElementById('peer-id').textContent;
     const { narrowLines, wideLines } = peerReflow();
+    // Keyboard and viewport audits may leave the page scrolled; use the final live geometry.
+    area.scrollIntoView({ block: 'center', behavior: 'instant' });
+    await frames();
+    const rect = area.getBoundingClientRect();
+    const style = getComputedStyle(area);
     const context = { ready, area, rect, style, strings, peerId, narrowLines, wideLines };
     return reportReady(readyChecks(mode, context), context);
   };

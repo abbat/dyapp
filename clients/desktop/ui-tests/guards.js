@@ -131,20 +131,6 @@ const checkStaleRemovePreparation = async () => {
   appBindings.removeDialog.close();
   await finalClose;
 };
-// The close event, which the app handles first, comes on a later task in no fixed order with
-// timers, so a check waits for the event itself.
-const closed = (dialog) =>
-  new Promise((resolve, reject) => {
-    const finish = () => {
-      clearTimeout(deadline);
-      resolve();
-    };
-    const deadline = setTimeout(() => {
-      dialog.removeEventListener('close', finish);
-      reject(Error(`${dialog.id} close deadline`));
-    }, 10000);
-    dialog.addEventListener('close', finish, { once: true });
-  });
 // A revocation of another slot wipes nothing; the active slot's closes dialogs and says why.
 const checkDeviceRevoked = async () => {
   await appBindings.showRemove((command) =>

@@ -341,6 +341,8 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   and `blob:` images, so draw through `createImageBitmap` and a canvas. UI dependencies use
   native ES-module imports; do not expose application names on `window`. The entry module routes
   Rust-dispatched DOM notifications to the relevant controller.
+  `criteria-axe.js` is also injected independently by `tests/scripts/prototype-shots.py`;
+  keep its event-readiness helpers available without the native smoke's `guards.js` or `common.js`.
   Add a new `clients/desktop/ui-tests/*.js` to the ordered list in `ui-tests/mod.rs`. Modules
   under `clients/desktop/chats/` need an explicit `#[path]`. `make fmt` checks native desktop
   modules too; `make fmt-write` applies formatting in the Docker container.

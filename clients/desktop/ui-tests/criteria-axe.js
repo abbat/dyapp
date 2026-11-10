@@ -1,3 +1,17 @@
+// The close event, which the app handles first, comes on a later task in no fixed order with
+// timers, so a check waits for the event itself.
+const closed = (dialog) =>
+  new Promise((resolve, reject) => {
+    const finish = () => {
+      clearTimeout(deadline);
+      resolve();
+    };
+    const deadline = setTimeout(() => {
+      dialog.removeEventListener('close', finish);
+      reject(Error(`${dialog.id} close deadline`));
+    }, 10000);
+    dialog.addEventListener('close', finish, { once: true });
+  });
 // axe's WCAG 2.2 rules include disabled-by-default rules such as target-size.
 smoke.accessibilityOptions = () => {
   if (window.axe?.version !== '4.14.0') throw new Error('axe-core 4.14.0 is required');
@@ -19,7 +33,7 @@ const runAccessibilityAudit = async () => {
     const opaque = window.axe.commons.color.getOwnBackgroundColor(style).alpha === 1;
     if (opaque && style.opacity === '1' && style.backgroundImage === 'none') {
       for (const child of document.body.children) {
-        if (child.contains(modal) || child.matches('dialog:modal')) continue;
+        if (child.contains(modal)) continue;
         const visibility = child.style.getPropertyValue('visibility');
         const priority = child.style.getPropertyPriority('visibility');
         hidden.push([child, visibility, priority]);
@@ -67,7 +81,10 @@ smoke.accessibility = async () => {
   return findings;
 };
 smoke.accessibilitySelfCheck = async () => {
-  const fixture = document.createElement('div');
+  const previous = document.activeElement;
+  // Calibration must remain visible when the first audit starts inside another native modal.
+  const fixture = document.createElement('dialog');
+  fixture.setAttribute('aria-label', 'Accessibility counterexamples');
   fixture.id = 'criteria-axe-fixture';
   fixture.style.cssText =
     'position:fixed;top:0;left:0;z-index:2147483647;background:white;color:black';
@@ -78,6 +95,7 @@ smoke.accessibilitySelfCheck = async () => {
       'box-sizing:border-box;width:12px;height:12px;min-width:0;min-height:0;padding:0;margin:0;border:0;background:white;color:black';
   }
   document.body.append(fixture);
+  fixture.showModal();
   try {
     const result = await window.axe.run(fixture, smoke.accessibilityOptions());
     for (const id of ['color-contrast', 'target-size']) {
@@ -85,6 +103,10 @@ smoke.accessibilitySelfCheck = async () => {
         throw new Error(`axe did not reject the ${id} counterexample`);
     }
   } finally {
+    const finished = closed(fixture);
+    fixture.close();
+    await finished;
     fixture.remove();
+    previous?.focus({ preventScroll: true });
   }
 };

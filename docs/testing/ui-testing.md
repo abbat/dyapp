@@ -31,7 +31,10 @@ Native keyboard checks wait for document focus through the window focus event an
 restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
 hide background paint outside the active dialog, preserving layout and restoring inline visibility
 on success or failure. This avoids axe 4.14 counting occluded page blocks as text overlap.
-Calibration reproduces that failure and still rejects real low contrast and foreground overlap.
+Calibration opens its own top-layer dialog so counterexamples remain visible even when the first
+audit starts inside an existing modal. It reproduces the background-stack failure and still rejects
+real low contrast and foreground overlap. Ready-screen hit testing scrolls the heading into view
+after restoring the reflow probe's width, then measures its current bounds after layout frames.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
 Those entry scripts retain their existing exported check tables. Helpers share each scenario's
