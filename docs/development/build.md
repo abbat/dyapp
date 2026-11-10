@@ -143,7 +143,8 @@ project configurations, including the separate release lint tool, before Gradle 
 metadata. The requested vulnerable versions are split across string literals so Dependabot
 cannot mistake them for dependency declarations and rewrite the match side. Its substitutions
 and this checksum inventory must change together. The 2026-10-23 update replaced commons-lang3,
-jose4j, Bouncy Castle and jdom2, and removed old httpclient and Kotlin plugin entries. Check
+jose4j, Bouncy Castle and jdom2, and removed old httpclient and Kotlin plugin entries; the
+2026-11-11 update replaced Guava (GHSA-xxph-c9ww-hj94). Check
 `buildEnvironment`, Android tests and Scorecard after any substitution change; these packages are
 not in the app runtime.
 
