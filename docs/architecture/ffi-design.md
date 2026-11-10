@@ -25,8 +25,8 @@ and security invariants; test the shared rules independently of platform callbac
 
 ## Shared mobile identity registry
 
-`MobileIdentityRegistry` exposes core inventory, resolution, explicit creation and verified
-selection for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
+`MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
+creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
 credential presence and wrapping/opening by slot ID, reusing opaque `IdentityKey` objects
 and the existing `KeyStore` interface. No additional foreign plaintext-key API is introduced.
 Rust owns file access, lifecycle markers, reservation, locking and recovery classification.
@@ -42,18 +42,21 @@ cleans these paths; confirmed cleanup is a separate explicit core mutation.
 missing versus unavailable credentials and recoverable Peer IDs. Creation and selection return
 `MobileSlotSelection`: its key is verified and its selection committed; a nonempty
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
-a failed selection. Construction does not create an identity. Native confirmed-removal exposure
-and migration of the existing Kotlin/Swift slot adapters to this API remain planned.
+a failed selection. Construction does not create an identity. Native `remove` returns an
+optional persistence diagnostic only after visible completion; after a failure, resolve again
+to show interrupted cleanup. Migration of the existing Kotlin/Swift slot adapters remains planned.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
-and future confirmed removal use the exclusive lock. Inventory and resolution also use shared
+and confirmed removal use the exclusive lock. Inventory and resolution also use shared
 locks, so they can run alongside admitted operations. Every acquisition opens its own handle;
 never upgrade a held lease to a mutation lock. The common native `MobileIdentityOperation`
 exposes an opaque key and verified slot; retaining the key alone does not retain the lease.
 Move the operation object into blocking workers and keep it until actual completion, including
 after UI cancellation. Installation-owned node work must run outside identity leases.
-Kotlin/Swift adoption and native confirmed-removal exposure remain planned.
+Android's `NativeSlotKeys` implements the common credential callback with existing alias names
+and typed errors, using opaque keys. Its callback inputs release their native key handles after
+wrapping. The current `Slots` lifecycle adapter and Swift adoption still require migration.
 
 `Registry::remove` takes the same exclusive lock. It rejects legacy/damaged candidates,
 checks an existing key against the exact confirmed Peer ID and validates all owned files

@@ -126,6 +126,21 @@ impl MobileIdentityRegistry {
             .map_err(CoreError::Failed)
     }
 
+    /// Inspect one listed candidate for a picker, without changing selection.
+    ///
+    /// # Errors
+    /// Returns lock, inventory or missing-candidate failures; key failures remain recovery states.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned strings across the native boundary"
+    )]
+    pub fn inspect(&self, id: String) -> Result<crate::MobileSlotResolution, CoreError> {
+        self.registry
+            .inspect(&id, &self.keys)
+            .map(Into::into)
+            .map_err(CoreError::Failed)
+    }
+
     /// Admit a verified identity operation and exclude mutations until its lease drops.
     ///
     /// # Errors
@@ -144,6 +159,28 @@ impl MobileIdentityRegistry {
             .operation(&id, &expected_peer, &self.keys)
             .map_err(CoreError::Failed)?;
         Ok(Arc::new(crate::MobileIdentityOperation { operation }))
+    }
+
+    /// Remove only the explicitly confirmed identity and its validated owned data.
+    /// Success means visible completion; the optional detail reports unconfirmed persistence.
+    /// Hold no operation lease while calling this exclusive mutation.
+    ///
+    /// # Errors
+    /// Returns confirmation, ownership, credential or cleanup failures. Resolve again after
+    /// failure to display any interrupted removal instead of retaining stale ready state.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned strings across the native boundary"
+    )]
+    pub fn remove(
+        &self,
+        id: String,
+        confirmed_peer: Option<String>,
+    ) -> Result<Option<String>, CoreError> {
+        self.registry
+            .remove(&id, confirmed_peer.as_deref(), &self.keys)
+            .map(|outcome| outcome.durability_detail)
+            .map_err(CoreError::Failed)
     }
 
     /// Explicitly create and verify a wrapped-key identity.

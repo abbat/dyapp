@@ -48,6 +48,11 @@ impl MobileSlotKeys for Credentials {
         key.wrap(Arc::new(Wrapping))
             .map_err(|error| wrap_error(&error))
     }
+
+    fn erase(&self, id: String) -> Result<(), WrapError> {
+        self.aliases.lock().unwrap().remove(&id);
+        Ok(())
+    }
 }
 
 fn wrap_error(error: &crate::CoreError) -> WrapError {
@@ -203,9 +208,43 @@ fn native_operation_retains_mutation_protection_with_its_verified_key() {
         .expect("native operation released the core guard");
 }
 
+#[test]
+fn exported_removal_preserves_confirmation_and_only_erases_the_requested_alias() {
+    for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
+        let root = root().to_str().unwrap().to_owned();
+        let keys = Arc::new(Credentials::default());
+        let registry = MobileIdentityRegistry::new(root, layout, keys.clone());
+        let first = registry.create().unwrap();
+        let second = registry.create().unwrap();
+        let MobileSlotResolution::Ready { key, .. } =
+            registry.inspect(first.slot.id.clone()).unwrap()
+        else {
+            panic!("picker must open the requested candidate");
+        };
+        assert_eq!(key.peer_id(), first.key.peer_id());
+        assert!(registry
+            .remove(second.slot.id.clone(), Some(first.key.peer_id()))
+            .is_err());
+        assert!(registry.remove(second.slot.id.clone(), None).is_err());
+        let detail = registry
+            .remove(second.slot.id.clone(), Some(second.key.peer_id()))
+            .unwrap();
+        #[cfg(unix)]
+        assert_eq!(detail, None);
+        assert_eq!(registry.list().unwrap().len(), 1);
+        assert_eq!(registry.list().unwrap()[0].id, first.slot.id);
+        assert!(keys.contains(first.slot.id).unwrap());
+        assert!(!keys.contains(second.slot.id).unwrap());
+    }
+}
+
 struct Denied;
 
 impl MobileSlotKeys for Denied {
+    fn erase(&self, id: String) -> Result<(), WrapError> {
+        self.contains(id).map(|_| ())
+    }
+
     fn contains(&self, _: String) -> Result<bool, WrapError> {
         Err(WrapError::Failed {
             reason: "denied".to_owned(),

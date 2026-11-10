@@ -46,6 +46,10 @@ Compose `produceState` restart keys do not recreate its remembered initial state
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
 
+Shared identity operations retain `IdentityOperation` through actual worker completion, including
+caller cancellation. Keep installation node work outside that lease and never upgrade its shared
+registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).
+
 Raw search input uses `dyapp_profile::text_input::trim` for Linux-compatible whitespace:
 Rust `str::trim` treats BOM/NEL differently. Reuse the core helper for blank checks and parsing;
 do not implicitly change unrelated stored-domain normalization.

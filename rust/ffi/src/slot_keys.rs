@@ -1,7 +1,7 @@
 //! Platform credential callbacks for the common mobile identity registry.
 
 use crate::{IdentityKey, WrapError};
-use dyapp_client::identity_slots::{KeyReader, KeyWriter, Slot};
+use dyapp_client::identity_slots::{Credential, KeyReader, KeyRemover, KeyWriter, Slot};
 use dyapp_identity::Identity;
 use std::sync::Arc;
 
@@ -29,6 +29,30 @@ pub trait MobileSlotKeys: Send + Sync {
     /// # Errors
     /// Returns credential creation or wrapping failures without replacing existing credentials.
     fn wrap(&self, slot_id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError>;
+
+    /// Erase this slot's wrapping credential after core confirmation and ownership checks.
+    ///
+    /// # Errors
+    /// Returns credential erasure failures; core verifies absence independently.
+    fn erase(&self, slot_id: String) -> Result<(), WrapError>;
+}
+
+impl KeyRemover for SlotKeys {
+    fn credential_present(&self, slot: &Slot, role: Credential) -> Result<bool, String> {
+        if role != Credential::Identity {
+            return Err("Mobile storage has one wrapping credential per slot".into());
+        }
+        KeyReader::contains(self, slot)
+    }
+
+    fn erase_credential(&self, slot: &Slot, role: Credential) -> Result<(), String> {
+        if role != Credential::Identity {
+            return Err("Mobile storage has one wrapping credential per slot".into());
+        }
+        self.0
+            .erase(slot.id.clone())
+            .map_err(|error| error.to_string())
+    }
 }
 
 pub(crate) struct SlotKeys(pub(crate) Arc<dyn MobileSlotKeys>);

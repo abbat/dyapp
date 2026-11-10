@@ -33,6 +33,20 @@ impl Registry {
         super::resolve(&self.root, self.layout, keys)
     }
 
+    /// Inspect one listed candidate without changing the active selection or generating keys.
+    ///
+    /// # Errors
+    /// Returns lock, inventory or missing-candidate failures; key failures remain recovery states.
+    pub fn inspect(&self, id: &str, keys: &dyn KeyReader) -> Result<Resolution, String> {
+        let _guard = self.shared_lock()?;
+        let slot = super::list(&self.root, self.layout)
+            .map_err(|error| error.to_string())?
+            .into_iter()
+            .find(|slot| slot.id == id)
+            .ok_or("Identity slot is missing")?;
+        Ok(super::open_slot(slot, keys))
+    }
+
     /// Explicitly select a currently listed ready identity after opening its key.
     ///
     /// # Errors
