@@ -2,7 +2,6 @@ package com.dyapp
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.SystemClock
 import androidx.core.graphics.createBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import uniffi.dyapp.ChatMessage
@@ -22,17 +21,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 internal const val PEER_WAIT_MS = 180_000L
-private const val POLL_MS = 2_000L
 private const val CHECK_TRIES = 3
-
-/** Polls [done] until it holds; a timeout names [what]. */
-internal fun waitFor(what: String, timeoutMs: Long = PEER_WAIT_MS, done: () -> Boolean) {
-    val end = SystemClock.uptimeMillis() + timeoutMs
-    while (!done()) {
-        check(SystemClock.uptimeMillis() < end) { "Timed out waiting for $what" }
-        SystemClock.sleep(POLL_MS)
-    }
-}
 
 private fun redPng(): ByteArray {
     val bitmap = createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
@@ -94,11 +83,11 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
 
     /** Receives until a message from [author] in their chat satisfies [match]. */
     fun awaitMessage(author: String, what: String, match: (ChatMessage) -> Boolean) {
-        waitFor(what) {
-            runCatching { session.receive() }
-            runCatching { session.chatHistory(author).messages }.getOrDefault(emptyList())
-                .any { it.author == author && match(it) }
-        }
+        PeerTransition(what).await(
+            ready = { session.chatHistory(author).messages.any { it.author == author && match(it) } },
+            // receive returns only after mailbox application; its completion drives the next read.
+            advance = { session.receive() }
+        )
     }
 
     override fun close() {

@@ -207,6 +207,13 @@ match, messages, edits and deletes the text, and the peer receives each change; 
 blocks the peer and Chats shows the block note. After opening the match's chat, the test waits
 for the composer's enabled semantics with a deadline: navigation can finish before the IO history
 load, and Compose idleness alone does not cover that load.
+`TestPeer.awaitMessage` checks applied history and advances through completed synchronous FFI
+mailbox receives, without an artificial polling delay. Receive/history errors fail immediately.
+Each message/edit/delete transition starts a fresh monotonic failure deadline; a late operation
+cannot satisfy it. The deadline is checked between completed FFI stages, not a cancellation of
+an in-flight native call; network requests retain their own core timeouts. `PeerTransitionTests`
+uses an injected clock to cover deadline reset, late completion and error propagation without
+waiting for real time. Android instrumentation CI must also run the real two-peer journeys.
 The queued outcome of a send has no two-peer test:
 the FFI stages only after it reached the node, so only a node refusing the write could cause it.
 `ChatRulesTests` cover how a staged failure reads and `ChatScreenTests` cover its line.
