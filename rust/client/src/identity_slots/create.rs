@@ -75,6 +75,7 @@ impl Registry {
             };
             if keys.contains(&slot)?
                 || fs::symlink_metadata(profiles.join(format!("{}.deleting", slot.id))).is_ok()
+                || fs::symlink_metadata(profiles.join(format!(".{}.removed", slot.id))).is_ok()
             {
                 continue;
             }

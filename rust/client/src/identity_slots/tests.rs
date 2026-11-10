@@ -1,6 +1,7 @@
 mod create;
 mod open;
 mod registry;
+mod removed;
 mod write;
 
 use super::*;

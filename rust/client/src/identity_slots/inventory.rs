@@ -31,7 +31,7 @@ fn legacy(root: &Path, layout: Layout) -> io::Result<Option<Slot>> {
     }))
 }
 
-fn candidate(path: &Path, id: String, layout: Layout) -> io::Result<Slot> {
+fn candidate(path: &Path, id: String, layout: Layout, removed: bool) -> io::Result<Slot> {
     let directory = fs::symlink_metadata(path)?.is_dir();
     let storage = if !directory {
         None
@@ -40,7 +40,9 @@ fn candidate(path: &Path, id: String, layout: Layout) -> io::Result<Slot> {
     } else {
         Some(Storage::Wrapped)
     };
-    let state = if directory && storage.is_some() {
+    let state = if directory && removed {
+        State::Deleting
+    } else if directory && storage.is_some() {
         markers::state(&path.join("state"))
     } else {
         State::Broken
@@ -50,6 +52,40 @@ fn candidate(path: &Path, id: String, layout: Layout) -> io::Result<Slot> {
         dir: path.into(),
         state,
         storage,
+    })
+}
+
+fn insert(candidates: &mut BTreeMap<String, Slot>, slot: Slot) {
+    use std::collections::btree_map::Entry;
+    match candidates.entry(slot.id.clone()) {
+        Entry::Vacant(entry) => {
+            entry.insert(slot);
+        }
+        Entry::Occupied(mut entry) => {
+            let existing = entry.get_mut();
+            existing.dir = existing.dir.with_file_name(&existing.id);
+            existing.state = State::Broken;
+            existing.storage = None;
+        }
+    }
+}
+
+fn named_candidate(path: &Path, name: &str, layout: Layout) -> io::Result<Option<Slot>> {
+    if is_uuid(name) {
+        return candidate(path, name.into(), layout, false).map(Some);
+    }
+    let hidden = name
+        .strip_prefix('.')
+        .and_then(|id| id.strip_suffix(".removed"))
+        .filter(|id| is_uuid(id) && layout != Layout::Ios);
+    hidden
+        .map(|id| candidate(path, id.into(), layout, true))
+        .transpose()
+}
+
+fn deleting_id<'a>(path: &Path, name: &'a str, layout: Layout) -> Option<&'a str> {
+    name.strip_suffix(".deleting").filter(|id| {
+        layout == Layout::Ios && is_uuid(id) && markers::state(path) == State::Deleting
     })
 }
 
@@ -72,14 +108,10 @@ pub fn list(root: &Path, layout: Layout) -> io::Result<Vec<Slot>> {
         let entry = entry?;
         let name = entry.file_name();
         let Some(id) = name.to_str() else { continue };
-        if is_uuid(id) {
-            candidates.insert(id.to_owned(), candidate(&entry.path(), id.into(), layout)?);
-        } else if layout == Layout::Ios {
-            if let Some(id) = id.strip_suffix(".deleting").filter(|id| is_uuid(id)) {
-                if markers::state(&entry.path()) == State::Deleting {
-                    deleting.push(id.to_owned());
-                }
-            }
+        if let Some(slot) = named_candidate(&entry.path(), id, layout)? {
+            insert(&mut candidates, slot);
+        } else if let Some(id) = deleting_id(&entry.path(), id, layout) {
+            deleting.push(id.to_owned());
         }
     }
     for id in deleting {
@@ -89,7 +121,9 @@ pub fn list(root: &Path, layout: Layout) -> io::Result<Vec<Slot>> {
             state: State::Deleting,
             storage: Some(Storage::Wrapped),
         });
-        slot.state = State::Deleting;
+        if slot.state != State::Broken {
+            slot.state = State::Deleting;
+        }
     }
     slots.extend(candidates.into_values());
     Ok(slots)

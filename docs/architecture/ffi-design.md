@@ -30,6 +30,12 @@ selection for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks im
 credential presence and wrapping/opening by slot ID, reusing opaque `IdentityKey` objects
 and the existing `KeyStore` interface. No additional foreign plaintext-key API is introduced.
 Rust owns file access, lifecycle markers, reservation, locking and recovery classification.
+The core inventory also recognizes old Android/desktop `.<uuid>.removed` directories as
+interrupted deletion, even when cleanup removed their markers. A visible/hidden duplicate ID
+is damaged metadata; neither copy opens as ready. Reservation skips IDs held by hidden
+cleanup paths. iOS retains its separate `<uuid>.deleting` marker format; a tombstone never
+upgrades damaged or symlinked slot metadata to a readable candidate. Inventory never
+cleans these paths; confirmed cleanup remains planned.
 
 `MobileSlotResolution` preserves setup, picker, ready and recovery outcomes, including
 missing versus unavailable credentials and recoverable Peer IDs. Creation and selection return

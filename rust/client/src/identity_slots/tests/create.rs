@@ -125,6 +125,10 @@ fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwritin
     let second = "22222222-2222-2222-2222-222222222222";
     let third = "33333333-3333-3333-3333-333333333333";
     let fourth = "44444444-4444-4444-4444-444444444444";
+    let fifth = "55555555-5555-5555-5555-555555555555";
+    let hidden = profiles.join(format!(".{fourth}.removed"));
+    fs::create_dir(&hidden).unwrap();
+    fs::write(hidden.join("client.db"), b"interrupted cleanup").unwrap();
     let tombstone = profiles.join(format!("{second}.deleting"));
     fs::write(&tombstone, b"deleting\n").unwrap();
     let keys = Writer {
@@ -133,13 +137,18 @@ fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwritin
     };
     let registry = Registry::new(root, Layout::Ios);
     let _guard = registry.lock().unwrap();
-    let mut ids = [FIRST, second, third, fourth].into_iter();
+    let mut ids = [FIRST, second, third, fourth, fifth].into_iter();
     let reserved = registry
         .reserve_with(Storage::Wrapped, &keys, || {
             Ok(ids.next().expect("collision sequence").into())
         })
         .unwrap();
-    assert_eq!(reserved.id, fourth);
+    assert_eq!(reserved.id, fifth);
+    assert_eq!(
+        fs::read(hidden.join("client.db")).unwrap(),
+        b"interrupted cleanup"
+    );
+    assert!(!profiles.join(fourth).exists());
     assert_eq!(fs::read(old.join("identity.key")).unwrap(), b"keep old key");
     assert_eq!(fs::read(tombstone).unwrap(), b"deleting\n");
     assert!(!profiles.join(second).exists());
