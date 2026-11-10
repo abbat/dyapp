@@ -110,7 +110,7 @@ fn save(
     }
     match (storage, keys.store(slot, identity)?) {
         (Storage::System, None) => Ok(()),
-        (Storage::Wrapped, Some(bytes)) if bytes.len() <= 4096 => {
+        (Storage::Wrapped, Some(bytes)) if bytes.len() <= keys::MAX_WRAPPED_BYTES => {
             write::fresh(&slot.dir.join("identity.key"), &bytes)
         }
         _ => Err("Invalid platform key storage result".into()),

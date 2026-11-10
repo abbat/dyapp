@@ -86,6 +86,25 @@ fn malformed_hidden_names_are_foreign_and_hidden_regular_files_are_broken() {
     assert_eq!(fs::read(hidden).unwrap(), b"foreign file");
 }
 
+#[test]
+fn apple_tombstone_keeps_a_partially_cleaned_regular_directory_recoverable() {
+    let root = root();
+    let dir = root.join("profiles").join(FIRST);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        root.join("profiles").join(format!("{FIRST}.deleting")),
+        b"deleting\n",
+    )
+    .unwrap();
+    let slots = crate::identity_slots::list(&root, Layout::Ios).unwrap();
+    assert_eq!(slots[0].state, State::Deleting);
+    fs::write(dir.join("state"), b"malformed").unwrap();
+    assert_eq!(
+        crate::identity_slots::list(&root, Layout::Ios).unwrap()[0].state,
+        State::Broken
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn apple_tombstone_never_upgrades_a_symlinked_slot_to_deleting() {

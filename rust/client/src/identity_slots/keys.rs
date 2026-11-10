@@ -4,6 +4,8 @@ use std::fs;
 use std::io::Read;
 use zeroize::Zeroizing;
 
+pub(super) const MAX_WRAPPED_BYTES: usize = 4096;
+
 /// Platform-only reading of direct credentials or decoding of wrapped identity bytes.
 pub trait KeyReader {
     /// Whether credentials exist for this slot, including an orphan legacy wrapping key.
@@ -36,7 +38,11 @@ pub(super) fn load(slot: &Slot, keys: &dyn KeyReader) -> Result<Option<Identity>
     if storage == Storage::File {
         private_file(&metadata)?;
     }
-    let limit = if storage == Storage::File { 33 } else { 4097 };
+    let limit = if storage == Storage::File {
+        33
+    } else {
+        MAX_WRAPPED_BYTES as u64 + 1
+    };
     let mut bytes = Zeroizing::new(Vec::new());
     fs::File::open(path)
         .and_then(|file| file.take(limit).read_to_end(&mut bytes))
@@ -46,7 +52,7 @@ pub(super) fn load(slot: &Slot, keys: &dyn KeyReader) -> Result<Option<Identity>
             <&[u8; 32]>::try_from(bytes.as_slice()).map_err(|_| "Invalid identity file length")?;
         return Ok(Some(Identity::from_secret(secret)));
     }
-    if bytes.len() > 4096 {
+    if bytes.len() > MAX_WRAPPED_BYTES {
         return Err("Wrapped identity file exceeds 4096 bytes".into());
     }
     keys.open(slot, Some(&bytes))

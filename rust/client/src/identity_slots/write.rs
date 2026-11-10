@@ -49,7 +49,7 @@ pub(super) fn select_with(
     })
 }
 
-fn selection_sync(parent: &Path) -> Result<(), String> {
+pub(super) fn selection_sync(parent: &Path) -> Result<(), String> {
     #[cfg(unix)]
     {
         sync_directory(parent)

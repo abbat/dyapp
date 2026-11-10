@@ -34,15 +34,16 @@ The core inventory also recognizes old Android/desktop `.<uuid>.removed` directo
 interrupted deletion, even when cleanup removed their markers. A visible/hidden duplicate ID
 is damaged metadata; neither copy opens as ready. Reservation skips IDs held by hidden
 cleanup paths. iOS retains its separate `<uuid>.deleting` marker format; a tombstone never
-upgrades damaged or symlinked slot metadata to a readable candidate. Inventory never
-cleans these paths; confirmed cleanup remains planned.
+makes symlinked paths or malformed state markers readable. A regular directory whose state
+file was already cleaned remains deleting under its valid tombstone. Inventory never
+cleans these paths; confirmed cleanup is a separate explicit core mutation.
 
 `MobileSlotResolution` preserves setup, picker, ready and recovery outcomes, including
 missing versus unavailable credentials and recoverable Peer IDs. Creation and selection return
 `MobileSlotSelection`: its key is verified and its selection committed; a nonempty
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
-a failed selection. Construction does not create an identity. Confirmed removal and migration
-of the existing Kotlin/Swift slot adapters to this API remain planned.
+a failed selection. Construction does not create an identity. Native confirmed-removal exposure
+and migration of the existing Kotlin/Swift slot adapters to this API remain planned.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
@@ -52,7 +53,27 @@ never upgrade a held lease to a mutation lock. The common native `MobileIdentity
 exposes an opaque key and verified slot; retaining the key alone does not retain the lease.
 Move the operation object into blocking workers and keep it until actual completion, including
 after UI cancellation. Installation-owned node work must run outside identity leases.
-Kotlin/Swift adoption and confirmed-removal integration remain planned.
+Kotlin/Swift adoption and native confirmed-removal exposure remain planned.
+
+`Registry::remove` takes the same exclusive lock. It rejects legacy/damaged candidates,
+checks an existing key against the exact confirmed Peer ID and validates all owned files
+before erasing credentials. Confirmed absent mobile credentials permit cleanup without
+decoding an orphan wrapped blob. Access failures never count as absence. Platform callbacks
+address typed credential roles only; core erases/verifies seal and device credentials before
+identity credentials. Mobile wrapping credentials protect all of that slot's local key blobs.
+
+Only known client files and flat `originals`/`sticker-packs` contents are accepted.
+Media names are lowercase 64-digit hashes; sticker pending files use a dot, 32 hex digits
+and `.pending`. Unknown paths, symlinks and identity-local node files stop removal before
+any credential erasure. Installation-owned node and app-lock paths are outside cleanup.
+
+Removal marks deletion and clears only the target's active selection before erasure.
+Android/desktop cleanup moves to the existing hidden format; iOS retains its sibling tombstone
+and explicit `none\n` selection. Cleanup revalidates paths and keeps the empty directory until
+the final removal, so intermediate failures remain discoverable. The iOS tombstone goes last.
+`RemovalOutcome.durability_detail` distinguishes visibly completed deletion from unconfirmed
+directory persistence; it never reports a post-commit sync failure as an uncommitted removal.
+Platform adapters still use their existing removal implementations until explicitly migrated.
 
 ## Which source is the contract
 

@@ -89,6 +89,20 @@ fn deleting_id<'a>(path: &Path, name: &'a str, layout: Layout) -> Option<&'a str
     })
 }
 
+fn apply_tombstone(candidates: &mut BTreeMap<String, Slot>, profiles: &Path, id: String) {
+    let slot = candidates.entry(id.clone()).or_insert_with(|| Slot {
+        dir: profiles.join(&id),
+        id,
+        state: State::Deleting,
+        storage: Some(Storage::Wrapped),
+    });
+    let cleaned_marker = slot.storage == Some(Storage::Wrapped)
+        && matches!(markers::read(&slot.dir.join("state")), Ok(None));
+    if slot.state != State::Broken || cleaned_marker {
+        slot.state = State::Deleting;
+    }
+}
+
 /// Enumerate existing candidates without opening keys or changing any files.
 ///
 /// # Errors
@@ -115,15 +129,7 @@ pub fn list(root: &Path, layout: Layout) -> io::Result<Vec<Slot>> {
         }
     }
     for id in deleting {
-        let slot = candidates.entry(id.clone()).or_insert_with(|| Slot {
-            dir: profiles.join(&id),
-            id,
-            state: State::Deleting,
-            storage: Some(Storage::Wrapped),
-        });
-        if slot.state != State::Broken {
-            slot.state = State::Deleting;
-        }
+        apply_tombstone(&mut candidates, &profiles, id);
     }
     slots.extend(candidates.into_values());
     Ok(slots)

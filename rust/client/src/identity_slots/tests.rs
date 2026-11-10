@@ -2,6 +2,7 @@ mod create;
 mod open;
 mod operation;
 mod registry;
+mod removal;
 mod removed;
 mod write;
 
