@@ -1,0 +1,27 @@
+# OSV scans the whole lock, including dependencies excluded from native macOS builds.
+# Only target exclusions belong here; shared crypto/storage findings remain visible.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+reason = "glib 0.18 belongs to Tauri's GTK/WebKitGTK backend, whose dependency edges are Linux/BSD-only; native macOS builds use AppKit/WebKit and do not compile glib"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error 1 is used only by glib-macros and gtk3-macros; the entire GTK dependency branch is excluded from native macOS builds"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+reason = "zvariant via zbus 5: all incoming zbus edges in single-instance, notification and notify-rust are Linux/BSD or non-macOS gated; native macOS builds do not compile it"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+reason = "zbus_names via zbus 5: all incoming zbus edges in single-instance, notification and notify-rust are Linux/BSD or non-macOS gated; native macOS builds do not compile it"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+reason = "zvariant_derive via zbus 5: all incoming zbus edges in single-instance, notification and notify-rust are Linux/BSD or non-macOS gated; native macOS builds do not compile it"
+ignoreUntil = 2026-12-08

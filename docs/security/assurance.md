@@ -53,6 +53,11 @@ the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstra
 lock accepts the unmaintained zvariant, zbus_names and zvariant_derive through
 tauri-plugin-single-instance, whose zbus 5 dependency is Linux-only and never compiled there; the
 Linux lock has none of them, as zbus 6 absorbs those crates.
+The macOS OSV file excludes only GTK's `glib`/`proc-macro-error` advisories and the
+three zbus 5 companion advisories. Their pinned Tauri, tray, menu and notification
+dependency edges select Linux/BSD or explicitly exclude macOS, so neither native
+macOS architecture compiles them. These entries have review dates; shared crypto
+and storage exceptions are not copied into the macOS file.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.
