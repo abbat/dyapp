@@ -12,12 +12,40 @@ id = "RUSTSEC-2024-0370"
 reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of the gtk-rs crates under Tauri"
 ignoreUntil = 2026-12-08
 
-# The seed check links dyapp-client, so the workspace exceptions in ../../osv-scanner.toml apply here
-# for the same reasons.
+# zbus 6 merges these crates; tauri-plugin-single-instance 2.5 uses zbus 5 on Linux only, so the lock
+# lists it but Windows builds never compile it.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+reason = "zvariant is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+reason = "zbus_names is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+reason = "zvariant_derive is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
+ignoreUntil = 2026-12-08
+
+# The workspace exceptions of ../../osv-scanner.toml, copied verbatim because OSV-Scanner
+# reads only this directory's file; tests/scripts/check-advisory-ignores.py keeps them equal.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+ignoreUntil = 2026-12-08
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0374"
+reason = "basic-toml is archived, no fix: a build-time parser of askama templates via uniffi (also ignored in deny.toml)"
 ignoreUntil = 2026-12-08
 
 [[IgnoredVulns]]
@@ -39,21 +67,3 @@ ignoreUntil = 2026-12-08
 id = "RUSTSEC-2026-0387"
 reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
 ignoreUntil = 2026-11-24
-
-# zbus 6 merges these crates; tauri-plugin-single-instance 2.5 uses zbus 5 on Linux only, so the lock
-# lists it but Windows builds never compile it.
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0370"
-reason = "zvariant is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
-ignoreUntil = 2026-12-08
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0371"
-reason = "zbus_names is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
-ignoreUntil = 2026-12-08
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0372"
-reason = "zvariant_derive is unmaintained, merged into zbus 6: zbus 5 via tauri-plugin-single-instance on Linux only, not compiled on Windows"
-ignoreUntil = 2026-12-08

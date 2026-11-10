@@ -12,12 +12,24 @@ id = "RUSTSEC-2024-0370"
 reason = "proc-macro-error is unmaintained, no fix: a compile-time proc macro of the gtk-rs crates under Tauri"
 ignoreUntil = 2026-12-08
 
-# The seed check links dyapp-client, so the workspace exceptions in ../../osv-scanner.toml apply here
-# for the same reasons.
+# zbus 6 merges these crates; secret-service 5.2, the Linux key store backend, still needs zbus 5.
+
+# The workspace exceptions of ../../osv-scanner.toml, copied verbatim because OSV-Scanner
+# reads only this directory's file; tests/scripts/check-advisory-ignores.py keeps them equal.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+ignoreUntil = 2026-12-08
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0374"
+reason = "basic-toml is archived, no fix: a build-time parser of askama templates via uniffi (also ignored in deny.toml)"
 ignoreUntil = 2026-12-08
 
 [[IgnoredVulns]]
@@ -39,10 +51,3 @@ ignoreUntil = 2026-12-08
 id = "RUSTSEC-2026-0387"
 reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
 ignoreUntil = 2026-11-24
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0253"
-reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release) in the desktop node: the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
-ignoreUntil = 2026-12-08
-
-# zbus 6 merges these crates; secret-service 5.2, the Linux key store backend, still needs zbus 5.

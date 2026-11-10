@@ -1,5 +1,7 @@
-# OSV scans the whole lock, including dependencies excluded from native macOS builds.
-# Only target exclusions belong here; shared crypto/storage findings remain visible.
+# OSV-Scanner exceptions for the Cargo.lock next to this file, read by the OpenSSF Scorecard
+# Vulnerabilities check (docs/security/assurance.md#openssf-scorecard). OSV scans the whole lock,
+# including dependencies excluded from native macOS builds; the entries below say why each does not
+# apply.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0429"
@@ -25,3 +27,41 @@ ignoreUntil = 2026-12-08
 id = "RUSTSEC-2026-0372"
 reason = "zvariant_derive via zbus 5: all incoming zbus edges in single-instance, notification and notify-rust are Linux/BSD or non-macOS gated; native macOS builds do not compile it"
 ignoreUntil = 2026-12-08
+
+# The workspace exceptions of ../../osv-scanner.toml, copied verbatim because OSV-Scanner
+# reads only this directory's file; tests/scripts/check-advisory-ignores.py keeps them equal.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+reason = "lru 0.7 via reed-solomon-erasure 6.0 (no newer release): the use-after-free needs a key whose Drop panics inside LruCache::pop; its keys are Vec<usize>"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained, no fix: a compile-time proc macro via libp2p if-watch (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0374"
+reason = "basic-toml is archived, no fix: a build-time parser of askama templates via uniffi (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0173"
+reason = "proc-macro-error2 is unmaintained, no fix: a compile-time proc macro via openmls -> hpke-rs -> libcrux -> hax-lib (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0330"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0331"
+reason = "libcrux-kem 0.0.9 pinned by hpke-rs-libcrux 0.7 under openmls: the panic is in hybrid KEMs, dyapp accepts MLS ciphersuite 0x0001 (DHKEM X25519) only (also ignored in deny.toml)"
+ignoreUntil = 2026-12-08
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0387"
+reason = "Temporary risk acceptance through 2026-11-24 (GH issue #25): crypto-bigint 0.5.5 is pulled in through OpenMLS P-curves; dyapp permits only suite 0x0001 (X25519/Ed25519), but absence of reachable vulnerable operations is unproven"
+ignoreUntil = 2026-11-24

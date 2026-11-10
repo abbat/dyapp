@@ -349,7 +349,8 @@ Every advisory ignore has a review date at most 90 days ahead, so no acceptance 
 
 - `deny.toml`: the reason ends in `review by YYYY-MM-DD (issue #N)`;
 - each `osv-scanner.toml`: the entry sets `ignoreUntil = YYYY-MM-DD`, after which OSV-Scanner
-  reports the vulnerability again;
+  reports the vulnerability again; every other `osv-scanner.toml` repeats every root entry verbatim,
+  since OSV-Scanner reads only the file beside the scanned lock;
 - `.cargo/audit.toml` has no reasons, so it ignores exactly the `deny.toml` ids.
 
 `tests/scripts/check-advisory-ignores.py` checks this in `make quality`, but never fails on a passed

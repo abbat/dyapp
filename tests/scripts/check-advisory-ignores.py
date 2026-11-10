@@ -2,10 +2,11 @@
 
 deny.toml reasons end in `review by YYYY-MM-DD (issue #N)`, each
 osv-scanner.toml entry has `ignoreUntil`, and .cargo/audit.toml, which has no
-reasons, ignores exactly the deny.toml ids. A date may be at most 90 days
-ahead. make quality checks the format only, so a clean commit never turns red
-as time passes; `--expiry`, run by the scheduled security workflow, also
-fails on a date that has passed or is less than 14 days away.
+reasons, ignores exactly the deny.toml ids. Every other osv-scanner.toml
+repeats the root osv-scanner.toml entries verbatim. A date may be at most
+90 days ahead. make quality checks the format only, so a clean commit never
+turns red as time passes; `--expiry`, run by the scheduled security workflow,
+also fails on a date that has passed or is less than 14 days away.
 """
 
 from collections.abc import Iterable, Mapping
@@ -18,6 +19,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_AHEAD, WARN = timedelta(days=90), timedelta(days=14)
+ROOT_OSV = "osv-scanner.toml"
 MARKER = re.compile(r"review by (\d{4}-\d{2}-\d{2}) \(issue #\d+\)$")
 
 
@@ -64,6 +66,32 @@ def osv_dates(text: str) -> list[tuple[str, date | None]]:
     ]
 
 
+def shared(osvs: Mapping[str, str]) -> list[str]:
+    """Each child osv-scanner.toml repeats every root entry verbatim.
+
+    OSV-Scanner applies a config only to the lock in its own directory and
+    Scorecard cannot pass --config, so the root entries are copied; an entry
+    whose crate is absent from a lock is inert there.
+    """
+    if ROOT_OSV not in osvs:
+        return []
+    root = tomllib.loads(osvs[ROOT_OSV]).get("IgnoredVulns", [])
+    found = []
+    for path, text in sorted(osvs.items()):
+        if path == ROOT_OSV:
+            continue
+        rows = {
+            row["id"]: row
+            for row in tomllib.loads(text).get("IgnoredVulns", [])
+        }
+        for row in root:
+            if row["id"] not in rows:
+                found.append(f"{path}: {row['id']}: missing from {path}")
+            elif rows[row["id"]] != row:
+                found.append(f"{path}: {row['id']}: differs from root")
+    return found
+
+
 def errors(
     deny: str,
     audit: str,
@@ -76,6 +104,7 @@ def errors(
     found = dated("deny.toml", entries, today, expiry)
     for path, text in sorted(osvs.items()):
         found += dated(path, osv_dates(text), today, expiry)
+    found += shared(osvs)
     ignored = set(tomllib.loads(audit)["advisories"].get("ignore", []))
     if ignored != {vuln for vuln, _ in entries}:
         found.append(

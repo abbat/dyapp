@@ -47,17 +47,20 @@ Keep all five locks aligned when updating the shared storage dependency.
 OSV-Scanner reads `osv-scanner.toml` from the scanned manifest's directory; a root exception
 therefore does not cover a child directory. Each reviewed exception needs a reason tied to its
 scan source (no fixed version reachable, a code path the project never takes). cargo-deny keeps
-its own list in `deny.toml`. The Linux and Windows client locks link `dyapp-client`, so their
-OSV files repeat the workspace's paste, proc-macro-error2, libcrux-kem and crypto-bigint entries;
-the Linux one also repeats the lru entry (the desktop node links `dyapp-bootstrap`). The Windows
+its own list in `deny.toml`. The root `osv-scanner.toml` holds the workspace exceptions; every
+other `osv-scanner.toml` (clients, fuzz) repeats them verbatim, because the desktop and fuzz locks
+link the workspace crates, and an entry whose crate a lock lacks has no effect there.
+`tests/scripts/check-advisory-ignores.py` fails when a copy is missing or differs, so a lock that
+gains a workspace crate cannot raise an unreviewed Scorecard finding. cargo-deny reports
+`unsound` advisories only for direct workspace dependencies (its default), so the transitive lru
+advisory needs an exception only in the OSV files. The Windows
 lock accepts the unmaintained zvariant, zbus_names and zvariant_derive through
 tauri-plugin-single-instance, whose zbus 5 dependency is Linux-only and never compiled there; the
 Linux lock has none of them, as zbus 6 absorbs those crates.
-The macOS OSV file excludes only GTK's `glib`/`proc-macro-error` advisories and the
-three zbus 5 companion advisories. Their pinned Tauri, tray, menu and notification
-dependency edges select Linux/BSD or explicitly exclude macOS, so neither native
-macOS architecture compiles them. These entries have review dates; shared crypto
-and storage exceptions are not copied into the macOS file.
+The macOS OSV file adds GTK's `glib`/`proc-macro-error` advisories and the
+three zbus 5 companion advisories to the workspace ones. Their pinned Tauri, tray, menu and
+notification dependency edges select Linux/BSD or explicitly exclude macOS, so neither native
+macOS architecture compiles them.
 The `glib` 0.18.5 alert is accepted on Linux until Tauri's GTK 3 stack can use the fixed 0.20
 series: the affected `VariantStrIter` API is not used by the app. The Windows alert was dismissed
 because this Linux dependency is not compiled for Windows.

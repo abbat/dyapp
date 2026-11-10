@@ -69,6 +69,15 @@ class AdvisoryIgnores(unittest.TestCase):
             "['A', 'C']", errors(audit='[advisories]\nignore = ["C"]\n')[0]
         )
 
+    def test_shared(self) -> None:
+        root = OSV.format("2026-11-21")
+        osvs = {"osv-scanner.toml": root, "a/osv-scanner.toml": root}
+        self.assertEqual(CHECK.shared(osvs), [])
+        osvs["a/osv-scanner.toml"] = OSV.format("2026-11-20")
+        self.assertIn("differs", CHECK.shared(osvs)[0])
+        osvs["a/osv-scanner.toml"] = ""
+        self.assertIn("missing", CHECK.shared(osvs)[0])
+
     def test_expiry(self) -> None:
         past = "review by 2026-10-01 (issue #3)"
         self.assertEqual(errors(reason=past, until="2026-11-12"), [])
