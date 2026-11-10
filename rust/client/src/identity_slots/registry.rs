@@ -42,7 +42,14 @@ impl Registry {
         &self,
         id: &str,
         keys: &dyn KeyReader,
-    ) -> Result<(Slot, Box<dyapp_identity::Identity>), String> {
+    ) -> Result<
+        (
+            Slot,
+            Box<dyapp_identity::Identity>,
+            super::SelectionDurability,
+        ),
+        String,
+    > {
         let _guard = self.lock()?;
         let slot = super::list(&self.root, self.layout)
             .map_err(|error| error.to_string())?
@@ -55,11 +62,11 @@ impl Registry {
         let super::Resolution::Ready(slot, identity) = super::open_slot(slot, keys) else {
             return Err("Identity key is missing or unavailable".into());
         };
-        super::write::replace(
+        let durability = super::write::select(
             &self.root.join("active-profile"),
             format!("{}\n", slot.id).as_bytes(),
         )?;
-        Ok((slot, identity))
+        Ok((slot, identity, durability))
     }
 
     pub(super) fn lock(&self) -> Result<File, String> {

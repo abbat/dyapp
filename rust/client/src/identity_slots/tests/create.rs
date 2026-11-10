@@ -54,7 +54,7 @@ fn all_storage_layouts_reopen_before_becoming_ready_and_selected() {
         let root = root();
         let registry = Registry::new(root.clone(), layout);
         let keys = Writer::default();
-        let (slot, identity) = registry.create(storage, &keys).unwrap();
+        let (slot, identity, _) = registry.create(storage, &keys).unwrap();
         assert_eq!(slot.state, State::Ready);
         assert_eq!(fs::read(slot.dir.join("state")).unwrap(), b"ready\n");
         assert_eq!(active(&root, layout), Active::Selected(slot.id.clone()));
@@ -71,9 +71,9 @@ fn selection_reopens_the_named_identity_and_rejects_missing_or_incomplete_slots(
     let root = root();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let keys = Writer::default();
-    let (first, identity) = registry.create(Storage::File, &keys).unwrap();
-    let (second, _) = registry.create(Storage::File, &keys).unwrap();
-    let (selected, reopened) = registry.select(&first.id, &keys).unwrap();
+    let (first, identity, _) = registry.create(Storage::File, &keys).unwrap();
+    let (second, _, _) = registry.create(Storage::File, &keys).unwrap();
+    let (selected, reopened, _) = registry.select(&first.id, &keys).unwrap();
     assert_eq!(selected.id, first.id);
     assert_eq!(reopened.peer_id(), identity.peer_id());
     assert_eq!(

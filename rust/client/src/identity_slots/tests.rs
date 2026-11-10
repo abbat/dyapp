@@ -1,6 +1,7 @@
 mod create;
 mod open;
 mod registry;
+mod write;
 
 use super::*;
 use std::fs;

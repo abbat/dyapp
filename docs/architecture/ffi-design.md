@@ -239,8 +239,10 @@ writes `ready` and finally the active pointer. `KeyWriter` returns wrapped bytes
 fresh system credential; it must reject existing aliases. A failed verification leaves pending
 metadata and the old selection. An active-pointer write failure can leave a verified ready slot
 without changing the old pointer when failure precedes the rename. A directory-sync failure
-after rename reports an error even though the new pointer is already visible; callers must
-reload selection after a write error. Unix creation syncs parent directory entries as well as
+after rename is returned as `SelectionDurability::Unconfirmed` alongside the committed slot
+and identity; it is not a refused selection. `Registry::create` and `Registry::select` return
+that status explicitly. Errors from the active-pointer step occur before rename and preserve
+the prior pointer. Unix creation syncs parent directory entries as well as
 file contents before advancing; Windows currently has no directory-flush guarantee in this
 portable API. Stranded `.tmp` files fail closed rather than being followed,
 truncated or deleted. `Registry::select` finds the requested ID in the current inventory,

@@ -3,6 +3,7 @@
 mod create;
 mod write;
 pub use create::KeyWriter;
+pub use write::SelectionDurability;
 mod inventory;
 mod keys;
 mod markers;

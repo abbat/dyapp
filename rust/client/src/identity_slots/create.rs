@@ -21,7 +21,7 @@ impl Registry {
         &self,
         storage: Storage,
         keys: &dyn KeyWriter,
-    ) -> Result<(Slot, Identity), String> {
+    ) -> Result<(Slot, Identity, super::SelectionDurability), String> {
         let _guard = self.lock()?;
         if (self.layout == Layout::Desktop) == (storage == Storage::Wrapped) {
             return Err("Storage does not match the registry layout".into());
@@ -35,11 +35,11 @@ impl Registry {
         }
         write::replace(&slot.dir.join("state"), b"ready\n")?;
         slot.state = State::Ready;
-        write::replace(
+        let durability = write::select(
             &self.root.join("active-profile"),
             format!("{}\n", slot.id).as_bytes(),
         )?;
-        Ok((slot, identity))
+        Ok((slot, identity, durability))
     }
 
     fn reserve(&self, storage: Storage, keys: &dyn KeyWriter) -> Result<Slot, String> {
