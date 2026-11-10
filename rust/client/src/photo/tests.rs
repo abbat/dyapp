@@ -1,6 +1,29 @@
 use super::*;
 
 #[test]
+fn decoded_pixels_must_match_frame() {
+    assert!(rgba_pixels(&[1, 2], PixelFormat::RGB24, 1).is_err());
+    assert!(rgba_pixels(&[7, 8], PixelFormat::L8, 1).is_err());
+    assert_eq!(
+        rgba_pixels(&[7], PixelFormat::L8, 1).unwrap(),
+        vec![7, 7, 7, 255]
+    );
+    assert_eq!(
+        rgba_pixels(&[1, 2, 3], PixelFormat::RGB24, 1).unwrap(),
+        vec![1, 2, 3, 255]
+    );
+}
+
+#[test]
+fn malformed_jpeg_does_not_panic_in_decoder() {
+    let bytes = include_bytes!(
+        "../../../../tests/fuzz/corpus/preview/b31fdd103ccba5f493ba6602325173fdcbca3eb1"
+    );
+    let (width, height) = frame_size(bytes).unwrap();
+    assert!(std::panic::catch_unwind(|| decode(bytes, width, height)).is_ok());
+}
+
+#[test]
 fn empty_mismatched_and_overflowing_dimensions_are_rejected() {
     for (pixels, width, height) in [
         (&[][..], 0, 0),

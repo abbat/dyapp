@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-23
 - **Revised:** 2026-11-07: macOS moves from SwiftUI to the Tauri desktop client for v0.0.1
+- **Revised:** 2026-11-10: reusable rules and photo codecs live in core, with thin common UniFFI adapters
 
 ## Context
 
@@ -40,7 +41,8 @@ macOS (file modes, `statvfs`). D-Bus notifications, tray-host discovery, Linux
 single-instance signaling, NetworkManager metering and WebKitGTK camera permissions
 compile only on Linux; other desktops use their platform paths. iOS and Android stay native.
 
-The Rust FFI decodes incoming previews with `jpeg-decoder` 0.3.2 while `image` remains the encoder
+The shared Rust client photo core decodes incoming previews with `jpeg-decoder` 0.3.2; the
+common UniFFI adapter only converts data and errors. `image` remains the encoder
 and resizer. The decoder is bounded to 1 MiB; only RGB and grayscale output is accepted after
 checking the input size and frame dimensions. The crash input remains in the fuzz corpus.
 

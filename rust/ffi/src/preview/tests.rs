@@ -1,4 +1,6 @@
 use super::*;
+use image::codecs::jpeg::JpegEncoder;
+use image::RgbImage;
 
 /// Deterministic xorshift64, so failures replay.
 struct Rng(u64);
@@ -62,29 +64,6 @@ fn sof(jpeg: &[u8]) -> (usize, usize) {
 }
 
 #[test]
-fn decoded_pixels_must_match_frame() {
-    assert!(rgba_pixels(&[1, 2], PixelFormat::RGB24, 1).is_err());
-    assert!(rgba_pixels(&[7, 8], PixelFormat::L8, 1).is_err());
-    assert_eq!(
-        rgba_pixels(&[7], PixelFormat::L8, 1).unwrap(),
-        vec![7, 7, 7, 255]
-    );
-    assert_eq!(
-        rgba_pixels(&[1, 2, 3], PixelFormat::RGB24, 1).unwrap(),
-        vec![1, 2, 3, 255]
-    );
-}
-
-#[test]
-fn malformed_jpeg_does_not_panic_in_decoder() {
-    let bytes = include_bytes!(
-        "../../../../tests/fuzz/corpus/preview/b31fdd103ccba5f493ba6602325173fdcbca3eb1"
-    );
-    let (width, height) = frame_size(bytes).unwrap();
-    assert!(std::panic::catch_unwind(|| decode(bytes, width, height)).is_ok());
-}
-
-#[test]
 fn photo_becomes_320_px_within_24_kib() {
     let jpeg = preview(4000, 3000);
     assert!(jpeg.len() <= MAX_BYTES as usize, "{} bytes", jpeg.len());
@@ -126,6 +105,10 @@ fn small_and_transparent_sources_keep_their_size() {
 fn pixels_must_match_dimensions() {
     assert!(make_preview(vec![0; 15], 2, 2, MAX_BYTES).is_err());
     assert!(make_preview(Vec::new(), 0, 0, MAX_BYTES).is_err());
+    let error = make_preview(Vec::new(), u32::MAX, u32::MAX, MAX_BYTES).unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("pixels do not match width and height"));
 }
 
 #[test]

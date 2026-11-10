@@ -1249,7 +1249,6 @@ dependencies = [
  "getrandom 0.4.3",
  "image",
  "jni-sys",
- "jpeg-decoder",
  "libp2p",
  "ndk-context",
  "prost",
