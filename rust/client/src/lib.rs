@@ -15,6 +15,7 @@ pub mod places;
 mod prepared;
 pub(crate) use prepared::prepare;
 pub use prepared::{prepare_put, prepare_tokened_put, PreparedEnvelope};
+pub mod profile_editor;
 pub mod profiles;
 mod providers;
 pub mod publish;

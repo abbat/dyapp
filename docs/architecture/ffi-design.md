@@ -89,6 +89,15 @@ Android draft loading reads only the identity-bound `client.db` through `load_pr
 An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported
 nor modified. Publication and mutual search use the same loader.
 
+## Shared profile editor policy
+
+`dyapp_client::profile_editor` validates editable fields with stable draft errors and separately
+applies normalized fields to an existing `dyapp_profile::Profile`. It trims name/about, clears
+seeking fields for not-looking, and preserves proof progress, photos, devices and all other
+noneditable fields. Editor categorical/seeking codes use the closed vocabulary; node verification
+retains its separate forward-compatible contract. Apply alone supports eligibility and search
+projections; persistence callers must validate first. Native draft adapter migration is planned.
+
 ## Profile editor height and seeking input
 
 `parse_profile_height` and `parse_profile_seeking` delegate to
