@@ -46,9 +46,9 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
   },
   "macos-macos15-universal-release-unsigned-zip": {
-    "bytes": 22067678,
-    "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; universal arm64/x86_64 Release; unsigned ZIP",
-    "revision": "47c17300df5146e5b16673615efad2c64da83315",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
+    "bytes": 31143613,
+    "environment": "macOS 15.8.2 arm64; Rust 1.99.0; Tauri; universal arm64/x86_64 Release; unsigned ZIP",
+    "revision": "77981508511f270ec0129d0a3644bbfc91628c7d",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/42804780601"
   }
 }
