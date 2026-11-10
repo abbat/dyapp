@@ -47,6 +47,30 @@ impl NodeConfig {
                 "listen: укажите хотя бы один адрес"
             ));
         }
+        self.validate_roles()?;
+        self.validate_limits()?;
+        if self.network.id_pow_bits > 32 {
+            anyhow::bail!(message(
+                "network.id_pow_bits must be at most 32",
+                "network.id_pow_bits: значение должно быть не больше 32"
+            ));
+        }
+        if self.maintenance.interval_minutes < 1
+            || self.maintenance.vacuum_pages < 1
+            || self.maintenance.io_mb_per_s < 1
+        {
+            anyhow::bail!(
+                message(
+                    "maintenance.interval_minutes, vacuum_pages and io_mb_per_s must be at least 1",
+                    "maintenance.interval_minutes, vacuum_pages и io_mb_per_s: значения должны быть не меньше 1"
+                )
+            );
+        }
+        dyapp_p2p_net::Protocols::new(&self.network.name)?;
+        check_writable(&self.storage.dir)
+    }
+
+    fn validate_roles(&self) -> anyhow::Result<()> {
         if let Some(role) = self.roles.iter().find(|r| {
             !matches!(
                 r,
@@ -86,6 +110,10 @@ impl NodeConfig {
             }
             self.turn.validate()?;
         }
+        self.validate_search_role()
+    }
+
+    fn validate_search_role(&self) -> anyhow::Result<()> {
         // Store-only nodes also advertise this policy. Other search settings remain
         // irrelevant when search is disabled.
         if self.roles.contains(&Role::Store) && self.search.min_profile_pow_bits > 20 {
@@ -111,6 +139,10 @@ impl NodeConfig {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn validate_limits(&self) -> anyhow::Result<()> {
         let l = &self.limits;
         if l.message_ttl_hours < 1
             || l.attachment_retention_hours < 1
@@ -151,6 +183,10 @@ impl NodeConfig {
                 "media.shard_threshold: значение должно быть от 1 до 1048576 байт"
             ));
         }
+        self.validate_connection_limits()
+    }
+
+    fn validate_connection_limits(&self) -> anyhow::Result<()> {
         let l = &self.limits;
         if l.max_connections < 1
             || l.max_connections_per_peer < 1
@@ -181,25 +217,7 @@ impl NodeConfig {
         if l.ip_group_requests_per_second > 100_000_000 {
             anyhow::bail!(message("limits.ip_group_requests_per_second must be at most 100000000 for the 10x coarse budget", "limits.ip_group_requests_per_second: значение должно быть не больше 100000000 для 10-кратного грубого лимита"));
         }
-        if self.network.id_pow_bits > 32 {
-            anyhow::bail!(message(
-                "network.id_pow_bits must be at most 32",
-                "network.id_pow_bits: значение должно быть не больше 32"
-            ));
-        }
-        if self.maintenance.interval_minutes < 1
-            || self.maintenance.vacuum_pages < 1
-            || self.maintenance.io_mb_per_s < 1
-        {
-            anyhow::bail!(
-                message(
-                    "maintenance.interval_minutes, vacuum_pages and io_mb_per_s must be at least 1",
-                    "maintenance.interval_minutes, vacuum_pages и io_mb_per_s: значения должны быть не меньше 1"
-                )
-            );
-        }
-        dyapp_p2p_net::Protocols::new(&self.network.name)?;
-        check_writable(&self.storage.dir)
+        Ok(())
     }
 }
 
@@ -218,4 +236,33 @@ fn check_writable(dir: &Path) -> anyhow::Result<()> {
                 )
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_sections_keep_their_order_before_storage() {
+        let mut config = NodeConfig::default();
+        // A file cannot become a directory: no fixture writes are possible.
+        config.storage.dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("Cargo.toml")
+            .join("unreachable");
+        config.roles = vec![Role::Relay];
+        config.limits.message_ttl_hours = 0;
+        config.network.id_pow_bits = 33;
+        config.maintenance.interval_minutes = 0;
+        let error = |config: &NodeConfig| config.validate().unwrap_err().to_string();
+        assert!(error(&config).contains("relay"));
+        config.roles = vec![Role::Store];
+        assert!(error(&config).contains("message_ttl_hours"));
+        config.limits.message_ttl_hours = 1;
+        assert!(error(&config).contains("id_pow_bits"));
+        config.network.id_pow_bits = 0;
+        assert!(error(&config).contains("interval_minutes"));
+        config.maintenance.interval_minutes = 1;
+        assert!(error(&config).contains("Cargo.toml"));
+        assert!(!config.storage.dir.exists());
+    }
 }

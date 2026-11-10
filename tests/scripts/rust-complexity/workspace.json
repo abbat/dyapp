@@ -8,7 +8,6 @@
   {"path":"rust/bootstrap/src/config/key.rs","function":"impl NodeConfig ::fn load_key ","metrics":{"lines":74}},
   {"path":"rust/bootstrap/src/config/validation.rs","function":"fn invalid_config_fails ","metrics":{"cognitive":43,"lines":100}},
   {"path":"rust/bootstrap/src/config/validation.rs","function":"fn search_limits_are_checked ","metrics":{"cognitive":23}},
-  {"path":"rust/bootstrap/src/config/validation_impl.rs","function":"impl NodeConfig ::fn validate ","metrics":{"lines":156}},
   {"path":"rust/bootstrap/src/media.rs","function":"impl MediaStore ::fn evict ","metrics":{"lines":53}},
   {"path":"rust/bootstrap/src/media.rs","function":"impl MediaStore ::fn open ","metrics":{"lines":56}},
   {"path":"rust/bootstrap/src/media.rs","function":"impl MediaStore ::fn put ","metrics":{"lines":64}},
