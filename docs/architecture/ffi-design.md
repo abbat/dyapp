@@ -238,7 +238,11 @@ platform to store credentials, saves key files exclusively, verifies the reopene
 writes `ready` and finally the active pointer. `KeyWriter` returns wrapped bytes or stores a
 fresh system credential; it must reject existing aliases. A failed verification leaves pending
 metadata and the old selection. An active-pointer write failure can leave a verified ready slot
-without changing the old pointer. Stranded `.tmp` files fail closed rather than being followed,
+without changing the old pointer when failure precedes the rename. A directory-sync failure
+after rename reports an error even though the new pointer is already visible; callers must
+reload selection after a write error. Unix creation syncs parent directory entries as well as
+file contents before advancing; Windows currently has no directory-flush guarantee in this
+portable API. Stranded `.tmp` files fail closed rather than being followed,
 truncated or deleted. `Registry::select` finds the requested ID in the current inventory,
 requires ready metadata and opens its key before atomically changing the pointer; invalid IDs,
 incomplete slots and unavailable keys preserve the prior selection. Confirmed removal and

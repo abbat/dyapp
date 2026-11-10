@@ -58,6 +58,7 @@ impl Registry {
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 fs::create_dir(&profiles).map_err(|error| error.to_string())?;
+                write::sync_directory(&self.root)?;
             }
             Err(error) => return Err(error.to_string()),
         }
@@ -81,6 +82,7 @@ impl Registry {
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 result => result.map_err(|error| error.to_string())?,
             }
+            write::sync_directory(&profiles)?;
             if self.layout == Layout::Desktop {
                 let mode = if storage == Storage::System {
                     b"system\n".as_slice()
