@@ -62,6 +62,14 @@ and advances the cache epoch under one lock, so late search and chat results can
 Repeating the same settings retains the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Shared photo codec transition
+
+`dyapp_client::photo` exposes preview encoding, bounded peer JPEG decoding and frame inspection
+directly to Rust clients, with no UniFFI dependency. It retains the current 320 px / 24 KiB
+preview policy and 1 MiB decoder allocation cap, and rejects overflowing raw pixel dimensions.
+The common UniFFI adapter still uses its existing implementation during this staged extraction;
+switching it to the shared codec and preparing full photos in core are the next steps.
+
 ## Profile editor height and seeking input
 
 `parse_profile_height` and `parse_profile_seeking` delegate to

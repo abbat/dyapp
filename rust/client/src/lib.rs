@@ -10,6 +10,7 @@ pub mod compatibility;
 pub mod interactions;
 /// The device link code and record.
 pub mod link;
+pub mod photo;
 pub mod places;
 mod prepared;
 pub(crate) use prepared::prepare;

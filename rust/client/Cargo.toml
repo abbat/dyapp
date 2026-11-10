@@ -13,7 +13,9 @@ dyapp-messaging = { path = "../messaging" }
 dyapp-p2p-net = { path = "../p2p-net" }
 dyapp-profile = { path = "../profile" }
 getrandom = "0.4"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 image-webp = "=0.2.4"
+jpeg-decoder = { version = "0.3.2", default-features = false }
 libp2p = "0.57"
 miniz_oxide = "0.9"
 prost.workspace = true
