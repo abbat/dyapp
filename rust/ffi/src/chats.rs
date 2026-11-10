@@ -25,6 +25,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
 mod actions;
+mod like_submission;
+pub use like_submission::{ChatLikeAttempt, ChatLikeState};
 mod media_cache;
 mod notices;
 mod original;
@@ -371,20 +373,28 @@ impl ChatSession {
         Ok(found.iter().map(FoundProfile::from).collect())
     }
 
+    /// Strict compatibility like: delivery errors take precedence over projection read errors.
+    ///
+    /// # Errors
+    /// Returns pre-commit errors, immediate delivery errors, or a failed subsequent state read.
+    pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
+        self.submit_like(peer_id, liked)?.into_accepted()
+    }
+
     /// Like `peer_id` (`liked`) or take the like back, as a signal in the pair group on the active
-    /// network; the first like invites the peer. A failed send stays staged and is retried with
-    /// the same bytes. Errors are `unpublished` (no published own profile lists this device),
+    /// network; the first like invites the peer. Committed signals report delivery separately
+    /// from the subsequent state read. Errors are `unpublished` (no own profile lists this device),
     /// `notConnected` or a node or storage message.
     ///
     /// # Errors
     ///
-    /// Returns an error if the session lock, published own profile, active network, peer profile,
-    /// encrypted signal or stored like state cannot be obtained or updated.
+    /// Returns lock, own-profile, network, peer-profile or interaction-staging errors.
+    /// Post-commit delivery and projection failures stay in the result.
     #[expect(
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn like(&self, peer_id: String, liked: bool) -> Result<ChatLikes, CoreError> {
+    pub fn submit_like(&self, peer_id: String, liked: bool) -> Result<ChatLikeAttempt, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
@@ -395,8 +405,8 @@ impl ChatSession {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
                 let peer = node.get_profile(&peer_id).await.map_err(failed)?;
-                session
-                    .interact_with(
+                let submission = session
+                    .submit_interaction_with(
                         std::slice::from_mut(&mut node),
                         &[own, peer],
                         kind,
@@ -404,7 +414,10 @@ impl ChatSession {
                     )
                     .await
                     .map_err(failed)?;
-                likes_in(session.store(), &peer_id)
+                Ok(ChatLikeAttempt::new(
+                    submission,
+                    likes_in(session.store(), &peer_id),
+                ))
             })
         })
     }

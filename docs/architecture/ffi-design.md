@@ -130,7 +130,11 @@ verification remain planned.
 the no-event meaning for a suppressed daily view or a non-like without a joined group. Errors
 before interaction commitment remain errors, including a failed first-like invitation; a
 separately staged invitation may already exist. Strict interaction methods share the same path.
-Native/Android like adoption remains planned and must not infer commitment from matching state.
+The common native `submit_like` returns `ChatLikeAttempt`: an optional `ChatSubmission` keyed
+by the real event ID, and an independent `ChatLikeState::Ready` or `Unavailable` projection.
+A state-read failure never erases commitment; absent submission explicitly means no event.
+Legacy `like` preserves delivery-error precedence over projection errors through the same path.
+Android adoption remains planned and must not infer commitment from matching state.
 
 ## Shared profile editor policy
 
