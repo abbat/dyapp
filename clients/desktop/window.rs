@@ -84,6 +84,7 @@ pub fn restore<R: Runtime>(window: &WebviewWindow<R>, config: Option<&Path>) {
         }
     }
     let _ = window.show();
+    let _ = window.set_focus();
 }
 
 /// Records the window after a move or resize; keeps the last normal bounds while maximized.

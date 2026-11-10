@@ -27,6 +27,11 @@ objects and live state bindings (see
 
 Shared desktop smoke scripts, including the test-only video frame renderer and smoke checks,
 live in `clients/desktop/ui-tests/` and are concatenated in its `mod.rs` order.
+Native keyboard checks wait for document focus through the window focus event and a deadline;
+restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
+hide background paint outside the active dialog, preserving layout and restoring inline visibility
+on success or failure. This avoids axe 4.14 counting occluded page blocks as text overlap.
+Calibration reproduces that failure and still rejects real low contrast and foreground overlap.
 Chat list/message, identity peer/profile and public-name/contact-action scenarios live in paired
 `*-smoke.js` helpers loaded before `chats.js`, `identity.js` and `names.js`, respectively.
 Those entry scripts retain their existing exported check tables. Helpers share each scenario's

@@ -8,8 +8,34 @@ smoke.accessibilityOptions = () => {
   if (!rules['target-size']) throw new Error('axe WCAG 2.2 target-size rule is missing');
   return { runOnly: { type: 'tag', values: tags }, rules };
 };
+// axe 4.14 compares text-line hit stacks below an opaque native dialog.
+// Hide only occluded page paint during the audit; keep its layout and restore on every exit.
+const runAccessibilityAudit = async () => {
+  const options = smoke.accessibilityOptions();
+  const modal = document.activeElement?.closest('dialog:modal');
+  const hidden = [];
+  if (modal) {
+    const style = getComputedStyle(modal);
+    const opaque = window.axe.commons.color.getOwnBackgroundColor(style).alpha === 1;
+    if (opaque && style.opacity === '1' && style.backgroundImage === 'none') {
+      for (const child of document.body.children) {
+        if (child.contains(modal) || child.matches('dialog:modal')) continue;
+        const visibility = child.style.getPropertyValue('visibility');
+        const priority = child.style.getPropertyPriority('visibility');
+        hidden.push([child, visibility, priority]);
+        child.style.setProperty('visibility', 'hidden', 'important');
+      }
+    }
+  }
+  try {
+    return await window.axe.run(document, options);
+  } finally {
+    for (const [child, visibility, priority] of hidden)
+      child.style.setProperty('visibility', visibility, priority);
+  }
+};
 smoke.accessibility = async () => {
-  const result = await window.axe.run(document, smoke.accessibilityOptions());
+  const result = await runAccessibilityAudit();
   const findings = [];
   for (const violation of result.violations) {
     for (const node of violation.nodes) {

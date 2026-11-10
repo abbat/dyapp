@@ -43,6 +43,21 @@ const frames = () =>
   new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
+const documentFocused = () =>
+  new Promise((resolve, reject) => {
+    const finish = () => {
+      if (!document.hasFocus()) return;
+      stopTimer(deadline);
+      window.removeEventListener('focus', finish, true);
+      resolve();
+    };
+    const deadline = startTimer(() => {
+      window.removeEventListener('focus', finish, true);
+      reject(new Error('native document focus deadline'));
+    }, 10000);
+    window.addEventListener('focus', finish, true);
+    finish();
+  });
 // With axe-core loaded (DYAPP_AXE), checks the current screen: WCAG 2.x A/AA (labels and
 // contrast included) in the light and dark themes, tab order following the DOM, a visible focus
 // ring on every focusable control and no horizontal overflow at 440 px.
@@ -117,10 +132,12 @@ const audit = (() => {
   return async (name) => {
     if (!calibrated) {
       await smoke.accessibilitySelfCheck();
+      await smoke.modalAccessibilitySelfCheck();
       calibrated = true;
     }
     const problems = [];
     await auditThemes(problems);
+    await documentFocused();
     const [scrollLeft, scrollTop] = auditKeyboard(problems);
     await auditViewport(problems, scrollLeft, scrollTop);
     if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
