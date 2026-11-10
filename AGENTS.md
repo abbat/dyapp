@@ -42,6 +42,9 @@ User instructions take priority over this file. Details:
 - SQLite: quote identifiers with backticks and bind runtime values as parameters, e.g.
   ``"DELETE FROM `deny` WHERE `entry` = ?"``; `format!` only in-code constant identifiers. Details:
   [code-quality.md](docs/development/code-quality.md#sql).
+- **Deterministic tests.** Every new or modified test follows the
+  [testing rules](docs/testing/README.md#deterministic-tests): readiness/completion signals,
+  per-transition failure deadlines and current UI geometry; no sleeps or guessed delays.
 - **Docs change with the code.** A new feature, a behaviour fix, or a changed command, config or
   interface updates the affected pages in [docs/](docs/README.md) in the same commit: describe
   what the code does, mark unimplemented parts as planned, delete statements that are no longer

@@ -8,10 +8,30 @@ Local Make checks retain complete Docker output and print `OK` on success or
 
 Multi-layer testing. Rust line coverage is a ratchet: the workspace total never drops below a stored baseline and changed lines are ≥80% covered — see [Coverage policy](#coverage-policy).
 
-Apple UI launch flows are grouped in `LaunchFlows.swift` alongside `LaunchTests.swift`.
-Identity-slot recovery tests live in `clients/ios/Tests/IdentitySlotRecoveryTests.swift`,
-shared with the macOS test target. Shared test fixtures remain test-module helpers;
-production APIs are unchanged. Native Apple CI compiles and runs these tests.
+iOS UI launch flows are grouped in `LaunchFlows.swift` alongside `LaunchTests.swift`.
+Identity-slot recovery tests live in `clients/ios/Tests/IdentitySlotRecoveryTests.swift`.
+Shared test fixtures remain test-module helpers; production APIs are unchanged.
+Native iOS CI compiles and runs these tests. macOS uses the shared Rust desktop tests.
+
+## Deterministic tests
+
+These rules apply to every new or modified test:
+
+- Make results reproducible with controlled inputs, fixtures and clocks when timing is involved.
+- Advance steps on actual completion callbacks, readiness signals or state transitions. Register
+  listeners before triggering the action. Do not use `sleep`, arbitrary delays, extra retries or
+  larger timeouts to hide races; add an observable readiness signal when one is missing.
+- A deadline bounds failure; its expiry must never mean success or readiness. Give each step or
+  transition a fresh deadline, cancel it on success, and reset it only on verified progress.
+  Remove listeners, observers and pending timers on every exit, including failure.
+- For UI actions, await the relevant layout, resource or transition completion and then read current
+  element bounds. Calculate coordinates and relative offsets from those bounds; avoid fixed screen
+  coordinates and stale measurements captured before scrolling, resizing or reflow.
+- Prefer semantic controls and explicit application state over incidental size, color or animation
+  properties. If a visual or timing property is the contract under test, control its environment
+  explicitly and keep unrelated properties out of the readiness condition.
+- Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
+  timing and bound it with a diagnostic deadline rather than a guessed wait.
 
 ## Test Layers
 

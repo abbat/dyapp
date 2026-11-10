@@ -256,6 +256,9 @@ tag for recovery and do not remove caches or images without confirmation.
 
 ## Rules for agents
 
+- New and modified tests must follow the [deterministic testing rules](../testing/README.md#deterministic-tests).
+  Use completion/readiness callbacks and per-transition failure deadlines; derive UI positions
+  from current geometry. Sleeps and arbitrary waits are not synchronization.
 - Every changed file must reach zero baseline: fix all violations attributed to
   it and remove the resolved entries in the same commit. See the
   [shared practice rule](../development/practices.md#rules-shared-by-all-practices).
