@@ -351,7 +351,6 @@ final class IdentitySlotStore {
                     if errno == EEXIST { continue }
                     throw IdentitySlotError.lockFailed(errno)
                 }
-                let pending = IdentitySlot(id: id, state: .pending)
                 try Data("pending\n".utf8).write(to: marker(for: id), options: .atomic)
                 let key = IdentityKey.generate()
                 let peerId = key.peerId()
