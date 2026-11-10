@@ -26,4 +26,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from check_dispatch import wrap
+
+    wrap("no-ui-smoke")
     main()

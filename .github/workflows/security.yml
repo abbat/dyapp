@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DYAPP_CHECK_LOG_DIR: build/check-output
+
 jobs:
   audit:
     name: audit
@@ -60,4 +63,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: python3 -B tests/scripts/check-advisory-ignores.py --raw --expiry
+      - run: python3 -B tests/scripts/check-advisory-ignores.py --expiry
+      - name: check logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: advisory-review-check-output
+          path: build/check-output/
+          if-no-files-found: ignore

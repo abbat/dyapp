@@ -63,7 +63,9 @@ Characters unsupported by the terminal encoding are escaped for display;
 retained raw bytes and the child exit status remain unchanged.
 Platform test frontends follow this contract. The [entry-point inventory](check-output.md)
 covers Make targets, scripts and every workflow, including explicit report/data
-consumers and internal stage ownership.
+consumers and internal stage ownership. CI steps use concise defaults; `--raw` belongs only inside
+an enclosing capture stage. CodeQL compiler output is captured while its JSON/SARIF data remains
+unchanged and is archived alongside raw diagnostics.
 
 ### Commit messages
 

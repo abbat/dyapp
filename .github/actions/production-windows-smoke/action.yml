@@ -19,6 +19,7 @@ runs:
       env:
         DYAPP_RELEASE_EXE: ${{ inputs.executable }}
       run: |
+        $body = {
         $ErrorActionPreference = 'Stop'
         Add-Type -AssemblyName UIAutomationClient
         Add-Type -AssemblyName UIAutomationTypes
@@ -78,3 +79,6 @@ runs:
         } finally {
           if (-not $appProcess.HasExited) { $appProcess.Kill(); $appProcess.WaitForExit() }
         }
+        }
+        python tools/scripts/run-check.py --log-dir build/release-check-output production-desktop-smoke -- powershell -NoProfile -NonInteractive -Command ($body.ToString())
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
