@@ -62,6 +62,16 @@ and advances the cache epoch under one lock, so late search and chat results can
 Repeating the same settings retains the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Profile editor height and seeking input
+
+`parse_profile_height` and `parse_profile_seeking` delegate to
+`dyapp_profile::editor_input`. Blank height clears the field; invalid or out-of-range input
+is rejected before saving with the existing field error. Seeking ages use core limits and
+known gender choices; gender ordering and not-looking normalization happen in core.
+Not-looking ignores and clears hidden input even if malformed. Kotlin renders the returned
+normalized value after a successful save. Draft save reuses the same core seeking validator,
+so bypassing the editor cannot bypass validation. The FFI layer only converts inputs/results.
+
 ## Raw birth field input
 
 `parse_profile_birth_parts(year, month, day)` and `valid_profile_birth_parts(values)` delegate

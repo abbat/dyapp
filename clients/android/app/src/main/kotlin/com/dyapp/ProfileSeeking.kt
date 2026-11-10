@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import uniffi.dyapp.ProfileChoice
 import uniffi.dyapp.ProfileScale
+import uniffi.dyapp.parseProfileSeeking
 
 /** Who the owner is looking for; a saved [notLooking] comes without the other three. */
 internal data class ProfileSeeking(
@@ -40,27 +41,21 @@ internal class SeekingInputs(saved: ProfileSeeking) {
     val ageTo = mutableStateOf(saved.ageTo?.toString().orEmpty())
     var notLooking by mutableStateOf(saved.notLooking)
 
-    /** Compared for unsaved edits; matches across [clearIfNotLooking], which is no edit. */
+    /** Compared for unsaved edits; ignores fields disabled by the not-looking switch. */
     val tracked get() = if (notLooking) listOf(true) else listOf(genders, ageFrom.value, ageTo.value)
 
-    /** What saving keeps; null for an age that is no whole number. The switch makes the typed ages irrelevant. */
-    fun parsed(): ProfileSeeking? {
-        val from = ageFrom.value.trim()
-        val to = ageTo.value.trim()
-        return when {
-            notLooking -> ProfileSeeking(notLooking = true)
-            listOf(from, to).any { it.isNotEmpty() && it.toUIntOrNull() == null } -> null
-            else -> ProfileSeeking(genders.sorted(), from.toUIntOrNull(), to.toUIntOrNull())
+    /** Parse and normalize through the shared core; null means invalid input. */
+    fun parsed(): ProfileSeeking? =
+        parseProfileSeeking(genders.toList(), ageFrom.value, ageTo.value, notLooking)?.let {
+            ProfileSeeking(it.genders, it.ageFrom, it.ageTo, it.notLooking)
         }
-    }
 
-    /** The saved form shows what the store kept. */
-    fun clearIfNotLooking() {
-        if (notLooking) {
-            genders = emptySet()
-            ageFrom.value = ""
-            ageTo.value = ""
-        }
+    /** Show the normalized value returned by the shared core after saving. */
+    fun showSaved(saved: ProfileSeeking) {
+        genders = saved.genders.toSet()
+        ageFrom.value = saved.ageFrom?.toString().orEmpty()
+        ageTo.value = saved.ageTo?.toString().orEmpty()
+        notLooking = saved.notLooking
     }
 }
 

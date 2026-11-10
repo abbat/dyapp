@@ -93,7 +93,7 @@ private fun saveEdits(opened: Opened.Ready, edited: ProfileDraft, birth: BirthIn
                 )
             )
         }.fold({
-            birth.seeking.clearIfNotLooking()
+            birth.seeking.showSaved(seeking)
             R.string.profile_saved
         }, ::saveFailure)
     }

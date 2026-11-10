@@ -5,6 +5,7 @@ import org.json.JSONObject
 import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.PublicProfileDraft
 import uniffi.dyapp.loadProfileDraft
+import uniffi.dyapp.parseProfileHeight
 import uniffi.dyapp.placeCountries
 import uniffi.dyapp.placeName
 import uniffi.dyapp.saveProfileDraft
@@ -39,9 +40,8 @@ internal data class ProfileDraft(
     val seeking: ProfileSeeking = ProfileSeeking(),
 )
 
-/** The draft value of typed height text: empty clears it, null is text that is no whole number. */
-internal fun parsedHeight(typed: String): Map<String, Int>? =
-    if (typed.isBlank()) emptyMap() else typed.trim().toIntOrNull()?.let { mapOf(HEIGHT to it) }
+/** The shared core parses and checks height; an empty map clears it and null rejects it. */
+internal fun parsedHeight(typed: String): Map<String, Int>? = parseProfileHeight(typed)
 
 private fun validValue(key: String, value: Int, country: String, scales: List<ProfileScale>) = when (key) {
     in BIRTH_KEYS -> true

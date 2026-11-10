@@ -69,6 +69,7 @@ pub use generated::{DeviceCertificate, Photo, Profile};
 
 mod birth_date;
 pub mod birth_input;
+pub mod editor_input;
 pub mod search_input;
 pub use birth_date::{BirthBounds, CivilDate};
 mod scales;

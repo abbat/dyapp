@@ -123,14 +123,11 @@ impl PublicProfileDraft {
         if !dyapp_profile::valid_about(self.about.trim()) {
             return Err(CoreError::Failed("invalidAbout".into()));
         }
-        let genders = dyapp_profile::scale(dyapp_profile::Gender::FIELD)
-            .ok_or_else(|| CoreError::Failed("unknown profile scale".into()))?;
-        if !dyapp_profile::valid_seeking(
+        if !dyapp_profile::editor_input::valid_editor_seeking(
             &self.seeking_genders,
             self.seeking_age_from,
             self.seeking_age_to,
-        ) || !self.seeking_genders.iter().all(|&code| genders.knows(code))
-        {
+        ) {
             return Err(CoreError::Failed("invalidSeeking".into()));
         }
         self.validate_scales()?;
