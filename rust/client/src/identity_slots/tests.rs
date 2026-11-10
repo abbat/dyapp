@@ -1,4 +1,5 @@
 mod open;
+mod registry;
 
 use super::*;
 use std::fs;

@@ -4,10 +4,12 @@ mod inventory;
 mod keys;
 mod markers;
 mod open;
+mod registry;
 pub use inventory::list;
 pub use keys::KeyReader;
 pub use markers::active;
 pub use open::{open_slot, resolve, RecoveryReason, Resolution};
+pub use registry::Registry;
 use std::path::PathBuf;
 
 /// Virtual slot for the pre-registry root identity.

@@ -229,6 +229,10 @@ and deleting slots remain recovery even when their Peer ID is known. Empty inven
 orphan legacy credentials, missing selected targets or invalid saved pointers cannot become
 fresh setup. iOS explicit unselection remains a picker, and a missing selected legacy key never
 silently switches to a UUID identity. Callers must serialize resolution with mutations.
+`Registry` serializes inventory and resolution through the existing desktop `profiles.lock`
+or iOS `.identity-slots.lock`; Android uses `profiles.lock` when adopted. The guard remains held
+through backend callbacks and releases on failure. Construction does not write; operations may
+create the root and lock file, never an identity. Non-regular lock paths fail closed.
 Platform create/remove operations and native/client adoption remain planned.
 
 ## Exported surface
