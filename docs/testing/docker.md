@@ -2,6 +2,10 @@
 
 Run code quality checks and tests in isolated Docker containers.
 
+The lightweight `dyapp:prototype` image runs WebKitGTK under Xvfb. It installs `ca-certificates`
+explicitly for the pinned axe-core HTTPS download: `--no-install-recommends` does not supply CA
+roots with curl. TLS verification and the archive checksum remain mandatory.
+
 ## Quick Start
 
 ### Run Tests
