@@ -13,6 +13,16 @@ a desktop clear; the returned usage is measured from disk.
 > generated during the Android build, Swift bindings by `tools/scripts/build-apple-core.sh`
 > ([FFI bindings](../development/ffi-bindings.md)).
 
+## Ownership of shared logic
+
+[ADR 0002](../decisions/0002-rust-core-native-apps-tauri-desktop.md) places validation,
+parsing, policy, state machines and storage rules in shared Rust. Expose these through UniFFI
+before adding their Android or iOS UI; desktop commands use the same core APIs. Kotlin and
+Swift retain rendering, input, navigation and required platform services. A client-side
+exception requires a concrete reason recorded in the task and beside the implementation,
+with maintainer agreement before implementation. Moving code preserves validation, errors
+and security invariants; test the shared rules independently of platform callback timing.
+
 ## Which source is the contract
 
 | Source | Status |

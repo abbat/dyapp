@@ -25,6 +25,14 @@ through FFI (UniFFI for Swift and Kotlin); the Tauri shell calls the core crates
 `#[tauri::command]` functions. UI: SwiftUI on iOS, Jetpack Compose on Android, and one Tauri
 desktop client on Linux, Windows and macOS.
 
+Shared validation, parsing, policy, state machines and storage rules also belong in Rust,
+including when only one client currently needs them. Android and iOS call them through UniFFI;
+the desktop shell uses the same core APIs. Clients retain rendering, input, navigation and
+platform services such as secure key storage, notifications, permissions and file pickers.
+Before implementing non-presentation logic in a client, record the concrete platform constraint
+or measured need in the task and obtain maintainer agreement; keep the reason beside the code.
+This boundary is required for Android v0.0.1 development, rather than a later cleanup.
+
 The macOS client is a third thin crate over `clients/desktop`, like `clients/linux` and
 `clients/windows`. It replaces the SwiftUI macOS app before v0.0.1. Platform code in the shared
 source is selected by `target_os`; `cfg(unix)` stays only for code that is the same on Linux and

@@ -261,6 +261,9 @@ tag for recovery and do not remove caches or images without confirmation.
 
 ## Rules for agents
 
+- Plan client work with shared rules in Rust first, exposed through FFI before UI wiring
+  ([ownership contract](../architecture/ffi-design.md#ownership-of-shared-logic)). Kotlin/Swift
+  own presentation and required platform adapters; justify and agree exceptions before coding.
 - New and modified tests must follow the [deterministic testing rules](../testing/README.md#deterministic-tests).
   Use completion/readiness callbacks and per-transition failure deadlines; derive UI positions
   from current geometry. Sleeps and arbitrary waits are not synchronization.

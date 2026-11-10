@@ -23,6 +23,10 @@ Docker `make` targets, with network disabled after dependencies are fetched.
 
 ## Checklist
 
+- Check the [shared-logic boundary](../architecture/ffi-design.md#ownership-of-shared-logic):
+  validation, parsing, policy, state machines and storage rules belong in Rust, with UniFFI
+  exposure for mobile clients. New non-presentation client logic needs the task's agreed
+  platform-specific reason and a nearby comment. Extraction must preserve errors and guards.
 - Look for hidden network, file or process access, `build.rs`, proc macros and `unsafe`.
 - Look for weakened signature checks, quotas, limits, TLS settings and new `allow`, `expect` or
   suppression annotations.
