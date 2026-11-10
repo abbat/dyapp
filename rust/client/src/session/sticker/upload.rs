@@ -1,6 +1,7 @@
 //! Saved-pack sends retain owner descriptors locally and expose only a stripped chat descriptor.
 use super::{Error, Node, Session, Sticker};
 use crate::attachment::{self, Attachment};
+use crate::session::Submission;
 use crate::sticker_pack::Pack;
 use crate::store::sticker_packs::uploads::UploadPlan;
 use dyapp_identity::{sha256, Identity};
@@ -44,16 +45,10 @@ pub(super) fn ciphertext(descriptor: &Attachment, bytes: &[u8]) -> Result<Vec<u8
 }
 
 impl Session {
-    /// Upload/reuse one validated saved-pack entry, then stage its metadata through the outbox.
-    /// Upload failure leaves a resumable reservation and does not stage a chat message.
-    /// After staging, transient mailbox failure returns the ID: the durable outbox owns retry.
+    /// Send a saved-pack sticker; committed client delivery failures still return its ID.
     ///
     /// # Errors
-    ///
-    /// Returns an error if ownership, group, chat eligibility, sticker index or
-    /// decoding checks fail, randomness or encryption fails, upload reservation
-    /// or transport fails, or staging/non-client delivery fails. Reservations or
-    /// writes may already be durable; client delivery errors after staging return the ID.
+    /// Returns pre-commit errors or non-client delivery failures after commitment.
     pub async fn send_pack_sticker_to(
         &mut self,
         nodes: &mut [Node],
@@ -63,6 +58,33 @@ impl Session {
         index: usize,
         seal_key: &[u8; 32],
     ) -> Result<[u8; 16], Error> {
+        match self
+            .submit_pack_sticker_to(nodes, identity, peer_id, pack, index, seal_key)
+            .await?
+        {
+            Submission::Accepted { id }
+            | Submission::Queued {
+                id,
+                error: Error::Client(_),
+            } => Ok(id),
+            Submission::Queued { error, .. } => Err(error),
+        }
+    }
+
+    /// Upload/reuse a saved-pack entry, then retain its committed ID and delivery outcome.
+    ///
+    /// # Errors
+    /// Returns ownership, eligibility, pack, upload or staging errors before message commitment.
+    /// An upload reservation may already be durable even when no message is committed.
+    pub async fn submit_pack_sticker_to(
+        &mut self,
+        nodes: &mut [Node],
+        identity: &Identity,
+        peer_id: &str,
+        pack: &Pack,
+        index: usize,
+        seal_key: &[u8; 32],
+    ) -> Result<Submission, Error> {
         if identity.peer_id() != self.store.owner_peer_id() {
             return Err(crate::Error::Reply("sticker owner mismatch").into());
         }
@@ -101,10 +123,7 @@ impl Session {
             descriptor
         });
         let (id, writes) = self.stage_sticker(&group, &sticker, seal_key)?;
-        match self.send_staged(nodes, writes, seal_key).await {
-            Ok(()) | Err(Error::Client(_)) => Ok(id),
-            Err(error) => Err(error),
-        }
+        Ok(self.submit_staged(nodes, id, writes, seal_key).await)
     }
 }
 

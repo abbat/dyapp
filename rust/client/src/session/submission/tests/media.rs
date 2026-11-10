@@ -1,3 +1,5 @@
+mod upload;
+
 use super::*;
 use crate::chat::sticker::Sticker;
 use crate::interactions::Kind;

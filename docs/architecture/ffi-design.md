@@ -108,8 +108,12 @@ immediate delivery error. Profile/key-package/staging errors remain errors befor
 commitment. Existing strict send methods use the same implementation and require node acceptance
 via `Submission::into_accepted`. Forwarded text and sticker metadata have matching
 `submit_forwarded_text(_to)` and `submit_sticker(_to)` methods with the same result and existing
-open-chat/blocked guards. Native/Android adoption and upload-path outcomes remain planned;
-Kotlin must not treat this core API addition alone as completion of that migration.
+open-chat/blocked guards. `submit_attachment(_to)` uploads the blob before message commitment;
+`submit_pack_sticker_to` also retains upload reservations/reuse and strips the owner's release
+capability from the chat descriptor. Both expose queued post-commit failures. The existing
+saved-pack send API still returns an ID on committed client delivery errors and propagates other
+failures. Native/Android adoption remains planned; Kotlin must not treat these core APIs alone
+as completion of that migration.
 
 ## Shared profile editor policy
 

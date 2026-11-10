@@ -154,7 +154,7 @@ impl Session {
         self.submit_sticker(nodes, &group, template, seal_key).await
     }
 
-    async fn submit_staged(
+    pub(super) async fn submit_staged(
         &mut self,
         nodes: &mut [Node],
         id: [u8; 16],
