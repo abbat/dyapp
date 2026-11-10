@@ -1,18 +1,9 @@
 package com.dyapp
 
-import android.util.AtomicFile
-import org.json.JSONObject
-import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.PublicProfileDraft
 import uniffi.dyapp.loadProfileDraft
 import uniffi.dyapp.parseProfileHeight
-import uniffi.dyapp.placeCountries
-import uniffi.dyapp.placeName
 import uniffi.dyapp.saveProfileDraft
-import java.io.File
-import java.io.FileNotFoundException
-
-private const val LEGACY_PROFILE_DRAFT_JSON = "profile-draft.json"
 
 // Rust scale keys of the record fields.
 internal const val GENDER = "gender"
@@ -42,28 +33,6 @@ internal data class ProfileDraft(
 
 /** The shared core parses and checks height; an empty map clears it and null rejects it. */
 internal fun parsedHeight(typed: String): Map<String, Int>? = parseProfileHeight(typed)
-
-private fun validValue(key: String, value: Int, country: String, scales: List<ProfileScale>) = when (key) {
-    in BIRTH_KEYS -> true
-    PLACE -> value > 0 && placeName(country, value.toUInt(), "en") != null
-    else -> scales.any { scale -> scale.key == key && (value == 0 || scale.choices.any { it.code.toInt() == value }) }
-}
-
-private fun readDraft(file: File, scales: List<ProfileScale>): ProfileDraft {
-    val bytes = try {
-        AtomicFile(file).openRead().use { it.readBytes() }
-    } catch (_: FileNotFoundException) {
-        return ProfileDraft()
-    }
-    val json = JSONObject(bytes.toString(Charsets.UTF_8))
-    val country = if (json.has(COUNTRY)) json.getString(COUNTRY) else ""
-    require(country.isEmpty() || country in placeCountries())
-    val values = json.keys().asSequence().filter { it != COUNTRY }.associateWith { key ->
-        json.getInt(key).also { require(validValue(key, it, country, scales)) }
-    }
-    require(validBirthParts(values.filterKeys { it in BIRTH_KEYS }))
-    return ProfileDraft(values, country)
-}
 
 /** The Rust record of [this]; absent keys stay unpublished. Keys are the Rust scale keys. */
 internal fun ProfileDraft.record(): PublicProfileDraft {
@@ -108,14 +77,9 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
     )
 }
 
-/** This identity's `client.db` draft; an older `profile-draft.json` is imported once and kept. */
-internal fun loadDraft(opened: Opened.Ready, scales: List<ProfileScale>): ProfileDraft =
-    RustBridge.withKey(opened) { dir, key ->
-        loadProfileDraft(dir, key)?.draft()
-            ?: readDraft(File(opened.slot.dir, LEGACY_PROFILE_DRAFT_JSON), scales).also {
-                if (it != ProfileDraft()) saveProfileDraft(dir, key, it.record())
-            }
-    }
+/** Only a missing core draft starts empty; key/database errors propagate without a fallback. */
+internal fun loadDraft(opened: Opened.Ready): ProfileDraft =
+    RustBridge.withKey(opened) { dir, key -> loadProfileDraft(dir, key)?.draft() ?: ProfileDraft() }
 
 /** Replace the editable fields of this identity's `client.db` draft, keeping its proof progress and photos. */
 internal fun saveDraft(opened: Opened.Ready, draft: ProfileDraft) = synchronized(RustBridge.draftWrites) {

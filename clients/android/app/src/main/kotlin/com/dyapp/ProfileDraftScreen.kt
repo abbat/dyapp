@@ -54,7 +54,7 @@ fun ProfileDraftScreen(opened: Opened.Ready) {
     val scales = remember { profileScales() }
     // ponytail: Keystore unwrap and SQLite on the main thread, as identity opening; move off it
     // with the client runtime.
-    val loaded = remember(opened.slot.id) { runCatching { loadDraft(opened, scales) } }
+    val loaded = remember(opened.slot.id) { runCatching { loadDraft(opened) } }
     if (loaded.isFailure) {
         Text(stringResource(R.string.profile_read_failed), Modifier.padding(24.dp))
         return
@@ -127,7 +127,7 @@ private fun ProfileDraftForm(
         BasicsCard(basics, values, birth, name)
         PlaceCard(place)
         MoreScales(more, values)
-        SaveAndPublish(opened, scales, visibility, unsaved) {
+        SaveAndPublish(opened, visibility, unsaved) {
             saveEdits(opened, ProfileDraft(values, name = name.value), birth, place)
                 .also { if (it == R.string.profile_saved) savedEdits = edits }
         }
@@ -213,10 +213,8 @@ private fun inputs(values: Map<String, Int>, birth: BirthInputs, place: PlaceInp
 
 // Any edit or save recreates the publish section, which clears its confirmations and cancels an attempt.
 @Composable
-@Suppress("LongParameterList") // The form's state and its save action, all from one caller.
 private fun SaveAndPublish(
     opened: Opened.Ready,
-    scales: List<ProfileScale>,
     visibility: VisibilityState,
     unsaved: Boolean,
     save: () -> Int,
@@ -226,7 +224,7 @@ private fun SaveAndPublish(
     var saves by remember { mutableIntStateOf(0) }
     if (status.isNotEmpty()) Text(status, Modifier.testTag("profile-status"))
     key(saves, unsaved) {
-        PublishSection(opened, scales, visibility, unsaved) {
+        PublishSection(opened, visibility, unsaved) {
             OutlinedButton(onClick = {
                 status = resources.getString(save())
                 saves++

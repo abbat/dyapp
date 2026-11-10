@@ -27,6 +27,7 @@ import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.ProfileSolve
 import uniffi.dyapp.ProfileWorkStep
 import uniffi.dyapp.profilePublishBlock
+import uniffi.dyapp.profileScales
 
 internal const val ELIGIBILITY_TAG = "profile-publish-eligibility"
 
@@ -142,14 +143,13 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
  * which clears the confirmations and cancels a running attempt.
  */
 @Composable
-@Suppress("LongParameterList") // The form's state and its save button, all from one caller.
 internal fun PublishSection(
     opened: Opened.Ready,
-    scales: List<ProfileScale>,
     visibility: VisibilityState,
     unsaved: Boolean,
     save: @Composable RowScope.() -> Unit,
 ) {
+    val scales = remember { profileScales() }
     val state = remember { PublishState() }
     val scope = rememberCoroutineScope()
     PublishEffects(opened, state, visibility, unsaved)
@@ -166,17 +166,20 @@ internal fun PublishSection(
         )
     }
     if (state.open) {
-        PublishDialog(state, scales, { loadDraft(opened, scales) }) {
+        PublishDialog(state, scales, { loadDraft(opened) }) {
             scope.launch { prepareAndPublish(opened, state, visibility) }
         }
     }
-    state.published?.let { published ->
-        Text(
-            stringResource(R.string.profile_published_version, "${published.version}"),
-            Modifier.testTag("profile-published-readback")
-        )
-        ProfilePreview(published.draft.draft(), scales, R.string.profile_published)
-    }
+    state.published?.let { PublishedReadback(it, scales) }
+}
+
+@Composable
+private fun PublishedReadback(published: ProfilePublished, scales: List<ProfileScale>) {
+    Text(
+        stringResource(R.string.profile_published_version, "${published.version}"),
+        Modifier.testTag("profile-published-readback")
+    )
+    ProfilePreview(published.draft.draft(), scales, R.string.profile_published)
 }
 
 @Composable

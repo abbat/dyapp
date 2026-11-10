@@ -85,6 +85,10 @@ Mobile chat send and both cached/network original retrieval use the chat budget 
 6,000,000 bytes; profile validation retains its separate 1 MiB limit. Framing checks do
 not replace the platform decoder's validation of compressed pixel data.
 
+Android draft loading reads only the identity-bound `client.db` through `load_profile_draft`.
+An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported
+nor modified. Publication and mutual search use the same loader.
+
 ## Profile editor height and seeking input
 
 `parse_profile_height` and `parse_profile_seeking` delegate to

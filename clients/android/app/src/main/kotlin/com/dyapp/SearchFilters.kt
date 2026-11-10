@@ -67,7 +67,7 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
      */
     fun mutualConditions(opened: Opened.Ready): List<SearchCondition> {
         if (!mutual || !mutualOffered) return emptyList()
-        return searchMutualConditions(loadDraft(opened, scales).record())
+        return searchMutualConditions(loadDraft(opened).record())
             .ifEmpty { throw IllegalArgumentException("mutual unavailable") }
     }
 
