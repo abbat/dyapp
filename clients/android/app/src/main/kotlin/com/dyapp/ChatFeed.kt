@@ -66,6 +66,8 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
         }
     }
 
+    fun history(peer: String) = RustBridge.withChats(opened) { it.chatHistory(peer) }
+
     /** The core supplies order; never merge photos by wall time in Kotlin. */
     fun thread(peer: String) = RustBridge.withChats(opened) {
         ChatThreadSnapshot(

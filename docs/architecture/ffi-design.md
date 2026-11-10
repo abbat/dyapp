@@ -120,7 +120,10 @@ error codes. Legacy native send/edit/delete methods keep strict delivery errors 
 path. Android transports the native result through its identity lease: Accepted/Queued clear the
 submitted text/photo draft, while a pre-commit error keeps it. A stale edit target still refuses
 submission instead of falling back to a new message. Photo drafts never infer commitment from
-localized status text. Forward/sticker send integration and native CI verification remain planned.
+localized status text. Profile-link sharing uses the same typed text result; its initial history
+read checks open-chat eligibility only. Its dialog records completion from the native outcome,
+independently of localized status details. Forward/sticker send integration and native CI
+verification remain planned.
 
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains

@@ -37,6 +37,11 @@ Android network-policy tests use public API 31 `NetworkCapabilities.capabilities
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
 
+When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
+extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`
+without a receiver. `make lint-android` does not resolve method signatures; native Android CI
+must compile the changed callers and generated bindings.
+
 Workspace proptest enables `std` and `bit-set`, with in-process execution, shrinking and failure
 persistence. Its unused default `fork`/`timeout` features pull `rusty-fork` and `quick-error` 1,
 which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property tests would need

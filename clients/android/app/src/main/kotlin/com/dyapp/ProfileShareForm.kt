@@ -27,10 +27,14 @@ internal class ProfileShareForm {
 
     suspend fun send(feed: ChatFeed, target: String, peer: String) {
         sending = true
-        val result = withContext(Dispatchers.IO) { runCatching { feed.shareProfile(target, peer) } }
+        val result = withContext(Dispatchers.IO) { feed.shareProfile(target, peer) }
         sending = false
-        status = result.getOrElse { ChatStatus(R.string.chat_send_failed, it.toString()) }
-        if (result.isSuccess && status?.details == null) {
+        completeSubmission(result, target)
+    }
+
+    fun completeSubmission(result: Result<uniffi.dyapp.ChatSubmission>, target: String) {
+        status = sendStatus(result)
+        if (result.isSuccess) {
             sentTo = target
             status = status ?: ChatStatus(R.string.profile_shared, null)
         }

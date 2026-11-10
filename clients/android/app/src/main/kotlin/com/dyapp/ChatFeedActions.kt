@@ -19,11 +19,14 @@ internal fun ChatFeed.pass(peer: String, passed: Boolean): Result<ChatLikes> =
     runCatching { RustBridge.withChats(opened) { it.setPassed(peer, passed) } }.also { read() }
 
 /** Shares a core-formatted profile link into an open eligible conversation. Call on IO. */
-internal fun ChatFeed.shareProfile(peer: String, sharedPeer: String): ChatStatus? {
+internal fun ChatFeed.shareProfile(
+    peer: String,
+    sharedPeer: String
+): Result<uniffi.dyapp.ChatSubmission> = runCatching {
     val text = requireNotNull(uniffi.dyapp.profileLinkText(sharedPeer)) { "invalid profile peer" }
     val before = history(peer)
     require(before.state == ChatState.OPEN && peer != sharedPeer) { "not an eligible chat" }
-    return send(peer, text, before.messages)
+    send(peer, text).getOrThrow()
 }
 
 /** Clears this device's history for the peer, then refreshes rows. */
