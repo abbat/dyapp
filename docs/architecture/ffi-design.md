@@ -212,6 +212,17 @@ then country, interest and place. Android restores selected UInt32 IDs from the 
 storage with `toUInt`, preserving all bits. Desktop adoption remains planned. Interest input
 is supported by the shared API; the native forms currently pass blank interest text.
 
+## Identity registry core
+
+`dyapp_client::identity_slots` reads the existing desktop, Android and iOS inventories without
+opening keys, writing markers or migrating profiles. The layout selects desktop storage-mode
+markers or mobile wrapped-key files; iOS sibling deletion markers remain visible after a slot
+directory disappears. Active pointer syntax preserves absent, invalid, explicitly unselected and
+selected states; Android's existing pointer without LF remains readable. Candidate order is
+legacy first, then canonical lowercase UUIDs. Symlinked slots/markers cannot become ready, and
+a symlinked inventory root fails. Platform create/open/remove operations and native/client
+adoption remain planned; this read-only API does not itself verify keys or their availability.
+
 ## Exported surface
 
 Authored Rust exports now carry API documentation, including explicit stub behavior.
