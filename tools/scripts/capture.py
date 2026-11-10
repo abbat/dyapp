@@ -25,7 +25,7 @@ class Capture:
         self.total = 0
         self.lock = threading.Lock()
         self.copy: BinaryIO | None = (
-            None if log_file is None else open(log_file, "ab")
+            None if log_file is None else open(log_file, "ab", buffering=0)
         )
 
     def write(self, data: bytes) -> None:

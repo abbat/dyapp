@@ -5,6 +5,8 @@ one `OK <id>` on success; `FAIL`, an owning `FIX` anchor and selected `DETAILS`
 on failure, with the original exit status and a full raw-log path. Unknown
 diagnostics still fail and retain their raw evidence. Nested mapped failures
 produce one frame. Signals and mandatory cleanup failures remain failures.
+Explicit raw-log copies are unbuffered: each captured chunk is available before
+normal shutdown, including small diagnostics from an interrupted process.
 
 The authoritative ID, parser and documentation-anchor map is
 `tools/scripts/check-output.json`; repository validation checks it. The tables below
