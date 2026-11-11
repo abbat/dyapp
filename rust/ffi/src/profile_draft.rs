@@ -208,10 +208,14 @@ pub fn save_profile_draft(
     let editable = Profile::from(&draft);
     dyapp_client::profile_editor::validate(&editable).map_err(failed)?;
     let path = database(&dir)?.join("client.db");
-    let store = Store::open(&path, &key.identity).map_err(failed)?;
-    let mut profile = store.profile_draft().map_err(failed)?.unwrap_or_default();
-    dyapp_client::profile_editor::apply(&editable, &mut profile);
-    store.save_profile_draft(&profile).map_err(failed)
+    let mut store = Store::open(&path, &key.identity).map_err(failed)?;
+    store
+        .update_profile_draft(|profile| {
+            dyapp_client::profile_editor::apply(&editable, profile);
+            Ok(())
+        })
+        .map(|_| ())
+        .map_err(failed)
 }
 
 #[cfg(test)]

@@ -198,8 +198,10 @@ only its owner and releases the native handle on non-cancellable IO; retries all
 
 While process-local draft serialization remains, every `draftWrites` monitor is acquired before
 native admission, including publication. A lease holder never waits for that monitor. Shared
-core serialization of draft transformations across independent processes/clients remains planned;
-registry admission protects identity lifetime and is not itself a draft-write mutex.
+core serialization now covers editable-field saves through a SQLite immediate read/transform/write
+transaction, preserving the latest committed noneditable progress. Proof, photo and publication
+writers still require adoption before these frontend monitors can be removed. Registry admission
+protects identity lifetime and is not itself a draft-write mutex.
 
 ## Remove
 

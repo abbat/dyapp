@@ -274,7 +274,13 @@ noneditable fields. Editor categorical/seeking codes use the closed vocabulary; 
 retains its separate forward-compatible contract. Apply alone supports eligibility and search
 projections; persistence callers must validate first. The common native draft adapter converts
 records and errors, validates through this API before opening storage, and delegates save and
-eligibility/search projections to the same normalized application. Its exported API is unchanged.
+eligibility/search projections to the same normalized application. Editable saves use the core
+`Store::update_profile_draft`: a SQLite immediate transaction acquires writer ownership before
+reading the latest draft and retains it through transformation and commit. Refusal rolls back;
+independent connections/processes cannot interleave another database write in that transformation.
+Callbacks are short and synchronous, with no proof search, network or nested store writes. Other
+proof/photo/publication writers still require adoption before frontend draft monitors can be removed.
+Its exported API is unchanged.
 
 ## Profile editor height and seeking input
 
