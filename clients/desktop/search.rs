@@ -374,7 +374,10 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-desktop-search-{nanos}"));
+        // Parallel tests can read the same clock value, notably on Windows.
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("dyapp-desktop-search-{nanos}-{n}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
