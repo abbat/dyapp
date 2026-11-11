@@ -1,6 +1,14 @@
 //! Replication, ack forwarding and repair between nodes.
 
 use super::*;
+#[path = "replicas/finish.rs"]
+mod finish;
+#[path = "replicas/inventory.rs"]
+mod inventory;
+#[path = "replicas/puts.rs"]
+mod puts;
+#[path = "replicas/queue.rs"]
+mod queue;
 
 pub(super) fn listed_media_request(
     service: &Service,
@@ -148,27 +156,11 @@ impl Replicas {
         peer: PeerId,
         items: &[proto::MediaPart],
     ) -> crate::Result<proto::MediaResponse> {
-        let mut allowed = Vec::new();
-        if self.trust.trusted(&peer) {
-            let mut near = HashMap::new();
-            for part in items {
-                let near = *near.entry(part.hash.clone()).or_insert_with(|| {
-                    (0..10).any(|i| {
-                        let key = kad::KBucketKey::new(replica_key(&part.hash, i));
-                        let near = swarm
-                            .behaviour_mut()
-                            .kad
-                            .get_closest_local_peers(&key)
-                            .take(REPLICAS.into())
-                            .any(|p| *p.preimage() == peer);
-                        near
-                    })
-                });
-                if near {
-                    allowed.push(part.clone());
-                }
-            }
-        }
+        let allowed = if self.trust.trusted(&peer) {
+            inventory::allowed(swarm, peer, items)
+        } else {
+            Vec::new()
+        };
         let response = service.media_inventory(&allowed)?;
         if service
             .traffic
@@ -210,12 +202,7 @@ impl Replicas {
                 let missing = missing || service.listed(hash);
                 complete &= !missing;
                 self.media_repaired.finish(hash, missing);
-                if let Some((_, response)) = &mut answer {
-                    response.missing.retain(|h| h.as_slice() != hash);
-                    if missing {
-                        response.missing.push(hash.to_vec());
-                    }
-                }
+                finish::missing(&mut answer, hash, missing);
             }
             if let Some((reply, response)) = answer {
                 service.traffic.add(response.encoded_len() as u64);
@@ -377,10 +364,6 @@ impl Replicas {
         self.puts.len() >= MAX_PENDING_PUTS
     }
 
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "Indices come from the validated media layout, at most six data shards plus four parity shards"
-    )]
     pub(super) fn start_put(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -393,48 +376,22 @@ impl Replicas {
             reply.send(swarm, service, Status::Full, None);
             return;
         }
-        let record = match record {
-            PutRecord::Media(mut replica)
-                if replica.data.len() > service.config.media.shard_threshold =>
-            {
-                match crate::replication::media_encode(&replica.data) {
-                    Ok((manifest, shards)) => {
-                        replica.data.clear();
-                        replica.manifest = Some(manifest);
-                        PutRecord::Sharded(replica, Arc::new(shards))
-                    }
-                    Err(error) => {
-                        tracing::error!(%error, "media encode failed");
-                        reply.send(swarm, service, Status::Invalid, None);
-                        return;
-                    }
-                }
+        let record = match puts::encode(record, service.config.media.shard_threshold) {
+            Ok(record) => record,
+            Err(error) => {
+                tracing::error!(%error, "media encode failed");
+                reply.send(swarm, service, Status::Invalid, None);
+                return;
             }
-            record => record,
         };
         let shard_count = match &record {
             PutRecord::Sharded(_, shards) => shards.len(),
             _ => 0,
         };
         let isolated = dyapp_p2p_net::known_peers(swarm).is_empty();
-        let key = match &record {
-            PutRecord::Mailbox(record, _) => {
-                proto::Envelope::decode(record.payload.as_slice())
-                    .unwrap()
-                    .mailbox
-            }
-            PutRecord::Profile(record) => {
-                dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec()
-            }
-            PutRecord::KeyPackage(record) => {
-                let Ok(package) = proto::KeyPackageRecord::decode(record.payload.as_slice()) else {
-                    reply.send(swarm, service, Status::Invalid, None);
-                    return;
-                };
-                package.owner
-            }
-            PutRecord::Media(replica) => dyapp_identity::sha256(&replica.data).to_vec(),
-            PutRecord::Sharded(replica, _) => replica.manifest.as_ref().unwrap().hash.clone(),
+        let Ok(key) = puts::key(&record) else {
+            reply.send(swarm, service, Status::Invalid, None);
+            return;
         };
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
@@ -443,25 +400,15 @@ impl Replicas {
         if isolated {
             self.put_holder(swarm, service, watchers, id, *swarm.local_peer_id());
         } else {
-            for i in 0..REPLICAS {
+            for index in 0..REPLICAS {
                 let query = swarm
                     .behaviour_mut()
                     .kad
-                    .get_closest_peers(replica_key(&key, i));
+                    .get_closest_peers(replica_key(&key, index));
                 self.lookups.insert(query, Lookup::Put(id));
             }
         }
-        for index in 0..shard_count {
-            if isolated {
-                self.shard_holder(swarm, service, id, index, *swarm.local_peer_id());
-            } else {
-                let query = swarm
-                    .behaviour_mut()
-                    .kad
-                    .get_closest_peers(replica_key(&key, index as u8));
-                self.lookups.insert(query, Lookup::ShardPut(id, index));
-            }
-        }
+        self.shard_lookups(swarm, service, id, &key, shard_count, isolated);
         self.finish_puts(swarm, service, Instant::now());
     }
 
@@ -480,79 +427,20 @@ impl Replicas {
             return;
         }
         if to == *swarm.local_peer_id() {
-            match &put.record {
-                PutRecord::Mailbox(record, group) => {
-                    match service.store_mailbox(record, &swarm.local_peer_id().to_string(), group) {
-                        Ok(response) => {
-                            if response.status == i32::from(Status::Ok) {
-                                push(swarm, watchers, vec![record.clone()]);
-                            }
-                            put.confirm(to, response.status, None);
-                        }
-                        Err(error) => tracing::error!(%error, "local mailbox replica failed"),
-                    }
-                }
-                PutRecord::Profile(record) => match service.store_profile(record) {
-                    Ok(response) => put.confirm(to, response.status, response.record),
-                    Err(error) => tracing::error!(%error, "local profile replica failed"),
-                },
-                PutRecord::KeyPackage(record) => match service.store_keypackage(record) {
-                    Ok(response) => put.confirm(to, response.status, None),
-                    Err(error) => tracing::error!(%error, "local KeyPackage replica failed"),
-                },
-                PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
-                    match service.store_media(replica) {
-                        Ok(response) => put.confirm(to, response.status, None),
-                        Err(error) => tracing::error!(%error, "local media replica failed"),
-                    }
-                }
-            }
-        } else if self.trust.trusted(&to) {
-            if matches!(
-                put.record,
-                PutRecord::Mailbox(..) | PutRecord::Profile(_) | PutRecord::KeyPackage(_)
-            ) && !self.cap.allow(&to, 1)
-            {
-                return;
-            }
-            match &put.record {
-                PutRecord::Mailbox(record, group) => {
-                    let request = MailboxRequest {
-                        request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
-                            envelopes: vec![record.clone()],
-                            source_groups: vec![group.clone()],
-                            remaining_seconds: Vec::new(),
-                        })),
-                    };
-                    service.traffic.add(request.encoded_len() as u64);
-                    let request_id = swarm.behaviour_mut().mailbox.send_request(&to, request);
-                    self.mailbox_puts.insert(request_id, id);
-                }
-                PutRecord::Profile(record) => {
-                    let request = proto::ProfileRequest {
-                        request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
-                        age_seconds: 0,
-                    };
-                    service.traffic.add(request.encoded_len() as u64);
-                    let request_id = swarm.behaviour_mut().profile.send_request(&to, request);
-                    self.profile_puts.insert(request_id, id);
-                }
-                PutRecord::KeyPackage(record) => {
-                    let request = proto::KeyPackageRequest {
-                        request: Some(proto::key_package_request::Request::ReplicaPut(
-                            record.clone(),
-                        )),
-                    };
-                    service.traffic.add(request.encoded_len() as u64);
-                    let request_id = swarm.behaviour_mut().key_package.send_request(&to, request);
-                    self.keypackage_puts.insert(request_id, id);
-                }
-                PutRecord::Media(replica) | PutRecord::Sharded(replica, _) => {
-                    let _ = replica;
-                    self.media_queue.push_back((to, MediaJob::Put(id)));
-                }
-            }
+            puts::local(put, swarm, service, watchers, to);
+            return;
         }
+        if !self.trust.trusted(&to) {
+            return;
+        }
+        if matches!(
+            put.record,
+            PutRecord::Mailbox(..) | PutRecord::Profile(_) | PutRecord::KeyPackage(_)
+        ) && !self.cap.allow(&to, 1)
+        {
+            return;
+        }
+        self.remote_put(swarm, service, id, to);
     }
 
     pub(super) fn finish_puts(
@@ -569,25 +457,7 @@ impl Replicas {
             {
                 self.media_holders = (*id, put.stored.len());
             }
-            if let Some(status) = put.result(now) {
-                if let Some(reply) = put.reply.take() {
-                    if matches!(status, Status::Ok | Status::Stale) {
-                        match &put.record {
-                            PutRecord::Media(replica) => {
-                                media_written.push(dyapp_identity::sha256(&replica.data).to_vec());
-                            }
-                            PutRecord::Sharded(replica, _) => {
-                                media_written.push(replica.manifest.as_ref().unwrap().hash.clone());
-                            }
-                            _ => {}
-                        }
-                        if let PutRecord::Profile(record) = &put.record {
-                            profiles.push(put.stale.clone().unwrap_or_else(|| record.clone()));
-                        }
-                    }
-                    reply.send(swarm, service, status, put.stale.clone());
-                }
-            }
+            finish::put_reply(put, swarm, service, now, &mut profiles, &mut media_written);
         }
         for hash in media_written {
             self.media_repaired.finish(&hash, false);
@@ -595,38 +465,7 @@ impl Replicas {
         for record in profiles {
             self.repair_profile(swarm, service, record, now);
         }
-        // Keep background fan-out alive after the ack, but bound its lifetime and all indices.
-        self.puts.retain(|id, put| {
-            let active = self
-                .lookups
-                .values()
-                .any(|lookup| matches!(lookup, Lookup::Put(p) if p == id))
-                || self.mailbox_puts.values().any(|p| p == id)
-                || self.profile_puts.values().any(|p| p == id)
-                || self.keypackage_puts.values().any(|p| p == id)
-                || self.media_puts.values().any(|p| p == id)
-                || self.shard_puts.values().any(|(p, _)| p == id)
-                || self.lookups.values().any(|l| matches!(l, Lookup::ShardPut(p, _) if p == id))
-                || self.media_queue.iter().any(|(_, job)| matches!(job, MediaJob::Put(p) | MediaJob::ShardPut(p, _) if p == id));
-            now < put.deadline && (put.reply.is_some() || active)
-        });
-        for (id, lookup) in &self.lookups {
-            if matches!(lookup, Lookup::Put(put) | Lookup::ShardPut(put, _) if !self.puts.contains_key(put))
-            {
-                if let Some(mut query) = swarm.behaviour_mut().kad.query_mut(id) {
-                    query.finish();
-                }
-            }
-        }
-        self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
-        self.profile_puts.retain(|_, id| self.puts.contains_key(id));
-        self.keypackage_puts
-            .retain(|_, id| self.puts.contains_key(id));
-        self.media_puts.retain(|_, id| self.puts.contains_key(id));
-        self.shard_puts
-            .retain(|_, (id, _)| self.puts.contains_key(id));
-        self.lookups
-            .retain(|_, lookup| !matches!(lookup, Lookup::Put(id) | Lookup::ShardPut(id, _) if !self.puts.contains_key(id)));
+        self.prune_puts(swarm, now);
         self.finish_reads(swarm, service, now);
         for (repair, complete) in self.finish_media_repairs(swarm, service, now) {
             self.republish.media_done(repair, complete);
@@ -675,155 +514,20 @@ impl Replicas {
     }
 
     /// The remote media codec admits two streams per connection: queue excess work locally.
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "Queued indices originate from validated media layouts with at most ten shards"
-    )]
     pub(super) fn drain_media(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service) {
         let count = self.media_queue.len();
         for _ in 0..count {
             let (to, job) = self.media_queue.pop_front().unwrap();
-            let live = match job {
-                MediaJob::Put(id) | MediaJob::ShardPut(id, _) => self.puts.contains_key(&id),
-                MediaJob::ShardGet(id, _) => self.media_reads.contains_key(&id),
-                MediaJob::Repair(id, job) => self
-                    .media_repairs
-                    .get(&id)
-                    .is_some_and(|(r, _)| r.has_job(job)),
-            };
-            if !live {
+            if !self.media_job_live(&job) {
                 continue;
             }
-            if self.media_outgoing.len() >= 16
-                || self
-                    .media_outgoing
-                    .values()
-                    .filter(|peer| **peer == to)
-                    .count()
-                    >= 2
-            {
+            if self.media_busy(to) {
                 self.media_queue.push_back((to, job));
                 continue;
             }
-            if let MediaJob::Repair(id, job_id) = job {
-                let Some((mut request, reserve)) = self
-                    .media_repairs
-                    .get(&id)
-                    .and_then(|(r, _)| r.request(job_id))
-                else {
-                    continue;
-                };
-                if let Some(proto::media_request::Request::Have(have)) = &mut request.request {
-                    have.items.retain(|part| !service.listed(&part.hash));
-                }
-                if request.request.as_ref().is_none_or(|r| {
-                    matches!(r, proto::media_request::Request::Have(have) if have.items.is_empty())
-                        || listed_media_request(service, r)
-                }) {
-                    if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
-                        repair.response(job_id, None);
-                    }
-                    continue;
-                }
-                let local = to == *swarm.local_peer_id();
-                let allowed = local
-                    || (service
-                        .traffic
-                        .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA)
-                        && self.cap.allow_media(&to, request.request.as_ref().unwrap()));
-                if local || !allowed {
-                    let response = if local {
-                        match request.request.as_ref().unwrap() {
-                            proto::media_request::Request::Have(have) => {
-                                service.media_inventory(&have.items).ok()
-                            }
-                            proto::media_request::Request::ReplicaPut(replica) => {
-                                service.store_media(replica).ok()
-                            }
-                            proto::media_request::Request::ShardPut(put) => {
-                                service.store_shard(put).ok()
-                            }
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    };
-                    if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
-                        repair.response(job_id, response);
-                    }
-                } else {
-                    let request_id = swarm.behaviour_mut().media.send_request(&to, request);
-                    self.media_outgoing.insert(request_id, to);
-                    self.media_repair_requests
-                        .insert(request_id, (id, job_id, reserve));
-                }
-                continue;
-            }
-            let request = match job {
-                MediaJob::Repair(_, _) => unreachable!(),
-                MediaJob::Put(id) => {
-                    let Some(put) = self.puts.get(&id) else {
-                        continue;
-                    };
-                    let replica = match &put.record {
-                        PutRecord::Media(r) | PutRecord::Sharded(r, _) => r.clone(),
-                        _ => continue,
-                    };
-                    proto::media_request::Request::ReplicaPut(replica)
-                }
-                MediaJob::ShardPut(id, index) => {
-                    let Some(put) = self.puts.get(&id) else {
-                        continue;
-                    };
-                    let PutRecord::Sharded(replica, shards) = &put.record else {
-                        continue;
-                    };
-                    proto::media_request::Request::ShardPut(proto::MediaShardPut {
-                        replica: Some(replica.clone()),
-                        index: index as u32,
-                        data: shards[index].clone(),
-                    })
-                }
-                MediaJob::ShardGet(id, index) => {
-                    let Some(read) = self.media_reads.get(&id) else {
-                        continue;
-                    };
-                    if read.shards.contains_key(&index) {
-                        continue;
-                    }
-                    proto::media_request::Request::ShardGet(proto::MediaShardGet {
-                        hash: read.manifest.hash.clone(),
-                        index: index as u32,
-                    })
-                }
-            };
-            if listed_media_request(service, &request) || !self.cap.allow_media(&to, &request) {
-                continue;
-            }
-            let prepaid = match &request {
-                proto::media_request::Request::ReplicaPut(r) => r.data.len(),
-                proto::media_request::Request::ShardPut(p) => p.data.len(),
-                _ => 0,
-            };
-            let request = proto::MediaRequest {
-                request: Some(request),
-            };
-            service
-                .traffic
-                .add((request.encoded_len() - prepaid) as u64);
-            let request_id = swarm.behaviour_mut().media.send_request(&to, request);
-            self.media_outgoing.insert(request_id, to);
             match job {
-                MediaJob::Repair(_, _) => unreachable!(),
-                MediaJob::Put(id) => {
-                    self.media_puts.insert(request_id, id);
-                }
-                MediaJob::ShardPut(id, index) => {
-                    self.shard_puts.insert(request_id, (id, index));
-                }
-                MediaJob::ShardGet(id, index) => {
-                    self.shard_gets.insert(request_id, (id, index));
-                }
+                MediaJob::Repair(id, job) => self.drain_repair(swarm, service, to, id, job),
+                job => self.send_media(swarm, service, to, job),
             }
         }
     }

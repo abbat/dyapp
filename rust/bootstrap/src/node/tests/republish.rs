@@ -4,7 +4,11 @@ use crate::node::republish::REPUBLISH_WARMUP;
 use crate::republish::Store;
 
 fn node() -> (Service, Swarm<Behaviour>) {
-    let dir = format!("/tmp/ai/test-republish-{}", uuid::Uuid::new_v4());
+    let dir = format!(
+        "{}/../../build/test-republish-{}",
+        env!("CARGO_MANIFEST_DIR"),
+        uuid::Uuid::new_v4()
+    );
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
