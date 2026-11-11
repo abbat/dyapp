@@ -79,8 +79,15 @@ draft writes still hold a process-local lock around proof/publication and their 
 Shared core transactions now serialize editable saves and photo changes across database handles;
 proof solvers now merge only proof/cursor progress into the latest draft after computing outside
 writer ownership. Pending cursors do not replace a valid lower-difficulty proof. Tauri editor saves
-now apply validated fields/interests inside that same latest-draft transaction. Publication cleanup
+now apply validated fields/interests inside that same latest-draft transaction. Publication completion
 still requires adoption before frontend locks can be removed.
+
+Blob cleanup itself holds an immediate SQLite writer transaction while reading the latest draft
+and pruning. It retains the union of the supplied published hashes and current draft hashes.
+Invalid references, noncanonical blob keys or unsupported blob formats refuse cleanup; any failure
+rolls back the entire batch. Key selection uses the exact case-sensitive `profile_photo:` namespace,
+not SQL `LIKE` wildcard matching. This protects photos added before cleanup; publication's earlier
+whole-draft replacement still requires migration to preserve edits made during network requests.
 
 Android removal and reordering carry the displayed snapshot's opaque core revision. It covers all
 original and preview hashes, their order and duplicate entries; unrelated fields/proof do not change

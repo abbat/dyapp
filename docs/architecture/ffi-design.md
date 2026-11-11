@@ -287,7 +287,10 @@ late pending/weaker work cannot downgrade a stronger proof or replace fields/pho
 The prepared value is owner-bound, and cursor/draft commit failures roll back together. Tauri editor
 saves also apply their validated fields/interests inside the same latest-draft transaction. Publication
 still requires adoption before frontend monitors can be removed; shared desktop normalization remains
-separate work.
+separate work. Post-publication blob pruning already retains the union of published/current-draft
+hashes under writer ownership, validates the exact blob namespace/key/format and rolls back on failure.
+The internal pruning helper composes inside a larger writer transaction. The earlier publication
+readback-to-draft replacement still requires migration; pruning does not make that stage safe.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

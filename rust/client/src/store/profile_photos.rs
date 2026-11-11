@@ -20,7 +20,7 @@ const KEPT: &str = "profile_photos_kept";
 /// Seconds between keep refreshes.
 const KEEP_INTERVAL: u64 = 86_400;
 
-fn key(hash: &[u8]) -> String {
+pub(super) fn key(hash: &[u8]) -> String {
     let hex: String = dyapp_identity::hex(hash);
     format!("{PREFIX}{hex}")
 }
@@ -166,21 +166,13 @@ impl Store {
             .optional()?)
     }
 
-    fn profile_photo_keys(&self) -> Result<Vec<String>, Error> {
-        let mut query = self
-            .db
-            .prepare("SELECT `key` FROM `settings` WHERE `key` LIKE ?1")?;
-        let rows = query.query_map([format!("{PREFIX}%")], |row| row.get(0))?;
-        Ok(rows.collect::<Result<_, _>>()?)
-    }
-
     /// Whether any blob is stored, so nodes may hold a list that needs replacing.
     ///
     /// # Errors
     ///
     /// Returns an error if querying or decoding the stored blob keys fails.
     pub fn has_profile_photos(&self) -> Result<bool, Error> {
-        Ok(!self.profile_photo_keys()?.is_empty())
+        Ok(!keys(&self.db)?.is_empty())
     }
 
     /// Whether a keep refresh is due at Unix second `now`. A clock moved back counts as elapsed, so
@@ -219,23 +211,28 @@ impl Store {
         )?;
         Ok(())
     }
+}
 
-    /// Deletes every blob but `hashes`, after the profile that lists them is published.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing blob keys or deleting a blob fails. Earlier
-    /// deletions remain applied when a later deletion fails.
-    pub fn retain_profile_photos(&self, hashes: &[Vec<u8>]) -> Result<(), Error> {
-        let wanted: Vec<String> = hashes.iter().map(|hash| key(hash)).collect();
-        for stored in self.profile_photo_keys()? {
-            if !wanted.contains(&stored) {
-                self.db
-                    .execute("DELETE FROM `settings` WHERE `key` = ?1", [stored])?;
-            }
+pub(super) fn keys(db: &Connection) -> Result<Vec<String>, Error> {
+    // GLOB keeps the underscore literal and matching case-sensitive; LIKE does neither.
+    let mut query =
+        db.prepare("SELECT `key`, `format_version` FROM `settings` WHERE `key` GLOB ?1")?;
+    let rows = query.query_map([format!("{PREFIX}*")], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })?;
+    rows.map(|row| {
+        let (key, version) = row?;
+        let suffix = key.strip_prefix(PREFIX).ok_or(Error::InvalidSetting)?;
+        let valid = suffix.len() == 64
+            && suffix
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
+        if version != 1 || !valid {
+            return Err(Error::InvalidSetting);
         }
-        Ok(())
-    }
+        Ok(key)
+    })
+    .collect()
 }
 
 fn save_blob(db: &Connection, data: &[u8]) -> Result<Vec<u8>, Error> {
@@ -380,15 +377,13 @@ mod tests {
     }
 
     #[test]
-    fn photos_enter_the_draft_within_limits_and_leave_after_a_publish() {
-        assert_eq!(MAX_PHOTO_BYTES, 1_048_576);
+    fn invalid_photo_bytes_do_not_create_blobs() {
         let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
-        assert!(!store.has_profile_photos().unwrap());
         for (full, thumbnail) in [
             (b"not a jpeg".to_vec(), jpeg(1, 8)),
             (jpeg(1, 8), b"not a jpeg".to_vec()),
-            (jpeg(1, MAX_PHOTO_BYTES + 1), jpeg(2, 8)),
-            (jpeg(1, 8), jpeg(2, MAX_THUMBNAIL_BYTES + 1)),
+            (jpeg(1, 1_048_577), jpeg(2, 8)),
+            (jpeg(1, 8), jpeg(2, 24_577)),
         ] {
             assert!(matches!(
                 store.add_profile_photo(&full, &thumbnail),
@@ -396,35 +391,41 @@ mod tests {
             ));
         }
         assert!(!store.has_profile_photos().unwrap());
+    }
 
-        let full = jpeg(1, MAX_PHOTO_BYTES);
-        let thumbnail = jpeg(2, MAX_THUMBNAIL_BYTES);
+    #[test]
+    fn maximum_photo_blobs_round_trip() {
+        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let full = jpeg(1, 1_048_576);
+        let thumbnail = jpeg(2, 24_576);
         let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
-        let photo = draft.photos[0].clone();
+        let photo = &draft.photos[0];
         assert_eq!(store.profile_photo(&photo.full[0]).unwrap(), Some(full));
         assert_eq!(
             store.profile_photo(&photo.thumbnail).unwrap(),
             Some(thumbnail)
         );
+    }
 
-        // Refusal keeps the first photo; the sixth fits and the seventh does not.
-        for seed in 3..8 {
+    #[test]
+    fn photo_count_and_order_limits_are_enforced() {
+        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        for seed in 0..6 {
             store
-                .add_profile_photo(&jpeg(seed, 8), &jpeg(2, 8))
+                .add_profile_photo(&jpeg(seed, 8), &jpeg(9, 8))
                 .unwrap();
         }
         assert!(matches!(
-            store.add_profile_photo(&jpeg(9, 8), &jpeg(2, 8)),
+            store.add_profile_photo(&jpeg(7, 8), &jpeg(9, 8)),
             Err(Error::PhotoRefused)
         ));
-
-        // A removed photo stays stored until a publish retains the rest.
         assert!(matches!(
             store.remove_profile_photo(6),
             Err(Error::PhotoRefused)
         ));
+        let before = store.profile_draft().unwrap().unwrap();
         let draft = store.remove_profile_photo(0).unwrap();
-        assert_eq!(draft.photos.len(), 5);
+        assert_eq!(draft.photos, before.photos[1..]);
         assert!(matches!(
             store.move_profile_photo(0, 5),
             Err(Error::PhotoRefused)
@@ -432,15 +433,10 @@ mod tests {
         let moved = store.move_profile_photo(4, 0).unwrap();
         assert_eq!(moved.photos[0], draft.photos[4]);
         assert_eq!(moved.photos[1], draft.photos[0]);
-        assert!(store.profile_photo(&photo.full[0]).unwrap().is_some());
-        store
-            .retain_profile_photos(std::slice::from_ref(&photo.thumbnail))
-            .unwrap();
-        assert!(store.profile_photo(&photo.full[0]).unwrap().is_none());
-        assert!(store.profile_photo(&photo.thumbnail).unwrap().is_some());
-        store.retain_profile_photos(&[]).unwrap();
-        assert!(!store.has_profile_photos().unwrap());
-        // Other settings survive: the draft is one of them.
-        assert_eq!(store.profile_draft().unwrap().unwrap().photos.len(), 5);
+        // Removing a draft reference alone never destroys bytes still needed by publication.
+        assert!(store
+            .profile_photo(&before.photos[0].full[0])
+            .unwrap()
+            .is_some());
     }
 }
