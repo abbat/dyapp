@@ -119,8 +119,9 @@ Only RGBA leaves the core. `image-webp` becomes a new direct dependency; its mem
 cover every allocation, so a hang or a large allocation stays a residual risk and the header check
 carries the load.
 
-The TAR reader and the pack validator get fuzz targets and corrupt fixtures, and real archives from
-GNU tar and macOS bsdtar are test fixtures.
+The TAR reader and the pack validator get fuzz targets and corrupt fixtures. A GNU tar archive is a
+checked-in fixture; on macOS and Windows a desktop test packs the files with the system bsdtar and
+imports the result.
 
 ## Wire
 

@@ -81,3 +81,46 @@ fn imported_collection_reopens_with_the_slot_secret() {
     let (store, key) = local_store(&root, &slot.dir, &identity, &sessions).unwrap();
     assert!(store.saved_sticker_pack(&key, &id).unwrap().is_none());
 }
+
+/// The system `tar` of macOS and Windows is libarchive bsdtar, so a pack made there must import.
+#[cfg(any(target_os = "macos", windows))]
+#[test]
+fn a_pack_made_with_the_system_bsdtar_imports() {
+    let tar = if cfg!(windows) {
+        r"C:\Windows\System32\tar.exe"
+    } else {
+        "/usr/bin/tar"
+    };
+    let dir =
+        std::env::temp_dir().join(format!("sticker-bsdtar-{}", Identity::generate().peer_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let reference = archive();
+    let files = dyapp_client::sticker_tar::read(&reference).unwrap();
+    for (name, bytes) in &files {
+        std::fs::write(dir.join(name), bytes).unwrap();
+    }
+    let run = |args: &[&str]| {
+        let out = std::process::Command::new(tar)
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    assert!(run(&["--version"]).contains("bsdtar"));
+    let mut create = vec!["-cf", "pack.tar"];
+    create.extend(files.keys().copied());
+    run(&create);
+    let made = std::fs::read(dir.join("pack.tar")).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+    let pack = sticker_pack::import_tar(&made).unwrap();
+    assert_eq!(
+        pack.id(),
+        sticker_pack::import_tar(&reference).unwrap().id()
+    );
+}
