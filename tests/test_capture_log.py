@@ -30,15 +30,13 @@ class RetainedLogs(unittest.TestCase):
     def test_abrupt_process_exit_keeps_small_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "abrupt.log"
+            script = (
+                "from capture import Capture; import os, sys; "
+                "capture = Capture(log_file=sys.argv[1]); "
+                "capture.write(b'last completed phase\\n'); os._exit(7)"
+            )
             process = subprocess.run(
-                [
-                    sys.executable,
-                    "-c",
-                    "from capture import Capture; import os, sys; "
-                    "capture = Capture(log_file=sys.argv[1]); "
-                    "capture.write(b'last completed phase\\n'); os._exit(7)",
-                    str(log),
-                ],
+                [sys.executable, "-c", script, str(log)],
                 env={**os.environ, "PYTHONPATH": str(ROOT / "tools/scripts")},
                 capture_output=True,
                 check=False,

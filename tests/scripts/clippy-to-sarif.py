@@ -64,7 +64,7 @@ def read_sources(paths: list[str]) -> dict[str, bytes]:
         try:
             sources[path] = Path(path).read_bytes()
         except OSError:
-            pass
+            pass  # Without its source a finding is not measured and stays.
     return sources
 
 
