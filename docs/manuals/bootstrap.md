@@ -8,9 +8,9 @@ option needs more than a paragraph.
 
 > ⚠️ **Not production-ready.** Clients built on `rust/client` send messages only as MLS
 > ciphertext, padded to the next power of two from 1 KiB, so an operator sees envelope sizes and
-> timing but not text; the node cannot check that a client encrypts. The node checks Ed25519 signatures: the owner's on profiles, the sender's on
-> envelopes and the device's on mailbox reads. See
-> [Encryption & Security Status](../security/encryption.md) and [Privacy](../security/privacy.md).
+> timing but not text; the node cannot check that a client encrypts. The node checks Ed25519
+> signatures: the owner's on profiles, the sender's on envelopes and the device's on mailbox reads.
+> See [Encryption & Security Status](../security/encryption.md) and [Privacy](../security/privacy.md).
 
 ## Contents
 
@@ -161,8 +161,8 @@ Only when no other resolver is reachable, allow the one address with
 `IPAddressAllow=169.254.169.253/32`: an allowed address wins over every deny and the filter
 has no ports, so never allow a whole range, and on Google Cloud, where `169.254.169.254` serves
 both DNS and metadata, allowing it reopens the metadata server. The package warns on install and
-upgrade when `/etc/resolv.conf` names a link-local resolver. If the node logs `Address family not supported` after an upgrade, the new version
-opens a socket family the unit does not list: add it to `RestrictAddressFamilies=` in a drop-in
+upgrade when `/etc/resolv.conf` names a link-local resolver. If the node logs `Address family not
+supported` after an upgrade, the new version opens a socket family the unit does not list: add it to `RestrictAddressFamilies=` in a drop-in
 and report it. `systemd-analyze security dyappd` lists what the sandbox still allows; read it as
 a guide, its score has no threshold the package must meet.
 
@@ -375,15 +375,14 @@ Every setting is optional. Later sources override earlier ones:
    (`--listen '[::]:33445' --listen 0.0.0.0:33445`).
 
 `dyappd --help` lists every option with its default. With a Russian message locale (`LC_ALL`,
-then `LC_MESSAGES`, then `LANG`), command usage and config-loading instructions appear in Russian;
-command and option names and default values stay unchanged, while option descriptions are
-translated. A parity test requires a Russian description for every new option. Project-authored
-option, seed, and TURN errors are translated. Config file read failures and TOML syntax errors
-now have Russian guidance while preserving paths, positions and original technical causes.
-Syntax and type errors never echo source values that may contain secrets. Known type mismatches
-name the config key and expected TOML type; other deserialization failures use a generic safe
-message. Missing TURN secret files also get Russian guidance. See the
-[diagnostic design](../design/localized-config-diagnostics.md). An unknown option stops the node; an
+then `LC_MESSAGES`, then `LANG`), command usage, option descriptions and config-loading
+instructions appear in Russian, while command and option names and default values stay unchanged;
+a parity test requires a Russian description for every new option. The project's own option, seed
+and TURN errors are translated too, including a missing TURN secret file. Config file read failures
+and TOML syntax errors get Russian guidance that keeps paths, positions and the original technical
+cause. Syntax and type errors never echo source values, which may contain secrets: a known type
+mismatch names the config key and the expected TOML type, and other deserialization failures get a
+generic message. See the [diagnostic design](../design/localized-config-diagnostics.md). An unknown option stops the node; an
 unknown key in the file or the environment is logged and ignored, so a config written for a
 newer node does not stop an older one. Changes take effect on restart
 (`sudo systemctl restart dyappd`); only the deny list is reloaded while running. Keep
@@ -617,7 +616,7 @@ writes for the first trust period, and every restarted node refuses writes throu
 period. The peers of a restarted node keep trusting it while it stays in their routing table.
 
 1. **Cold start.** Generate each key (about a minute per node at 22 bits), list the other seeds
-   in `seeds` on every seed and start them in any order; a seed that starts first is dialled by
+   in `seeds` on every seed and start them in any order; a seed that starts first is dialed by
    the later ones. Check each with `dyappd info`.
 2. **Canary.** After `storage_trust_minutes`, publish a test profile through each node:
    `dyappd publish` returns `STATUS_OK` and `dyappd get` finds the record on at least two
@@ -641,12 +640,12 @@ ref as its `from` input.
 
 ## Status and metrics
 
-**Status.** `sudo -u dyappd dyappd status` (in Docker:
-`docker exec dyappd dyappd status`) prints one `name value` line each, most important first.
-Field names and the `running`, `stopped`, `none`, and `unavailable` values are stable across
-locales because scripts parse them. With a Russian locale, operator errors and `deny add/remove`
-confirmations are translated. Client command argument and connection errors are translated too;
-protocol status values in JSON stay unchanged. Invalid-address guidance uses the default port 33445.
+**Status.** `sudo -u dyappd dyappd status` (in Docker: `docker exec dyappd dyappd status`) prints
+one `name value` line each, most important first. Field names and the values `running`, `stopped`,
+`none` and `unavailable` stay the same in every locale, because scripts parse them. With a Russian
+locale, operator errors, `deny add/remove` confirmations and client command argument and connection
+errors are translated, while protocol status values in JSON stay unchanged. Invalid-address
+guidance uses the default port 33445.
 
 | Line | Value |
 |---|---|
@@ -675,8 +674,8 @@ limits only.
 ### Metrics
 
 Set `[metrics] port = 9464` to serve Prometheus text at `http://[::1]:9464/metrics` and,
-for IPv4-only tools, `http://127.0.0.1:9464/metrics`. A scraper on another host reaches it through a tunnel or a local
-agent. Families and listener limits:
+for IPv4-only tools, `http://127.0.0.1:9464/metrics`. A scraper on another host reaches it
+through a tunnel or a local agent. Families and listener limits:
 [metric families](../architecture/bootstrap.md#metric-families),
 [metrics listener](../architecture/bootstrap.md#metrics-listener).
 
@@ -906,7 +905,8 @@ Expired envelopes, profiles, tombstones and attachments are deleted every hour, 
 [retention limits](#limits). No full `VACUUM` is needed: every `maintenance.interval_minutes` the
 node returns up to `maintenance.vacuum_pages` free pages per store (`profiles.db`, `messages.db`
 and the search index) to the file system, truncates the WAL and refreshes planner statistics. The
-log lines "store maintenance done" and "search index maintenance done" show the free pages left; a steadily growing number means `vacuum_pages` is too small for the delete rate.
+log lines "store maintenance done" and "search index maintenance done" show the free pages left;
+a steadily growing number means `vacuum_pages` is too small for the delete rate.
 Background rebuilds share `maintenance.io_mb_per_s` and report "store rebuild progress".
 
 ## Backups
@@ -924,18 +924,35 @@ node first.
 | `peers`, `anchors` | No: the peer cache, rebuilt from the network. |
 | `dyappd.lock` | No: the running node holds it so that a second node or an offline backup cannot use the directory at the same time. |
 
+A `traffic` file left by an older version is no longer read and can be deleted.
+
 ### Verified pre-update snapshot
 
-The simple tar command below is a manual copy, not a verified recovery point.
-The repository's [offline snapshot writer](../../tools/scripts/backup-bootstrap.py)
-now produces the file inventory and manifest for rehearsal. Stop the node
-before using it; it does not verify that the node is stopped or that the result
-can be restored. The [independent verifier](../../tools/scripts/verify-bootstrap-backup.py)
-checks the manifest, hashes and exact inventory, but does not probe SQLite or
-the key. For a manual upgrade, use the full preflight below to make and probe a
-stopped-node snapshot in a new, private directory with `storage/`, `recovery/`
-and `manifest.jsonl`. From a repository checkout, after stopping the node, a
-rehearsal with a plain inline key is:
+The tar example at the end of this section is a manual copy, not a verified recovery point. For a
+manual upgrade, run the [update preflight](../../tools/scripts/preflight-bootstrap-update.py): one
+command makes a stopped-node snapshot in a new, private directory with `storage/`, `recovery/` and
+`manifest.jsonl`, and proves that it can be restored:
+
+```bash
+sudo python3 tools/scripts/preflight-bootstrap-update.py /var/lib/dyappd \
+  /root/dyappd-backup-v2 --key-mode inline --dyappd /usr/bin/dyappd --id-pow-bits 22
+```
+
+It takes `dyappd.lock` and fails with "node still running" if a node holds it; while it runs, the
+node cannot start. It then checks free space, writes the snapshot and runs both probes, and exits
+non-zero on any failure without changing `storage.dir`. The space check wants the snapshot size
+plus 64 MiB at the destination, the snapshot size again in the scratch directory, and the largest
+store with its WAL free on the `storage.dir` file system, since a store-format change may rebuild a
+table beside the old one; directories on one file system add up. A node older than the
+data-directory lock never takes `dyappd.lock`, so the preflight cannot tell that such a node is
+running: stop it first.
+
+For a rehearsal, the same steps run one by one. The [offline snapshot
+writer](../../tools/scripts/backup-bootstrap.py) copies the files and writes the manifest; it does
+not check that the node is stopped or that the result can be restored, so stop the node first. The
+[independent verifier](../../tools/scripts/verify-bootstrap-backup.py) checks the manifest, hashes
+and exact inventory, but probes neither SQLite nor the key; the two probes do that. From a
+repository checkout, after stopping the node, a rehearsal with a plain inline key is:
 
 ```bash
 sudo python3 tools/scripts/backup-bootstrap.py /var/lib/dyappd \
@@ -946,43 +963,23 @@ sudo python3 tools/scripts/probe-bootstrap-backup.py /root/dyappd-backup-v1 \
   --dyappd /usr/bin/dyappd --id-pow-bits 22
 ```
 
-For an external plain key or an `age`-encrypted key copy, choose `external`
-or `age` and add `--recovery-key <path>`; the writer copies that file without
-decrypting it. The destination must not exist and remains incomplete without
-`manifest.jsonl` if copying fails. Use the full preflight below before
-installing a new binary; the standalone writer and verifier alone do not prove
-recovery. The SQLite probe first
-verifies the manifest and inventory, refuses hot rollback journals, then copies
-DB/WAL files to a private temporary directory and runs `integrity_check(1)`
-there. It does not open the source snapshot with SQLite.
-The full preflight then copies the saved markers and key into another private
-temporary directory and runs `dyappd probe-key` with an empty config and the
-original `network.id_pow_bits` value. For `external`, it uses the saved
-`recovery/node.key`; for `age`, pass `--age-identity <private-key-file>` and
-`--age-binary <age-executable>`. It decrypts the verified `recovery/node.key.age` copy into
-scratch before probing, and fails if `age` or the identity is unavailable, the identity is
-wrong or the ciphertext was altered. The tests run this against the official age 1.3.2
-release. The preflight never opens or changes the source snapshot with SQLite.
-Both probes use `TMPDIR` for these copies; `--scratch <dir>` picks another directory.
+For an external plain key or an `age`-encrypted key copy, choose `external` or `age` and add
+`--recovery-key <path>`; the writer copies that file without decrypting it. The destination must
+not exist; if copying fails, it is left without `manifest.jsonl`, which marks it incomplete. The
+writer and verifier alone do not prove recovery.
 
-The [update preflight](../../tools/scripts/preflight-bootstrap-update.py) runs the whole
-sequence in one command for the operator's manual upgrade:
+The SQLite probe verifies the manifest and inventory, refuses hot rollback journals, then copies the
+database and WAL files into a private temporary directory and runs `integrity_check(1)` there. The
+backup probe also copies the saved markers and key into another private temporary directory and
+runs `dyappd probe-key` with an empty config and the original `network.id_pow_bits` value. For
+`external`, it uses the saved `recovery/node.key`. For `age`, pass `--age-identity
+<private-key-file>` and `--age-binary <age-executable>`: the probe decrypts the verified
+`recovery/node.key.age` copy into scratch and fails if `age` or the identity is unavailable, the
+identity is wrong or the ciphertext was altered; the tests run this against the official age 1.3.2
+release. Neither probe opens or changes the snapshot itself with SQLite. Both make their copies
+under `TMPDIR`; `--scratch <dir>` picks another directory.
 
-```bash
-sudo python3 tools/scripts/preflight-bootstrap-update.py /var/lib/dyappd \
-  /root/dyappd-backup-v2 --key-mode inline --dyappd /usr/bin/dyappd --id-pow-bits 22
-```
-
-It takes `dyappd.lock` and fails with "node still running" if a node holds it; while it
-runs, the node cannot start. It then checks free space, writes the snapshot and runs both
-probes, and exits non-zero on any failure without changing `storage.dir`. The space check
-wants the snapshot size plus 64 MiB at the destination, the snapshot size again in the
-scratch directory, and the largest store with its WAL free on the `storage.dir` file system,
-since a store-format change may rebuild a table beside the old one; directories on one file
-system add up. A node older than the data-directory lock never takes `dyappd.lock`, so the
-preflight cannot tell that such a node is running: stop it first.
-
-To go back to such a snapshot, for example after a new version upgraded the store and then
+To go back to a preflight snapshot, for example after a new version upgraded the store and then
 failed, stop the node and run the [restore](../../tools/scripts/restore-bootstrap.py) with the
 same key options as the preflight:
 
@@ -999,43 +996,37 @@ deleted. Any failure before the swap leaves `storage.dir` unchanged. An external
 is not touched; only the `storage.dir` contents come back. Writes made after the snapshot are
 lost.
 
-The first JSON Lines record contains schema `1`, the saved peer ID and network,
-the key mode (`inline`, `external` or `age`), and an explicit list of absent
-optional stores. Following records, sorted by relative path, contain the byte
-size and SHA-256 of every regular file. Version 1 accepts at most 1 million
-files, a 256 MiB manifest, 4 KiB per record and 1 KiB per path, processed as
-a stream; larger snapshots need a later format. Reject duplicate, absolute,
-parent-traversal and unlisted paths, symlinks and other special files. Hashes
-detect accidental damage; they do not authenticate a backup an attacker can
-rewrite. Keep the whole snapshot encrypted or off the cloud provider.
+**What a snapshot holds.** `storage/` holds `node.id`, `network`, `profiles.db` and `messages.db`,
+plus `media.db`, `deny.db` and every regular file under `data/` when present; the manifest lists
+the optional stores that were absent. Each `*.db-wal` or `*.db-journal` file is copied with its
+database, because after an interrupted shutdown it can hold recovery state
+([SQLite's WAL guidance](https://www.sqlite.org/wal.html#the_wal_file),
+[journal guidance](https://www.sqlite.org/howtocorrupt.html#_deleting_a_hot_journal)).
+`*.db-shm`, search indexes, locks and peer caches are left out and rebuilt. A hot rollback journal
+blocks the upgrade until its recovery is checked in an isolated copy.
 
-`storage/` must hold `node.id`, `network`, `profiles.db` and `messages.db`.
-Include `media.db`, `deny.db` and every regular file under `data/` when present;
-record absence explicitly. Copy any existing `*.db-wal` or `*.db-journal` with
-its database: after an interrupted shutdown they can hold recovery state.
-`*.db-shm`, search indexes, locks and peer caches can be rebuilt. A hot
-rollback journal blocks the upgrade until recovery is checked in an
-isolated copy. [SQLite's WAL guidance](https://www.sqlite.org/wal.html#the_wal_file)
-and [journal guidance](https://www.sqlite.org/howtocorrupt.html#_deleting_a_hot_journal)
-explain why the sidecars cannot be silently dropped.
+**The key.** With an inline key the snapshot holds `storage/node.key`; with an external
+`storage.key` it holds a private `recovery/node.key` copy. A systemd-sealed credential is bound to
+its host or TPM and cannot serve as portable recovery evidence, so the snapshot holds an
+independently encrypted `recovery/node.key.age` copy instead, and the probe needs its age identity
+to decrypt it in scratch. Do not upgrade without that copy and a passing decryption. The snapshot
+does not hold the configuration: keep it separately, especially the network name, ID
+proof-of-work difficulty, roles and external key setting.
 
-For an inline key, include `storage/node.key`; for an external `storage.key`,
-include a private `recovery/node.key` copy. A systemd-sealed credential is
-bound to its host or TPM and is **not** portable recovery evidence: include an
-independently encrypted `recovery/node.key.age` copy and require the operator
-to provide its age identity to the restore probe, which decrypts only in
-scratch. Do not upgrade if that copy or decryption proof is unavailable.
-Preserve the node's configuration separately, especially its network name,
-ID proof-of-work difficulty, roles and external key setting.
+**The manifest.** `manifest.jsonl` is JSON Lines. The first record holds schema `1`, the saved peer
+ID and network, the key mode (`inline`, `external` or `age`) and the list of absent optional
+stores; the following records, sorted by relative path, hold the byte size and SHA-256 of every
+regular file. Version 1 handles at most 1 million files, a 256 MiB manifest, 4 KiB per record and
+1 KiB per path, read as a stream; larger snapshots need a later format. The verifier refuses
+duplicate, absolute, parent-traversal and unlisted paths, symlinks and other special files. Hashes
+detect accidental damage; they do not authenticate a backup an attacker can rewrite, so keep the
+whole snapshot encrypted or off the cloud provider.
 
-The preflight checks each SQLite database and asks `dyappd` to prove that the
-recovered key matches `node.id`. It never opens or replaces live storage. Keep
-the pre-update snapshot until the new version is accepted. A
-restore discards writes made after the snapshot ([Rollback](#rollback)); do not
-roll an upgraded SQLite store back in place.
+The preflight never opens or replaces live storage. Keep the snapshot until the new version is
+accepted. A restore discards writes made after the snapshot ([Rollback](#rollback)); do not roll an
+upgraded SQLite store back in place.
 
-A `traffic` file left by an older version is no longer read and can be deleted. Example with the
-package layout:
+A manual copy with the package layout:
 
 ```bash
 sudo systemctl stop dyappd
@@ -1061,7 +1052,7 @@ signatures are banned locally for `ban_minutes`.
 
 Retention, expiry and the 10-minute windows for signed times use the node's clock. A clock pushed
 forward, for example by a spoofed NTP server, makes the hourly cleanup delete envelopes, profiles
-and attachments early; one pushed back refuses fresh heartbeats and keeps. Synchronise the host
+and attachments early; one pushed back refuses fresh heartbeats and media keeps. Synchronize the host
 with an authenticated source and watch for large steps in the `chrony` log.
 
 Plain NTP answers are not signed: anyone on the path between the host and its time server can
@@ -1124,7 +1115,7 @@ systemctl status dyappd                     # restart loops; IP: traffic in and 
 systemctl show -p IPIngressBytes,IPEgressBytes dyappd
 ```
 
-A nonzero `denied_dials` in the node's periodic status log line counts dials to a denied range
+A non-zero `denied_dials` in the node's periodic status log line counts dials to a denied range
 since the last line: usually a hostile peer's address, possibly the node itself misbehaving.
 
 ### After a host compromise
