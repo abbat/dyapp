@@ -807,9 +807,7 @@ reload; the node refuses new puts and reads of that hash.
   lists other nodes shared, and `status` prints what
   the stores hold, read-only. There is no TUI and no admin HTTP endpoint; metrics go to the log.
 - <a id="default-port"></a>Default port 33445 for the first release, chosen by the maintainer.
-  It binds without privilege and serves TCP and QUIC on one number. Explicit addresses on the
-  former port 7070 still work; operators must update their firewall and seed entries when
-  changing a node's listen address. Changing the port alone
+  It binds without privilege and serves TCP and QUIC on one number. Changing the port alone
   does not resist DPI: a filter matches the libp2p handshake and QUIC Initial on any port
   ([RFC 9312](https://www.rfc-editor.org/rfc/rfc9312.html),
   [RFC 9505](https://www.rfc-editor.org/rfc/rfc9505.html)). Port 443 may pass port-based

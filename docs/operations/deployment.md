@@ -2,8 +2,9 @@
 
 ## Overview
 
-> ⚠️ **Not production-ready.** Message encryption is a stub: a bootstrap operator and the
-> network see plaintext. The node checks Ed25519 signatures: the owner's on profiles, the
+> ⚠️ **Not production-ready.** Chats are MLS-encrypted end to end, but calls are not encrypted
+> yet, a node sees metadata (mailbox, time, size bucket, sender IP), releases are not signed and
+> the code has had no outside security audit. The node checks Ed25519 signatures: the owner's on profiles, the
 > sender's on envelopes and the device's on mailbox reads. See [Encryption & Security Status](../security/encryption.md).
 
 dyapp is **fully distributed** — each participant runs their own client. No central servers required (bootstrap servers are optional for peer discovery & message relay).

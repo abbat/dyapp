@@ -14,7 +14,7 @@
 | Any libp2p client of bootstrap | Can read every profile and put into any mailbox; cannot read or ack another device's mailbox |
 | Network on path (ISP, Wi-Fi) | Connection metadata only: libp2p traffic is Noise or TLS 1.3 encrypted |
 | Peer you connect to | Your IP address and whatever you send (direct P2P/WebRTC reveals IPs by design) |
-| Local device | Everything stored on it (no local encryption is implemented) |
+| Local device | Everything stored on it: the MLS state is sealed under a key the platform key store wraps, but the client store (messages, contacts, profiles) is plain SQLite |
 
 ## Field visibility
 

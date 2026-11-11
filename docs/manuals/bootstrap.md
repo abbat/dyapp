@@ -6,11 +6,13 @@ and through its daily operation. A Russian translation of the same revision is i
 [Bootstrap server architecture](../architecture/bootstrap.md); this manual links there where an
 option needs more than a paragraph.
 
-> ⚠️ **Not production-ready.** Clients built on `rust/client` send messages only as MLS
+> ⚠️ **Not production-ready.** Calls are not encrypted yet, metadata is not hidden, releases
+> are not signed and the code has had no outside security audit; the reasons are listed in
+> [Encryption & Security Status](../security/encryption.md). Clients built on `rust/client` send messages only as MLS
 > ciphertext, padded to the next power of two from 1 KiB, so an operator sees envelope sizes and
 > timing but not text; the node cannot check that a client encrypts. The node checks Ed25519
 > signatures: the owner's on profiles, the sender's on envelopes and the device's on mailbox reads.
-> See [Encryption & Security Status](../security/encryption.md) and [Privacy](../security/privacy.md).
+> What a node sees is listed in [Privacy](../security/privacy.md).
 
 ## Contents
 
@@ -134,9 +136,8 @@ The package holds `/usr/bin/dyappd`, `/etc/dyappd.toml` (a conffile, kept on upg
 
 The default port 33445 needs no privilege; any port works, seeds and clients carry it, and
 another port alone does not hide the traffic from DPI
-([why 33445](../architecture/bootstrap.md#default-port)). An explicitly configured 7070 address
-keeps working; update firewalls and seed entries when moving an existing node. Another
-`storage.dir` or a port below 1024 needs a drop-in (`sudo systemctl edit dyappd`):
+([why 33445](../architecture/bootstrap.md#default-port)). Another `storage.dir` or a port below 1024 needs a
+drop-in (`sudo systemctl edit dyappd`):
 
 ```ini
 [Service]
