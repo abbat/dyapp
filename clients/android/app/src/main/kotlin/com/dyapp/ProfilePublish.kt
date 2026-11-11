@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ProfilePublished
@@ -88,16 +90,17 @@ private suspend fun runSteps(solve: ProfileSolve, state: PublishState, attested:
 
 // A new handle per attempt resumes the saved nonce; a failure is left in [state].
 private suspend fun solveProof(opened: Opened.Ready, state: PublishState, attested: Boolean): Boolean {
-    val solve = withContext(Dispatchers.IO) {
-        runCatching { opened.profileSolver() }
+    val step = runCatching {
+        withNativeResource(opened::profileSolver) { solve ->
+            state.solve = solve
+            try {
+                runSteps(solve, state, attested)
+            } finally {
+                state.solve = null
+            }
+        }
     }.getOrNull()
-    state.solve = solve
-    val step = try {
-        solve?.let { runSteps(it, state, attested) }
-    } finally {
-        state.solve = null
-        solve?.close()
-    }
+    currentCoroutineContext().ensureActive()
     val failure = when {
         step == null -> R.string.profile_proof_failed
         !step.solved -> R.string.profile_proof_cancelled

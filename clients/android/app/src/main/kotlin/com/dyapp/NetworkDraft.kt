@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ConnectionCheck
@@ -56,19 +59,26 @@ internal class DraftActions(
 
 /** Fills [state] from the saved draft, or else from the active network. */
 internal suspend fun loadDraft(opened: Opened.Ready, state: NetworkDraftState) {
-    val loaded = withContext(Dispatchers.IO) {
-        runCatching {
-            val settings = RustBridge.loadNetwork(opened, NetworkFile.DRAFT)
-                ?: RustBridge.loadNetwork(opened, NetworkFile.ACTIVE)
-            settings to opened.connectionChecker()
+    runCatching {
+        withNativeResource(opened::connectionChecker) { checker ->
+            val settings = withContext(Dispatchers.IO) {
+                RustBridge.loadNetwork(opened, NetworkFile.DRAFT) ?: RustBridge.loadNetwork(opened, NetworkFile.ACTIVE)
+            }
+            state.seeds = settings?.seeds?.joinToString("\n").orEmpty()
+            state.name = settings?.name.orEmpty()
+            state.checker = checker
+            state.status = DraftStatus.EDITING
+            try {
+                awaitCancellation()
+            } finally {
+                checker.cancel()
+                state.checker = null
+            }
         }
+    }.onFailure {
+        currentCoroutineContext().ensureActive()
+        state.status = DraftStatus.READ_FAILED
     }
-    loaded.fold(onSuccess = { (settings, checker) ->
-        state.seeds = settings?.seeds?.joinToString("\n").orEmpty()
-        state.name = settings?.name.orEmpty()
-        state.checker = checker
-        state.status = DraftStatus.EDITING
-    }, onFailure = { state.status = DraftStatus.READ_FAILED })
 }
 
 private suspend fun checkDraft(checker: ConnectionCheck, draft: NetworkSettings, state: NetworkDraftState) {

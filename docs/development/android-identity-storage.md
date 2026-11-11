@@ -173,8 +173,13 @@ loading frame or an old matching Recovery view. Identity-menu and Settings inven
 profile editor's initial draft/visibility snapshot and the publication preview also load on IO.
 Their keyed presentation state starts empty for a replacement owner and rejects cancelled
 owners' late values. The editor and preview show loading; publication remains disabled until
-the preview has loaded. Native resource factories and removal-dialog preflight still need
+the preview has loaded. Search-factory creation and removal-dialog preflight still need
 IO ownership adoption; the value-read helper must not return native handles.
+Network checkers and proof solvers use `withNativeResource`: creation and final release
+stay on IO, while presentation callbacks return to the caller's context. If cancellation
+arrives during a blocking factory, its eventual handle is closed without being published.
+The network screen retains its checker in this scope until disposal; teardown cancels it
+before IO release, without a competing UI-side close.
 Pre-registration network cancellation remains planned separately from cancellation of an
 already registered native check.
 
