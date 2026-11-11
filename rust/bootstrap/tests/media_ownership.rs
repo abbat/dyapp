@@ -17,6 +17,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[path = "media_ownership/catchup.rs"]
+mod catchup;
+
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
