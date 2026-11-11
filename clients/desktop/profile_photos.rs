@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use dyapp_client::photo::prepare::Purpose;
+use dyapp_client::store::profile_photos::PhotoEdit;
 use dyapp_client::store::{Error, Store};
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
@@ -19,6 +20,7 @@ fn change(
     let mut store = profile::open(dir, identity)?;
     let draft = edit(&mut store).map_err(|error| match error {
         Error::PhotoRefused => "photoRefused".to_string(),
+        Error::PhotoChanged => "photoChanged".to_string(),
         error => error.to_string(),
     })?;
     profile::view(&draft, profile::today()?, Some(&store))
@@ -61,27 +63,43 @@ pub(crate) async fn add_profile_photo(
     .await
 }
 
-/// Drops a photo from the draft; the next publish drops it from the network.
+/// Applies `edit` only to the photo list the page showed as `revision`, inside the store
+/// writer. A list changed since then is `photoChanged`; nothing is retried.
+fn checked(
+    dir: &Path,
+    identity: &Identity,
+    revision: &[u8],
+    edit: PhotoEdit,
+) -> Result<View, String> {
+    change(dir, identity, |store| {
+        store.edit_profile_photos(revision, edit)
+    })
+}
+
+/// Drops a photo from the draft; the next publish drops it from the network. Errors are
+/// `photoChanged`, `photoRefused` or a storage message.
 #[tauri::command]
 pub(crate) async fn remove_profile_photo(
     state: tauri::State<'_, crate::IdentityState>,
     index: usize,
+    revision: Vec<u8>,
 ) -> Result<View, String> {
     on_identity(&state, move |dir, identity| {
-        change(dir, identity, |store| store.remove_profile_photo(index))
+        checked(dir, identity, &revision, PhotoEdit::Remove(index))
     })
     .await
 }
 
-/// Moves a photo within the draft; the first one is the main photo.
+/// Moves a photo within the draft; the first one is the main photo. Errors as for removal.
 #[tauri::command]
 pub(crate) async fn move_profile_photo(
     state: tauri::State<'_, crate::IdentityState>,
     from: usize,
     to: usize,
+    revision: Vec<u8>,
 ) -> Result<View, String> {
     on_identity(&state, move |dir, identity| {
-        change(dir, identity, |store| store.move_profile_photo(from, to))
+        checked(dir, identity, &revision, PhotoEdit::Move { from, to })
     })
     .await
 }
@@ -104,7 +122,7 @@ pub(crate) async fn profile_photo(
 
 #[cfg(test)]
 mod tests {
-    use super::{add, change, Identity};
+    use super::{add, checked, Identity, PhotoEdit};
     use image::{ImageFormat, RgbImage};
     use std::io::Cursor;
 
@@ -135,11 +153,22 @@ mod tests {
 
         add(&dir, &identity, &first, &first).unwrap();
         let added = add(&dir, &identity, &second, &second).unwrap();
-        let moved = change(&dir, &identity, |store| store.move_profile_photo(1, 0)).unwrap();
+        let moved = PhotoEdit::Move { from: 1, to: 0 };
+        let moved = checked(&dir, &identity, &added.photo_revision, moved).unwrap();
         assert_eq!(
             moved.draft.photos,
             [added.draft.photos[1].clone(), added.draft.photos[0].clone()]
         );
+        assert_ne!(moved.photo_revision, added.photo_revision);
+
+        // A competing action still holding the list before the move changes nothing.
+        let stale = checked(&dir, &identity, &added.photo_revision, PhotoEdit::Remove(0));
+        assert_eq!(stale.unwrap_err(), "photoChanged");
+        let kept = crate::profile::load(&dir, &identity).unwrap();
+        assert_eq!(kept.draft.photos, moved.draft.photos);
+        assert_eq!(kept.photo_revision, moved.photo_revision);
+        let removed = checked(&dir, &identity, &kept.photo_revision, PhotoEdit::Remove(0)).unwrap();
+        assert_eq!(removed.draft.photos, [added.draft.photos[0].clone()]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

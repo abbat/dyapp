@@ -12,7 +12,7 @@
     const bytes = await jpeg.arrayBuffer();
     const hashes = [];
     const commands = [];
-    const fixture = { refusal: null };
+    const fixture = { refusal: null, revision: 0 };
     const preparation = {
       photo_picked_byte_limit: () => Promise.resolve(64 << 20),
       photo_decode_plan: ({ mime, width, height }) =>
@@ -22,11 +22,19 @@
       commands.push(command);
       if (command === 'profile_photo') return Promise.resolve(bytes);
       if (fixture.refusal) return Promise.reject(fixture.refusal);
-      if (command === 'add_profile_photo') hashes.push([hashes.length + 1]);
-      if (command === 'remove_profile_photo') hashes.splice(args.index, 1);
-      if (command === 'move_profile_photo')
-        hashes.splice(args.to, 0, ...hashes.splice(args.from, 1));
-      return Promise.resolve({ draft: { photos: [...hashes] } });
+      const view = () => ({ draft: { photos: [...hashes] }, photoRevision: [fixture.revision] });
+      if (command === 'load_profile') return Promise.resolve(view());
+      const checked = command !== 'add_profile_photo';
+      if (checked && String(args.revision) !== String(fixture.revision))
+        return Promise.reject('photoChanged');
+      fixture.revision += 1;
+      edits[command]?.(args);
+      return Promise.resolve(view());
+    };
+    const edits = {
+      add_profile_photo: () => hashes.push([hashes.length + 1]),
+      remove_profile_photo: ({ index }) => hashes.splice(index, 1),
+      move_profile_photo: ({ from, to }) => hashes.splice(to, 0, ...hashes.splice(from, 1)),
     };
     const call = (command, args) =>
       Object.hasOwn(preparation, command) ? preparation[command](args) : store(command, args);
@@ -98,8 +106,36 @@
     if (hashes.length !== 5 || add.disabled || document.activeElement !== add) {
       throw new Error('removal did not free a place and move the focus to Add photo');
     }
+    await checkStalePhotoRemoval(fixture);
     // Enter busy state before pending avatar draws get another microtask.
     return checkPhotoBusy(fixture);
+  };
+  const checkStalePhotoRemoval = async (fixture) => {
+    const { grid, hashes, status, strings, commands } = fixture;
+    const removal = 'remove_profile_photo';
+    const removals = () => commands.filter((name) => name === removal).length;
+    const before = removals();
+    grid.children[0].querySelector('.remove').click();
+    // Another window reorders the photos while this confirmation is open.
+    hashes.reverse();
+    fixture.revision += 1;
+    const reordered = String(hashes);
+    byId('photo-remove-confirm').click();
+    await appApi.profilePhotoChanged;
+    if (hashes.length !== 5 || String(hashes) !== reordered || removals() !== before + 1) {
+      throw new Error('a stale removal changed the photos or was retried');
+    }
+    const reason = strings['profile.photoChanged'];
+    const reloaded = commands.lastIndexOf('load_profile') > commands.lastIndexOf(removal);
+    if (status.textContent !== reason || !reloaded) {
+      throw new Error('a stale removal did not show the current list with the reason');
+    }
+    grid.children[0].querySelector('.right').click();
+    await appApi.profilePhotoChanged;
+    const moved = String(hashes[1]) === reordered.split(',')[0];
+    if (!moved || status.textContent !== strings['profile.draft']) {
+      throw new Error('the refreshed list did not accept the next action');
+    }
   };
   const checkPhotoBusy = async (fixture) => {
     const { commands, file, call, add } = fixture;

@@ -558,7 +558,7 @@ const showProfile = async (call = invoke) => {
   profilePlace.set(place || null);
   showAge(view);
   showHidden(view);
-  profilePhotosController.showProfilePhotos(view.draft.photos, call);
+  profilePhotosController.showProfilePhotos(view.draft.photos, call, view.photoRevision);
 };
 // The switch works once a version is published; hidden, the status and notice say so.
 /** @param {profileFieldsModule.ProfileView} view */

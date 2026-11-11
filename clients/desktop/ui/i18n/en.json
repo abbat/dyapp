@@ -265,6 +265,7 @@
   "profile.photoTooLarge": "This photo is too large to use. Choose a smaller one.",
   "profile.photoUnsupported": "This file cannot be read. Choose a JPEG or PNG photo.",
   "profile.photoRefused": "This photo was not added. A profile holds six photos.",
+  "profile.photoChanged": "Photos changed elsewhere. Review the updated list and try again.",
   "profile.changed": "This profile changed on another device. The newest version is shown here. Make your change again, then publish.",
   "profile.full": "The network node has no room for these photos. Your draft was kept. Remove a photo, then retry.",
   "photoRemove.title": "Remove this photo?",

@@ -12,7 +12,7 @@ use dyapp_client::places;
 use dyapp_client::publish::{self, Block};
 use dyapp_client::search;
 use dyapp_client::session::{self, Session};
-use dyapp_client::store::Store;
+use dyapp_client::store::{profile_photos, Store};
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
@@ -196,6 +196,8 @@ pub struct View {
     pub search_minutes: Option<u64>,
     /// Hidden from search by a tombstone until the next publish.
     pub hidden: bool,
+    /// Opaque revision of the shown photo list; a remove or move must send it back.
+    pub photo_revision: Vec<u8>,
 }
 
 /// The page's name for a [`Block`].
@@ -285,6 +287,7 @@ pub(crate) fn view(
         problem: publish::check(profile, true, today).err().map(code),
         search_minutes,
         hidden,
+        photo_revision: profile_photos::revision(profile).to_vec(),
     })
 }
 

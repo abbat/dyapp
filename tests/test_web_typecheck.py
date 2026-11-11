@@ -13,9 +13,17 @@ class WebTypecheckTest(unittest.TestCase):
     def test_command_and_null_contracts(self) -> None:
         bridge = (ROOT / "clients/desktop/ui/ipc.js").as_posix()
         cases = (
-            ("invoke('quit'); invoke('remove_profile_photo', {index: 0});", 0),
+            (
+                "invoke('quit'); invoke('remove_profile_photo', "
+                "{index: 0, revision: []});",
+                0,
+            ),
             ("invoke('unknown_command');", 1),
-            ("invoke('remove_profile_photo', {index: 'zero'});", 1),
+            (
+                "invoke('remove_profile_photo', "
+                "{index: 'zero', revision: []});",
+                1,
+            ),
             ("invoke('remove_profile_photo');", 1),
             (
                 "/** @type {string | null} */ let value = null; "

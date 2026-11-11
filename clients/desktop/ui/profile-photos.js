@@ -23,6 +23,9 @@ const profilePhotoLimit = domById('profile-photo-limit', HTMLParagraphElement);
 const profilePhotoDialog = domById('photo-remove-dialog', HTMLDialogElement);
 const profilePhotoCancel = domById('photo-remove-cancel', HTMLButtonElement);
 let profilePhotoCount = 0;
+// The core revision of the shown list; removal and moves send it so a stale list changes nothing.
+/** @type {number[]} */
+let profilePhotoRevision = [];
 /** @type {(() => Promise<void>) | null} */
 let profilePhotoRemoval = null;
 const closePhotoRemoval = () => {
@@ -44,9 +47,17 @@ const profilePhotoFailure = (error) => {
     unsupported: 'profile.photoUnsupported',
     corrupted: 'profile.photoUnsupported',
     photoRefused: 'profile.photoRefused',
+    photoChanged: 'profile.photoChanged',
   }[String(error)];
   if (key) profileMessage(key);
   else profileMessage('profile.failed', String(error));
+};
+// Show the list that won; the user reviews it instead of the stale action being retried.
+/** @param {import('./ipc.js').Invoke} call @param {number} generation */
+const showCurrentPhotos = async (call, generation) => {
+  const view = identityCurrent(generation) ? await call('load_profile').catch(() => null) : null;
+  if (view && identityCurrent(generation))
+    controller.showProfilePhotos(view.draft.photos, call, view.photoRevision);
 };
 /**
  * @param {() => void} focus
@@ -60,9 +71,10 @@ const changeProfilePhotos = async (work, call, focus) => {
   try {
     const view = await work();
     if (!identityCurrent(generation)) return;
-    controller.showProfilePhotos(view.draft.photos, call);
+    controller.showProfilePhotos(view.draft.photos, call, view.photoRevision);
     profileMessage('profile.draft');
   } catch (error) {
+    if (String(error) === 'photoChanged') await showCurrentPhotos(call, generation);
     if (identityCurrent(generation)) profilePhotoFailure(error);
   } finally {
     if (identityCurrent(generation)) {
@@ -84,7 +96,7 @@ const addProfilePhoto = (file, call = invoke) =>
 /** @param {number} from @param {number} to @param {string} name @param {import('./ipc.js').Invoke} call */
 const moveProfilePhoto = (from, to, name, call) =>
   changeProfilePhotos(
-    () => call('move_profile_photo', { from, to }),
+    () => call('move_profile_photo', { from, to, revision: profilePhotoRevision }),
     call,
     () => {
       const tile = profilePhotoGrid.children[to];
@@ -96,10 +108,11 @@ const moveProfilePhoto = (from, to, name, call) =>
 /** @param {number} index @param {import('./ipc.js').Invoke} call */
 const askProfilePhotoRemoval = (index, call) => {
   const generation = identityState.generation;
+  const revision = profilePhotoRevision;
   profilePhotoRemoval = () =>
     identityCurrent(generation)
       ? changeProfilePhotos(
-          () => call('remove_profile_photo', { index }),
+          () => call('remove_profile_photo', { index, revision }),
           call,
           () => profilePhotoAdd.focus(),
         )
@@ -234,10 +247,11 @@ document.addEventListener('dyapp:identity-change', () => {
   ownPhotoRun += 1;
   ownPhoto = null;
 });
-/** @param {number[][]} [hashes] */
-controller.showProfilePhotos = (hashes = [], call = invoke) => {
+/** @param {number[][]} [hashes] @param {number[]} [revision] */
+controller.showProfilePhotos = (hashes = [], call = invoke, revision = []) => {
   controller.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;
+  profilePhotoRevision = revision;
   profilePhotoGrid.replaceChildren(
     ...hashes.map((hash, index) => profilePhotoTile(hash, index, hashes.length, call)),
   );

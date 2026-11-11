@@ -18,7 +18,7 @@ import { locale, strings } from './locale.js';
  *   Partial<Pick<ProfileDraft, DefaultedDraftFields>>} ProfileDraftInput
  * @typedef {{ draft: ProfileDraft, published: number, ages: [number, number] | null,
  *   problem: 'notAttested' | 'invalidBirthDate' | 'underage' | null,
- *   searchMinutes: number | null, hidden: boolean }} ProfileView
+ *   searchMinutes: number | null, hidden: boolean, photoRevision: number[] }} ProfileView
  */
 /** @type {PickerScale[]} */
 export let scaleFields = [];
