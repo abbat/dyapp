@@ -284,8 +284,10 @@ together, rolling all three back on failure. Native and desktop proof solvers us
 `Store::prepare_profile_work` outside writer ownership and `Store::commit_profile_work` for a short
 atomic merge into the latest draft. Per-difficulty cursors stay separate from valid proof nonces;
 late pending/weaker work cannot downgrade a stronger proof or replace fields/photos/devices.
-The prepared value is owner-bound, and cursor/draft commit failures roll back together. Publication
-and remaining desktop editor writes still require adoption before frontend monitors can be removed.
+The prepared value is owner-bound, and cursor/draft commit failures roll back together. Tauri editor
+saves also apply their validated fields/interests inside the same latest-draft transaction. Publication
+still requires adoption before frontend monitors can be removed; shared desktop normalization remains
+separate work.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

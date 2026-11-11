@@ -202,8 +202,8 @@ core serialization now covers editable-field saves through a SQLite immediate re
 transaction, preserving the latest committed noneditable progress. Photo add/remove/move use
 this transaction too, with both added blobs and the draft committed atomically. Native proof steps
 compute outside writer ownership and merge only proof/cursor progress through a short transaction.
-Publication and remaining desktop editor writes still require adoption before frontend monitors can
-be removed. Registry admission
+Tauri editor saves also transform the latest draft under writer ownership. Publication still requires
+adoption before frontend monitors can be removed. Registry admission
 protects identity lifetime and is not itself a draft-write mutex.
 
 The photo editor retains one native snapshot revision with its decoded images. Remove/move freeze

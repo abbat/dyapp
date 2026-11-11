@@ -78,8 +78,9 @@ while the shared core bounds and decodes previews. On Android and Apple
 draft writes still hold a process-local lock around proof/publication and their other writers.
 Shared core transactions now serialize editable saves and photo changes across database handles;
 proof solvers now merge only proof/cursor progress into the latest draft after computing outside
-writer ownership. Pending cursors do not replace a valid lower-difficulty proof. Publication cleanup
-and remaining desktop editor writes still require adoption before frontend locks can be removed.
+writer ownership. Pending cursors do not replace a valid lower-difficulty proof. Tauri editor saves
+now apply validated fields/interests inside that same latest-draft transaction. Publication cleanup
+still requires adoption before frontend locks can be removed.
 
 Android removal and reordering carry the displayed snapshot's opaque core revision. It covers all
 original and preview hashes, their order and duplicate entries; unrelated fields/proof do not change

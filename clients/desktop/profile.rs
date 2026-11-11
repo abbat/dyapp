@@ -333,10 +333,12 @@ pub(crate) fn canonical_interests(tags: &[String]) -> Result<Vec<String>, String
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, String> {
     let interests = draft.validate()?;
-    let store = open(dir, identity)?;
-    let profile = draft.into_profile(stored(&store)?, interests);
-    store
-        .save_profile_draft(&profile)
+    let mut store = open(dir, identity)?;
+    let profile = store
+        .update_profile_draft(|current| {
+            *current = draft.into_profile(std::mem::take(current), interests);
+            Ok(())
+        })
         .map_err(|e| e.to_string())?;
     view(&profile, today()?, Some(&store))
 }

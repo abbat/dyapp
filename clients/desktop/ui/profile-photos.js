@@ -11,8 +11,8 @@ controller.profilePhotoChanged = undefined;
 /** @type {Promise<void> | undefined} */
 controller.ownAvatarsShown = undefined;
 
-// Profile photos share the chat encoder. Keep the form busy while publication and remaining
-// draft writers still require shared-core adoption; proof steps already merge progress safely.
+// Profile photos share the chat encoder. Keep the form busy while publication still requires
+// shared-core adoption; editor saves and proof steps already transform the latest draft safely.
 const MAX_PROFILE_PHOTOS = 6;
 const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
 const PROFILE_PHOTO_QUALITIES = [0.85, 0.7, 0.55];
