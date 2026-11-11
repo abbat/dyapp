@@ -105,7 +105,6 @@
   {"path":"rust/bootstrap/tests/protocol/keypackages.rs","function":"fn keypackage_publish_and_consume_over_tcp ","metrics":{"lines":162}},
   {"path":"rust/bootstrap/tests/protocol/last_resort.rs","function":"fn invites_work_from_one_last_resort_package_across_lost_replies_and_rotation ","metrics":{"lines":92}},
   {"path":"rust/bootstrap/tests/protocol/media.rs","function":"fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext ","metrics":{"lines":105}},
-  {"path":"rust/bootstrap/tests/protocol/media.rs","function":"fn profile_photos_reach_readers_and_leave_with_the_profile ","metrics":{"lines":51}},
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp ","metrics":{"nesting":6,"lines":150,"nested_regions":1}},
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn named_node_serves_profile_search_and_configured_gossip_topics ","metrics":{"nesting":6,"lines":91,"nested_regions":3}},
   {"path":"rust/bootstrap/tests/protocol/profile_pow.rs","function":"fn store_and_mixed_nodes_verify_profile_proofs_before_holding_copies ","metrics":{"lines":114}},

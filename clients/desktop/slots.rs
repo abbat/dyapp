@@ -531,8 +531,10 @@ mod tests {
             .unwrap()
             .as_nanos();
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let root = std::env::temp_dir()
-            .join(format!("dyapp-slots-test-{}-{nonce}-{n}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "dyapp-slots-test-{}-{nonce}-{n}",
+            std::process::id()
+        ));
         fs::create_dir(&root).unwrap();
         root
     }

@@ -140,7 +140,8 @@ async fn profile_photos_reach_readers_and_leave_with_the_profile() {
     let published = publish::publish(&store, &mut node, &owner, &published)
         .await
         .unwrap();
-    keep_only(&mut node, &owner, vec![published.photos[0].thumbnail.clone()]).await;
+    let kept = vec![published.photos[0].thumbnail.clone()];
+    keep_only(&mut node, &owner, kept).await;
 
     let draft = store.remove_profile_photo(0).unwrap();
     assert!(store.has_profile_photos().unwrap());
