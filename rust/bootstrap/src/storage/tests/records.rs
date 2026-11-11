@@ -147,8 +147,7 @@ fn envelopes_once_per_id_limits_and_expiry() {
 
 #[test]
 fn paged_fetch_moves_past_unacked_head_and_deleted_cursor() {
-    let dir = format!("build/test-bootstrap-{}", Uuid::new_v4());
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
     let store = BootstrapStore::new(&dir).unwrap();
     let mailbox = [7u8; 32];
     let record = |n: u8| SignedRecord {
