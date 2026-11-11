@@ -420,9 +420,14 @@ message MediaKeepCatchup {
 
 // Returned only for accepted catch-up segments; contains no private current ownership.
 message MediaKeepProgress {
+  // Accepted ancestry, possibly an ancestor of a newer head; this alone is not admission.
   bool ready = 1;
   // Next ancestor revision from the supplied proof frontier; zero means complete ancestry.
   uint64 next_version = 2;
+  // Ready only: exact supplied signed target and revision match current ownership at observation.
+  // Absent on pending progress or older implementations; absence never establishes admission.
+  // Reveals no newer record, revision or hash list.
+  optional bool target_current = 3;
 }
 
 // The complete list of an owner's blobs. The node drops the owner's blobs not listed and accepts

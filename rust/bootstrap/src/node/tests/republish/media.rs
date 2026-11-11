@@ -207,6 +207,7 @@ async fn wrong_operation_receipts_do_not_confirm_a_write() {
             keep_progress: Some(proto::MediaKeepProgress {
                 ready: true,
                 next_version: 0,
+                target_current: Some(true),
             }),
             ..ok
         },

@@ -146,7 +146,12 @@ SHA-256 of the device public key (32 bytes each).
   is at most 1 MiB. Ancestors may predate the owner TTL; the target must remain within it and
   at most ten minutes ahead of the node clock. Segments stage proofs without changing live lists.
   Once they reach current ownership, only the final target is applied atomically.
-  `MediaResponse.keep_progress` (tag 10) reports `ready` and the next supplied ancestor revision.
+  `MediaResponse.keep_progress` (tag 10) reports accepted-ancestry `ready` and the next supplied ancestor
+  revision. An accepted target may already be an ancestor of a newer head. Optional `target_current`
+  (progress tag 3), returned only with ready progress, compares the exact supplied signed target and
+  revision with current ownership at reply observation. Only explicit `true` establishes this match;
+  absent on older implementations or pending replies never establishes admission. The predicate is
+  not a promise against subsequent owner changes and reveals no newer record, revision or hash list.
   It never reveals current ownership or sets `keep_applied`; conflicts return `STALE` without
   progress. Older nodes answer `UNSUPPORTED`; callers must not fall back to legacy keep.
   Automatic repair catch-up is still planned.

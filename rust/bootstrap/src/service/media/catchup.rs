@@ -1,10 +1,13 @@
 //! Node-only reverse ancestry; no private ownership snapshots are returned to replicas.
 use super::{
-    media_clock_invalid, media_status, media_too_large, owner_request, proto, Domain,
+    hex, media_clock_invalid, media_status, media_too_large, owner_request, proto, Domain,
     MediaResponse, Message, Peer, Service, Status, CLOCK_SKEW,
 };
+use crate::config::Limits;
 use crate::media::{KeepHistoryProgress, MediaStore};
 use crate::{BootstrapError, Result};
+use dyapp_identity::SignedRecord;
+use std::ops::RangeInclusive;
 
 fn framed(bytes: usize) -> usize {
     1 + prost::encoding::encoded_len_varint(bytes as u64) + bytes
@@ -25,10 +28,48 @@ fn bounded(segment: &proto::MediaKeepCatchup) -> bool {
             <= MediaStore::keep_history_page_bytes() + framed(target.encoded_len())
 }
 
-fn progress(result: Result<KeepHistoryProgress>) -> Result<MediaResponse> {
-    let (ready, next_version) = match result {
-        Ok(KeepHistoryProgress::Ready { next_version }) => (true, next_version),
-        Ok(KeepHistoryProgress::Pending { next_version }) => (false, next_version),
+fn matches_target(
+    media: &MediaStore,
+    owner: &str,
+    target: &SignedRecord,
+    version: u64,
+) -> Result<bool> {
+    let current = media.keep_snapshot(owner)?;
+    Ok(current.owner_present
+        && current.version == version
+        && current.record.as_ref() == Some(target))
+}
+
+fn apply_segment(
+    media: &MediaStore,
+    target: &SignedRecord,
+    ancestors: &[SignedRecord],
+    fresh: RangeInclusive<u64>,
+    limits: &Limits,
+) -> Result<KeepHistoryProgress> {
+    if media
+        .stage_keep_history(target, ancestors, fresh.clone(), limits)?
+        .is_none()
+    {
+        return Ok(KeepHistoryProgress::Conflict);
+    }
+    media.apply_keep_history(target, fresh, limits)
+}
+
+fn progress(
+    result: Result<KeepHistoryProgress>,
+    media: &MediaStore,
+    owner: &str,
+    target: &SignedRecord,
+    version: u64,
+) -> Result<MediaResponse> {
+    let (ready, next_version, target_current) = match result {
+        Ok(KeepHistoryProgress::Ready { next_version }) => (
+            true,
+            next_version,
+            Some(matches_target(media, owner, target, version)?),
+        ),
+        Ok(KeepHistoryProgress::Pending { next_version }) => (false, next_version, None),
         Ok(KeepHistoryProgress::Conflict) => return Ok(media_status(Status::Stale)),
         Err(BootstrapError::MediaHistoryFull) => return Ok(media_status(Status::Full)),
         Err(BootstrapError::InvalidRequest(_)) => return Ok(media_status(Status::Invalid)),
@@ -38,6 +79,7 @@ fn progress(result: Result<KeepHistoryProgress>) -> Result<MediaResponse> {
         keep_progress: Some(proto::MediaKeepProgress {
             ready,
             next_version,
+            target_current,
         }),
         ..media_status(Status::Ok)
     })
@@ -85,16 +127,13 @@ impl Service {
             return Ok(media_status(Status::Full));
         }
         // Requester binding is checked at the origin. A node relays the unchanged signed target.
-        match media.stage_keep_history(
+        let result = apply_segment(
+            media,
             target,
             &segment.ancestors,
-            fresh.clone(),
+            fresh,
             &self.config.limits,
-        ) {
-            Ok(Some(_)) => {}
-            Ok(None) => return Ok(media_status(Status::Stale)),
-            Err(error) => return progress(Err(error)),
-        }
-        progress(media.apply_keep_history(target, fresh, &self.config.limits))
+        );
+        progress(result, media, &hex(&owner), target, head.version)
     }
 }

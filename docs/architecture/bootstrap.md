@@ -1143,6 +1143,10 @@ The current protocol replies are:
   preserved; backfilling an accepted target changes no live references or retention. Progress exposes
   only the supplied proof frontier. Node-only `keep_catchup` accepts these bounded reverse segments;
   it returns `keep_progress` without private current ownership or an origin `keep_applied` receipt.
+  Ready means accepted ancestry, including an older accepted ancestor. Its optional `target_current`
+  predicate confirms only whether the exact supplied signed target and revision remain current at
+  reply observation; pending or older replies omit it. Repair admission must require explicit true,
+  rather than treating ancestry acceptance or physical byte presence as ownership authorization.
   The final target uses replica freshness (owner TTL and future clock skew); older ancestors are
   inert authenticated proofs. Unsupported peers have no legacy fallback. Automatic repair catch-up
   remains planned. Applying historical chunks independently could

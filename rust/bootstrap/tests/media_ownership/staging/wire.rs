@@ -39,7 +39,8 @@ fn old_ancestors_are_inert_proofs_for_a_fresh_target() {
         response.keep_progress,
         Some(proto::MediaKeepProgress {
             ready: true,
-            next_version: 0
+            next_version: 0,
+            target_current: Some(true),
         })
     );
     private(&response);
@@ -111,10 +112,47 @@ fn accepted(response: &proto::MediaResponse, ready: bool, next_version: u64) {
         response.keep_progress,
         Some(proto::MediaKeepProgress {
             ready,
-            next_version
+            next_version,
+            target_current: ready.then_some(true),
         })
     );
     private(response);
+}
+
+#[test]
+fn accepted_ancestor_does_not_claim_current_target_admission() {
+    let (source, records) = chain();
+    let before = source
+        .media()
+        .keep_snapshot(&source.owner.peer_id())
+        .unwrap();
+    assert_eq!(before.version, 4);
+    let response = call(&source, Some(records[2].clone()), vec![]);
+    assert_eq!(response.status, i32::from(Status::Ok));
+    assert_eq!(
+        response.keep_progress,
+        Some(proto::MediaKeepProgress {
+            ready: true,
+            next_version: 2,
+            target_current: Some(false),
+        })
+    );
+    private(&response);
+    assert_eq!(
+        source
+            .media()
+            .keep_snapshot(&source.owner.peer_id())
+            .unwrap(),
+        before
+    );
+    let decoded = proto::MediaResponse::decode(response.encode_to_vec().as_slice()).unwrap();
+    assert_eq!(decoded.keep_progress.unwrap().target_current, Some(false));
+}
+
+#[test]
+fn old_ready_reply_does_not_establish_current_target_admission() {
+    let old = proto::MediaKeepProgress::decode([0x08, 0x01].as_slice()).unwrap();
+    assert_eq!((old.ready, old.target_current), (true, None));
 }
 
 fn private(response: &proto::MediaResponse) {
