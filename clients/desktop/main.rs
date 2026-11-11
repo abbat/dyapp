@@ -628,7 +628,7 @@ fn ui_test_step() -> String {
 /// there and waited for the webview to paint at that size.
 #[cfg(feature = "ui-smoke")]
 #[tauri::command]
-fn ui_test_shot(
+async fn ui_test_shot(
     window: tauri::Window,
     name: String,
     width: Option<u32>,
