@@ -294,13 +294,20 @@ readback-to-draft replacement still requires migration; pruning does not make th
 Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
 beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
-failure leaves that local projection unchanged. Later network completion/withdrawal writes still
-require their own migration before frontend monitors can be removed.
+failure leaves that local projection unchanged. Withdrawal now prepares checked version/proof
+floors before sending and projects verified readback through one immediate transaction, preserving
+current draft fields/photos/devices and stronger proof. Superseded versions and equal-version
+search forks refuse the local commit; remote success may already have occurred. The remembered
+signed-record digest identifies the exact own tombstone after ACK and concurrent proof improvement,
+so republication preserves current fields rather than falsely importing it as foreign. Photo-list release
+never retries beyond the accepted tombstone version, protecting newer remote publication lists.
+Ordinary publication, foreign imports and device relisting still require completion migration
+before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own
-transaction, including the remembered version floor. This does not serialize later network
-completion's draft or hidden-flag writes.
+transaction, including the remembered version floor. Ordinary publication completion still
+requires the shared projection contract for its draft and hidden-flag writes.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

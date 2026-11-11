@@ -239,11 +239,7 @@ async fn send_draft(
         return Err(Error::Reply("the node holds an older own profile").into());
     }
     if let Some(held) = held {
-        // Hiding moves the draft past the live profile, so an equal version came from elsewhere,
-        // unless it is the tombstone `withdraw` left here.
-        let ours = Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits);
-        let foreign = held.version == draft.version && held != ours && store.profile_hidden()?;
-        if held != next && (held.version > draft.version || foreign) {
+        if held != next && from_another_device(store, identity, &held, draft)? {
             take_photos(store, node, &held).await?;
             store.save_profile_draft(&held)?;
             return Err(Failure::Missed);
@@ -262,6 +258,24 @@ async fn send_draft(
     store.hold_search_profile(&profile.sign(identity))?;
     store.set_profile_hidden(false)?;
     Ok(profile)
+}
+
+// Equal hidden versions are foreign except our withdrawal. Its exact remembered bytes also
+// identify it after a concurrent proof improvement makes the draft's rebuilt tombstone differ.
+fn from_another_device(
+    store: &Store,
+    identity: &Identity,
+    held: &Profile,
+    draft: &Profile,
+) -> Result<bool, store::Error> {
+    if held.version != draft.version {
+        return Ok(held.version > draft.version);
+    }
+    if !store.profile_hidden()? {
+        return Ok(false);
+    }
+    let legacy = Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits);
+    Ok(held != &legacy && !(held.deleted && store.search_profile_known(&held.sign(identity))?))
 }
 
 // Fetch the blobs of `profile` this store lacks, for a publish that may have to put them back. One
@@ -407,8 +421,10 @@ pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profi
 /// # Errors
 ///
 /// Returns an error if storage or node requests fail or the signed tombstone
-/// readback differs. The tombstone may already be published or local state
-/// partially updated. Failure to release the photo list is ignored.
+/// readback differs, or a newer local/observed/search version superseded this completion.
+/// The tombstone may already be published, but draft/search/hidden changes commit atomically.
+/// Current local fields, photos, devices and stronger proof survive. Best-effort photo-list
+/// release is limited to the accepted tombstone version; its failure is ignored.
 pub async fn withdraw(
     store: &Store,
     node: &mut Node,
@@ -416,21 +432,16 @@ pub async fn withdraw(
     draft: &Profile,
 ) -> Result<Profile, Failure> {
     let held = newest(node, identity).await?.map_or(0, |held| held.version);
-    let version = draft.version.max(held).max(store.own_profile_seen()?) + 1;
-    let next = Profile::tombstone(version, draft.pow_nonce, draft.pow_bits);
+    let next = store.prepare_profile_withdrawal(identity, draft, held)?;
     let tombstone = send(node, identity, next).await?;
     if store.has_profile_photos()? {
         // Best effort: an unrefreshed list expires with the owner's inactivity anyway.
-        let _ = upload_photos(store, node, identity, tombstone.version, &[]).await;
+        // Never retry at a higher version: that could release a newer publication's photos.
+        let _ = node
+            .keep_media(identity, tombstone.version, Vec::new())
+            .await;
     }
-    let draft = Profile {
-        version: tombstone.version,
-        ..draft.clone()
-    };
-    store.save_profile_draft(&draft)?;
-    store.hold_search_profile(&tombstone.sign(identity))?;
-    store.set_profile_hidden(true)?;
-    Ok(draft)
+    Ok(store.commit_profile_withdrawal(identity, draft, &tombstone)?)
 }
 
 // Publish `profile` to `node` and read it back. Refused as stale unless the node holds this same
@@ -481,6 +492,15 @@ mod tests {
     use libp2p::request_response::{Event as RequestEvent, Message as RequestMessage};
     use libp2p::swarm::SwarmEvent;
     use std::sync::{Arc, Mutex};
+
+    #[path = "node.rs"]
+    mod node;
+    #[path = "withdrawal_identity_tests.rs"]
+    mod withdrawal_identity_tests;
+    #[path = "withdrawal_media_tests.rs"]
+    mod withdrawal_media_tests;
+    #[path = "withdrawal_tests.rs"]
+    mod withdrawal_tests;
 
     fn draft(year: Option<u32>, month: Option<u32>, day: Option<u32>) -> Profile {
         Profile {
@@ -584,48 +604,14 @@ mod tests {
     }
 
     async fn profile_node(refuse: Vec<Status>) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
-        let mut server = Box::new(
-            build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap(),
-        );
-        server
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        let address = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-                break address;
-            }
-        };
-        let held = Arc::new(Mutex::new(None));
-        let copy = Arc::clone(&held);
-        let mut refuse = refuse.into_iter();
-        tokio::spawn(async move {
-            loop {
-                let SwarmEvent::Behaviour(BehaviourEvent::Profile(RequestEvent::Message {
-                    message:
-                        RequestMessage::Request {
-                            request, channel, ..
-                        },
-                    ..
-                })) = server.select_next_some().await
-                else {
-                    continue;
-                };
-                let response = answer(
-                    &mut copy.lock().unwrap(),
-                    &mut refuse,
-                    request.request.unwrap(),
-                );
-                server
-                    .behaviour_mut()
-                    .profile
-                    .send_response(channel, response)
-                    .unwrap();
-            }
-        });
-        let node = Node::connect(address, Arc::new(Protocols::public()))
-            .await
-            .unwrap();
-        (node, held)
+        profile_node_observed(refuse, |_, _| {}).await
+    }
+
+    async fn profile_node_observed(
+        refuse: Vec<Status>,
+        on_reply: impl FnMut(&Request, &proto::ProfileResponse) + Send + 'static,
+    ) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
+        node::observed(refuse, on_reply, |_| {}).await
     }
 
     #[tokio::test]

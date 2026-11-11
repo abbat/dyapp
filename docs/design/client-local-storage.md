@@ -267,9 +267,19 @@ both services. Local hide reads the latest draft under an immediate writer trans
 its current fields/photos/devices and the stronger proof pair. Its version exceeds the request,
 current draft, observed own-profile and remembered search versions; exhaustion is refused without writes.
 Draft, signed search tombstone and hidden flag commit or roll back together. The request supplies
-initial fields only when no draft exists. Network completion/withdrawal projection still requires
-separate migration; this atomic local operation does not order their later writes. Identity removal instead
-publishes a final tombstone to profile storage and search. A client that observed that final
+initial fields only when no draft exists. Withdrawal prepares its tombstone from one snapshot of
+current/request/remote/observed/search version floors, using checked advancement and the stronger
+proof pair. After verified network readback, one immediate transaction preserves current draft
+fields/photos/devices and a stronger proof while committing version, search tombstone and hidden
+flag. A superseded completion or equal-version search fork leaves every local projection unchanged;
+the remote tombstone may already exist. The remembered exact signed-record digest also identifies
+this installation's withdrawal after ACK when a stronger local proof would rebuild different
+tombstone bytes, allowing the next publication without a false foreign-profile conflict. A different
+same-version tombstone still counts as foreign; canonical equality supports legacy state.
+Best-effort remote photo-list release stays at the accepted
+tombstone version and never advances past a refusal. Ordinary publication, foreign-profile imports
+and device relisting still need their own completion migration. Identity removal publishes a final
+tombstone to profile storage and search. A client that observed that final
 profile-store tombstone refuses later versions; nodes retain tombstones for their configured
 TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent
 network-wide ban. Public fields remain fetchable by known Peer ID while merely hidden.

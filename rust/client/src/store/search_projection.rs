@@ -146,6 +146,21 @@ impl Store {
         self.set_search_head(incoming)
     }
 
+    /// Whether this exact same-owner record is the remembered search head, even after ACK.
+    ///
+    /// Used to distinguish this installation's withdrawal from a same-version foreign record
+    /// when the local draft has since acquired a stronger proof pair.
+    ///
+    /// # Errors
+    /// Returns invalid/foreign records or malformed persisted search state.
+    pub fn search_profile_known(&self, record: &SignedRecord) -> Result<bool, Error> {
+        let incoming = self.record_head(record)?;
+        Ok(self
+            .search_projection()?
+            .1
+            .is_some_and(|head| head.version == incoming.version && head.digest == incoming.digest))
+    }
+
     pub(super) fn known_search_version(&self) -> Result<u64, Error> {
         Ok(self.search_projection()?.1.map_or(0, |head| head.version))
     }

@@ -28,6 +28,9 @@ pub enum Error {
     /// No later profile version can be represented.
     #[error("profile version cannot be advanced")]
     ProfileVersionExhausted,
+    /// A network completion is older than committed local or observed profile state.
+    #[error("profile completion was superseded")]
+    ProfileCompletionSuperseded,
     /// Two different signed search records claim the same profile version.
     #[error("search profile version conflicts with stored bytes")]
     SearchProfileConflict,
