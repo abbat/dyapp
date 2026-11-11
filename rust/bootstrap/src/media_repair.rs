@@ -1,12 +1,20 @@
 use crate::{
-    replication::{media_decode, media_encode, MediaManifestExt, MEDIA_OBJECT_BYTES},
+    replication::{MediaManifestExt, MEDIA_OBJECT_BYTES},
     service::Service,
 };
+#[path = "media_repair/advance.rs"]
+mod advance;
+#[path = "media_repair/inventory.rs"]
+mod inventory;
+#[path = "media_repair/requests.rs"]
+mod requests;
+#[cfg(test)]
+use crate::replication::media_encode;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::{proto, REPLICAS};
 use libp2p::PeerId;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -253,30 +261,7 @@ impl Repair {
                 }),
                 (self.blobs[*blob].manifest.as_ref()?.shard_size()? + 1024) as u64,
             ),
-            Job::Put(blob, index, _) => {
-                let b = &self.blobs[*blob];
-                let authorization = Some(proto::media_replica_put::Authorization::Keep(
-                    (*self.record).clone(),
-                ));
-                let replica = proto::MediaReplicaPut {
-                    data: if b.whole {
-                        b.data.as_ref()?.clone()
-                    } else {
-                        Vec::new()
-                    },
-                    manifest: if b.whole { None } else { b.manifest.clone() },
-                    authorization,
-                };
-                let request = match index {
-                    None => Request::ReplicaPut(replica),
-                    Some(index) => Request::ShardPut(proto::MediaShardPut {
-                        replica: Some(replica),
-                        index: *index,
-                        data: b.encoded.get(*index as usize)?.clone(),
-                    }),
-                };
-                (request, 1024)
-            }
+            Job::Put(blob, index, _) => (self.write(*blob, *index)?, 1024),
         };
         Some((
             proto::MediaRequest {
@@ -321,51 +306,11 @@ impl Repair {
     }
 
     fn inventory(&mut self, peer: PeerId, inventory: &proto::MediaInventory) {
-        let requested = &self.groups[&peer];
-        let mut checked = HashSet::new();
-        for part in inventory.present.iter().chain(&inventory.missing) {
-            if !requested.contains(part) || !checked.insert((part.hash.clone(), part.index)) {
-                return;
-            }
-        }
-        if inventory.whole.len() > WINDOW
-            || inventory.manifests.len() > WINDOW
-            || inventory
-                .whole
-                .iter()
-                .any(|h| !requested.iter().any(|p| p.hash == *h))
-            || inventory
-                .manifests
-                .iter()
-                .any(|m| m.data_shards().is_none() || !requested.iter().any(|p| p.hash == m.hash))
-        {
+        if !inventory::valid(&self.groups[&peer], inventory) {
             return;
         }
-        for b in &mut self.blobs {
-            if inventory.whole.contains(&b.hash) && !b.sources.contains(&peer) {
-                b.sources.push(peer);
-            }
-            let manifest = inventory.manifests.iter().find(|m| m.hash == b.hash);
-            if b.manifest.is_none() {
-                b.manifest = manifest.cloned();
-            }
-            for p in inventory.present.iter().filter(|p| p.hash == b.hash) {
-                if let Some(index) = p.index {
-                    if manifest.is_some_and(|m| {
-                        Some(m) == b.manifest.as_ref() && (index as usize) < m.shard_hashes.len()
-                    }) {
-                        let sources = b.shard_sources.entry(index).or_default();
-                        if !sources.contains(&peer) {
-                            sources.push(peer);
-                        }
-                    }
-                }
-            }
-            for p in inventory.missing.iter().filter(|p| p.hash == b.hash) {
-                if !b.gaps.contains(&(peer, p.index)) {
-                    b.gaps.push((peer, p.index));
-                }
-            }
+        for blob in &mut self.blobs {
+            blob.record_inventory(peer, inventory);
         }
     }
 
@@ -373,149 +318,21 @@ impl Repair {
         if self.lookups != 0 || !self.jobs.is_empty() {
             return;
         }
-        if !self.inventoried {
-            self.inventoried = true;
-            for peer in self.groups.keys().copied().collect::<Vec<_>>() {
-                self.issue(Job::Have(peer));
-            }
-            if !self.jobs.is_empty() {
-                return;
-            }
+        if self.inventory_pending() {
+            return;
         }
         while self.active < self.blobs.len() {
-            let i = self.active;
             if self.stage == Stage::Store {
                 self.clear_active();
                 continue;
             }
-            let b = &mut self.blobs[i];
-            if self.stage == Stage::Inventory {
-                let media = service.media.as_ref().unwrap();
-                b.data = media.get(&b.hash).ok().flatten().filter(|d| {
-                    d.len() <= MEDIA_OBJECT_BYTES && dyapp_identity::sha256(d).as_slice() == b.hash
-                });
-                b.whole = b.data.is_some() || !b.sources.is_empty();
-                if !b.whole {
-                    if let Some(m) = &b.manifest {
-                        for index in 0..m.shard_hashes.len() {
-                            if let Ok(Some(data)) = media.shard(&b.hash, index) {
-                                if m.accepts(index, &data) {
-                                    b.shards.insert(index, data);
-                                }
-                            }
-                        }
-                    }
-                }
-                let available = b
-                    .shard_sources
-                    .keys()
-                    .map(|i| *i as usize)
-                    .chain(b.shards.keys().copied())
-                    .collect::<HashSet<_>>()
-                    .len();
-                let recoverable = b.whole
-                    || b.manifest
-                        .as_ref()
-                        .is_some_and(|m| available >= m.data_shards().unwrap());
-                if !recoverable {
-                    self.clear_active();
-                    continue;
-                }
-                b.missing = false;
-                b.gaps.retain(|(_, index)| match index {
-                    None => true,
-                    Some(index) => {
-                        !b.whole
-                            && b.manifest
-                                .as_ref()
-                                .is_some_and(|m| (*index as usize) < m.shard_hashes.len())
-                    }
-                });
-                if b.gaps.is_empty() {
-                    self.clear_active();
-                    continue;
-                }
-                self.stage = Stage::Fetch;
-            }
-            let b = &mut self.blobs[i];
-            if b.whole && b.data.is_none() {
-                if let Some(peer) = b.sources.pop() {
-                    if peer != me {
-                        self.issue(Job::Get(i, peer));
-                        return;
-                    }
-                }
-                if !b.sources.is_empty() {
-                    continue;
-                }
-                b.missing = true;
-                self.clear_active();
+            if self.stage == Stage::Inventory && !self.prepare_active(service) {
                 continue;
             }
-            if !b.whole {
-                let m = b.manifest.as_ref().unwrap();
-                if b.shards.len() < m.data_shards().unwrap() {
-                    let mut fetch = Vec::new();
-                    for (index, sources) in &mut b.shard_sources {
-                        if b.shards.contains_key(&(*index as usize)) {
-                            continue;
-                        }
-                        while let Some(peer) = sources.pop() {
-                            if peer != me {
-                                fetch.push(Job::ShardGet(i, *index, peer));
-                                break;
-                            }
-                        }
-                    }
-                    if !fetch.is_empty() {
-                        for job in fetch {
-                            self.issue(job);
-                        }
-                        return;
-                    }
-                    b.missing = true;
-                    self.clear_active();
-                    continue;
-                }
-                let shards = b
-                    .shards
-                    .iter()
-                    .map(|(i, d)| (*i, d.clone()))
-                    .collect::<Vec<_>>();
-                match media_decode(m, &shards) {
-                    Ok(data) => b.data = Some(data),
-                    Err(error) => {
-                        tracing::warn!(%error, "media repair decode failed");
-                        if let Err(error) = service.media.as_ref().unwrap().discard_sharded(&b.hash)
-                        {
-                            tracing::error!(%error, "invalid media repair metadata not discarded");
-                        }
-                        b.missing = true;
-                        self.clear_active();
-                        continue;
-                    }
-                }
-                match media_encode(b.data.as_ref().unwrap()) {
-                    Ok((manifest, shards)) => {
-                        b.manifest = Some(manifest);
-                        b.encoded = shards;
-                    }
-                    Err(error) => {
-                        tracing::error!(%error, "media repair encode failed");
-                        b.missing = true;
-                        self.clear_active();
-                        continue;
-                    }
-                }
-            }
-            let jobs = b
-                .gaps
-                .iter()
-                .map(|(peer, index)| Job::Put(i, *index, *peer))
-                .collect::<Vec<_>>();
-            self.stage = Stage::Store;
-            for job in jobs {
-                self.issue(job);
+            match self.fetch_active(service, me) {
+                advance::Step::Retry => continue,
+                advance::Step::Wait => return,
+                advance::Step::Ready => self.store_active(),
             }
             if !self.jobs.is_empty() {
                 return;

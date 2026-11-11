@@ -4,7 +4,11 @@ use dyapp_identity::{Domain, Identity};
 use prost::Message;
 
 fn service() -> Service {
-    let dir = format!("/tmp/ai/media-repair-{}", uuid::Uuid::new_v4());
+    let dir = format!(
+        "{}/../../build/media-repair-{}",
+        env!("CARGO_MANIFEST_DIR"),
+        uuid::Uuid::new_v4()
+    );
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -12,6 +16,48 @@ fn service() -> Service {
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
     service
+}
+
+fn assert_ok(response: &proto::MediaResponse) {
+    assert_eq!(response.status, i32::from(proto::Status::Ok));
+}
+
+fn store_shards(
+    service: &Service,
+    replica: &proto::MediaReplicaPut,
+    shards: &[Vec<u8>],
+    indices: impl IntoIterator<Item = usize>,
+) {
+    for index in indices {
+        assert_ok(
+            &service
+                .store_shard(&proto::MediaShardPut {
+                    replica: Some(replica.clone()),
+                    index: u32::try_from(index).unwrap(),
+                    data: shards[index].clone(),
+                })
+                .unwrap(),
+        );
+    }
+}
+
+fn shard_bytes(service: &Service, hash: &[u8], index: usize) -> Vec<u8> {
+    service
+        .media
+        .as_ref()
+        .unwrap()
+        .shard(hash, index)
+        .unwrap()
+        .unwrap()
+}
+
+fn fresh_inventory(origin: &Service, record: &SignedRecord, hash: &[u8], remote: PeerId) -> Repair {
+    let mut repair =
+        Repair::new(origin, record.clone(), vec![hash.to_vec()], Instant::now()).unwrap();
+    for index in repair.keys(0) {
+        repair.holder(0, index, Some(remote));
+    }
+    repair
 }
 
 fn proof(hash: Vec<u8>) -> SignedRecord {
@@ -169,12 +215,10 @@ fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
     let data = b"whole repair".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let record = proof(hash.clone());
-    assert_eq!(
-        origin
+    assert_ok(
+        &origin
             .store_media(&replica(&record, data.clone(), None))
-            .unwrap()
-            .status,
-        i32::from(proto::Status::Ok)
+            .unwrap(),
     );
     let mut repair = Repair::new(&origin, record, vec![hash.clone()], Instant::now()).unwrap();
     for index in repair.keys(0) {
@@ -182,13 +226,8 @@ fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
     }
     assert_eq!(repair.groups.len(), 2);
     assert!(repair.groups.values().all(|items| items.len() == 1));
-    let requests = drive(
-        &mut repair,
-        &origin,
-        me,
-        &HashMap::from([(me, &origin), (remote, &target)]),
-        false,
-    );
+    let nodes = HashMap::from([(me, &origin), (remote, &target)]);
+    let requests = drive(&mut repair, &origin, me, &nodes, false);
     assert_eq!(
         requests
             .iter()
@@ -229,36 +268,20 @@ fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
     let record = proof(hash.clone());
     keep(&origin, &record);
     let replica = replica(&record, Vec::new(), Some(manifest.clone()));
-    for service in [&source, &target] {
-        for (index, shard) in shards.iter().enumerate() {
-            if std::ptr::eq(service, &raw const target) && index == 1 {
-                continue;
-            }
-            assert_eq!(
-                service
-                    .store_shard(&proto::MediaShardPut {
-                        replica: Some(replica.clone()),
-                        index: u32::try_from(index).unwrap(),
-                        data: shard.clone(),
-                    })
-                    .unwrap()
-                    .status,
-                i32::from(proto::Status::Ok)
-            );
-        }
-    }
+    store_shards(&source, &replica, &shards, 0..shards.len());
+    store_shards(
+        &target,
+        &replica,
+        &shards,
+        (0..shards.len()).filter(|&index| index != 1),
+    );
     let mut repair = Repair::new(&origin, record, vec![hash.clone()], Instant::now()).unwrap();
     assert_eq!(repair.keys(0).len(), 10);
     for index in repair.keys(0) {
         repair.holder(0, index, Some(if index == 1 { to } else { from }));
     }
-    let requests = drive(
-        &mut repair,
-        &origin,
-        me,
-        &HashMap::from([(from, &source), (to, &target)]),
-        false,
-    );
+    let nodes = HashMap::from([(from, &source), (to, &target)]);
+    let requests = drive(&mut repair, &origin, me, &nodes, false);
     let puts = requests
         .iter()
         .filter_map(|r| match r {
@@ -273,16 +296,9 @@ fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
     assert!(!requests
         .iter()
         .any(|r| matches!(r, proto::media_request::Request::ReplicaPut(_))));
+    let stored = shard_bytes(&target, &hash, 1);
     assert_eq!(
-        dyapp_identity::sha256(
-            &target
-                .media
-                .as_ref()
-                .unwrap()
-                .shard(&hash, 1)
-                .unwrap()
-                .unwrap()
-        ),
+        dyapp_identity::sha256(&stored),
         dyapp_identity::sha256(&shards[1])
     );
     assert_eq!(
@@ -347,14 +363,7 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
     let hash = manifest.hash.clone();
     let record = proof(hash.clone());
     keep(&origin, &record);
-    let fresh = || {
-        let mut repair =
-            Repair::new(&origin, record.clone(), vec![hash.clone()], Instant::now()).unwrap();
-        for index in repair.keys(0) {
-            repair.holder(0, index, Some(remote));
-        }
-        repair
-    };
+    let fresh = || fresh_inventory(&origin, &record, &hash, remote);
     let part = |hash: &[u8], index| proto::MediaPart {
         hash: hash.to_vec(),
         index,
@@ -399,12 +408,27 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
     assert!(!accepted(&inventory(missing, Vec::new(), Vec::new())));
     assert!(!accepted(&inventory(gap(), vec![other], Vec::new())));
     assert!(!accepted(&inventory(gap(), Vec::new(), vec![foreign])));
+}
 
-    // Shard holders count only under the manifest the repair adopted.
-    let mut repair = fresh();
+#[test]
+fn shard_sources_count_only_under_the_adopted_manifest() {
+    let origin = service();
+    let remote = PeerId::random();
+    let (manifest, _) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
+    let hash = manifest.hash.clone();
+    let record = proof(hash.clone());
+    keep(&origin, &record);
+    let mut repair = fresh_inventory(&origin, &record, &hash, remote);
+    let part = |hash: &[u8], index| proto::MediaPart {
+        hash: hash.to_vec(),
+        index,
+    };
     repair.inventory(
         remote,
-        &inventory(Vec::new(), Vec::new(), vec![manifest.clone()]),
+        &proto::MediaInventory {
+            manifests: vec![manifest.clone()],
+            ..Default::default()
+        },
     );
     let mut changed = manifest.clone();
     changed.shard_hashes[0] = vec![1; 32];
@@ -575,13 +599,7 @@ fn a_manifest_with_fewer_than_k_shards_and_a_bad_decode_are_missing() {
     let record = proof(hash.clone());
     let replica = replica(&record, Vec::new(), Some(manifest));
     origin.store_media(&replica).unwrap();
-    source
-        .store_shard(&proto::MediaShardPut {
-            replica: Some(replica.clone()),
-            index: 0,
-            data: shards[0].clone(),
-        })
-        .unwrap();
+    store_shards(&source, &replica, &shards, [0]);
     let run = |origin: &Service| {
         let mut repair =
             Repair::new(origin, record.clone(), vec![hash.clone()], Instant::now()).unwrap();
@@ -603,13 +621,7 @@ fn a_manifest_with_fewer_than_k_shards_and_a_bad_decode_are_missing() {
         )));
     };
     run(&origin);
-    source
-        .store_shard(&proto::MediaShardPut {
-            replica: Some(replica.clone()),
-            index: 2,
-            data: shards[2].clone(),
-        })
-        .unwrap();
+    store_shards(&source, &replica, &shards, [2]);
     run(&origin);
     assert!(origin
         .media
