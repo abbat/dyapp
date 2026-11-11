@@ -264,8 +264,8 @@ nothing.
 `core` does not run a release build; `make build` runs `tools/scripts/build-rust.sh`
 (`cargo build --release`).
 
-**Scope:** every Cargo step uses `--workspace`, which covers all 7 crates (`bootstrap`,
-`ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `clients/linux/` and
+**Scope:** every Cargo step uses `--workspace`, which covers all 8 crates (`bootstrap`,
+`client`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `clients/linux/` and
 `clients/windows/` are separate manifests and are not part of this pipeline.
 
 **Freshness:** in CI, `deny` fetches the current advisory DB. The local dev image instead uses

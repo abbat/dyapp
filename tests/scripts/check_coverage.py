@@ -23,12 +23,20 @@ BASELINES = ROOT / "tests/scripts/baselines.toml"
 MIN_DIFF = 80
 CRATES = (
     "bootstrap",
+    "client",
     "ffi",
     "identity",
     "messaging",
     "p2p-net",
     "profile",
     "video",
+)
+# Parts outside the Rust workspace; no coverage tool runs on them yet.
+UNMEASURED = (
+    "Desktop Rust (clients/desktop, clients/linux|windows|macos)",
+    "Kotlin (clients/android)",
+    "Swift (clients/ios)",
+    "Desktop JS (clients/desktop/ui)",
 )
 HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 
@@ -167,6 +175,10 @@ if __name__ == "__main__":
         f"Complete Rust workspace: {percentage:.2f}% line coverage "
         f"(baseline {baseline}%)"
     )
+    print("Coverage by part:")
+    print(f"  Rust workspace (rust/): {percentage:.2f}%")
+    for part in UNMEASURED:
+        print(f"  {part}: not measured")
     if percentage >= baseline + 0.5:
         print(
             f"Raise [coverage] lines in tests/scripts/baselines.toml to "

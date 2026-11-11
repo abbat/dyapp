@@ -417,7 +417,8 @@ cloud backup and device transfer. `tests/test_android_manifest.py` covers the ch
 Threshold, metric, gate locations and the (non-enforced) per-crate targets are defined once in
 [Coverage policy](../testing/README.md#coverage-policy): the workspace line total never drops
 below the baseline in `tests/scripts/baselines.toml`, lines changed since the base are ≥80% covered, and
-there is no per-crate gate. `make coverage` writes `coverage.json`, `coverage.lcov` and
+there is no per-crate gate. The figure covers `rust/` only; client code under `clients/` is not
+measured. `make coverage` writes `coverage.json`, `coverage.lcov` and
 `coverage.txt` (per-file table); find uncovered files there and add tests for the missing
 branches.
 

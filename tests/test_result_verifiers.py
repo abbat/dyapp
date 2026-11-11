@@ -94,6 +94,7 @@ class Reports(unittest.TestCase):
                         {"filename": f"/rust/{crate}/src/lib.rs"}
                         for crate in (
                             "bootstrap",
+                            "client",
                             "ffi",
                             "identity",
                             "messaging",
