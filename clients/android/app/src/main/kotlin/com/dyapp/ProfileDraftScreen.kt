@@ -52,14 +52,13 @@ private const val ABOUT_LINES = 3
 @Composable
 fun ProfileDraftScreen(opened: Opened.Ready) {
     val scales = remember { profileScales() }
-    // ponytail: Keystore unwrap and SQLite on the main thread, as identity opening; move off it
-    // with the client runtime.
-    val loaded = remember(opened.slot.id) { runCatching { loadDraft(opened) } }
-    if (loaded.isFailure) {
-        Text(stringResource(R.string.profile_read_failed), Modifier.padding(24.dp))
-        return
+    val loaded by rememberNativeRead(opened) { loadDraft(opened) to loadVisibility(opened) }
+    val snapshot = loaded?.getOrNull()
+    when {
+        loaded == null -> Text(stringResource(R.string.view_loading), Modifier.testTag("profile-loading"))
+        snapshot == null -> Text(stringResource(R.string.profile_read_failed), Modifier.padding(24.dp))
+        else -> key(opened) { ProfileDraftForm(opened, scales, snapshot.first, snapshot.second) }
     }
-    ProfileDraftForm(opened, scales, loaded.getOrThrow())
 }
 
 private fun saveFailure(error: Throwable) = when {
@@ -104,6 +103,7 @@ private fun ProfileDraftForm(
     opened: Opened.Ready,
     scales: List<ProfileScale>,
     saved: ProfileDraft,
+    visibility: VisibilityState,
 ) {
     val values = remember(opened.slot.id) { mutableStateMapOf<String, Int>().apply { putAll(saved.values) } }
     val birth = remember(opened.slot.id) { BirthInputs(saved.values, saved.about, saved.seeking) }
@@ -113,12 +113,11 @@ private fun ProfileDraftForm(
         PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
     }
     val (basics, more) = remember(scales) { scales.partition { it.key in BASIC_SCALES } }
-    val visibility = remember(opened.slot.id) { loadVisibility(opened) }
     val edits = inputs(values, birth, place) + name.value
     var savedEdits by remember(opened.slot.id) { mutableStateOf(edits) }
     val unsaved = edits != savedEdits
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        Modifier.fillMaxSize().testTag("profile-editor").verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

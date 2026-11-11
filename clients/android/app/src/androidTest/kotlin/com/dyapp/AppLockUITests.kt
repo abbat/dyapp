@@ -52,14 +52,16 @@ internal fun ComposeTestRule.addIdentity() {
 /** Switches to the identity shown as [label] in the switcher sheet. */
 internal fun ComposeTestRule.switchIdentity(label: String) {
     onNodeWithTag("identity-switcher").performClick()
-    identityAction { onNode(hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick() }
+    val candidate = hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))
+    awaitNode(candidate)
+    identityAction { onNode(candidate).performClick() }
 }
 
 /** The ready identity's Peer ID from the Profile section, past the first-run network wizard. */
 internal fun ComposeTestRule.shownPeerId(): String {
     skipNetworkEntry()
     if (onAllNodesWithTag("nav-profile").fetchSemanticsNodes().isNotEmpty()) {
-        onNodeWithTag("nav-profile").performClick()
+        openProfileEditor()
     }
     return onNodeWithTag("peer-id").assertIsDisplayed()
         .fetchSemanticsNode()

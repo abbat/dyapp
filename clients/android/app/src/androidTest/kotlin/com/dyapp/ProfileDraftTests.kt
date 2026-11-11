@@ -38,7 +38,7 @@ class ProfileDraftTests {
     @Test
     fun previewShowsOnlyTheSavedDraftWithAgeAndWarnings() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
         compose.onNodeWithTag("birth-year").performTextInput("2000")
         pickBirthPart("birth-month")
@@ -82,7 +82,7 @@ class ProfileDraftTests {
     @Test
     fun otherScalesStayFoldedUntilProfileMoreOpens() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         val tag = "profile-" + profileScales().first { it.key !in BASIC_SCALES }.key
         compose.onNodeWithTag(tag).assertDoesNotExist()
         compose.onNodeWithTag("profile-more").performScrollTo().performClick()
@@ -92,7 +92,7 @@ class ProfileDraftTests {
     @Test
     fun multiWordScaleSurvivesReopeningTheEditor() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         // Its Rust key has an underscore, which the client.db record maps by name.
         val scale = profileScales().first { it.key == "relationship_goal" }
         val choice = label("value.${scale.key}.${scale.choices.first().key}")
@@ -102,7 +102,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-save").performScrollTo().performClick()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithTag("nav-search").performClick()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("profile-goal").performScrollTo().assertTextEquals(choice)
     }
 
@@ -113,7 +113,7 @@ class ProfileDraftTests {
     @Test
     fun placePickerSavesOnlyASuggestedPlace() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-DE").performScrollTo().performClick()
         compose.onNodeWithTag("profile-place").performScrollTo().performTextInput("Nowhere")

@@ -80,7 +80,7 @@ class AppUITests {
         val second = compose.shownPeerId()
         check(second != first) { "A new identity reused the Peer ID" }
         compose.onNodeWithTag("identity-switcher").performClick()
-        compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
+        compose.awaitNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
         compose.onNode(hasText(second) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
         compose.onNodeWithTag("add-identity-menu").assertExists()
         compose.identityAction {
@@ -100,7 +100,7 @@ class AppUITests {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val alias = identityAlias((RustBridge.slots(context).open() as Opened.Ready).slot.id)
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("settings-remove").performScrollTo().performClick()
+        compose.awaitNode(hasTestTag("settings-remove")).performScrollTo().performClick()
         compose.onNodeWithTag("remove-title").assertTextEquals(string(R.string.remove_title))
         compose.onNodeWithTag("remove-peer").assertTextEquals(second)
         compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()

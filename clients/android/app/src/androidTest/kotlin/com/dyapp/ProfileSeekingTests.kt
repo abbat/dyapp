@@ -83,7 +83,7 @@ class ProfileSeekingTests {
     fun whoYouSeekIsCheckedShownAndClearedByTheSwitch() {
         val woman = profileScales().first { it.key == GENDER }.choices.first { it.key == "Woman" }.code
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         typeAges("40", "30")
         save(R.string.profile_seeking_invalid)
         typeAges("x", "")

@@ -62,7 +62,7 @@ class ProfilePhotosTests {
     fun sixPhotosDisableAddAndTheEditorMovesAndRemovesThem() {
         compose.skipNetworkEntry()
         seed(MAX_PROFILE_PHOTOS)
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-photo-5")).fetchSemanticsNodes().isNotEmpty()
         }
@@ -89,7 +89,7 @@ class ProfilePhotosTests {
     fun theOwnAvatarShowsTheMainPhotoAfterAnEdit() {
         compose.skipNetworkEntry()
         seed(2)
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-photo-1")).fetchSemanticsNodes().isNotEmpty()
         }

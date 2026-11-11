@@ -65,13 +65,14 @@ internal fun IdentitySettingsScreen(
 private fun IdentityList(slots: Slots, active: Opened.Ready, act: (() -> Opened) -> Unit) {
     // Closing the dialog reads the list again: removing another identity keeps the active slot.
     var removing by remember { mutableStateOf<Opened?>(null) }
-    val listed = remember(slots, active.slot.id, removing) { RustBridge.show(slots) { Opened.Picker } }
+    val loaded by rememberNativeRead(slots, active, removing) { RustBridge.show(slots) { Opened.Picker } }
+    val listed = loaded?.getOrNull()
     FormCard(Modifier.testTag("settings-identities")) {
         CardTitle(R.string.settings_identities)
-        if (listed.opened == null) {
-            Text(stringResource(R.string.storage_error))
-        } else {
-            listed.entries.forEachIndexed { index, entry ->
+        when {
+            loaded == null -> Caption(stringResource(R.string.view_loading))
+            listed?.opened == null -> Text(stringResource(R.string.storage_error))
+            else -> listed.entries.forEachIndexed { index, entry ->
                 IdentitySettingsRow(entry, active.slot.id, index + 1) { removing = entry }
             }
         }

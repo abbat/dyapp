@@ -45,7 +45,7 @@ class SearchTests {
         compose.onNodeWithTag("search-retry").assertTextEquals(string(R.string.search_retry))
         click("search-open-network")
         compose.onNodeWithTag("network-seeds").assertExists()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("peer-id").assertExists()
     }
 
@@ -129,7 +129,7 @@ class SearchTests {
 
     // Without an exact age it says why rather than searching unfiltered; with both it runs.
     private fun mutualSearchNeedsTheSavedGenderAndAge() {
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
         click("profile-save")
         compose.onNodeWithTag("nav-search").performClick()
@@ -137,7 +137,7 @@ class SearchTests {
         click("run-search")
         check(searched() == string(R.string.search_mutual_unavailable)) { "status ${compose.texts("search-status")}" }
         compose.onNodeWithTag("search-retry").assertDoesNotExist()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("birth-year").performScrollTo().performTextInput("1990")
         pick("birth-month", "1")
         pick("birth-day", "1")

@@ -35,17 +35,19 @@ private fun ComposeTestRule.openPublish() {
     // The no-network test runs the proof without ever activating the node.
     setTestProfilePowBits(4u)
     onNodeWithTag("profile-publish").performScrollTo().performClick()
+    awaitNode(hasTestTag("profile-public-fields"))
 }
 
 private fun ComposeTestRule.confirmBoth() {
     onNodeWithTag("profile-attested").performScrollTo().performClick()
     onNodeWithTag("profile-disclosure").performScrollTo().performClick()
     eligibility(R.string.profile_eligible)
+    awaitNode(hasTestTag("profile-publish-confirm") and androidx.compose.ui.test.isEnabled())
 }
 
 // Enters a valid year whatever an earlier test saved, and publishes it through the local node.
 internal fun ComposeTestRule.publishToReadback() {
-    onNodeWithTag("nav-profile").performClick()
+    openProfileEditor()
     onNodeWithTag("birth-year").performScrollTo().performTextClearance()
     onNodeWithTag("birth-year").performTextInput("1990")
     onNodeWithTag("profile-save").performScrollTo().performClick()
@@ -108,7 +110,7 @@ class ProfilePublishTests {
     @Test
     fun aPublicNameIsTrimmedOnSaveAndARefusedOneSaysWhy() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         saveName("x".repeat(PUBLIC_NAME_CHARS + 1), R.string.profile_name_invalid)
         saveName("  Anna  ", R.string.profile_saved)
         compose.openPublish()
@@ -128,7 +130,7 @@ class ProfilePublishTests {
     @Test
     fun aHeightIsShownClearedAndARefusedOneSaysWhy() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         saveHeight("49", R.string.profile_height_invalid)
         saveHeight("tall", R.string.profile_height_invalid)
         saveHeight("180", R.string.profile_saved)
@@ -150,7 +152,7 @@ class ProfilePublishTests {
     @Test
     fun aboutIsShownAsPlainTextClearedAndARefusedOneSaysWhy() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         saveAbout("x".repeat(501), R.string.profile_about_invalid)
         saveAbout("An${Char(0x202E)}na", R.string.profile_about_invalid)
         val about = "First line\n<b>not bold</b>"
@@ -166,7 +168,7 @@ class ProfilePublishTests {
     @Test
     fun publishNeedsFreshConfirmationsAndReportsNoNetwork() {
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         cancelDropsConfirmations()
         unsavedEditBlocksPublishing()
         compose.openPublish()

@@ -45,6 +45,8 @@ must compile the changed callers and generated bindings.
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
+For a dynamic owner-key array, use one structural key such as `key(owners.toList())`.
+The Kotlin/Compose compiler 2.4.21 crashes in `irJoinKeyChain` on a spread-only `key(*owners)`.
 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile

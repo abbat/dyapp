@@ -42,11 +42,11 @@ class IdentitySettingsTests {
     fun createSwitchAndConfirmedRemoveChangeTheActiveIdentity() {
         val first = compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
-        val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
+        val rows = compose.identityRows()
         compose.identityAction { click("settings-create") }
         val second = active()
         check(second.peerId != first) { "Create kept the previous identity active" }
-        check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows + 1)
+        compose.identityRows(rows + 1)
         compose.switchIdentity(first)
         check(active().peerId == first) { "Switch did not activate the chosen identity" }
         // A relaunch keeps the identity chosen in Settings.
@@ -75,10 +75,11 @@ class IdentitySettingsTests {
     fun removingAnotherIdentityStaysInSettings() {
         val first = compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
-        val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
+        val rows = compose.identityRows()
         compose.identityAction { click("settings-create") }
         val other = active()
         compose.switchIdentity(first)
+        compose.identityRows(rows + 1)
         compose.onNode(
             hasText(compose.activity.getString(R.string.identity_remove)) and hasAnyAncestor(
                 hasTestTag("settings-identity") and hasAnyDescendant(hasText(shortPeerId(other.peerId)))
@@ -89,7 +90,7 @@ class IdentitySettingsTests {
         compose.onNodeWithTag("settings-create").assertExists()
         check(active().peerId == first) { "Removing another identity changed the active one" }
         check(!PlatformKeyStore.exists(identityAlias(other.slot.id))) { "The removed identity kept its key" }
-        check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows)
+        compose.identityRows(rows)
     }
 
     @Test

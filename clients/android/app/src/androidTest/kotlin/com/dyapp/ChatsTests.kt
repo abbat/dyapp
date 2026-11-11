@@ -27,7 +27,7 @@ class ChatsTests {
         compose.onNodeWithText(string(R.string.chats_identity)).assertExists()
         compose.onNodeWithTag("chats-unread", useUnmergedTree = true).assertDoesNotExist()
         // The first receive fails without a network; the app stays usable and the section still opens.
-        compose.onNodeWithTag("nav-profile").performClick()
+        compose.openProfileEditor()
         compose.onNodeWithTag("peer-id").assertExists()
     }
 }

@@ -13,7 +13,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -66,7 +66,7 @@ internal fun PublishDialog(
     read: () -> ProfileDraft,
     publish: () -> Unit,
 ) {
-    val draft = remember { runCatching(read) }
+    val draft by rememberNativeRead(state, read = read)
     val eligibility = state.eligibility()
     AlertDialog(
         onDismissRequest = { if (!state.running) state.close() },
@@ -76,7 +76,7 @@ internal fun PublishDialog(
             TextButton(
                 onClick = publish,
                 Modifier.testTag("profile-publish-confirm"),
-                enabled = draft.isSuccess && !state.running && eligibility == R.string.profile_eligible
+                enabled = draft?.isSuccess == true && !state.running && eligibility == R.string.profile_eligible
             ) {
                 Text(stringResource(state.failure?.second ?: R.string.publish_confirm))
             }
@@ -88,13 +88,14 @@ internal fun PublishDialog(
 @Composable
 private fun PublishDialogBody(
     state: PublishState,
-    draft: Result<ProfileDraft>,
+    draft: Result<ProfileDraft>?,
     scales: List<ProfileScale>,
     eligibility: Int,
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.testTag("profile-public-fields")) {
-            draft.fold(
+        Column(if (draft == null) Modifier else Modifier.testTag("profile-public-fields")) {
+            if (draft == null) Text(stringResource(R.string.view_loading))
+            draft?.fold(
                 { ProfilePreview(it, scales, R.string.publish_intro) },
                 { Text(stringResource(R.string.profile_read_failed)) }
             )

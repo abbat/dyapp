@@ -44,7 +44,7 @@ missing versus unavailable credentials and recoverable Peer IDs. Creation and se
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
 a failed selection. Construction does not create an identity. Native `remove` returns an
 optional persistence diagnostic only after visible completion; after a failure, resolve again
-to show interrupted cleanup. Migration of the existing Kotlin/Swift slot adapters remains planned.
+to show interrupted cleanup. Android uses this registry; migration of the Swift slot adapter remains planned.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
@@ -77,7 +77,7 @@ and explicit `none\n` selection. Cleanup revalidates paths and keeps the empty d
 the final removal, so intermediate failures remain discoverable. The iOS tombstone goes last.
 `RemovalOutcome.durability_detail` distinguishes visibly completed deletion from unconfirmed
 directory persistence; it never reports a post-commit sync failure as an uncommitted removal.
-Platform adapters still use their existing removal implementations until explicitly migrated.
+Android removal delegates to this API; the Swift adapter still needs migration.
 
 `Registry::chat_operation` bootstraps wrapped mobile `device.key` and `chat-state.key`
 under the exclusive registry lock. It validates existing keys before creating any missing key,

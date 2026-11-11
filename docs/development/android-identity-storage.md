@@ -169,10 +169,14 @@ Root identity actions run on IO. The existing route shows loading until completi
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
 advances after each actual result, even when the visible screen stays the same; test semantics
 report zero while pending. Instrumentation awaits this completion signal instead of an intermediate
-loading frame or an old matching Recovery view. Remaining
-composition-time draft/list reads and native factory construction still need IO ownership
-adoption. Pre-registration network cancellation remains planned separately from cancellation
-of an already registered native check.
+loading frame or an old matching Recovery view. Identity-menu and Settings inventories, the
+profile editor's initial draft/visibility snapshot and the publication preview also load on IO.
+Their keyed presentation state starts empty for a replacement owner and rejects cancelled
+owners' late values. The editor and preview show loading; publication remains disabled until
+the preview has loaded. Native resource factories and removal-dialog preflight still need
+IO ownership adoption; the value-read helper must not return native handles.
+Pre-registration network cancellation remains planned separately from cancellation of an
+already registered native check.
 
 While process-local draft serialization remains, every `draftWrites` monitor is acquired before
 native admission, including publication. A lease holder never waits for that monitor. Shared
