@@ -5,6 +5,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = protox::compile(["node.proto"], ["../../proto"])?;
     let mut config = prost_build::Config::new();
     config.extern_path(".dyapp.identity", "::dyapp_identity");
+    // Ownership proofs are large and absent from ordinary media replies.
+    config.boxed(".dyapp.node.MediaResponse.keep_state");
     // Practice B3: round-trip properties generate every message.
     if std::env::var_os("CARGO_FEATURE_PROPTEST").is_some() {
         config.type_attribute(".", "#[derive(::proptest_derive::Arbitrary)]");

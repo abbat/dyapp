@@ -14,284 +14,446 @@ pub(super) fn reply(
     (id, connection): (PeerId, ConnectionId),
     done: StoreDone,
 ) -> bool {
-    let answered = match done {
-        StoreDone::ProfilePublish(channel, record, result) => match result {
-            Ok(response) if response.status == i32::from(Status::Ok) => {
-                replicas.start_put(
-                    swarm,
-                    service,
-                    watchers,
-                    PutRecord::Profile(record),
-                    PutReply::Profile(channel),
-                );
-                true
+    let answered = Replies {
+        swarm,
+        service,
+        replicas,
+        watchers,
+        id,
+        connection,
+    }
+    .send(done);
+    drop_banned(swarm, service, id);
+    answered
+}
+
+fn committed_keep(response: &proto::MediaResponse) -> Option<SignedRecord> {
+    if !response.keep_applied {
+        return None;
+    }
+    response.keep_state.as_ref()?.record.clone()
+}
+
+type Channel<T> = libp2p::request_response::ResponseChannel<T>;
+
+struct Replies<'a> {
+    swarm: &'a mut Swarm<Behaviour>,
+    service: &'a Arc<Service>,
+    replicas: &'a mut Replicas,
+    watchers: &'a mut Watchers,
+    id: PeerId,
+    connection: ConnectionId,
+}
+
+fn completed<T>(result: crate::Result<T>, message: &str) -> Option<T> {
+    match result {
+        Ok(value) => Some(value),
+        Err(error) => {
+            tracing::error!(%error, "{message}");
+            None
+        }
+    }
+}
+
+impl Replies<'_> {
+    fn send(&mut self, done: StoreDone) -> bool {
+        match done {
+            StoreDone::ProfilePublish(channel, record, result) => {
+                self.profile_publish(channel, record, result)
             }
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .profile
-                    .send_response(channel, response);
-                true
+            StoreDone::Profile(channel, result, stored) => self.profile(channel, result, stored),
+            StoreDone::KeyPackagePublish(channel, record, result) => {
+                self.keypackage_publish(channel, record, result)
             }
-            Err(error) => {
-                tracing::error!(%error, "profile admission failed");
-                false
+            StoreDone::KeyPackage(channel, result) => self.keypackage(channel, result),
+            StoreDone::MediaPut(channel, result) => self.media_put(channel, result),
+            StoreDone::Media {
+                channel,
+                result,
+                keep,
+                have,
+                manifest,
+            } => self.media(channel, result, keep, have, manifest),
+            StoreDone::MailboxPut(channel, record, group, result) => {
+                self.mailbox_put(channel, record, group, result)
             }
-        },
-        StoreDone::Profile(channel, result, stored) => match result {
-            Ok(response) => {
-                if let Some(record) = stored {
-                    replicas.repair_profile(swarm, service, record, Instant::now());
-                }
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .profile
-                    .send_response(channel, response);
-                true
-            }
-            // Dropping the channel fails the request; the client tries another node.
-            Err(error) => {
-                tracing::error!(%error, "profile request failed");
-                false
-            }
-        },
-        StoreDone::KeyPackagePublish(channel, record, result) => match result {
-            Ok(response) if response.status == i32::from(Status::Ok) => {
-                replicas.start_put(
-                    swarm,
-                    service,
-                    watchers,
-                    PutRecord::KeyPackage(record),
-                    PutReply::KeyPackage(channel),
-                );
-                true
-            }
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .key_package
-                    .send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "KeyPackage admission failed");
-                false
-            }
-        },
-        StoreDone::KeyPackage(channel, result) => match result {
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .key_package
-                    .send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "KeyPackage request failed");
-                false
-            }
-        },
-        StoreDone::MediaPut(channel, result) => match result {
-            Ok(Ok(replica)) => {
-                replicas.start_put(
-                    swarm,
-                    service,
-                    watchers,
+            StoreDone::Mailbox(channel, kind, result) => self.mailbox(channel, kind, result),
+            StoreDone::Inventory(channel, result) => self.inventory(channel, result),
+            StoreDone::Digest(channel, result) => self.digest(channel, result),
+        }
+    }
+
+    fn profile_publish(
+        &mut self,
+        channel: Channel<proto::ProfileResponse>,
+        record: SignedRecord,
+        result: crate::Result<proto::ProfileResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "profile admission failed") else {
+            return false;
+        };
+        if response.status == i32::from(Status::Ok) {
+            self.replicas.start_put(
+                self.swarm,
+                self.service,
+                self.watchers,
+                PutRecord::Profile(record),
+                PutReply::Profile(channel),
+            );
+        } else {
+            self.service.traffic.add(response.encoded_len() as u64);
+            let _ = self
+                .swarm
+                .behaviour_mut()
+                .profile
+                .send_response(channel, response);
+        }
+        true
+    }
+
+    fn profile(
+        &mut self,
+        channel: Channel<proto::ProfileResponse>,
+        result: crate::Result<proto::ProfileResponse>,
+        stored: Option<SignedRecord>,
+    ) -> bool {
+        let Some(response) = completed(result, "profile request failed") else {
+            return false;
+        };
+        if let Some(record) = stored {
+            self.replicas
+                .repair_profile(self.swarm, self.service, record, Instant::now());
+        }
+        self.service.traffic.add(response.encoded_len() as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .profile
+            .send_response(channel, response);
+        true
+    }
+
+    fn keypackage_publish(
+        &mut self,
+        channel: Channel<proto::KeyPackageResponse>,
+        record: SignedRecord,
+        result: crate::Result<proto::KeyPackageResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "KeyPackage admission failed") else {
+            return false;
+        };
+        if response.status == i32::from(Status::Ok) {
+            self.replicas.start_put(
+                self.swarm,
+                self.service,
+                self.watchers,
+                PutRecord::KeyPackage(record),
+                PutReply::KeyPackage(channel),
+            );
+        } else {
+            self.service.traffic.add(response.encoded_len() as u64);
+            let _ = self
+                .swarm
+                .behaviour_mut()
+                .key_package
+                .send_response(channel, response);
+        }
+        true
+    }
+
+    fn keypackage(
+        &mut self,
+        channel: Channel<proto::KeyPackageResponse>,
+        result: crate::Result<proto::KeyPackageResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "KeyPackage request failed") else {
+            return false;
+        };
+        self.service.traffic.add(response.encoded_len() as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .key_package
+            .send_response(channel, response);
+        true
+    }
+
+    fn media_put(
+        &mut self,
+        channel: Channel<proto::MediaResponse>,
+        result: crate::Result<std::result::Result<proto::MediaReplicaPut, Status>>,
+    ) -> bool {
+        let Some(result) = completed(result, "media admission failed") else {
+            return false;
+        };
+        match result {
+            Ok(replica) => {
+                self.replicas.start_put(
+                    self.swarm,
+                    self.service,
+                    self.watchers,
                     PutRecord::Media(replica),
                     PutReply::Media(channel),
                 );
-                true
             }
-            Ok(Err(status)) => {
+            Err(status) => {
                 let response = crate::service::media_upload_status(status);
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                true
+                self.service.traffic.add(response.encoded_len() as u64);
+                let _ = self
+                    .swarm
+                    .behaviour_mut()
+                    .media
+                    .send_response(channel, response);
             }
-            Err(error) => {
-                tracing::error!(%error, "media admission failed");
-                false
+        }
+        true
+    }
+
+    fn media(
+        &mut self,
+        channel: Channel<proto::MediaResponse>,
+        result: crate::Result<proto::MediaResponse>,
+        keep: Option<SignedRecord>,
+        have: Option<Vec<proto::MediaPart>>,
+        manifest: Option<(proto::MediaManifest, proto::GetMedia)>,
+    ) -> bool {
+        let Some(response) = completed(result, "media request failed") else {
+            return false;
+        };
+        if response.status == i32::from(Status::Ok) {
+            if let Some(items) = have {
+                return self.media_inventory(channel, &items);
             }
-        },
-        StoreDone::Media {
-            channel,
-            result,
-            keep,
-            have,
-            manifest,
-        } => match result {
-            Ok(mut response) => {
-                if response.status == i32::from(Status::Ok) {
-                    if let Some(items) = have {
-                        response = replicas
-                            .media_inventory(swarm, service, id, &items)
-                            .unwrap_or_else(|error| {
-                                tracing::error!(%error, "media inventory failed");
-                                proto::MediaResponse {
-                                    status: Status::NotFound.into(),
-                                    ..Default::default()
-                                }
-                            });
-                        let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                        return true;
-                    }
-                    if let Some(record) = keep {
-                        replicas.repair_media(
-                            swarm,
-                            service,
-                            record,
-                            channel,
-                            response,
-                            Instant::now(),
-                        );
-                        return true;
-                    }
-                }
-                if let Some((manifest, get)) = manifest {
-                    let from = peer(swarm, service, id, connection);
-                    if replicas.media_reads.len() >= 4
-                        || !service.prepare_media_read(&from, &manifest, &get)
-                    {
-                        PutReply::Media(channel).send(swarm, service, Status::RateLimited, None);
-                    } else {
-                        replicas.start_read(swarm, service, manifest, get, channel);
-                    }
-                    return true;
-                }
-                // A get's payload was reserved by the service before returning it.
-                service
-                    .traffic
-                    .add((response.encoded_len() - response.data.len()) as u64);
-                let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "media request failed");
-                false
-            }
-        },
-        StoreDone::MailboxPut(channel, record, group, result) => match result {
-            Ok(response) if response.status == i32::from(Status::Ok) => {
-                replicas.start_put(
-                    swarm,
-                    service,
-                    watchers,
-                    PutRecord::Mailbox(record, group),
-                    PutReply::Mailbox(channel),
+            let keep = keep.or_else(|| committed_keep(&response));
+            if let Some(record) = keep {
+                self.replicas.repair_media(
+                    self.swarm,
+                    self.service,
+                    record,
+                    channel,
+                    response,
+                    Instant::now(),
                 );
-                true
+                return true;
             }
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .mailbox
-                    .send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "mailbox admission failed");
-                false
-            }
-        },
-        StoreDone::Mailbox(channel, kind, result) => match result {
-            Ok(response) => {
-                let ok = response.status == i32::from(Status::Ok);
-                let signed = matches!(kind, Some(ReplicaPut(_) | ReplicaAck(_) | ReplicaRevoke(_)));
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .mailbox
-                    .send_response(channel, response);
-                if ok && signed {
-                    replicas.trust.add(id, 1);
-                }
-                if ok {
-                    after_mailbox(swarm, service, watchers, replicas, (id, connection), kind);
-                }
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "mailbox request failed");
-                false
-            }
-        },
-        StoreDone::Inventory(channel, result) => match result {
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .inventory
-                    .send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "inventory request failed");
-                false
-            }
-        },
-        StoreDone::Digest(channel, result) => match result {
-            Ok(response) => {
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm
-                    .behaviour_mut()
-                    .digest
-                    .send_response(channel, response);
-                true
-            }
-            Err(error) => {
-                tracing::error!(%error, "digest request failed");
-                false
-            }
-        },
-    };
-    drop_banned(swarm, service, id);
-    answered
+        }
+        if let Some((manifest, get)) = manifest {
+            self.media_read(channel, manifest, get);
+            return true;
+        }
+        // A get's payload was reserved by the service before returning it.
+        self.service
+            .traffic
+            .add((response.encoded_len() - response.data.len()) as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .media
+            .send_response(channel, response);
+        true
+    }
+
+    fn media_inventory(
+        &mut self,
+        channel: Channel<proto::MediaResponse>,
+        items: &[proto::MediaPart],
+    ) -> bool {
+        let response = completed(
+            self.replicas
+                .media_inventory(self.swarm, self.service, self.id, items),
+            "media inventory failed",
+        )
+        .unwrap_or_else(|| proto::MediaResponse {
+            status: Status::NotFound.into(),
+            ..Default::default()
+        });
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .media
+            .send_response(channel, response);
+        true
+    }
+
+    fn media_read(
+        &mut self,
+        channel: Channel<proto::MediaResponse>,
+        manifest: proto::MediaManifest,
+        get: proto::GetMedia,
+    ) {
+        let from = peer(self.swarm, self.service, self.id, self.connection);
+        if self.replicas.media_reads.len() >= 4
+            || !self.service.prepare_media_read(&from, &manifest, &get)
+        {
+            PutReply::Media(channel).send(self.swarm, self.service, Status::RateLimited, None);
+        } else {
+            self.replicas
+                .start_read(self.swarm, self.service, manifest, get, channel);
+        }
+    }
+
+    fn mailbox_put(
+        &mut self,
+        channel: Channel<proto::MailboxResponse>,
+        record: SignedRecord,
+        group: Vec<u8>,
+        result: crate::Result<proto::MailboxResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "mailbox admission failed") else {
+            return false;
+        };
+        if response.status == i32::from(Status::Ok) {
+            self.replicas.start_put(
+                self.swarm,
+                self.service,
+                self.watchers,
+                PutRecord::Mailbox(record, group),
+                PutReply::Mailbox(channel),
+            );
+        } else {
+            self.service.traffic.add(response.encoded_len() as u64);
+            let _ = self
+                .swarm
+                .behaviour_mut()
+                .mailbox
+                .send_response(channel, response);
+        }
+        true
+    }
+
+    fn mailbox(
+        &mut self,
+        channel: Channel<proto::MailboxResponse>,
+        kind: Option<mailbox_request::Request>,
+        result: crate::Result<proto::MailboxResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "mailbox request failed") else {
+            return false;
+        };
+        let ok = response.status == i32::from(Status::Ok);
+        let signed = matches!(kind, Some(ReplicaPut(_) | ReplicaAck(_) | ReplicaRevoke(_)));
+        self.service.traffic.add(response.encoded_len() as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .mailbox
+            .send_response(channel, response);
+        if ok && signed {
+            self.replicas.trust.add(self.id, 1);
+        }
+        if ok {
+            after_mailbox(
+                self.swarm,
+                self.service,
+                self.watchers,
+                self.replicas,
+                (self.id, self.connection),
+                kind,
+            );
+        }
+        true
+    }
+
+    fn inventory(
+        &mut self,
+        channel: Channel<proto::InventoryResponse>,
+        result: crate::Result<proto::InventoryResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "inventory request failed") else {
+            return false;
+        };
+        self.service.traffic.add(response.encoded_len() as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .inventory
+            .send_response(channel, response);
+        true
+    }
+
+    fn digest(
+        &mut self,
+        channel: Channel<proto::DigestResponse>,
+        result: crate::Result<proto::DigestResponse>,
+    ) -> bool {
+        let Some(response) = completed(result, "digest request failed") else {
+            return false;
+        };
+        self.service.traffic.add(response.encoded_len() as u64);
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .digest
+            .send_response(channel, response);
+        true
+    }
 }
 
 /// The hourly expiry of messages, `KeyPackages`, inactive profiles, attachments, media keeps, idle
 /// assembled media and search entries.
 pub(super) fn expire(service: &Service) {
     let now = chrono::Utc::now().timestamp();
-    match service.store.cleanup_expired(now) {
-        Ok(removed) => tracing::info!(removed, "expired messages removed"),
-        Err(error) => tracing::error!(%error, "message cleanup failed"),
-    }
-    if let Err(error) = service.store.expire_keypackages(now) {
-        tracing::error!(%error, "KeyPackage cleanup failed");
-    }
+    removed(
+        service.store.cleanup_expired(now),
+        "expired messages removed",
+        "message cleanup failed",
+        false,
+    );
+    let _ = completed(
+        service.store.expire_keypackages(now),
+        "KeyPackage cleanup failed",
+    );
     let ttl = i64::from(service.config.limits.profile_ttl_days) * 86_400;
-    match service.store.expire_profiles(now - ttl) {
-        Ok(removed) => tracing::info!(removed, "profiles of inactive owners removed"),
-        Err(error) => tracing::error!(%error, "profile cleanup failed"),
-    }
+    removed(
+        service.store.expire_profiles(now - ttl),
+        "profiles of inactive owners removed",
+        "profile cleanup failed",
+        false,
+    );
     if let Some(media) = &service.media {
-        match media.expire(now.unsigned_abs()) {
-            Ok(removed) => tracing::info!(removed, "expired attachments removed"),
-            Err(error) => tracing::error!(%error, "attachment cleanup failed"),
-        }
-        match media.expire_owners(now - ttl) {
-            Ok(removed) => tracing::info!(removed, "media keeps of inactive owners removed"),
-            Err(error) => tracing::error!(%error, "media owner cleanup failed"),
-        }
+        removed(
+            media.expire(now.unsigned_abs()),
+            "expired attachments removed",
+            "attachment cleanup failed",
+            false,
+        );
+        removed(
+            media.expire_owners(now - ttl),
+            "media keeps of inactive owners removed",
+            "media owner cleanup failed",
+            false,
+        );
         let idle = i64::from(service.config.limits.media_cache_minutes) * 60;
-        match media.expire_cache(now - idle) {
-            Ok(0) => {}
-            Ok(removed) => tracing::info!(removed, "idle assembled media removed"),
-            Err(error) => tracing::error!(%error, "media cache cleanup failed"),
-        }
+        removed(
+            media.expire_cache(now - idle),
+            "idle assembled media removed",
+            "media cache cleanup failed",
+            true,
+        );
     }
     if let Some(index) = &service.search {
-        match index.expire(now - ttl) {
-            Ok(0) => {}
-            Ok(removed) => tracing::info!(removed, "search entries of silent owners removed"),
-            Err(error) => tracing::error!(%error, "search cleanup failed"),
-        }
+        removed(
+            index.expire(now - ttl),
+            "search entries of silent owners removed",
+            "search cleanup failed",
+            true,
+        );
     }
+}
+
+fn removed<T: tracing::field::Value + PartialEq + From<u8>>(
+    result: crate::Result<T>,
+    success: &str,
+    failure: &str,
+    quiet_zero: bool,
+) {
+    let Some(removed) = completed(result, failure) else {
+        return;
+    };
+    if quiet_zero && removed == T::from(0) {
+        return;
+    }
+    tracing::info!(removed, "{success}");
 }
 
 #[cfg(test)]

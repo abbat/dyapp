@@ -1,4 +1,10 @@
 //! The media role's requests and replica puts.
+#[path = "media/keeps.rs"]
+mod keeps;
+#[path = "media/replicas.rs"]
+mod replicas;
+#[path = "media/requests.rs"]
+mod requests;
 
 use super::{
     hex, media_request, owner_request, proto, Attached, Domain, HashSet, MediaManifestExt,
@@ -20,9 +26,9 @@ impl Service {
                 Err(status) => Ok(media_upload_status(status)),
             };
         }
-        let Some(media) = &self.media else {
+        if self.media.is_none() {
             return Ok(media_status(Status::Unsupported));
-        };
+        }
         let is_replica = matches!(
             request.request,
             Some(media_request::Request::ReplicaPut(_) | media_request::Request::ShardPut(_))
@@ -31,7 +37,7 @@ impl Service {
             self.strike(peer);
             return Ok(media_status(Status::Denied));
         }
-        // The media limit is no strike: a client loading a gallery is not misbehaving.
+        // Media refusal is not a strike: a client loading a gallery is not misbehaving.
         if self.shed(request.encoded_len(), SHED_MEDIA)
             || !if is_replica {
                 self.admit_quiet(peer, 1)
@@ -45,176 +51,7 @@ impl Service {
         if self.refused(peer) {
             return Ok(media_status(Status::Refused));
         }
-        let l = &self.config.limits;
-        Ok(match request.request {
-            Some(media_request::Request::Keep(record)) => {
-                if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
-                }
-                let Ok((owner, keep)) =
-                    owner_request::<proto::MediaKeep>(&record, Domain::MediaKeep, |_| true)
-                else {
-                    self.strike(peer);
-                    return Ok(media_status(Status::Denied));
-                };
-                if self.listed(&owner) {
-                    return Ok(media_status(Status::Refused));
-                }
-                let now = chrono::Utc::now().timestamp().unsigned_abs();
-                if keep.version == 0
-                    || keep.hashes.len() > MAX_KEEP
-                    || keep.hashes.iter().any(|h| h.len() != 32)
-                {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if keep.time.abs_diff(now) > CLOCK_SKEW {
-                    return Ok(media_clock_invalid(now));
-                }
-                match media.keep_signed(&hex(&owner), &keep, &record)? {
-                    Some(missing) => MediaResponse {
-                        missing,
-                        ..media_status(Status::Ok)
-                    },
-                    None => media_status(Status::Stale),
-                }
-            }
-            Some(media_request::Request::Put(_)) => unreachable!("put admitted separately"),
-            // ponytail: a get names no owner, so a listed owner's blobs already stored are still
-            // served unless the deny list names the blob hash too.
-            Some(media_request::Request::Get(get)) => {
-                if get.hash.len() != 32
-                    || get.len > crate::replication::MEDIA_OBJECT_BYTES as u64
-                    || (get.len == 0 && get.offset != 0)
-                {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if self.listed(&get.hash) {
-                    return Ok(media_status(Status::Refused));
-                }
-                let now = chrono::Utc::now().timestamp();
-                let data = match media.get(&get.hash)? {
-                    Some(data) => Some(data),
-                    None => media.cached(&get.hash, now)?,
-                };
-                match data {
-                    Some(data) => {
-                        let response = media_piece(&get, data);
-                        let len = response.data.len() as u64;
-                        if !self.media_charge(peer, len, len) {
-                            return Ok(media_status(Status::RateLimited));
-                        }
-                        response
-                    }
-                    None => media_status(Status::NotFound),
-                }
-            }
-            Some(media_request::Request::Attach(record)) => {
-                if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
-                }
-                let Ok((owner, attach)) =
-                    owner_request::<proto::MediaAttach>(&record, Domain::MediaAttach, |_| true)
-                else {
-                    self.strike(peer);
-                    return Ok(media_status(Status::Denied));
-                };
-                if self.listed(&owner) {
-                    return Ok(media_status(Status::Refused));
-                }
-                let now = chrono::Utc::now().timestamp().unsigned_abs();
-                if attach.release.len() != 32
-                    || attach.hashes.is_empty()
-                    || attach.hashes.len() > MAX_ATTACH
-                    || attach.hashes.iter().any(|h| h.len() != 32)
-                {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if attach.created > now.saturating_add(CLOCK_SKEW) {
-                    return Ok(media_clock_invalid(now));
-                }
-                let expires = attach.created + u64::from(l.attachment_retention_hours) * 3600;
-                match media.attach_signed(
-                    &hex(&owner),
-                    &attach,
-                    expires,
-                    MAX_ATTACHMENTS,
-                    &record,
-                )? {
-                    Attached::Missing(missing) => MediaResponse {
-                        missing,
-                        ..media_status(Status::Ok)
-                    },
-                    Attached::Full => media_status(Status::Full),
-                    Attached::Released => media_status(Status::Refused),
-                }
-            }
-            Some(media_request::Request::Release(release)) => {
-                media_status(if media.release(&release.secret)? {
-                    Status::Ok
-                } else {
-                    Status::NotFound
-                })
-            }
-            Some(media_request::Request::ReplicaPut(replica)) => {
-                if !self.media_charge(peer, replica.data.len() as u64, 0) {
-                    return Ok(media_status(Status::RateLimited));
-                }
-                let response = self.store_media(&replica)?;
-                if response.status == i32::from(Status::Denied) {
-                    self.strike(peer);
-                }
-                response
-            }
-            Some(media_request::Request::ShardPut(put)) => {
-                if !self.media_charge(peer, put.data.len() as u64, 0) {
-                    return Ok(media_status(Status::RateLimited));
-                }
-                let response = self.store_shard(&put)?;
-                if response.status == i32::from(Status::Denied) {
-                    self.strike(peer);
-                }
-                response
-            }
-            Some(media_request::Request::Have(have)) => {
-                if have.items.len() > crate::media_repair::MAX_ITEMS
-                    || have
-                        .items
-                        .iter()
-                        .map(|p| p.hash.as_slice())
-                        .collect::<HashSet<_>>()
-                        .len()
-                        > MAX_KEEP
-                    || have
-                        .items
-                        .iter()
-                        .any(|p| p.hash.len() != 32 || p.index.is_some_and(|i| i >= 10))
-                {
-                    media_status(Status::Invalid)
-                } else {
-                    // The swarm applies trust and key proximity before reading inventory.
-                    media_status(Status::Ok)
-                }
-            }
-            Some(media_request::Request::ShardGet(get)) => {
-                if get.hash.len() != 32 || get.index >= 10 {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if self.listed(&get.hash) {
-                    return Ok(media_status(Status::Refused));
-                }
-                match media.shard(&get.hash, get.index as usize)? {
-                    Some(data) if self.media_charge(peer, data.len() as u64, data.len() as u64) => {
-                        MediaResponse {
-                            data,
-                            ..media_status(Status::Ok)
-                        }
-                    }
-                    Some(_) => media_status(Status::RateLimited),
-                    None => media_status(Status::NotFound),
-                }
-            }
-            None => media_status(Status::Unsupported),
-        })
+        self.media_request(peer, request.request)
     }
 
     /// Sorts `items` into present and missing, with the whole blobs and manifests held.
@@ -251,22 +88,7 @@ impl Service {
                     inventory.manifests.push(manifest);
                 }
             }
-            let whole = inventory.whole.contains(&part.hash);
-            let manifest = inventory.manifests.iter().find(|m| m.hash == part.hash);
-            let present = match part.index {
-                None => whole || manifest.is_some(),
-                Some(index) => {
-                    if whole {
-                        media.shard(&part.hash, index as usize)?.is_some()
-                    } else if let Some(manifest) = manifest {
-                        media
-                            .shard(&part.hash, index as usize)?
-                            .is_some_and(|d| manifest.accepts(index as usize, &d))
-                    } else {
-                        false
-                    }
-                }
-            };
+            let present = part_present(media, &inventory, part)?;
             let list = if present {
                 &mut inventory.present
             } else {
@@ -352,10 +174,7 @@ impl Service {
         }
         match crate::replication::media_decode(manifest, shards) {
             Ok(data) => {
-                let now = chrono::Utc::now().timestamp();
-                if let Err(error) = media.cache(&manifest.hash, &data, now) {
-                    tracing::error!(%error, "media cache write failed");
-                }
+                cache_assembled(media, &manifest.hash, &data);
                 Ok(media_piece(get, data))
             }
             Err(error) => {
@@ -470,136 +289,39 @@ impl Service {
         let deny = self.deny.read().unwrap_or_else(PoisonError::into_inner);
         self.store_media_with_deny(replica, &deny)
     }
+}
 
-    fn store_media_with_deny(
-        &self,
-        replica: &proto::MediaReplicaPut,
-        deny: &HashSet<String>,
-    ) -> crate::Result<MediaResponse> {
-        use proto::media_replica_put::Authorization;
-        let Some(media) = &self.media else {
-            return Ok(media_status(Status::Unsupported));
-        };
-        if replica.data.len() > crate::replication::MEDIA_OBJECT_BYTES {
-            return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
-        }
-        let hash = if let Some(manifest) = &replica.manifest {
-            if !replica.data.is_empty() || manifest.data_shards().is_none() {
-                return Ok(media_status(Status::Invalid));
-            }
-            manifest.hash.clone()
-        } else {
-            dyapp_identity::sha256(&replica.data).to_vec()
-        };
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
-        let l = &self.config.limits;
-        let owner = match &replica.authorization {
-            Some(Authorization::Keep(record)) => {
-                if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
-                }
-                let Ok((owner, keep)) =
-                    owner_request::<proto::MediaKeep>(record, Domain::MediaKeep, |_| true)
-                else {
-                    return Ok(media_status(Status::Denied));
-                };
-                if keep.version == 0
-                    || keep.hashes.len() > MAX_KEEP
-                    || keep.hashes.iter().any(|h| h.len() != 32)
-                {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if keep.time > now.saturating_add(CLOCK_SKEW)
-                    || now.saturating_sub(keep.time) > u64::from(l.profile_ttl_days) * 86400
-                {
-                    return Ok(media_clock_invalid(now));
-                }
-                if deny.contains(&hex(&owner)) || deny.contains(&hex(&hash)) {
-                    return Ok(media_status(Status::Refused));
-                }
-                if !keep.hashes.iter().any(|h| h.as_slice() == hash) {
-                    return Ok(media_status(Status::NotFound));
-                }
-                media.keep_signed(&hex(&owner), &keep, record)?;
-                if !media.kept(&hex(&owner), &hash)? {
-                    return Ok(media_status(Status::NotFound));
-                }
-                owner
-            }
-            Some(Authorization::Attach(record)) => {
-                if record.encoded_len() > crate::replication::MEDIA_OBJECT_BYTES {
-                    return Ok(media_too_large(crate::replication::MEDIA_OBJECT_BYTES));
-                }
-                let Ok((owner, attach)) =
-                    owner_request::<proto::MediaAttach>(record, Domain::MediaAttach, |_| true)
-                else {
-                    return Ok(media_status(Status::Denied));
-                };
-                let expires = attach
-                    .created
-                    .saturating_add(u64::from(l.attachment_retention_hours) * 3600);
-                if attach.release.len() != 32
-                    || attach.hashes.is_empty()
-                    || attach.hashes.len() > MAX_ATTACH
-                    || attach.hashes.iter().any(|h| h.len() != 32)
-                {
-                    return Ok(media_status(Status::Invalid));
-                }
-                if attach.created > now.saturating_add(CLOCK_SKEW) || expires <= now {
-                    return Ok(media_clock_invalid(now));
-                }
-                if deny.contains(&hex(&owner)) || deny.contains(&hex(&hash)) {
-                    return Ok(media_status(Status::Refused));
-                }
-                if !attach.hashes.iter().any(|h| h.as_slice() == hash) {
-                    return Ok(media_status(Status::NotFound));
-                }
-                match media.attach_signed(
-                    &hex(&owner),
-                    &attach,
-                    expires,
-                    MAX_ATTACHMENTS,
-                    record,
-                )? {
-                    Attached::Missing(_) => {}
-                    Attached::Full => return Ok(media_status(Status::Full)),
-                    Attached::Released => return Ok(media_status(Status::Refused)),
-                }
-                owner
-            }
-            None => return Ok(media_status(Status::Denied)),
-        };
-        let max = l.media_max_mb.saturating_mul(1 << 20);
-        let (mut used, mut free) = media.usage()?;
-        if used >= max {
-            let removed = media.evict(max / 100 * 95)?;
-            tracing::info!(removed, "media lists evicted");
-            (used, free) = media.usage()?;
-        }
-        if self.guard(
-            2,
-            used >= max || free <= l.min_free_mb.saturating_mul(1 << 20),
-        ) {
-            return Ok(media_status(Status::Full));
-        }
-        // Whole-copy ownership is charged at R=5 even when keys co-locate on a small network.
-        let quota = l.media_per_owner_mb.saturating_mul(1 << 20);
-        let stored = if let Some(manifest) = &replica.manifest {
-            media.put_manifest(&hex(&owner), manifest, quota)?
-        } else {
-            media.put(
-                &hex(&owner),
-                &replica.data,
-                quota / u64::from(dyapp_p2p_net::REPLICAS),
-            )?
-        };
-        Ok(media_status(match stored {
-            Put::Stored => Status::Ok,
-            Put::NotListed => Status::NotFound,
-            Put::OverQuota => Status::Full,
-            Put::Invalid => Status::Invalid,
-        }))
+fn cache_assembled(media: &crate::media::MediaStore, hash: &[u8], data: &[u8]) {
+    let now = chrono::Utc::now().timestamp();
+    if let Err(error) = media.cache(hash, data, now) {
+        tracing::error!(%error, "media cache write failed");
     }
+}
+
+fn part_present(
+    media: &crate::media::MediaStore,
+    inventory: &proto::MediaInventory,
+    part: &proto::MediaPart,
+) -> crate::Result<bool> {
+    let whole = inventory.whole.contains(&part.hash);
+    let manifest = inventory
+        .manifests
+        .iter()
+        .find(|manifest| manifest.hash == part.hash);
+    Ok(match part.index {
+        None => whole || manifest.is_some(),
+        Some(index) => {
+            if whole {
+                media.shard(&part.hash, index as usize)?.is_some()
+            } else if let Some(manifest) = manifest {
+                media
+                    .shard(&part.hash, index as usize)?
+                    .is_some_and(|data| manifest.accepts(index as usize, &data))
+            } else {
+                false
+            }
+        }
+    })
 }
 
 fn media_clock_invalid(server_time: u64) -> MediaResponse {

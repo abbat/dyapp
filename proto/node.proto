@@ -402,6 +402,9 @@ message MediaRequest {
     MediaShardGet shard_get = 8;
     // Node inventory, answered only to trusted peers near the replica keys.
     MediaHave have = 9;
+    // Owner-signed MediaKeepIntent: authenticated snapshot query or conditional replacement.
+    // Never fall back to keep when this operation is unsupported.
+    dyapp.identity.SignedRecord conditional_keep = 10;
   }
 }
 
@@ -414,6 +417,38 @@ message MediaKeep {
   // Signed Unix seconds, within 10 minutes of the node clock. The same version and list
   // with a newer time refreshes retention without replacing the list.
   uint64 time = 3;
+}
+
+// Exact ownership metadata returned by a conditional keep or snapshot query.
+message MediaKeepState {
+  bool owner_present = 1;
+  uint64 version = 2;
+  dyapp.identity.SignedRecord record = 3;
+}
+
+// A bounded expected-state token, covered by the owner's signature. The digest is SHA-256
+// of the complete encoded SignedRecord, empty for unsigned/attachment-only/absent ownership.
+message MediaKeepCondition {
+  bool owner_present = 1;
+  uint64 version = 2;
+  bytes record_hash = 3;
+}
+
+// Signed in the MediaConditionalKeep domain. Fields 1-3 retain the MediaKeep projection so repair
+// authorizations preserve the complete signature without stripping conditional metadata.
+// Legacy keep rejects this signature domain. Origin writes and replacement of existing replica
+// ownership check the precondition atomically; a fresh replica may seed the signed target.
+message MediaKeepIntent {
+  uint64 version = 1;
+  repeated bytes hashes = 2;
+  uint64 time = 3;
+  // Absent only for a non-destructive query: version 0, no hashes, intent or pending flag.
+  MediaKeepCondition expected = 4;
+  // SHA-256 of the exact target signed public profile, independent of the media revision.
+  bytes intent_hash = 5;
+  bool pending = 6;
+  // Origin requests bind to the authenticated libp2p peer; proofs retain this original binding.
+  string requester = 7;
 }
 
 message MediaPut {
@@ -506,6 +541,10 @@ message MediaResponse {
   uint64 server_time = 6;
   // get: the blob size, so a piece reader knows where it ends.
   uint64 total_size = 7;
+  // conditional_keep: exact current state on OK or STALE; missing only on rejection.
+  MediaKeepState keep_state = 8;
+  // True only when conditional_keep committed a write; snapshot queries never start repair.
+  bool keep_applied = 9;
 }
 
 // ---- /dyapp/search: search role ----

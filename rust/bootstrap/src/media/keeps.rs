@@ -2,7 +2,7 @@
 //! Ownership writers hold the database mutex through commit and removal of orphan files.
 use super::{list, lock, orphans, storage_error, MediaStore};
 use crate::Result;
-use dyapp_identity::SignedRecord;
+use dyapp_identity::{sha256, SignedRecord};
 use dyapp_p2p_net::proto;
 use prost::Message;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
@@ -16,6 +16,18 @@ pub struct KeepSnapshot {
     pub version: u64,
     /// Exact signed keep, absent for attachment-only or legacy unsigned ownership.
     pub record: Option<SignedRecord>,
+}
+
+impl KeepSnapshot {
+    pub(crate) fn matches(&self, expected: &proto::MediaKeepCondition) -> bool {
+        let digest = self
+            .record
+            .as_ref()
+            .map_or_else(Vec::new, |record| sha256(&record.encode_to_vec()).to_vec());
+        expected.owner_present == self.owner_present
+            && expected.version == self.version
+            && expected.record_hash == digest
+    }
 }
 
 /// The result of a conditional ownership update.
@@ -57,6 +69,32 @@ impl Stored {
         .transpose()
     }
 
+    fn refuses_record(&self, version: u64, record: Option<&SignedRecord>) -> Result<bool> {
+        let conditional = conditional_record(record);
+        if conditional_record(self.snapshot.record.as_ref())
+            && (!conditional
+                || (self.snapshot.version == version && self.snapshot.record.as_ref() != record))
+        {
+            return Ok(true);
+        }
+        if conditional && version > self.snapshot.version {
+            let keep = proto::MediaKeepIntent::decode(
+                record
+                    .ok_or_else(|| storage_error("missing conditional proof"))?
+                    .payload
+                    .as_slice(),
+            )
+            .map_err(storage_error)?;
+            // A forwarded request is not evidence that its conditional write committed.
+            // Existing ownership may only change through its exact signed expectation.
+            return Ok(keep
+                .expected
+                .as_ref()
+                .is_none_or(|expected| !self.snapshot.matches(expected)));
+        }
+        Ok(false)
+    }
+
     fn refuses(&self, version: u64, time: i64, old: &[Vec<u8>], hashes: &[Vec<u8>]) -> bool {
         self.snapshot.version > version
             || (self.snapshot.version == version
@@ -64,6 +102,14 @@ impl Stored {
                     || old.iter().any(|hash| !hashes.contains(hash))
                     || hashes.iter().any(|hash| !old.contains(hash))))
     }
+}
+
+fn conditional_record(record: Option<&SignedRecord>) -> bool {
+    record.is_some_and(|record| {
+        record
+            .verify(dyapp_identity::Domain::MediaConditionalKeep)
+            .is_ok()
+    })
 }
 
 fn owned(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
@@ -151,6 +197,11 @@ impl MediaStore {
         if current != *expected {
             return Ok(KeepUpdate::Conflict(current));
         }
+        if conditional_record(current.record.as_ref()) && !conditional_record(Some(record)) {
+            return Err(storage_error(
+                "conditional media ownership cannot be downgraded",
+            ));
+        }
         if current.version.checked_add(1) != Some(keep.version) {
             return Err(storage_error(
                 "media keep requires the next storage revision",
@@ -179,6 +230,11 @@ impl MediaStore {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
         let stored = Stored::read(&tx, owner)?;
+        if let Some(value) = &stored {
+            if value.refuses_record(version, record)? {
+                return Ok(None);
+            }
+        }
         let old = owned(&tx, owner)?;
         if stored.is_some_and(|stored| stored.refuses(version, time, &old, hashes)) {
             return Ok(None);

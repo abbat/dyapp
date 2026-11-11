@@ -48,6 +48,7 @@ as received, so a node keeps fields it does not understand.
 | `dyapp.node.WriteToken` | `dyapp/write-token/v1\0` | device key |
 | `dyapp.node.Revoke` | `dyapp/mailbox-revoke/v1\0` | device key; identity key when it carries an `owner` binding |
 | `dyapp.node.MediaKeep` | `dyapp/media-keep/v1\0` | identity key |
+| `dyapp.node.MediaKeepIntent` | `dyapp/media-conditional-keep/v1\0` | identity key |
 | `dyapp.node.MediaAttach` | `dyapp/media-attach/v1\0` | identity key |
 | `dyapp.node.Heartbeat` | `dyapp/heartbeat/v1\0` | identity key |
 

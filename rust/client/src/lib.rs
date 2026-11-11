@@ -13,6 +13,7 @@ pub mod identity_slots;
 pub mod interactions;
 /// The device link code and record.
 pub mod link;
+pub mod media_ownership;
 pub mod photo;
 pub mod places;
 mod prepared;

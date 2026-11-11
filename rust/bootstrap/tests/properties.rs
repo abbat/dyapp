@@ -16,7 +16,7 @@ fn config(name: &str) -> ProptestConfig {
         cases: 64,
         failure_persistence: Some(Box::new(
             proptest::test_runner::FileFailurePersistence::Direct(Box::leak(
-                format!("/tmp/ai/dyapp-{name}-proptest-regressions.txt").into_boxed_str(),
+                format!("build/dyapp-{name}-proptest-regressions.txt").into_boxed_str(),
             )),
         )),
         ..ProptestConfig::default()
@@ -106,6 +106,9 @@ protobuf_round_trip! {
     mailbox_push_response: MailboxPushResponse,
     media_request: MediaRequest,
     media_keep: MediaKeep,
+    media_keep_state: MediaKeepState,
+    media_keep_condition: MediaKeepCondition,
+    media_keep_intent: MediaKeepIntent,
     media_put: MediaPut,
     media_replica_put: MediaReplicaPut,
     media_manifest: MediaManifest,

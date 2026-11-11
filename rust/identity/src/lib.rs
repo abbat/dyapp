@@ -69,6 +69,8 @@ signature_domains! {
     MailboxRevoke => b"dyapp/mailbox-revoke/v1\0",
     /// The list of an owner's media blobs, signed by the owner's identity key.
     MediaKeep => b"dyapp/media-keep/v1\0",
+    /// Conditional media ownership and authenticated state queries, signed by the owner.
+    MediaConditionalKeep => b"dyapp/media-conditional-keep/v1\0",
     /// Chat attachment blobs, signed by the sender's identity key.
     MediaAttach => b"dyapp/media-attach/v1\0",
     /// A liveness signal that keeps the owner's profile stored, signed by the identity key.

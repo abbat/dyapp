@@ -163,6 +163,7 @@ on an identity's data carries a signature by a key of that identity:
 | `mailbox.revoke` | the mailbox's device key, over the request (no nonce: a replay revokes the same keys); to close the mailbox, the identity key the device accepted in its `owner` binding | mailbox address = H(device key), or H(the `owner` binding's signer) |
 | `mailbox.put` | a sender key, over the envelope (fresh per envelope from `rust/client`) | per-key and per-IP-group quotas; an optional write token signed by the recipient device key ([Mailbox envelope](#mailbox-envelope)); the recipient checks the sender inside the MLS ciphertext |
 | `media.keep` | owner identity key, over the versioned list of the owner's hashes | the key; per-owner media quota |
+| `media.conditional_keep` | owner identity key, over the requester, expected state and target intent | authenticated transport requester; exact current state for replacement; per-owner media quota |
 | `media.put` | nothing: the node takes only a blob whose hash the owner's latest `keep` lists | the list and the quota |
 | `media.attach` | sender identity key, over the attachment's hashes, release hash and creation time | the key; per-owner media quota and attachment count |
 | `media.release` | nothing: the release secret, which only the sender and the recipient know | SHA-256 of the secret against the attachment's release hash |
@@ -1029,6 +1030,7 @@ The current protocol replies are:
 | `/dyapp/mailbox` | `replica_put(Envelopes)` (node to node) | each envelope stored and verified like a `put`, never forwarded, with its unsigned source group from `source_groups`; an envelope with a forged, expired or revoked write token is dropped without a strike; one peer request unit per batch; `OK`, else `DENIED` when any signature is forged, else the first failure; `TOO_LARGE` includes checked `max_bytes` |
 | `/dyapp/mailbox-push` | `MailboxPush` (node to client) | the envelope just stored, sent once per connection that sent a `fetch` with `watch` |
 | `/dyapp/media` | `keep(SignedRecord)`, payload `MediaKeep` | `OK` after bounded repair, with `missing` hashes that lack a recoverable copy/K shards or could not be checked; `STALE` older version or repeated time; the same version and list with a newer signed time refreshes liveness; `DENIED` bad signature; `INVALID` bad version, over 256 hashes, bad hash length or time more than 10 min off; `TOO_LARGE` with `max_bytes` for encoded signed proof over 1 MiB |
+| `/dyapp/media` | `conditional_keep(SignedRecord)`, payload `MediaKeepIntent` | `OK` with verified current `keep_state` for a query; `OK` with `keep_applied` and exact signed receipt after a conditional replacement; `STALE` with current state on expectation conflict; signed requester must match the authenticated transport peer; 256 hashes, 32-byte intent digest, next revision within `1..=i64::MAX`; proof limit 1 MiB; no legacy fallback on `UNSUPPORTED` |
 | `/dyapp/media` | `put(MediaPut)`: owner = SHA-256 of the identity key, data | `OK` after two distinct whole-copy stores, or two manifests and K shards (one manifest only when isolated); `NOT_FOUND` no signed authorization for SHA-256(data); `TOO_LARGE` with `max_bytes` over 6 MiB; `FULL` pending cap, deadline, billed owner quota or disk guard; `INVALID` owner not 32 bytes |
 | `/dyapp/media` | `replica_put(MediaReplicaPut)`: whole data or manifest, and signed keep or attachment | independently verified and stored without forwarding; `DENIED` missing/invalid signature; `NOT_FOUND` hash absent from proof or latest keep; `INVALID` expired proof, malformed or conflicting manifest; `TOO_LARGE` with `max_bytes` for whole data or signed proof over 1 MiB; other put storage statuses apply |
 | `/dyapp/media` | `shard_put(MediaShardPut)`: signed manifest replica, index, data | `OK` after proof, manifest hash and shard length/hash validation; never forwarded; invalid data gives `INVALID` |
@@ -1098,10 +1100,22 @@ The current protocol replies are:
   immediate writer ownership before comparing the complete expected state. Only the next revision
   within signed SQLite's `1..=i64::MAX` range can commit; a conflict returns current metadata without
   changing references or removing files. Owner presence distinguishes an absent row from unsigned
-  version-zero ownership. Malformed stored records or negative revisions fail closed. Existing
-  `keep` callers retain their version/time admission behavior. Signed conditional wire requests and
-  staged publication/retention integration remain planned; the storage primitive alone does not
-  solve abandoned publication intents.
+  version-zero ownership. Malformed stored records or negative revisions fail closed.
+  Legacy `keep` callers retain their version/time admission behavior until the held owner state
+  becomes conditional. The distinct `conditional_keep` operation signs `MediaKeepIntent` under
+  `dyapp/media-conditional-keep/v1\0`, binding the authenticated transport requester. A query
+  returns metadata without renewing retention. A write compares owner presence, revision and the
+  SHA-256 of the exact prior signed record; it carries a target profile digest and pending flag.
+  `OK` with `keep_applied` returns the exact accepted signed receipt; `STALE` returns current state.
+  Conditional revisions are immutable, and held conditional state rejects legacy downgrade,
+  including replica replay. Replacing existing ownership through replica authorization also checks
+  the exact signed expectation atomically; a forwarded rejected request cannot bypass it. A fresh
+  holder may accept the signed target without prior ownership. Repair preserves the complete signed
+  intent. Safe catch-up of existing holders across skipped conditional revisions remains planned;
+  mismatched expectations conservatively retain the holder's current references. The common Rust client
+  verifies replies and never falls back to legacy writes on `UNSUPPORTED`, following ADR 0016.
+  Media revisions are independent of profile versions. Staged publication/retention integration
+  remains planned; the wire API alone does not solve abandoned publication intents.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret sends `release` to each holder and the node drops the
