@@ -53,6 +53,8 @@ it as C with Clang after callback changes. Binding generation alone does not val
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).
+Reusable UI-owned workers reacquire verified admission for actual calls instead of holding a lease
+while idle: profile selection may need to finish before the old screen disposes its worker handle.
 
 Raw search input uses `dyapp_profile::text_input::trim` for Linux-compatible whitespace:
 Rust `str::trim` treats BOM/NEL differently. Reuse the core helper for blank checks and parsing;

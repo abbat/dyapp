@@ -99,6 +99,14 @@ live in separate `chats` modules without changing the existing command signature
 Android/Apple bootstrap adoption remains planned; desktop system/file bootstrap continues
 through the existing desktop implementation.
 
+`ProfileSolve.for_slot(registry, id, expected_peer)` binds an idle proof handle to a verified
+identity without retaining a lock between steps. Every actual step reacquires the core operation
+before accessing its database and retains it through completion, including cancellation. A removed
+or replaced identity fails admission before storage access; retaining an idle handle cannot prevent
+selection or removal. The internal native admission adapter stores only coordinates and delegates
+all lifecycle/key checks to core `Registry.operation`. The explicit directory/key constructor is
+still unguarded for existing callers; Android/Apple proof-worker adoption remains planned.
+
 ## Which source is the contract
 
 | Source | Status |

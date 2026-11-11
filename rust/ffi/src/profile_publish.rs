@@ -1,7 +1,8 @@
 //! Read-only eligibility for publishing the owner's stored profile draft.
 
 use crate::profile_draft::database;
-use crate::{load_profile_draft, CoreError, IdentityKey};
+use crate::slot_operation::SlotWorker;
+use crate::{load_profile_draft, CoreError, IdentityKey, MobileIdentityRegistry};
 use dyapp_client::publish::{self, Block};
 use dyapp_client::store::Store;
 use dyapp_profile::{CivilDate, Profile};
@@ -70,6 +71,7 @@ pub struct ProfileSolve {
     key: Arc<IdentityKey>,
     cancelled: AtomicBool,
     serial: Mutex<()>,
+    binding: Option<SlotWorker>,
 }
 
 #[uniffi::export]
@@ -82,13 +84,23 @@ impl ProfileSolve {
     /// Returns an error if the identity directory is not an existing absolute directory
     /// or is a symlink.
     pub fn new(dir: String, key: Arc<IdentityKey>) -> Result<Arc<Self>, CoreError> {
-        database(&dir)?;
-        Ok(Arc::new(Self {
-            dir,
-            key,
-            cancelled: AtomicBool::new(false),
-            serial: Mutex::new(()),
-        }))
+        Self::create(dir, key, None)
+    }
+
+    /// Bind this worker to a verified slot; each step reopens its identity under a core lease.
+    /// An idle handle does not prevent switching or removal; an active cancelled step stays protected.
+    ///
+    /// # Errors
+    /// Returns registry admission failures without creating a database or changing selection.
+    #[uniffi::constructor]
+    pub fn for_slot(
+        registry: Arc<MobileIdentityRegistry>,
+        id: String,
+        expected_peer: String,
+    ) -> Result<Arc<Self>, CoreError> {
+        let binding = SlotWorker::new(registry, id, expected_peer);
+        let operation = binding.operation()?;
+        Self::create(operation.slot().directory, operation.key(), Some(binding))
     }
 
     /// Try eight nonces and persist progress; call off the UI thread until solved or cancelled.
@@ -109,7 +121,27 @@ impl ProfileSolve {
 }
 
 impl ProfileSolve {
+    fn create(
+        dir: String,
+        key: Arc<IdentityKey>,
+        binding: Option<SlotWorker>,
+    ) -> Result<Arc<Self>, CoreError> {
+        database(&dir)?;
+        Ok(Arc::new(Self {
+            dir,
+            key,
+            cancelled: AtomicBool::new(false),
+            serial: Mutex::new(()),
+            binding,
+        }))
+    }
+
     fn step(&self, attested: bool, bits: u32) -> Result<ProfileWorkStep, CoreError> {
+        let _operation = self
+            .binding
+            .as_ref()
+            .map(SlotWorker::operation)
+            .transpose()?;
         let _serial = self
             .serial
             .lock()
@@ -153,12 +185,19 @@ mod tests {
     use super::*;
     use std::path::Path;
 
+    fn directory(tag: &str) -> String {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/native-profile-work")
+            .join(tag)
+            .join(IdentityKey::generate().peer_id());
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.to_str().unwrap().to_owned()
+    }
+
     #[test]
     fn empty_profile_needs_only_fresh_attestation_without_creating_a_database() {
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-gate-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = directory("gate");
         let key = IdentityKey::generate();
-        let dir = dir.to_str().unwrap().to_owned();
         assert_eq!(
             profile_publish_block(dir.clone(), key.clone(), false).unwrap(),
             Some("notAttested".into())
@@ -193,14 +232,10 @@ mod tests {
 
     #[test]
     fn cancelled_work_preserves_nonce_and_new_handle_resumes() {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-solve-{nanos}"));
-        std::fs::create_dir_all(&dir).unwrap();
-        let dir = dir.to_str().unwrap().to_owned();
-        let key = IdentityKey::generate();
+        let dir = directory("solve");
+        let key = Arc::new(IdentityKey {
+            identity: dyapp_identity::Identity::from_secret(&[7; 32]),
+        });
         crate::save_profile_draft(
             dir.clone(),
             key.clone(),
@@ -226,15 +261,9 @@ mod tests {
         assert_eq!((stored.gender, stored.pow_nonce), (1, step.next_nonce));
 
         let resumed = ProfileSolve::new(dir, key).unwrap();
-        let mut solved = false;
-        for _ in 0..100 {
-            let progress = resumed.step(true, 4).unwrap();
-            assert!(progress.next_nonce >= step.next_nonce);
-            if progress.solved {
-                solved = true;
-                break;
-            }
-        }
-        assert!(solved);
+        // A zero-bit target accepts the next nonce, without a probabilistic retry budget.
+        let progress = resumed.step(true, 0).unwrap();
+        assert!(progress.next_nonce >= step.next_nonce);
+        assert!(progress.solved);
     }
 }

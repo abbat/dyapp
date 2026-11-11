@@ -1,7 +1,33 @@
 //! Opaque common native ownership of an admitted core identity operation.
 
-use crate::{IdentityKey, MobileSlot};
+use crate::{CoreError, IdentityKey, MobileIdentityRegistry, MobileSlot};
 use std::sync::Arc;
+
+/// Reusable admission coordinates; idle native handles retain no registry lock.
+pub(crate) struct SlotWorker {
+    registry: Arc<MobileIdentityRegistry>,
+    id: String,
+    expected_peer: String,
+}
+
+impl SlotWorker {
+    pub(crate) fn new(
+        registry: Arc<MobileIdentityRegistry>,
+        id: String,
+        expected_peer: String,
+    ) -> Self {
+        Self {
+            registry,
+            id,
+            expected_peer,
+        }
+    }
+
+    pub(crate) fn operation(&self) -> Result<Arc<MobileIdentityOperation>, CoreError> {
+        self.registry
+            .operation(self.id.clone(), self.expected_peer.clone())
+    }
+}
 
 /// Hold through actual blocking-worker completion, including after UI cancellation.
 ///
