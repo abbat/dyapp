@@ -649,7 +649,7 @@ guidance uses the default port 33445.
 
 | Line | Value |
 |---|---|
-| `node` | `running` when the node answers `info` on a `listen` address (a `[::]` or `0.0.0.0` host is dialed on loopback, 15 s at most), else `stopped` |
+| `node` | `running` when the node answers `info` on a `listen` address (a `[::]` or `0.0.0.0` host is dialed on loopback, up to 15 s per address), else `stopped` |
 | `peer_id` | the node's peer ID, empty before `keygen` |
 | `profiles`, `envelopes`, `media_blobs`, `deny_entries` | records stored; `none` when that store was never created |
 | `purged_blobs` | cumulative local media blobs purged by the deny list; `none` before the media store exists |
