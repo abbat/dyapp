@@ -138,6 +138,18 @@ SHA-256 of the device public key (32 bytes each).
   returns the ones still `missing`. Its signed `time` must be within 10 minutes of the node
   clock; the same version and list with a newer time refreshes media liveness, while replaying
   it does not. Inactive owners' keeps expire after `limits.profile_ttl_days`; shared blobs stay.
+  `conditional_keep` (request tag 10) carries an owner-signed `MediaKeepIntent`: origin snapshot
+  queries and exact conditional writes bind the authenticated requester. Its response includes
+  `keep_state`; only committed origin writes set `keep_applied`.
+  Node-only `keep_catchup` (tag 11) carries a fresh signed target and descending ancestors, at most
+  256 records within the history page byte budget (1 MiB plus record framing). Every signed record
+  is at most 1 MiB. Ancestors may predate the owner TTL; the target must remain within it and
+  at most ten minutes ahead of the node clock. Segments stage proofs without changing live lists.
+  Once they reach current ownership, only the final target is applied atomically.
+  `MediaResponse.keep_progress` (tag 10) reports `ready` and the next supplied ancestor revision.
+  It never reveals current ownership or sets `keep_applied`; conflicts return `STALE` without
+  progress. Older nodes answer `UNSUPPORTED`; callers must not fall back to legacy keep.
+  Automatic repair catch-up is still planned.
   `put` sends a listed blob unsigned once, up to 6 MiB. At or below `media.shard_threshold`
   (default 1 MiB), the acceptor forwards whole copies to five DHT points and confirms two
   distinct holders. Above it, K = ceil(size / 1 MiB), M = 4; `MediaManifest` holds the blob

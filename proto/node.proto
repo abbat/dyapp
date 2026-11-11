@@ -405,7 +405,24 @@ message MediaRequest {
     // Owner-signed MediaKeepIntent: authenticated snapshot query or conditional replacement.
     // Never fall back to keep when this operation is unsupported.
     dyapp.identity.SignedRecord conditional_keep = 10;
+    // Node-only reverse ancestry; old peers answer UNSUPPORTED. Never replay legacy keep.
+    MediaKeepCatchup keep_catchup = 11;
   }
+}
+
+// Reverse proofs anchored in one fresh owner-signed final target. At most 256 ancestors,
+// bounded by the history page byte limit, descending and excluding the target itself.
+// Historical lists are inert proofs: only the final target may replace live ownership.
+message MediaKeepCatchup {
+  repeated dyapp.identity.SignedRecord ancestors = 1;
+  dyapp.identity.SignedRecord target = 2;
+}
+
+// Returned only for accepted catch-up segments; contains no private current ownership.
+message MediaKeepProgress {
+  bool ready = 1;
+  // Next ancestor revision from the supplied proof frontier; zero means complete ancestry.
+  uint64 next_version = 2;
 }
 
 // The complete list of an owner's blobs. The node drops the owner's blobs not listed and accepts
@@ -545,6 +562,8 @@ message MediaResponse {
   MediaKeepState keep_state = 8;
   // True only when conditional_keep committed a write; snapshot queries never start repair.
   bool keep_applied = 9;
+  // keep_catchup only: accepted target/proof progress. Never starts origin publication repair.
+  MediaKeepProgress keep_progress = 10;
 }
 
 // ---- /dyapp/search: search role ----

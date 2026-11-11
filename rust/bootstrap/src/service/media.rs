@@ -1,4 +1,6 @@
 //! The media role's requests and replica puts.
+#[path = "media/catchup.rs"]
+mod catchup;
 #[path = "media/keeps.rs"]
 mod keeps;
 #[path = "media/replicas.rs"]
@@ -31,7 +33,11 @@ impl Service {
         }
         let is_replica = matches!(
             request.request,
-            Some(media_request::Request::ReplicaPut(_) | media_request::Request::ShardPut(_))
+            Some(
+                media_request::Request::ReplicaPut(_)
+                    | media_request::Request::ShardPut(_)
+                    | media_request::Request::KeepCatchup(_)
+            )
         );
         if is_replica && !self.node_peer(peer) {
             self.strike(peer);

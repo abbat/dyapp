@@ -1137,7 +1137,11 @@ The current protocol replies are:
   target and current ownership in one writer transaction, then applies only the final hash list and
   transfers provisional bytes into accepted history exactly once. A conflicting live branch is
   preserved; backfilling an accepted target changes no live references or retention. Progress exposes
-  only the supplied proof frontier. Wire catch-up and automatic repair remain planned. Applying historical chunks independently could
+  only the supplied proof frontier. Node-only `keep_catchup` accepts these bounded reverse segments;
+  it returns `keep_progress` without private current ownership or an origin `keep_applied` receipt.
+  The final target uses replica freshness (owner TTL and future clock skew); older ancestors are
+  inert authenticated proofs. Unsupported peers have no legacy fallback. Automatic repair catch-up
+  remains planned. Applying historical chunks independently could
   delete a blob required by that final target. The unreleased base schema changes directly; older development
   media databases are rejected rather than migrated.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release

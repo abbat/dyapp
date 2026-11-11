@@ -18,6 +18,7 @@ impl Service {
         match request {
             Some(Request::Keep(record)) => self.legacy_keep(peer, media, &record),
             Some(Request::ConditionalKeep(record)) => self.conditional_keep(peer, media, &record),
+            Some(Request::KeepCatchup(segment)) => self.media_keep_catchup(peer, media, &segment),
             Some(Request::Put(_)) => unreachable!("put admitted separately"),
             Some(Request::Get(get)) => self.media_get(peer, media, &get),
             Some(Request::Attach(record)) => self.media_attach(peer, media, &record),

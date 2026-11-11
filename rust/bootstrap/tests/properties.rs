@@ -109,6 +109,8 @@ protobuf_round_trip! {
     media_keep_state: MediaKeepState,
     media_keep_condition: MediaKeepCondition,
     media_keep_intent: MediaKeepIntent,
+    media_keep_catchup: MediaKeepCatchup,
+    media_keep_progress: MediaKeepProgress,
     media_put: MediaPut,
     media_replica_put: MediaReplicaPut,
     media_manifest: MediaManifest,

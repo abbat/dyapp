@@ -3,6 +3,8 @@ use super::*;
 use std::ops::RangeInclusive;
 #[path = "staging/apply.rs"]
 mod application;
+#[path = "staging/wire.rs"]
+mod wire;
 
 fn apply(
     destination: &Fixture,
