@@ -88,8 +88,16 @@ Bootstrap releases its exclusive lock before shared identity admission; it never
 held shared lease. The returned `ChatOperation` retains both identity protection and an
 identity-local exclusive `chat.lock` for actual session completion. Inventory may still read
 alongside it. The lock file belongs to the identity and confirmed cleanup accepts it.
-Foreign exposure and Android/Apple bootstrap adoption remain planned; desktop system/file
-bootstrap continues through the existing desktop implementation.
+`MobileIdentityRegistry.open_chats(id, expected_peer, store)` delegates to this bootstrap and
+retains its guard inside the returned `ChatSession` until the last session owner completes.
+The supplied existing `KeyStore` must target the slot's existing wrapping alias and refuse
+missing credentials. Before any bootstrap writes, core opens the saved owner blob through
+that capability and compares it with the verified identity, rejecting a mismatched store.
+The legacy explicit-key constructor remains for existing callers; those callers do not
+gain registry protection until migrated. Native commands, construction and regression tests
+live in separate `chats` modules without changing the existing command signatures.
+Android/Apple bootstrap adoption remains planned; desktop system/file bootstrap continues
+through the existing desktop implementation.
 
 ## Which source is the contract
 

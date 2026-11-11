@@ -161,6 +161,34 @@ impl MobileIdentityRegistry {
         Ok(Arc::new(crate::MobileIdentityOperation { operation }))
     }
 
+    /// Bootstrap existing wrapped chat keys and retain core locks for the returned session.
+    /// Call directly, without holding an identity operation. The supplied platform store
+    /// must be bound to this slot's existing wrapping alias and refuse missing credentials.
+    ///
+    /// # Errors
+    /// Returns identity, key, database, bootstrap, lock or session initialization failures.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned strings across the native boundary"
+    )]
+    pub fn open_chats(
+        &self,
+        id: String,
+        expected_peer: String,
+        store: Arc<dyn crate::KeyStore>,
+    ) -> Result<Arc<crate::ChatSession>, CoreError> {
+        let operation = self
+            .registry
+            .chat_operation(
+                &id,
+                &expected_peer,
+                &self.keys,
+                &crate::slot_chat::ChatWrapping(store),
+            )
+            .map_err(CoreError::Failed)?;
+        crate::ChatSession::from_operation(operation)
+    }
+
     /// Remove only the explicitly confirmed identity and its validated owned data.
     /// Success means visible completion; the optional detail reports unconfirmed persistence.
     /// Hold no operation lease while calling this exclusive mutation.

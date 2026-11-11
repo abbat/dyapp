@@ -1,5 +1,7 @@
 //! Fixtures cross the exported registry and opaque-key callback boundary.
 
+mod chats;
+
 use crate::{
     IdentityKey, KeyStore, MobileIdentityRegistry, MobileSlotKeys, MobileSlotLayout,
     MobileSlotRecovery, MobileSlotResolution, WrapError,

@@ -23,7 +23,8 @@ impl KeyReader for Wrapping {
     }
 
     fn open(&self, _: &Slot, wrapped: Option<&[u8]>) -> Result<Option<Identity>, String> {
-        if wrapped != Some(b"owner".as_slice()) {
+        let expected: Vec<_> = self.owner.secret().iter().map(|byte| byte ^ 0x5a).collect();
+        if wrapped != Some(expected.as_slice()) {
             return Err("wrong owner blob".into());
         }
         Ok(Some(Identity::from_secret(&self.owner.secret())))
@@ -54,13 +55,13 @@ impl ChatKeyStore for Wrapping {
     fn unwrap(
         &self,
         _: &Slot,
-        _: ChatKeyKind,
+        kind: ChatKeyKind,
         wrapped: &[u8],
     ) -> Result<Zeroizing<[u8; 32]>, String> {
         let bytes: Vec<_> = wrapped.iter().map(|byte| byte ^ 0x5a).collect();
         let mut secret =
             Zeroizing::new(<[u8; 32]>::try_from(bytes).map_err(|_| "invalid wrapped length")?);
-        if self.mismatch.get() {
+        if self.mismatch.get() && kind != ChatKeyKind::Identity {
             secret[0] ^= 1;
         }
         Ok(secret)
@@ -70,14 +71,16 @@ impl ChatKeyStore for Wrapping {
 fn fixture(layout: Layout) -> (PathBuf, Registry, Wrapping) {
     let root = root();
     let directory = slot(&root, FIRST, b"ready\n");
-    fs::write(directory.join("identity.key"), b"owner").unwrap();
+    let owner = Identity::generate();
+    let wrapped: Vec<_> = owner.secret().iter().map(|byte| byte ^ 0x5a).collect();
+    fs::write(directory.join("identity.key"), wrapped).unwrap();
     let name = if layout == Layout::Ios {
         ".identity-slots.lock"
     } else {
         "profiles.lock"
     };
     let wrapping = Wrapping {
-        owner: Identity::generate(),
+        owner,
         lock: root.join(name),
         generated: RefCell::new(Vec::new()),
         fail: Cell::new(None),

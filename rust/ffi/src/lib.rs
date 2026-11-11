@@ -27,6 +27,7 @@ pub use network::{
 };
 mod peer_photos;
 pub use peer_photos::peer_photo_auto;
+mod slot_chat;
 mod slot_keys;
 pub use slot_keys::MobileSlotKeys;
 mod slot_resolution;

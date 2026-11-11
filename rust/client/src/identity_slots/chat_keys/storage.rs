@@ -27,6 +27,10 @@ pub(super) fn prepare(
     identity: &Identity,
     wrapping: &dyn ChatKeyStore,
 ) -> Result<(), String> {
+    let owner = required(slot, ChatKeyKind::Identity, wrapping)?;
+    if owner != identity.secret() {
+        return Err("The wrapping store does not match this identity".into());
+    }
     let device = read(slot, ChatKeyKind::Device)?;
     let state = read(slot, ChatKeyKind::State)?;
     if let Some(sealed) = snapshot(slot, identity)? {

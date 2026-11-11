@@ -10,6 +10,8 @@ use zeroize::Zeroizing;
 /// Purpose of a wrapped chat secret, not a platform alias.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChatKeyKind {
+    /// Existing owner identity, used to verify the wrapping capability before bootstrap.
+    Identity,
     /// Per-device mailbox identity seed.
     Device,
     /// MLS state sealing key.
@@ -19,6 +21,7 @@ pub enum ChatKeyKind {
 impl ChatKeyKind {
     fn file_name(self) -> &'static str {
         match self {
+            Self::Identity => "identity.key",
             Self::Device => "device.key",
             Self::State => "chat-state.key",
         }
