@@ -252,14 +252,20 @@ this core API; unrelated targets do not consume each other's resume positions.
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
 the hold has ended, also after a restart ([bootstrap](../architecture/bootstrap.md)); a held
-tombstone is sent at once. `publish::hide` signs a search-only tombstone, holds it for search
+tombstone is sent at once. Queue hold/ACK/backoff updates acquire the immediate writer before
+reading state. The separate format-1 `search_profile_head` stores an eight-byte big-endian version
+and 32-byte SHA-256 of the signed record; it survives ACK and restart. Legacy queued records
+supply the marker on the next write. Same-owner signatures and decodable payloads are required;
+older holds and acknowledged duplicates do not requeue, equal-version byte conflicts fail closed.
+ACK timestamps and retry deadlines never decrease, and duration rounding saturates. Readers use
+one SQLite snapshot for both settings. `publish::hide` signs a search-only tombstone, holds it for search
 and sets `profile_hidden` (a one-byte flag; absent means shown), and the next
 `publish::publish` clears it. The last ordinary signed profile stays at store nodes, so someone
 with the Peer ID can still find the device list and KeyPackages and start a chat. The hidden
 draft advances to the tombstone version; unhide publishes a still-higher ordinary version to
 both services. Local hide reads the latest draft under an immediate writer transaction, preserving
 its current fields/photos/devices and the stronger proof pair. Its version exceeds the request,
-current draft, observed own-profile and held search versions; exhaustion is refused without writes.
+current draft, observed own-profile and remembered search versions; exhaustion is refused without writes.
 Draft, signed search tombstone and hidden flag commit or roll back together. The request supplies
 initial fields only when no draft exists. Network completion/withdrawal projection still requires
 separate migration; this atomic local operation does not order their later writes. Identity removal instead

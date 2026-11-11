@@ -6,7 +6,6 @@ use super::{Error, Store};
 use dyapp_identity::SignedRecord;
 use prost::Message;
 use rusqlite::{params, OptionalExtension};
-use std::time::Duration;
 
 const KEY: &str = "search_publish";
 const BEAT_KEY: &str = "search_heartbeat";
@@ -15,10 +14,10 @@ const WINDOW: u64 = 600;
 
 // `last_sent` and `hold_until` in Unix seconds, and the held record, if any.
 #[derive(Default)]
-struct State {
-    last_sent: u64,
-    hold_until: u64,
-    pending: Option<SignedRecord>,
+pub(super) struct State {
+    pub(super) last_sent: u64,
+    pub(super) hold_until: u64,
+    pub(super) pending: Option<SignedRecord>,
 }
 
 impl State {
@@ -35,29 +34,6 @@ impl State {
 }
 
 impl Store {
-    /// Hold `record`, the newest signed profile, for search; it replaces any held one. The caller
-    /// then sends [`Self::due_search_profile`], if any.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the saved publication state is malformed or unsupported,
-    /// or reading or writing it in the database fails.
-    pub fn hold_search_profile(&self, record: &SignedRecord) -> Result<(), Error> {
-        let mut state = self.search_publish()?;
-        state.pending = Some(record.clone());
-        self.set_search_publish(&state)
-    }
-
-    pub(super) fn held_search_version(&self) -> Result<u64, Error> {
-        self.search_publish()?
-            .pending
-            .as_ref()
-            .map(dyapp_profile::stored_version)
-            .transpose()
-            .map(|version| version.unwrap_or(0))
-            .map_err(|_| Error::InvalidSetting)
-    }
-
     /// The held profile once the window has ended at Unix second `now`; ask again after an edit
     /// and on app start.
     ///
@@ -66,47 +42,9 @@ impl Store {
     /// Returns an error if the saved publication state is malformed or unsupported,
     /// or reading it from the database fails.
     pub fn due_search_profile(&self, now: u64) -> Result<Option<SignedRecord>, Error> {
-        let state = self.search_publish()?;
+        let (state, _) = self.search_projection()?;
         let ready = now >= state.ready_at();
         Ok(state.pending.filter(|_| ready))
-    }
-
-    /// Record that search nodes accepted `record` at `now`. A newer edit made meanwhile stays
-    /// held.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the saved publication state is malformed or unsupported,
-    /// or reading or writing it in the database fails.
-    pub fn search_profile_sent(&self, record: &SignedRecord, now: u64) -> Result<(), Error> {
-        let mut state = self.search_publish()?;
-        if state.pending.as_ref() == Some(record) {
-            state.pending = None;
-        }
-        state.last_sent = now;
-        self.set_search_publish(&state)
-    }
-
-    /// A search node answered `RATE_LIMITED` at `now`: keep the profile held for `retry_after`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the saved publication state is malformed or unsupported,
-    /// or reading or writing it in the database fails.
-    ///
-    /// # Panics
-    ///
-    /// Panics if rounding `retry_after` up to whole seconds overflows `u64` when
-    /// overflow checks are enabled.
-    pub fn search_profile_rate_limited(
-        &self,
-        now: u64,
-        retry_after: Duration,
-    ) -> Result<(), Error> {
-        let mut state = self.search_publish()?;
-        let wait = retry_after.as_secs() + u64::from(retry_after.subsec_nanos() > 0);
-        state.hold_until = now.saturating_add(wait);
-        self.set_search_publish(&state)
     }
 
     /// Minutes, rounded up, until held changes reach search, or `None` with nothing held.
@@ -116,7 +54,7 @@ impl Store {
     /// Returns an error if the saved publication state is malformed or unsupported,
     /// or reading it from the database fails.
     pub fn search_profile_minutes_left(&self, now: u64) -> Result<Option<u64>, Error> {
-        let state = self.search_publish()?;
+        let (state, _) = self.search_projection()?;
         let left = state.ready_at().saturating_sub(now).div_ceil(60);
         Ok(state.pending.map(|_| left))
     }
@@ -168,7 +106,7 @@ impl Store {
         Ok(())
     }
 
-    fn search_publish(&self) -> Result<State, Error> {
+    pub(super) fn search_publish(&self) -> Result<State, Error> {
         let value: Option<(i64, Vec<u8>)> = self
             .db
             .query_row(
@@ -197,7 +135,7 @@ impl Store {
         })
     }
 
-    fn set_search_publish(&self, state: &State) -> Result<(), Error> {
+    pub(super) fn set_search_publish(&self, state: &State) -> Result<(), Error> {
         let mut value = [
             state.last_sent.to_be_bytes(),
             state.hold_until.to_be_bytes(),

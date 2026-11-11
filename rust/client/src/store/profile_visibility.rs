@@ -27,7 +27,7 @@ impl Store {
             .version
             .max(request.version)
             .max(self.own_profile_seen()?)
-            .max(self.held_search_version()?)
+            .max(self.known_search_version()?)
             .checked_add(1)
             .ok_or(Error::ProfileVersionExhausted)?;
         if request.pow_bits > latest.pow_bits {
@@ -36,7 +36,7 @@ impl Store {
         latest.version = version;
         let tombstone = Profile::tombstone(version, latest.pow_nonce, latest.pow_bits);
         self.save_profile_draft(&latest)?;
-        self.hold_search_profile(&tombstone.sign(identity))?;
+        self.hold_search_profile_in_tx(&tombstone.sign(identity))?;
         self.set_profile_hidden(true)?;
         transaction.commit()?;
         Ok(latest)

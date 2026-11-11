@@ -15,6 +15,9 @@ mod chat_list_tests;
 mod conversations;
 mod error;
 pub use error::Error;
+#[cfg(test)]
+#[path = "store/group_catalog_tests.rs"]
+mod group_catalog_tests;
 mod inbox;
 mod last_resort;
 mod likes;
@@ -34,6 +37,7 @@ mod profile_visibility;
 mod profile_work;
 pub use profile_work::{ProfileWork, ProfileWorkResult};
 mod reads;
+mod search_projection;
 mod search_publish;
 pub mod sticker_packs;
 mod tokens;
@@ -81,6 +85,26 @@ pub enum InboxKind {
     Refused = 3,
 }
 
+fn create_schema(db: &mut Connection, identity: &Identity) -> Result<(), Error> {
+    let tx = db.transaction()?;
+    for schema in [
+        SCHEMA,
+        conversations::SCHEMA,
+        messages::SCHEMA,
+        peers::SCHEMA,
+        presence::SCHEMA,
+        reads::SCHEMA,
+    ] {
+        tx.execute_batch(schema)?;
+    }
+    tx.execute(
+        "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
+        params![identity.peer_id()],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
 impl Store {
     /// Open a profile database without replacing an unknown or mismatched one.
     ///
@@ -110,22 +134,7 @@ impl Store {
                 if tables != 0 {
                     return Err(Error::Unversioned);
                 }
-                let tx = db.transaction()?;
-                for schema in [
-                    SCHEMA,
-                    conversations::SCHEMA,
-                    messages::SCHEMA,
-                    peers::SCHEMA,
-                    presence::SCHEMA,
-                    reads::SCHEMA,
-                ] {
-                    tx.execute_batch(schema)?;
-                }
-                tx.execute(
-                    "INSERT INTO `profile_binding` (`slot`, `peer_id`) VALUES (1, ?1)",
-                    params![identity.peer_id()],
-                )?;
-                tx.commit()?;
+                create_schema(&mut db, identity)?;
             }
             VERSION => {}
             other => return Err(Error::FutureVersion(other)),
@@ -672,15 +681,38 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn settings_and_pass_history_survive_restart_without_crossing_profiles() {
+    fn privacy_settings_survive_restart_without_crossing_profiles() {
         let path = temp_db_path();
         let alice = Identity::generate();
-        let bob = Identity::generate();
-        let peer = Identity::generate().peer_id();
         let store = Store::open(&path, &alice).unwrap();
         assert!(!store.send_profile_views().unwrap());
-        assert!(store.send_typing().unwrap() && store.notifications().unwrap());
-        assert!(!store.passed(&peer).unwrap());
+        assert!(store.send_typing().unwrap());
+        assert!(store.notifications().unwrap());
+        store.set_send_profile_views(true).unwrap();
+        store.set_send_typing(false).unwrap();
+        store.set_notifications(false).unwrap();
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(store.send_profile_views().unwrap());
+        assert!(!store.send_typing().unwrap());
+        assert!(!store.notifications().unwrap());
+        store.set_send_profile_views(false).unwrap();
+        drop(store);
+        assert!(!Store::open(&path, &alice)
+            .unwrap()
+            .send_profile_views()
+            .unwrap());
+        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        assert!(!other.send_profile_views().unwrap());
+        assert!(other.send_typing().unwrap());
+        assert!(other.notifications().unwrap());
+    }
+
+    #[test]
+    fn download_and_notice_settings_roundtrip_and_survive_restart() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.auto_download().unwrap(), AutoDownload::ByNetwork);
         for mode in [AutoDownload::Always, AutoDownload::OnTap] {
             store.set_auto_download(mode).unwrap();
@@ -690,27 +722,27 @@ pub(crate) mod tests {
         store.set_notice_content(NoticeContent::Name).unwrap();
         assert_eq!(store.notice_content().unwrap(), NoticeContent::Name);
         store.set_notice_content(NoticeContent::Text).unwrap();
-        store.set_send_profile_views(true).unwrap();
-        store.set_send_typing(false).unwrap();
-        store.set_notifications(false).unwrap();
+        drop(store);
+        let store = Store::open(&path, &alice).unwrap();
+        assert_eq!(store.auto_download().unwrap(), AutoDownload::OnTap);
+        assert_eq!(store.notice_content().unwrap(), NoticeContent::Text);
+    }
+
+    #[test]
+    fn pass_history_orders_updates_and_survives_restart_without_crossing_profiles() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let peer = Identity::generate().peer_id();
+        let store = Store::open(&path, &alice).unwrap();
+        assert!(!store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, true, Timestamp::new(10, 0)).unwrap());
         assert!(!store.set_pass(&peer, false, Timestamp::new(9, 0)).unwrap());
         drop(store);
-
         let store = Store::open(&path, &alice).unwrap();
-        assert!(store.send_profile_views().unwrap());
-        assert_eq!(store.notice_content().unwrap(), NoticeContent::Text);
-        assert!(!store.send_typing().unwrap() && !store.notifications().unwrap());
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
         assert!(!store.passed(&peer).unwrap());
-        store.set_send_profile_views(false).unwrap();
-        drop(store);
-        let store = Store::open(&path, &alice).unwrap();
-        assert!(!store.send_profile_views().unwrap());
-        let other = Store::open(&temp_db_path(), &bob).unwrap();
-        assert!(!other.send_profile_views().unwrap());
-        assert!(other.send_typing().unwrap() && other.notifications().unwrap());
+        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
         assert!(!other.passed(&peer).unwrap());
     }
 
@@ -752,7 +784,7 @@ pub(crate) mod tests {
         ));
     }
 
-    fn person() -> (Identity, Device, VerifiedProfile) {
+    pub(super) fn person() -> (Identity, Device, VerifiedProfile) {
         let identity = Identity::generate();
         let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
         let profile = Profile {
@@ -762,75 +794,6 @@ pub(crate) mod tests {
         }
         .sign(&identity);
         (identity, device, dyapp_profile::verify(&profile).unwrap())
-    }
-
-    #[test]
-    fn group_catalog_reopens_a_sealed_group_and_rejects_mismatches() {
-        let path = temp_db_path();
-        let (alice_id, alice, alice_profile) = person();
-        let (_, bob, bob_profile) = person();
-        let (_, _, carol_profile) = person();
-        let package = bob.key_package(false).unwrap();
-        let (group, welcome) = alice
-            .create_group(&[package], &[alice_profile.clone(), bob_profile.clone()])
-            .unwrap();
-        let group_id = group.id().to_vec();
-        let seal_key = [9; 32];
-        let sealed = alice.seal(&seal_key).unwrap();
-        let write = prepare_put(&[7; 32], welcome).unwrap();
-        let mut failed = Store::open(&temp_db_path(), &alice_id).unwrap();
-        failed
-            .db
-            .execute_batch(
-                "CREATE TRIGGER `fail_mls` BEFORE INSERT ON `mls_state`
-             BEGIN SELECT RAISE(ABORT, 'test failure'); END",
-            )
-            .unwrap();
-        assert!(matches!(
-            failed.stage_group(&group, &bob_profile, &sealed, std::slice::from_ref(&write)),
-            Err(Error::Sql(_))
-        ));
-        assert_eq!(failed.known_groups().unwrap().len(), 0);
-        assert!(failed.due_outbound(0).unwrap().is_empty());
-        let mut store = Store::open(&path, &alice_id).unwrap();
-        assert!(matches!(
-            store.stage_group(&group, &carol_profile, &sealed, &[]),
-            Err(Error::GroupConflict)
-        ));
-        assert_eq!(store.known_groups().unwrap().len(), 0);
-        assert!(matches!(
-            store.stage_group(&group, &alice_profile, &sealed, &[]),
-            Err(Error::GroupConflict)
-        ));
-        store
-            .stage_group(&group, &bob_profile, &sealed, std::slice::from_ref(&write))
-            .unwrap();
-        drop(store);
-        let store = Store::open(&path, &alice_id).unwrap();
-        assert_eq!(
-            store.known_groups().unwrap(),
-            [(group_id.clone(), bob_profile.peer_id.clone())]
-        );
-        assert_eq!(
-            store.due_outbound(0).unwrap()[0].as_bytes(),
-            write.as_bytes()
-        );
-        let opened = Device::open(&store.sealed_device().unwrap().unwrap(), &seal_key).unwrap();
-        let loaded = store.load_groups(&opened).unwrap();
-        assert_eq!(loaded[0].0.id(), group_id);
-        assert_eq!(loaded[0].1, bob_profile.peer_id);
-        assert!(matches!(store.load_groups(&bob), Err(Error::GroupMismatch)));
-        store
-            .db
-            .execute(
-                "UPDATE `conversation_groups` SET `peer_id` = ?1 WHERE `group_id` = ?2",
-                rusqlite::params![carol_profile.peer_id, group_id],
-            )
-            .unwrap();
-        assert!(matches!(
-            store.load_groups(&opened),
-            Err(Error::GroupMismatch)
-        ));
     }
 
     #[test]

@@ -338,11 +338,12 @@ mod tests {
             seeds: vec![format!("127.0.0.1:{port}/{peer}")],
             name: String::new(),
         };
-        // An empty record would store as nothing held.
-        let record = dyapp_identity::SignedRecord {
-            signature: vec![1],
+        // Queue admission requires an authenticated same-owner profile.
+        let record = dyapp_profile::Profile {
+            version: 1,
             ..Default::default()
-        };
+        }
+        .sign(&key.identity);
         let held = on_network_stack(|| {
             let store = store;
             let runtime = tokio::runtime::Builder::new_current_thread()

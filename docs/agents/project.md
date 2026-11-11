@@ -273,6 +273,10 @@ capture per port across restarts. Raw failure evidence includes node-port header
 
 ## Limits to keep in mind
 
+For collections implementing `Debug`, Clippy's `assert_is_empty` requires comparing with a typed
+empty collection using `assert_eq!`, so failures show the actual values. Boolean `is_empty()`
+assertions are retained only where that diagnostic comparison is unavailable.
+
 When an approved new Rust dependency is absent from the prepared offline image, fetch a minimal
 probe under `build/` with its own writable `CARGO_HOME`. If a cache refresh is authorized, a small
 Docker layer copying that registry into the existing prepared image preserves its source paths

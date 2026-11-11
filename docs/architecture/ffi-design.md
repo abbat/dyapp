@@ -296,6 +296,11 @@ beyond all known versions with checked arithmetic, preserves stronger proof/curr
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
 failure leaves that local projection unchanged. Later network completion/withdrawal writes still
 require their own migration before frontend monitors can be removed.
+Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
+version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
+forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own
+transaction, including the remembered version floor. This does not serialize later network
+completion's draft or hidden-flag writes.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

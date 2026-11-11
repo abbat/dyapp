@@ -123,6 +123,7 @@ fn final_visibility_write_failure_rolls_back_draft_and_search_projection() {
     assert!(error.to_string().contains("hide flag refused"));
     assert_eq!(saved(&store), before);
     assert_eq!(projection(&store), old_projection);
+    assert_eq!(store.known_search_version().unwrap(), 1);
     assert!(!store.profile_hidden().unwrap());
 }
 
@@ -183,7 +184,7 @@ fn another_owner_cannot_sign_a_hide_for_this_store() {
     ));
     assert_eq!(saved(&store), before);
     assert!(!store.profile_hidden().unwrap());
-    assert_eq!(store.held_search_version().unwrap(), 0);
+    assert_eq!(store.known_search_version().unwrap(), 0);
 }
 
 #[test]
@@ -201,7 +202,7 @@ fn exhausted_version_refuses_hide_without_any_projection_changes() {
     ));
     assert_eq!(saved(&store), before);
     assert!(!store.profile_hidden().unwrap());
-    assert_eq!(store.held_search_version().unwrap(), 0);
+    assert_eq!(store.known_search_version().unwrap(), 0);
 }
 
 #[test]
@@ -213,8 +214,12 @@ fn malformed_held_profile_is_not_silently_replaced() {
         ..Profile::default()
     };
     store.save_profile_draft(&before).unwrap();
+    // Inject malformed persisted state without going through validated record admission.
     store
-        .hold_search_profile(&identity.sign(Domain::Profile, vec![0xFF]))
+        .set_search_publish(&crate::store::search_publish::State {
+            pending: Some(identity.sign(Domain::Profile, vec![0xFF])),
+            ..Default::default()
+        })
         .unwrap();
     assert!(matches!(
         store.hide_profile_draft(&identity, &before),
