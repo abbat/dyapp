@@ -4,11 +4,10 @@ use crate::profile_draft::database;
 use crate::profile_publish::{block_at, today};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
-use dyapp_client::store::Store;
+use dyapp_client::store::{ProfilePublication, Store};
 use dyapp_client::{publish, search, Node};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::{seed, Protocols};
-use dyapp_profile::Profile;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -132,15 +131,22 @@ pub(crate) fn on_network_stack<T: Send>(
 }
 
 /// The saved draft, once the publish gate at today's date and its proof allow publishing it.
-pub(crate) fn publishable_draft(store: &Store, attested: bool) -> Result<Profile, CoreError> {
-    let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
-    if let Some(reason) = block_at(&draft, attested, today()?) {
+pub(crate) fn publishable_attempt(
+    store: &Store,
+    identity: &dyapp_identity::Identity,
+    attested: bool,
+) -> Result<ProfilePublication, CoreError> {
+    let attempt = store
+        .prepare_profile_publication(identity)
+        .map_err(failed)?;
+    let draft = attempt.draft();
+    if let Some(reason) = block_at(draft, attested, today()?) {
         return Err(CoreError::Failed(format!("blocked: {reason}")));
     }
     if draft.pow_bits < dyapp_profile::required_pow_bits() {
         return Err(CoreError::Failed("unsolved".into()));
     }
-    Ok(draft)
+    Ok(attempt)
 }
 
 /// Per-identity publisher network session; its calls block and run off the UI thread.
@@ -203,16 +209,17 @@ impl ProfilePublisher {
     ) -> Result<ProfilePublished, CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
-        let draft = publishable_draft(&store, attested)?;
+        let attempt = publishable_attempt(&store, &key.identity, attested)?;
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             // The connection is Send but not Sync, so it moves to the network thread.
             let store = store;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let published = publish::publish(&store, &mut node, &key.identity, &draft)
+                let outcome = publish::publish_prepared(&store, &mut node, &key.identity, &attempt)
                     .await
                     .map_err(failed)?;
+                let published = outcome.published;
                 send_held(&store, &mut node, &network).await?;
                 Ok(published)
             })

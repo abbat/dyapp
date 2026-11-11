@@ -285,12 +285,19 @@ together, rolling all three back on failure. Native and desktop proof solvers us
 atomic merge into the latest draft. Per-difficulty cursors stay separate from valid proof nonces;
 late pending/weaker work cannot downgrade a stronger proof or replace fields/photos/devices.
 The prepared value is owner-bound, and cursor/draft commit failures roll back together. Tauri editor
-saves also apply their validated fields/interests inside the same latest-draft transaction. Publication
-still requires adoption before frontend monitors can be removed; shared desktop normalization remains
-separate work. Post-publication blob pruning already retains the union of published/current-draft
-hashes under writer ownership, validates the exact blob namespace/key/format and rolls back on failure.
-The internal pruning helper composes inside a larger writer transaction. The earlier publication
-readback-to-draft replacement still requires migration; pruning does not make that stage safe.
+saves also apply their validated fields/interests inside the same latest-draft transaction. Own
+publication now captures `ProfilePublication` draft/visibility before the first network await in
+foreground native and Tauri publishers. Device enrichment changes only its request, never its
+stored baseline. Verified readback commits through one immediate transaction: post-prepare local
+value changes win per scalar or coupled location/income/birth/seeking/photo/device-directory group,
+stronger proof survives, and draft/search/visibility/blob retention commit or roll back together.
+The exhaustive profile constructor makes new wire fields require an explicit overlay decision.
+`ProfilePublicationOutcome` separates exact published values from the current draft and pending flag;
+UniFFI's existing published payload remains exact remote output. Adapter pending UX and remaining
+foreign/revocation/adoption paths still require migration before frontend monitors can be removed.
+Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
+Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
+namespace/key/format and rolls back on failure. Shared desktop normalization remains separate work.
 Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
 beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
@@ -304,13 +311,13 @@ never retries beyond the accepted tombstone version, protecting newer remote pub
 Publication, hidden linked-device adoption and stale media retries use checked version arithmetic
 and report exhaustion rather than wrapping. Adoption checks this before fetching photos or replacing
 the draft; earlier link-state import still applies. The largest visible remote version remains valid.
-Ordinary publication, foreign imports and device relisting still require completion migration
-before frontend monitors can be removed.
+Foreign imports, adoption/revocation prefixes and remaining prepared-outcome adapters still require
+migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own
-transaction, including the remembered version floor. Ordinary publication completion still
-requires the shared projection contract for its draft and hidden-flag writes.
+transaction, including the remembered version floor. Own publication/relist completion uses that
+same queue helper inside the draft/visibility/blob transaction.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

@@ -7,7 +7,7 @@ use super::{
 };
 use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
-    active_network, connect, on_network_stack, publishable_draft, send_held, ProfilePublished,
+    active_network, connect, on_network_stack, publishable_attempt, send_held, ProfilePublished,
 };
 use crate::{CoreError, FoundProfile, PublicProfileDraft};
 use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, publish, session::Session};
@@ -26,18 +26,25 @@ impl ChatSession {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        let mut draft = publishable_draft(session.store(), attested)?;
+        let mut attempt = publishable_attempt(session.store(), &self.key.identity, attested)?;
         let owner = self.key.identity.public_key();
         let binding = dyapp_client::owner_binding(&self.device_key.identity, &owner);
-        session.list_self(&mut draft, binding).map_err(failed)?;
+        session
+            .list_self(attempt.draft_mut(), binding)
+            .map_err(failed)?;
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let published =
-                    publish::publish(session.store(), &mut node, &self.key.identity, &draft)
-                        .await
-                        .map_err(publish_failed)?;
+                let published = publish::publish_prepared(
+                    session.store(),
+                    &mut node,
+                    &self.key.identity,
+                    &attempt,
+                )
+                .await
+                .map_err(publish_failed)?
+                .published;
                 session
                     .store()
                     .note_device_listed(published.version)

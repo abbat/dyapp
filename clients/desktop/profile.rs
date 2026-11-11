@@ -540,10 +540,12 @@ pub async fn publish(
     bits: u32,
 ) -> Result<View, String> {
     let store = open(dir, identity)?;
-    let mut draft = stored(&store)?;
+    let mut attempt = store
+        .prepare_profile_publication(identity)
+        .map_err(|e| e.to_string())?;
     let today = today()?;
-    publish::check(&draft, attested, today).map_err(blocked)?;
-    if draft.pow_bits < bits {
+    publish::check(attempt.draft(), attested, today).map_err(blocked)?;
+    if attempt.draft().pow_bits < bits {
         return Err("unsolved".into());
     }
     let active = network::load(dir, Settings::Active)
@@ -555,13 +557,14 @@ pub async fn publish(
         .map_err(|e| e.to_string())?;
     session
         .list_self(
-            &mut draft,
+            attempt.draft_mut(),
             dyapp_client::owner_binding(device_key, &identity.public_key()),
         )
         .map_err(|e| e.to_string())?;
-    let published = publish::publish(session.store(), &mut node, identity, &draft)
+    let published = publish::publish_prepared(session.store(), &mut node, identity, &attempt)
         .await
-        .map_err(publish_code)?;
+        .map_err(publish_code)?
+        .published;
     session
         .store()
         .note_device_listed(published.version)

@@ -79,15 +79,18 @@ draft writes still hold a process-local lock around proof/publication and their 
 Shared core transactions now serialize editable saves and photo changes across database handles;
 proof solvers now merge only proof/cursor progress into the latest draft after computing outside
 writer ownership. Pending cursors do not replace a valid lower-difficulty proof. Tauri editor saves
-now apply validated fields/interests inside that same latest-draft transaction. Publication completion
-still requires adoption before frontend locks can be removed.
+now apply validated fields/interests inside that same latest-draft transaction. Own publication
+captures a baseline before network work and overlays later local photo/field edits at completion.
+Foreign/import paths and pending-outcome adapters still require adoption before frontend locks go.
 
 Blob cleanup itself holds an immediate SQLite writer transaction while reading the latest draft
 and pruning. It retains the union of the supplied published hashes and current draft hashes.
 Invalid references, noncanonical blob keys or unsupported blob formats refuse cleanup; any failure
 rolls back the entire batch. Key selection uses the exact case-sensitive `profile_photo:` namespace,
-not SQL `LIKE` wildcard matching. This protects photos added before cleanup; publication's earlier
-whole-draft replacement still requires migration to preserve edits made during network requests.
+not SQL `LIKE` wildcard matching. Own-publication completion now includes this cleanup in the
+same transaction as the merged current draft, search queue and visibility. Current photo order and
+bytes survive edits during network work, while exact published references also remain protected.
+A cleanup failure rolls back all those local projections. Foreign/import projection is still separate.
 Local hide already reads the latest draft and atomically commits its new version/search/hidden state,
 preserving photos and other concurrent local edits instead of copying the caller's old snapshot.
 

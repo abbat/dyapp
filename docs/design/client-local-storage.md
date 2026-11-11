@@ -248,6 +248,18 @@ an existing sufficient proof. Pending cursors never occupy `Profile.pow_nonce`/`
 remain a proof pair. Cursor and draft writes roll back together. Native and desktop solvers share
 this core API; unrelated targets do not consume each other's resume positions.
 
+Own publication prepares an owner-bound `ProfilePublication` with draft and visibility in one
+read snapshot, before network work. Its request can acquire this device's certificate/binding without
+changing the baseline. On exact readback, an immediate transaction overlays current value changes
+against that baseline, preserving independent scalars and whole location/income/birth/seeking/photo/
+device-directory groups, including employer fields and interests. Current removals never get a blind
+device union. The stronger proof pair survives. A newer version/visibility or conflicting equal
+completion refuses local mutation; remote publication may already have succeeded. Draft, exact
+search record (or higher hidden tombstone), hidden flag and protected blob pruning commit together.
+The outcome returns exact published data separately from the current draft and pending flag.
+Legacy wrappers capture at invocation; foreground native/Tauri callers use the earlier prepared API.
+Foreign imports, linked-device adoption/revocation and adapter pending UX remain migration work.
+
 `search_publish` holds the search publish window: the last time search nodes accepted the profile,
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and
@@ -277,8 +289,8 @@ this installation's withdrawal after ACK when a stronger local proof would rebui
 tombstone bytes, allowing the next publication without a false foreign-profile conflict. A different
 same-version tombstone still counts as foreign; canonical equality supports legacy state.
 Best-effort remote photo-list release stays at the accepted
-tombstone version and never advances past a refusal. Ordinary publication, foreign-profile imports
-and device relisting still need their own completion migration. Every publication/media retry
+tombstone version and never advances past a refusal. Foreign-profile imports and device-adoption/
+revocation prefixes still need their own projection migration. Every publication/media retry
 version advance is checked: an exhausted counter fails explicitly without wrapping. Visible
 adoption accepts a remote version of `u64::MAX`; hidden adoption must advance it and refuses
 before photo fetching or draft replacement, while earlier link-state import remains applied.

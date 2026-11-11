@@ -5,7 +5,7 @@
 //! cancelled publish resumes where it stopped), then [`publish`].
 
 use crate::store::profile_photos::{fits, MAX_PHOTO_BYTES};
-use crate::store::{self, Store};
+use crate::store::{self, ProfilePublication, ProfilePublicationOutcome, Store};
 use crate::{Error, Node};
 use dyapp_identity::{key_hash, Identity, SignedRecord};
 use dyapp_p2p_net::proto::Status;
@@ -121,10 +121,13 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 /// back. A profile another device published first is never overwritten: it replaces the saved
 /// draft and the publish fails with [`Failure::Missed`]. A node holding less than this device has
 /// seen is refused, since it may have lost a device list change.
-/// Succeeds only when the signed readback equals the published profile, which is then
-/// saved as the draft and held for search ([`Store::hold_search_profile`]). A failure may leave
-/// remote publication or local updates applied; the publish may be retried. A hidden profile is
-/// shown again. Photos reach the node first, so the profile never lists a blob the node has
+/// Succeeds only when signed readback equals the submitted profile. Own completion atomically
+/// preserves post-start draft value changes, queues exact published data and projects visibility
+/// and protected photo cleanup. The return value is the exact published profile, not pending edits.
+/// This compatibility wrapper captures at invocation; callers with earlier awaits use
+/// [`publish_prepared`]. A failure may follow remote success; local completion rolls back together.
+/// A hidden profile is shown again unless a newer local operation superseded this completion.
+/// Photos reach the node first, so the profile never lists a blob the node has
 /// refused; blobs the published profile no longer lists then leave the store.
 ///
 /// # Errors
@@ -140,7 +143,38 @@ pub async fn publish(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    send_draft(store, node, identity, draft, false).await
+    let mut attempt = store.prepare_profile_publication(identity)?;
+    *attempt.draft_mut() = draft.clone();
+    Ok(publish_prepared(store, node, identity, &attempt)
+        .await?
+        .published)
+}
+
+/// Publish a prepared request captured before earlier network work, returning exact and pending state.
+///
+/// # Errors
+/// Returns the same network/storage failures as [`publish`], or a superseded local completion.
+/// Remote publication can succeed before local completion is refused.
+pub async fn publish_prepared(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    attempt: &ProfilePublication,
+) -> Result<ProfilePublicationOutcome, Failure> {
+    send_prepared(store, node, identity, attempt, false).await
+}
+
+/// Relist a prepared device change, retaining the visibility captured with its baseline.
+///
+/// # Errors
+/// Returns the same publication/completion errors as [`publish_prepared`].
+pub async fn relist_prepared(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    attempt: &ProfilePublication,
+) -> Result<ProfilePublicationOutcome, Failure> {
+    send_prepared(store, node, identity, attempt, attempt.hidden()).await
 }
 
 /// [`publish`] a device list change, which leaves a hidden profile hidden. Returns the new draft.
@@ -155,7 +189,11 @@ pub async fn relist(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    send_draft(store, node, identity, draft, store.profile_hidden()?).await
+    let mut attempt = store.prepare_profile_publication(identity)?;
+    *attempt.draft_mut() = draft.clone();
+    Ok(relist_prepared(store, node, identity, &attempt)
+        .await?
+        .draft)
 }
 
 /// Revokes the owner's device with the mailbox key `device_key`: closes its mailbox, then [`relist`]s
@@ -225,20 +263,15 @@ pub async fn adopt(
     Ok(draft)
 }
 
-async fn send_draft(
+async fn send_prepared(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
-    draft: &Profile,
+    attempt: &ProfilePublication,
     stay_hidden: bool,
-) -> Result<Profile, Failure> {
-    let next = Profile {
-        version: draft
-            .version
-            .checked_add(1)
-            .ok_or(store::Error::ProfileVersionExhausted)?,
-        ..draft.clone()
-    };
+) -> Result<ProfilePublicationOutcome, Failure> {
+    let draft = attempt.draft();
+    let next = store.profile_publication_record(identity, attempt)?;
     let held = newest(node, identity).await?;
     let seen = held.as_ref().map_or(0, |held| held.version);
     if store.own_profile_seen()? > seen.max(draft.version) {
@@ -256,14 +289,7 @@ async fn send_draft(
         upload_photos(store, node, identity, next.version, &hashes).await?;
     }
     let profile = send(node, identity, next).await?;
-    store.save_profile_draft(&profile)?;
-    store.retain_profile_photos(&hashes)?;
-    if stay_hidden {
-        return hide(store, identity, &profile);
-    }
-    store.hold_search_profile(&profile.sign(identity))?;
-    store.set_profile_hidden(false)?;
-    Ok(profile)
+    Ok(store.commit_profile_publication(identity, attempt, &profile, stay_hidden)?)
 }
 
 // Equal hidden versions are foreign except our withdrawal. Its exact remembered bytes also
@@ -505,6 +531,8 @@ mod tests {
 
     #[path = "node.rs"]
     mod node;
+    #[path = "publication_tests.rs"]
+    mod publication_tests;
     #[path = "version_tests.rs"]
     mod version_tests;
     #[path = "withdrawal_identity_tests.rs"]
