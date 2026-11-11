@@ -33,9 +33,13 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.FoundProfile
@@ -176,17 +180,30 @@ private suspend fun sample(
 
 /** One identity's search; the shell owns it so the results outlive the pages opened over them. */
 internal class SearchSession(private val opened: Opened.Ready, private val scope: CoroutineScope) {
-    // The searcher keeps verified versions, so a later sample never shows an older one.
-    private val searcher = runCatching { opened.profileSearcher() }
+    // The owned searcher keeps verified versions across pages and successive samples.
+    private val searcher = CompletableDeferred<Result<ProfileSearcher>>()
     private var job: Job? = null
-    val photos = PeerPhotos(searcher.getOrNull(), opened)
+    var photos by mutableStateOf(PeerPhotos(null, opened))
+        private set
     val filters = SearchFilters(profileScales())
     var state by mutableStateOf<SearchState>(SearchState.Idle)
         private set
+    private val owner = scope.launch {
+        runCatching {
+            withNativeResource(opened::profileSearcher) { ready ->
+                photos = PeerPhotos(ready, opened)
+                searcher.complete(Result.success(ready))
+                awaitCancellation()
+            }
+        }.onFailure {
+            currentCoroutineContext().ensureActive()
+            searcher.complete(Result.failure(it))
+        }
+    }
 
     fun run() {
         state = SearchState.Loading
-        job = scope.launch { state = sample(opened, searcher, filters) }
+        job = scope.launch { state = sample(opened, searcher.await(), filters) }
     }
 
     fun cancel() {
@@ -195,14 +212,15 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
     }
 
     fun close() {
-        searcher.getOrNull()?.close()
+        job?.cancel()
+        owner.cancel()
     }
 }
 
 @Composable
 internal fun rememberSearchSession(opened: Opened.Ready): SearchSession {
     val scope = rememberCoroutineScope()
-    val session = remember(opened.slot.id) { SearchSession(opened, scope) }
+    val session = remember(opened, scope) { SearchSession(opened, scope) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session
 }
