@@ -3,9 +3,8 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use dyapp_client::chat::MAX_TEXT_BYTES;
+use dyapp_client::forwarding::{self, Source};
 use dyapp_client::session::Session;
-use dyapp_client::store::messages::ChatMessage;
 use dyapp_client::store::{Conversation, Store};
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Settings};
@@ -13,25 +12,6 @@ use dyapp_identity::Identity;
 
 use crate::profile;
 use crate::search::ProfileCache;
-
-fn source_text(
-    messages: &[ChatMessage],
-    group_id: &[u8],
-    author: &str,
-    message_id: [u8; 16],
-) -> Result<Vec<u8>, String> {
-    messages
-        .iter()
-        .find(|message| {
-            message.key.group.as_slice() == group_id
-                && message.key.author.as_str() == author
-                && message.key.id == message_id
-                && !message.current.deleted
-        })
-        .and_then(|message| message.current.text.clone())
-        .filter(|text| !text.is_empty() && text.len() <= MAX_TEXT_BYTES)
-        .ok_or("unknownMessage".into())
-}
 
 /// The Session, node and sealing key for a send into `target_peer`, once the chat is open and
 /// unblocked and both profiles are published.
@@ -97,18 +77,18 @@ async fn forward(
     source_message: [u8; 16],
     target_peer: &str,
 ) -> Result<[u8; 16], String> {
-    if source_peer == target_peer || target_peer == identity.peer_id() {
-        return Err("invalidTarget".into());
-    }
-    let store = super::open_visible_chat(dir, identity, source_peer)?;
-    let text = source_text(
-        &store
-            .current_chat_messages(source_peer)
-            .map_err(|e| e.to_string())?,
-        source_group,
-        source_author,
-        source_message,
-    )?;
+    let store = super::open(dir, identity)?;
+    let text = forwarding::prepare(
+        &store,
+        Source {
+            peer: source_peer,
+            group: source_group,
+            author: source_author,
+            id: &source_message,
+        },
+        target_peer,
+    )
+    .map_err(|error| error.to_string())?;
     let (mut session, mut node, seal_key) =
         open_session(cache, root, dir, identity, device_key, store, target_peer).await?;
     session
@@ -163,44 +143,4 @@ pub(crate) async fn forward_chat_text(
     })
     .await
     .map_err(|e| e.to_string())?
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use dyapp_client::store::messages::{CurrentMessage, MessageKey};
-
-    #[test]
-    fn forward_source_must_match_live_message_and_author() {
-        let message = ChatMessage {
-            key: MessageKey {
-                group: vec![1],
-                author: "sender".into(),
-                id: [2; 16],
-            },
-            current: CurrentMessage {
-                text: Some(b"words".to_vec()),
-                edited: false,
-                deleted: false,
-            },
-            original_hlc: None,
-            unread: false,
-            forwarded: false,
-            delivery: None,
-        };
-        assert_eq!(
-            source_text(std::slice::from_ref(&message), &[1], "sender", [2; 16]),
-            Ok(b"words".to_vec())
-        );
-        assert!(source_text(std::slice::from_ref(&message), &[1], "other", [2; 16]).is_err());
-        assert!(source_text(std::slice::from_ref(&message), &[3], "sender", [2; 16]).is_err());
-        assert!(source_text(std::slice::from_ref(&message), &[1], "sender", [3; 16]).is_err());
-        let mut deleted = message;
-        deleted.current = CurrentMessage {
-            text: None,
-            edited: false,
-            deleted: true,
-        };
-        assert!(source_text(&[deleted], &[1], "sender", [2; 16]).is_err());
-    }
 }

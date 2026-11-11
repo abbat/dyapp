@@ -11,6 +11,7 @@ pub mod chat_composer;
 pub mod compatibility;
 pub mod contact_notes;
 pub mod favorites;
+pub mod forwarding;
 pub mod identity_slots;
 pub mod interactions;
 /// The device link code and record.

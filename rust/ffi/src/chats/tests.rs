@@ -6,6 +6,8 @@ use crate::WrapError;
 mod contact_notes;
 #[path = "tests/favorites.rs"]
 mod favorites;
+#[path = "tests/forwarding.rs"]
+mod forwarding;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {
