@@ -165,7 +165,7 @@ internal class ProfileViewTests : ProfileViewFixture() {
     }
 }
 
-internal class ProfileLoadTests : ProfileViewFixture() {
+internal class ProfileLoadViewTests : ProfileViewFixture() {
     @Test
     fun aProfileNotFetchedOffersARetry() {
         show(ProfileLoad.Missing)
