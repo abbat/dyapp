@@ -114,6 +114,17 @@ run actually returns. These checks only use identity-owned network settings and 
 or configure the installation node. Explicit directory constructors and Android/Apple checker
 adoption remain separate work.
 
+`ProfileSearcher.for_slot` binds searches, contact-name reads and network profile/photo fetches
+without retaining a lease while idle. `search_slot` and `contact_names_slot` obtain the verified
+key inside the admitted call, so callers must not wrap them in another identity lease. Existing
+explicit-key methods reject a key from another identity on a bound worker before database access.
+All bound-worker disk/network calls admit themselves; callers must release external identity leases
+before invoking them. In particular, Android search and contact-name calls must switch from their
+old `withKey` wrappers to these keyless methods when adopting the bound factory.
+Pure cached-photo reads and requests already satisfied in memory do not acquire a registry lease;
+network work reacquires protection before reading settings. A stale worker cannot recreate removed
+data or access a replacement identity. Android/Apple search factory adoption remains planned.
+
 ## Which source is the contract
 
 | Source | Status |

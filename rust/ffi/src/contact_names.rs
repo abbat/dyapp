@@ -97,12 +97,20 @@ impl ProfileSearcher {
         key: Arc<IdentityKey>,
         peer_ids: Vec<String>,
     ) -> Result<Vec<ContactNameView>, CoreError> {
-        let cache = self.cache.lock().map_err(failed)?;
-        let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
-        peer_ids
-            .into_iter()
-            .map(|peer_id| view(&store, cache.get(&peer_id), peer_id))
-            .collect()
+        let _operation = self.admit(Some(&key))?;
+        self.read_contact_names(&key, peer_ids)
+    }
+
+    /// Read local/cached names using this bound identity without an external key or lease.
+    ///
+    /// # Errors
+    /// Returns unbound-worker, admission, database or cache errors.
+    pub fn contact_names_slot(
+        &self,
+        peer_ids: Vec<String>,
+    ) -> Result<Vec<ContactNameView>, CoreError> {
+        let operation = self.bound_operation()?;
+        self.read_contact_names(&operation.key(), peer_ids)
     }
 
     /// The verified profiles of `peer_ids` from the active network, in that order, kept in memory
@@ -115,6 +123,10 @@ impl ProfileSearcher {
     /// entry node answers, or cache locking fails. Individual unavailable profiles
     /// are omitted from the result.
     pub fn profiles(&self, peer_ids: Vec<String>) -> Result<Vec<FoundProfile>, CoreError> {
+        if peer_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let _operation = self.admit(None)?;
         let found = fetch_profiles(&self.runtime, &self.dir, peer_ids)?;
         let mut cache = self.cache.lock().map_err(failed)?;
         Ok(found
@@ -129,22 +141,34 @@ impl ProfileSearcher {
     }
 }
 
+impl ProfileSearcher {
+    fn read_contact_names(
+        &self,
+        key: &IdentityKey,
+        peer_ids: Vec<String>,
+    ) -> Result<Vec<ContactNameView>, CoreError> {
+        let cache = self.cache.lock().map_err(failed)?;
+        let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
+        peer_ids
+            .into_iter()
+            .map(|peer_id| view(&store, cache.get(&peer_id), peer_id))
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use dyapp_identity::Identity;
     use dyapp_profile::{Photo, Profile};
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn a_local_name_wins_and_a_public_name_needs_a_cached_profile_and_carries_its_mark() {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-names-{nanos}"));
-        std::fs::create_dir_all(&dir).unwrap();
         let key = IdentityKey::generate();
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/native-contact-name-tests")
+            .join(key.peer_id());
+        std::fs::create_dir_all(&dir).unwrap();
         let bob = Identity::generate();
         let peer = bob.peer_id();
         let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();

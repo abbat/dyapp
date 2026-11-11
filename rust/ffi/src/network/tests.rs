@@ -51,7 +51,7 @@ pub(crate) fn node() -> (u16, String) {
 }
 
 // Seed rows dial both TCP and QUIC; reserve both ports so another test cannot answer either.
-fn reserved_endpoint() -> (TcpListener, std::net::UdpSocket) {
+pub(crate) fn reserved_endpoint() -> (TcpListener, std::net::UdpSocket) {
     for _ in 0..8 {
         let tcp = TcpListener::bind("127.0.0.1:0").unwrap();
         match std::net::UdpSocket::bind(tcp.local_addr().unwrap()) {
@@ -124,7 +124,7 @@ fn connected_draft(dir: &str, check: &ConnectionCheck) {
     );
 }
 
-fn reject_handshake(listener: TcpListener) -> std::thread::JoinHandle<()> {
+pub(crate) fn reject_handshake(listener: TcpListener) -> std::thread::JoinHandle<()> {
     listener.set_nonblocking(true).unwrap();
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()

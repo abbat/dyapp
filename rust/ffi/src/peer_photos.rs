@@ -153,6 +153,7 @@ impl ProfileSearcher {
         if wanted.is_empty() {
             return Ok(());
         }
+        let _operation = self.admit(None)?;
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
@@ -257,12 +258,41 @@ mod tests {
     }
 
     #[test]
-    fn only_a_missing_well_formed_hash_needs_the_network() {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+    fn cached_photos_survive_only_in_memory_without_retaining_an_identity_lease() {
+        use crate::slot_registry_tests::{root, Credentials};
+        use crate::{MobileIdentityRegistry, MobileSlotLayout};
+        let root = root();
+        let registry = MobileIdentityRegistry::new(
+            root.to_str().unwrap().to_owned(),
+            MobileSlotLayout::Android,
+            Arc::new(Credentials::default()),
+        );
+        let created = registry.create().unwrap();
+        let worker = ProfileSearcher::for_slot(
+            registry.clone(),
+            created.slot.id.clone(),
+            created.key.peer_id(),
+        )
+        .unwrap();
+        let hash = vec![7; 32];
+        worker
+            .photos
+            .lock()
             .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-peer-photos-{nanos}"));
+            .put(hash.clone(), vec![1], false);
+        registry
+            .remove(created.slot.id, Some(created.key.peer_id()))
+            .unwrap();
+        assert_eq!(worker.peer_photo(hash.clone()).unwrap(), vec![1]);
+        assert!(worker.fetch_peer_photos(vec![hash], false).is_ok());
+        assert!(!std::path::Path::new(&created.slot.directory).exists());
+    }
+
+    #[test]
+    fn only_a_missing_well_formed_hash_needs_the_network() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/native-peer-photo-tests")
+            .join(IdentityKey::generate().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_str().unwrap().to_owned();
         let searcher = ProfileSearcher::new(path.clone()).unwrap();

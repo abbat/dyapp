@@ -1,7 +1,7 @@
 //! Fixtures cross the exported registry and opaque-key callback boundary.
 
 mod chats;
-mod workers;
+pub(crate) mod workers;
 
 use crate::{
     IdentityKey, KeyStore, MobileIdentityRegistry, MobileSlotKeys, MobileSlotLayout,

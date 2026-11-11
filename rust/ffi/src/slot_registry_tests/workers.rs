@@ -4,15 +4,15 @@ use std::fs::{self, OpenOptions, TryLockError};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
-struct Gate {
-    entered: Sender<()>,
-    resume: Receiver<()>,
+pub(crate) struct Gate {
+    pub(crate) entered: Sender<()>,
+    pub(crate) resume: Receiver<()>,
 }
 
 #[derive(Default)]
-struct WorkerCredentials {
+pub(crate) struct WorkerCredentials {
     keys: Credentials,
-    gate: Mutex<Option<Gate>>,
+    pub(crate) gate: Mutex<Option<Gate>>,
 }
 
 impl MobileSlotKeys for WorkerCredentials {
