@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.get
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -25,7 +26,7 @@ class PhotoPrepTests {
             val photo = preparePhoto(encoded(40, 20, picked, Bitmap.CompressFormat.PNG))
             val bitmap = requireNotNull(BitmapFactory.decodeByteArray(photo.full, 0, photo.full.size))
             try {
-                assertRgb(expected, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
+                assertRgb(expected, bitmap[bitmap.width / 2, bitmap.height / 2])
                 assertEquals(bitmap.width.toUInt(), photo.width)
                 assertEquals(bitmap.height.toUInt(), photo.height)
                 val preview = checkPreview(photo.thumbnail)
@@ -73,8 +74,8 @@ class PhotoPrepTests {
             assertEquals(photo.height, photo.width * 2u)
             val decoded = requireNotNull(BitmapFactory.decodeByteArray(photo.full, 0, photo.full.size))
             try {
-                assertRgb(Color.RED, decoded.getPixel(decoded.width / 2, decoded.height / 4))
-                assertRgb(Color.BLUE, decoded.getPixel(decoded.width / 2, decoded.height * 3 / 4))
+                assertRgb(Color.RED, decoded[decoded.width / 2, decoded.height / 4])
+                assertRgb(Color.BLUE, decoded[decoded.width / 2, decoded.height * 3 / 4])
             } finally {
                 decoded.recycle()
             }

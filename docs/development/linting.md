@@ -416,7 +416,7 @@ Android Lint runs with the native Android builds. Profile metadata labels use ex
 mapping and both resource locales when a scale or choice changes; native tests compare the
 complete resource set with the Rust metadata. Kotlin binding generation uses
 `clients/android/uniffi.toml` for the Android cleaner and its API 34 guard/JNA fallback.
-Gradle 9.9.0 is pinned with the official distribution SHA256. Whole-project unused
+Gradle 9.9.1 is pinned with the official distribution SHA256. Whole-project unused
 non-private Kotlin declaration analysis remains planned.
 
 Detekt parses Kotlin but does not compile it: after API refactors, native Android CI or a
