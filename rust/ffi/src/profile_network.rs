@@ -23,6 +23,27 @@ pub struct ProfilePublished {
     pub draft: PublicProfileDraft,
     /// The verified published version.
     pub version: u64,
+    /// Current persisted editor fields, separately from the accepted public preview.
+    pub current_draft: PublicProfileDraft,
+    /// Current local version, possibly advanced by a later hide or publication.
+    pub current_version: u64,
+    /// Current local search visibility from the same snapshot as `current_draft`.
+    pub hidden: bool,
+    /// Current content differs from the accepted profile, excluding version-only changes.
+    pub pending: bool,
+}
+
+impl ProfilePublished {
+    pub(crate) fn from_outcome(outcome: &dyapp_client::store::ProfilePublicationOutcome) -> Self {
+        Self {
+            draft: PublicProfileDraft::from(&outcome.published),
+            version: outcome.published.version,
+            current_draft: PublicProfileDraft::from(&outcome.draft),
+            current_version: outcome.draft.version,
+            hidden: outcome.hidden,
+            pending: outcome.pending,
+        }
+    }
 }
 
 /// Whether a profile was published and is hidden from search now.
@@ -221,13 +242,12 @@ impl ProfilePublisher {
                     .map_err(failed)?;
                 let published = outcome.published;
                 send_held(&store, &mut node, &network).await?;
-                Ok(published)
+                store
+                    .profile_publication_state(&key.identity, &published)
+                    .map_err(failed)
             })
         })?;
-        Ok(ProfilePublished {
-            draft: PublicProfileDraft::from(&published),
-            version: published.version,
-        })
+        Ok(ProfilePublished::from_outcome(&published))
     }
 
     /// Hide the profile from search with a signed tombstone, sent once the search window has
@@ -303,6 +323,36 @@ impl ProfilePublisher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn published_result_never_substitutes_pending_fields_for_exact_readback() {
+        let published = dyapp_profile::Profile {
+            version: 4,
+            name: "accepted".into(),
+            ..Default::default()
+        };
+        let current = dyapp_profile::Profile {
+            version: 5,
+            name: "pending".into(),
+            ..published.clone()
+        };
+        let result =
+            ProfilePublished::from_outcome(&dyapp_client::store::ProfilePublicationOutcome {
+                published,
+                draft: current,
+                hidden: true,
+                pending: true,
+            });
+        assert_eq!(
+            (result.draft.name.as_str(), result.version),
+            ("accepted", 4)
+        );
+        assert_eq!(
+            (result.current_draft.name.as_str(), result.current_version),
+            ("pending", 5)
+        );
+        assert!(result.hidden && result.pending);
+    }
 
     #[test]
     fn only_active_settings_can_supply_a_publisher_node() {

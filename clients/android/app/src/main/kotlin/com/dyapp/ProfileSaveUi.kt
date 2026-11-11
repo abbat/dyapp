@@ -4,6 +4,7 @@ import android.content.res.Resources
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,17 +49,8 @@ private class ProfileSaveUi(private val scope: CoroutineScope, private val resou
     }
 }
 
-// Editing or starting/completing a save clears the publication confirmations and cancels its attempt.
 @Composable
-internal fun SaveAndPublish(
-    opened: Opened.Ready,
-    visibility: VisibilityState,
-    unsaved: Boolean,
-    save: suspend () -> Int
-) {
-    val resources = LocalResources.current
-    val scope = rememberCoroutineScope()
-    val state = remember(scope, resources) { ProfileSaveUi(scope, resources) }
+private fun SaveStatus(state: ProfileSaveUi) {
     if (state.status.isNotEmpty()) {
         Text(
             state.status,
@@ -67,10 +59,30 @@ internal fun SaveAndPublish(
             }
         )
     }
-    key(state.revision, unsaved, state.saving) {
-        PublishSection(opened, visibility, unsaved || state.saving) {
+}
+
+// Editing or starting/completing a save clears the publication confirmations and cancels its attempt.
+@Composable
+internal fun SaveAndPublish(
+    opened: Opened.Ready,
+    visibility: VisibilityState,
+    editor: MutableState<ProfileEditor>,
+    persist: (ProfileDraft) -> Unit,
+) {
+    val resources = LocalResources.current
+    val lang = placeLang()
+    val scope = rememberCoroutineScope()
+    val state = remember(scope, resources) { ProfileSaveUi(scope, resources) }
+    SaveStatus(state)
+    key(state, state.revision, editor.value.unsaved, state.saving, lang) {
+        val publication = remember(visibility, editor, lang) {
+            PublishState(
+                visibility
+            ) { result -> editor.value = editor.value.afterPublication(result, lang, state.saving) }
+        }
+        PublishSection(opened, publication, editor.value.unsaved || state.saving) {
             OutlinedButton(
-                onClick = { state.start(save) },
+                onClick = { state.start { editor.value.save(persist) } },
                 modifier = Modifier.testTag("profile-save"),
                 enabled = !state.saving
             ) {

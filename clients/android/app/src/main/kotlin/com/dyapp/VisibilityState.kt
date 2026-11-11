@@ -35,9 +35,11 @@ internal class VisibilityState(version: ULong, hidden: Boolean) {
     /** The switch turned off: the publish section opens its dialog. */
     var publishAsked by mutableStateOf(false)
 
-    fun shown(published: ULong) {
-        version = published
-        hidden = false
+    /** A delayed completion must not replace a visibility action already acknowledged here. */
+    fun observed(currentVersion: ULong, currentHidden: Boolean) {
+        if (currentVersion <= version) return
+        version = currentVersion
+        hidden = currentHidden
         failure = null
     }
 }
@@ -53,8 +55,7 @@ private suspend fun hide(opened: Opened.Ready, state: VisibilityState) {
     withContext(Dispatchers.IO) {
         runCatching { RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.hide(key) } } }
     }.fold({
-        state.version = it.version
-        state.hidden = it.hidden
+        state.observed(it.version, it.hidden)
     }, { state.failure = publishError(it) })
     state.hiding = false
 }

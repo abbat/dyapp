@@ -46,7 +46,39 @@ pub struct ProfilePublicationOutcome {
     pub pending: bool,
 }
 
+impl ProfilePublicationOutcome {
+    fn snapshot(published: &Profile, draft: Profile, hidden: bool) -> Self {
+        let mut content = draft.clone();
+        content.version = published.version;
+        Self {
+            published: published.clone(),
+            pending: content != *published,
+            draft,
+            hidden,
+        }
+    }
+}
+
 impl Store {
+    /// Read current draft/visibility after follow-up network awaits, retaining exact readback.
+    ///
+    /// # Errors
+    /// Returns owner mismatch, missing/invalid persisted draft or database errors.
+    pub fn profile_publication_state(
+        &self,
+        identity: &Identity,
+        published: &Profile,
+    ) -> Result<ProfilePublicationOutcome, Error> {
+        let snapshot = self.prepare_profile_publication(identity)?;
+        let hidden = snapshot.hidden;
+        let draft = snapshot
+            .baseline
+            .ok_or(Error::ProfileCompletionSuperseded)?;
+        Ok(ProfilePublicationOutcome::snapshot(
+            published, draft, hidden,
+        ))
+    }
+
     /// Read draft and visibility from one snapshot, before publication or device enrichment.
     ///
     /// # Errors
@@ -104,7 +136,6 @@ impl Store {
             || published.clone(),
             |current| merge::merge(baseline, &current, published),
         );
-        let pending = draft != *published;
         let queued = if stay_hidden {
             draft.version = draft
                 .version
@@ -119,12 +150,11 @@ impl Store {
         self.set_profile_hidden(stay_hidden)?;
         profile_retention::retain(&transaction, &hashes, &draft)?;
         transaction.commit()?;
-        Ok(ProfilePublicationOutcome {
-            published: published.clone(),
+        Ok(ProfilePublicationOutcome::snapshot(
+            published,
             draft,
-            hidden: stay_hidden,
-            pending,
-        })
+            stay_hidden,
+        ))
     }
 
     /// Freeze and validate the exact next record before any network request.

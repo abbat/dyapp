@@ -65,7 +65,8 @@ private fun ProfileDraftForm(
 ) {
     val (saved, visibility) = snapshot
     val lang = placeLang()
-    val editor = remember(opened) { ProfileEditor(saved, lang) }
+    val editorState = remember(opened) { mutableStateOf(ProfileEditor(saved, lang)) }
+    val editor by editorState
     val (basics, more) = remember(scales) { scales.partition { it.key in BASIC_SCALES } }
     Column(
         Modifier.fillMaxSize().testTag("profile-editor").verticalScroll(rememberScrollState())
@@ -73,11 +74,11 @@ private fun ProfileDraftForm(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HideCard(opened, visibility, editor.unsaved)
-        PhotosCard(opened)
+        key(editor) { PhotosCard(opened) }
         BasicsCard(basics, editor.values, editor.birth, editor.name)
         PlaceCard(editor.place)
         MoreScales(more, editor.values)
-        SaveAndPublish(opened, visibility, editor.unsaved) { editor.save(persist) }
+        SaveAndPublish(opened, visibility, editorState, persist)
     }
 }
 

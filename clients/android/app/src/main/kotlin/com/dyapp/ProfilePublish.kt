@@ -50,7 +50,7 @@ internal fun publishError(error: Throwable): Int {
 }
 
 /** The dialog, confirmations and progress of one publication attempt over the saved draft. */
-internal class PublishState {
+internal class PublishState(val visibility: VisibilityState, private val onPublished: (ProfilePublished) -> Unit) {
     var open by mutableStateOf(false)
     var adult by mutableStateOf(false)
     var public by mutableStateOf(false)
@@ -66,6 +66,13 @@ internal class PublishState {
     /** The proof or publication failure shown, and the retry label it offers. */
     var failure by mutableStateOf<Pair<Int, Int>?>(null)
     var published by mutableStateOf<ProfilePublished?>(null)
+
+    fun completed(result: ProfilePublished) {
+        published = result
+        open = false
+        visibility.observed(result.currentVersion, result.hidden)
+        onPublished(result)
+    }
 
     fun close() {
         open = false
@@ -111,7 +118,10 @@ private suspend fun solveProof(opened: Opened.Ready, state: PublishState, attest
 }
 
 // Proves and publishes the saved draft; each attempt clears both confirmations, and success closes the dialog.
-private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState, visibility: VisibilityState) {
+private suspend fun prepareAndPublish(
+    opened: Opened.Ready,
+    state: PublishState,
+) {
     val attested = state.adult
     state.adult = false
     state.public = false
@@ -127,11 +137,7 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
                 synchronized(RustBridge.draftWrites) { RustBridge.withChats(opened) { it.publishProfile(attested) } }
             }
         }
-        result.fold({
-            state.published = it
-            state.open = false
-            visibility.shown(it.version)
-        }, { state.failure = publishError(it) to R.string.profile_retry_publish })
+        result.fold(state::completed) { state.failure = publishError(it) to R.string.profile_retry_publish }
     } finally {
         state.publishing = false
         state.running = false
@@ -148,14 +154,13 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
 @Composable
 internal fun PublishSection(
     opened: Opened.Ready,
-    visibility: VisibilityState,
+    state: PublishState,
     unsaved: Boolean,
     save: @Composable RowScope.() -> Unit,
 ) {
     val scales = remember { profileScales() }
-    val state = remember { PublishState() }
     val scope = rememberCoroutineScope()
-    PublishEffects(opened, state, visibility, unsaved)
+    PublishEffects(opened, state, state.visibility, unsaved)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         save()
         Button(onClick = { state.open = true }, Modifier.weight(1f).testTag("profile-publish"), enabled = !unsaved) {
@@ -170,7 +175,7 @@ internal fun PublishSection(
     }
     if (state.open) {
         PublishDialog(state, scales, { loadDraft(opened) }) {
-            scope.launch { prepareAndPublish(opened, state, visibility) }
+            scope.launch { prepareAndPublish(opened, state) }
         }
     }
     state.published?.let { PublishedReadback(it, scales) }

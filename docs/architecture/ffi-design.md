@@ -293,8 +293,10 @@ value changes win per scalar or coupled location/income/birth/seeking/photo/devi
 stronger proof survives, and draft/search/visibility/blob retention commit or roll back together.
 The exhaustive profile constructor makes new wire fields require an explicit overlay decision.
 `ProfilePublicationOutcome` separates exact published values from the current draft and pending flag;
-UniFFI's existing published payload remains exact remote output. Adapter pending UX and remaining
-foreign/revocation/adoption paths still require migration before frontend monitors can be removed.
+UniFFI's existing published payload remains exact remote output, alongside a fresh local snapshot.
+Android applies that snapshot to its existing form without replacing unsaved or in-flight save inputs.
+New pending presentation, remaining adapters and foreign/revocation/adoption paths still require
+migration before frontend monitors can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
 namespace/key/format and rolls back on failure. Shared desktop normalization remains separate work.
@@ -518,7 +520,7 @@ or returns constants.
 | | method | `publish(key: IdentityKey, attested: bool) -> Result<ProfilePublished, CoreError>` | Rechecks the fresh 18+ gate, requires the 11-bit proof, connects through active settings and delegates to shared `publish::publish`. It lists no device and publishes no key packages, so the clients publish through `ChatSession.publish_profile`, or nobody could write to them. Only verified signed readback returns a public draft and version; failures preserve the saved draft. Swift `RustBridge.publishProfile` and Kotlin `RustBridge.withKey` reopen and check the selected Peer ID before this call. The Apple and Android publish UIs use it. |
 | | method | `hide(key: IdentityKey) -> Result<ProfileVisibility, CoreError>` | Connects through active settings, then delegates to shared `publish::hide` and sends what is due. Without a node it returns `notConnected` and changes nothing. The Android hide switch and the Apple hide button use it. |
 | | method | `withdraw(key: IdentityKey) -> Result<ProfileVisibility, CoreError>` | Before an identity is removed, connects through active settings, then delegates to shared `publish::withdraw` and sends what is due. Without a node it fails and changes nothing, so the caller offers Retry or Remove anyway. |
-| `ProfilePublished` | Record | `draft: PublicProfileDraft`, `version: u64` | The signed readback values and version after successful publication. |
+| `ProfilePublished` | Record | `draft: PublicProfileDraft`, `version: u64`, `current_draft: PublicProfileDraft`, `current_version: u64`, `hidden: bool`, `pending: bool` | `draft` and `version` remain the exact verified signed readback. After follow-up network work, the core reads current persisted fields, version and visibility from one snapshot; `pending` compares content with readback, ignoring version-only changes. Android refreshes its existing editor from `current_draft` only when no unsaved input or save is in flight, and accepts visibility updates only with a newer version. Its published preview uses the exact readback. |
 | `profile_visibility` | function | `(dir: String, key: IdentityKey) -> Result<ProfileVisibility, CoreError>` | Reads the last used version and the hidden flag without creating a database when absent. The Android hide switch and the Apple hide button use it. |
 | `ProfileVisibility` | Record | `version: u64`, `hidden: bool` | Version zero means never published or hidden. |
 | `ProfileSearcher` | Object | `new(dir: String) -> Result<Self, CoreError>` | Prepares a private runtime and an in-memory verified profile cache for an existing identity folder; native calls run off the UI thread. Android holds one per open identity for search. |

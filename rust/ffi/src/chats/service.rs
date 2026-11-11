@@ -9,7 +9,7 @@ use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_attempt, send_held, ProfilePublished,
 };
-use crate::{CoreError, FoundProfile, PublicProfileDraft};
+use crate::{CoreError, FoundProfile};
 use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, publish, session::Session};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -61,13 +61,13 @@ impl ChatSession {
                     .await
                     .map_err(failed)?;
                 send_held(session.store(), &mut node, &network).await?;
-                Ok(published)
+                session
+                    .store()
+                    .profile_publication_state(&self.key.identity, &published)
+                    .map_err(failed)
             })
         })?;
-        Ok(ProfilePublished {
-            draft: PublicProfileDraft::from(&published),
-            version: published.version,
-        })
+        Ok(ProfilePublished::from_outcome(&published))
     }
 
     /// Where the chat with `peer_id` stands.

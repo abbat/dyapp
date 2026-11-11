@@ -334,6 +334,54 @@ fn writer_admission_precedes_reading_current_draft() {
 }
 
 #[test]
+fn post_network_snapshot_keeps_exact_output_and_observes_later_hide_and_edits() {
+    let identity = owner();
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let attempt = store.prepare_profile_publication(&identity).unwrap();
+    let published = accepted(&attempt);
+    store
+        .commit_profile_publication(&identity, &attempt, &published, false)
+        .unwrap();
+    store.hide_profile_draft(&identity, &published).unwrap();
+    let hidden = store
+        .profile_publication_state(&identity, &published)
+        .unwrap();
+    assert!(hidden.hidden);
+    assert!(!hidden.pending);
+    assert!(hidden.draft.version > published.version);
+    store
+        .update_profile_draft(|draft| {
+            draft.name = "later".into();
+            Ok(())
+        })
+        .unwrap();
+    let current = store
+        .profile_publication_state(&identity, &published)
+        .unwrap();
+    assert_eq!(current.published, published);
+    assert_eq!(current.draft.name, "later");
+    assert!(current.pending && current.hidden);
+}
+
+#[test]
+fn current_publication_snapshot_refuses_missing_draft_or_wrong_owner() {
+    let identity = owner();
+    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let published = Profile {
+        version: 1,
+        ..Default::default()
+    };
+    assert!(matches!(
+        store.profile_publication_state(&identity, &published),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    assert!(matches!(
+        store.profile_publication_state(&Identity::from_secret(&[9; 32]), &published),
+        Err(Error::WrongIdentity)
+    ));
+}
+
+#[test]
 fn prepared_owner_and_exact_readback_are_checked_before_projection() {
     let identity = owner();
     let store = Store::open(&temp_db_path(), &identity).unwrap();

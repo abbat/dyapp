@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import uniffi.dyapp.ProfilePublished
 
 /** One screen owner's typed inputs and the exact input snapshot last persisted. UI thread only. */
 internal class ProfileEditor(saved: ProfileDraft, lang: String) {
@@ -14,6 +15,10 @@ internal class ProfileEditor(saved: ProfileDraft, lang: String) {
     private val edits get() = inputs(values, birth, place) + name.value
     private var savedEdits by mutableStateOf(edits)
     val unsaved get() = edits != savedEdits
+
+    /** Refresh persisted fields only while neither newer input nor a save owns this editor. */
+    fun afterPublication(result: ProfilePublished, lang: String, saving: Boolean = false): ProfileEditor =
+        if (unsaved || saving) this else ProfileEditor(result.currentDraft.draft(), lang)
 
     suspend fun save(persist: (ProfileDraft) -> Unit): Int {
         val submitted = edits
