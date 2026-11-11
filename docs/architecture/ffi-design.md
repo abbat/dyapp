@@ -301,6 +301,9 @@ search forks refuse the local commit; remote success may already have occurred. 
 signed-record digest identifies the exact own tombstone after ACK and concurrent proof improvement,
 so republication preserves current fields rather than falsely importing it as foreign. Photo-list release
 never retries beyond the accepted tombstone version, protecting newer remote publication lists.
+Publication, hidden linked-device adoption and stale media retries use checked version arithmetic
+and report exhaustion rather than wrapping. Adoption checks this before fetching photos or replacing
+the draft; earlier link-state import still applies. The largest visible remote version remains valid.
 Ordinary publication, foreign imports and device relisting still require completion migration
 before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

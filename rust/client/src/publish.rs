@@ -131,7 +131,8 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 ///
 /// Returns an error if storage or node requests fail, a photo to upload is absent,
 /// the node holds an older profile than this device has seen, or signed readback
-/// differs. Returns [`Failure::Missed`] after saving a newer foreign profile.
+/// differs, or the requested version cannot be advanced. Returns [`Failure::Missed`] after
+/// saving a newer foreign profile. Version exhaustion is refused before submitting a profile.
 /// Remote publication or some local updates may already have succeeded.
 pub async fn publish(
     store: &Store,
@@ -197,7 +198,8 @@ pub async fn revoke_device(
 ///
 /// Returns an error if importing link state, reading or saving local state,
 /// fetching the profile or its photos fails, or the account profile is missing
-/// or deleted. Earlier imports and local writes remain applied on later failure.
+/// or deleted, or its hidden draft version cannot be advanced. Exhaustion is checked before
+/// fetching photos or replacing the draft. Earlier link-state imports remain applied on failure.
 pub async fn adopt(
     store: &mut Store,
     node: &mut Node,
@@ -212,12 +214,13 @@ pub async fn adopt(
     if held.deleted {
         return Err(Error::Reply("the account was removed").into());
     }
+    let version = held
+        .version
+        .checked_add(u64::from(store.profile_hidden()?))
+        .ok_or(store::Error::ProfileVersionExhausted)?;
     take_photos(store, node, &held).await?;
     store.own_profile_age(held.version, now)?;
-    let draft = Profile {
-        version: held.version + u64::from(store.profile_hidden()?),
-        ..held
-    };
+    let draft = Profile { version, ..held };
     store.save_profile_draft(&draft)?;
     Ok(draft)
 }
@@ -230,7 +233,10 @@ async fn send_draft(
     stay_hidden: bool,
 ) -> Result<Profile, Failure> {
     let next = Profile {
-        version: draft.version + 1,
+        version: draft
+            .version
+            .checked_add(1)
+            .ok_or(store::Error::ProfileVersionExhausted)?,
         ..draft.clone()
     };
     let held = newest(node, identity).await?;
@@ -388,7 +394,11 @@ async fn upload_photos(
             Err(Error::Status(Status::Stale)) if refused < KEEP_REFUSALS => {
                 refused += 1;
                 let held = node.get_profile(&identity.peer_id()).await;
-                version = held.map_or(0, |held| held.profile.version).max(version) + 1;
+                version = held
+                    .map_or(0, |held| held.profile.version)
+                    .max(version)
+                    .checked_add(1)
+                    .ok_or(store::Error::ProfileVersionExhausted)?;
             }
             missing => break missing?,
         }
@@ -495,6 +505,8 @@ mod tests {
 
     #[path = "node.rs"]
     mod node;
+    #[path = "version_tests.rs"]
+    mod version_tests;
     #[path = "withdrawal_identity_tests.rs"]
     mod withdrawal_identity_tests;
     #[path = "withdrawal_media_tests.rs"]

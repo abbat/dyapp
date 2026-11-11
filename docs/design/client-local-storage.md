@@ -278,7 +278,11 @@ tombstone bytes, allowing the next publication without a false foreign-profile c
 same-version tombstone still counts as foreign; canonical equality supports legacy state.
 Best-effort remote photo-list release stays at the accepted
 tombstone version and never advances past a refusal. Ordinary publication, foreign-profile imports
-and device relisting still need their own completion migration. Identity removal publishes a final
+and device relisting still need their own completion migration. Every publication/media retry
+version advance is checked: an exhausted counter fails explicitly without wrapping. Visible
+adoption accepts a remote version of `u64::MAX`; hidden adoption must advance it and refuses
+before photo fetching or draft replacement, while earlier link-state import remains applied.
+Identity removal publishes a final
 tombstone to profile storage and search. A client that observed that final
 profile-store tombstone refuses later versions; nodes retain tombstones for their configured
 TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent
