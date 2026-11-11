@@ -74,11 +74,29 @@ spaces; leave it empty for no interest filter.
 The scheduled `release-sizes` workflow builds the release EXE on `windows-2022`, packs it with
 `tools/scripts/package-windows-zip.py` into `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` and
 `LICENSE` in one folder), extracts that ZIP and opens and closes the window. The ZIP is the run's
-`windows-zip` artifact. Published release downloads are planned.
+`windows-zip` artifact.
+
+## Download
+
+A tagged release builds the same ZIP and publishes it on the
+[release page](https://github.com/abbat/dyapp/releases) with `SHA256SUMS` and build provenance.
+No release has been published yet. Download `dyapp-<version>-x86_64-windows.zip` and
+`SHA256SUMS` into one folder and check them in PowerShell:
+
+```powershell
+$zip = 'dyapp-0.0.1-x86_64-windows.zip'
+$want = (Select-String -Path SHA256SUMS -Pattern " $zip$").Line.Split(' ')[0]
+(Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -eq $want
+gh attestation verify $zip --repo abbat/dyapp
+```
+
+The third line must print `True`, and `gh attestation verify` must report that the file was built
+by this repository's `release` workflow. The [GitHub CLI](https://cli.github.com/) is only needed
+for that last check.
 
 ## Run
 
-1. Check the ZIP's SHA-256 against the published one: `Get-FileHash dyapp-<version>-x86_64-windows.zip`.
+1. Check the ZIP as in [Download](#download).
 2. Extract it anywhere, for example to `%LOCALAPPDATA%\Programs\`.
 3. Run `dyapp.exe`.
 
