@@ -158,7 +158,7 @@ def main() -> None:
             continue
         spans = [span for span in message["spans"] if span["is_primary"]]
         result = sarif_result(message, spans)
-        # Cargo reports the same source diagnostic for library and test targets.
+        # Cargo reports one source diagnostic for library and test targets.
         fingerprint = json.dumps(result, sort_keys=True)
         if fingerprint in seen:
             continue

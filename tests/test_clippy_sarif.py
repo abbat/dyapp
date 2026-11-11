@@ -103,7 +103,7 @@ class ClippySarifTests(unittest.TestCase):
         )
 
     def budgeted(self, measured: int, allowed: int, function: str) -> int:
-        """Count SARIF results for one too_many_lines finding under a budget."""
+        """Count SARIF results for a too_many_lines finding under a budget."""
         source = "fn run() {\n}\n"
         finding = {
             "reason": "compiler-message",
