@@ -23,6 +23,9 @@ These rules apply to every new or modified test:
   larger timeouts to hide races; add an observable readiness signal when one is missing.
 - A deadline bounds failure; its expiry must never mean success or readiness. Give each step or
   transition a fresh deadline, cancel it on success, and reset it only on verified progress.
+  When a coordinator releases multiple workers, it owns readiness/completion deadlines. Close the
+  release channels on failure instead of adding competing worker timers that can expire before
+  the coordinator's phase budget.
   Remove listeners, observers and pending timers on every exit, including failure.
 - For UI actions, await the relevant layout, resource or transition completion and then read current
   element bounds. Calculate coordinates and relative offsets from those bounds; avoid fixed screen

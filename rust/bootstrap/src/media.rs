@@ -11,7 +11,9 @@
 
 use crate::replication::MediaManifestExt;
 mod files;
+mod keeps;
 use files::sql_size;
+pub use keeps::{KeepSnapshot, KeepUpdate};
 
 use crate::storage::{lock, open, storage_error};
 use crate::Result;
@@ -68,6 +70,50 @@ fn hex(bytes: &[u8]) -> String {
 /// Rows of the owner `?1`: its keep and its attachments.
 const OWNED: &str =
     "(`owner` = ?1 OR `owner` IN (SELECT `slot` FROM `attachments` WHERE `owner` = ?1))";
+
+fn owner_usage(db: &Connection, owner: &str) -> Result<u64> {
+    let used: i64 = db
+        .query_row(
+            &format!(
+                "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
+            ),
+            [owner],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    Ok(used.unsigned_abs())
+}
+
+fn whole_charge(
+    db: &Connection,
+    owner: &str,
+    hash: &[u8],
+    size: usize,
+) -> Result<Option<(bool, u64)>> {
+    let (rows, stored): (i64, i64) = db.query_row(
+        &format!("SELECT COUNT(*), COALESCE(MIN(`size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`)), 0) FROM `blobs` WHERE `hash` = ?2 AND {OWNED}"),
+        params![owner, hash], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(storage_error)?;
+    if rows == 0 {
+        return Ok(None);
+    }
+    let used = owner_usage(db, owner)?;
+    let previous: i64 = db.query_row(
+        &format!("SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE `hash` = ?2 AND {OWNED}"),
+        params![owner, hash], |row| row.get(0),
+    ).map_err(storage_error)?;
+    let stored = stored == 1;
+    let charge = if stored {
+        used
+    } else {
+        used.saturating_sub(previous.unsigned_abs()).saturating_add(
+            (size as u64)
+                .saturating_mul(5)
+                .saturating_mul(rows.unsigned_abs()),
+        )
+    };
+    Ok(Some((stored, charge)))
+}
 
 /// Lists `hashes` for `owner`; returns those it has not stored yet.
 fn list(tx: &Connection, owner: &str, hashes: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
@@ -145,6 +191,34 @@ fn remove_file(path: &Path) -> Result<bool> {
     }
 }
 
+// `size` is NULL until a listed blob is put. Times are Unix seconds; record columns hold signatures.
+const MEDIA_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS `owners` (
+    `owner` TEXT PRIMARY KEY, `version` INTEGER NOT NULL, `last_seen` INTEGER NOT NULL, `record` BLOB
+);
+CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
+CREATE TABLE IF NOT EXISTS `blobs` (
+    `owner` TEXT NOT NULL, `hash` BLOB NOT NULL, `size` INTEGER, `cost` INTEGER,
+    PRIMARY KEY (`owner`, `hash`)
+);
+CREATE INDEX IF NOT EXISTS `blobs_hash` ON `blobs` (`hash`);
+CREATE TABLE IF NOT EXISTS `attachments` (
+    `slot` TEXT PRIMARY KEY, `release` BLOB NOT NULL, `owner` TEXT NOT NULL,
+    `expires` INTEGER NOT NULL, `created` INTEGER NOT NULL, `record` BLOB
+);
+CREATE INDEX IF NOT EXISTS `attachments_owner` ON `attachments` (`owner`);
+CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);
+CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);
+CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
+    `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
+CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `count` INTEGER NOT NULL);
+INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);
+CREATE TABLE IF NOT EXISTS `released` (`release` BLOB PRIMARY KEY, `expires` INTEGER NOT NULL) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS `released_expires` ON `released` (`expires`);
+CREATE TABLE IF NOT EXISTS `cache` (`hash` BLOB PRIMARY KEY, `size` INTEGER NOT NULL,
+    `read` INTEGER NOT NULL) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS `cache_read` ON `cache` (`read`);";
+
 impl MediaStore {
     /// Opens `dir/media.db` with the blob files under `dir/data` and assembled ones under
     /// `dir/cache`.
@@ -156,52 +230,7 @@ impl MediaStore {
     pub fn open(dir: &Path) -> Result<Self> {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
         fs::create_dir_all(&data).map_err(storage_error)?;
-        let db = open(
-            &db,
-            // `size` is NULL while a listed blob has not been put. `last_seen`, `created` and
-            // `record`: when the owner was last seen, when an attachment was stored, and the
-            // signed records. `manifests` and `shards` hold the erasure-coded replicas,
-            // `released` the release hashes of released attachments until the attachments'
-            // expiry, `cache` the assembled blobs and their last read, in Unix seconds.
-            &["CREATE TABLE IF NOT EXISTS `owners` (
-                 `owner` TEXT PRIMARY KEY,
-                 `version` INTEGER NOT NULL,
-                 `last_seen` INTEGER NOT NULL,
-                 `record` BLOB
-             );
-             CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
-             CREATE TABLE IF NOT EXISTS `blobs` (
-                 `owner` TEXT NOT NULL,
-                 `hash` BLOB NOT NULL,
-                 `size` INTEGER,
-                 `cost` INTEGER,
-                 PRIMARY KEY (`owner`, `hash`)
-             );
-             CREATE INDEX IF NOT EXISTS `blobs_hash` ON `blobs` (`hash`);
-             CREATE TABLE IF NOT EXISTS `attachments` (
-                 `slot` TEXT PRIMARY KEY,
-                 `release` BLOB NOT NULL,
-                 `owner` TEXT NOT NULL,
-                 `expires` INTEGER NOT NULL,
-                 `created` INTEGER NOT NULL,
-                 `record` BLOB
-             );
-             CREATE INDEX IF NOT EXISTS `attachments_owner` ON `attachments` (`owner`);
-             CREATE INDEX IF NOT EXISTS `attachments_release` ON `attachments` (`release`);
-             CREATE INDEX IF NOT EXISTS `attachments_created` ON `attachments` (`created`);
-             CREATE TABLE IF NOT EXISTS `manifests` (`hash` BLOB PRIMARY KEY, `record` BLOB NOT NULL);
-             CREATE TABLE IF NOT EXISTS `shards` (`hash` BLOB NOT NULL, `idx` INTEGER NOT NULL,
-                 `data` BLOB NOT NULL, PRIMARY KEY (`hash`, `idx`));
-             CREATE TABLE IF NOT EXISTS `purges` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
-                 `count` INTEGER NOT NULL);
-             INSERT OR IGNORE INTO `purges` (`id`, `count`) VALUES (1, 0);
-             CREATE TABLE IF NOT EXISTS `released` (`release` BLOB PRIMARY KEY,
-                 `expires` INTEGER NOT NULL) WITHOUT ROWID;
-             CREATE INDEX IF NOT EXISTS `released_expires` ON `released` (`expires`);
-             CREATE TABLE IF NOT EXISTS `cache` (`hash` BLOB PRIMARY KEY, `size` INTEGER NOT NULL,
-                 `read` INTEGER NOT NULL) WITHOUT ROWID;
-             CREATE INDEX IF NOT EXISTS `cache_read` ON `cache` (`read`);"],
-        )?;
+        let db = open(&db, &[MEDIA_SCHEMA])?;
         // A blob listed again while already held takes its size.
         lock(&db)?
             .execute_batch(
@@ -254,64 +283,6 @@ impl MediaStore {
         record: &SignedRecord,
     ) -> Result<Option<Vec<Vec<u8>>>> {
         self.keep_record(owner, keep.version, &keep.hashes, keep.time, Some(record))
-    }
-
-    fn keep_record(
-        &self,
-        owner: &str,
-        version: u64,
-        hashes: &[Vec<u8>],
-        time: u64,
-        record: Option<&SignedRecord>,
-    ) -> Result<Option<Vec<Vec<u8>>>> {
-        let version = i64::try_from(version).map_err(storage_error)?;
-        let time = i64::try_from(time).map_err(storage_error)?;
-        let mut db = lock(&self.db)?;
-        let tx = db.transaction().map_err(storage_error)?;
-        let stored: Option<(i64, i64)> = tx
-            .query_row(
-                "SELECT `version`, `last_seen` FROM `owners` WHERE `owner` = ?",
-                [owner],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()
-            .map_err(storage_error)?;
-        let old: Vec<Vec<u8>> = tx
-            .prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
-            .and_then(|mut q| q.query_map([owner], |row| row.get(0))?.collect())
-            .map_err(storage_error)?;
-        if let Some((stored_version, seen)) = stored {
-            if stored_version > version
-                || (stored_version == version
-                    && (time <= seen
-                        || old.iter().any(|hash| !hashes.contains(hash))
-                        || hashes.iter().any(|hash| !old.contains(hash))))
-            {
-                return Ok(None);
-            }
-        }
-        tx.execute(
-            "INSERT INTO `owners` (`owner`, `version`, `last_seen`, `record`) VALUES (?, ?, ?, ?) \
-             ON CONFLICT(`owner`) DO UPDATE SET `version` = `excluded`.`version`, \
-             `last_seen` = MAX(`owners`.`last_seen`, `excluded`.`last_seen`), `record` = `excluded`.`record`",
-            params![owner, version, time, record.map(Message::encode_to_vec)],
-        )
-        .map_err(storage_error)?;
-        let mut dropped = Vec::new();
-        for hash in old.into_iter().filter(|hash| !hashes.contains(hash)) {
-            tx.execute(
-                "DELETE FROM `blobs` WHERE `owner` = ? AND `hash` = ?",
-                params![owner, hash],
-            )
-            .map_err(storage_error)?;
-            dropped.push(hash);
-        }
-        let missing = list(&tx, owner, hashes)?;
-        let orphans = orphans(&tx, dropped)?;
-        tx.commit().map_err(storage_error)?;
-        // Still under the lock, so no put of the same blob runs in between.
-        self.remove(orphans)?;
-        Ok(Some(missing))
     }
 
     /// Lists `hashes` for `owner` in the attachment released by the secret hashing to `release`,
@@ -599,21 +570,7 @@ impl MediaStore {
     /// or blob/cache-file removal fails.
     pub fn evict(&self, target: u64) -> Result<usize> {
         let mut db = lock(&self.db)?;
-        let mut removed = 0;
-        while Self::used(&db)? > target {
-            let hash: Option<Vec<u8>> = db
-                .query_row(
-                    "DELETE FROM `cache` WHERE `hash` = \
-                     (SELECT `hash` FROM `cache` ORDER BY `read` LIMIT 1) RETURNING `hash`",
-                    [],
-                    |row| row.get(0),
-                )
-                .optional()
-                .map_err(storage_error)?;
-            let Some(hash) = hash else { break };
-            remove_file(&self.cache.join(hex(&hash)))?;
-            removed += 1;
-        }
+        let mut removed = self.evict_cache(&db, target)?;
         for (attachments, query) in [
             (
                 true,
@@ -650,6 +607,25 @@ impl MediaStore {
                     return Ok(removed);
                 }
             }
+        }
+        Ok(removed)
+    }
+
+    fn evict_cache(&self, db: &Connection, target: u64) -> Result<usize> {
+        let mut removed = 0;
+        while Self::used(db)? > target {
+            let hash: Option<Vec<u8>> = db
+                .query_row(
+                    "DELETE FROM `cache` WHERE `hash` = \
+                 (SELECT `hash` FROM `cache` ORDER BY `read` LIMIT 1) RETURNING `hash`",
+                    [],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(storage_error)?;
+            let Some(hash) = hash else { break };
+            remove_file(&self.cache.join(hex(&hash)))?;
+            removed += 1;
         }
         Ok(removed)
     }
@@ -728,48 +704,14 @@ impl MediaStore {
     pub fn put(&self, owner: &str, data: &[u8], quota: u64) -> Result<Put> {
         let hash = dyapp_identity::sha256(data);
         let mut db = lock(&self.db)?;
-        let (rows, stored): (i64, i64) = db
-            .query_row(
-                &format!(
-                    "SELECT COUNT(*), COALESCE(MIN(`size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`)), 0) FROM `blobs` \
-                     WHERE `hash` = ?2 AND {OWNED}"
-                ),
-                params![owner, hash.as_slice()],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .map_err(storage_error)?;
-        if rows == 0 {
+        let Some((stored, charge)) = whole_charge(&db, owner, &hash, data.len())? else {
             return Ok(Put::NotListed);
-        }
-        let used: i64 = db
-            .query_row(
-                &format!(
-                    "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
-                ),
-                [owner],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        let previous: i64 = db.query_row(
-            &format!("SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE `hash` = ?2 AND {OWNED}"),
-            params![owner, hash.as_slice()], |r| r.get(0)
-        ).map_err(storage_error)?;
-        let charge = if stored == 1 {
-            used.unsigned_abs()
-        } else {
-            used.unsigned_abs()
-                .saturating_sub(previous.unsigned_abs())
-                .saturating_add(
-                    (data.len() as u64)
-                        .saturating_mul(5)
-                        .saturating_mul(rows.unsigned_abs()),
-                )
         };
         if charge > quota.saturating_mul(5) {
             return Ok(Put::OverQuota);
         }
         let held = self.get(&hash)?;
-        if stored == 1 && held.as_deref() == Some(data) {
+        if stored && held.as_deref() == Some(data) {
             return Ok(Put::Stored);
         }
         if held.as_deref() != Some(data) {
@@ -852,19 +794,11 @@ impl MediaStore {
         let cost = manifest
             .billed_bytes()
             .ok_or_else(|| storage_error("invalid manifest"))?;
-        let used: i64 = tx
-            .query_row(
-                &format!(
-                    "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
-                ),
-                [owner],
-                |r| r.get(0),
-            )
-            .map_err(storage_error)?;
+        let used = owner_usage(&tx, owner)?;
         let extra = cost
             .saturating_sub(held.map_or(0, i64::unsigned_abs))
             .saturating_mul(rows.unsigned_abs());
-        if used.unsigned_abs().saturating_add(extra) > quota {
+        if used.saturating_add(extra) > quota {
             return Ok(Put::OverQuota);
         }
         tx.execute(

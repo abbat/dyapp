@@ -1093,6 +1093,15 @@ The current protocol replies are:
   requests have their own per-peer limit (`limits.media_requests_per_second`, default 10, no
   strike) besides the shared ones. A node without the media role answers `UNSUPPORTED`. A get
   can ask for a piece ([ranged get](#ranged-media-get)).
+  The storage API additionally provides `MediaStore::keep_snapshot` and `replace_keep`:
+  owner presence, media revision and exact signed record are read together, and replacement takes
+  immediate writer ownership before comparing the complete expected state. Only the next revision
+  within signed SQLite's `1..=i64::MAX` range can commit; a conflict returns current metadata without
+  changing references or removing files. Owner presence distinguishes an absent row from unsigned
+  version-zero ownership. Malformed stored records or negative revisions fail closed. Existing
+  `keep` callers retain their version/time admission behavior. Signed conditional wire requests and
+  staged publication/retention integration remain planned; the storage primitive alone does not
+  solve abandoned publication intents.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret sends `release` to each holder and the node drops the
