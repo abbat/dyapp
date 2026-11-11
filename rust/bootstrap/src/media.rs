@@ -10,9 +10,11 @@
 //! `limits.media_cache_minutes`; under the disk guard it goes before any list.
 
 use crate::replication::MediaManifestExt;
+mod catchup;
 mod files;
 mod history;
 mod keeps;
+pub use catchup::KeepHistoryProgress;
 use files::sql_size;
 pub use keeps::{KeepSnapshot, KeepUpdate};
 
@@ -76,7 +78,7 @@ fn owner_usage(db: &Connection, owner: &str) -> Result<u64> {
     let used: i64 = db
         .query_row(
             &format!(
-                "SELECT COALESCE((SELECT `history_bytes` FROM `owners` WHERE `owner` = ?1), 0) + COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
+                "SELECT COALESCE((SELECT `history_bytes` FROM `owners` WHERE `owner` = ?1), 0) + COALESCE((SELECT `bytes` FROM `keep_pending` WHERE `owner` = ?1), 0) + COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
             ),
             [owner],
             |row| row.get(0),
@@ -236,7 +238,7 @@ impl MediaStore {
     pub fn open(dir: &Path) -> Result<Self> {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
         fs::create_dir_all(&data).map_err(storage_error)?;
-        let db = open(&db, &[MEDIA_SCHEMA])?;
+        let db = open(&db, &[MEDIA_SCHEMA, catchup::SCHEMA])?;
         // Unreleased stores have no migration path; reject an older development schema early.
         lock(&db)?
             .prepare("SELECT `history_bytes` FROM `owners` LIMIT 0")
@@ -545,6 +547,7 @@ impl MediaStore {
     pub fn expire_owners(&self, cutoff: i64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
+        catchup::expire(&tx, cutoff)?;
         let owners: Vec<String> = tx
             .prepare("SELECT `owner` FROM `owners` WHERE `last_seen` <= ?")
             .and_then(|mut q| q.query_map([cutoff], |row| row.get(0))?.collect())
@@ -569,6 +572,7 @@ impl MediaStore {
                 tx.execute("DELETE FROM `attachments` WHERE `slot` = ?", [owner])
                     .map_err(storage_error)?;
             } else {
+                catchup::discard(tx, owner)?;
                 tx.execute("DELETE FROM `keep_history` WHERE `owner` = ?", [owner])
                     .map_err(storage_error)?;
                 tx.execute("DELETE FROM `owners` WHERE `owner` = ?", [owner])
@@ -578,8 +582,8 @@ impl MediaStore {
         orphans(tx, dropped)
     }
 
-    /// Evicts assembled blobs by last read, then attachments by creation time, then keeps by
-    /// liveness, down to `target` bytes.
+    /// Evicts provisional proofs first, then assembled blobs by last read, attachments by
+    /// creation time and keeps by liveness, down to `target` bytes.
     ///
     /// # Errors
     ///
@@ -587,7 +591,8 @@ impl MediaStore {
     /// or blob/cache-file removal fails.
     pub fn evict(&self, target: u64) -> Result<usize> {
         let mut db = lock(&self.db)?;
-        let mut removed = self.evict_cache(&db, target)?;
+        let mut removed = catchup::evict(&mut db, target)?;
+        removed += self.evict_cache(&db, target)?;
         for (attachments, query) in [
             (
                 true,
@@ -929,7 +934,7 @@ impl MediaStore {
 
     fn used(db: &Connection) -> Result<u64> {
         db.query_row(
-            "SELECT COALESCE((SELECT SUM(`history_bytes`) FROM `owners`), 0) + COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE((SELECT SUM(`size`) FROM `cache`), 0) + COALESCE(SUM(`size`), 0) FROM \
+            "SELECT COALESCE((SELECT SUM(`bytes`) FROM `keep_pending`), 0) + COALESCE((SELECT SUM(`history_bytes`) FROM `owners`), 0) + COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE((SELECT SUM(`size`) FROM `cache`), 0) + COALESCE(SUM(`size`), 0) FROM \
              (SELECT MAX(`size`) AS `size` FROM `blobs` WHERE `size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`) GROUP BY `hash`)",
             [],
             |row| row.get::<_, i64>(0),

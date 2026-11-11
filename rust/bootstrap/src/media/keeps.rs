@@ -104,6 +104,10 @@ impl Stored {
     }
 }
 
+pub(super) fn snapshot(db: &Connection, owner: &str) -> Result<KeepSnapshot> {
+    Ok(Stored::read(db, owner)?.map_or_else(KeepSnapshot::default, |value| value.snapshot))
+}
+
 fn conditional_record(record: Option<&SignedRecord>) -> bool {
     record.is_some_and(|record| {
         record
@@ -129,18 +133,18 @@ fn check_condition(record: &SignedRecord, current: &KeepSnapshot) -> Result<()> 
     Ok(())
 }
 
-fn owned(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
+pub(super) fn owned(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
     db.prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
         .and_then(|mut query| query.query_map([owner], |row| row.get(0))?.collect())
         .map_err(storage_error)
 }
 
-struct Projected {
-    missing: Vec<Vec<u8>>,
-    dropped: Vec<Vec<u8>>,
+pub(super) struct Projected {
+    pub(super) missing: Vec<Vec<u8>>,
+    pub(super) dropped: Vec<Vec<u8>>,
 }
 
-fn project(
+pub(super) fn project(
     db: &Connection,
     owner: &str,
     (version, time): (i64, i64),
@@ -177,7 +181,7 @@ impl MediaStore {
     /// Returns lock, database, negative-revision or signed-record decoding errors.
     pub fn keep_snapshot(&self, owner: &str) -> Result<KeepSnapshot> {
         let db = lock(&self.db)?;
-        Ok(Stored::read(&db, owner)?.map_or_else(KeepSnapshot::default, |value| value.snapshot))
+        snapshot(&db, owner)
     }
 
     /// Replace ownership only when the complete expected keep still matches.
@@ -225,8 +229,7 @@ impl MediaStore {
         let tx = db
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let current =
-            Stored::read(&tx, owner)?.map_or_else(KeepSnapshot::default, |value| value.snapshot);
+        let current = snapshot(&tx, owner)?;
         if current != *expected {
             return Ok(KeepUpdate::Conflict(current));
         }

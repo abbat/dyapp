@@ -1128,9 +1128,16 @@ The current protocol replies are:
   framing for a maximum-sized 1 MiB signed record; an insufficient first-record budget fails.
   A seeded head may lack older local ancestry. `keep_history_reverse` reads bounded descending
   pages from a frozen revision; the next page starts at the returned tail's predecessor version.
-  Neither direction changes ownership or retention. Wire catch-up and automatic repair remain
-  planned: incoming reverse proofs must be staged without replacing live references until the fresh
-  final target is anchored to current ownership. Applying historical chunks independently could
+  Neither direction changes ownership or retention. `stage_keep_history` now keeps authenticated,
+  reverse-linked proofs in a separate target-bound session and returns its next ancestor revision.
+  Provisional bytes count toward owner/node budgets even without a live owner row; overlapping
+  retries do not charge twice. Sessions survive reopening and expire by target time. Media eviction
+  discards provisional proofs before blobs or owner lists. Staging never changes live ownership or
+  accepted history, including when all ancestors have arrived. `apply_keep_history` rechecks the fresh
+  target and current ownership in one writer transaction, then applies only the final hash list and
+  transfers provisional bytes into accepted history exactly once. A conflicting live branch is
+  preserved; backfilling an accepted target changes no live references or retention. Progress exposes
+  only the supplied proof frontier. Wire catch-up and automatic repair remain planned. Applying historical chunks independently could
   delete a blob required by that final target. The unreleased base schema changes directly; older development
   media databases are rejected rather than migrated.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release

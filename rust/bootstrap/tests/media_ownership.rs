@@ -23,6 +23,8 @@ mod catchup;
 mod history;
 #[path = "media_ownership/history_limits.rs"]
 mod history_limits;
+#[path = "media_ownership/staging.rs"]
+mod staging;
 
 fn now() -> u64 {
     SystemTime::now()

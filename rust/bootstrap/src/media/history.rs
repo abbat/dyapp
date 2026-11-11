@@ -6,10 +6,14 @@ use dyapp_p2p_net::proto;
 use prost::Message;
 use rusqlite::{params, Connection};
 
-const MAX_PAGE_RECORDS: i64 = 256;
+pub(super) const MAX_PAGE_RECORDS: i64 = 256;
 const MAX_RECORD_BYTES: usize = crate::replication::MEDIA_OBJECT_BYTES;
 
-fn verified(owner: &str, version: u64, record: &SignedRecord) -> Result<proto::MediaKeepIntent> {
+pub(super) fn verified(
+    owner: &str,
+    version: u64,
+    record: &SignedRecord,
+) -> Result<proto::MediaKeepIntent> {
     if record.encoded_len() > MAX_RECORD_BYTES
         || record
             .verify(Domain::MediaConditionalKeep)
@@ -42,7 +46,7 @@ fn verified(owner: &str, version: u64, record: &SignedRecord) -> Result<proto::M
     Ok(intent)
 }
 
-fn framed_bytes(bytes: usize) -> usize {
+pub(super) fn framed_bytes(bytes: usize) -> usize {
     // A repeated message field: tag 1, its actual length delimiter, then the record.
     1 + prost::encoding::encoded_len_varint(bytes as u64) + bytes
 }
@@ -57,7 +61,7 @@ fn decode(owner: &str, version: i64, bytes: &[u8]) -> Result<SignedRecord> {
     Ok(record)
 }
 
-fn follows(previous: &SignedRecord, next: &SignedRecord) -> Result<()> {
+pub(super) fn follows(previous: &SignedRecord, next: &SignedRecord) -> Result<()> {
     let old = proto::MediaKeepIntent::decode(previous.payload.as_slice()).map_err(storage_error)?;
     let intent = proto::MediaKeepIntent::decode(next.payload.as_slice()).map_err(storage_error)?;
     let expected = intent
