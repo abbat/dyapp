@@ -1114,8 +1114,9 @@ The current protocol replies are:
   intent. Safe catch-up of existing holders across skipped conditional revisions remains planned;
   mismatched expectations conservatively retain the holder's current references. The common Rust client
   verifies replies and never falls back to legacy writes on `UNSUPPORTED`, following ADR 0016.
-  Media revisions are independent of profile versions. Staged publication/retention integration
-  remains planned; the wire API alone does not solve abandoned publication intents.
+  Media revisions are independent of profile versions. Shared publication stages additive references
+  before publishing, then conditionally finalizes its exact signed target. Retention renewal preserves
+  a different pending target; changed drafts can recover from an abandoned staged attempt.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret sends `release` to each holder and the node drops the

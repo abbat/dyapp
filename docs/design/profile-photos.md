@@ -59,25 +59,30 @@ remains planned.
    both blobs and the latest draft in one SQLite immediate transaction; failure leaves them unchanged.
    Removal and reordering also acquire writer ownership before reading and transforming the draft,
    preserving other fields committed by independent handles.
-3. Publishing sends `keep` with every hash of the draft, puts each blob the node reports missing,
-   then publishes the profile. A failure before the profile publish leaves the previous profile
-   valid. A photo removed from the draft leaves the store and the keep list with that publish, so
-   a reader of the older profile briefly sees the placeholder. Withdrawing the identity sends an
-   empty keep after the tombstone.
-4. The catch-up pass refreshes the keep with a newer signed `time`, at most once a day, and puts
-   back whatever it reports missing, so photos outlive node churn while the owner is active. The
-   list comes from the node's live profile, not the draft, whose unpublished removals would
-   release a photo readers still see. A failed attempt waits for the next day.
+3. Publishing queries owner-authenticated media state and conditionally stages the union of its
+   existing hashes and the frozen candidate's hashes. The owner signature binds the exact prior
+   state, target signed-profile digest and pending marker. Candidate blobs reported missing are
+   uploaded before profile publication. After exact signed readback, conditional finalization
+   releases old references only while the same target still owns the media intent. A different
+   pending target retains its references. Withdrawal stages its tombstone target before sending
+   and releases through the same conditional finalization; no profile version becomes a media counter.
+4. The catch-up pass renews ownership at most once a day, using the verified live profile.
+   It finalizes a pending target only when the exact signed target is live. A different target's
+   marker and references survive renewal alongside live hashes. Missing live blobs are restored.
+   A failed attempt waits for the next day.
 
-`keep` uses the frozen profile `version`. On `STALE`, the client never raises that version with
-an earlier hash list: doing so could release a newer publication's photos. Instead it repairs
-only through `put`, which checks current owner authorization without replacing the keep list.
-Missing local blobs are fetched by verified hash and checked against the profile blob bounds before
-repair. A same-list/same-signed-time failed attempt can therefore retry without a clock wait.
-This fallback may transfer already stored bytes; a removed hash fails rather than replacing newer
-references. A keep-refresh reports `STALE` when only bytes were repaired: retention was not renewed.
-Recovery from an abandoned conflicting higher-version staged keep remains planned, including
-changed-draft publication and live-profile retention renewal; byte repair alone does not solve it.
+Media revisions advance independently within signed SQLite's range, including when a profile's
+version has reached `u64::MAX`. Conflicts return verified current state: staging recomputes an
+additive union, while finalization checks the target again instead of blindly replaying an old
+destructive list. Retries are bounded and do not wait for a different wall-clock second.
+A failed stage followed by a changed draft can therefore recover; refresh can renew live retention
+without discarding an abandoned different target. Temporary union retention can exceed the hash
+limit or quota, in which case publication fails without pruning existing references.
+Missing local blobs are fetched by verified hash and checked against profile blob bounds.
+Finalization uploads candidate bytes reported missing; lost ownership fails explicitly for retry.
+A store without the media operation may accept a photo-free profile without a media write.
+Profiles with photos require the conditional operation; there is no legacy-write fallback.
+Safe replica catch-up across skipped conditional revisions remains planned.
 The store holds own photos until a publish drops them, so ordinary repair needs no original file.
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
 Android check full-image pixels before that; full-source decoding remains a platform service,

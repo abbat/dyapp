@@ -250,6 +250,15 @@ impl Node {
     /// errors, [`Error::Profile`] for invalid profile content, or [`Error::Reply`]
     /// for a missing record, unknown status or mismatched owner.
     pub async fn get_profile(&mut self, peer_id: &str) -> Result<VerifiedProfile, Error> {
+        self.get_profile_signed(peer_id)
+            .await
+            .map(|(_, profile)| profile)
+    }
+
+    pub(crate) async fn get_profile_signed(
+        &mut self,
+        peer_id: &str,
+    ) -> Result<(SignedRecord, VerifiedProfile), Error> {
         let peer_id = unhex(peer_id)?;
         let response = self
             .profile(profile_request::Request::Get(proto::GetProfile {
@@ -257,11 +266,12 @@ impl Node {
             }))
             .await?;
         ok(response.status)?;
-        let profile = dyapp_profile::verify(&response.record.ok_or(Error::Reply("no record"))?)?;
+        let record = response.record.ok_or(Error::Reply("no record"))?;
+        let profile = dyapp_profile::verify(&record)?;
         if unhex(&profile.peer_id)? != peer_id {
             return Err(Error::Reply("profile of another owner"));
         }
-        Ok(profile)
+        Ok((record, profile))
     }
 
     /// Publishes a `KeyPackage` of the device whose mailbox key is `device`, owned by `owner`

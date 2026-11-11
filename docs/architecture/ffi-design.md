@@ -299,9 +299,14 @@ New pending presentation, remaining adapters and foreign/revocation/adoption pat
 migration before frontend monitors can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
-namespace/key/format and rolls back on failure. Remote photo repair never advances a refused
-keep version with old hashes: it uses ownership-checked puts, retaining newer remote references.
-A stale byte repair does not claim retention renewal; conflicting staged-list recovery remains planned.
+namespace/key/format and rolls back on failure. Shared publication stages an owner-signed conditional
+union of current and candidate photo references, then finalizes only the matching exact signed
+profile target. Refresh renews live references while preserving a different pending target; media
+revisions are independent of profile versions. Withdrawal uses the same staging/finalization path.
+The network client retains exact verified signed-profile bytes for intent comparison: reconstructing
+a decoded profile would lose unknown fields. Conditional conflicts are reclassified, never blindly
+retried with an obsolete destructive list. Safe catch-up of existing replicas across missed media
+revisions remains planned.
 Shared desktop normalization remains separate work.
 Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
 beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits

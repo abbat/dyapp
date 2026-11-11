@@ -23,6 +23,11 @@ belong in bootstrap's safe `storage::free` API (Unix statvfs, Windows caller-quo
 GetDiskFreeSpaceExW), keeping unsafe code outside native desktop crates. In Linux smoke, the
 external daemon fixture uses `fixture-node/`, reserving installation `node/` for the embedded node.
 
+Profile publication intents identify the exact encoded `SignedRecord`, including unknown protobuf
+fields. Use the client's verified signed-record readback for digest comparisons; decoding and
+re-signing a `Profile` changes those bytes. Media revisions are independent of profile versions,
+and refresh must preserve a different pending target when renewing live references.
+
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
 release secrets and fetch descriptors out of screen records. Project authenticated timestamps

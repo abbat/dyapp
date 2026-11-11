@@ -12,6 +12,8 @@ use dyapp_p2p_net::proto::Status;
 use dyapp_profile::{CivilDate, DeviceCertificate, Profile};
 use prost::Message as _;
 
+mod photos;
+
 /// Why a draft cannot be published yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Block {
@@ -284,11 +286,9 @@ async fn send_prepared(
             return Err(Failure::Missed);
         }
     }
-    let hashes = photo_hashes(&next);
-    if !hashes.is_empty() || store.has_profile_photos()? {
-        upload_photos(store, node, identity, next.version, &hashes).await?;
-    }
+    let staged = photos::prepare(store, node, identity, &next).await?;
     let profile = send(node, identity, next).await?;
+    photos::finish(store, node, identity, staged, &profile).await?;
     Ok(store.commit_profile_publication(identity, attempt, &profile, stay_hidden)?)
 }
 
@@ -398,42 +398,11 @@ pub async fn refresh_photos(
     identity: &Identity,
     now: u64,
 ) -> Result<(), Failure> {
-    if !store.profile_keep_due(now)? || !store.has_profile_photos()? {
+    if !store.profile_keep_due(now)? {
         return Ok(());
     }
     store.profile_keep_refreshed(now)?;
-    let live = node.get_profile(&identity.peer_id()).await?.profile;
-    let hashes = photo_hashes(&live);
-    if !hashes.is_empty() && !upload_photos(store, node, identity, live.version, &hashes).await? {
-        return Err(Error::Status(Status::Stale).into());
-    }
-    Ok(())
-}
-
-// A stale keep may belong to a newer publication: never escalate its version with old hashes.
-// Repair only through puts, which check current ownership without replacing any references.
-// True means retention was renewed; repaired bytes alone cannot claim that.
-async fn upload_photos(
-    store: &Store,
-    node: &mut Node,
-    identity: &Identity,
-    version: u64,
-    hashes: &[Vec<u8>],
-) -> Result<bool, Failure> {
-    let (missing, renewed) = match node.keep_media(identity, version, hashes.to_vec()).await {
-        Err(Error::Status(Status::Stale)) => {
-            take_photo_hashes(store, node, hashes.to_vec()).await?;
-            (hashes.to_vec(), false)
-        }
-        missing => (missing?, true),
-    };
-    for hash in missing {
-        let blob = store
-            .profile_photo(&hash)?
-            .ok_or(Error::Reply("kept photo is not in the store"))?;
-        patiently(async || node.put_media(&identity.peer_id(), blob.clone()).await).await?;
-    }
-    Ok(renewed)
+    photos::refresh(store, node, identity).await
 }
 
 /// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary
@@ -457,8 +426,9 @@ pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profi
 /// Returns an error if storage or node requests fail or the signed tombstone
 /// readback differs, or a newer local/observed/search version superseded this completion.
 /// The tombstone may already be published, but draft/search/hidden changes commit atomically.
-/// Current local fields, photos, devices and stronger proof survive. Best-effort photo-list
-/// release is limited to the accepted tombstone version; its failure is ignored.
+/// Current local fields, photos, devices and stronger proof survive. Conditional photo ownership
+/// is staged before sending and finalized only for the exact accepted tombstone; failures retain
+/// references and return an error so the caller can retry.
 pub async fn withdraw(
     store: &Store,
     node: &mut Node,
@@ -467,14 +437,9 @@ pub async fn withdraw(
 ) -> Result<Profile, Failure> {
     let held = newest(node, identity).await?.map_or(0, |held| held.version);
     let next = store.prepare_profile_withdrawal(identity, draft, held)?;
+    let staged = photos::prepare(store, node, identity, &next).await?;
     let tombstone = send(node, identity, next).await?;
-    if store.has_profile_photos()? {
-        // Best effort: an unrefreshed list expires with the owner's inactivity anyway.
-        // Never retry at a higher version: that could release a newer publication's photos.
-        let _ = node
-            .keep_media(identity, tombstone.version, Vec::new())
-            .await;
-    }
+    photos::finish(store, node, identity, staged, &tombstone).await?;
     Ok(store.commit_profile_withdrawal(identity, draft, &tombstone)?)
 }
 

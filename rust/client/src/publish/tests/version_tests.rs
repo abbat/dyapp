@@ -102,7 +102,7 @@ async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
     }
 }
 
-async fn refused_media(initial: u64, remote: u64) -> (Result<(), Failure>, Vec<u64>) {
+async fn renew_empty_media(remote: u64) -> (Result<(), Failure>, Vec<u64>) {
     let identity = Identity::generate();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let versions = Arc::new(Mutex::new(Vec::new()));
@@ -122,19 +122,16 @@ async fn refused_media(initial: u64, remote: u64) -> (Result<(), Failure>, Vec<u
         }
         .sign(&identity),
     );
-    let result = crate::publish::upload_photos(&store, &mut node, &identity, initial, &[])
-        .await
-        .map(drop);
+    let result = crate::publish::refresh_photos(&store, &mut node, &identity, 100).await;
     let sent = versions.lock().unwrap().clone();
     (result, sent)
 }
 
 #[tokio::test]
-async fn stale_empty_media_never_advances_or_wraps_any_version() {
-    for (initial, remote) in [(u64::MAX, 1), (u64::MAX - 1, 1), (10, u64::MAX), (1, 0)] {
-        let (result, versions) = refused_media(initial, remote).await;
-        // No blobs need repair, and a refusal never authorizes replacing a newer list.
-        assert!(result.is_ok());
-        assert_eq!(versions, vec![initial]);
+async fn media_revision_does_not_inherit_or_wrap_the_public_profile_counter() {
+    for version in [1, 10, u64::MAX - 1, u64::MAX] {
+        let (result, versions) = renew_empty_media(version).await;
+        result.unwrap();
+        assert_eq!(versions, vec![1]);
     }
 }

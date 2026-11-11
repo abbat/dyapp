@@ -3,6 +3,42 @@ use super::*;
 use prost::Message as _;
 type Server = Box<libp2p::Swarm<dyapp_p2p_net::Behaviour>>;
 
+fn media_reply(
+    record: SignedRecord,
+    state: &mut proto::MediaKeepState,
+    on_keep: &mut impl FnMut(&proto::MediaKeep),
+) -> proto::MediaResponse {
+    assert!(record
+        .verify(dyapp_identity::Domain::MediaConditionalKeep)
+        .is_ok());
+    let intent = proto::MediaKeepIntent::decode(record.payload.as_slice()).unwrap();
+    let mut response = proto::MediaResponse {
+        status: Status::Ok.into(),
+        ..Default::default()
+    };
+    if let Some(expected) = intent.expected {
+        let hash = state.record.as_ref().map_or_else(Vec::new, |held| {
+            dyapp_identity::sha256(&held.encode_to_vec()).to_vec()
+        });
+        if expected.version != state.version
+            || expected.owner_present != state.owner_present
+            || expected.record_hash != hash
+        {
+            response.status = Status::Stale.into();
+        } else {
+            on_keep(&proto::MediaKeep::decode(record.payload.as_slice()).unwrap());
+            *state = proto::MediaKeepState {
+                owner_present: true,
+                version: intent.version,
+                record: Some(record),
+            };
+            response.keep_applied = true;
+        }
+    }
+    response.keep_state = Some(Box::new(state.clone()));
+    response
+}
+
 async fn listening() -> (Server, libp2p::Multiaddr) {
     let mut server = Box::new(
         build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap(),
@@ -44,6 +80,7 @@ async fn serve(
     mut on_keep: impl FnMut(&proto::MediaKeep),
 ) {
     let mut refuse = refuse.into_iter();
+    let mut media = proto::MediaKeepState::default();
     loop {
         match server.select_next_some().await {
             SwarmEvent::Behaviour(BehaviourEvent::Profile(RequestEvent::Message {
@@ -69,21 +106,15 @@ async fn serve(
                     },
                 ..
             })) => {
-                let Some(proto::media_request::Request::Keep(record)) = request.request else {
+                let Some(proto::media_request::Request::ConditionalKeep(record)) = request.request
+                else {
                     panic!("unexpected fixture media request");
                 };
-                let keep = proto::MediaKeep::decode(record.payload.as_slice()).unwrap();
-                on_keep(&keep);
+                let response = media_reply(record, &mut media, &mut on_keep);
                 server
                     .behaviour_mut()
                     .media
-                    .send_response(
-                        channel,
-                        proto::MediaResponse {
-                            status: Status::Stale.into(),
-                            ..Default::default()
-                        },
-                    )
+                    .send_response(channel, response)
                     .unwrap();
             }
             _ => {}
