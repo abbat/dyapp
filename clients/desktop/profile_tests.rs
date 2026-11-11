@@ -14,11 +14,14 @@ fn a_link_code_is_told_apart_from_an_expired_one_and_from_other_text() {
 }
 
 fn temp_dir() -> std::path::PathBuf {
+    // Parallel Windows tests can read the same clock value.
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let dir = std::env::temp_dir().join(format!("dyapp-desktop-profile-{nanos}"));
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("dyapp-desktop-profile-{nanos}-{n}"));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
