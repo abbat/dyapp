@@ -12,11 +12,11 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
-struct Credentials {
+pub(crate) struct Credentials {
     aliases: Mutex<BTreeSet<String>>,
 }
 
-struct Wrapping;
+pub(crate) struct Wrapping;
 
 impl KeyStore for Wrapping {
     fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, WrapError> {
@@ -68,7 +68,7 @@ fn wrap_error(error: &crate::CoreError) -> WrapError {
     }
 }
 
-fn root() -> PathBuf {
+pub(crate) fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-slot-fixtures")
         .join(IdentityKey::generate().peer_id())

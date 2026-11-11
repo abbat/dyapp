@@ -4,6 +4,8 @@
 //! first, so a crash keeps the user's rows, and only a check that reached a node of the network
 //! can be activated.
 
+use crate::slot_operation::SlotWorker;
+use crate::MobileIdentityRegistry;
 use dyapp_client::seeds::{self, Row};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::seed::SeedError;
@@ -162,6 +164,7 @@ pub struct ConnectionCheck {
     cancel: Mutex<Option<oneshot::Sender<()>>>,
     // The last draft that reached a node of its network.
     checked: Mutex<Option<Network>>,
+    binding: Option<SlotWorker>,
 }
 
 #[uniffi::export]
@@ -173,20 +176,27 @@ impl ConnectionCheck {
     ///
     /// Returns an error if creating the private Tokio runtime fails.
     pub fn new(dir: String) -> Result<Arc<Self>, CheckError> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(failed)?;
-        Ok(Arc::new(Self {
-            dir: dir.into(),
-            runtime,
-            cancel: Mutex::new(None),
-            checked: Mutex::new(None),
-        }))
+        Self::create(dir, None)
+    }
+
+    /// Bind a checker to an existing slot; real runs and activation reacquire core protection.
+    /// Idle handles retain no registry lock, and checks never operate the installation node.
+    ///
+    /// # Errors
+    /// Returns identity admission or runtime failures without writing settings.
+    #[uniffi::constructor]
+    pub fn for_slot(
+        registry: Arc<MobileIdentityRegistry>,
+        id: String,
+        expected_peer: String,
+    ) -> Result<Arc<Self>, CheckError> {
+        let binding = SlotWorker::new(registry, id, expected_peer);
+        let operation = binding.operation().map_err(failed)?;
+        Self::create(operation.slot().directory, Some(binding))
     }
 
     /// Saves `draft`, then dials every row for up to `wait_ms` and reports each in order.
-    /// Retry is another call; the identity key is never touched.
+    /// Retry is another call; slot-bound checkers verify the existing key before saving.
     ///
     /// # Errors
     ///
@@ -194,28 +204,7 @@ impl ConnectionCheck {
     /// rows exist, the network name is invalid, or swarm construction fails.
     /// The draft remains saved when a later check fails.
     pub fn run(&self, draft: NetworkSettings, wait_ms: u32) -> Result<Vec<SeedRow>, CheckError> {
-        let draft = Network::from(draft);
-        network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
-        let (stop, stopped) = oneshot::channel();
-        *self.cancel.lock().unwrap_or_else(PoisonError::into_inner) = Some(stop);
-        let rows = self.runtime.block_on(async {
-            tokio::select! {
-                rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
-                _ = stopped => None,
-            }
-        });
-        let rows = match rows.ok_or(CheckError::Cancelled)? {
-            Ok(rows) => rows,
-            Err(seeds::CheckError::NoSeeds) => return Err(CheckError::Empty),
-            Err(seeds::CheckError::Name(reason)) => {
-                return Err(CheckError::InvalidNetwork { reason })
-            }
-            Err(error) => return Err(failed(error)),
-        };
-        if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-            *self.checked.lock().unwrap_or_else(PoisonError::into_inner) = Some(draft);
-        }
-        Ok(rows.into_iter().map(Into::into).collect())
+        self.run_with_ready(draft, wait_ms, || {})
     }
 
     /// Stops a running check, which then fails with `Cancelled`; the saved files stay as they
@@ -237,6 +226,12 @@ impl ConnectionCheck {
     ///
     /// Returns an error if no successful check is recorded or saving active settings fails.
     pub fn activate(&self) -> Result<NetworkSettings, CheckError> {
+        let _operation = self
+            .binding
+            .as_ref()
+            .map(SlotWorker::operation)
+            .transpose()
+            .map_err(failed)?;
         let checked = self
             .checked
             .lock()
@@ -248,129 +243,59 @@ impl ConnectionCheck {
     }
 }
 
-#[cfg(test)]
-pub(crate) mod tests {
-    use super::*;
-    use dyapp_p2p_net::{build_configured_swarm, Mode, SwarmOptions};
-    use libp2p::futures::StreamExt;
-    use libp2p::identity::Keypair;
-    use libp2p::multiaddr::Protocol;
-    use libp2p::swarm::SwarmEvent;
-    use std::net::TcpListener;
-
-    fn temp_dir(tag: &str) -> String {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-network-{tag}-{nanos}"));
-        std::fs::create_dir_all(&dir).unwrap();
-        dir.to_str().unwrap().into()
+impl ConnectionCheck {
+    fn create(dir: String, binding: Option<SlotWorker>) -> Result<Arc<Self>, CheckError> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(failed)?;
+        Ok(Arc::new(Self {
+            dir: dir.into(),
+            runtime,
+            cancel: Mutex::new(None),
+            checked: Mutex::new(None),
+            binding,
+        }))
     }
 
-    async fn serve_node(sender: std::sync::mpsc::Sender<(u16, String)>) {
-        let options = SwarmOptions {
-            mode: Mode::Auto,
-            ..SwarmOptions::default()
-        };
-        let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
-        let peer = swarm.local_peer_id().to_string();
-        swarm
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        loop {
-            let SwarmEvent::NewListenAddr { address, .. } = swarm.select_next_some().await else {
-                continue;
-            };
-            if let Some(Protocol::Tcp(port)) = address.iter().nth(1) {
-                sender.send((port, peer.clone())).unwrap();
+    // The readiness callback observes cancellation registration before dialing starts.
+    fn run_with_ready(
+        &self,
+        draft: NetworkSettings,
+        wait_ms: u32,
+        ready: impl FnOnce(),
+    ) -> Result<Vec<SeedRow>, CheckError> {
+        let _operation = self
+            .binding
+            .as_ref()
+            .map(SlotWorker::operation)
+            .transpose()
+            .map_err(failed)?;
+        let draft = Network::from(draft);
+        network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
+        let (stop, stopped) = oneshot::channel();
+        *self.cancel.lock().unwrap_or_else(PoisonError::into_inner) = Some(stop);
+        ready();
+        let rows = self.runtime.block_on(async {
+            tokio::select! {
+                rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
+                _ = stopped => None,
             }
+        });
+        let rows = match rows.ok_or(CheckError::Cancelled)? {
+            Ok(rows) => rows,
+            Err(seeds::CheckError::NoSeeds) => return Err(CheckError::Empty),
+            Err(seeds::CheckError::Name(reason)) => {
+                return Err(CheckError::InvalidNetwork { reason })
+            }
+            Err(error) => return Err(failed(error)),
+        };
+        if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
+            *self.checked.lock().unwrap_or_else(PoisonError::into_inner) = Some(draft);
         }
-    }
-
-    /// A public-network node on a background thread; returns its TCP port and peer ID.
-    pub(crate) fn node() -> (u16, String) {
-        let (sender, receiver) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            runtime.block_on(serve_node(sender));
-        });
-        receiver.recv().unwrap()
-    }
-
-    #[test]
-    fn a_checked_draft_is_saved_and_only_a_connected_one_activates() {
-        let dir = temp_dir("check");
-        let check = ConnectionCheck::new(dir.clone()).unwrap();
-        assert_eq!(load_network(dir.clone(), NetworkFile::Draft), Ok(None));
-        assert_eq!(check.activate(), Err(CheckError::NotChecked));
-
-        let closed = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let unreachable = NetworkSettings {
-            seeds: vec![format!("127.0.0.1:{closed}"), "seed".into()],
-            name: String::new(),
-        };
-        let rows = check.run(unreachable.clone(), 2000).unwrap();
-        assert!(matches!(rows[0], SeedRow::Unreachable { .. }), "{rows:?}");
-        assert_eq!(rows[1], SeedRow::InvalidAddress);
-        assert_eq!(
-            load_network(dir.clone(), NetworkFile::Draft),
-            Ok(Some(unreachable))
-        );
-        assert_eq!(check.activate(), Err(CheckError::NotChecked));
-
-        let empty = NetworkSettings {
-            seeds: vec![],
-            name: String::new(),
-        };
-        assert_eq!(check.run(empty, 2000), Err(CheckError::Empty));
-        let bad_name = NetworkSettings {
-            seeds: vec!["seed:1".into()],
-            name: " city".into(),
-        };
-        assert!(matches!(
-            check.run(bad_name, 2000),
-            Err(CheckError::InvalidNetwork { .. })
-        ));
-
-        let (port, peer) = node();
-        let reachable = NetworkSettings {
-            seeds: vec![format!("127.0.0.1:{port}/{peer}")],
-            name: String::new(),
-        };
-        let rows = check.run(reachable.clone(), 5000).unwrap();
-        assert_eq!(rows, vec![SeedRow::Connected { peer_id: peer }]);
-        assert_eq!(load_network(dir.clone(), NetworkFile::Active), Ok(None));
-        assert_eq!(check.activate(), Ok(reachable.clone()));
-        assert_eq!(load_network(dir, NetworkFile::Active), Ok(Some(reachable)));
-    }
-
-    #[test]
-    fn cancel_stops_a_running_check() {
-        let check = ConnectionCheck::new(temp_dir("cancel")).unwrap();
-        let canceller = check.clone();
-        let stop = std::thread::spawn(move || {
-            for _ in 0..20 {
-                std::thread::sleep(Duration::from_millis(100));
-                canceller.cancel();
-            }
-        });
-        // Accepts TCP but never answers the handshake, so the check waits for the minute.
-        let mute = TcpListener::bind("127.0.0.1:0").unwrap();
-        let silent = NetworkSettings {
-            seeds: vec![mute.local_addr().unwrap().to_string()],
-            name: String::new(),
-        };
-        let started = std::time::Instant::now();
-        assert_eq!(check.run(silent, 60_000), Err(CheckError::Cancelled));
-        assert!(started.elapsed() < Duration::from_secs(30));
-        stop.join().unwrap();
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests;

@@ -107,6 +107,13 @@ selection or removal. The internal native admission adapter stores only coordina
 all lifecycle/key checks to core `Registry.operation`. The explicit directory/key constructor is
 still unguarded for existing callers; Android/Apple proof-worker adoption remains planned.
 
+`ConnectionCheck.for_slot` uses the same per-call admission for saving/checking a draft and
+activating a successful check. A retained checked result cannot write into a removed or replaced
+identity; an idle checker holds no registry lock. Cancellation retains protection until the current
+run actually returns. These checks only use identity-owned network settings and never start, stop
+or configure the installation node. Explicit directory constructors and Android/Apple checker
+adoption remain separate work.
+
 ## Which source is the contract
 
 | Source | Status |
