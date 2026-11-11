@@ -269,17 +269,18 @@ fn only_a_picked_place_is_saved_and_it_survives_reopening() {
 
 #[test]
 fn the_puzzle_is_gated_resumes_after_cancel_and_edits_keep_it() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::from_secret(&[7; 32]));
     let cancel = AtomicBool::new(false);
     let run = |attested, bits| solve(&cancel, &dir, &alice, attested, bits);
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(run(false, 4), Err("blocked: notAttested".into()));
-    // 30 bits cannot be found in one step of eight nonces.
+    // An impossible target makes cancellation independent of a random lucky solution.
     cancel.store(true, Ordering::Relaxed);
-    assert_eq!(run(true, 30), Err("cancelled".into()));
+    assert_eq!(run(true, 257), Err("cancelled".into()));
     let store = open(&dir, &alice).unwrap();
     let progress = stored(&store).unwrap();
-    assert_eq!((progress.pow_nonce, progress.pow_bits), (STEP, 0));
+    assert_eq!((progress.pow_nonce, progress.pow_bits), (0, 0));
+    assert_eq!(store.profile_work_status(257).unwrap().next_nonce, STEP);
     assert_eq!(run(true, 4), Ok(()));
     save(&dir, &alice, woman(Some(1990))).unwrap();
     let solved = stored(&store).unwrap();

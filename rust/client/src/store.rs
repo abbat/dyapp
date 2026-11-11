@@ -29,6 +29,8 @@ mod peers;
 mod presence;
 mod profile_draft;
 pub mod profile_photos;
+mod profile_work;
+pub use profile_work::{ProfileWork, ProfileWorkResult};
 mod reads;
 mod search_publish;
 pub mod sticker_packs;

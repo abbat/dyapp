@@ -11,8 +11,8 @@ controller.profilePhotoChanged = undefined;
 /** @type {Promise<void> | undefined} */
 controller.ownAvatarsShown = undefined;
 
-// The owner's profile photos share the imported chat photo encoder. Every change runs with the form busy: a proof-of-work step saves the draft it read, so a
-// change made during one would be lost.
+// Profile photos share the chat encoder. Keep the form busy while publication and remaining
+// draft writers still require shared-core adoption; proof steps already merge progress safely.
 const MAX_PROFILE_PHOTOS = 6;
 const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
 const PROFILE_PHOTO_QUALITIES = [0.85, 0.7, 0.55];

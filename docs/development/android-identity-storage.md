@@ -200,8 +200,10 @@ While process-local draft serialization remains, every `draftWrites` monitor is 
 native admission, including publication. A lease holder never waits for that monitor. Shared
 core serialization now covers editable-field saves through a SQLite immediate read/transform/write
 transaction, preserving the latest committed noneditable progress. Photo add/remove/move use
-this transaction too, with both added blobs and the draft committed atomically. Proof and publication
-writers still require adoption before these frontend monitors can be removed. Registry admission
+this transaction too, with both added blobs and the draft committed atomically. Native proof steps
+compute outside writer ownership and merge only proof/cursor progress through a short transaction.
+Publication and remaining desktop editor writes still require adoption before frontend monitors can
+be removed. Registry admission
 protects identity lifetime and is not itself a draft-write mutex.
 
 The photo editor retains one native snapshot revision with its decoded images. Remove/move freeze

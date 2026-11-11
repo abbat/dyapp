@@ -60,7 +60,7 @@ pub struct ProfileWorkStep {
     pub solved: bool,
     /// True when the owner cancelled before a solved result.
     pub cancelled: bool,
-    /// Saved proof nonce; the next attempt starts here when more work remains.
+    /// Persisted per-target resume cursor, or nonce of an already sufficient proof.
     pub next_nonce: u64,
 }
 
@@ -147,35 +147,35 @@ impl ProfileSolve {
             .lock()
             .map_err(|error| CoreError::Failed(error.to_string()))?;
         let path = database(&self.dir)?.join("client.db");
-        let store = Store::open(&path, &self.key.identity)
+        let mut store = Store::open(&path, &self.key.identity)
             .map_err(|error| CoreError::Failed(error.to_string()))?;
-        let mut draft = store
+        let draft = store
             .profile_draft()
             .map_err(|error| CoreError::Failed(error.to_string()))?
             .unwrap_or_default();
         if self.cancelled.load(Ordering::Acquire) {
+            let status = store
+                .profile_work_status(bits)
+                .map_err(|error| CoreError::Failed(error.to_string()))?;
             return Ok(ProfileWorkStep {
                 solved: false,
                 cancelled: true,
-                next_nonce: draft.pow_nonce,
+                next_nonce: status.next_nonce,
             });
         }
         if let Some(reason) = block_at(&draft, attested, today()?) {
             return Err(CoreError::Failed(format!("blocked: {reason}")));
         }
-        let solved = publish::work(
-            &mut draft,
-            &self.key.identity.public_key(),
-            bits,
-            STEP_TRIES,
-        );
-        store
-            .save_profile_draft(&draft)
+        let work = store
+            .prepare_profile_work(&self.key.identity, bits, STEP_TRIES)
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        let progress = store
+            .commit_profile_work(&work)
             .map_err(|error| CoreError::Failed(error.to_string()))?;
         Ok(ProfileWorkStep {
-            solved,
-            cancelled: !solved && self.cancelled.load(Ordering::Acquire),
-            next_nonce: draft.pow_nonce,
+            solved: progress.solved,
+            cancelled: !progress.solved && self.cancelled.load(Ordering::Acquire),
+            next_nonce: progress.next_nonce,
         })
     }
 }
@@ -246,11 +246,12 @@ mod tests {
         )
         .unwrap();
         let first = ProfileSolve::new(dir.clone(), key.clone()).unwrap();
-        let step = first.step(true, 64).unwrap();
+        // A 257-bit target is impossible for a 256-bit hash, independently of timing/key luck.
+        let step = first.step(true, 257).unwrap();
         assert!(!step.solved);
         assert!(step.next_nonce > 0);
         first.cancel();
-        let stopped = first.step(true, 64).unwrap();
+        let stopped = first.step(true, 257).unwrap();
         assert!(stopped.cancelled);
         assert_eq!(stopped.next_nonce, step.next_nonce);
         let stored = Store::open(&Path::new(&dir).join("client.db"), &key.identity)
@@ -258,12 +259,18 @@ mod tests {
             .profile_draft()
             .unwrap()
             .unwrap();
-        assert_eq!((stored.gender, stored.pow_nonce), (1, step.next_nonce));
+        assert_eq!(
+            (stored.gender, stored.pow_nonce, stored.pow_bits),
+            (1, 0, 0)
+        );
 
         let resumed = ProfileSolve::new(dir, key).unwrap();
-        // A zero-bit target accepts the next nonce, without a probabilistic retry budget.
-        let progress = resumed.step(true, 0).unwrap();
-        assert!(progress.next_nonce >= step.next_nonce);
-        assert!(progress.solved);
+        let progress = resumed.step(true, 257).unwrap();
+        assert!(progress.next_nonce > step.next_nonce);
+        assert!(!progress.solved);
+        // A different target uses its own proof/cursor, not the previous search's pending nonce.
+        let ready = resumed.step(true, 0).unwrap();
+        assert!(ready.solved);
+        assert_eq!(ready.next_nonce, 0);
     }
 }

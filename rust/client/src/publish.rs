@@ -96,7 +96,9 @@ pub fn unlist_device(draft: &mut Profile, device_key: &[u8]) -> Option<SignedRec
 /// Try up to `tries` more nonces for a profile proof of work of `bits` for `key`, the owner's
 /// public key. Progress stays in `draft.pow_nonce`; `draft.pow_bits` is set only once solved,
 /// and the proof does not depend on other fields, so later versions reuse it. Returns whether
-/// it is solved.
+/// it is solved. An unfinished scratch step clears the proof claim. Persistent clients use
+/// `Store::prepare_profile_work` and `Store::commit_profile_work` to retain existing valid proofs
+/// separately from resume cursors.
 pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool {
     if draft.pow_bits >= bits {
         return true;
@@ -108,6 +110,8 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
         }
         Err(next) => {
             draft.pow_nonce = next;
+            // This is a scratch cursor, not a proof for a previously solved lower target.
+            draft.pow_bits = 0;
             false
         }
     }
@@ -535,7 +539,7 @@ mod tests {
 
     #[test]
     fn puzzle_work_resumes_after_a_cancelled_step() {
-        let key = Identity::generate().public_key();
+        let key = Identity::from_secret(&[7; 32]).public_key();
         let mut draft = draft(None, None, None);
         let mut steps = 1;
         while !work(&mut draft, &key, 4, 1) {
@@ -547,6 +551,9 @@ mod tests {
         let solved = draft.clone();
         assert!(work(&mut draft, &key, 4, 0));
         assert_eq!(draft, solved);
+        assert!(!work(&mut draft, &key, 257, 1));
+        assert_eq!(draft.pow_bits, 0);
+        assert_eq!(draft.pow_nonce, solved.pow_nonce.saturating_add(1));
     }
 
     // A profile node's answer: it keeps the newest record in `held`, but answers a publish with

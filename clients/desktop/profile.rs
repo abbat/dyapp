@@ -453,7 +453,7 @@ impl Draft {
 
 /// Checks the draft, then advances its proof of work of `bits`, saving after each step so a
 /// later call resumes. Errors are `blocked: <code>`, `cancelled` or a storage message. The page
-/// keeps the fields read-only meanwhile, since each step saves the draft it read.
+/// keeps the form busy meanwhile; the core merges proof/cursor progress without replacing fields.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn solve(
     cancel: &AtomicBool,
@@ -462,16 +462,17 @@ pub fn solve(
     attested: bool,
     bits: u32,
 ) -> Result<(), String> {
-    let store = open(dir, identity)?;
-    let mut draft = stored(&store)?;
+    let mut store = open(dir, identity)?;
+    let draft = stored(&store)?;
     publish::check(&draft, attested, today()?).map_err(blocked)?;
-    let key = identity.public_key();
     loop {
-        let solved = publish::work(&mut draft, &key, bits, STEP);
-        store
-            .save_profile_draft(&draft)
+        let work = store
+            .prepare_profile_work(identity, bits, STEP)
             .map_err(|e| e.to_string())?;
-        if solved {
+        let progress = store
+            .commit_profile_work(&work)
+            .map_err(|e| e.to_string())?;
+        if progress.solved {
             return Ok(());
         }
         if cancel.swap(false, Ordering::Relaxed) {

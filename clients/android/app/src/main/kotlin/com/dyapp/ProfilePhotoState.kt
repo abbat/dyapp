@@ -74,7 +74,7 @@ internal class PhotosState(val opened: Opened.Ready) {
     }
 }
 
-// Keep the frontend monitor until proof/publication writers adopt core transactions.
+// Keep the frontend monitor until publication uses shared core transactions.
 internal fun <T> withPhotoDraft(opened: Opened.Ready, action: (String, IdentityKey) -> T): T =
     synchronized(RustBridge.draftWrites) { RustBridge.withKey(opened, action) }
 

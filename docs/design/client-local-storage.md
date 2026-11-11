@@ -240,6 +240,14 @@ error rather than silently enabling signals. An absent pass record means no pass
 updates carry a persisted HLC timestamp; an older update cannot overwrite a newer local choice.
 Each profile database owns its settings and pass history; neither is published to bootstrap.
 
+`profile_work:<bits>` settings store per-target proof-search resume cursors: format version 1 and
+exactly eight big-endian nonce bytes. Unknown formats/lengths fail when that cursor is read.
+Search happens outside SQLite writer ownership. A short transaction merges only a monotonically
+advanced cursor or a stronger completed proof into the latest draft, preserving fields/photos and
+an existing sufficient proof. Pending cursors never occupy `Profile.pow_nonce`/`pow_bits`; those
+remain a proof pair. Cursor and draft writes roll back together. Native and desktop solvers share
+this core API; unrelated targets do not consume each other's resume positions.
+
 `search_publish` holds the search publish window: the last time search nodes accepted the profile,
 the time a `RATE_LIMITED` reply holds it until, both as big-endian Unix seconds, then the newest
 signed profile not yet sent, if any. It is sent once 10 minutes have passed since the last send and

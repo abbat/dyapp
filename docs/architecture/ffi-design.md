@@ -280,8 +280,12 @@ reading the latest draft and retains it through transformation and commit. Refus
 independent connections/processes cannot interleave another database write in that transformation.
 Callbacks are short and synchronous, with no proof search, network or nested store writes.
 Photo add/remove/move use the same transaction; adding commits both blobs and the draft
-together, rolling all three back on failure. Proof and publication writers still require adoption
-before frontend draft monitors can be removed.
+together, rolling all three back on failure. Native and desktop proof solvers use
+`Store::prepare_profile_work` outside writer ownership and `Store::commit_profile_work` for a short
+atomic merge into the latest draft. Per-difficulty cursors stay separate from valid proof nonces;
+late pending/weaker work cannot downgrade a stronger proof or replace fields/photos/devices.
+The prepared value is owner-bound, and cursor/draft commit failures roll back together. Publication
+and remaining desktop editor writes still require adoption before frontend monitors can be removed.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input
@@ -475,7 +479,7 @@ or returns constants.
 | `profile_photo` | function | `(dir: String, key: IdentityKey, hash: Vec<u8>) -> Result<Vec<u8>, CoreError>` | One stored blob of the owner's photos, or `notFound`. |
 | `profile_publish_block` | function | `(dir: String, key: IdentityKey, attested: bool) -> Result<Option<String>, CoreError>` | Read-only shared publish gate at current UTC day. `None` permits the attempt; `notAttested`, `invalidBirthDate` or `underage` explains a block. An empty profile is permitted with fresh 18+ attestation. The Apple and Android publish UIs use it. |
 | `ProfileSolve` | Object | `new(dir: String, key: IdentityKey) -> Result<Self, CoreError>` | A per-attempt proof-work handle for the identity-bound draft. Create a new handle for retry after cancellation. |
-| | method | `run_step(attested: bool) -> Result<ProfileWorkStep, CoreError>` | Rechecks the fresh 18+ gate and current UTC day, tries eight nonces, and persists the next nonce in `client.db`. Returns solved/cancelled flags and the next nonce; both flags false means call again off the UI thread. The required proof is 11 bits. |
+| | method | `run_step(attested: bool) -> Result<ProfileWorkStep, CoreError>` | Rechecks the fresh 18+ gate and current UTC day, tries eight nonces outside writer ownership, then atomically merges proof/cursor progress in `client.db` without replacing current fields/photos. Pending nonces live in per-target versioned settings, separate from existing valid proofs. Returns solved/cancelled flags and the next nonce; both flags false means call again off the UI thread. The required proof is 11 bits. |
 | | method | `cancel()` | Marks the handle cancelled; an in-flight short step saves before stopping. A cancelled handle stays cancelled. |
 | `ProfilePublisher` | Object | `new(dir: String) -> Result<Self, CoreError>` | Prepares a private runtime for an existing identity folder; native calls run off the UI thread. |
 | | method | `check_connection() -> Result<(), CoreError>` | Dials only the identity's activated network, trying each bootstrap row's TCP and QUIC addresses. A draft-only or empty active network returns `notConnected` without changing `client.db`. |

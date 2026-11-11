@@ -77,7 +77,9 @@ Android check full-image pixels before that; full-source decoding remains a plat
 while the shared core bounds and decodes previews. On Android and Apple
 draft writes still hold a process-local lock around proof/publication and their other writers.
 Shared core transactions now serialize editable saves and photo changes across database handles;
-proof and publication cleanup still require adoption before frontend locks can be removed.
+proof solvers now merge only proof/cursor progress into the latest draft after computing outside
+writer ownership. Pending cursors do not replace a valid lower-difficulty proof. Publication cleanup
+and remaining desktop editor writes still require adoption before frontend locks can be removed.
 
 Android removal and reordering carry the displayed snapshot's opaque core revision. It covers all
 original and preview hashes, their order and duplicate entries; unrelated fields/proof do not change
