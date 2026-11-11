@@ -4,19 +4,27 @@ With --budget, complexity findings of functions still within their committed
 legacy budget are left out, so code scanning shows only regressions.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rust_complexity as policy
+
+if TYPE_CHECKING:
+    import quality_contracts as qc
+
+Functions = dict[str, list["qc.ParserFunction"]]
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def parse_functions(paths: list[str]) -> dict[str, list]:
+def parse_functions(paths: list[str]) -> Functions:
     run = subprocess.run(
         [
             "cargo",
@@ -41,7 +49,7 @@ def parse_functions(paths: list[str]) -> dict[str, list]:
     }
 
 
-def load_functions(paths: list[str], functions_file: Path | None) -> dict:
+def load_functions(paths: list[str], functions_file: Path | None) -> Functions:
     if not functions_file:
         return parse_functions(paths) if paths else {}
     return {
@@ -72,7 +80,9 @@ def merge(measurements: list[dict[str, int]]) -> dict[str, int]:
 
 
 def within_budget(
-    findings: dict[int, dict], budget: Path, functions_file: Path | None
+    findings: dict[int, qc.ComplexityFinding],
+    budget: Path,
+    functions_file: Path | None,
 ) -> set[int]:
     """Return indexes of findings whose function stays within its budget."""
     allowed = {
@@ -91,7 +101,7 @@ def within_budget(
         except (ValueError, KeyError):
             continue  # Unmatched findings stay visible.
         groups.setdefault(key, {})[index] = values
-    result = set()
+    result: set[int] = set()
     for key, items in groups.items():
         limits = allowed.get(key, {})
         merged = merge(list(items.values()))
@@ -102,9 +112,16 @@ def within_budget(
     return result
 
 
-def sarif_result(message: dict, spans: list[dict]) -> dict:
-    result = {
-        "ruleId": (message.get("code") or {}).get("code", "clippy"),
+def rule_id(message: qc.CompilerMessage) -> str:
+    code = message.get("code")
+    return code.get("code", "clippy") if code else "clippy"
+
+
+def sarif_result(
+    code: str, message: qc.CompilerMessage, spans: list[qc.CompilerSpan]
+) -> dict[str, object]:
+    result: dict[str, object] = {
+        "ruleId": code,
         "level": message["level"],
         "message": {"text": message["message"]},
     }
@@ -124,7 +141,9 @@ def sarif_result(message: dict, spans: list[dict]) -> dict:
     return result
 
 
-def complexity_finding(code: str, spans: list[dict], text: str) -> dict | None:
+def complexity_finding(
+    code: str, spans: list[qc.CompilerSpan], text: str
+) -> qc.ComplexityFinding | None:
     if (
         code not in policy.LINTS
         or len(spans) != 1
@@ -132,7 +151,8 @@ def complexity_finding(code: str, spans: list[dict], text: str) -> dict | None:
     ):
         return None
     # Crates outside the root report paths such as a/../tests/x.rs.
-    span = dict(spans[0], file_name=os.path.normpath(spans[0]["file_name"]))
+    span = spans[0].copy()
+    span["file_name"] = os.path.normpath(span["file_name"])
     return {"code": code, "span": span, "message": text}
 
 
@@ -142,10 +162,10 @@ def main() -> None:
     parser.add_argument("--budget", type=Path)
     parser.add_argument("--functions", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    results = []
-    complexity: dict[int, dict] = {}
+    results: list[dict[str, object]] = []
+    complexity: dict[int, qc.ComplexityFinding] = {}
     seen: set[str] = set()
-    measured: set[tuple] = set()
+    measured: set[tuple[str, str, int]] = set()
     finished = None
     for line in args.records.read_text().splitlines():
         item = json.loads(line)
@@ -157,15 +177,14 @@ def main() -> None:
         if message["level"] not in ("warning", "error"):
             continue
         spans = [span for span in message["spans"] if span["is_primary"]]
-        result = sarif_result(message, spans)
+        code = rule_id(message)
+        result = sarif_result(code, message, spans)
         # Cargo reports one source diagnostic for library and test targets.
         fingerprint = json.dumps(result, sort_keys=True)
         if fingerprint in seen:
             continue
         seen.add(fingerprint)
-        finding = complexity_finding(
-            result["ruleId"], spans, message["message"]
-        )
+        finding = complexity_finding(code, spans, message["message"])
         if finding:
             span = finding["span"]
             diagnostic = (
