@@ -38,6 +38,11 @@ Native smoke has its own local interface and async scope, included only with `ui
 Locale selection, validation and native CSP are unchanged. Modules are served directly, without
 a bundler.
 
+The shipped modules are not minified: stack traces stay readable and the code in a release binary
+is the code in review. Tauri brotli-compresses the embedded assets, which is most of what
+minifying would save. `tests/scripts/check-embedded-ui.py` fails the Linux reproducible build and
+the Windows release-size job when a UI file appears in the binary as plain text.
+
 ## Linux desktop profile editor
 
 | State | Switching app sections in the same window | Closing and reopening the app |

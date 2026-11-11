@@ -63,6 +63,11 @@ jobs:
               os.environ["BUDGET"], str(binary), "--base", base, "--head", head,
               "--report", f"build/artifact-size-{target}.json",
           ], check=True)
+          if target == "linux":
+              subprocess.run([
+                  "python3", "-B", "tests/scripts/check-embedded-ui.py",
+                  str(binary),
+              ], check=True)
           PY
       - name: evidence
         if: always()

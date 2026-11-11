@@ -38,6 +38,8 @@ jobs:
         run: |
           python tools/scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tests/scripts/check-embedded-ui.py build/release/dyapp-windows.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/scripts/report-artifact-size.py windows-2022-x86_64-release build/release/dyapp-windows.exe --environment "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE" --report build/release-size-windows.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: size budget
