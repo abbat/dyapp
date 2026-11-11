@@ -7,8 +7,10 @@ No key requires user authentication, so opening or switching an identity never a
 PIN or biometrics; an app lock is a separate feature. Chat bootstrap uses
 `PlatformKeyStore.existing(alias)`: it can wrap new ancillary secrets only while that
 identity's credential exists, and refuses a lost credential instead of recreating its alias.
-Explicit identity and app-lock setup retain the credential-creating store. `Slots.kt` implements
-this layout and `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
+Explicit identity and app-lock setup retain the credential-creating store. The shared Rust registry implements
+this layout; `Slots.kt` projects its results without file or credential lifecycle policy.
+Device instrumentation covers real Keystore/native integration, and JVM tests cover recovery
+presentation and asynchronous action ownership. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
 The profile editor, preview and publication use the active identity's Rust `client.db` draft.
@@ -92,15 +94,16 @@ opened anyway: Keystore keys never leave the device.
 | Active selection | `active-profile` contains the slot UUID or `legacy-primary`. |
 | Legacy key | Root `identity.key` wrapped by alias `dyapp-identity-wrap`; virtual slot `legacy-primary`. |
 
-`RustBridge.loadNetwork` and `saveNetworkDraft` pass the ready slot's directory to the shared
-FFI, so network drafts and active settings belong to that identity. These blocking calls must
-run off the UI thread. The connection form and dial flow are planned; saving these files never
-opens or replaces the identity key.
+Network reads and saves retain a verified native identity operation for the whole call.
+The network form constructs a bound native checker, whose run and activation reacquire core
+admission; saving a draft never operates an installation-owned node.
 
-There is one storage mode, so a slot has no `storage-mode` marker. The identity list comes
-from scanning `profiles/` plus the root legacy file; there is no second index. The app runs
-in one process, so a single lock object serializes every slot change; a second process would
-need a file lock like the desktop `profiles.lock`.
+There is one storage mode, so a slot has no `storage-mode` marker. Inventory comes from
+scanning `profiles/` plus the root legacy file; there is no second index. The core owns the
+cross-process `profiles.lock`: reads/operations retain shared admission, while creation,
+selection and removal take exclusive admission. Pending/deleting/broken state, credential
+absence and access failures are classified in Rust. Kotlin never validates marker files,
+chooses a UUID, generates an identity key or implements cleanup ownership.
 
 A per-slot alias means removing an identity deletes its wrapping key, so any leftover copy of
 the blob is useless, and a damaged or deleted Keystore entry affects one identity only. A
@@ -109,20 +112,26 @@ identity at once if that one key were lost.
 
 ## Create
 
-1. Pick a fresh UUID and create `profiles/<slot>` with `mkdir`; if the directory or the alias
-   already exists, pick a new UUID. Never reuse or delete an existing alias.
-2. Write `state` = `pending` (temporary file, `fsync`, rename).
-3. Generate the slot's Keystore key, then the identity key; write the wrapped blob to
-   `identity.key.tmp`, `fsync` it and rename it to `identity.key`.
-4. Read the file back, unwrap it and compare the Peer ID; only then write `state` = `ready`
-   and point `active-profile` at the slot.
+1. The core reserves a fresh UUID directory and refuses existing directories or credentials.
+2. It writes `pending` before generating a new identity and asking the platform callback to wrap it
+   under a fresh per-slot credential.
+3. It durably writes the wrapped blob without replacing an existing file, then reopens it and
+   verifies the actual Peer ID.
+4. Only after verification does it mark the slot ready and commit the active pointer.
 
-`active-profile` is written the same way, so a failed write leaves the prior selection. A
-missing or corrupt pointer opens the picker, except when exactly one usable slot exists.
+Creation and selection distinguish visible commit from directory persistence. A failed
+pre-commit write leaves the previous selection; an unconfirmed post-commit sync returns the
+committed identity with a separate diagnostic. Android retains that diagnostic in `Shown`
+and logs it as committed. A visible persistence notice remains planned; retrying creation is
+never suggested as if the first identity had not been created.
 
 ## Open and recover
 
-Opening a slot unwraps its file with its alias and derives the Peer ID every time.
+Opening a slot delegates actual key access and Peer ID verification to the core. Choosing a ready
+candidate commits a verified selection. Choosing recovery is navigation only: it leaves the saved
+active identity unchanged, and Retry inspects that candidate again. A missing/invalid pointer can
+produce recovery without an inventoried location; Kotlin preserves it without fabricating a path
+or offering removal. Retry then resolves saved state again.
 
 | Found on open | Result |
 |---|---|
@@ -132,6 +141,7 @@ Opening a slot unwraps its file with its alias and derives the Peer ID every tim
 | `pending` with or without a key | Recovery `incomplete`: show the Peer ID when the key opens; Retry or Remove. |
 | `deleting` | Recovery `deleting`: show the Peer ID when the key still opens; Remove finishes. |
 | Bad or missing `state`, or a slot path that is not a directory | Recovery `damaged`; Remove refuses it. |
+| Missing/invalid pointer without an inventoried candidate | Recovery without a location; no fabricated slot or Remove action. |
 
 Names under `profiles/` that are not UUIDs are ignored.
 
@@ -140,23 +150,53 @@ authentication and `noBackupFilesDir` is credential-encrypted storage, so the ap
 before the first unlock. A Keystore failure still shows the `unavailable` state, never a new
 identity.
 
+## Worker ownership
+
+`RustBridge.withKey` retains the native operation through the entire blocking action; callers
+must not return a worker that will use its directory/key after that scope ends. Short-lived
+publisher hide/withdraw calls remain inside this scope. Persistent proof, search and network
+handles use the bound factories in `NativeWorkers.kt`; every actual native call reopens and
+verifies its owner. Search and contact-name reads use keyless native methods, without an outer
+`withKey` lease. Idle handles do not prevent selection/removal, and a stale handle cannot
+recreate a removed slot or use a replacement key. Cached photo reads remain memory-only.
+
+Chat bootstrap and ancillary-key persistence belong to the core. `withChats` directly opens a
+registry-owned `ChatSession`, whose identity and chat locks last through actual completion.
+It uses only the slot's existing wrapping credential. Kotlin does not generate or write
+`device.key` or `chat-state.key`, and initialized chats never regenerate a missing key.
+
+Root identity actions run on IO. The existing route shows loading until completion, rejects
+duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
+advances after each actual result, even when the visible screen stays the same; test semantics
+report zero while pending. Instrumentation awaits this completion signal instead of an intermediate
+loading frame or an old matching Recovery view. Remaining
+composition-time draft/list reads and native factory construction still need IO ownership
+adoption. Pre-registration network cancellation remains planned separately from cancellation
+of an already registered native check.
+
+While process-local draft serialization remains, every `draftWrites` monitor is acquired before
+native admission, including publication. A lease holder never waits for that monitor. Shared
+core serialization of draft transformations across independent processes/clients remains planned;
+registry admission protects identity lifetime and is not itself a draft-write mutex.
+
 ## Remove
 
-Removal follows the desktop rules: the remove screen shows the exact Peer ID, says whether it
-is the last local copy, warns that removal cannot be undone only when a key would be lost (not
-for a missing key or one another slot also holds), and enables Remove only after the user ticks
-the confirmation;
-`Slots.remove` then refuses a key whose Peer ID differs from the confirmed one. It writes
-`state` = `deleting`, deletes the alias, checks it is gone, deletes `identity.key`, renames the
-directory to `profiles/.<slot>.removed` (which drops it from the list) and deletes it. Removal
-also removes the slot's profile draft (`client.db` with its SQLite side files, and an older
-`profile-draft.json`) after confirmation. It refuses a folder holding anything but its markers,
-network settings and profile draft. A failure keeps the slot
-and shows the error; a crash after the rename leaves only the hidden folder. After a crash the
-slot shows as `deleting`; cleanup resumes only after the user confirms again or the alias is
-confirmed absent. Removing the active slot returns to the picker, which may then hold only Add: no
-identity is created on its own. Removal refuses `legacy-primary` and damaged slots, as on
-desktop.
+The existing confirmation shows the exact Peer ID and whether another ready slot has that key.
+Removal requires confirmation and delegates identity/key verification, owned-file preflight,
+credential erasure and cleanup to the core. Unknown files, symlinks or unowned directories refuse
+removal before any credential is erased. A key that still opens must match the confirmed Peer ID.
+
+The core marks interrupted removal as deleting, clears a selection targeting that identity,
+erases and verifies absence of its wrapping credential, and removes only validated identity data.
+This includes chat keys/lock, profile and chat database side files, network settings and validated
+media directories. Installation-owned node and app-lock data are outside this cleanup. A failure
+retains discoverable recovery state; old hidden `.<slot>.removed` quarantine directories also
+remain visible for explicit recovery. No client-generated path or recursive unknown-file deletion
+participates in normal removal. Legacy and damaged candidates remain unavailable for removal.
+
+Exclusive removal waits for real admitted workers to finish; the UI dispatches that wait off
+its main thread. Visible completion and any persistence diagnostic remain distinct. Removing the
+shown identity returns to the picker and never creates another identity automatically.
 
 ## Legacy key
 

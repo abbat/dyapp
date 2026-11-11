@@ -102,10 +102,8 @@ private fun PickerList(entries: List<Opened>, slots: Slots, act: (() -> Opened) 
                 is Opened.Recovery -> Triple(entry.slot, entry.peerId, reasonText(entry.reason))
                 else -> continue
             }
-            val select = {
-                slots.setActive(slot.id)
-                slots.open()
-            }
+            if (slot == null) continue
+            val select = { slots.choose(slot.id) }
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { act(select) }.testTag("pick-${index + 1}"),
                 Arrangement.spacedBy(16.dp),
@@ -128,7 +126,7 @@ private fun StartActions(opened: Opened?, slots: Slots, act: (() -> Opened) -> U
     when (opened) {
         null -> {}
         is Opened.Recovery -> {
-            Button(onClick = { act(slots::open) }, wide.testTag("retry")) {
+            Button(onClick = { act { slots.retry(opened) } }, wide.testTag("retry")) {
                 Text(stringResource(R.string.recovery_retry))
             }
             OutlinedButton(onClick = { act { Opened.Picker } }, wide.testTag("switch-identity")) {

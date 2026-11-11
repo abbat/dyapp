@@ -286,10 +286,11 @@
     <string name="network_row_wrong_peer">answered with a different Peer ID</string>
     <string name="network_row_wrong_network">belongs to another network</string>
     <string name="identity_add">Add identity</string>
-    <string name="recovery_missing">Its key is missing from this device\'s Keystore. No new key was created.</string>
+    <string name="recovery_missing">Its local key is missing. No new key was created.</string>
     <string name="recovery_incomplete">Creating this identity was interrupted before it finished.</string>
     <string name="recovery_deleting">Removing this identity was interrupted.</string>
     <string name="recovery_damaged">Its local files are unreadable or were changed.</string>
+    <string name="recovery_selection">The saved identity selection could not be read. Choose an identity.</string>
     <string name="recovery_unavailable">Its key cannot be opened now.</string>
     <string name="recovery_retry">Retry</string>
     <string name="identity_remove">Remove</string>

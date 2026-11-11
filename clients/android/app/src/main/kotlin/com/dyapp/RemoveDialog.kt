@@ -62,6 +62,7 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
         is Opened.Recovery -> target.slot to target.peerId
         else -> return
     }
+    if (slot == null) return
     val copies = remember(slot.id) { hasOtherCopy(slots, slot.id, peerId) }
     // Only an open key can sign the withdrawal; an unreadable version counts as never published.
     val published = remember(slot.id) { (target as? Opened.Ready)?.takeIf { loadVisibility(it).version > 0uL } }
@@ -94,7 +95,7 @@ private fun RemoveState.RemoveText(target: Opened, peerId: String?, copies: Bool
 }
 
 private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null && runCatching {
-    slots.list().filter { it.id != slotId }.map { openSlot(it, slots::load) }
+    slots.list().filter { it.id != slotId }.map { slots.inspect(it.id) }
         .any { it is Opened.Ready && it.peerId == peerId }
 }.getOrDefault(false)
 

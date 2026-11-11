@@ -56,7 +56,8 @@ Move the operation object into blocking workers and keep it until actual complet
 after UI cancellation. Installation-owned node work must run outside identity leases.
 Android's `NativeSlotKeys` implements the common credential callback with existing alias names
 and typed errors, using opaque keys. Its callback inputs release their native key handles after
-wrapping. The current `Slots` lifecycle adapter and Swift adoption still require migration.
+wrapping. Android's `Slots` now delegates lifecycle operations to this registry; Swift adoption
+remains planned.
 
 `Registry::remove` takes the same exclusive lock. It rejects legacy/damaged candidates,
 checks an existing key against the exact confirmed Peer ID and validates all owned files
@@ -96,8 +97,9 @@ that capability and compares it with the verified identity, rejecting a mismatch
 The legacy explicit-key constructor remains for existing callers; those callers do not
 gain registry protection until migrated. Native commands, construction and regression tests
 live in separate `chats` modules without changing the existing command signatures.
-Android/Apple bootstrap adoption remains planned; desktop system/file bootstrap continues
-through the existing desktop implementation.
+Android `RustBridge.withChats` now uses this API directly with an existing-only store; Kotlin no
+longer generates or persists ancillary chat keys. Apple adoption remains planned; desktop
+system/file bootstrap continues through the existing desktop implementation.
 
 `ProfileSolve.for_slot(registry, id, expected_peer)` binds an idle proof handle to a verified
 identity without retaining a lock between steps. Every actual step reacquires the core operation
@@ -105,14 +107,15 @@ before accessing its database and retains it through completion, including cance
 or replaced identity fails admission before storage access; retaining an idle handle cannot prevent
 selection or removal. The internal native admission adapter stores only coordinates and delegates
 all lifecycle/key checks to core `Registry.operation`. The explicit directory/key constructor is
-still unguarded for existing callers; Android/Apple proof-worker adoption remains planned.
+still unguarded for existing callers. Android proof steps use the bound factory; Apple adoption
+remains planned.
 
 `ConnectionCheck.for_slot` uses the same per-call admission for saving/checking a draft and
 activating a successful check. A retained checked result cannot write into a removed or replaced
 identity; an idle checker holds no registry lock. Cancellation retains protection until the current
 run actually returns. These checks only use identity-owned network settings and never start, stop
-or configure the installation node. Explicit directory constructors and Android/Apple checker
-adoption remain separate work.
+or configure the installation node. Android uses the bound checker; its pre-registration
+cancellation ownership and Apple checker adoption remain separate work.
 
 `ProfileSearcher.for_slot` binds searches, contact-name reads and network profile/photo fetches
 without retaining a lease while idle. `search_slot` and `contact_names_slot` obtain the verified
@@ -123,19 +126,21 @@ before invoking them. In particular, Android search and contact-name calls must 
 old `withKey` wrappers to these keyless methods when adopting the bound factory.
 Pure cached-photo reads and requests already satisfied in memory do not acquire a registry lease;
 network work reacquires protection before reading settings. A stale worker cannot recreate removed
-data or access a replacement identity. Android/Apple search factory adoption remains planned.
+data or access a replacement identity. Android search and contact-name reads now use these bound
+APIs; Apple adoption remains planned. Android's remaining composition-time factory and data reads
+still require IO dispatch with cancellation-safe resource ownership.
 
 ## Which source is the contract
 
 | Source | Status |
 |--------|--------|
 | `rust/ffi/src/lib.rs` + `rust/ffi/src/dyapp.udl` (crate `dyapp-ffi`) | **The contract.** Workspace member; compiles to `libdyapp_ffi.{so,a}`. Interface is declared with proc macros; the UDL only supplies an empty `namespace dyapp {}` for the UDL scaffolding. |
-| `clients/android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Creates or opens the active identity slot and shows its peer ID. |
+| `clients/android/app/src/main/kotlin/com/dyapp/RustBridge.kt` | Retains verified native operation/session ownership and projects identity action results. |
 | `rust/ffi/src/android.rs` | Android only: the JNI export `DYApplication.nativeInit` that gives the DNS resolver the app `Context` ([ADR 0032](../decisions/0032-android-context-for-dns.md)). |
-| `clients/android/app/src/main/kotlin/com/dyapp/Slots.kt` | Identity slots under `noBackupFilesDir`: create, open, recovery states and removal; see [Android identity storage](../development/android-identity-storage.md). |
+| `clients/android/app/src/main/kotlin/com/dyapp/Slots.kt` | Thin common-registry adapter for identity slots under `noBackupFilesDir`: create, open, recovery and removal; see [Android identity storage](../development/android-identity-storage.md). |
 | `clients/android/app/src/main/kotlin/com/dyapp/PlatformKeyStore.kt` | The app's `KeyStore`: AES-256-GCM with a non-exportable Android Keystore key, one alias per identity slot. |
-| `clients/ios/DYApp/RustBridge.swift` | Creates or opens the stored `IdentityKey` and shows its peer ID; shared by the iOS and macOS apps. |
-| `clients/ios/DYApp/PlatformKeyStore.swift` | The Apple apps' `KeyStore`: CryptoKit AES-256-GCM with a random key in the Keychain, this device only. |
+| `clients/ios/DYApp/RustBridge.swift` | Swift bridge for stored opaque keys and the iOS profile/network flows. |
+| `clients/ios/DYApp/PlatformKeyStore.swift` | The Swift `KeyStore` adapter: CryptoKit AES-256-GCM with a random key in the Keychain, this device only. |
 
 The Android, iOS and macOS apps link the library. Linux and Windows call
 `dyapp-identity` directly; their [storage choice and capability checks](../development/desktop-identity-storage.md)

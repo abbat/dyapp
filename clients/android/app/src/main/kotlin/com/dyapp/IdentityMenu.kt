@@ -40,15 +40,13 @@ internal fun IdentityMenu(slots: Slots, active: Opened.Ready, act: (() -> Opened
                 is Opened.Recovery -> entry.slot to (entry.peerId ?: reasonText(entry.reason))
                 else -> return@forEachIndexed
             }
+            if (slot == null) return@forEachIndexed
             if (slot.id == active.slot.id) {
                 ActiveIdentity(label)
             } else {
                 TextButton(
                     onClick = {
-                        act {
-                            slots.setActive(slot.id)
-                            slots.open()
-                        }
+                        act { slots.choose(slot.id) }
                     },
                     Modifier.testTag("switch-to-${index + 1}")
                 ) { Text(label) }

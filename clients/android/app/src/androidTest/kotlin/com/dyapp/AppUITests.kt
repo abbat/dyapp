@@ -69,8 +69,8 @@ class AppUITests {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val opened = RustBridge.slots(context).open() as Opened.Ready
         check(opened.peerId == before) { "Stored identity differs from the shown one" }
-        check(opened.slot.keyFile.length() > 32) { "Key not wrapped" }
-        check(PlatformKeyStore.exists(opened.slot.alias)) { "No wrapping key for the slot" }
+        check(File(opened.slot.dir, "identity.key").length() > 32) { "Key not wrapped" }
+        check(PlatformKeyStore.exists(identityAlias(opened.slot.id))) { "No wrapping key for the slot" }
     }
 
     @Test
@@ -83,7 +83,9 @@ class AppUITests {
         compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
         compose.onNode(hasText(second) and hasAnyAncestor(hasTestTag("identity-menu"))).assertExists()
         compose.onNodeWithTag("add-identity-menu").assertExists()
-        compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick()
+        compose.identityAction {
+            compose.onNode(hasText(first) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick()
+        }
         check(compose.shownPeerId() == first) { "Switching did not open the chosen identity" }
         // A relaunch reads the active pointer again.
         compose.activityRule.scenario.recreate()
@@ -96,7 +98,7 @@ class AppUITests {
         compose.addIdentity()
         val second = compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val alias = (RustBridge.slots(context).open() as Opened.Ready).slot.alias
+        val alias = identityAlias((RustBridge.slots(context).open() as Opened.Ready).slot.id)
         compose.onNodeWithTag("nav-settings").performClick()
         compose.onNodeWithTag("settings-remove").performScrollTo().performClick()
         compose.onNodeWithTag("remove-title").assertTextEquals(string(R.string.remove_title))
@@ -105,11 +107,11 @@ class AppUITests {
         compose.onNodeWithTag("remove-warning").assertIsDisplayed()
         compose.onNodeWithTag("remove-action").assertIsNotEnabled()
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
-        compose.onNodeWithTag("remove-action").performClick()
+        compose.identityAction { compose.onNodeWithTag("remove-action").performClick() }
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
         compose.onNodeWithText(shortPeerId(second)).assertDoesNotExist()
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
-        compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick()
+        compose.identityAction { compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick() }
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
@@ -126,7 +128,7 @@ class AppUITests {
         compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val slots = RustBridge.slots(context)
-        val active = checkNotNull(slots.active())
+        val active = (slots.open() as Opened.Ready).slot.id
         // A crash after the slot was reserved: `pending` and no key yet.
         val id = "00000000-0000-4000-8000-000000000000"
         val dir = File(context.noBackupFilesDir, "profiles/$id")
@@ -136,9 +138,10 @@ class AppUITests {
             val incomplete = string(R.string.recovery_incomplete)
             compose.switchIdentity(incomplete)
             compose.onNodeWithTag("recovery-reason").assertTextEquals(incomplete)
-            compose.onNodeWithTag("retry").performClick()
+            compose.identityAction { compose.onNodeWithTag("retry").performClick() }
             compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_recovery))
             check(!PlatformKeyStore.exists("dyapp-identity-wrap:$id")) { "Retry made a key" }
+            check((slots.open() as Opened.Ready).slot.id == active) { "Recovery changed the saved selection" }
             copiesRecoveryDetails(context)
             // No key exists, so removing loses nothing and shows no loss warning.
             compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
@@ -147,7 +150,7 @@ class AppUITests {
             compose.onNodeWithTag("remove-cancel").performClick()
         } finally {
             dir.deleteRecursively()
-            slots.setActive(active)
+            slots.choose(active)
         }
     }
 }

@@ -2,7 +2,6 @@ package com.dyapp
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.KeyStore
 import uniffi.dyapp.WrapException
 import java.io.IOException
@@ -71,7 +70,7 @@ class PlatformKeyStore private constructor(private val alias: String, private va
         WrapException.Failed(error.javaClass.simpleName + ": " + error.message)
 
     /** Slot-key operations backed by Android Keystore. */
-    companion object : SlotKeys {
+    companion object {
         private const val MISSING_KEY = "the wrapping key is gone"
         private const val PROVIDER = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
@@ -84,14 +83,10 @@ class PlatformKeyStore private constructor(private val alias: String, private va
         /** Open only an existing credential; wrapping after key loss must never recreate it. */
         fun existing(alias: String): PlatformKeyStore = PlatformKeyStore(alias, false)
 
-        override fun exists(alias: String): Boolean = keystore().containsAlias(alias)
+        /** Check an existing credential without generating one. */
+        fun exists(alias: String): Boolean = keystore().containsAlias(alias)
 
-        override fun generate(alias: String): Pair<ByteArray, String> =
-            IdentityKey.generate().use { Pair(it.wrap(PlatformKeyStore(alias)), it.peerId()) }
-
-        override fun peerId(alias: String, wrapped: ByteArray): String =
-            IdentityKey.unwrap(PlatformKeyStore(alias), wrapped).use { it.peerId() }
-
-        override fun delete(alias: String) = keystore().deleteEntry(alias)
+        /** Erase the explicitly selected credential. */
+        fun delete(alias: String) = keystore().deleteEntry(alias)
     }
 }

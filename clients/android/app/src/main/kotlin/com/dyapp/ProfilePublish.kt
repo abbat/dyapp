@@ -89,7 +89,7 @@ private suspend fun runSteps(solve: ProfileSolve, state: PublishState, attested:
 // A new handle per attempt resumes the saved nonce; a failure is left in [state].
 private suspend fun solveProof(opened: Opened.Ready, state: PublishState, attested: Boolean): Boolean {
     val solve = withContext(Dispatchers.IO) {
-        runCatching { RustBridge.withKey(opened) { dir, key -> ProfileSolve(dir, key) } }
+        runCatching { opened.profileSolver() }
     }.getOrNull()
     state.solve = solve
     val step = try {
@@ -121,7 +121,7 @@ private suspend fun prepareAndPublish(opened: Opened.Ready, state: PublishState,
         state.publishing = true
         val result = withContext(Dispatchers.IO) {
             runCatching {
-                RustBridge.withChats(opened) { synchronized(RustBridge.draftWrites) { it.publishProfile(attested) } }
+                synchronized(RustBridge.draftWrites) { RustBridge.withChats(opened) { it.publishProfile(attested) } }
             }
         }
         result.fold({

@@ -30,7 +30,7 @@ class WizardIdentityTests {
         val cache = InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
         val root = File(cache, "wizard-identity-test")
         try {
-            val slots = Slots(root, PlatformKeyStore)
+            val slots = Slots(root)
             check(RustBridge.show(slots, slots::open).opened == Opened.Setup) { "No identity step" }
             check(slots.list().isEmpty()) { "An identity appeared without confirmation" }
             val failed = RustBridge.show(slots) { error("expected by the test") }

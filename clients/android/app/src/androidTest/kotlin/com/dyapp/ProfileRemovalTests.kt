@@ -20,6 +20,8 @@ class ProfileRemovalTests {
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(lockChoice(skipped = true)).around(compose)
 
+    private var removalRevision = 0L
+
     private fun string(id: Int) = compose.activity.getString(id)
 
     // A second identity, so that removing it leaves the first one for the next test.
@@ -34,7 +36,7 @@ class ProfileRemovalTests {
 
     private fun activeAlias(): String {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        return (RustBridge.slots(context).open() as Opened.Ready).slot.alias
+        return identityAlias((RustBridge.slots(context).open() as Opened.Ready).slot.id)
     }
 
     private fun askToRemove() {
@@ -42,6 +44,7 @@ class ProfileRemovalTests {
         compose.onNodeWithTag("settings-remove").performScrollTo().performClick()
         compose.onNodeWithText(string(R.string.remove_withdraws)).assertExists()
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
+        removalRevision = compose.identityRevision()
         compose.onNodeWithTag("remove-action").performClick()
     }
 
@@ -50,12 +53,13 @@ class ProfileRemovalTests {
     }
 
     private fun assertRemoved(alias: String, first: String) {
+        compose.awaitIdentityCompletion(removalRevision, READBACK_WAIT_MS)
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("remove-title")).fetchSemanticsNodes().isEmpty()
         }
         compose.onNodeWithTag("app-ready").assertTextEquals(string(R.string.status_pick))
         check(!PlatformKeyStore.exists(alias)) { "The removed identity kept its key" }
-        compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick()
+        compose.identityAction { compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick() }
     }
 
     @Test

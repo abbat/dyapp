@@ -60,7 +60,7 @@ internal suspend fun loadDraft(opened: Opened.Ready, state: NetworkDraftState) {
         runCatching {
             val settings = RustBridge.loadNetwork(opened, NetworkFile.DRAFT)
                 ?: RustBridge.loadNetwork(opened, NetworkFile.ACTIVE)
-            settings to ConnectionCheck(opened.slot.dir.absolutePath)
+            settings to opened.connectionChecker()
         }
     }
     loaded.fold(onSuccess = { (settings, checker) ->

@@ -79,7 +79,7 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
 
     /** How the screens name each of [peers]; empty without a searcher. Off the UI thread. */
     fun names(peers: List<String>): List<ContactNameView> =
-        searcher?.let { found -> RustBridge.withKey(opened) { _, key -> found.contactNames(key, peers) } }.orEmpty()
+        searcher?.contactNamesSlot(peers).orEmpty()
 
     /** Whether full images load without a tap: Settings Photos and the metered report. */
     suspend fun auto(): Boolean = withContext(Dispatchers.IO) {

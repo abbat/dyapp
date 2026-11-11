@@ -97,6 +97,7 @@ private fun IdentitySettingsRow(entry: Opened, activeSlotId: String, number: Int
         is Opened.Recovery -> entry.slot to entry.peerId
         else -> return
     }
+    if (slot == null) return
     val isActive = slot.id == activeSlotId
     Row(
         Modifier.fillMaxWidth().testTag("settings-identity"),

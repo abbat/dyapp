@@ -25,7 +25,11 @@ import org.junit.rules.RuleChain
 internal fun ComposeTestRule.passIdentityStep() {
     val shown = { tag: String -> onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     waitUntil(timeoutMillis = 60_000) { shown("app-ready") || shown("skip-network") || shown("create-identity") }
-    if (shown("create-identity")) onNodeWithTag("create-identity").performScrollTo().performClick()
+    if (shown("create-identity")) {
+        identityAction {
+            onNodeWithTag("create-identity").performScrollTo().performClick()
+        }
+    }
 }
 
 /**
@@ -42,13 +46,13 @@ internal fun ComposeTestRule.skipNetworkEntry() {
 /** Adds an identity from the switcher sheet in the top bar. */
 internal fun ComposeTestRule.addIdentity() {
     onNodeWithTag("identity-switcher").performClick()
-    onNodeWithTag("add-identity-menu").performClick()
+    identityAction { onNodeWithTag("add-identity-menu").performClick() }
 }
 
 /** Switches to the identity shown as [label] in the switcher sheet. */
 internal fun ComposeTestRule.switchIdentity(label: String) {
     onNodeWithTag("identity-switcher").performClick()
-    onNode(hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick()
+    identityAction { onNode(hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))).performClick() }
 }
 
 /** The ready identity's Peer ID from the Profile section, past the first-run network wizard. */

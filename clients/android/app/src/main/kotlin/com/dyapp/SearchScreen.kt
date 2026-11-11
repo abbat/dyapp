@@ -167,9 +167,7 @@ private suspend fun sample(
     val result = withContext(Dispatchers.IO) {
         runCatching {
             val query = conditions.getOrThrow() + filters.mutualConditions(opened)
-            RustBridge.withKey(opened) { _, key ->
-                searcher.getOrThrow().search(key, query, filters.employer.employer(), 0u)
-            }
+            searcher.getOrThrow().searchSlot(query, filters.employer.employer(), 0u)
         }
     }
     result.onSuccess { filters.offered = it.offered }
@@ -179,7 +177,7 @@ private suspend fun sample(
 /** One identity's search; the shell owns it so the results outlive the pages opened over them. */
 internal class SearchSession(private val opened: Opened.Ready, private val scope: CoroutineScope) {
     // The searcher keeps verified versions, so a later sample never shows an older one.
-    private val searcher = runCatching { ProfileSearcher(opened.slot.dir.absolutePath) }
+    private val searcher = runCatching { opened.profileSearcher() }
     private var job: Job? = null
     val photos = PeerPhotos(searcher.getOrNull(), opened)
     val filters = SearchFilters(profileScales())

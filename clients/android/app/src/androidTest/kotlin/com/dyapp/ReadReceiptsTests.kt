@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -27,13 +28,14 @@ class ReadReceiptsTests {
         compose.onNodeWithTag("nav-settings").performClick()
         val switch = compose.onNodeWithTag("send-read-receipts").performScrollTo()
         fun waitFor(on: Boolean) = compose.waitUntil(5_000) {
-            runCatching { if (on) switch.assertIsOn() else switch.assertIsOff() }.isSuccess
+            runCatching { (if (on) switch.assertIsOn() else switch.assertIsOff()).assertIsEnabled() }.isSuccess
         }
         waitFor(false)
         switch.performClick()
         waitFor(true)
         check(stored()) { "On was not stored" }
         compose.activityRule.scenario.recreate()
+        compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-settings").performClick()
         waitFor(true)
         switch.performScrollTo().performClick()

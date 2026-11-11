@@ -6,89 +6,65 @@ import uniffi.dyapp.ChatSession
 import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.NetworkFile
 import uniffi.dyapp.NetworkSettings
-import uniffi.dyapp.newChatStateKey
 import uniffi.dyapp.loadNetwork as ffiLoadNetwork
 import uniffi.dyapp.saveNetworkDraft as ffiSaveNetworkDraft
 
-/** What the start screen shows; [opened] is null when the storage itself fails. */
+private const val LOG_TAG = "dyapp"
+
+/** Start-screen state; a diagnostic describes persistence after a committed operation. */
 class Shown(
-    /** Active identity state, or null when storage failed. */
+    /** Resolved state, or null when storage itself failed. */
     val opened: Opened?,
-    /** Candidate identities for the picker, including recovery states. */
-    val entries: List<Opened> = emptyList()
+    /** Picker candidates. */
+    val entries: List<Opened> = emptyList(),
+    /** Independent committed-persistence detail, never an uncommitted failure. */
+    val durabilityDetail: String? = null
 )
 
-// The slot's wrapped device and state keys, made once; Rust refuses a replaced one.
-private fun chatKeys(slot: Slot, store: PlatformKeyStore): Pair<ByteArray, ByteArray> = synchronized(RustBridge) {
-    if (!slot.deviceKeyFile.exists()) {
-        writeAtomic(slot.deviceKeyFile, IdentityKey.generate().use { it.wrap(store) })
-    }
-    if (!slot.chatStateKeyFile.exists()) writeAtomic(slot.chatStateKeyFile, newChatStateKey(store))
-    slot.deviceKeyFile.readBytes() to slot.chatStateKeyFile.readBytes()
-}
-
-/** Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings. */
+/** Thin ownership and presentation bridge over common native operations. */
 object RustBridge {
-    // Not this object's monitor: show() runs on the UI thread and must not wait for a network receive.
-    private val chatsLock = Any()
-
     /**
-     * Held by each proof step, the publish, a draft save and every photo change: a step or save writes
-     * back the draft it read and a publish drops photo blobs it did not publish, so a photo change
-     * between would be lost. Taken after [withChats]'s lock, never before it.
+     * Serializes draft transformations until shared core draft serialization is adopted.
+     * Always take this before native admission; a lease holder must never wait for this monitor.
      */
     val draftWrites = Any()
 
-    /**
-     * Identity slots under `noBackupFilesDir`, which backups skip: their wrapping keys never
-     * leave this device, so a restored blob could not be opened anyway.
-     */
-    fun slots(context: Context) = Slots(context.noBackupFilesDir, PlatformKeyStore)
+    /** Backup-excluded identity storage; opening a registry does not generate keys. */
+    fun slots(context: Context) = Slots(context.noBackupFilesDir)
 
-    /** Read this ready identity's draft or active network settings off the UI thread. */
+    /** Read settings under verified identity ownership, off the UI thread. */
     fun loadNetwork(opened: Opened.Ready, file: NetworkFile): NetworkSettings? =
-        ffiLoadNetwork(opened.slot.dir.absolutePath, file)
+        withKey(opened) { dir, _ -> ffiLoadNetwork(dir, file) }
 
-    /** Persist draft edits beside this ready identity's key off the UI thread. */
+    /** Save settings under verified identity ownership, off the UI thread. */
     fun saveNetworkDraft(opened: Opened.Ready, draft: NetworkSettings) =
-        ffiSaveNetworkDraft(opened.slot.dir.absolutePath, draft)
+        withKey(opened) { dir, _ -> ffiSaveNetworkDraft(dir, draft) }
 
-    /** Runs [action] on this ready slot's folder and reopened key; a changed Peer ID refuses it. */
-    fun <T> withKey(opened: Opened.Ready, action: (String, IdentityKey) -> T): T {
-        val slot = opened.slot
-        return IdentityKey.unwrap(PlatformKeyStore(slot.alias), slot.keyFile.readBytes()).use { key ->
-            check(key.peerId() == opened.peerId) { "The identity key changed" }
-            action(slot.dir.absolutePath, key)
+    /** Retain actual ownership through the whole action; do not return an escaping native worker. */
+    fun <T> withKey(opened: Opened.Ready, action: (String, IdentityKey) -> T): T =
+        opened.slot.owner().operation(opened.slot.id, opened.peerId).use { operation ->
+            operation.key().use { key -> action(operation.slot().directory, key) }
         }
-    }
 
-    /**
-     * Runs [action] on this ready slot's chats off the UI thread. One session at a
-     * time: two would advance the same saved MLS state and the later one would drop the other's commit.
-     */
-    fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = synchronized(chatsLock) {
-        withKey(opened) { dir, key ->
-            val store = PlatformKeyStore.existing(opened.slot.alias)
-            val (deviceKey, stateKey) = chatKeys(opened.slot, store)
-            IdentityKey.unwrap(store, deviceKey).use { device ->
-                ChatSession.open(dir, key, device, store, stateKey).use(action)
-            }
-        }
-    }
+    /** Bootstrap and serialize chats in Rust; call directly without an outer identity lease. */
+    fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T =
+        opened.slot.owner().openChats(
+            opened.slot.id,
+            opened.peerId,
+            PlatformKeyStore.existing(identityAlias(opened.slot.id))
+        ).use(action)
 
-    // ponytail: Keystore and file I/O on the caller's (main) thread; move off it with the
-    // client runtime.
-    /**
-     * Runs [action] and returns the screen for its result. A fresh install shows the identity
-     * step and creates nothing; the picker lists every slot, opened or with its recovery reason.
-     */
+    /** Resolve an action and its picker candidates; callers dispatch blocking storage off the UI thread. */
     @Synchronized
     fun show(slots: Slots, action: () -> Opened): Shown = runCatching {
         val opened = action()
-        if (opened == Opened.Picker) Shown(opened, slots.list().map { openSlot(it, slots::load) }) else Shown(opened)
+        val entries = if (opened == Opened.Picker) slots.list().map { slots.inspect(it.id) } else emptyList()
+        val detail = slots.takeDurabilityDetail()
+        detail?.let { Log.w(LOG_TAG, "Identity change committed; persistence unconfirmed: $it") }
+        Shown(opened, entries, detail)
     }.getOrElse { failure ->
         if (failure !is Exception) throw failure
-        Log.e("dyapp", "Identity storage failed", failure)
-        Shown(null)
+        Log.e(LOG_TAG, "Identity storage failed", failure)
+        Shown(null, durabilityDetail = slots.takeDurabilityDetail())
     }
 }

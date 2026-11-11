@@ -55,6 +55,9 @@ caller cancellation. Keep installation node work outside that lease and never up
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).
 Reusable UI-owned workers reacquire verified admission for actual calls instead of holding a lease
 while idle: profile selection may need to finish before the old screen disposes its worker handle.
+Android identity UI tests use `identityAction`/`awaitIdentityCompletion`, which await a new completed
+screen revision. `waitForIdle` alone does not await native IO, and waiting for a loading frame fails
+when fast operations are conflated. Start a fresh readiness check after Activity recreation.
 
 Raw search input uses `dyapp_profile::text_input::trim` for Linux-compatible whitespace:
 Rust `str::trim` treats BOM/NEL differently. Reuse the core helper for blank checks and parsing;

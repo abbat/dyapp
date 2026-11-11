@@ -43,8 +43,7 @@ class IdentitySettingsTests {
         val first = compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
         val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
-        click("settings-create")
-        compose.waitForIdle()
+        compose.identityAction { click("settings-create") }
         val second = active()
         check(second.peerId != first) { "Create kept the previous identity active" }
         check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows + 1)
@@ -64,11 +63,11 @@ class IdentitySettingsTests {
         check(active().peerId == second.peerId) { "Cancel changed the active identity" }
         click("settings-remove")
         click("remove-confirm")
-        compose.onNodeWithTag("remove-action").performClick()
+        compose.identityAction { compose.onNodeWithTag("remove-action").performClick() }
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
-        check(!PlatformKeyStore.exists(second.slot.alias)) { "The removed identity kept its key" }
+        check(!PlatformKeyStore.exists(identityAlias(second.slot.id))) { "The removed identity kept its key" }
         // Later tests start from the active identity, not the picker.
-        compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick()
+        compose.identityAction { compose.onNodeWithText(shortPeerId(first)).performScrollTo().performClick() }
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
@@ -77,8 +76,7 @@ class IdentitySettingsTests {
         val first = compose.shownPeerId()
         compose.onNodeWithTag("nav-settings").performClick()
         val rows = compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size
-        click("settings-create")
-        compose.waitForIdle()
+        compose.identityAction { click("settings-create") }
         val other = active()
         compose.switchIdentity(first)
         compose.onNode(
@@ -87,10 +85,10 @@ class IdentitySettingsTests {
             )
         ).performScrollTo().performClick()
         click("remove-confirm")
-        compose.onNodeWithTag("remove-action").performClick()
+        compose.identityAction { compose.onNodeWithTag("remove-action").performClick() }
         compose.onNodeWithTag("settings-create").assertExists()
         check(active().peerId == first) { "Removing another identity changed the active one" }
-        check(!PlatformKeyStore.exists(other.slot.alias)) { "The removed identity kept its key" }
+        check(!PlatformKeyStore.exists(identityAlias(other.slot.id))) { "The removed identity kept its key" }
         check(compose.onAllNodesWithTag("settings-identity").fetchSemanticsNodes().size == rows)
     }
 
@@ -114,6 +112,7 @@ class IdentitySettingsTests {
         waitFor(false)
         check(stored() == ChatNotice.OFF) { "Off was not stored" }
         compose.activityRule.scenario.recreate()
+        compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-settings").performClick()
         waitFor(false)
         // Off keeps the choice, disabled, and a turn-on brings it back.

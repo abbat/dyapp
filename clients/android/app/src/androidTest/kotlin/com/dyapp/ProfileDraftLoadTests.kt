@@ -1,15 +1,27 @@
 package com.dyapp
 
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.CoreException
 import java.io.File
 import java.util.UUID
 
 class ProfileDraftLoadTests {
+    private val roots = mutableListOf<File>()
+
+    @After
+    fun cleanUp() {
+        for (root in roots) {
+            Slots(root).list().forEach { PlatformKeyStore.delete(identityAlias(it.id)) }
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun legacyJsonIsIgnoredWithoutCreatingACoreDraftOrChangingFiles() {
         for (json in listOf("{\"gender\":1}", "not JSON")) {
@@ -46,18 +58,16 @@ class ProfileDraftLoadTests {
     fun changedIdentityFailsBeforeAnyDraftFallback() {
         val opened = ready()
         val mismatched = Opened.Ready(opened.slot, "different peer")
-        val failure = assertThrows(IllegalStateException::class.java) { loadDraft(mismatched) }
-        assertEquals("The identity key changed", failure.message)
+        val failure = assertThrows(CoreException::class.java) { loadDraft(mismatched) }
+        assertTrue(failure.toString().contains("The identity key changed"))
         assertFalse(File(opened.slot.dir, "client.db").exists())
     }
 
     private fun ready(): Opened.Ready {
         val id = UUID.randomUUID().toString()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val dir = File(context.cacheDir, "draft-loader-$id").apply { check(mkdir()) }
-        val slot = Slot(id, dir, SlotState.READY)
-        val (wrapped, peer) = PlatformKeyStore.generate(slot.alias)
-        slot.keyFile.writeBytes(wrapped)
-        return Opened.Ready(slot, peer)
+        val root = File(context.cacheDir, "draft-loader-$id")
+        roots += root
+        return Slots(root).create()
     }
 }

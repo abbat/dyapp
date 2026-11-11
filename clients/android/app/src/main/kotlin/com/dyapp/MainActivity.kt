@@ -12,18 +12,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal const val APP_READY_TAG = "app-ready"
-private const val MISSING_REASON = "missing"
-private const val INCOMPLETE_REASON = "incomplete"
-private const val DELETING_REASON = "deleting"
 
 /**
  * The single activity; checks the app lock before constructing the private Compose screen and
@@ -198,56 +193,9 @@ private val reasons = mapOf(
     INCOMPLETE_REASON to R.string.recovery_incomplete,
     DELETING_REASON to R.string.recovery_deleting,
     "damaged" to R.string.recovery_damaged,
+    "invalidPointer" to R.string.recovery_selection,
 )
 
 @Composable
 internal fun reasonText(reason: String) =
     stringResource(reasons[reason] ?: R.string.recovery_unavailable)
-
-/**
- * The app shell for a ready identity, the identity step when no slot exists yet, else the
- * identity picker or a recovery state. `app-ready`
- * tags the title or status line UI tests wait for, `peer-id` the core's answer.
- */
-@Composable
-internal fun MainScreen(
-    lockMode: LockMode = LockMode.OFF,
-    start: StartTarget? = null,
-    onLockSettings: () -> Unit = {}
-) {
-    val context = LocalContext.current.applicationContext
-    val slots = remember { RustBridge.slots(context) }
-    var shown by remember { mutableStateOf(RustBridge.show(slots, slots::open)) }
-    // The identity the remove dialog asks about; null when it is closed.
-    var removing by remember { mutableStateOf<Opened?>(null) }
-    var editor by remember { mutableStateOf(start.takeIf { shown.opened is Opened.Ready }) }
-    val act: (() -> Opened) -> Unit = { action ->
-        removing = null
-        shown = RustBridge.show(slots, action)
-        // Settings stays open across Create and Switch, but not past a removal.
-        if (shown.opened !is Opened.Ready) editor = null
-    }
-    val opened = shown.opened
-    val open: (StartTarget?) -> Unit = { target ->
-        when (target) {
-            StartTarget.REMOVE -> removing = opened
-            StartTarget.LOCK -> onLockSettings()
-            else -> editor = target
-        }
-    }
-    when {
-        opened is Opened.Ready -> AppShell(slots, opened, editor, lockMode, act, open)
-        opened == Opened.Setup -> WizardIdentity { act(slots::create) }
-        else -> StartColumn(shown, slots, act, open)
-    }
-    removing?.let { RemoveDialog(slots, it, act) { removing = null } }
-}
-
-// Removal refuses the legacy slot and damaged or unreadable ones.
-internal fun removable(opened: Opened) = when (opened) {
-    is Opened.Ready -> opened.slot.id != Slots.LEGACY
-    is Opened.Recovery ->
-        opened.slot.id != Slots.LEGACY &&
-            opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
-    else -> false
-}
