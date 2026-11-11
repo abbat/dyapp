@@ -181,8 +181,12 @@ replaces the previous notice. The identity's settings can turn it off, or add th
 the name and up to 200 characters of the message, which then reach the notification server and may
 show on the lock screen. Only an open chat adds them: a message request and a like stay fixed, so a
 stranger's words never appear unasked. The text is escaped, because a server may read the body as
-markup. A click on the notice shows the window; a server without actions just shows the notice. Android,
-macOS and iOS follow below; Windows is planned.
+markup. A click on the notice shows the window; a server without actions just shows the notice. The
+Windows client posts the same notice under the same rules as a toast, with its text as plain text,
+and a click on it while the app runs shows the window. Being portable, it has no Start menu
+shortcut, so at launch it names its notice sender under the user's own registry key
+`HKCU\Software\Classes\AppUserModelId\com.dyapp`, which stays after the folder is deleted; Windows
+settings decide whether toasts show on the lock screen. Android, macOS and iOS follow below.
 
 The macOS app does the same while it runs, also with the window hidden: when a mail pass leaves more
 unread items or unanswered likes from peers that are not muted and the window has no focus, it posts

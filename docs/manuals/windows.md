@@ -91,7 +91,17 @@ The EXE is not code-signed yet, so SmartScreen may say "Windows protected your P
 run. Choose "More info", then "Run anyway", only for a ZIP whose checksum matched. Code signing is
 planned.
 
+## Notifications
+
+While the app runs, also with the window hidden, new messages and likes from people you did not
+mute post one toast unless the window has focus. A new one replaces the last, and a click on it
+shows the window. By default it says only "New message"; Settings can turn it off or add the name,
+or the name and the message, per identity. Windows settings decide whether toasts show and whether
+they appear on the lock screen. So that Windows shows toasts from a folder app, each launch writes
+the sender name under `HKCU\Software\Classes\AppUserModelId\com.dyapp`.
+
 ## Remove
 
 Delete the extracted folder. WebView2 keeps its cache under `%LOCALAPPDATA%\com.dyapp`; delete
-that folder too to remove everything.
+that folder too, and the `HKCU\Software\Classes\AppUserModelId\com.dyapp` registry key, to
+remove everything.

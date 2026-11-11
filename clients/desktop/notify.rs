@@ -203,9 +203,30 @@ pub fn watch(app: AppHandle) {
     });
 }
 
+/// The identity toasts are posted under; the same as the app's bundle identifier.
+#[cfg(target_os = "windows")]
+const AUMID: &str = "com.dyapp";
+
+/// The last toast, kept so its click handler lives as long as it can be clicked.
+#[cfg(target_os = "windows")]
+static SHOWN: std::sync::Mutex<Option<windows::UI::Notifications::ToastNotification>> =
+    std::sync::Mutex::new(None);
+
+/// The portable app has no Start menu shortcut to carry its identity, so the identity is named
+/// under the user's own registry key; without it Windows drops the toasts.
+#[cfg(target_os = "windows")]
+fn register() -> windows::core::Result<()> {
+    windows_registry::CURRENT_USER
+        .create(format!(r"Software\Classes\AppUserModelId\{AUMID}"))?
+        .set_string("DisplayName", "DYApp")
+}
+
+/// Best effort: a failed registration leaves the app without notices.
 #[cfg(target_os = "windows")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub fn watch(_app: AppHandle) {}
+pub fn watch(_app: AppHandle) {
+    let _ = register();
+}
 
 #[cfg(target_os = "macos")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -263,12 +284,63 @@ fn send(_app: &AppHandle, summary: &str, body: &str, open: &str) {
     }
 }
 
-// ponytail: Windows shows no notice yet; add the toast API when that client ships.
+/// Best effort. A new toast replaces the last one, and a click on it or its button, while the app
+/// runs, shows the window.
 #[cfg(target_os = "windows")]
-fn send(_app: &AppHandle, _summary: &str, _body: &str, _open: &str) {}
+fn send(app: &AppHandle, summary: &str, body: &str, open: &str) {
+    let app = app.clone();
+    let _ = toast(summary, &plain_body(body), open, "mail", move || {
+        crate::tray::show(&app);
+    });
+}
 
-/// macOS notification bodies are plain text; reverse only the three escapes made by Preview.
-#[cfg(target_os = "macos")]
+/// The text goes in as text nodes, so nothing in it is read as markup.
+#[cfg(target_os = "windows")]
+fn toast(
+    summary: &str,
+    body: &str,
+    open: &str,
+    tag: &str,
+    click: impl Fn() + Send + 'static,
+) -> windows::core::Result<()> {
+    use windows::core::{h, Interface, HSTRING};
+    use windows::Data::Xml::Dom::{XmlDocument, XmlElement};
+    use windows::Foundation::TypedEventHandler;
+    use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
+    let xml = XmlDocument::new()?;
+    xml.LoadXml(&HSTRING::from(concat!(
+        r#"<toast><visual><binding template="ToastGeneric"><text/><text/></binding></visual>"#,
+        r#"<actions><action arguments="open" content=""/></actions></toast>"#,
+    )))?;
+    let texts = xml.GetElementsByTagName(h!("text"))?;
+    texts
+        .Item(0)?
+        .AppendChild(&xml.CreateTextNode(&HSTRING::from(summary))?)?;
+    texts
+        .Item(1)?
+        .AppendChild(&xml.CreateTextNode(&HSTRING::from(body))?)?;
+    let action = xml
+        .GetElementsByTagName(h!("action"))?
+        .Item(0)?
+        .cast::<XmlElement>()?;
+    action.SetAttribute(h!("content"), &HSTRING::from(open))?;
+    let notice = ToastNotification::CreateToastNotification(&xml)?;
+    notice.SetTag(&HSTRING::from(tag))?;
+    notice.SetGroup(h!("dyapp"))?;
+    notice.Activated(&TypedEventHandler::new(move |_, _| {
+        click();
+        Ok(())
+    }))?;
+    ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(AUMID))?.Show(&notice)?;
+    if let Ok(mut shown) = SHOWN.lock() {
+        *shown = Some(notice);
+    }
+    Ok(())
+}
+
+/// macOS and Windows notification bodies are plain text; reverse only the three escapes made by
+/// Preview.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn plain_body(escaped: &str) -> String {
     escaped
         .replace("&lt;", "<")
@@ -304,12 +376,44 @@ mod tests {
     use super::*;
     use dyapp_client::store::messages::{ChatMessage, CurrentMessage, MessageKey};
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn macos_notice_preserves_literal_text_without_html_entities() {
         let text = "<b>literal</b> & &lt;unchanged&gt;";
         let rendered = Preview::Text(text.into()).render("Sticker");
         assert_eq!(plain_body(&rendered), text);
+    }
+
+    /// Windows itself must hold the posted toast with its markup-like text intact; a successful
+    /// `Show` alone proves nothing.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn a_windows_toast_reaches_the_action_center_as_text() {
+        use windows::core::{h, HSTRING};
+        use windows::UI::Notifications::ToastNotificationManager;
+        register().unwrap();
+        let body = "<b>literal</b> & text";
+        toast("Peer", body, "Open", "unit-test", || {}).unwrap();
+        let history = ToastNotificationManager::History().unwrap();
+        let posted = history.GetHistoryWithId(&HSTRING::from(AUMID)).unwrap();
+        let found = posted
+            .into_iter()
+            .find(|notice| notice.Tag().unwrap() == "unit-test");
+        let xml = found
+            .expect("toast in the history")
+            .Content()
+            .unwrap()
+            .GetXml()
+            .unwrap();
+        history
+            .RemoveGroupedTagWithId(h!("unit-test"), h!("dyapp"), &HSTRING::from(AUMID))
+            .unwrap();
+        assert!(
+            xml.to_string()
+                .contains("&lt;b&gt;literal&lt;/b&gt; &amp; text"),
+            "{xml}"
+        );
+        assert!(xml.to_string().contains(r#"content="Open""#), "{xml}");
     }
 
     fn row(peer: &str, state: Conversation, text: &str, unread_count: usize) -> ChatRow {
