@@ -69,9 +69,16 @@ remains planned.
    list comes from the node's live profile, not the draft, whose unpublished removals would
    release a photo readers still see. A failed attempt waits for the next day.
 
-`keep` uses the profile `version`. A node refuses a different list at an equal version, which a
-failed publish can leave behind, so the client then moves past it, one version per refusal up to
-eight. The store holds own photos until a publish drops them, so a repair needs no original file.
+`keep` uses the frozen profile `version`. On `STALE`, the client never raises that version with
+an earlier hash list: doing so could release a newer publication's photos. Instead it repairs
+only through `put`, which checks current owner authorization without replacing the keep list.
+Missing local blobs are fetched by verified hash and checked against the profile blob bounds before
+repair. A same-list/same-signed-time failed attempt can therefore retry without a clock wait.
+This fallback may transfer already stored bytes; a removed hash fails rather than replacing newer
+references. A keep-refresh reports `STALE` when only bytes were repaired: retention was not renewed.
+Recovery from an abandoned conflicting higher-version staged keep remains planned, including
+changed-draft publication and live-profile retention renewal; byte repair alone does not solve it.
+The store holds own photos until a publish drops them, so ordinary repair needs no original file.
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
 Android check full-image pixels before that; full-source decoding remains a platform service,
 while the shared core bounds and decodes previews. On Android and Apple

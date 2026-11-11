@@ -313,7 +313,15 @@ fn from_another_device(
 // Fetch the blobs of `profile` this store lacks, for a publish that may have to put them back. One
 // a node lost stays missing: nothing here can restore it.
 async fn take_photos(store: &Store, node: &mut Node, profile: &Profile) -> Result<(), Failure> {
-    for hash in photo_hashes(profile) {
+    take_photo_hashes(store, node, photo_hashes(profile)).await
+}
+
+async fn take_photo_hashes(
+    store: &Store,
+    node: &mut Node,
+    hashes: Vec<Vec<u8>>,
+) -> Result<(), Failure> {
+    for hash in hashes {
         let Ok(key) = <[u8; 32]>::try_from(hash.as_slice()) else {
             continue;
         };
@@ -370,8 +378,6 @@ fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
     hashes
 }
 
-/// Refused keeps before a photo upload gives up. Each failed publish can leave one more version.
-const KEEP_REFUSALS: u32 = 8;
 /// One-second waits for a blob the node refused for its rate. Six photos are 13 requests, and a
 /// node takes ten media requests a second by default.
 const PUT_WAITS: u32 = 5;
@@ -398,36 +404,28 @@ pub async fn refresh_photos(
     store.profile_keep_refreshed(now)?;
     let live = node.get_profile(&identity.peer_id()).await?.profile;
     let hashes = photo_hashes(&live);
-    if !hashes.is_empty() {
-        upload_photos(store, node, identity, live.version, &hashes).await?;
+    if !hashes.is_empty() && !upload_photos(store, node, identity, live.version, &hashes).await? {
+        return Err(Error::Status(Status::Stale).into());
     }
     Ok(())
 }
 
-// Replace the node's list with `hashes` and put what it lacks. The node refuses another list at an
-// equal version, and a failed publish may leave one there, so a refusal moves past both that and
-// any newer profile, one version at a time because the refusal does not name the node's version.
+// A stale keep may belong to a newer publication: never escalate its version with old hashes.
+// Repair only through puts, which check current ownership without replacing any references.
+// True means retention was renewed; repaired bytes alone cannot claim that.
 async fn upload_photos(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
     version: u64,
     hashes: &[Vec<u8>],
-) -> Result<(), Failure> {
-    let (mut version, mut refused) = (version, 0);
-    let missing = loop {
-        match node.keep_media(identity, version, hashes.to_vec()).await {
-            Err(Error::Status(Status::Stale)) if refused < KEEP_REFUSALS => {
-                refused += 1;
-                let held = node.get_profile(&identity.peer_id()).await;
-                version = held
-                    .map_or(0, |held| held.profile.version)
-                    .max(version)
-                    .checked_add(1)
-                    .ok_or(store::Error::ProfileVersionExhausted)?;
-            }
-            missing => break missing?,
+) -> Result<bool, Failure> {
+    let (missing, renewed) = match node.keep_media(identity, version, hashes.to_vec()).await {
+        Err(Error::Status(Status::Stale)) => {
+            take_photo_hashes(store, node, hashes.to_vec()).await?;
+            (hashes.to_vec(), false)
         }
+        missing => (missing?, true),
     };
     for hash in missing {
         let blob = store
@@ -435,7 +433,7 @@ async fn upload_photos(
             .ok_or(Error::Reply("kept photo is not in the store"))?;
         patiently(async || node.put_media(&identity.peer_id(), blob.clone()).await).await?;
     }
-    Ok(())
+    Ok(renewed)
 }
 
 /// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary

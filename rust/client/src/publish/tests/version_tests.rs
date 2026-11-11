@@ -122,36 +122,19 @@ async fn refused_media(initial: u64, remote: u64) -> (Result<(), Failure>, Vec<u
         }
         .sign(&identity),
     );
-    let result = crate::publish::upload_photos(&store, &mut node, &identity, initial, &[]).await;
+    let result = crate::publish::upload_photos(&store, &mut node, &identity, initial, &[])
+        .await
+        .map(drop);
     let sent = versions.lock().unwrap().clone();
     (result, sent)
 }
 
 #[tokio::test]
-async fn stale_media_retry_never_wraps_local_or_remote_version_floors() {
-    for (initial, remote, expected) in [
-        (u64::MAX, 1, vec![u64::MAX]),
-        (u64::MAX - 1, 1, vec![u64::MAX - 1, u64::MAX]),
-        (10, u64::MAX, vec![10]),
-    ] {
+async fn stale_empty_media_never_advances_or_wraps_any_version() {
+    for (initial, remote) in [(u64::MAX, 1), (u64::MAX - 1, 1), (10, u64::MAX), (1, 0)] {
         let (result, versions) = refused_media(initial, remote).await;
-        assert!(matches!(
-            result,
-            Err(Failure::Store(crate::store::Error::ProfileVersionExhausted))
-        ));
-        assert_eq!(versions, expected);
+        // No blobs need repair, and a refusal never authorizes replacing a newer list.
+        assert!(result.is_ok());
+        assert_eq!(versions, vec![initial]);
     }
-}
-
-#[tokio::test]
-async fn non_exhausted_media_retry_keeps_the_existing_refusal_budget_and_status() {
-    let (result, versions) = refused_media(1, 0).await;
-    assert!(matches!(
-        result,
-        Err(Failure::Node(Error::Status(Status::Stale)))
-    ));
-    assert_eq!(
-        versions,
-        (1..=u64::from(crate::publish::KEEP_REFUSALS) + 1).collect::<Vec<_>>()
-    );
 }

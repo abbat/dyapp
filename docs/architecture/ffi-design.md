@@ -299,7 +299,10 @@ New pending presentation, remaining adapters and foreign/revocation/adoption pat
 migration before frontend monitors can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
-namespace/key/format and rolls back on failure. Shared desktop normalization remains separate work.
+namespace/key/format and rolls back on failure. Remote photo repair never advances a refused
+keep version with old hashes: it uses ownership-checked puts, retaining newer remote references.
+A stale byte repair does not claim retention renewal; conflicting staged-list recovery remains planned.
+Shared desktop normalization remains separate work.
 Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
 beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
