@@ -123,6 +123,7 @@ pub(crate) struct Repair {
     groups: HashMap<PeerId, Vec<proto::MediaPart>>,
     pub(crate) lookups: usize,
     inventoried: bool,
+    unconfirmed: bool,
     active: usize,
     stage: Stage,
     jobs: HashMap<usize, Job>,
@@ -166,6 +167,7 @@ impl Repair {
             groups: HashMap::new(),
             lookups: 0,
             inventoried: false,
+            unconfirmed: false,
             active: 0,
             stage: Stage::Inventory,
             jobs: HashMap::new(),
@@ -199,7 +201,10 @@ impl Repair {
 
     pub(crate) fn holder(&mut self, blob: usize, index: u8, peer: Option<PeerId>) {
         self.lookups = self.lookups.saturating_sub(1);
-        let Some(peer) = peer else { return };
+        let Some(peer) = peer else {
+            self.unconfirmed = true;
+            return;
+        };
         let b = &self.blobs[blob];
         let items = self.groups.entry(peer).or_default();
         let mut add = |index| {
@@ -277,11 +282,7 @@ impl Repair {
         };
         let response = response.filter(|r| r.status == i32::from(proto::Status::Ok));
         match job {
-            Job::Have(peer) => {
-                if let Some(inventory) = response.and_then(|r| r.inventory) {
-                    self.inventory(peer, &inventory);
-                }
-            }
+            Job::Have(peer) => self.inventory_response(peer, response),
             Job::Get(blob, _) => {
                 if let Some(data) = response.map(|r| r.data).filter(|d| {
                     d.len() <= MEDIA_OBJECT_BYTES
@@ -301,14 +302,23 @@ impl Repair {
                     b.shards.insert(index as usize, data);
                 }
             }
-            Job::Put(..) => {}
+            Job::Put(..) => {
+                let expected = proto::MediaResponse {
+                    status: proto::Status::Ok.into(),
+                    ..Default::default()
+                };
+                self.unconfirmed |= response.as_ref() != Some(&expected);
+            }
         }
     }
 
     fn inventory(&mut self, peer: PeerId, inventory: &proto::MediaInventory) {
-        if !inventory::valid(&self.groups[&peer], inventory) {
+        let requested = &self.groups[&peer];
+        if !inventory::valid(requested, inventory) {
+            self.unconfirmed = true;
             return;
         }
+        self.unconfirmed |= inventory.present.len() + inventory.missing.len() != requested.len();
         for blob in &mut self.blobs {
             blob.record_inventory(peer, inventory);
         }
@@ -351,6 +361,16 @@ impl Repair {
 
     pub(crate) fn done(&self) -> bool {
         self.active == self.blobs.len()
+    }
+
+    /// A completed transfer requires holder coverage and successful write acknowledgments.
+    /// Source availability alone still controls the independent client reupload result.
+    pub(crate) fn transferred(&self) -> bool {
+        self.done()
+            && self.lookups == 0
+            && self.jobs.is_empty()
+            && !self.unconfirmed
+            && self.results().all(|(_, missing)| !missing)
     }
 
     pub(crate) fn results(&self) -> impl Iterator<Item = (&[u8], bool)> {

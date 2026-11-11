@@ -197,7 +197,7 @@ impl Replicas {
         let mut finished = Vec::with_capacity(done.len());
         for id in done {
             let (repair, mut answer) = self.media_repairs.remove(&id).unwrap();
-            let mut complete = true;
+            let mut complete = repair.transferred();
             for (hash, missing) in repair.results() {
                 let missing = missing || service.listed(hash);
                 complete &= !missing;

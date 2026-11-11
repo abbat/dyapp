@@ -2,6 +2,8 @@ use super::*;
 use crate::{config::NodeConfig, media::MediaStore, service::Peer, storage::BootstrapStore};
 use dyapp_identity::{Domain, Identity};
 use prost::Message;
+#[path = "tests/shard_ack.rs"]
+mod shard_ack;
 
 fn service() -> Service {
     let dir = format!(
@@ -587,6 +589,7 @@ fn a_bad_source_is_retried_and_fetches_are_hash_checked() {
         Some(data)
     );
     assert!(!repair.results().next().unwrap().1);
+    assert!(repair.transferred());
 }
 
 #[test]

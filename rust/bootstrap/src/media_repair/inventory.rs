@@ -1,5 +1,5 @@
 //! Validate a complete inventory before recording any advertised sources or gaps.
-use super::{Blob, WINDOW};
+use super::{Blob, Repair, WINDOW};
 use crate::replication::MediaManifestExt;
 use dyapp_p2p_net::proto;
 use libp2p::PeerId;
@@ -22,6 +22,20 @@ pub(super) fn valid(requested: &[proto::MediaPart], inventory: &proto::MediaInve
             manifest.data_shards().is_some()
                 && requested.iter().any(|part| part.hash == manifest.hash)
         })
+}
+
+impl Repair {
+    pub(super) fn inventory_response(
+        &mut self,
+        peer: PeerId,
+        response: Option<proto::MediaResponse>,
+    ) {
+        let Some(inventory) = response.and_then(|response| response.inventory) else {
+            self.unconfirmed = true;
+            return;
+        };
+        self.inventory(peer, &inventory);
+    }
 }
 
 impl Blob {

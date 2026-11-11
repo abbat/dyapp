@@ -84,6 +84,9 @@ A store without the media operation may accept a photo-free profile without a me
 Profiles with photos require the conditional operation; there is no legacy-write fallback.
 Safe replica catch-up across skipped conditional revisions remains planned.
 The store holds own photos until a publish drops them, so ordinary repair needs no original file.
+Node handover confirmation requires complete holder inventories and successful write acknowledgments;
+source availability separately controls client reupload. A refused replica write leaves the handover
+for retry without making readable source photos missing to the client.
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
 Android check full-image pixels before that; full-source decoding remains a platform service,
 while the shared core bounds and decodes previews. On Android and Apple
