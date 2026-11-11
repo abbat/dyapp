@@ -4,6 +4,7 @@ use super::{
     SHED_MEDIA,
 };
 use prost::Message;
+use std::time::Instant;
 
 fn clean_repair(service: &Service, request: &mut proto::MediaRequest) -> bool {
     if let Some(proto::media_request::Request::Have(have)) = &mut request.request {
@@ -155,7 +156,11 @@ impl Replicas {
         service: &Service,
         to: PeerId,
         job: MediaJob,
+        now: Instant,
     ) {
+        if !self.admit_upload(swarm, service, to, job, now) {
+            return;
+        }
         let Some(request) = self.queued_media_request(&job) else {
             return;
         };

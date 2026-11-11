@@ -12,6 +12,7 @@ mod replies;
 mod report;
 mod republish;
 mod run;
+mod uploads;
 use delivery::{after_lookup, after_mailbox, push, send_envelopes};
 pub use open::{open, Opened};
 use report::{state, status};
@@ -573,6 +574,7 @@ struct Replicas {
     profile_puts: HashMap<OutboundRequestId, u64>,
     keypackage_puts: HashMap<OutboundRequestId, u64>,
     media_puts: HashMap<OutboundRequestId, u64>,
+    uploads: uploads::Uploads,
     shard_puts: HashMap<OutboundRequestId, (u64, usize)>,
     shard_gets: HashMap<OutboundRequestId, (u64, usize)>,
     media_reads: HashMap<u64, MediaRead>,

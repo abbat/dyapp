@@ -47,6 +47,7 @@ impl Replicas {
             + self.profile_puts.len()
             + self.keypackage_puts.len()
             + self.media_puts.len()
+            + self.uploads.len()
             + self.shard_puts.len()
             + self.shard_gets.len()
             + self.media_reads.len()
@@ -476,7 +477,7 @@ impl Replicas {
         for (repair, complete) in self.finish_media_repairs(swarm, service, now) {
             self.republish.media_done(repair, complete);
         }
-        self.drain_media(swarm, service);
+        self.drain_media_at(swarm, service, now);
     }
 
     #[expect(
@@ -521,6 +522,15 @@ impl Replicas {
 
     /// The remote media codec admits two streams per connection: queue excess work locally.
     pub(super) fn drain_media(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service) {
+        self.drain_media_at(swarm, service, Instant::now());
+    }
+
+    pub(super) fn drain_media_at(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        now: Instant,
+    ) {
         let count = self.media_queue.len();
         for _ in 0..count {
             let (to, job) = self.media_queue.pop_front().unwrap();
@@ -533,7 +543,7 @@ impl Replicas {
             }
             match job {
                 MediaJob::Repair(id, job) => self.drain_repair(swarm, service, to, id, job),
-                job => self.send_media(swarm, service, to, job),
+                job => self.send_media(swarm, service, to, job, now),
             }
         }
     }

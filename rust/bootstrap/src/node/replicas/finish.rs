@@ -52,6 +52,7 @@ impl Replicas {
         active.extend(self.profile_puts.values().copied());
         active.extend(self.keypackage_puts.values().copied());
         active.extend(self.media_puts.values().copied());
+        active.extend(self.uploads.active());
         active.extend(self.shard_puts.values().map(|(id, _)| *id));
         active.extend(self.media_queue.iter().filter_map(|(_, job)| match job {
             MediaJob::Put(id) | MediaJob::ShardPut(id, _) => Some(*id),
@@ -72,6 +73,7 @@ impl Replicas {
                 }
             }
         }
+        self.uploads.prune(&self.puts);
         self.mailbox_puts.retain(|_, id| self.puts.contains_key(id));
         self.profile_puts.retain(|_, id| self.puts.contains_key(id));
         self.keypackage_puts

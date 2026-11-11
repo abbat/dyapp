@@ -268,7 +268,13 @@ resent from the sender's retry queue.
   No remaining copy, fewer than K indices, failed validation or incomplete checks leave the
   hash in the keep reply's `missing` list. Successful checks remove it even if the acceptor
   holds no blob key. Restored puts still obey the receiver's latest keep, TTL, quota and deny list.
-  Conditional repairs first admit the frozen signed target with bounded reverse ancestry pages.
+  Conditional repairs and ordinary whole/shard uploads first admit the frozen signed target with
+  the same bounded reverse ancestry validator. Parts for one upload/holder share a cursor and one
+  ancestry request in flight; other parts wait before payload buffers are cloned. Ancestry receipts
+  never count as payload write acknowledgments or satisfy upload holder/shard quorum. The upload's
+  ten-second failure deadline renews only on verified progress received before expiry. Expired
+  parents lose their cursors; bounded transport-flight accounting remains until a terminal callback,
+  whose late reply cannot revive the upload.
   Only an explicit current-target receipt authorizes destination writes or restored-holder counting;
   missing support, conflicting ownership and malformed progress fail closed without legacy fallback.
   Unadmitted holders can still supply public bytes. Proofs are read at dispatch; each holder retains

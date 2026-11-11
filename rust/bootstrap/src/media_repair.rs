@@ -5,7 +5,7 @@ use crate::{
 #[path = "media_repair/advance.rs"]
 mod advance;
 #[path = "media_repair/ancestry.rs"]
-mod ancestry;
+pub(crate) mod ancestry;
 #[path = "media_repair/inventory.rs"]
 mod inventory;
 #[path = "media_repair/requests.rs"]

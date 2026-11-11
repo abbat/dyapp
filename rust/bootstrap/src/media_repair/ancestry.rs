@@ -51,7 +51,7 @@ impl Cursor {
     }
 }
 
-pub(super) struct History {
+pub(crate) struct History {
     owner: String,
     expected: u64,
     started: bool,
@@ -72,7 +72,7 @@ fn progress(response: Option<proto::MediaResponse>) -> Result<proto::MediaKeepPr
 }
 
 impl History {
-    pub(super) fn from_record(record: &SignedRecord) -> Result<Option<Self>> {
+    pub(crate) fn from_record(record: &SignedRecord) -> Result<Option<Self>> {
         let Ok(owner) = record.verify(Domain::MediaConditionalKeep) else {
             record.verify(Domain::MediaKeep).map_err(|_| invalid())?;
             return Ok(None);
@@ -88,6 +88,20 @@ impl History {
             started: false,
             peers: HashMap::new(),
         }))
+    }
+
+    pub(crate) fn track(&mut self, peer: PeerId) {
+        self.peers.entry(peer).or_default();
+    }
+
+    pub(crate) fn waiting(&self, peer: &PeerId) -> bool {
+        self.peers
+            .get(peer)
+            .is_some_and(|cursor| cursor.sent.is_some())
+    }
+
+    pub(crate) fn finished(&self, peer: &PeerId) -> bool {
+        self.peers.get(peer).is_some_and(|cursor| cursor.done)
     }
 
     fn pending(&mut self, peers: impl Iterator<Item = PeerId>) -> Vec<PeerId> {
@@ -144,7 +158,7 @@ impl History {
         ))
     }
 
-    fn request(
+    pub(crate) fn request(
         &mut self,
         peer: PeerId,
         target: &SignedRecord,
@@ -153,6 +167,9 @@ impl History {
         let cursor = self.peers.get(&peer).ok_or_else(invalid)?;
         if cursor.done {
             return Ok(None);
+        }
+        if cursor.sent.is_some() {
+            return Err(invalid());
         }
         let next = cursor.next;
         let current = cursor.current;
@@ -176,7 +193,11 @@ impl History {
         }))
     }
 
-    fn receive(&mut self, peer: PeerId, response: Option<proto::MediaResponse>) -> Result<bool> {
+    pub(crate) fn receive(
+        &mut self,
+        peer: PeerId,
+        response: Option<proto::MediaResponse>,
+    ) -> Result<bool> {
         let cursor = self.peers.get_mut(&peer).ok_or_else(invalid)?;
         // A dispatch with no older local proof finishes optional backfill after valid admission.
         if cursor.done && cursor.current && cursor.sent.is_none() && response.is_none() {
@@ -186,7 +207,7 @@ impl History {
         cursor.accept(&progress(response)?, window)
     }
 
-    fn fail(&mut self, peer: PeerId) {
+    pub(crate) fn fail(&mut self, peer: PeerId) {
         if let Some(cursor) = self.peers.get_mut(&peer) {
             cursor.done = true;
             cursor.current = false;
@@ -194,7 +215,7 @@ impl History {
         }
     }
 
-    pub(super) fn admitted(&self, peer: &PeerId) -> bool {
+    pub(crate) fn admitted(&self, peer: &PeerId) -> bool {
         self.peers
             .get(peer)
             .is_some_and(|cursor| cursor.done && cursor.current)

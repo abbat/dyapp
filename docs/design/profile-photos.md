@@ -82,10 +82,11 @@ Missing local blobs are fetched by verified hash and checked against profile blo
 Finalization uploads candidate bytes reported missing; lost ownership fails explicitly for retry.
 A store without the media operation may accept a photo-free profile without a media write.
 Profiles with photos require the conditional operation; there is no legacy-write fallback.
-Background repair catches up skipped conditional revisions through bounded signed ancestry pages.
-A destination must explicitly confirm the frozen target is current before it can receive missing
-bytes or count as restored; older or conflicting implementations fail closed. Public reads from
-such holders remain usable as independent sources. Ordinary upload catch-up integration remains planned.
+Ordinary whole/shard uploads and background repair catch up skipped conditional revisions through
+the same bounded signed ancestry validator. A destination must explicitly confirm the frozen target
+is current before it can receive bytes or count as restored; older or conflicting implementations
+fail closed. Public reads from such holders remain usable as independent sources. An ancestry receipt
+never counts toward upload holder/shard quorum: only the subsequent write acknowledgment does.
 The store holds own photos until a publish drops them, so ordinary repair needs no original file.
 Node handover confirmation requires complete holder inventories and successful write acknowledgments;
 source availability separately controls client reupload. A refused replica write leaves the handover

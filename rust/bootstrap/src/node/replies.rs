@@ -245,16 +245,32 @@ impl Replicas {
         request_id: OutboundRequestId,
         response: proto::MediaResponse,
     ) {
+        self.media_response_at(swarm, service, id, request_id, response, Instant::now());
+    }
+
+    pub(super) fn media_response_at(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        id: PeerId,
+        request_id: OutboundRequestId,
+        response: proto::MediaResponse,
+        now: Instant,
+    ) {
         self.media_outgoing.remove(&request_id);
+        if self.uploads.has_request(request_id) {
+            self.upload_reply(swarm, service, id, request_id, response, now);
+            return;
+        }
         if let Some((repair, job, reserve)) = self.media_repair_requests.remove(&request_id) {
             service
                 .traffic
                 .add((response.encoded_len() as u64).saturating_sub(reserve));
             if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
-                repair.response(job, Some(response));
+                repair.response_at(job, Some(response), now);
             }
             self.trust.add(id, 1);
-            self.finish_puts(swarm, service, Instant::now());
+            self.finish_puts(swarm, service, now);
             return;
         }
         let prepaid = self.shard_gets.contains_key(&request_id);
@@ -262,6 +278,17 @@ impl Replicas {
             .traffic
             .add((response.encoded_len() - if prepaid { response.data.len() } else { 0 }) as u64);
         self.trust.add(id, 1);
+        self.media_write_response(id, request_id, &response);
+        self.media_read_response(request_id, &response);
+        self.finish_puts(swarm, service, now);
+    }
+
+    fn media_write_response(
+        &mut self,
+        peer: PeerId,
+        request_id: OutboundRequestId,
+        response: &proto::MediaResponse,
+    ) {
         if let Some((put, index)) = self.shard_puts.remove(&request_id) {
             if response.status == i32::from(Status::Ok) {
                 if let Some(put) = self.puts.get_mut(&put) {
@@ -269,6 +296,18 @@ impl Replicas {
                 }
             }
         }
+        if let Some(put) = self.media_puts.remove(&request_id) {
+            if let Some(put) = self.puts.get_mut(&put) {
+                put.confirm(peer, response.status, None);
+            }
+        }
+    }
+
+    fn media_read_response(
+        &mut self,
+        request_id: OutboundRequestId,
+        response: &proto::MediaResponse,
+    ) {
         if let Some((read, index)) = self.shard_gets.remove(&request_id) {
             if let Some(read) = self.media_reads.get_mut(&read) {
                 if response.status == i32::from(Status::Ok)
@@ -278,12 +317,6 @@ impl Replicas {
                 }
             }
         }
-        if let Some(put) = self.media_puts.remove(&request_id) {
-            if let Some(put) = self.puts.get_mut(&put) {
-                put.confirm(id, response.status, None);
-            }
-        }
-        self.finish_puts(swarm, service, Instant::now());
     }
 
     /// A media request to a peer failed.
@@ -298,6 +331,7 @@ impl Replicas {
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
+        self.upload_response(request_id, None, Instant::now());
         if let Some((repair, job, _)) = self.media_repair_requests.remove(&request_id) {
             if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
                 repair.response(job, None);
