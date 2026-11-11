@@ -18,7 +18,9 @@ use std::sync::{Arc, Mutex};
 use zeroize::Zeroizing;
 
 mod actions;
+mod contact_notes;
 mod creation;
+pub use contact_notes::ContactNoteError;
 mod favorites;
 pub use favorites::FavoriteError;
 mod like_submission;

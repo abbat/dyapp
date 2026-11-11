@@ -6,11 +6,7 @@ use dyapp_identity::Identity;
 use std::path::Path;
 
 fn read(dir: &Path, identity: &Identity, peer: &str) -> Result<String, String> {
-    if !PeerChange::Note(String::new()).valid(peer) || peer == identity.peer_id() {
-        return Err("invalidNote".into());
-    }
-    chats::open(dir, identity)?
-        .contact_note(peer)
+    dyapp_client::contact_notes::read(&chats::open(dir, identity)?, peer)
         .map_err(|error| error.to_string())
 }
 

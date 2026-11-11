@@ -2,15 +2,15 @@
 use super::*;
 use crate::FavoriteError;
 
-struct Fixture {
-    chats: Arc<ChatSession>,
-    key: Arc<IdentityKey>,
-    device: Arc<IdentityKey>,
-    dir: String,
-    wrapped: Vec<u8>,
+pub(super) struct Fixture {
+    pub(super) chats: Arc<ChatSession>,
+    pub(super) key: Arc<IdentityKey>,
+    pub(super) device: Arc<IdentityKey>,
+    pub(super) dir: String,
+    pub(super) wrapped: Vec<u8>,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let key = IdentityKey::generate();
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-favorites")

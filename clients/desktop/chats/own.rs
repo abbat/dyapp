@@ -36,11 +36,12 @@ pub async fn change_peer(
         }
         .into());
     }
-    if matches!(change, PeerChange::Note(_)) && peer_id == identity.peer_id() {
-        return Err("invalidNote".into());
-    }
     let mut store = open(dir, identity)?;
     let owner = identity.peer_id();
+    if let PeerChange::Note(note) = &change {
+        dyapp_client::contact_notes::validate(&store, peer_id, note)
+            .map_err(|error| error.to_string())?;
+    }
     if let PeerChange::Favorite(favorite) = &change {
         dyapp_client::favorites::validate(&store, peer_id, *favorite)
             .map_err(|error| error.to_string())?;

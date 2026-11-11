@@ -26,12 +26,10 @@ pub enum Error {
 /// # Errors
 /// Returns a typed target, block-policy or storage error.
 pub fn validate(store: &Store, peer: &str, saving: bool) -> Result<(), Error> {
-    if !PeerChange::Favorite(saving).valid(peer) {
-        return Err(Error::InvalidPeer);
-    }
-    if peer == store.owner_peer_id() {
-        return Err(Error::OwnPeer);
-    }
+    crate::private_peer::check(store, peer).map_err(|error| match error {
+        crate::private_peer::TargetError::Invalid => Error::InvalidPeer,
+        crate::private_peer::TargetError::Own => Error::OwnPeer,
+    })?;
     if saving && store.blocked(peer)? {
         return Err(Error::Blocked);
     }
