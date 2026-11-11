@@ -4,6 +4,7 @@ use super::*;
 use dyapp_client::attachment;
 use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::interactions::Kind;
+use dyapp_client::media_ownership::{Intent, Replaced};
 use dyapp_client::publish;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
@@ -11,6 +12,20 @@ use dyapp_client::Error;
 use std::slice::from_mut;
 
 const SEAL: [u8; 32] = [6; 32];
+
+/// Leaves only `hashes` listed under the current publication intent, as a node losing blobs would.
+async fn keep_only(node: &mut dyapp_client::Node, owner: &Identity, hashes: Vec<Vec<u8>>) {
+    let state = node.media_keep_state(owner).await.unwrap();
+    let intent = Intent {
+        profile_hash: state.intent_hash().unwrap(),
+        pending: state.pending(),
+    };
+    let replaced = node
+        .replace_media_keep(owner, &state, hashes, intent)
+        .await
+        .unwrap();
+    assert!(matches!(replaced, Replaced::Applied { .. }));
+}
 
 async fn media_node() -> Multiaddr {
     media_node_at(10).await
@@ -49,10 +64,8 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
     let small = vec![photo.thumbnail.clone()];
     let now = 1_000_000;
 
-    // The node dropped the full image, and that list sits one version past the profile.
-    node.keep_media(&owner, published.version + 1, small.clone())
-        .await
-        .unwrap();
+    // The node dropped the full image from the list of the live profile.
+    keep_only(&mut node, &owner, small.clone()).await;
     assert!(reader.get_media(&hash).await.is_err());
     publish::refresh_photos(&store, &mut node, &owner, now)
         .await
@@ -60,9 +73,7 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
     assert_eq!(reader.get_media(&hash).await.unwrap(), full);
 
     // Within a day nothing is sent, so the next loss stays until the day has passed.
-    node.keep_media(&owner, published.version + 3, small)
-        .await
-        .unwrap();
+    keep_only(&mut node, &owner, small).await;
     publish::refresh_photos(&store, &mut node, &owner, now + 86_399)
         .await
         .unwrap();
@@ -125,14 +136,11 @@ async fn profile_photos_reach_readers_and_leave_with_the_profile() {
     assert_eq!(reader.get_media(&hash).await.unwrap(), full);
     assert_eq!(reader.get_media(&small).await.unwrap(), thumbnail);
 
-    // A republish finds the blobs held; a failed publish left another list at the next version.
+    // A republish finds the blobs held; a failed publish left another list behind.
     let published = publish::publish(&store, &mut node, &owner, &published)
         .await
         .unwrap();
-    let left = vec![published.photos[0].thumbnail.clone()];
-    node.keep_media(&owner, published.version + 1, left)
-        .await
-        .unwrap();
+    keep_only(&mut node, &owner, vec![published.photos[0].thumbnail.clone()]).await;
 
     let draft = store.remove_profile_photo(0).unwrap();
     assert!(store.has_profile_photos().unwrap());

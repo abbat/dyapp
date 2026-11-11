@@ -46,12 +46,27 @@ async fn upload(
     Ok(())
 }
 
+/// A keep write right after the photo uploads can meet the node's media rate limit.
+async fn replace(
+    node: &mut Node,
+    identity: &Identity,
+    state: &State,
+    hashes: Vec<Vec<u8>>,
+    intent: Intent,
+) -> Result<Replaced, Error> {
+    patiently(async || {
+        node.replace_media_keep(identity, state, hashes.clone(), intent)
+            .await
+    })
+    .await
+}
+
 async fn state_for(
     node: &mut Node,
     identity: &Identity,
     hashes: &[Vec<u8>],
 ) -> Result<Option<State>, Failure> {
-    match node.media_keep_state(identity).await {
+    match patiently(async || node.media_keep_state(identity).await).await {
         Ok(state) => Ok(Some(state)),
         // A photo-free profile can use a store without the media role. No weaker write is made.
         Err(Error::Status(Status::Unsupported)) if hashes.is_empty() => Ok(None),
@@ -76,10 +91,7 @@ pub(super) async fn prepare(
             profile_hash: target,
             pending: true,
         };
-        match node
-            .replace_media_keep(identity, &state, all, intent)
-            .await?
-        {
+        match replace(node, identity, &state, all, intent).await? {
             Replaced::Applied { state, missing } => {
                 upload(store, node, identity, missing, &hashes).await?;
                 return Ok(Some(Staged { target, state }));
@@ -121,10 +133,7 @@ pub(super) async fn finish(
             profile_hash: target,
             pending: false,
         };
-        match node
-            .replace_media_keep(identity, &state, hashes.clone(), intent)
-            .await?
-        {
+        match replace(node, identity, &state, hashes.clone(), intent).await? {
             Replaced::Applied { missing, .. } => {
                 return upload(store, node, identity, missing, &hashes).await;
             }
@@ -172,10 +181,7 @@ pub(super) async fn refresh(
     };
     for _ in 0..CONFLICT_ATTEMPTS {
         let (all, intent) = renewal(&state, target, &hashes);
-        match node
-            .replace_media_keep(identity, &state, all, intent)
-            .await?
-        {
+        match replace(node, identity, &state, all, intent).await? {
             Replaced::Applied { missing, .. } => {
                 upload(store, node, identity, missing, &hashes).await?;
                 return Ok(());
