@@ -13,6 +13,8 @@ use dyapp_p2p_net::proto::Status;
 use image::ImageFormat;
 use std::io::Cursor;
 use std::path::Path;
+#[cfg(target_os = "windows")]
+use windows::Networking::Connectivity::NetworkCostType;
 
 /// The most pixels the page may decode. A 6 MiB original can claim gigabytes of decoded image, and
 /// the header states the size before any decoding.
@@ -154,8 +156,34 @@ pub(crate) async fn metered() -> bool {
     !matches!(state.await, Ok(2 | 4))
 }
 
+/// The Internet connection's cost, read anew on each call so a network change is never stale.
+/// No connection or a failed query counts as metered, as on Linux.
+#[cfg(target_os = "windows")]
+pub(crate) async fn metered() -> bool {
+    use windows::Networking::Connectivity::NetworkInformation;
+    // The WinRT calls are synchronous; keep them off the async workers.
+    let unmetered = tauri::async_runtime::spawn_blocking(|| {
+        let cost = NetworkInformation::GetInternetConnectionProfile()?.GetConnectionCost()?;
+        let limits = [
+            cost.Roaming()?,
+            cost.ApproachingDataLimit()?,
+            cost.OverDataLimit()?,
+            cost.BackgroundDataUsageRestricted()?,
+        ];
+        Ok::<_, windows::core::Error>(unmetered(cost.NetworkCostType()?, limits))
+    })
+    .await;
+    !matches!(unmetered, Ok(Ok(true)))
+}
+
+/// Only an unrestricted plan with no roaming, data limit or data saver counts as unmetered.
+#[cfg(target_os = "windows")]
+fn unmetered(kind: NetworkCostType, limits: [bool; 4]) -> bool {
+    kind == NetworkCostType::Unrestricted && !limits.contains(&true)
+}
+
 /// No source of this yet: an unknown network counts as metered.
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
 pub(crate) async fn metered() -> bool {
     true
 }
@@ -286,6 +314,27 @@ mod tests {
         assert!(fits(8_000, 8_000));
         assert!(!fits(8_001, 8_000));
         assert!(!fits(u32::MAX, u32::MAX));
+    }
+
+    /// Only an unrestricted plan with no limit flag lets `ByNetwork` download; the live query
+    /// answers on the runner whatever its network.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn only_an_unrestricted_windows_network_is_unmetered() {
+        use super::{metered, unmetered, NetworkCostType};
+        assert!(unmetered(NetworkCostType::Unrestricted, [false; 4]));
+        for kind in [
+            NetworkCostType::Unknown,
+            NetworkCostType::Fixed,
+            NetworkCostType::Variable,
+        ] {
+            assert!(!unmetered(kind, [false; 4]));
+        }
+        for flag in 0..4 {
+            let limits = std::array::from_fn(|i| i == flag);
+            assert!(!unmetered(NetworkCostType::Unrestricted, limits));
+        }
+        let _ = tauri::async_runtime::block_on(metered());
     }
 
     #[test]

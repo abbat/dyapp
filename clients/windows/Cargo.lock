@@ -1601,6 +1601,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-single-instance",
  "tokio",
+ "windows",
  "windows-native-keyring-store",
  "zeroize",
 ]
