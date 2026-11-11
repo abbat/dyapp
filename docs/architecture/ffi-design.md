@@ -78,6 +78,19 @@ the final removal, so intermediate failures remain discoverable. The iOS tombsto
 directory persistence; it never reports a post-commit sync failure as an uncommitted removal.
 Platform adapters still use their existing removal implementations until explicitly migrated.
 
+`Registry::chat_operation` bootstraps wrapped mobile `device.key` and `chat-state.key`
+under the exclusive registry lock. It validates existing keys before creating any missing key,
+checks a stored MLS snapshot against the existing state/device keys, and refuses to regenerate
+keys for initialized chats. Fresh wrapped bytes are verified before and after exclusive,
+synchronized file creation. Partial bootstrap preserves the first verified file for retry.
+
+Bootstrap releases its exclusive lock before shared identity admission; it never upgrades a
+held shared lease. The returned `ChatOperation` retains both identity protection and an
+identity-local exclusive `chat.lock` for actual session completion. Inventory may still read
+alongside it. The lock file belongs to the identity and confirmed cleanup accepts it.
+Foreign exposure and Android/Apple bootstrap adoption remain planned; desktop system/file
+bootstrap continues through the existing desktop implementation.
+
 ## Which source is the contract
 
 | Source | Status |

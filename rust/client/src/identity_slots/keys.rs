@@ -28,6 +28,12 @@ pub(super) fn load(slot: &Slot, keys: &dyn KeyReader) -> Result<Option<Identity>
         return keys.open(slot, None);
     }
     let path = slot.dir.join("identity.key");
+    if storage == Storage::Wrapped {
+        return match wrapped_bytes(&path)? {
+            Some(bytes) => keys.open(slot, Some(&bytes)),
+            None => Ok(None),
+        };
+    }
     let metadata = match fs::symlink_metadata(&path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         result => result.map_err(|error| error.to_string())?,
@@ -35,27 +41,36 @@ pub(super) fn load(slot: &Slot, keys: &dyn KeyReader) -> Result<Option<Identity>
     if !metadata.is_file() {
         return Err("Identity path is not a regular file".into());
     }
-    if storage == Storage::File {
-        private_file(&metadata)?;
-    }
-    let limit = if storage == Storage::File {
-        33
-    } else {
-        MAX_WRAPPED_BYTES as u64 + 1
-    };
+    private_file(&metadata)?;
+    let limit = 33;
     let mut bytes = Zeroizing::new(Vec::new());
     fs::File::open(path)
         .and_then(|file| file.take(limit).read_to_end(&mut bytes))
         .map_err(|error| error.to_string())?;
-    if storage == Storage::File {
-        let secret =
-            <&[u8; 32]>::try_from(bytes.as_slice()).map_err(|_| "Invalid identity file length")?;
-        return Ok(Some(Identity::from_secret(secret)));
+    let secret =
+        <&[u8; 32]>::try_from(bytes.as_slice()).map_err(|_| "Invalid identity file length")?;
+    Ok(Some(Identity::from_secret(secret)))
+}
+
+pub(super) fn wrapped_bytes(path: &std::path::Path) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        result => result.map_err(|error| error.to_string())?,
+    };
+    if !metadata.is_file() {
+        return Err("Wrapped key path is not a regular file".into());
     }
+    let mut bytes = Zeroizing::new(Vec::new());
+    fs::File::open(path)
+        .and_then(|file| {
+            file.take(MAX_WRAPPED_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)
+        })
+        .map_err(|error| error.to_string())?;
     if bytes.len() > MAX_WRAPPED_BYTES {
-        return Err("Wrapped identity file exceeds 4096 bytes".into());
+        return Err("Wrapped key exceeds 4096 bytes".into());
     }
-    keys.open(slot, Some(&bytes))
+    Ok(Some(bytes))
 }
 
 fn private_file(metadata: &fs::Metadata) -> Result<(), String> {

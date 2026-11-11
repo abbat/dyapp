@@ -1,5 +1,7 @@
 //! Shared registry reading for the existing desktop and wrapped mobile layouts.
 
+mod chat_keys;
+pub use chat_keys::{ChatKeyKind, ChatKeyStore, ChatOperation};
 mod create;
 mod write;
 pub use create::KeyWriter;

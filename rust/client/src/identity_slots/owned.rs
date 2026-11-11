@@ -21,6 +21,7 @@ const FILES: &[&str] = &[
     "network.tmp",
     "network-draft",
     "network-draft.tmp",
+    "chat.lock",
     "client.db",
     "client.db-wal",
     "client.db-shm",

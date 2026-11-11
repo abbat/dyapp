@@ -102,11 +102,11 @@ impl Registry {
         } else {
             "profiles.lock"
         };
-        lock_file(&self.root.join(name))
+        open_lock_file(&self.root.join(name))
     }
 }
 
-fn lock_file(path: &Path) -> Result<File, String> {
+pub(super) fn open_lock_file(path: &Path) -> Result<File, String> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if !metadata.is_file() => {
             return Err("Registry lock is not a regular file".into())
