@@ -11,7 +11,7 @@ Explicit identity and app-lock setup retain the credential-creating store. The s
 this layout; `Slots.kt` projects its results without file or credential lifecycle policy.
 Device instrumentation covers real Keystore/native integration, and JVM tests cover recovery
 presentation and asynchronous action ownership. The start screen opens the active or
-only slot and creates the first one on a fresh install; Switch shows the picker, which lists
+only slot and offers explicit creation on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
 The profile editor, preview and publication use the active identity's Rust `client.db` draft.
 The core validates editable fields before saving; invalid values leave the prior draft intact.
@@ -23,15 +23,16 @@ settings on a background dispatcher, displays the Peer ID and key-loss warning, 
 and network name beside that identity's key. A damaged settings file shows an error without
 replacing the identity. A ready identity without active network settings opens this draft form
 automatically on launch; Back returns to the ready screen for this session. An identity with active
-settings returns to the ready screen. `RustBridge.connectionCheck` constructs a UniFFI checker
-for the selected slot; its run and activate calls must run off the UI thread, and cancel can stop
-a running check. The network form now runs a bounded check off the UI thread and shows an ordered
-result for each seed row plus a summary. Cancel stops a running check; Retry repeats it, and
+settings returns to the ready screen. The bound factory in `NativeWorkers.kt` constructs a
+UniFFI checker for the selected slot on IO; each check uses a fresh cancellation attempt,
+and activation also runs off the UI thread. The network form runs a bounded check on IO and
+shows an ordered result for each seed row plus a summary. Cancel stops a running check; Retry repeats it, and
 Continue activates only a draft that reached a node. Editing clears that checked state, and
 failed activation preserves the prior active configuration.
 The ready screen opens Settings with a read-only list of local identities, their key storage kind,
-and the active marker; Back returns to the same identity. Create, switch, and confirmed removal
-remain available on the ready screen and picker while their Settings controls are being built.
+and the active marker; Back returns to the same identity. Settings provides explicit Create
+and confirmed Remove; switching uses the identity menu. Removing another identity keeps
+Settings on the active one, while removing the active identity returns to the picker.
 Remove opens a confirmation screen for the shown identity (see [Remove](#remove)). The ready
 screen also says that uninstalling the app or clearing its data erases the key without warning:
 the OS gives the app no chance to warn, and the non-exportable key cannot be backed up yet.
@@ -190,8 +191,10 @@ searcher's readiness, and verified-photo providers refresh when it is ready. Dis
 the search session cancels its owner without waiting for construction or closing on UI.
 The common native API now offers a single-use `ConnectionAttempt`, backed by a core
 cancellation owner that exists before dispatch and survives pending admission. Each retry
-creates a fresh owner. Android's network form still needs adoption; its current checker-only
-Cancel can miss pre-registration work.
+creates a fresh owner. Android prepares this owner before publishing Checking and dispatching
+IO. Cancel and screen disposal signal that current attempt immediately, including during key
+admission. A late native result cannot become Connected after Cancel. Actual completion clears
+only its owner and releases the native handle on non-cancellable IO; retries allocate a new handle.
 
 While process-local draft serialization remains, every `draftWrites` monitor is acquired before
 native admission, including publication. A lease holder never waits for that monitor. Shared

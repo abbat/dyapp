@@ -31,7 +31,9 @@ subscription. A native run checks before and after identity admission and priori
 cancellation over a simultaneously ready seed result. Cancellation cannot release an
 in-flight identity lease; the actual worker must finish first. Retries allocate new attempts.
 The legacy `ConnectionCheck.run/cancel` interface remains available; clients must adopt
-attempt ownership to cover cancellation before dispatch. Android adoption remains planned.
+attempt ownership to cover cancellation before dispatch. Android uses an attempt per check;
+its presentation rechecks cancellation before publishing an IO result and closes the attempt
+on non-cancellable IO after actual completion, including disposal.
 
 ## Shared mobile identity registry
 

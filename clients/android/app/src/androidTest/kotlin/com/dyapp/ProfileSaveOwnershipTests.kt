@@ -92,7 +92,7 @@ class ProfileSaveOwnershipTests {
     @Test
     fun cancellationDoesNotPublishOrNormalizeAWriteThatActuallyFinishesLater() {
         NativeSlotFixture().use { fixture ->
-            val opened = fixture.slots.create() as Opened.Ready
+            val opened = fixture.slots.create()
             val gate = ProfileSaveGate(opened)
             compose.setContent {}
             val editor = compose.runOnIdle {
@@ -113,7 +113,7 @@ class ProfileSaveOwnershipTests {
     @Test
     fun newerInputsSurviveAnOlderSaveAndAnUnchangedSaveNormalizesItsOwnBaseline() {
         NativeSlotFixture().use { fixture ->
-            val opened = fixture.slots.create() as Opened.Ready
+            val opened = fixture.slots.create()
             val gate = ProfileSaveGate(opened)
             compose.setContent { ProfileDraftScreen(opened, gate::persist) }
             compose.awaitNode(hasTestTag("profile-editor"))

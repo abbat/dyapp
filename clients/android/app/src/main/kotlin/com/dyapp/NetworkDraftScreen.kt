@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,6 +40,7 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
     val state = remember(opened) { NetworkDraftState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened) { loadDraft(opened, state) }
+    DisposableEffect(state) { onDispose { state.attempt?.cancel() } }
     val actions = draftActions(opened, state, scope, activateOnConnect = onBack == null)
     if (onBack != null) WizardNetworkPage(opened, state, onBack, actions) else NetworkSection(opened, state, actions)
 }

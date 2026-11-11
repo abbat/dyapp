@@ -25,7 +25,7 @@ class RemovalReadTests {
     @Test
     fun corruptPublicationStorageCannotOfferRemovalAsIfItWereUnpublished() {
         NativeSlotFixture().use { fixture ->
-            val opened = fixture.slots.create() as Opened.Ready
+            val opened = fixture.slots.create()
             val database = File(opened.slot.dir, "client.db")
             val corrupt = ByteArray(4096) { 0x5a }
             database.writeBytes(corrupt)
@@ -43,7 +43,7 @@ class RemovalReadTests {
     @Test
     fun aFreshUnpublishedIdentityStillRequiresConfirmationWithoutCreatingADatabase() {
         NativeSlotFixture().use { fixture ->
-            val opened = fixture.slots.create() as Opened.Ready
+            val opened = fixture.slots.create()
             val database = File(opened.slot.dir, "client.db")
             assertFalse(database.exists())
             show(fixture, opened)
