@@ -91,7 +91,9 @@ class NativeResourceTests {
                 throw failure
             }
         }
-        assertSame(failure, result.exceptionOrNull())
+        val thrown = result.exceptionOrNull()
+        // Coroutine debug mode may rethrow a stack-recovered copy that wraps the original.
+        assertTrue(thrown === failure || thrown?.cause === failure)
         assertEquals(1, resource.closes.get())
         assertNotSame(ownerThread, resource.closedOn)
     }
