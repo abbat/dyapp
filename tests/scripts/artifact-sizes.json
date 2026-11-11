@@ -22,16 +22,16 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
   },
   "windows-2022-x86_64-release": {
-    "bytes": 33521152,
+    "bytes": 38094848,
     "environment": "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE",
-    "revision": "968a1328e16bee4f0a2e81c254af721d269ac5c9",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/41827679778"
+    "revision": "b196c97d1fe2b37566b6776444461a6fed87190d",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/43016004734"
   },
   "ios-macos15-arm64-release-unsigned-ipa": {
-    "bytes": 10294138,
-    "environment": "macOS 15.7.9 arm64; Xcode 16.4 (16F6); Rust 1.99.0; iOS device arm64 Release; unsigned IPA",
-    "revision": "47c17300df5146e5b16673615efad2c64da83315",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
+    "bytes": 10849526,
+    "environment": "macOS 15.8.2 arm64; Xcode 16.4 (16F6); Rust 1.99.0; iOS device arm64 Release; unsigned IPA",
+    "revision": "b196c97d1fe2b37566b6776444461a6fed87190d",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/43016004734"
   },
   "android-apk-release-unsigned": {
     "bytes": 71867816,
