@@ -38,17 +38,19 @@
  * @typedef {'multiple' | 'unreadable' | 'invalid' | 'matched' | 'foreign' | 'notFound'} QrScan
  * @typedef {{ code: string, qr: QrMatrix }} LinkCode
  * @typedef {{ key: number[], this: boolean }} Device
- * @typedef {{ field: number, op: 'eq' | 'in' | 'range', ints?: number[], strings?: string[] }} SearchCondition
- * @typedef {{ kind: 'any' } | { kind: 'same', company: string } |
- *   { kind: 'exclude', companies: string[] }} EmployerFilter
- * @typedef {Partial<{ age: [number, number] | null, conditions: SearchCondition[],
- *   employer: EmployerFilter, limit: number, mutual: boolean }>} SearchQuery
+ * @typedef {'any' | 'same' | 'exclude'} EmployerChoice
+ * @typedef {Partial<{ offered: number[], picked: Record<string, number>, country: string,
+ *   interest: string, place: number | null, ageMin: string, ageMax: string, heightMin: string,
+ *   heightMax: string, employer: EmployerChoice, company: string, limit: number,
+ *   mutual: boolean }>} SearchQuery
+ * @typedef {{ age: boolean, height: boolean, interest: boolean, country: boolean,
+ *   place: boolean, mutual: boolean }} SearchFilters
  * @typedef {{ kind: 'noNodes' | 'unavailable' | 'timeout' | 'puzzle' | 'invalid' } |
  *   { kind: 'rateLimited', retryAfterMs: number }} SearchFailure
  * @typedef {{ peerId: string, draft: import('./profile-fields.js').ProfileDraft,
- *   fullPhotos: number[][], version: number }} FoundProfile
- * @typedef {{ offered: number[], profiles: FoundProfile[], partial: boolean,
- *   failures: SearchFailure[] }} SearchResults
+ *   fullPhotos: number[][], version: number, age?: [number, number] | null }} FoundProfile
+ * @typedef {{ offered: number[], filters: SearchFilters, profiles: FoundProfile[],
+ *   partial: boolean, failures: SearchFailure[] }} SearchResults
  * @typedef {'byNetwork' | 'always' | 'onTap'} AutoDownloadMode
  * @typedef {{ enabled: boolean, limitBytes: number, usedBytes: number }} MediaCache
  * @typedef {{ id: number[], bytes: number, name: string | null, stickers: number | null,

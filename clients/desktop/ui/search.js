@@ -49,8 +49,6 @@ const searchForm = domById('search', HTMLFormElement);
 const searchRetry = domById('search-retry', HTMLButtonElement);
 const searchAgain = domById('search-again', HTMLButtonElement);
 const searchResults = domById('search-results', HTMLDivElement);
-const COUNTRY_FIELD = 4;
-const PLACE_FIELD = 20;
 const searchCountry = domById('search-country', HTMLInputElement);
 const searchCountryCode = () => searchCountry.value.trim().toUpperCase();
 const searchPlace = placePicker(
@@ -59,11 +57,9 @@ const searchPlace = placePicker(
   domById('search-places', HTMLDataListElement),
   searchCountryCode,
 );
-const BIRTH_AGE_FIELD = 1001;
-const HEIGHT_FIELD = 46;
-const SEEKING_GENDERS_FIELD = 53;
-const SEEKING_AGE_FIELD = 54;
 let searchBusy = false;
+/** Field numbers of the last results; the core builds conditions only for these. @type {number[]} */
+let lastOffered = [];
 /** @param {string} key */
 const searchMessage = (key, detail = '') =>
   statusMessage(domById('search-status', HTMLParagraphElement), 'search-open-network', key, detail);
@@ -74,8 +70,12 @@ const showFilter = (element, shown) => {
   for (const input of domAll(element, 'input, select', HTMLInputElement, HTMLSelectElement))
     input.disabled = !shown || searchBusy;
 };
-/** @param {number[]} offered */
-const showSearchFilters = (offered) => {
+/**
+ * @param {number[]} offered
+ * @param {Partial<import('./ipc.js').SearchFilters>} filters
+ */
+const showSearchFilters = (offered, filters = {}) => {
+  lastOffered = offered;
   const scales = domById('search-scales', HTMLDivElement);
   const kept = new Map(
     [...scales.querySelectorAll('select')].map((select) => [select.id, select.value]),
@@ -87,7 +87,7 @@ const showSearchFilters = (offered) => {
         const label = document.createElement('label');
         const select = document.createElement('select');
         select.id = `search-${scale.key}`;
-        select.dataset.field = String(scale.field);
+        select.dataset.key = scale.key;
         label.htmlFor = select.id;
         label.textContent = strings[`profile.field.${scale.key}`];
         const any = document.createElement('option');
@@ -109,70 +109,49 @@ const showSearchFilters = (offered) => {
         return row;
       }),
   );
-  showFilter(domById('search-age', HTMLDivElement), offered.includes(BIRTH_AGE_FIELD));
-  showFilter(domById('search-height', HTMLDivElement), offered.includes(HEIGHT_FIELD));
-  showFilter(domById('search-interest-row', HTMLDivElement), offered.includes(19));
-  showFilter(domById('search-country-row', HTMLDivElement), offered.includes(COUNTRY_FIELD));
-  showFilter(
-    domById('search-place-row', HTMLDivElement),
-    offered.includes(COUNTRY_FIELD) && offered.includes(PLACE_FIELD),
-  );
+  showFilter(domById('search-age', HTMLDivElement), !!filters.age);
+  showFilter(domById('search-height', HTMLDivElement), !!filters.height);
+  showFilter(domById('search-interest-row', HTMLDivElement), !!filters.interest);
+  showFilter(domById('search-country-row', HTMLDivElement), !!filters.country);
+  showFilter(domById('search-place-row', HTMLDivElement), !!filters.place);
   showFilter(scales, true);
-  showFilter(
-    domById('search-mutual-row', HTMLDivElement),
-    offered.includes(SEEKING_GENDERS_FIELD) && offered.includes(SEEKING_AGE_FIELD),
-  );
+  showFilter(domById('search-mutual-row', HTMLDivElement), !!filters.mutual);
   domById('search-filters', HTMLDivElement).hidden = !offered.length;
 };
-/** @returns {import('./ipc.js').EmployerFilter} */
-const searchEmployer = () => {
-  const company = domById('search-company', HTMLInputElement).value.trim();
-  const kind = company ? domById('search-employer', HTMLSelectElement).value : 'any';
-  if (kind === 'same') return { kind, company };
-  if (kind === 'exclude') {
-    const companies = company
-      .split(';')
-      .map((name) => name.trim())
-      .filter(Boolean);
-    return { kind, companies };
-  }
-  return { kind: 'any' };
-};
+// The form's raw values; the core trims, checks and turns them into node conditions.
+/** @returns {import('./ipc.js').SearchQuery} */
 const searchQuery = () => {
   /** @param {string} id */
   const filled = (id) => {
     const input = domById(id, HTMLElement);
     if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement))
       throw new Error('Expected a search input or select');
-    return input.disabled ? '' : input.value.trim();
+    return input.disabled ? '' : input.value;
   };
-  /** @type {Array<{ field: number, op: 'eq' | 'range', ints?: number[], strings?: string[] }>} */
-  const conditions = [...domAll(document, '#search-scales select:enabled', HTMLSelectElement)]
-    .filter((select) => select.value !== '0')
-    .map((select) => ({
-      field: Number(select.dataset.field),
-      op: 'eq',
-      ints: [Number(select.value)],
-    }));
-  if (filled('search-country'))
-    conditions.push({ field: COUNTRY_FIELD, op: 'eq', strings: [searchCountryCode()] });
-  if (filled('search-interest'))
-    conditions.push({ field: 19, op: 'eq', strings: [filled('search-interest')] });
-  const place = filled('search-place') && searchPlace.id();
-  if (place) conditions.push({ field: PLACE_FIELD, op: 'eq', strings: [place] });
-  const [min, max] = [filled('search-age-min'), filled('search-age-max')];
-  /** @type {[number, number] | null} */
-  const age = min || max ? [Number(min || 18), Number(max || 150)] : null;
-  const [from, to] = [filled('search-height-min'), filled('search-height-max')];
-  if (from || to)
-    conditions.push({
-      field: HEIGHT_FIELD,
-      op: 'range',
-      ints: [Number(from || 50), Number(to || 272)],
-    });
-  const employer = searchEmployer();
+  const picked = Object.fromEntries(
+    [...domAll(document, '#search-scales select:enabled', HTMLSelectElement)]
+      .filter((select) => select.value !== '0')
+      .map((select) => [select.dataset.key, Number(select.value)]),
+  );
+  const place = filled('search-place').trim() ? searchPlace.id() : '';
   const mutual = domById('search-mutual', HTMLInputElement);
-  return { age, conditions, employer, limit: 0, mutual: mutual.checked && !mutual.disabled };
+  return {
+    offered: lastOffered,
+    picked,
+    country: filled('search-country') && searchCountryCode(),
+    interest: filled('search-interest'),
+    place: place ? Number(place) : null,
+    ageMin: filled('search-age-min'),
+    ageMax: filled('search-age-max'),
+    heightMin: filled('search-height-min'),
+    heightMax: filled('search-height-max'),
+    employer: /** @type {import('./ipc.js').EmployerChoice} */ (
+      domById('search-employer', HTMLSelectElement).value
+    ),
+    company: domById('search-company', HTMLInputElement).value,
+    limit: 0,
+    mutual: mutual.checked && !mutual.disabled,
+  };
 };
 /** @param {import('./ipc.js').SearchFailure} failure */
 const failureText = (failure) => {
@@ -181,23 +160,9 @@ const failureText = (failure) => {
     ? `${text} ${Math.ceil(failure.retryAfterMs / 1000)}`
     : text;
 };
-// Age in years from public birth fields today, a range while the birthday may be ahead.
-/** @param {import('./profile-fields.js').ProfileDraft} draft */
-const ageText = (draft) => {
-  if (draft.birthYear === null) return '';
-  const now = new Date();
-  const years = now.getFullYear() - draft.birthYear;
-  const [month, day] = [now.getMonth() + 1, now.getDate()];
-  const passed =
-    draft.birthMonth === null
-      ? null
-      : draft.birthMonth !== month
-        ? draft.birthMonth < month
-        : draft.birthDay === null
-          ? null
-          : draft.birthDay <= day;
-  return passed === null ? `${years - 1}–${years}` : String(passed ? years : years - 1);
-};
+// The core's possible age today, a range while the birthday may be ahead.
+/** @param {[number, number] | null | undefined} age */
+const ageText = (age) => (!age ? '' : age[0] === age[1] ? String(age[0]) : `${age[0]}–${age[1]}`);
 /** @param {import('./profile-fields.js').ProfileDraft} draft */
 const genderText = (draft) => {
   const scale = profileFieldsModule.scaleFields.find((field) => field.key === 'gender');
@@ -206,7 +171,7 @@ const genderText = (draft) => {
 };
 /** @param {FoundWithPlace} found */
 const summaryText = (found) =>
-  [genderText(found.draft), ageText(found.draft), found.place].filter(Boolean).join(' · ');
+  [genderText(found.draft), ageText(found.age), found.place].filter(Boolean).join(' · ');
 // Cards show the letters of the short ID until `showCardPhotos` draws over them; nothing marks a
 // self-declared claim as verified.
 /**
@@ -859,7 +824,7 @@ const clearSearch = () => {
  * @param {FoundWithPlace[]} found
  */
 const renderSearchResults = (result, found, call) => {
-  showSearchFilters(result.offered);
+  showSearchFilters(result.offered, result.filters);
   searchResults.replaceChildren(
     ...found.map((item, index) => resultCard(item, `result-${index + 1}`)),
   );
@@ -877,17 +842,60 @@ const renderSearchResults = (result, found, call) => {
   domById('search-empty', HTMLDivElement).hidden = found.length > 0;
   searchAgain.hidden = !found.length;
 };
+// The core's range errors are explained at the upper field of the reversed range.
+const rangeFields = /** @type {Record<string, string>} */ ({
+  'invalid search age': 'search-age-max',
+  'invalid search height': 'search-height-max',
+});
+// What the search area shows, put back when the core refuses a reversed range before any network work.
+const shownSearch = () => {
+  const status = domById('search-status', HTMLParagraphElement);
+  const elements = [status, domById('search-open-network', HTMLElement), searchAgain];
+  const empty = domById('search-empty', HTMLDivElement);
+  const text = status.textContent;
+  const hidden = [...elements, empty].map((element) => element.hidden);
+  const results = [...searchResults.children];
+  return () => {
+    status.textContent = text;
+    for (const [index, element] of [...elements, empty].entries()) element.hidden = hidden[index];
+    searchResults.replaceChildren(...results);
+  };
+};
+// A reversed range is explained at its upper field once the form is enabled again, since
+// disabled fields are not validated.
+/** @param {string} field @param {() => void} restore */
+const showRangeError = (field, restore) => {
+  setSearchBusy(false);
+  restore();
+  domById(field, HTMLInputElement).setCustomValidity(strings['search.rangeReversed']);
+  searchForm.reportValidity();
+};
+/** @param {string} code */
+const showSearchFailure = (code) => {
+  if (code === 'notConnected') searchMessage('search.notConnected');
+  else searchMessage('search.failed', '');
+  showSearchError(
+    {
+      notConnected: 'search.offline',
+      mutualUnavailable: 'search.mutualUnavailable',
+      invalidInterests: 'search.interestInvalid',
+    }[code] || 'search.error',
+    code,
+  );
+};
 const runSearch = async (call = invoke) => {
-  profileFieldsModule.checkRange('search-age-min', 'search-age-max');
-  profileFieldsModule.checkRange('search-height-min', 'search-height-max');
+  for (const id of Object.values(rangeFields)) domById(id, HTMLInputElement).setCustomValidity('');
   if (searchBusy || !searchForm.reportValidity()) return;
   const generation = identityState.generation;
+  // Read before the busy form disables its fields, which the query then leaves out.
   const query = searchQuery();
+  const restore = shownSearch();
   closeFound();
   clearSearch();
   setSearchBusy(true);
   searchMessage('search.loading');
   try {
+    // The core builds the conditions and refuses a reversed range before any network work.
     const result = await call('search_profiles', { query });
     if (!identityCurrent(generation)) return;
     const found = await withPlaces(result.profiles);
@@ -901,17 +909,9 @@ const runSearch = async (call = invoke) => {
     renderSearchResults(result, found, call);
   } catch (error) {
     if (!identityCurrent(generation)) return;
-    const code = String(error);
-    if (code === 'notConnected') searchMessage('search.notConnected');
-    else searchMessage('search.failed', '');
-    showSearchError(
-      {
-        notConnected: 'search.offline',
-        mutualUnavailable: 'search.mutualUnavailable',
-        invalidInterests: 'search.interestInvalid',
-      }[code] || 'search.error',
-      code,
-    );
+    const field = rangeFields[String(error)];
+    if (field) showRangeError(field, restore);
+    else showSearchFailure(String(error));
   } finally {
     if (identityCurrent(generation)) setSearchBusy(false);
   }
@@ -920,7 +920,7 @@ controller.resetSearch = () => {
   setSearchBusy(false);
   searchForm.reset();
   searchPlace.set(null);
-  showSearchFilters([]);
+  showSearchFilters([], {});
   closeFound();
   clearSearch();
   searchMessage('search.idle');

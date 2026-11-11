@@ -1,18 +1,23 @@
 //! Verified profile search on the open identity's active network, over the client core's
 //! `search` module.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::compatibility;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure};
+use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInputs};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-use dyapp_p2p_net::search_results::{mutual_conditions, Filter};
+use dyapp_p2p_net::search_results::{
+    mutual_conditions, Filter, BIRTH_AGE, SEEKING_AGE, SEEKING_GENDERS,
+};
 use dyapp_p2p_net::{proto, Protocols};
-use dyapp_profile::{CivilDate, Profile, VerifiedProfile};
+use dyapp_profile::search_input::SearchRangeInputs;
+use dyapp_profile::{CivilDate, Profile, VerifiedProfile, HEIGHT_FIELD};
 
 use crate::peer_photos::PhotoCache;
 use crate::profile::{self, Draft};
@@ -89,76 +94,82 @@ impl SearchState {
     }
 }
 
-/// One filter as the page sends it; `op` is `eq`, `in` or `range`.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
-pub struct Condition {
-    pub field: u32,
-    pub op: String,
-    #[serde(default)]
-    pub ints: Vec<i64>,
-    #[serde(default)]
-    pub strings: Vec<String>,
+const COUNTRY_FIELD: u32 = 4;
+const INTEREST_FIELD: u32 = 19;
+const PLACE_FIELD: u32 = 20;
+
+/// Which of the page's fixed filters the reached nodes offer; scale filters follow `offered`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent filter rows the page shows or hides over IPC"
+)]
+pub struct Filters {
+    pub age: bool,
+    pub height: bool,
+    pub interest: bool,
+    pub country: bool,
+    /// A place is picked within a country, so it needs both.
+    pub place: bool,
+    /// A mutual search needs both the sought genders and the sought age.
+    pub mutual: bool,
 }
 
-impl TryFrom<Condition> for proto::Condition {
-    type Error = String;
-
-    fn try_from(condition: Condition) -> Result<Self, String> {
-        let op = match condition.op.as_str() {
-            "eq" => proto::Op::Eq,
-            "in" => proto::Op::In,
-            "range" => proto::Op::Range,
-            _ => return Err("invalid search op".into()),
-        };
-        Ok(Self {
-            field: condition.field,
-            op: op.into(),
-            ints: condition.ints,
-            strings: if condition.field == 19 {
-                if condition.strings.len() > dyapp_p2p_net::search_results::MAX_IN_VALUES {
-                    return Err("invalidInterests".into());
-                }
-                profile::canonical_interests(&condition.strings)?
-            } else {
-                condition.strings
-            },
-        })
-    }
-}
-
-/// The company filter as the page sends it, tagged by `kind`; it runs only on this device.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum EmployerFilter {
-    #[default]
-    Any,
-    Same {
-        company: String,
-    },
-    Exclude {
-        companies: Vec<String>,
-    },
-}
-
-impl From<EmployerFilter> for Employer {
-    fn from(filter: EmployerFilter) -> Self {
-        match filter {
-            EmployerFilter::Any => Self::Any,
-            EmployerFilter::Same { company } => Self::Same(company),
-            EmployerFilter::Exclude { companies } => Self::Exclude(companies),
+impl Filters {
+    fn offered(offered: &[u32]) -> Self {
+        let has = |field| offered.contains(&field);
+        Self {
+            age: has(BIRTH_AGE),
+            height: has(HEIGHT_FIELD),
+            interest: has(INTEREST_FIELD),
+            country: has(COUNTRY_FIELD),
+            place: has(COUNTRY_FIELD) && has(PLACE_FIELD),
+            mutual: has(SEEKING_GENDERS) && has(SEEKING_AGE),
         }
     }
 }
 
-/// One search as the page sends it.
+/// The company filter mode the page selected; the text is interpreted by the client core.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EmployerChoice {
+    #[default]
+    Any,
+    Same,
+    Exclude,
+}
+
+impl From<EmployerChoice> for EmployerMode {
+    fn from(choice: EmployerChoice) -> Self {
+        match choice {
+            EmployerChoice::Any => Self::Any,
+            EmployerChoice::Same => Self::Same,
+            EmployerChoice::Exclude => Self::Exclude,
+        }
+    }
+}
+
+/// One search as the page's form holds it, uninterpreted; disabled fields arrive blank.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct Query {
-    /// Inclusive years; the lower bound is raised to 18.
-    pub age: Option<(u32, u32)>,
-    pub conditions: Vec<Condition>,
-    pub employer: EmployerFilter,
+    /// Field numbers of the last results; only these fields constrain the search.
+    pub offered: Vec<u32>,
+    /// Scale key to chosen code; 0 is any.
+    pub picked: BTreeMap<String, i64>,
+    pub country: String,
+    pub interest: String,
+    /// The selected place suggestion, if any.
+    pub place: Option<u32>,
+    pub age_min: String,
+    pub age_max: String,
+    pub height_min: String,
+    pub height_max: String,
+    pub employer: EmployerChoice,
+    pub company: String,
     /// Hits per node; 0 means 50.
     pub limit: u32,
     /// Also ask for profiles that seek the saved profile's gender and age.
@@ -166,30 +177,65 @@ pub struct Query {
 }
 
 impl Query {
-    /// Node conditions with the age range resolved to birth-date bounds at `today`.
-    fn conditions(self, today: CivilDate) -> Result<Vec<proto::Condition>, String> {
+    /// Node conditions by the shared input rules: age as birth-date bounds at `today`, then
+    /// height, then the offered choices. Errors are `invalid search age`, `invalid search height`
+    /// or `invalidInterests`.
+    fn conditions(&self, today: CivilDate) -> Result<Vec<proto::Condition>, String> {
+        let ranges = SearchRangeInputs {
+            age_min: self.age_min.clone(),
+            age_max: self.age_max.clone(),
+            height_min: self.height_min.clone(),
+            height_max: self.height_max.clone(),
+        }
+        .parse(
+            self.offered.contains(&BIRTH_AGE),
+            self.offered.contains(&HEIGHT_FIELD),
+        )
+        .map_err(|error| error.to_string())?;
         let age = Filter {
-            age: self.age,
+            age: ranges.age,
             ..Filter::default()
         };
         let mut out = age.conditions(today).map_err(|_| "invalid search age")?;
-        for condition in self.conditions {
-            out.push(condition.try_into()?);
+        let height = Filter {
+            min_height: ranges.min_height,
+            max_height: ranges.max_height,
+            ..Filter::default()
+        };
+        out.extend(
+            height
+                .conditions(today)
+                .map_err(|_| "invalid search height")?,
+        );
+        let choices = SearchChoiceInputs {
+            picked: self.picked.clone(),
+            country: self.country.clone(),
+            interest: self.interest.clone(),
+            place: self.place,
+        };
+        for mut condition in choices.conditions(&self.offered) {
+            if condition.field == INTEREST_FIELD {
+                condition.strings = profile::canonical_interests(&condition.strings)?;
+            }
+            out.push(condition);
         }
         Ok(out)
+    }
+
+    fn employer(&self) -> Employer {
+        employer_filter(self.employer.into(), &self.company)
     }
 }
 
 /// The query's conditions, then a mutual search's for `own`; `mutualUnavailable` when `own` has no
 /// gender or no exact age to tell the nodes.
 fn node_conditions(
-    query: Query,
+    query: &Query,
     own: &Profile,
     today: CivilDate,
 ) -> Result<Vec<proto::Condition>, String> {
-    let mutual = query.mutual;
     let mut conditions = query.conditions(today)?;
-    if mutual {
+    if query.mutual {
         conditions.extend(mutual_conditions(own, today).ok_or("mutualUnavailable")?);
     }
     Ok(conditions)
@@ -233,6 +279,8 @@ impl From<SearchFailure> for Failure {
 pub struct Found {
     pub peer_id: String,
     pub draft: Draft,
+    /// Youngest and oldest possible age today from the public birth fields.
+    pub age: Option<(u32, u32)>,
     /// The full image of each photo in `draft.photos`, empty where a photo has none.
     pub full_photos: Vec<Vec<u8>>,
     pub version: u64,
@@ -243,6 +291,9 @@ impl From<&VerifiedProfile> for Found {
         Self {
             peer_id: found.peer_id.clone(),
             draft: Draft::from(&found.profile),
+            age: profile::today()
+                .ok()
+                .and_then(|today| found.profile.possible_age_range(today)),
             full_photos: found
                 .profile
                 .photos
@@ -261,6 +312,7 @@ impl From<&VerifiedProfile> for Found {
 pub struct Results {
     /// Field numbers every reached node filters on and the client checks, ascending.
     pub offered: Vec<u32>,
+    pub filters: Filters,
     /// Verified matches in no set order, without blocked or passed peers.
     pub profiles: Vec<Found>,
     /// Coverage may be incomplete.
@@ -270,11 +322,11 @@ pub struct Results {
 }
 
 /// Searches up to `limit` hits per node (0 means 50) of up to 3 search providers of the active
-/// network, with the publish proof-of-work minimum and without blocked or passed peers; `age` is an
-/// inclusive range of years, checked against public birth dates today; no conditions asks for a
-/// sample; `employer` then narrows the verified results on this device. Each call connects
+/// network, with the publish proof-of-work minimum and without blocked or passed peers; an age
+/// range is checked against public birth dates today; no conditions asks for a sample; the
+/// employer filter then narrows the verified results on this device. Each call connects
 /// again, so retry is a new call. Errors are `notConnected` (no active network or no answering
-/// node), `mutualUnavailable`, `invalid search op`, `invalid search age` or a storage message.
+/// node), `mutualUnavailable`, those of `check` or a storage message.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn search(
     cache: &Mutex<ProfileCache>,
@@ -283,13 +335,13 @@ pub async fn search(
     query: Query,
 ) -> Result<Results, String> {
     let limit = query.limit;
-    let employer = Employer::from(query.employer.clone());
+    let employer = query.employer();
     let today = profile::today()?;
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let mut hidden = store.blocked_peers().map_err(|e| e.to_string())?;
     hidden.extend(store.passed_peers().map_err(|e| e.to_string())?);
     let own = profile::stored(&store)?;
-    let conditions = node_conditions(query, &own, today)?;
+    let conditions = node_conditions(&query, &own, today)?;
     // Capture the context before loading settings: activation saves settings and advances this
     // epoch under the same cache lock.
     let (epoch, seen) = cache.lock().map_err(|e| e.to_string())?.snapshot();
@@ -317,6 +369,7 @@ pub async fn search(
     let partial = results.partial || !reached.failures.is_empty();
     reached.failures.extend(results.failures);
     Ok(Results {
+        filters: Filters::offered(&reached.offered),
         offered: reached.offered,
         profiles,
         partial,
@@ -370,12 +423,12 @@ mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     fn temp_dir() -> std::path::PathBuf {
+        // Parallel tests can read the same clock value, notably on Windows.
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        // Parallel tests can read the same clock value, notably on Windows.
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir = std::env::temp_dir().join(format!("dyapp-desktop-search-{nanos}-{n}"));
         std::fs::create_dir_all(&dir).unwrap();
@@ -385,24 +438,17 @@ mod tests {
     #[tokio::test]
     async fn search_needs_an_answering_active_network_and_retries_by_calling_again() {
         let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
-        let run = |conditions| {
+        let run = |age_max: &str| {
             let query = Query {
-                conditions,
+                offered: vec![BIRTH_AGE],
+                age_min: "30".into(),
+                age_max: age_max.into(),
                 ..Query::default()
             };
             search(&cache, &dir, &alice, query)
         };
-        assert_eq!(Box::pin(run(Vec::new())).await, Err("notConnected".into()));
-        let bad = Condition {
-            field: 1,
-            op: "like".into(),
-            ints: Vec::new(),
-            strings: Vec::new(),
-        };
-        assert_eq!(
-            Box::pin(run(vec![bad])).await,
-            Err("invalid search op".into())
-        );
+        assert_eq!(Box::pin(run("")).await, Err("notConnected".into()));
+        assert_eq!(Box::pin(run("20")).await, Err("invalid search age".into()));
         let closed = TcpListener::bind("127.0.0.1:0")
             .unwrap()
             .local_addr()
@@ -412,8 +458,8 @@ mod tests {
             name: String::new(),
         };
         network::save(&dir, Settings::Active, &unreachable).unwrap();
-        assert!(Box::pin(run(Vec::new())).await.is_err());
-        assert!(Box::pin(run(Vec::new())).await.is_err());
+        assert!(Box::pin(run("")).await.is_err());
+        assert!(Box::pin(run("")).await.is_err());
     }
 
     #[tokio::test]
@@ -532,25 +578,30 @@ mod tests {
 
     #[test]
     fn interest_query_matches_canonical_published_tags() {
-        let condition = |field, text: &str| Condition {
-            field,
-            op: "in".into(),
-            ints: Vec::new(),
-            strings: vec![text.into()],
+        let today = CivilDate::from_unix_days(20_000).unwrap();
+        let conditions = |field, text: &str| {
+            Query {
+                offered: vec![field],
+                interest: text.into(),
+                country: text.into(),
+                ..Query::default()
+            }
+            .conditions(today)
+            .unwrap()
         };
-        let query = proto::Condition::try_from(condition(19, "  E\u{301}COLE  ")).unwrap();
+        let [query] = <[_; 1]>::try_from(conditions(INTEREST_FIELD, "  E\u{301}COLE  ")).unwrap();
         assert_eq!(query.strings, ["école"]);
         let profile = Profile {
             interests: profile::canonical_interests(&[" ÉCOLE ".into()]).unwrap(),
             ..Profile::default()
         };
         assert!(dyapp_p2p_net::search_results::passes(&[query], 0, &profile));
-        assert!(proto::Condition::try_from(condition(19, "  ")).is_err());
-        let mut excessive = condition(19, "music");
-        excessive.strings = vec!["music".into(); dyapp_p2p_net::search_results::MAX_IN_VALUES + 1];
-        assert!(proto::Condition::try_from(excessive).is_err());
-        let country = proto::Condition::try_from(condition(4, "DE")).unwrap();
-        assert_eq!(country.strings, ["DE"]);
+        assert_eq!(conditions(INTEREST_FIELD, "  "), []);
+        let country = conditions(COUNTRY_FIELD, "DE");
+        assert_eq!(
+            (country[0].field, country[0].strings.clone()),
+            (4, vec!["DE".into()])
+        );
     }
 
     #[test]
@@ -583,41 +634,56 @@ mod tests {
             ..Profile::default()
         };
         assert_eq!(
-            node_conditions(query(false), &unknown, today),
+            node_conditions(&query(false), &unknown, today),
             Ok(Vec::new())
         );
         assert_eq!(
-            node_conditions(query(true), &unknown, today),
+            node_conditions(&query(true), &unknown, today),
             Err("mutualUnavailable".into())
         );
         let wanted = mutual_conditions(&own, today).unwrap();
         assert_ne!(wanted, Vec::<dyapp_p2p_net::proto::Condition>::new());
-        assert_eq!(node_conditions(query(true), &own, today), Ok(wanted));
+        assert_eq!(node_conditions(&query(true), &own, today), Ok(wanted));
     }
 
     #[test]
     fn an_age_range_becomes_birth_bounds_before_the_other_conditions() {
         let today = CivilDate::from_unix_days(20_000).unwrap();
-        let gender = Condition {
-            field: 26,
-            op: "eq".into(),
-            ints: vec![1],
-            strings: Vec::new(),
-        };
-        let query = |age| Query {
-            age,
-            conditions: vec![gender.clone()],
+        let gender = dyapp_profile::Gender::FIELD;
+        let query = |offered: &[u32], min: &str, max: &str| Query {
+            offered: offered.to_vec(),
+            picked: BTreeMap::from([("gender".into(), 1)]),
+            age_min: min.into(),
+            age_max: max.into(),
+            height_min: max.into(),
+            height_max: min.into(),
             ..Query::default()
         };
-        let out = query(Some((20, 30))).conditions(today).unwrap();
+        let out = query(&[BIRTH_AGE, gender], "20", "30")
+            .conditions(today)
+            .unwrap();
         assert_eq!(out.len(), 2);
         assert_eq!(out[0].field, BIRTH_AGE);
         assert_eq!(out[0].op, i32::from(proto::Op::Range));
-        assert_eq!((out[1].field, out[1].ints.clone()), (26, vec![1]));
-        assert_eq!(query(None).conditions(today).unwrap().len(), 1);
+        assert_eq!((out[1].field, out[1].ints.clone()), (gender, vec![1]));
+        // Fields the nodes did not offer stay out, even when filled or reversed.
+        let unoffered = query(&[gender], "30", "20").conditions(today).unwrap();
+        assert_eq!(unoffered.len(), 1);
         assert_eq!(
-            query(Some((30, 20))).conditions(today),
+            query(&[BIRTH_AGE], "30", "20").conditions(today),
             Err("invalid search age".into())
+        );
+        assert_eq!(
+            query(&[HEIGHT_FIELD], "170", "190").conditions(today),
+            Err("invalid search height".into())
+        );
+        assert_eq!(
+            Filters::offered(&[BIRTH_AGE, COUNTRY_FIELD, SEEKING_GENDERS]),
+            Filters {
+                age: true,
+                country: true,
+                ..Filters::default()
+            }
         );
     }
 
@@ -634,18 +700,17 @@ mod tests {
 
     #[test]
     fn the_page_employer_filter_reaches_the_core_filter() {
-        let query: Query = serde_json::from_str(
-            r#"{"employer": {"kind": "exclude", "companies": ["Acme", "Other"]}}"#,
-        )
-        .unwrap();
+        let query: Query =
+            serde_json::from_str(r#"{"employer": "exclude", "company": " Acme; Other ;"}"#)
+                .unwrap();
         assert_eq!(
-            Employer::from(query.employer),
+            query.employer(),
             Employer::Exclude(vec!["Acme".into(), "Other".into()])
         );
-        let same: EmployerFilter =
-            serde_json::from_str(r#"{"kind": "same", "company": "Acme"}"#).unwrap();
-        assert_eq!(Employer::from(same), Employer::Same("Acme".into()));
+        let same: Query =
+            serde_json::from_str(r#"{"employer": "same", "company": "Acme"}"#).unwrap();
+        assert_eq!(same.employer(), Employer::Same("Acme".into()));
         let none: Query = serde_json::from_str("{}").unwrap();
-        assert_eq!(none.employer, EmployerFilter::Any);
+        assert_eq!(none.employer(), Employer::Any);
     }
 }

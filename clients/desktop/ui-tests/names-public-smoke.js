@@ -378,14 +378,15 @@
     input.value = before;
     await openArea('search-area');
     const search = document.getElementById('search-interest');
-    appBindings.showSearchFilters([19]);
+    // The core trims the interest and builds its condition from the offered fields.
+    appBindings.showSearchFilters([19], { interest: true });
     search.value = ' Музыка ';
-    const filter = appBindings.searchQuery().conditions.find((condition) => condition.field === 19);
-    if (filter?.op !== 'eq' || filter.strings[0] !== 'Музыка')
+    const query = appBindings.searchQuery();
+    if (query.interest !== ' Музыка ' || !query.offered?.includes(19))
       throw new Error('interest filter was not sent');
     await smoke.shot('search-interest');
-    appBindings.showSearchFilters([]);
-    if (appBindings.searchQuery().conditions.some((condition) => condition.field === 19)) {
+    appBindings.showSearchFilters([], {});
+    if (appBindings.searchQuery().interest) {
       throw new Error('unsupported interest filter leaked into query');
     }
     search.value = '';
