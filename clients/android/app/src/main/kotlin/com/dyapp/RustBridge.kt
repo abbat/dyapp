@@ -68,7 +68,7 @@ object RustBridge {
      */
     fun <T> withChats(opened: Opened.Ready, action: (ChatSession) -> T): T = synchronized(chatsLock) {
         withKey(opened) { dir, key ->
-            val store = PlatformKeyStore(opened.slot.alias)
+            val store = PlatformKeyStore.existing(opened.slot.alias)
             val (deviceKey, stateKey) = chatKeys(opened.slot, store)
             IdentityKey.unwrap(store, deviceKey).use { device ->
                 ChatSession.open(dir, key, device, store, stateKey).use(action)

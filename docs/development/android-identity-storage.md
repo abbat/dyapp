@@ -4,8 +4,11 @@ The Android app keeps several local identities in independent slots, mirroring t
 [desktop layout](desktop-identity-storage.md#multiple-identity-layout). Each slot has its own
 non-exportable AES-256-GCM key in the Android Keystore that wraps that identity's key file.
 No key requires user authentication, so opening or switching an identity never asks for a
-PIN or biometrics; an app lock is a separate feature. `Slots.kt` implements this layout and
-`SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
+PIN or biometrics; an app lock is a separate feature. Chat bootstrap uses
+`PlatformKeyStore.existing(alias)`: it can wrap new ancillary secrets only while that
+identity's credential exists, and refuses a lost credential instead of recreating its alias.
+Explicit identity and app-lock setup retain the credential-creating store. `Slots.kt` implements
+this layout and `SlotsTests` covers it on the JVM with a fake Keystore. The start screen opens the active or
 only slot and creates the first one on a fresh install; Switch shows the picker, which lists
 each slot by Peer ID or recovery reason and adds identities. A recovery state offers Retry.
 The profile editor, preview and publication use the active identity's Rust `client.db` draft.
