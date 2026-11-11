@@ -14,10 +14,10 @@ use crate::profile::{self, View};
 fn change(
     dir: &Path,
     identity: &Identity,
-    edit: impl FnOnce(&Store) -> Result<Profile, Error>,
+    edit: impl FnOnce(&mut Store) -> Result<Profile, Error>,
 ) -> Result<View, String> {
-    let store = profile::open(dir, identity)?;
-    let draft = edit(&store).map_err(|error| match error {
+    let mut store = profile::open(dir, identity)?;
+    let draft = edit(&mut store).map_err(|error| match error {
         Error::PhotoRefused => "photoRefused".to_string(),
         error => error.to_string(),
     })?;

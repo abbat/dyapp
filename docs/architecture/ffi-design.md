@@ -278,8 +278,10 @@ eligibility/search projections to the same normalized application. Editable save
 `Store::update_profile_draft`: a SQLite immediate transaction acquires writer ownership before
 reading the latest draft and retains it through transformation and commit. Refusal rolls back;
 independent connections/processes cannot interleave another database write in that transformation.
-Callbacks are short and synchronous, with no proof search, network or nested store writes. Other
-proof/photo/publication writers still require adoption before frontend draft monitors can be removed.
+Callbacks are short and synchronous, with no proof search, network or nested store writes.
+Photo add/remove/move use the same transaction; adding commits both blobs and the draft
+together, rolling all three back on failure. Proof and publication writers still require adoption
+before frontend draft monitors can be removed.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input

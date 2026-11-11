@@ -14,8 +14,9 @@ header show the peer's main photo with the contact name (`ContactNames.kt`), fro
 searcher fetches when Chats or a chat opens. The Apple profile form adds, moves and removes photos
 (`ProfilePhotos.swift`, `PhotoPrep.swift`), and Apple shows other people's photos on search results,
 liked cards, chat rows, the chat header and the profile page (`PeerPhotos.swift`). Apple has no own
-avatar to show. Neither Android nor Apple reports its network type yet, so the core treats every
-network as metered there and a full image waits for a tap.
+avatar to show. Android reports network capabilities to the core, treating missing or unknown
+capabilities as metered. Apple reports expensive or constrained paths through `NWPathMonitor`.
+Until a platform reports its network, the core conservatively treats it as metered.
 
 ## Limits
 
@@ -54,7 +55,10 @@ remains planned.
    because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. iOS
    uses the system photo picker and macOS a file dialog.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
-   the local store under their SHA-256 hashes and lists them in the profile draft.
+   the local store under their SHA-256 hashes and lists them in the profile draft. Addition commits
+   both blobs and the latest draft in one SQLite immediate transaction; failure leaves them unchanged.
+   Removal and reordering also acquire writer ownership before reading and transforming the draft,
+   preserving other fields committed by independent handles.
 3. Publishing sends `keep` with every hash of the draft, puts each blob the node reports missing,
    then publishes the profile. A failure before the profile publish leaves the previous profile
    valid. A photo removed from the draft leaves the store and the keep list with that publish, so
@@ -71,8 +75,9 @@ eight. The store holds own photos until a publish drops them, so a repair needs 
 The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
 Android check full-image pixels before that; full-source decoding remains a platform service,
 while the shared core bounds and decodes previews. On Android and Apple
-every draft write (a save, a proof step, the publish and each photo change) holds one lock, because a
-step or save writes back the draft it read and a publish drops the blobs it did not publish.
+draft writes still hold a process-local lock around proof/publication and their other writers.
+Shared core transactions now serialize editable saves and photo changes across database handles;
+proof and publication cleanup still require adoption before frontend locks can be removed.
 
 ## Viewing
 

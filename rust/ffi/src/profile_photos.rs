@@ -68,8 +68,8 @@ pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>
 /// # Errors
 ///
 /// Returns `corrupted` for invalid JPEG dimensions, `photoRefused` for count
-/// or byte limits, or a storage error. Photo blobs may already be stored when
-/// saving the updated draft fails.
+/// or byte limits, or a storage error. The blobs and updated draft commit together;
+/// a failed save retains the previous draft and blobs.
 #[expect(
     clippy::needless_pass_by_value,
     reason = "UniFFI lifts owned arguments across the native language boundary"
@@ -82,7 +82,7 @@ pub fn add_profile_photo(
 ) -> Result<Vec<Vec<u8>>, CoreError> {
     checked(&full, MAX_FULL_SIDE)?;
     checked(&thumbnail, MAX_SIDE)?;
-    let store = store(&dir, &key)?;
+    let mut store = store(&dir, &key)?;
     Ok(thumbnails(
         &store.add_profile_photo(&full, &thumbnail).map_err(code)?,
     ))

@@ -31,14 +31,7 @@ impl Store {
         &mut self,
         update: impl FnOnce(&mut Profile) -> Result<(), Error>,
     ) -> Result<Profile, Error> {
-        let transaction = self
-            .db
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let mut draft = load(&transaction)?.unwrap_or_default();
-        update(&mut draft)?;
-        save(&transaction, &draft)?;
-        transaction.commit()?;
-        Ok(draft)
+        transform(&mut self.db, |_, draft| update(draft))
     }
 
     /// The saved draft, or `None` before the first save.
@@ -50,6 +43,19 @@ impl Store {
     pub fn profile_draft(&self) -> Result<Option<Profile>, Error> {
         load(&self.db)
     }
+}
+
+/// Store-internal transformations can atomically change related rows (such as photo blobs).
+pub(super) fn transform(
+    db: &mut Connection,
+    update: impl FnOnce(&Connection, &mut Profile) -> Result<(), Error>,
+) -> Result<Profile, Error> {
+    let transaction = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let mut draft = load(&transaction)?.unwrap_or_default();
+    update(&transaction, &mut draft)?;
+    save(&transaction, &draft)?;
+    transaction.commit()?;
+    Ok(draft)
 }
 
 fn save(db: &Connection, draft: &Profile) -> Result<(), Error> {
