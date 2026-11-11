@@ -48,6 +48,16 @@ impl Store {
         self.set_search_publish(&state)
     }
 
+    pub(super) fn held_search_version(&self) -> Result<u64, Error> {
+        self.search_publish()?
+            .pending
+            .as_ref()
+            .map(dyapp_profile::stored_version)
+            .transpose()
+            .map(|version| version.unwrap_or(0))
+            .map_err(|_| Error::InvalidSetting)
+    }
+
     /// The held profile once the window has ended at Unix second `now`; ask again after an edit
     /// and on app start.
     ///

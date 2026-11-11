@@ -88,6 +88,8 @@ Invalid references, noncanonical blob keys or unsupported blob formats refuse cl
 rolls back the entire batch. Key selection uses the exact case-sensitive `profile_photo:` namespace,
 not SQL `LIKE` wildcard matching. This protects photos added before cleanup; publication's earlier
 whole-draft replacement still requires migration to preserve edits made during network requests.
+Local hide already reads the latest draft and atomically commits its new version/search/hidden state,
+preserving photos and other concurrent local edits instead of copying the caller's old snapshot.
 
 Android removal and reordering carry the displayed snapshot's opaque core revision. It covers all
 original and preview hashes, their order and duplicate entries; unrelated fields/proof do not change

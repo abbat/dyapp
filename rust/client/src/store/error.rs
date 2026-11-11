@@ -25,6 +25,9 @@ pub enum Error {
     /// The displayed photo order or identity changed before an edit could commit.
     #[error("profile photos changed")]
     PhotoChanged,
+    /// No later profile version can be represented.
+    #[error("profile version cannot be advanced")]
+    ProfileVersionExhausted,
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,

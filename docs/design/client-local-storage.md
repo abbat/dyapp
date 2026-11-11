@@ -257,7 +257,12 @@ and sets `profile_hidden` (a one-byte flag; absent means shown), and the next
 `publish::publish` clears it. The last ordinary signed profile stays at store nodes, so someone
 with the Peer ID can still find the device list and KeyPackages and start a chat. The hidden
 draft advances to the tombstone version; unhide publishes a still-higher ordinary version to
-both services. Identity removal instead
+both services. Local hide reads the latest draft under an immediate writer transaction, preserving
+its current fields/photos/devices and the stronger proof pair. Its version exceeds the request,
+current draft, observed own-profile and held search versions; exhaustion is refused without writes.
+Draft, signed search tombstone and hidden flag commit or roll back together. The request supplies
+initial fields only when no draft exists. Network completion/withdrawal projection still requires
+separate migration; this atomic local operation does not order their later writes. Identity removal instead
 publishes a final tombstone to profile storage and search. A client that observed that final
 profile-store tombstone refuses later versions; nodes retain tombstones for their configured
 TTL under [ADR 0011](../decisions/0011-best-effort-deletion.md), so this is not a permanent

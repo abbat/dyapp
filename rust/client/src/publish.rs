@@ -394,18 +394,10 @@ async fn upload_photos(
 ///
 /// # Errors
 ///
-/// Returns an error if saving the advanced draft, holding the search tombstone,
-/// or recording hidden state fails. Earlier local writes remain applied.
+/// Returns an error for owner/version/state or persistence failures. Draft, search tombstone
+/// and hidden flag update atomically; a stale request never replaces newer local fields.
 pub fn hide(store: &Store, identity: &Identity, draft: &Profile) -> Result<Profile, Failure> {
-    let tombstone = Profile::tombstone(draft.version + 1, draft.pow_nonce, draft.pow_bits);
-    let draft = Profile {
-        version: tombstone.version,
-        ..draft.clone()
-    };
-    store.save_profile_draft(&draft)?;
-    store.hold_search_profile(&tombstone.sign(identity))?;
-    store.set_profile_hidden(true)?;
-    Ok(draft)
+    Ok(store.hide_profile_draft(identity, draft)?)
 }
 
 /// Withdraw an identity before local removal: publish a final tombstone to profile storage,

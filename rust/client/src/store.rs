@@ -30,6 +30,7 @@ mod presence;
 mod profile_draft;
 pub mod profile_photos;
 mod profile_retention;
+mod profile_visibility;
 mod profile_work;
 pub use profile_work::{ProfileWork, ProfileWorkResult};
 mod reads;

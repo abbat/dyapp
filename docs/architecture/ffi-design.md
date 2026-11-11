@@ -291,6 +291,11 @@ separate work. Post-publication blob pruning already retains the union of publis
 hashes under writer ownership, validates the exact blob namespace/key/format and rolls back on failure.
 The internal pruning helper composes inside a larger writer transaction. The earlier publication
 readback-to-draft replacement still requires migration; pruning does not make that stage safe.
+Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
+beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits
+draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
+failure leaves that local projection unchanged. Later network completion/withdrawal writes still
+require their own migration before frontend monitors can be removed.
 Its exported API is unchanged.
 
 ## Profile editor height and seeking input
