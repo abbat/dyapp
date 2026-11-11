@@ -1,11 +1,11 @@
 """Check real SARIF conversion across duplicate and failed Cargo scans."""
 
 import json
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -101,6 +101,77 @@ class ClippySarifTests(unittest.TestCase):
                 }
             ],
         )
+
+    def budgeted(self, measured: int, allowed: int, function: str) -> int:
+        """Count SARIF results for one too_many_lines finding under a budget."""
+        source = "fn run() {\n}\n"
+        finding = {
+            "reason": "compiler-message",
+            "message": {
+                "level": "warning",
+                "code": {"code": "clippy::too_many_lines"},
+                "message": f"this function has too many lines ({measured}/50)",
+                "spans": [
+                    {
+                        "is_primary": True,
+                        "file_name": "src.rs",
+                        "line_start": 1,
+                        "column_start": 1,
+                        "byte_start": 0,
+                        "byte_end": 8,
+                    }
+                ],
+            },
+        }
+        entry = {
+            "id": "fn run ",
+            "kind": "function",
+            "start": [1, 0],
+            "end": [2, 1],
+            "nesting": 0,
+        }
+        budget = [
+            {
+                "path": "src.rs",
+                "function": function,
+                "metrics": {"lines": allowed},
+            }
+        ]
+        rows = [
+            finding,
+            finding,
+            {"reason": "build-finished", "success": True},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src.rs").write_text(source)
+            (root / "cargo.jsonl").write_text("\n".join(map(json.dumps, rows)))
+            (root / "budget.json").write_text(json.dumps(budget))
+            (root / "functions.jsonl").write_text(
+                json.dumps({"path": "src.rs", "functions": [entry]})
+            )
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "tests/scripts/clippy-to-sarif.py"),
+                    "cargo.jsonl",
+                    "--budget",
+                    "budget.json",
+                    "--functions",
+                    "functions.jsonl",
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        return len(json.loads(process.stdout)["runs"][0]["results"])
+
+    def test_budget_hides_only_functions_within_their_allowance(self) -> None:
+        self.assertEqual(self.budgeted(60, 60, "fn run "), 0)
+        self.assertEqual(self.budgeted(61, 60, "fn run "), 1)
+        self.assertEqual(self.budgeted(60, 60, "fn other "), 1)
 
 
 if __name__ == "__main__":

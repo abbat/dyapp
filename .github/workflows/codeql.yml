@@ -202,7 +202,10 @@ jobs:
 
     - name: sarif
       if: always()
-      run: python3 tests/scripts/clippy-to-sarif.py clippy.json > clippy.sarif
+      # Legacy functions within their committed budget are not reported; make quality enforces it.
+      run: >-
+        python3 tests/scripts/clippy-to-sarif.py clippy.json
+        --budget tests/scripts/rust-complexity/workspace.json > clippy.sarif
 
     - name: upload rust diagnostics
       if: always() && hashFiles('clippy.sarif') != ''
