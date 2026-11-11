@@ -811,31 +811,14 @@ const forwardChatText = async (call = invoke) => {
   forwardCancel.disabled = true;
   forwardConfirm.disabled = true;
   forwardSelect.disabled = true;
-  const before = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
-  if (!currentForward()) return;
-  const oldIds = new Set(
-    before?.messages.map((message) => JSON.stringify([message.groupId, message.id])) || [],
-  );
-  let result = 'forwardSent';
+  let result = 'failed';
   let errorText = '';
   try {
-    await chatsShareController.forwardMessage(source, targetPeerId, call);
+    // A rejection is a pre-commit refusal; a queued result is committed and retried by the core.
+    const { queued } = await chatsShareController.forwardMessage(source, targetPeerId, call);
+    result = queued == null ? 'forwardSent' : 'forwardQueued';
   } catch (error) {
     errorText = String(error);
-    const after = await call('chat_history', { peerId: targetPeerId }).catch(() => null);
-    if (!currentForward()) return;
-    result =
-      before &&
-      after?.messages.some(
-        (message) =>
-          message.author === identityState.current?.peerId &&
-          message.forwarded &&
-          !message.deleted &&
-          message.text === source.text &&
-          !oldIds.has(JSON.stringify([message.groupId, message.id])),
-      )
-        ? 'forwardQueued'
-        : 'failed';
   }
   if (!currentForward()) return;
   chatState.forwardBusy = false;

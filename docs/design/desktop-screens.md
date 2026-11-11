@@ -351,6 +351,8 @@ Received forwarded text has a Forwarded label in history and the Chats list prev
 shown is the verified MLS sender. The desktop forward command validates a live source text and
 an open target conversation before sending. Forward opens a picker of other open chats, allows
 Cancel without staging, and shows a queued status if the network fails after local staging. The
+command returns the committed message ID with any queued delivery error; only a rejection is a
+pre-commit refusal, so queued work is never resubmitted and history is not used to guess it. The
 open chat refreshes after the minute catch-up pass, including receipt-only changes. Clear chat asks
 for confirmation,
 deletes this computer's history, keeps the conversation row and shows a local-only note. Block

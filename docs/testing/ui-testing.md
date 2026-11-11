@@ -303,7 +303,8 @@ and ignore receipts for a superseded message generation. The forwarded-text smok
 localized Forwarded label in the list and history, keeps the verified MLS sender as author,
 and leaves ordinary text unmarked; the Linux smoke runs in English and Russian. Rust tests cover
 source group/author/ID and deleted-state checks before the desktop forward command can send. The
-Forward action smoke checks target filtering, Cancel, an unstaged error, queued delivery and a
+Forward action smoke checks target filtering, Cancel, an unstaged error, queued delivery of an
+edited source, no second submission after a queued result, and a
 late result after switching identity. The link-host smoke checks IDN punycode, a `user@host`
 spoof and absence of clickable links or previews in a message request.
 The shipped page loads `chat-photos.js` before `chats-ui.js`, after Search's helpers;

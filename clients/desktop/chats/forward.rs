@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::forwarding::{self, Source};
-use dyapp_client::session::Session;
+use dyapp_client::session::{Session, Submission};
 use dyapp_client::store::{Conversation, Store};
 use dyapp_client::Node;
 use dyapp_identity::network::{self, Settings};
@@ -61,6 +61,25 @@ pub(crate) async fn open_session(
     Ok((session, node, seal_key))
 }
 
+/// A committed forward: `queued` names the delivery failure; the core keeps the exact bytes for retry.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct Forwarded {
+    id: [u8; 16],
+    queued: Option<String>,
+}
+
+impl From<Submission> for Forwarded {
+    fn from(submission: Submission) -> Self {
+        match submission {
+            Submission::Accepted { id } => Self { id, queued: None },
+            Submission::Queued { id, error } => Self {
+                id,
+                queued: Some(error.to_string()),
+            },
+        }
+    }
+}
+
 #[expect(
     clippy::too_many_arguments,
     reason = "source and target are distinct chat identities"
@@ -76,7 +95,7 @@ async fn forward(
     source_author: &str,
     source_message: [u8; 16],
     target_peer: &str,
-) -> Result<[u8; 16], String> {
+) -> Result<Forwarded, String> {
     let store = super::open(dir, identity)?;
     let text = forwarding::prepare(
         &store,
@@ -92,17 +111,20 @@ async fn forward(
     let (mut session, mut node, seal_key) =
         open_session(cache, root, dir, identity, device_key, store, target_peer).await?;
     session
-        .send_forwarded_text_to(
+        .submit_forwarded_text_to(
             std::slice::from_mut(&mut node),
             target_peer,
             &text,
             &seal_key,
         )
         .await
+        .map(Forwarded::from)
         .map_err(|e| e.to_string())
 }
 
 /// Forward the selected live text through the active identity's MLS Session.
+///
+/// An error means nothing was committed; a queued result must not be submitted again.
 #[expect(
     clippy::too_many_arguments,
     reason = "Tauri command names the source and target message"
@@ -118,7 +140,7 @@ pub(crate) async fn forward_chat_text(
     source_author: String,
     source_message_id: [u8; 16],
     target_peer_id: String,
-) -> Result<[u8; 16], String> {
+) -> Result<Forwarded, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
     let root = crate::config_dir(&app)?;
@@ -143,4 +165,27 @@ pub(crate) async fn forward_chat_text(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Forwarded, Submission};
+
+    #[test]
+    fn queued_forward_keeps_committed_id_for_ipc() {
+        let id = [7; 16];
+        let queued = Forwarded::from(Submission::Queued {
+            id,
+            error: dyapp_client::session::Error::Invalidated,
+        });
+        assert_eq!(
+            serde_json::to_value(&queued).unwrap(),
+            serde_json::json!({ "id": id, "queued": "MLS session must be reopened" })
+        );
+        let accepted = Forwarded::from(Submission::Accepted { id });
+        assert_eq!(
+            serde_json::to_value(&accepted).unwrap(),
+            serde_json::json!({ "id": id, "queued": null })
+        );
+    }
 }

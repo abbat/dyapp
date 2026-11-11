@@ -156,7 +156,7 @@
  *   share_profile: Command<[{ peerId: string, targetPeerId: string }], number[]>,
  *   edit_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[], text: string }], number[]>,
  *   delete_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[] }], number[]>,
- *   forward_chat_text: Command<[{ sourcePeerId: string, sourceGroupId: number[], sourceAuthor: string, sourceMessageId: number[], targetPeerId: string }], number[]>,
+ *   forward_chat_text: Command<[{ sourcePeerId: string, sourceGroupId: number[], sourceAuthor: string, sourceMessageId: number[], targetPeerId: string }], { id: number[], queued: string | null }>,
  *   announce_presence: Command<[], boolean>,
  *   send_chat_photo: Command<[{ peerId: string, photo: number[], preview: number[], width: number, height: number }], number[]>,
  *   add_profile_photo: Command<[{ full: number[], thumbnail: number[] }], import('./profile-fields.js').ProfileView>,

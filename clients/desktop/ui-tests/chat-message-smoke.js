@@ -525,21 +525,23 @@
       throw new Error('Forward picker did not reject an absent target');
     }
   };
+  // Refusals reject; committed forwards resolve with their ID and any queued delivery error.
   const stageForwardFixture = (fixture, source, args) => {
     fixture.sentArgs = args;
-    if (fixture.sendError !== 'diskFailed') {
-      fixture.targetMessages = [
-        {
-          ...source,
-          author: appBindings.current.peerId,
-          groupId: [8],
-          id: [9],
-          forwarded: true,
-          delivery: 'pending',
-        },
-      ];
-    }
-    return fixture.sendError ? Promise.reject(fixture.sendError) : Promise.resolve([9]);
+    fixture.sentCount += 1;
+    if (fixture.sendError === 'diskFailed') return Promise.reject(fixture.sendError);
+    fixture.targetMessages = [
+      {
+        ...source,
+        text: fixture.sentText ?? source.text,
+        author: appBindings.current.peerId,
+        groupId: [8],
+        id: [9],
+        forwarded: true,
+        delivery: 'pending',
+      },
+    ];
+    return Promise.resolve({ id: [9], queued: fixture.sendError });
   };
   const chatForwardFixture = () => {
     const fixture = {};
@@ -564,6 +566,8 @@
     fixture.targetMessages = [];
     fixture.sendError = null;
     fixture.sentArgs = undefined;
+    fixture.sentCount = 0;
+    fixture.sentText = null;
     const call = (command, args) => {
       if (command === 'chat_history')
         return Promise.resolve({
@@ -597,10 +601,24 @@
     const readyState = appBindings.current;
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
-    finishForward([10]);
+    finishForward({ id: [10], queued: null });
     await late;
     if (appBindings.forwardDialog.open || !appBindings.chatDetail.hidden)
       throw new Error('old Forward painted new identity');
+  };
+  const checkChatForwardQueued = async (fixture, forwardButton) => {
+    // The core forwards the current text, so the UI must not match the selected text to find it.
+    fixture.targetMessages = [];
+    fixture.sendError = 'nodeFailed';
+    fixture.sentText = 'edited after selection';
+    forwardButton().click();
+    const sentBefore = fixture.sentCount;
+    await appBindings.forwardChatText(fixture.call);
+    await appBindings.forwardChatText(fixture.call);
+    if (fixture.sentCount !== sentBefore + 1)
+      throw new Error('queued Forward allowed a fresh resubmission');
+    fixture.sentText = null;
+    assertChatForwardActionStagedForwardWasReportedAsUnstagedFailure(fixture.targetPeer);
   };
   const checkChatForwardAction = async () => {
     await openArea('chats-area');
@@ -635,11 +653,7 @@
       targetPeer,
     );
     await appBindings.openChat(sourcePeer, call);
-    fixture.targetMessages = [];
-    fixture.sendError = 'nodeFailed';
-    forwardButton().click();
-    await appBindings.forwardChatText(call);
-    assertChatForwardActionStagedForwardWasReportedAsUnstagedFailure(targetPeer);
+    await checkChatForwardQueued(fixture, forwardButton);
     await appBindings.openChat(sourcePeer, call);
     appBindings.renderChatRows([rows[0]]);
     forwardButton().click();
