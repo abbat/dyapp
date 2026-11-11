@@ -24,7 +24,7 @@ class ProfileSeekingTests {
     private fun string(id: Int) = compose.activity.getString(id)
 
     private fun save(status: Int) {
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
     }
 

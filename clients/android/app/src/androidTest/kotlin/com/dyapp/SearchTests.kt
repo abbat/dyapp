@@ -131,7 +131,7 @@ class SearchTests {
     private fun mutualSearchNeedsTheSavedGenderAndAge() {
         compose.openProfileEditor()
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
-        click("profile-save")
+        compose.saveProfile()
         compose.onNodeWithTag("nav-search").performClick()
         click("search-mutual")
         click("run-search")
@@ -143,7 +143,7 @@ class SearchTests {
         pick("birth-day", "1")
         val woman = profileScales().first { it.key == GENDER }.choices.first { it.key == "Woman" }.code
         pick("profile-gender", "$woman")
-        click("profile-save")
+        compose.saveProfile()
         compose.onNodeWithTag("nav-search").performClick()
         click("run-search")
         checkLocalSample()

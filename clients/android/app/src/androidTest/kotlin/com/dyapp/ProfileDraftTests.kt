@@ -47,7 +47,7 @@ class ProfileDraftTests {
         val age = LocalDate.now(ZoneOffset.UTC).year - 2000
         compose.onNodeWithTag("profile-age").performScrollTo()
             .assertTextEquals(compose.activity.getString(R.string.profile_age_search, "$age"))
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         openPublish()
         compose.onNodeWithTag("profile-preview-age").performScrollTo()
             .assertTextEquals(compose.activity.getString(R.string.profile_age, "$age"))
@@ -59,7 +59,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
         compose.onNodeWithTag("profile-age").assertDoesNotExist()
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         openPublish()
         val unknown = compose.activity.getString(R.string.profile_age, string(R.string.profile_age_unknown))
         compose.onNodeWithTag("profile-preview-age").performScrollTo().assertTextEquals(unknown)
@@ -99,7 +99,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-goal").performScrollTo().performClick()
         // A retried run can already show the choice on the field itself.
         compose.onNode(hasText(choice) and !hasTestTag("profile-goal")).performClick()
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         compose.onNodeWithTag("nav-search").performClick()
         compose.openProfileEditor()
@@ -117,7 +117,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-DE").performScrollTo().performClick()
         compose.onNodeWithTag("profile-place").performScrollTo().performTextInput("Nowhere")
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_place_unknown))
 
         // "Berl" suggests Berlin first; picking it saves its GeoNames ID.
@@ -125,7 +125,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-place").performScrollTo().performTextClearance()
         compose.onNodeWithTag("profile-place").performTextInput("Berl")
         compose.onNodeWithTag("place-$berlinId").performScrollTo().performClick()
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         openPublish()
         val lang = compose.activity.resources.configuration.locales[0].language
@@ -144,7 +144,7 @@ class ProfileDraftTests {
         compose.onNodeWithTag("profile-country").performScrollTo().performClick()
         compose.onNodeWithTag("country-none").performScrollTo().performClick()
         compose.onNodeWithTag("profile-country").assertTextEquals(string(R.string.profile_unset))
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(R.string.profile_saved))
         openPublish()
         compose.onNodeWithTag("preview-place").assertDoesNotExist()

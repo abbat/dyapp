@@ -1,6 +1,5 @@
 package com.dyapp
 
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -14,7 +13,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -50,7 +48,7 @@ internal fun ComposeTestRule.publishToReadback() {
     openProfileEditor()
     onNodeWithTag("birth-year").performScrollTo().performTextClearance()
     onNodeWithTag("birth-year").performTextInput("1990")
-    onNodeWithTag("profile-save").performScrollTo().performClick()
+    saveProfile()
     openPublish()
     confirmBoth()
     onNodeWithTag("profile-publish-confirm").performClick()
@@ -92,18 +90,18 @@ class ProfilePublishTests {
     private fun unsavedEditBlocksPublishing() {
         // Saving an empty year first makes the next input an edit whatever an earlier test saved.
         compose.onNodeWithTag("birth-year").performScrollTo().performTextClearance()
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
 
         compose.onNodeWithTag("birth-year").performScrollTo().performTextInput("2000")
         compose.eligibility(R.string.profile_save_changes_before_publish)
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsEnabled()
     }
 
     private fun saveName(name: String, status: Int) {
         compose.onNodeWithTag("profile-name").performScrollTo().performTextReplacement(name)
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
     }
 
@@ -123,7 +121,7 @@ class ProfilePublishTests {
 
     private fun saveHeight(height: String, status: Int) {
         compose.onNodeWithTag("profile-height").performScrollTo().performTextReplacement(height)
-        compose.onNodeWithTag("profile-save").performScrollTo().performClick()
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
     }
 
@@ -145,7 +143,7 @@ class ProfilePublishTests {
     private fun saveAbout(about: String, status: Int) {
         compose.onNodeWithTag("profile-about").performScrollTo().performTextReplacement(about)
         // A touch can miss: the keyboard raised by the field may still be moving the form.
-        compose.onNodeWithTag("profile-save").performSemanticsAction(SemanticsActions.OnClick)
+        compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
     }
 

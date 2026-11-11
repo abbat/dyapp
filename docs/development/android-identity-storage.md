@@ -173,8 +173,14 @@ loading frame or an old matching Recovery view. Identity-menu and Settings inven
 profile editor's initial draft/visibility snapshot and the publication preview also load on IO.
 Their keyed presentation state starts empty for a replacement owner and rejects cancelled
 owners' late values. The editor and preview show loading; publication remains disabled until
-the preview has loaded. Removal preflight also runs on IO; editor saves still need IO
-ownership adoption. The value-read helper must not return native handles.
+the preview has loaded. Removal preflight and editor persistence also run on IO.
+Save freezes the typed input and field maps before dispatch, rejects duplicate commands and
+disables publication while pending. A completed write marks only its submitted snapshot saved.
+If inputs changed meanwhile, it preserves them; otherwise it shows the core-normalized seeking
+values and records that normalized presentation as the saved baseline. Cancellation suppresses
+the old owner's result even when the native write finishes. Save test semantics advance a
+completed revision per result and report zero while pending, so an identical old status text
+cannot satisfy a new command. The value-read helper must not return native handles.
 Network checkers, proof solvers and the search session use `withNativeResource`: creation and final release
 stay on IO, while presentation callbacks return to the caller's context. If cancellation
 arrives during a blocking factory, its eventual handle is closed without being published.
