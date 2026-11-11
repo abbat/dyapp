@@ -77,6 +77,7 @@ fn read_page(
     owner: &str,
     rows: &mut rusqlite::Rows<'_>,
     max_bytes: usize,
+    link: fn(&SignedRecord, &SignedRecord) -> Result<()>,
 ) -> Result<Vec<SignedRecord>> {
     let mut records = Vec::new();
     let mut used = 0;
@@ -97,7 +98,7 @@ fn read_page(
             break;
         }
         if let Some(previous) = records.last() {
-            follows(previous, &record)?;
+            link(previous, &record)?;
         }
         used += size;
         records.push(record);
@@ -201,6 +202,38 @@ impl MediaStore {
                 MAX_PAGE_RECORDS,
             ])
             .map_err(storage_error)?;
-        read_page(owner, &mut rows, max_bytes)
+        read_page(owner, &mut rows, max_bytes, follows)
+    }
+
+    /// Read a bounded ancestry suffix in reverse order, starting at a frozen revision.
+    ///
+    /// Continue with the last returned record's expected predecessor version. Reading a page
+    /// does not change ownership, history or retention.
+    ///
+    /// # Errors
+    /// Returns the budget, database and proof-validation errors of `keep_history`.
+    pub fn keep_history_reverse(
+        &self,
+        owner: &str,
+        through: u64,
+        max_bytes: usize,
+    ) -> Result<Vec<SignedRecord>> {
+        if max_bytes == 0 || max_bytes > Self::keep_history_page_bytes() {
+            return Err(storage_error("invalid ownership history budget"));
+        }
+        let db = lock(&self.db)?;
+        let mut statement = db.prepare(
+            "SELECT `version`, `record` FROM `keep_history` WHERE `owner` = ? AND `version` <= ? ORDER BY `version` DESC LIMIT ?",
+        ).map_err(storage_error)?;
+        let mut rows = statement
+            .query(params![
+                owner,
+                i64::try_from(through).map_err(storage_error)?,
+                MAX_PAGE_RECORDS,
+            ])
+            .map_err(storage_error)?;
+        read_page(owner, &mut rows, max_bytes, |newer, older| {
+            follows(older, newer)
+        })
     }
 }

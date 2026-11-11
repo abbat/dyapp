@@ -165,3 +165,51 @@ fn competing_writes_record_only_the_winner_in_atomic_history() {
         vec![original, winner.clone()]
     );
 }
+
+#[test]
+fn reverse_pages_start_at_the_frozen_target_and_resume_without_mutating_ownership() {
+    let fixture = Fixture::new();
+    fixture.initial();
+    for revision in 2u64..=5 {
+        let current = fixture
+            .media()
+            .keep_snapshot(&fixture.owner.peer_id())
+            .unwrap();
+        let intent = fixture.write(&current, vec![sha256(&revision.to_be_bytes()).to_vec()]);
+        assert_eq!(fixture.apply(&intent).status, i32::from(Status::Ok));
+    }
+    let owner = fixture.owner.peer_id();
+    let before = fixture.media().keep_snapshot(&owner).unwrap();
+    let used = fixture.media().usage().unwrap().0;
+    let all = fixture
+        .media()
+        .keep_history_reverse(&owner, 4, 1 << 20)
+        .unwrap();
+    let versions: Vec<_> = all
+        .iter()
+        .map(|record| {
+            proto::MediaKeepIntent::decode(record.payload.as_slice())
+                .unwrap()
+                .version
+        })
+        .collect();
+    assert_eq!(versions, vec![4, 3, 2, 1]);
+    let mut encoded = Vec::new();
+    prost::encoding::message::encode(1, &all[0], &mut encoded);
+    let page = fixture
+        .media()
+        .keep_history_reverse(&owner, 4, encoded.len())
+        .unwrap();
+    assert_eq!(page, vec![all[0].clone()]);
+    let next = fixture
+        .media()
+        .keep_history_reverse(&owner, 3, 1 << 20)
+        .unwrap();
+    assert_eq!(next, all[1..]);
+    assert!(fixture
+        .media()
+        .keep_history_reverse(&owner, 4, encoded.len() - 1)
+        .is_err());
+    assert_eq!(fixture.media().keep_snapshot(&owner).unwrap(), before);
+    assert_eq!(fixture.media().usage().unwrap().0, used);
+}

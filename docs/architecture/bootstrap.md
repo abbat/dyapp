@@ -1126,8 +1126,12 @@ The current protocol replies are:
   `keep_history(owner, after, through, max_bytes)` reads verified ordered segments through a
   frozen revision, at most 256 records per page. The maximum byte budget includes actual protobuf
   framing for a maximum-sized 1 MiB signed record; an insufficient first-record budget fails.
-  A seeded head may lack older local ancestry. The wire catch-up operation and automatic repair
-  integration remain planned. The unreleased base schema changes directly; older development
+  A seeded head may lack older local ancestry. `keep_history_reverse` reads bounded descending
+  pages from a frozen revision; the next page starts at the returned tail's predecessor version.
+  Neither direction changes ownership or retention. Wire catch-up and automatic repair remain
+  planned: incoming reverse proofs must be staged without replacing live references until the fresh
+  final target is anchored to current ownership. Applying historical chunks independently could
+  delete a blob required by that final target. The unreleased base schema changes directly; older development
   media databases are rejected rather than migrated.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
