@@ -11,6 +11,7 @@
 
 use crate::replication::MediaManifestExt;
 mod files;
+mod history;
 mod keeps;
 use files::sql_size;
 pub use keeps::{KeepSnapshot, KeepUpdate};
@@ -75,7 +76,7 @@ fn owner_usage(db: &Connection, owner: &str) -> Result<u64> {
     let used: i64 = db
         .query_row(
             &format!(
-                "SELECT COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
+                "SELECT COALESCE((SELECT `history_bytes` FROM `owners` WHERE `owner` = ?1), 0) + COALESCE(SUM(COALESCE(`cost`, `size` * 5)), 0) FROM `blobs` WHERE {OWNED}"
             ),
             [owner],
             |row| row.get(0),
@@ -193,9 +194,14 @@ fn remove_file(path: &Path) -> Result<bool> {
 
 // `size` is NULL until a listed blob is put. Times are Unix seconds; record columns hold signatures.
 const MEDIA_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS `owners` (
-    `owner` TEXT PRIMARY KEY, `version` INTEGER NOT NULL, `last_seen` INTEGER NOT NULL, `record` BLOB
+    `owner` TEXT PRIMARY KEY, `version` INTEGER NOT NULL, `last_seen` INTEGER NOT NULL, `record` BLOB,
+    `history_bytes` INTEGER NOT NULL DEFAULT 0 CHECK (`history_bytes` >= 0)
 );
 CREATE INDEX IF NOT EXISTS `owners_seen` ON `owners` (`last_seen`);
+CREATE TABLE IF NOT EXISTS `keep_history` (
+    `owner` TEXT NOT NULL, `version` INTEGER NOT NULL CHECK (`version` > 0), `record` BLOB NOT NULL,
+    PRIMARY KEY (`owner`, `version`)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS `blobs` (
     `owner` TEXT NOT NULL, `hash` BLOB NOT NULL, `size` INTEGER, `cost` INTEGER,
     PRIMARY KEY (`owner`, `hash`)
@@ -231,6 +237,10 @@ impl MediaStore {
         let (data, db) = (dir.join("data"), dir.join("media.db"));
         fs::create_dir_all(&data).map_err(storage_error)?;
         let db = open(&db, &[MEDIA_SCHEMA])?;
+        // Unreleased stores have no migration path; reject an older development schema early.
+        lock(&db)?
+            .prepare("SELECT `history_bytes` FROM `owners` LIMIT 0")
+            .map_err(storage_error)?;
         // A blob listed again while already held takes its size.
         lock(&db)?
             .execute_batch(
@@ -267,7 +277,12 @@ impl MediaStore {
         hashes: &[Vec<u8>],
         time: u64,
     ) -> Result<Option<Vec<Vec<u8>>>> {
-        self.keep_record(owner, version, hashes, time, None)
+        let keep = proto::MediaKeep {
+            version,
+            hashes: hashes.to_vec(),
+            time,
+        };
+        self.keep_record(owner, &keep, None, &crate::config::Limits::default())
     }
 
     /// Persists the already-verified signature atomically with the latest keep.
@@ -282,7 +297,7 @@ impl MediaStore {
         keep: &proto::MediaKeep,
         record: &SignedRecord,
     ) -> Result<Option<Vec<Vec<u8>>>> {
-        self.keep_record(owner, keep.version, &keep.hashes, keep.time, Some(record))
+        self.keep_signed_with_limits(owner, keep, record, &crate::config::Limits::default())
     }
 
     /// Lists `hashes` for `owner` in the attachment released by the secret hashing to `release`,
@@ -549,14 +564,16 @@ impl MediaStore {
                 .map_err(storage_error)?;
             dropped.extend(hashes);
             tx.execute("DELETE FROM `blobs` WHERE `owner` = ?", [owner])
-                .and_then(|_| {
-                    if attachments {
-                        tx.execute("DELETE FROM `attachments` WHERE `slot` = ?", [owner])
-                    } else {
-                        tx.execute("DELETE FROM `owners` WHERE `owner` = ?", [owner])
-                    }
-                })
                 .map_err(storage_error)?;
+            if attachments {
+                tx.execute("DELETE FROM `attachments` WHERE `slot` = ?", [owner])
+                    .map_err(storage_error)?;
+            } else {
+                tx.execute("DELETE FROM `keep_history` WHERE `owner` = ?", [owner])
+                    .map_err(storage_error)?;
+                tx.execute("DELETE FROM `owners` WHERE `owner` = ?", [owner])
+                    .map_err(storage_error)?;
+            }
         }
         orphans(tx, dropped)
     }
@@ -912,7 +929,7 @@ impl MediaStore {
 
     fn used(db: &Connection) -> Result<u64> {
         db.query_row(
-            "SELECT COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE((SELECT SUM(`size`) FROM `cache`), 0) + COALESCE(SUM(`size`), 0) FROM \
+            "SELECT COALESCE((SELECT SUM(`history_bytes`) FROM `owners`), 0) + COALESCE((SELECT SUM(length(`record`)) FROM `manifests`), 0) + COALESCE((SELECT SUM(length(`data`)) FROM `shards`), 0) + COALESCE((SELECT SUM(`size`) FROM `cache`), 0) + COALESCE(SUM(`size`), 0) FROM \
              (SELECT MAX(`size`) AS `size` FROM `blobs` WHERE `size` IS NOT NULL AND `hash` NOT IN (SELECT `hash` FROM `manifests`) GROUP BY `hash`)",
             [],
             |row| row.get::<_, i64>(0),

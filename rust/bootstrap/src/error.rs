@@ -7,6 +7,10 @@ pub enum BootstrapError {
     #[error("Storage error: {0}")]
     StorageError(String),
 
+    /// Conditional ownership history would exceed the owner or node media quota.
+    #[error("Media ownership history is full")]
+    MediaHistoryFull,
+
     /// Data could not be encoded or decoded.
     #[error("Serialization error: {0}")]
     SerializationError(String),

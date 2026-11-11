@@ -77,6 +77,7 @@ fn apply_condition(
     keep: &proto::MediaKeepIntent,
     expected: &proto::MediaKeepCondition,
     record: &SignedRecord,
+    limits: &crate::config::Limits,
 ) -> crate::Result<MediaResponse> {
     if !valid_ownership(keep) {
         return Ok(media_status(Status::Invalid));
@@ -85,7 +86,14 @@ fn apply_condition(
     if !condition_matches(expected, &current) {
         return Ok(state_reply(Status::Stale, current));
     }
-    match media.replace_keep(owner, &current, &projection(keep), record)? {
+    let outcome =
+        match media.replace_keep_with_limits(owner, &current, &projection(keep), record, limits) {
+            Err(crate::error::BootstrapError::MediaHistoryFull) => {
+                return Ok(media_status(Status::Full))
+            }
+            other => other?,
+        };
+    match outcome {
         KeepUpdate::Applied(missing) => Ok(MediaResponse {
             keep_applied: true,
             missing,
@@ -174,6 +182,6 @@ impl Service {
             }
             return Ok(state_reply(Status::Ok, media.keep_snapshot(&owner)?));
         };
-        apply_condition(media, &owner, &keep, expected, record)
+        apply_condition(media, &owner, &keep, expected, record, &self.config.limits)
     }
 }

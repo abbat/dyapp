@@ -1,7 +1,7 @@
 //! Atomic keep ownership and conditional snapshots; callers verify signatures and clock bounds.
 //! Ownership writers hold the database mutex through commit and removal of orphan files.
 use super::{list, lock, orphans, storage_error, MediaStore};
-use crate::Result;
+use crate::{config::Limits, Result};
 use dyapp_identity::{sha256, SignedRecord};
 use dyapp_p2p_net::proto;
 use prost::Message;
@@ -112,6 +112,23 @@ fn conditional_record(record: Option<&SignedRecord>) -> bool {
     })
 }
 
+fn check_condition(record: &SignedRecord, current: &KeepSnapshot) -> Result<()> {
+    if conditional_record(Some(record)) {
+        let intent =
+            proto::MediaKeepIntent::decode(record.payload.as_slice()).map_err(storage_error)?;
+        if intent
+            .expected
+            .as_ref()
+            .is_none_or(|expected| !current.matches(expected))
+        {
+            return Err(storage_error(
+                "signed media condition differs from the expected snapshot",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn owned(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
     db.prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
         .and_then(|mut query| query.query_map([owner], |row| row.get(0))?.collect())
@@ -179,6 +196,22 @@ impl MediaStore {
         keep: &proto::MediaKeep,
         record: &SignedRecord,
     ) -> Result<KeepUpdate> {
+        self.replace_keep_with_limits(owner, expected, keep, record, &Limits::default())
+    }
+
+    /// Conditional replacement with the configured owner and node media budgets.
+    ///
+    /// # Errors
+    /// Returns the errors of `replace_keep`, including `MediaHistoryFull`; failure rolls back
+    /// both ownership and signed history before any orphan file is removed.
+    pub fn replace_keep_with_limits(
+        &self,
+        owner: &str,
+        expected: &KeepSnapshot,
+        keep: &proto::MediaKeep,
+        record: &SignedRecord,
+        limits: &Limits,
+    ) -> Result<KeepUpdate> {
         if proto::MediaKeep::decode(record.payload.as_slice()).map_err(storage_error)? != *keep {
             return Err(storage_error(
                 "signed media keep does not match its projection",
@@ -207,9 +240,11 @@ impl MediaStore {
                 "media keep requires the next storage revision",
             ));
         }
+        check_condition(record, &current)?;
         let old = owned(&tx, owner)?;
         let Projected { missing, dropped } =
             project(&tx, owner, (version, time), &keep.hashes, Some(record), old)?;
+        Self::record_history(&tx, owner, keep, Some(record), limits)?;
         tx.commit().map_err(storage_error)?;
         self.remove(dropped)?;
         Ok(KeepUpdate::Applied(missing))
@@ -218,13 +253,14 @@ impl MediaStore {
     pub(super) fn keep_record(
         &self,
         owner: &str,
-        version: u64,
-        hashes: &[Vec<u8>],
-        time: u64,
+        keep: &proto::MediaKeep,
         record: Option<&SignedRecord>,
+        limits: &Limits,
     ) -> Result<Option<Vec<Vec<u8>>>> {
+        let version = keep.version;
+        let hashes = &keep.hashes;
         let sql_version = i64::try_from(version).map_err(storage_error)?;
-        let time = i64::try_from(time).map_err(storage_error)?;
+        let time = i64::try_from(keep.time).map_err(storage_error)?;
         let mut db = lock(&self.db)?;
         let tx = db
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -241,6 +277,7 @@ impl MediaStore {
         }
         let Projected { missing, dropped } =
             project(&tx, owner, (sql_version, time), hashes, record, old)?;
+        Self::record_history(&tx, owner, keep, record, limits)?;
         tx.commit().map_err(storage_error)?;
         self.remove(dropped)?;
         Ok(Some(missing))

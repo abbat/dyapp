@@ -130,7 +130,19 @@ impl Service {
         if !keep.hashes.iter().any(|held| held.as_slice() == hash) {
             return Ok(Err(media_status(Status::NotFound)));
         }
-        media.keep_signed(&hex(&owner), &projection(&keep), record)?;
+        match media.keep_signed_with_limits(
+            &hex(&owner),
+            &projection(&keep),
+            record,
+            &self.config.limits,
+        ) {
+            Err(crate::error::BootstrapError::MediaHistoryFull) => {
+                return Ok(Err(media_status(Status::Full)))
+            }
+            other => {
+                other?;
+            }
+        }
         if !media.kept(&hex(&owner), hash)? {
             return Ok(Err(media_status(Status::NotFound)));
         }

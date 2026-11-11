@@ -19,6 +19,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[path = "media_ownership/catchup.rs"]
 mod catchup;
+#[path = "media_ownership/history.rs"]
+mod history;
+#[path = "media_ownership/history_limits.rs"]
+mod history_limits;
 
 fn now() -> u64 {
     SystemTime::now()

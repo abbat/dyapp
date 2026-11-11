@@ -1117,6 +1117,18 @@ The current protocol replies are:
   Media revisions are independent of profile versions. Shared publication stages additive references
   before publishing, then conditionally finalizes its exact signed target. Retention renewal preserves
   a different pending target; changed drafts can recover from an abandoned staged attempt.
+  Accepted conditional records are also persisted in `keep_history`, in the same immediate
+  transaction as ownership. An owner counter charges their encoded bytes against
+  `media_per_owner_mb`; node usage includes those bytes under `media_max_mb`. Budget exhaustion
+  returns `FULL` and rolls back history, references and orphan removal. Legacy/unsigned writes
+  do not enter conditional history. History remains until the owner is actually expired or evicted:
+  pruning solely by record time could break a still-live older head renewed through attachments.
+  `keep_history(owner, after, through, max_bytes)` reads verified ordered segments through a
+  frozen revision, at most 256 records per page. The maximum byte budget includes actual protobuf
+  framing for a maximum-sized 1 MiB signed record; an insufficient first-record budget fails.
+  A seeded head may lack older local ancestry. The wire catch-up operation and automatic repair
+  integration remain planned. The unreleased base schema changes directly; older development
+  media databases are rejected rather than migrated.
 - **Chat attachments.** A signed `attach` lists up to 16 blobs under the SHA-256 of a release
   secret; the blobs are put like listed ones and count against the sender's quota. Anyone holding
   the secret sends `release` to each holder and the node drops the
