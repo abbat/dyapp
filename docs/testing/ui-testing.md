@@ -623,9 +623,11 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `removal.js` covers offline withdrawal and tombstone removal; a failure reports the returned
   state and remaining identity count. The earlier files expose helpers in the same eval scope.
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
-  `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke calls the test-only
-  `ui_test_shot` command, which resizes the window to 440 and 1280 px wide (1400 px high), runs
-  ImageMagick `import -window root` and restores the size; the Xvfb screen is 1280x1400. Files are
+  `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke asks the test-only
+  `ui_test_shot` command which widths are missing, resizes the window to 440 and 1280 px wide
+  (1400 px high) through `ui_test_window`, which waits for the native bounds, waits two animation
+  frames, has `ui_test_shot` run ImageMagick `import -window root` and restores the window; the
+  Xvfb screen is 1280x1400. Files are
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
   `--ui-test-ru`) for the `-ru` files, so the screenshots roughly double the desktop smoke time.

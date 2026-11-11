@@ -150,10 +150,30 @@ const audit = (() => {
     if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
   };
 })();
-// Audits the current screen, then saves its screenshots when the run asks for them.
+// Audits the current screen, then saves its screenshots when the run asks for them. The native
+// resize waits for the new bounds; two frames let the webview paint at that size before capture.
 smoke.shot = async (name) => {
   await audit(name);
-  await invokeTest('ui_test_shot', { name });
+  const widths = await invokeTest('ui_test_shot', { name });
+  if (!widths.length) return;
+  const [window0] = await invokeTest('ui_test_window', { set: null });
+  try {
+    for (const width of widths) {
+      await invokeTest('ui_test_window', {
+        set: {
+          x: 0,
+          y: 0,
+          width: Math.round(width * devicePixelRatio),
+          height: Math.round(1400 * devicePixelRatio),
+        },
+      });
+      await frames();
+      await invokeTest('ui_test_shot', { name, width });
+    }
+  } finally {
+    await invokeTest('ui_test_window', { set: window0 });
+    await frames();
+  }
 };
 
 (() => {

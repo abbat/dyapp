@@ -190,12 +190,10 @@ const presenceSteps = {
     content.value = 'text';
     content.dispatchEvent(new Event('change', { bubbles: true }));
     await appApi.privacySaved;
-    const back = invokeTest('ui_test_hide', { close: false });
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1500);
-    });
+    // Notices go only to an unfocused window, so mail is received once the hide has completed.
+    await invokeTest('ui_test_hide', { close: false, restore: false });
     await appBindings.invoke('receive_mail');
-    await back;
+    await invokeTest('ui_test_restored');
   },
 };
 smoke.uiSmokePresence = Object.freeze({

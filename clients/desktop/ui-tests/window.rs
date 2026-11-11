@@ -11,6 +11,7 @@ use crate::window::Rect;
 #[derive(Clone, Copy, Default)]
 struct Snapshot {
     visible: Option<bool>,
+    focused: Option<bool>,
     bounds: Option<Rect>,
 }
 
@@ -34,9 +35,12 @@ fn bounds(window: &tauri::Window) -> Result<Rect, String> {
 }
 
 pub(crate) fn publish(window: &tauri::Window) {
-    let visible = window.is_visible().ok();
+    let (visible, focused) = (window.is_visible().ok(), window.is_focused().ok());
     if let Some(signals) = window.try_state::<Signals>() {
-        signals.0.send_modify(|state| state.visible = visible);
+        signals.0.send_modify(|state| {
+            state.visible = visible;
+            state.focused = focused;
+        });
     }
 }
 
@@ -44,6 +48,7 @@ pub(crate) fn geometry(window: &tauri::Window) {
     if let Some(signals) = window.try_state::<Signals>() {
         signals.0.send_replace(Snapshot {
             visible: window.is_visible().ok(),
+            focused: window.is_focused().ok(),
             bounds: bounds(window).ok(),
         });
     }
@@ -62,11 +67,14 @@ async fn wait(
 }
 
 /// Hide/close, report native hidden readiness, then wait for an actual restore callback.
+/// `restore: false` returns once hidden and unfocused, the state in which notices are shown;
+/// `ui_test_restored` then waits for the restore.
 #[tauri::command]
 pub(crate) async fn ui_test_hide(
     app: tauri::AppHandle,
     window: tauri::Window,
     close: bool,
+    restore: Option<bool>,
 ) -> Result<(), String> {
     ensure_test()?;
     let mut changes = window.state::<Signals>().0.subscribe();
@@ -74,7 +82,23 @@ pub(crate) async fn ui_test_hide(
     publish(&window);
     wait(&mut changes, |state| state.visible == Some(false), "hide").await?;
     marker(&app, "hidden")?;
+    if restore == Some(false) {
+        return wait(
+            &mut changes,
+            |state| state.focused == Some(false),
+            "unfocus",
+        )
+        .await;
+    }
     // A new deadline starts after hiding completed, rather than sharing a startup timer.
+    wait(&mut changes, |state| state.visible == Some(true), "restore").await
+}
+
+/// Waits until the window is visible; the watch keeps the last state, so an earlier restore counts.
+#[tauri::command]
+pub(crate) async fn ui_test_restored(window: tauri::Window) -> Result<(), String> {
+    ensure_test()?;
+    let mut changes = window.state::<Signals>().0.subscribe();
     wait(&mut changes, |state| state.visible == Some(true), "restore").await
 }
 

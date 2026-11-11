@@ -622,50 +622,59 @@ fn ui_test_step() -> String {
         .unwrap_or_default()
 }
 
-/// UI test screenshot at narrow and wide widths, then restores size. Existing files are kept;
-/// failed or empty captures fail the test when `DYAPP_UI_SHOTS=<dir>` is set.
+/// UI test screenshots at 440 and 1280 px wide, 1400 px high, when `DYAPP_UI_SHOTS=<dir>` is set.
+/// Without `width` it returns the widths still missing; existing files are kept, empty ones fail.
+/// With `width` it captures the top-left screen area: the caller has already placed the window
+/// there and waited for the webview to paint at that size.
 #[cfg(feature = "ui-smoke")]
 #[tauri::command]
-async fn ui_test_shot(window: tauri::Window, name: String) -> Result<(), String> {
-    // A trace of the screens reached, so a timed-out suite shows where it stopped.
-    eprintln!("ui-test screen {name}");
+fn ui_test_shot(
+    window: tauri::Window,
+    name: String,
+    width: Option<u32>,
+) -> Result<Vec<u32>, String> {
+    if width.is_none() {
+        // A trace of the screens reached, so a timed-out suite shows where it stopped.
+        eprintln!("ui-test screen {name}");
+    }
     let dir = match std::env::var_os("DYAPP_UI_SHOTS") {
         Some(dir) if std::env::args().any(|arg| arg == "--ui-test") => PathBuf::from(dir),
-        _ => return Ok(()),
+        _ => return Ok(Vec::new()),
     };
     if name.is_empty() || !name.bytes().all(|b| b.is_ascii_lowercase() || b == b'-') {
         return Err("invalid screenshot name".into());
     }
     let lang = if ui_test_russian() { "ru" } else { "en" };
-    let original = window.inner_size().map_err(|e| e.to_string())?;
-    let mut failure = None;
-    for width in [440u32, 1280] {
-        let file = dir.join(format!("{name}-{lang}-{width}.png"));
-        if file.exists() {
-            if !file.metadata().is_ok_and(|metadata| metadata.len() > 0) {
-                failure = Some(format!("screenshot {} is empty", file.display()));
-                break;
+    let file = |width: u32| dir.join(format!("{name}-{lang}-{width}.png"));
+    let filled = |file: &std::path::Path| file.metadata().is_ok_and(|metadata| metadata.len() > 0);
+    let Some(width) = width else {
+        let mut missing = Vec::new();
+        for width in [440u32, 1280] {
+            let file = file(width);
+            if !file.exists() {
+                missing.push(width);
+            } else if !filled(&file) {
+                return Err(format!("screenshot {} is empty", file.display()));
             }
-            continue;
         }
-        let _ = window.set_position(tauri::LogicalPosition::new(0, 0));
-        let _ = window.set_size(tauri::LogicalSize::new(width, 1400));
-        // Xvfb has no window manager: give the webview time to lay out at the new size.
-        std::thread::sleep(Duration::from_millis(600));
-        let crop = format!("{width}x1400+0+0");
-        let shot = std::process::Command::new("import")
-            .args(["-window", "root", "-crop", &crop, "+repage"])
-            .arg(&file)
-            .status();
-        if !shot.is_ok_and(|s| s.success())
-            || !file.metadata().is_ok_and(|metadata| metadata.len() > 0)
-        {
-            failure = Some(format!("screenshot {} failed or is empty", file.display()));
-            break;
-        }
+        return Ok(missing);
+    };
+    if ![440, 1280].contains(&width) {
+        return Err("invalid screenshot width".into());
     }
-    let _ = window.set_size(original);
-    failure.map_or(Ok(()), Err)
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let size: tauri::PhysicalSize<u32> = tauri::LogicalSize::new(width, 1400).to_physical(scale);
+    let crop = format!("{}x{}+0+0", size.width, size.height);
+    let file = file(width);
+    let shot = std::process::Command::new("import")
+        .args(["-window", "root", "-crop", &crop, "+repage"])
+        .arg(&file)
+        .status();
+    if shot.is_ok_and(|s| s.success()) && filled(&file) {
+        Ok(Vec::new())
+    } else {
+        Err(format!("screenshot {} failed or is empty", file.display()))
+    }
 }
 
 #[cfg(feature = "ui-smoke")]
@@ -838,6 +847,8 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     ui_smoke::window::ui_test_window,
     #[cfg(feature = "ui-smoke")]
     ui_smoke::window::ui_test_hide,
+    #[cfg(feature = "ui-smoke")]
+    ui_smoke::window::ui_test_restored,
     #[cfg(feature = "ui-smoke")]
     ui_test_result,
     #[cfg(all(feature = "ui-smoke", target_os = "linux", debug_assertions))]
