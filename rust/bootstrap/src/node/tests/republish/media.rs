@@ -9,6 +9,85 @@ fn remote(swarm: &mut Swarm<Behaviour>) -> PeerId {
     peer
 }
 
+#[tokio::test]
+async fn queued_ancestry_filters_owner_refusal_without_blocking_hash_metadata() {
+    use crate::node::replicas::listed_media_request;
+    let (source, swarm) = node();
+    let owner = dyapp_identity::Identity::from_secret(&[71; 32]);
+    let hash = dyapp_identity::sha256(b"blocked bytes").to_vec();
+    let record = conditional_record(&swarm, hash.clone());
+    let request = proto::media_request::Request::KeepCatchup(proto::MediaKeepCatchup {
+        target: Some(record),
+        ancestors: vec![],
+    });
+    source
+        .deny
+        .write()
+        .unwrap()
+        .insert(dyapp_identity::hex(&hash));
+    assert!(!listed_media_request(&source, &request));
+    source.deny.write().unwrap().insert(owner.peer_id());
+    assert!(listed_media_request(&source, &request));
+}
+
+fn conditional_record(swarm: &Swarm<Behaviour>, hash: Vec<u8>) -> dyapp_identity::SignedRecord {
+    dyapp_identity::Identity::from_secret(&[71; 32]).sign(
+        dyapp_identity::Domain::MediaConditionalKeep,
+        proto::MediaKeepIntent {
+            version: 1,
+            hashes: vec![hash],
+            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            requester: swarm.local_peer_id().to_string(),
+            expected: Some(proto::MediaKeepCondition::default()),
+            intent_hash: vec![1; 32],
+            ..Default::default()
+        }
+        .encode_to_vec(),
+    )
+}
+
+#[tokio::test]
+async fn conditional_history_dispatch_uses_local_validation_and_remote_accounting() {
+    for local in [true, false] {
+        let (source, mut swarm) = node();
+        let hash = dyapp_identity::sha256(b"dispatch photo").to_vec();
+        let record = conditional_record(&swarm, hash.clone());
+        let to = if local {
+            *swarm.local_peer_id()
+        } else {
+            remote(&mut swarm)
+        };
+        let mut repair =
+            crate::media_repair::Repair::new(&source, record.clone(), vec![hash], Instant::now())
+                .unwrap();
+        for index in repair.keys(0) {
+            repair.holder(0, index, Some(to));
+        }
+        repair.advance(&source, *swarm.local_peer_id());
+        let queued = repair.queued();
+        assert_eq!(queued.len(), 1);
+        let job = queued[0].1;
+        let mut replicas = Replicas::default();
+        replicas.media_repairs.insert(1, (repair, None));
+        replicas
+            .media_queue
+            .push_back((to, MediaJob::Repair(1, job)));
+        replicas.drain_media(&mut swarm, &source);
+        assert_eq!(replicas.media_outgoing.len(), usize::from(!local));
+        assert_eq!(replicas.media_repair_requests.len(), usize::from(!local));
+        let repair = &replicas.media_repairs.get(&1).unwrap().0;
+        assert_eq!(repair.has_job(job), !local);
+        let owner = dyapp_identity::Identity::from_secret(&[71; 32]).peer_id();
+        let snapshot = source
+            .media
+            .as_ref()
+            .unwrap()
+            .keep_snapshot(&owner)
+            .unwrap();
+        assert_eq!(snapshot.record.as_ref(), local.then_some(&record));
+    }
+}
+
 struct Transfer {
     source: Service,
     destination: Service,
@@ -91,9 +170,13 @@ impl Transfer {
             panic!("expected repair job");
         };
         assert_eq!(id, self.id);
-        let request = self.replicas.media_repairs[&id]
+        let request = self
+            .replicas
+            .media_repairs
+            .get_mut(&id)
+            .unwrap()
             .0
-            .request(job)
+            .request(job, &self.source)
             .unwrap()
             .0
             .request

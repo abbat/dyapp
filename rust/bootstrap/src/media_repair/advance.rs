@@ -133,6 +133,7 @@ impl Repair {
         !self.jobs.is_empty()
     }
     pub(super) fn prepare_active(&mut self, service: &Service) -> bool {
+        let history = &self.history;
         let blob = &mut self.blobs[self.active];
         blob.local(service.media.as_ref().unwrap());
         if !blob.recoverable() {
@@ -141,6 +142,11 @@ impl Repair {
         }
         blob.missing = false;
         blob.retain_gaps();
+        blob.gaps.retain(|(peer, _)| {
+            history
+                .as_ref()
+                .is_none_or(|history| history.admitted(peer))
+        });
         if blob.gaps.is_empty() {
             self.clear_active();
             return false;

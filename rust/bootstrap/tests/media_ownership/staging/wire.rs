@@ -155,6 +155,71 @@ fn old_ready_reply_does_not_establish_current_target_admission() {
     assert_eq!((old.ready, old.target_current), (true, None));
 }
 
+#[test]
+fn denied_blob_metadata_does_not_block_other_authorized_photos() {
+    let source = Fixture::new();
+    let first = source.initial();
+    let before = source
+        .media()
+        .keep_snapshot(&source.owner.peer_id())
+        .unwrap();
+    let blocked = sha256(b"blocked photo").to_vec();
+    let hashes = vec![sha256(b"original").to_vec(), blocked.clone()];
+    let record = source
+        .apply(&source.write(&before, hashes))
+        .keep_state
+        .unwrap()
+        .record
+        .unwrap();
+    let destination = seeded(&first);
+    destination
+        .service
+        .deny
+        .write()
+        .unwrap()
+        .insert(dyapp_identity::hex(&blocked));
+    let response = call(&destination, Some(record.clone()), vec![first]);
+    accepted(&response, true, 0);
+    for (data, status) in [
+        (b"original".to_vec(), Status::Ok),
+        (b"blocked photo".to_vec(), Status::Refused),
+    ] {
+        assert_blob_policy(&destination, &record, data, status);
+    }
+    let response = destination.call(
+        &destination.peer,
+        media_request::Request::Get(proto::GetMedia {
+            hash: blocked,
+            ..Default::default()
+        }),
+    );
+    assert_eq!(response.status, i32::from(Status::Refused));
+    destination
+        .service
+        .deny
+        .write()
+        .unwrap()
+        .insert(destination.owner.peer_id());
+    let response = call(&destination, Some(record), vec![]);
+    assert_eq!(response.status, i32::from(Status::Refused));
+    assert_eq!(response.keep_progress, None);
+    private(&response);
+}
+
+fn assert_blob_policy(destination: &Fixture, record: &SignedRecord, data: Vec<u8>, status: Status) {
+    let response = destination
+        .service
+        .store_media(&proto::MediaReplicaPut {
+            data,
+            authorization: Some(proto::media_replica_put::Authorization::Keep(
+                record.clone(),
+            )),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(response.status, i32::from(status));
+}
+
 fn private(response: &proto::MediaResponse) {
     assert_eq!(response.keep_state, None);
     assert!(!response.keep_applied);

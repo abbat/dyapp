@@ -1,6 +1,7 @@
 //! Dispatch one bounded media job without mixing repair callbacks and ordinary puts.
 use super::{
-    listed_media_request, proto, Behaviour, MediaJob, PeerId, Replicas, Service, Swarm, SHED_MEDIA,
+    listed_media_request, proto, Behaviour, MediaJob, Peer, PeerId, Replicas, Service, Swarm,
+    SHED_MEDIA,
 };
 use prost::Message;
 
@@ -14,8 +15,22 @@ fn clean_repair(service: &Service, request: &mut proto::MediaRequest) -> bool {
     })
 }
 
-fn local_repair(service: &Service, request: &proto::MediaRequest) -> Option<proto::MediaResponse> {
+fn local_repair(
+    service: &Service,
+    peer: PeerId,
+    request: &proto::MediaRequest,
+) -> Option<proto::MediaResponse> {
     match request.request.as_ref()? {
+        proto::media_request::Request::KeepCatchup(_) => service
+            .media(
+                &Peer {
+                    id: peer.to_string(),
+                    group: "local".into(),
+                    coarse: "local".into(),
+                },
+                request.clone(),
+            )
+            .ok(),
         proto::media_request::Request::Have(have) => service.media_inventory(&have.items).ok(),
         proto::media_request::Request::ReplicaPut(replica) => service.store_media(replica).ok(),
         proto::media_request::Request::ShardPut(put) => service.store_shard(put).ok(),
@@ -45,6 +60,14 @@ impl Replicas {
                 >= 2
     }
 
+    fn allow_repair(&mut self, peer: PeerId, request: &proto::media_request::Request) -> bool {
+        if matches!(request, proto::media_request::Request::KeepCatchup(_)) {
+            self.cap.allow(&peer, 1)
+        } else {
+            self.cap.allow_media(&peer, request)
+        }
+    }
+
     fn repair_reply(&mut self, id: u64, job: usize, response: Option<proto::MediaResponse>) {
         if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
             repair.response(job, response);
@@ -61,9 +84,10 @@ impl Replicas {
     ) {
         let Some((mut request, reserve)) = self
             .media_repairs
-            .get(&id)
-            .and_then(|(repair, _)| repair.request(job))
+            .get_mut(&id)
+            .and_then(|(repair, _)| repair.request(job, service))
         else {
+            self.repair_reply(id, job, None);
             return;
         };
         if !clean_repair(service, &mut request) {
@@ -71,13 +95,13 @@ impl Replicas {
             return;
         }
         if to == *swarm.local_peer_id() {
-            self.repair_reply(id, job, local_repair(service, &request));
+            self.repair_reply(id, job, local_repair(service, to, &request));
             return;
         }
         if !service
             .traffic
             .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA)
-            || !self.cap.allow_media(&to, request.request.as_ref().unwrap())
+            || !self.allow_repair(to, request.request.as_ref().unwrap())
         {
             self.repair_reply(id, job, None);
             return;

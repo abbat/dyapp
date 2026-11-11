@@ -16,6 +16,12 @@ pub(super) fn listed_media_request(
 ) -> bool {
     use proto::media_request::Request;
     match request {
+        Request::KeepCatchup(segment) => segment.target.as_ref().is_none_or(|record| {
+            let Ok(key): Result<[u8; 32], _> = record.public_key.as_slice().try_into() else {
+                return true;
+            };
+            service.listed(&dyapp_identity::key_hash(&key))
+        }),
         Request::Get(get) => service.listed(&get.hash),
         Request::ShardGet(get) => service.listed(&get.hash),
         Request::ReplicaPut(replica) => replica.manifest.as_ref().map_or_else(

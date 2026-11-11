@@ -4,6 +4,8 @@ use crate::{
 };
 #[path = "media_repair/advance.rs"]
 mod advance;
+#[path = "media_repair/ancestry.rs"]
+mod ancestry;
 #[path = "media_repair/inventory.rs"]
 mod inventory;
 #[path = "media_repair/requests.rs"]
@@ -82,6 +84,7 @@ impl Schedule {
 
 #[derive(Clone)]
 enum Job {
+    History(PeerId),
     Have(PeerId),
     Get(usize, PeerId),
     ShardGet(usize, u32, PeerId),
@@ -91,7 +94,11 @@ enum Job {
 impl Job {
     fn peer(&self) -> PeerId {
         match self {
-            Self::Have(p) | Self::Get(_, p) | Self::ShardGet(_, _, p) | Self::Put(_, _, p) => *p,
+            Self::History(p)
+            | Self::Have(p)
+            | Self::Get(_, p)
+            | Self::ShardGet(_, _, p)
+            | Self::Put(_, _, p) => *p,
         }
     }
 }
@@ -119,6 +126,7 @@ enum Stage {
 /// Metadata for one keep; only the currently repaired blob owns payload buffers.
 pub(crate) struct Repair {
     record: Arc<SignedRecord>,
+    history: Option<ancestry::History>,
     blobs: Vec<Blob>,
     groups: HashMap<PeerId, Vec<proto::MediaPart>>,
     pub(crate) lookups: usize,
@@ -161,8 +169,10 @@ impl Repair {
                 missing: true,
             });
         }
+        let history = ancestry::History::from_record(&record)?;
         let mut repair = Self {
             record: Arc::new(record),
+            history,
             blobs,
             groups: HashMap::new(),
             lookups: 0,
@@ -243,9 +253,17 @@ impl Repair {
         self.jobs.contains_key(&id)
     }
 
-    pub(crate) fn request(&self, id: usize) -> Option<(proto::MediaRequest, u64)> {
+    pub(crate) fn request(
+        &mut self,
+        id: usize,
+        service: &Service,
+    ) -> Option<(proto::MediaRequest, u64)> {
         use proto::media_request::Request;
+        if let Some(Job::History(peer)) = self.jobs.get(&id) {
+            return self.history_request(*peer, service);
+        }
         let (request, reply) = match self.jobs.get(&id)? {
+            Job::History(_) => return None,
             Job::Have(peer) => {
                 let items = self.groups.get(peer)?.clone();
                 // Reserve both partition lists and one bounded manifest per requested hash.
@@ -277,11 +295,21 @@ impl Repair {
     }
 
     pub(crate) fn response(&mut self, id: usize, response: Option<proto::MediaResponse>) {
+        self.response_at(id, response, Instant::now());
+    }
+
+    pub(crate) fn response_at(
+        &mut self,
+        id: usize,
+        response: Option<proto::MediaResponse>,
+        now: Instant,
+    ) {
         let Some(job) = self.jobs.remove(&id) else {
             return;
         };
         let response = response.filter(|r| r.status == i32::from(proto::Status::Ok));
         match job {
+            Job::History(peer) => self.history_response(peer, response, now),
             Job::Have(peer) => self.inventory_response(peer, response),
             Job::Get(blob, _) => {
                 if let Some(data) = response.map(|r| r.data).filter(|d| {
@@ -328,7 +356,7 @@ impl Repair {
         if self.lookups != 0 || !self.jobs.is_empty() {
             return;
         }
-        if self.inventory_pending() {
+        if self.history_pending() || self.inventory_pending() {
             return;
         }
         while self.active < self.blobs.len() {

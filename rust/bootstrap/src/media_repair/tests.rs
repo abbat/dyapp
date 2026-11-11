@@ -2,6 +2,8 @@ use super::*;
 use crate::{config::NodeConfig, media::MediaStore, service::Peer, storage::BootstrapStore};
 use dyapp_identity::{Domain, Identity};
 use prost::Message;
+#[path = "tests/ancestry.rs"]
+mod ancestry;
 #[path = "tests/shard_ack.rs"]
 mod shard_ack;
 
@@ -15,6 +17,8 @@ fn service() -> Service {
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
     config.limits.min_free_mb = 0;
+    config.limits.requests_per_second = 10_000;
+    config.limits.media_requests_per_second = 10_000;
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
     service
@@ -125,7 +129,7 @@ fn drive(
         let queued = repair.queued();
         assert!(!queued.is_empty(), "repair stuck");
         for (to, job) in queued {
-            let (request, reply) = repair.request(job).unwrap();
+            let (request, reply) = repair.request(job, origin).unwrap();
             let service = nodes[&to];
             let mut response = match request.request.as_ref().unwrap() {
                 proto::media_request::Request::Have(have) => {
@@ -183,7 +187,7 @@ fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() 
     repair.advance(&origin, me);
     for (to, job) in repair.queued() {
         assert_eq!(to, remote);
-        let (request, _) = repair.request(job).unwrap();
+        let (request, _) = repair.request(job, &origin).unwrap();
         let Some(proto::media_request::Request::Have(have)) = request.request else {
             panic!("expected inventory");
         };
@@ -194,7 +198,7 @@ fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() 
     assert_eq!(writes.len(), 1);
     let (_, job) = writes[0];
     assert!(matches!(
-        repair.request(job).unwrap().0.request,
+        repair.request(job, &origin).unwrap().0.request,
         Some(proto::media_request::Request::ReplicaPut(_))
     ));
     // The node uses None for a local cap refusal, without a network failure callback.
@@ -257,7 +261,7 @@ fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
         vec![(hash.as_slice(), false)]
     );
     repair.response(999, None);
-    assert!(repair.request(999).is_none());
+    assert!(repair.request(999, &origin).is_none());
 }
 
 #[test]
@@ -536,7 +540,7 @@ fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
     assert_eq!(queued.len(), 1);
     assert_eq!(queued[0].0, other);
     assert!(matches!(
-        repair.request(queued[0].1).unwrap().0.request,
+        repair.request(queued[0].1, &origin).unwrap().0.request,
         Some(proto::media_request::Request::Get(_))
     ));
 }

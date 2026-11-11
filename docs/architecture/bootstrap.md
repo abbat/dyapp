@@ -268,7 +268,17 @@ resent from the sender's retry queue.
   No remaining copy, fewer than K indices, failed validation or incomplete checks leave the
   hash in the keep reply's `missing` list. Successful checks remove it even if the acceptor
   holds no blob key. Restored puts still obey the receiver's latest keep, TTL, quota and deny list.
-  At most four keep repairs run, each for fifteen seconds, processing one payload at a time.
+  Conditional repairs first admit the frozen signed target with bounded reverse ancestry pages.
+  Only an explicit current-target receipt authorizes destination writes or restored-holder counting;
+  missing support, conflicting ownership and malformed progress fail closed without legacy fallback.
+  Unadmitted holders can still supply public bytes. Proofs are read at dispatch; each holder retains
+  only a cursor and sent revision window. Persisted receiver progress resumes after a restart.
+  Missing required source proofs finish as a failure; after current-target admission, unavailable
+  older proofs merely end optional backfill. Metadata admission checks the owner deny entry;
+  denied blob hashes remain blocked individually without preventing unrelated authorized photos.
+  At most four keep repairs run, with a fifteen-second failure deadline, processing one payload
+  at a time. Valid bounded ancestry progress before expiry renews the deadline; malformed or
+  expired callbacks cannot renew it.
   A key is inventoried once per rolling hour, with up to 4096 keys and owner cursors tracked
   in memory; later visits reuse that result or wait for capacity. Successful uploads clear a
   cached missing result, and a blob this node removes loses its cached result, so listing it again

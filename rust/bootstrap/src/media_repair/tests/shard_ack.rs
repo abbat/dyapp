@@ -6,7 +6,7 @@ fn inventory_stage(repair: &mut Repair, source: &Service, target: &Service, me: 
     let queued = repair.queued();
     assert_eq!(queued.len(), 1);
     for (_, job) in queued {
-        let request = repair.request(job).unwrap().0.request.unwrap();
+        let request = repair.request(job, source).unwrap().0.request.unwrap();
         let proto::media_request::Request::Have(have) = request else {
             panic!("expected inventory");
         };
@@ -41,7 +41,7 @@ fn sharded_handover(refused: bool) {
     let queued = repair.queued();
     assert_eq!(queued.len(), shards.len() + 1);
     for (_, job) in queued {
-        let request = repair.request(job).unwrap().0.request.unwrap();
+        let request = repair.request(job, &source).unwrap().0.request.unwrap();
         repair.response(job, write_reply(&target, &request, refused));
     }
     repair.advance(&source, me);

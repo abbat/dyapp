@@ -110,7 +110,7 @@ impl Service {
             self.strike(peer);
             return Ok(media_status(Status::Denied));
         };
-        if self.listed(&owner) || head.hashes.iter().any(|hash| self.listed(hash)) {
+        if self.listed(&owner) {
             return Ok(media_status(Status::Refused));
         }
         let now = chrono::Utc::now().timestamp().unsigned_abs();
