@@ -16,7 +16,7 @@ pub use chats::{
     chat_photo_hours_left, new_chat_state_key, ChatBlock, ChatDelivery, ChatHistory, ChatItem,
     ChatLikeAttempt, ChatLikeState, ChatLikes, ChatMediaCache, ChatMessage, ChatNotice, ChatPhoto,
     ChatPhotoDownload, ChatRevocation, ChatRow, ChatSession, ChatState, ChatSticker,
-    ChatSubmission,
+    ChatSubmission, FavoriteError,
 };
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};

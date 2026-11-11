@@ -19,6 +19,8 @@ use zeroize::Zeroizing;
 
 mod actions;
 mod creation;
+mod favorites;
+pub use favorites::FavoriteError;
 mod like_submission;
 mod service;
 pub use like_submission::{ChatLikeAttempt, ChatLikeState};

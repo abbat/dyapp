@@ -2,6 +2,8 @@ use dyapp_client::chat::MAX_TEXT_BYTES;
 
 use super::*;
 use crate::WrapError;
+#[path = "tests/favorites.rs"]
+mod favorites;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {

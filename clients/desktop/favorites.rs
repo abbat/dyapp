@@ -12,11 +12,7 @@ fn list(dir: &Path, identity: &Identity) -> Result<Vec<String>, String> {
 }
 
 fn saved(dir: &Path, identity: &Identity, peer: &str) -> Result<bool, String> {
-    if !PeerChange::Favorite(false).valid(peer) || peer == identity.peer_id() {
-        return Err("invalidName".into());
-    }
-    chats::open(dir, identity)?
-        .favorite(peer)
+    dyapp_client::favorites::state(&chats::open(dir, identity)?, peer)
         .map_err(|error| error.to_string())
 }
 

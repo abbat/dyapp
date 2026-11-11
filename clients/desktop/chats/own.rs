@@ -42,12 +42,8 @@ pub async fn change_peer(
     let mut store = open(dir, identity)?;
     let owner = identity.peer_id();
     if let PeerChange::Favorite(favorite) = &change {
-        if peer_id == owner {
-            return Err("invalidName".into());
-        }
-        if *favorite && store.blocked(peer_id).map_err(|error| error.to_string())? {
-            return Err("blocked".into());
-        }
+        dyapp_client::favorites::validate(&store, peer_id, *favorite)
+            .map_err(|error| error.to_string())?;
     }
     let groups = store.known_groups().map_err(|e| e.to_string())?;
     if !groups.iter().any(|(_, peer)| *peer == owner) {
