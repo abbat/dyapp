@@ -56,6 +56,11 @@ mod profile_network;
 pub use profile_network::{
     profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,
 };
+mod profile_photo_edits;
+pub use profile_photo_edits::{
+    edit_profile_photos, profile_photo_snapshot, ProfilePhotoEdit, ProfilePhotoEditError,
+    ProfilePhotoSnapshot,
+};
 mod profile_photos;
 pub use profile_photos::{
     add_profile_photo, move_profile_photo, profile_photo, profile_photos, remove_profile_photo,

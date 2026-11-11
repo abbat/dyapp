@@ -327,6 +327,7 @@
     <string name="profile_photo_remove">Удалить фото %1$d</string>
     <string name="profile_photo_working">Готовим фото…</string>
     <string name="profile_photo_changed">В черновике есть неопубликованные изменения.</string>
+    <string name="profile_photo_conflict">Список фото изменён. Проверьте обновлённый список и повторите действие.</string>
     <string name="profile_photo_too_large">Фото слишком большое. Выберите фото поменьше.</string>
     <string name="profile_photo_unsupported">Не удалось прочитать файл. Выберите фото в формате JPEG или PNG.</string>
     <string name="profile_photo_refused">Фото не добавлено. В профиле помещается шесть фото.</string>

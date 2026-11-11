@@ -22,6 +22,9 @@ pub enum Error {
     /// A photo is not a JPEG within its size, or the profile has no room or no such photo.
     #[error("profile photo refused")]
     PhotoRefused,
+    /// The displayed photo order or identity changed before an edit could commit.
+    #[error("profile photos changed")]
+    PhotoChanged,
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,

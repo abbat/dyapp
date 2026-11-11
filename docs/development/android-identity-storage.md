@@ -204,6 +204,11 @@ this transaction too, with both added blobs and the draft committed atomically. 
 writers still require adoption before these frontend monitors can be removed. Registry admission
 protects identity lifetime and is not itself a draft-write mutex.
 
+The photo editor retains one native snapshot revision with its decoded images. Remove/move freeze
+that revision on UI (including when opening confirmation), then call `edit_profile_photos` on IO.
+A typed `ProfilePhotoEditError::Changed` reloads the snapshot and shows a localized review notice;
+the old numerical action is not retried. Photo identity/order verification lives entirely in core.
+
 ## Remove
 
 The confirmation first loads the target-owned copy/visibility snapshot on IO. Loading and

@@ -1,7 +1,6 @@
 package com.dyapp
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -24,17 +23,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -46,78 +39,19 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import uniffi.dyapp.IdentityKey
+import uniffi.dyapp.ProfilePhotoSnapshot
 import uniffi.dyapp.addProfilePhoto
-import uniffi.dyapp.moveProfilePhoto
-import uniffi.dyapp.profilePhoto
-import uniffi.dyapp.profilePhotos
-import uniffi.dyapp.removeProfilePhoto
+import uniffi.dyapp.profilePhotoSnapshot
 
 /** The schema allows 16; six fit the node quota with room for chats. */
 internal const val MAX_PROFILE_PHOTOS = 6
 
-// Counts photo changes in the editor, so the own avatar reads the draft again after one.
-private var photoEdits by mutableIntStateOf(0)
-
-/** The draft's photos as shown: one decoded thumbnail per photo, null when it cannot be read. */
-private class PhotosState(val opened: Opened.Ready) {
-    var photos by mutableStateOf<List<ImageBitmap?>>(emptyList())
-    var busy by mutableStateOf(true)
-    var status by mutableStateOf<Int?>(null)
-    var removing by mutableStateOf<Int?>(null)
-
-    /** Runs [change] off the UI thread; [done] is the status it leaves, or null to keep the line. */
-    fun run(scope: CoroutineScope, done: Int? = R.string.profile_photo_changed, change: () -> List<ByteArray>) {
-        busy = true
-        status = R.string.profile_photo_working.takeIf { done != null }
-        scope.launch {
-            withContext(Dispatchers.IO) { runCatching { thumbnails(opened, change()) } }
-                .fold({
-                    photos = it
-                    status = done
-                    photoEdits += 1
-                }, { status = photoError(it) })
-            busy = false
-        }
-    }
-}
-
-// Every draft write shares the lock, so a proof step or publish cannot drop this change.
-private fun <T> locked(opened: Opened.Ready, action: (String, IdentityKey) -> T): T =
-    synchronized(RustBridge.draftWrites) { RustBridge.withKey(opened, action) }
-
-private fun thumbnails(opened: Opened.Ready, hashes: List<ByteArray>): List<ImageBitmap?> =
-    RustBridge.withKey(opened) { dir, key ->
-        hashes.map { hash ->
-            runCatching { profilePhoto(dir, key, hash) }.getOrNull()
-                ?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
-        }
-    }
-
-/** The draft's main photo for the own avatar; null without photos, so the letters show. */
-@Composable
-internal fun rememberOwnPhoto(opened: Opened.Ready): ImageBitmap? {
-    val photo by produceState<ImageBitmap?>(null, opened.slot.id, photoEdits) {
-        value = withContext(Dispatchers.IO) {
-            runCatching { thumbnails(opened, locked(opened, ::profilePhotos).take(1)).firstOrNull() }.getOrNull()
-        }
-    }
-    return photo
-}
-
-private fun added(context: Context, opened: Opened.Ready, uri: Uri): List<ByteArray> {
+private fun added(context: Context, opened: Opened.Ready, uri: Uri): ProfilePhotoSnapshot {
     val photo = preparePhoto(readPicked(context, uri))
-    return locked(opened) { dir, key -> addProfilePhoto(dir, key, photo.full, photo.thumbnail) }
-}
-
-private fun photoError(error: Throwable) = when {
-    error is PhotoProblem -> error.text
-    error.message == "photoRefused" -> R.string.profile_photo_refused
-    error.message == "corrupted" -> R.string.profile_photo_unsupported
-    else -> R.string.profile_photo_failed
+    return withPhotoDraft(opened) { dir, key ->
+        addProfilePhoto(dir, key, photo.full, photo.thumbnail)
+        profilePhotoSnapshot(dir, key)
+    }
 }
 
 /** The draft's photos, saved as soon as they change; the first one is the main photo. */
@@ -129,7 +63,7 @@ internal fun PhotosCard(opened: Opened.Ready) = FormCard(Modifier.testTag("profi
     val pick = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         uri?.let { state.run(scope) { added(context, opened, it) } }
     }
-    LaunchedEffect(state) { state.run(scope, done = null) { locked(opened, ::profilePhotos) } }
+    LaunchedEffect(state) { state.run(scope, done = null) { withPhotoDraft(opened, ::profilePhotoSnapshot) } }
     CardTitle(R.string.profile_photos)
     val full = state.photos.size >= MAX_PROFILE_PHOTOS
     Caption(stringResource(if (full) R.string.profile_photo_limit else R.string.profile_photo_hint))
@@ -169,9 +103,8 @@ private fun PhotoTile(state: PhotosState, scope: CoroutineScope, index: Int, pho
         photo?.let { Image(it, null, Modifier.size(96.dp), contentScale = ContentScale.Crop) }
     }
     if (index == 0) Caption(stringResource(R.string.profile_photo_main))
-    val move = { to: Int ->
-        state.run(scope) { locked(state.opened) { d, k -> moveProfilePhoto(d, k, index.toUInt(), to.toUInt()) } }
-    }
+    val expected = checkNotNull(state.rows).snapshot.revision
+    val move = { to: Int -> state.move(scope, expected, index, to) }
     val number = index + 1
     Row {
         TileButton("\u2190", stringResource(R.string.profile_photo_left, number), !state.busy && index > 0) {
@@ -181,7 +114,7 @@ private fun PhotoTile(state: PhotosState, scope: CoroutineScope, index: Int, pho
             move(number)
         }
         TileButton("\u00D7", stringResource(R.string.profile_photo_remove, number), !state.busy) {
-            state.removing = index
+            state.removing = PhotoRemoval(index.toUInt(), expected)
         }
     }
 }
@@ -194,16 +127,13 @@ private fun TileButton(glyph: String, description: String, enabled: Boolean, onC
     }
 
 @Composable
-private fun RemovePhotoDialog(state: PhotosState, scope: CoroutineScope, index: Int) = AlertDialog(
+private fun RemovePhotoDialog(state: PhotosState, scope: CoroutineScope, removal: PhotoRemoval) = AlertDialog(
     onDismissRequest = { state.removing = null },
     title = { Text(stringResource(R.string.profile_photo_remove_title)) },
     text = { Text(stringResource(R.string.profile_photo_remove_text)) },
     confirmButton = {
         TextButton(
-            {
-                state.removing = null
-                state.run(scope) { locked(state.opened) { d, k -> removeProfilePhoto(d, k, index.toUInt()) } }
-            },
+            { state.remove(scope, removal) },
             Modifier.testTag("profile-photo-remove-confirm"),
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
         ) { Text(stringResource(R.string.profile_photo_remove_action)) }

@@ -79,6 +79,15 @@ draft writes still hold a process-local lock around proof/publication and their 
 Shared core transactions now serialize editable saves and photo changes across database handles;
 proof and publication cleanup still require adoption before frontend locks can be removed.
 
+Android removal and reordering carry the displayed snapshot's opaque core revision. It covers all
+original and preview hashes, their order and duplicate entries; unrelated fields/proof do not change
+it. Core verification and mutation share the writer transaction. A stale action returns a typed
+conflict, reloads the list and asks the user to review it; the old index is never retried automatically.
+Images and revision publish together, and removal confirmation retains the revision from its opening.
+Apple and Tauri adoption of this checked contract remains planned; their legacy index-only UI paths
+still require migration. Swapping identical duplicate entries is equivalent; equal previews of
+different originals are not.
+
 ## Viewing
 
 Lists and results fetch the first thumbnail; `profile-view` fetches all thumbnails and full

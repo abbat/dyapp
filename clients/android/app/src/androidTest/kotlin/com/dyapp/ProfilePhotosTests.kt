@@ -84,6 +84,32 @@ class ProfilePhotosTests {
         compose.onNodeWithContentDescription(string(R.string.profile_photo_label, 5, 5)).assertExists()
     }
 
+    @Test
+    fun aRemovalConfirmedAfterAnotherWriterReordersOnlyRefreshesTheList() {
+        compose.skipNetworkEntry()
+        seed(2)
+        compose.openProfileEditor()
+        compose.waitUntil(READBACK_WAIT_MS) {
+            compose.onAllNodes(hasTestTag("profile-photo-1")).fetchSemanticsNodes().isNotEmpty()
+        }
+        val before = hashes()
+        val remove = string(R.string.profile_photo_remove, 1)
+        compose.onNodeWithContentDescription(remove).performScrollTo().performClick()
+        RustBridge.withKey(opened()) { dir, key ->
+            uniffi.dyapp.moveProfilePhoto(dir, key, 1u, 0u)
+        }
+        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.waitForText("profile-photo-status", R.string.profile_photo_conflict)
+        assertEquals(listOf(before[1], before[0]), hashes())
+        compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
+
+        // A new confirmation uses the refreshed snapshot; the old action was never retried.
+        compose.onNodeWithContentDescription(remove).performScrollTo().performClick()
+        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
+        assertEquals(listOf(before[0]), hashes())
+    }
+
     // The shell read the draft before the seed, so the avatar shows the photo only after an edit.
     @Test
     fun theOwnAvatarShowsTheMainPhotoAfterAnEdit() {

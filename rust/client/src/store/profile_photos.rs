@@ -4,6 +4,7 @@
 use super::{Error, Store};
 use dyapp_identity::sha256;
 use dyapp_profile::{Photo, Profile};
+use prost::Message;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// Most photos this client publishes; the schema allows more, the node quota does not.
@@ -30,7 +31,72 @@ pub fn fits(jpeg: &[u8], limit: usize) -> bool {
     jpeg.len() <= limit && jpeg.starts_with(&[0xFF, 0xD8, 0xFF])
 }
 
+/// An edit of the positions in one displayed photo snapshot.
+#[derive(Clone, Copy)]
+pub enum PhotoEdit {
+    /// Remove one displayed photo.
+    Remove(usize),
+    /// Move one displayed photo to another displayed position.
+    Move {
+        /// The displayed source position.
+        from: usize,
+        /// The displayed destination position.
+        to: usize,
+    },
+}
+
+/// An opaque revision includes original hashes, thumbnail hashes, order and duplicates.
+/// Unrelated editable fields and proof progress do not invalidate a photo action.
+#[must_use]
+pub fn revision(profile: &Profile) -> [u8; 32] {
+    sha256(
+        &Profile {
+            photos: profile.photos.clone(),
+            ..Profile::default()
+        }
+        .encode_to_vec(),
+    )
+}
+
+fn apply_edit(draft: &mut Profile, edit: PhotoEdit) -> Result<(), Error> {
+    match edit {
+        PhotoEdit::Remove(index) => {
+            if index >= draft.photos.len() {
+                return Err(Error::PhotoRefused);
+            }
+            draft.photos.remove(index);
+        }
+        PhotoEdit::Move { from, to } => {
+            if from >= draft.photos.len() || to >= draft.photos.len() {
+                return Err(Error::PhotoRefused);
+            }
+            let photo = draft.photos.remove(from);
+            draft.photos.insert(to, photo);
+        }
+    }
+    Ok(())
+}
+
 impl Store {
+    /// Apply a displayed photo action only while that exact photo snapshot is still current.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PhotoChanged` before mutation for a stale revision, `PhotoRefused` for invalid
+    /// positions, or a storage error. Revision verification and mutation share writer ownership.
+    pub fn edit_profile_photos(
+        &mut self,
+        expected_revision: &[u8],
+        edit: PhotoEdit,
+    ) -> Result<Profile, Error> {
+        self.update_profile_draft(|draft| {
+            if revision(draft).as_slice() != expected_revision {
+                return Err(Error::PhotoChanged);
+            }
+            apply_edit(draft, edit)
+        })
+    }
+
     /// Stores a blob of the published profile under its hash, as a linked device takes it.
     ///
     /// # Errors
@@ -71,13 +137,7 @@ impl Store {
     /// Returns an error if the draft is corrupt or unsupported, `index` is out of
     /// bounds, or reading or saving the draft fails.
     pub fn remove_profile_photo(&mut self, index: usize) -> Result<Profile, Error> {
-        self.update_profile_draft(|draft| {
-            if index >= draft.photos.len() {
-                return Err(Error::PhotoRefused);
-            }
-            draft.photos.remove(index);
-            Ok(())
-        })
+        self.update_profile_draft(|draft| apply_edit(draft, PhotoEdit::Remove(index)))
     }
 
     /// Moves the photo at `from` to `to`; the first photo is the main one.
@@ -87,14 +147,7 @@ impl Store {
     /// Returns an error if the draft is corrupt or unsupported, either index is out
     /// of bounds, or reading or saving the draft fails.
     pub fn move_profile_photo(&mut self, from: usize, to: usize) -> Result<Profile, Error> {
-        self.update_profile_draft(|draft| {
-            if from >= draft.photos.len() || to >= draft.photos.len() {
-                return Err(Error::PhotoRefused);
-            }
-            let photo = draft.photos.remove(from);
-            draft.photos.insert(to, photo);
-            Ok(())
-        })
+        self.update_profile_draft(|draft| apply_edit(draft, PhotoEdit::Move { from, to }))
     }
 
     /// The stored blob of `hash`.
@@ -194,6 +247,10 @@ fn save_blob(db: &Connection, data: &[u8]) -> Result<Vec<u8>, Error> {
     )?;
     Ok(hash)
 }
+
+#[cfg(test)]
+#[path = "profile_photo_edits_tests.rs"]
+mod edit_tests;
 
 #[cfg(test)]
 mod tests {
