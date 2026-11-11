@@ -137,9 +137,14 @@
       1,
       entry(appBindings.current.peerId, 4, { ...photo, preview: [], hoursLeft: null }),
     );
+    const asked = fixture.autoAsked;
     await appBindings.openChat(peer, call);
+    // Wait for the refusal itself, then one task, so a wrongful fetch would already have started.
+    await pollPhoto(
+      () => fixture.autoAsked > asked && waitingPhoto()?.querySelector('.photo-download'),
+    );
     await new Promise((resolve) => {
-      setTimeout(resolve, 50);
+      setTimeout(resolve, 0);
     });
     if (!waitingPhoto().querySelector('.photo-download') || fixture.fetched.id[0] === 4) {
       throw new Error('a refused policy still fetched');

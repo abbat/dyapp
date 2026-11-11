@@ -46,7 +46,10 @@
           messages,
           activeRecently: false,
         }),
-      chat_photo_auto: () => Promise.resolve(fixture.autoAllowed),
+      chat_photo_auto: () => {
+        fixture.autoAsked += 1;
+        return Promise.resolve(fixture.autoAllowed);
+      },
       send_chat_photo: (args) => {
         fixture.sent = args;
         const refusal = sends.shift();
@@ -84,6 +87,7 @@
       downloads: ['notConnected', original, 'notFound'],
       fetched: null,
       autoAllowed: false,
+      autoAsked: 0,
       sends: [],
       sent: null,
       messages: [entry(peer, 1, photo)],
