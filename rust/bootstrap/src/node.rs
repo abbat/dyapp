@@ -1,6 +1,8 @@
 //! The libp2p request loop of a node: answers the node protocol and deletes expired envelopes.
 
 mod delivery;
+mod deny_lists;
+use deny_lists::{keep as keep_deny_list, reload as reload_deny};
 mod identified;
 mod jobs;
 mod open;
@@ -208,65 +210,6 @@ fn save_peers(path: &Path, peers: &[Multiaddr]) -> std::io::Result<()> {
         let _ = writeln!(text, "{peer}");
     }
     fs::write(path, text)
-}
-
-/// Stores `peer`'s deny list if its node key signed it.
-fn keep_deny_list(deny: &DenyStore, peer: &PeerId, record: &SignedRecord) {
-    let Some(list) = crate::deny::verify(record, peer) else {
-        return tracing::warn!(%peer, "deny list with a bad signature dropped");
-    };
-    match deny.keep_received(&peer.to_string(), list.time, record) {
-        Ok(true) => tracing::info!(%peer, entries = list.entries.len(), "deny list received"),
-        Ok(false) => {}
-        Err(error) => tracing::error!(%peer, %error, "deny list not stored"),
-    }
-}
-
-/// Re-reads the deny list when `dyappd deny` changed it since `version`; on an error the old
-/// list stays.
-fn reload_deny(service: &Service, deny: &DenyStore, version: &mut Option<i64>) {
-    let current = match deny.version() {
-        Ok(current) if Some(current) == *version => return,
-        Ok(current) => current,
-        Err(error) => return tracing::error!(%error, "deny list not checked"),
-    };
-    match deny.entries() {
-        Ok(entries) => {
-            let mut old = service.deny.write().unwrap_or_else(PoisonError::into_inner);
-            let added = entries.difference(&old).count();
-            let removed = old.difference(&entries).count();
-            // Hold the write lock through purge: replica writes hold its read lock until stored.
-            let mut purged = true;
-            if let Some(media) = &service.media {
-                for entry in &entries {
-                    if entry.len() != 64 || !entry.bytes().all(|b| b.is_ascii_hexdigit()) {
-                        continue;
-                    }
-                    let Ok(hash) = (0..64)
-                        .step_by(2)
-                        .map(|i| u8::from_str_radix(&entry[i..i + 2], 16))
-                        .collect::<Result<Vec<_>, _>>()
-                    else {
-                        continue;
-                    };
-                    if let Err(error) = media.purge(&hash) {
-                        tracing::error!(hash = %entry, %error, "deny-listed media not purged");
-                        purged = false;
-                    }
-                }
-            }
-            tracing::info!(entries = entries.len(), added, removed, "deny list loaded");
-            let key = service.deny_signer.as_ref();
-            *service
-                .shared_deny
-                .write()
-                .unwrap_or_else(PoisonError::into_inner) =
-                key.map(|key| crate::deny::sign(key, &entries));
-            *old = entries;
-            *version = purged.then_some(current);
-        }
-        Err(error) => tracing::error!(%error, "deny list not loaded, the old one stays"),
-    }
 }
 
 /// The request's peer, with the IP group of the connection it came on: empty while its IP is

@@ -2,6 +2,8 @@
 use super::*;
 use crate::node::republish::REPUBLISH_WARMUP;
 use crate::republish::Store;
+#[path = "republish/lookups.rs"]
+mod lookups;
 #[path = "republish/media.rs"]
 mod media;
 

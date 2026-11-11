@@ -15,77 +15,100 @@ impl Replicas {
         let lookup = self.lookups.remove(&id);
         let job = self.republish.query_done(id, result.is_ok());
         if result.is_err() {
-            if let Some(Lookup::MediaRepair(repair, blob, index)) = &lookup {
-                if let Some((r, _)) = self.media_repairs.get_mut(repair) {
-                    r.holder(*blob, *index, None);
+            self.failed_media_lookup(swarm, service, lookup.as_ref());
+        }
+        let (Some(lookup), Ok(ok)) = (lookup, result) else {
+            return;
+        };
+        // A peer without the node-ID proof of work never holds a replica.
+        let bits = dyapp_p2p_net::id_pow_bits();
+        if matches!(
+            lookup,
+            Lookup::MediaRepair(..)
+                | Lookup::Put(_)
+                | Lookup::ShardPut(..)
+                | Lookup::ShardGet(..)
+                | Lookup::ProfileRepair(_)
+        ) {
+            let nodes: Vec<_> = ok
+                .peers
+                .into_iter()
+                .filter(|node| dyapp_p2p_net::id_has_pow(&node.peer_id, bits))
+                .collect();
+            let to = holder(*swarm.local_peer_id(), &ok.key, &nodes);
+            for node in nodes {
+                for address in node.addrs {
+                    swarm.add_peer_address(node.peer_id, address);
+                }
+            }
+            self.closest_target(swarm, service, watchers, lookup, to, job);
+            return;
+        }
+        let mut peers = ok.peers.into_iter();
+        if let Some(node) = peers
+            .find(|p| dyapp_p2p_net::id_has_pow(&p.peer_id, bits) && self.trust.trusted(&p.peer_id))
+        {
+            if let Some(request) = after_lookup(swarm, service, self, lookup, ok.key, node) {
+                self.republish.request(job, request);
+            }
+        }
+    }
+
+    fn failed_media_lookup(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        lookup: Option<&Lookup>,
+    ) {
+        let Some(Lookup::MediaRepair(repair, blob, index)) = lookup else {
+            return;
+        };
+        if let Some((repair, _)) = self.media_repairs.get_mut(repair) {
+            repair.holder(*blob, *index, None);
+        }
+        self.finish_puts(swarm, service, Instant::now());
+    }
+
+    fn closest_target(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        watchers: &Watchers,
+        lookup: Lookup,
+        to: PeerId,
+        job: Option<u64>,
+    ) {
+        match lookup {
+            Lookup::MediaRepair(repair, blob, index) => {
+                let trusted = to == *swarm.local_peer_id() || self.trust.trusted(&to);
+                if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
+                    repair.holder(blob, index, trusted.then_some(to));
                 }
                 self.finish_puts(swarm, service, Instant::now());
             }
-        }
-        if let (Some(lookup), Ok(ok)) = (lookup, result) {
-            // A peer without the node-ID proof of work never holds a replica.
-            let bits = dyapp_p2p_net::id_pow_bits();
-            if matches!(
-                lookup,
-                Lookup::MediaRepair(_, _, _)
-                    | Lookup::Put(_)
-                    | Lookup::ShardPut(_, _)
-                    | Lookup::ShardGet(_, _)
-                    | Lookup::ProfileRepair(_)
-            ) {
-                let nodes: Vec<_> = ok
-                    .peers
-                    .into_iter()
-                    .filter(|node| dyapp_p2p_net::id_has_pow(&node.peer_id, bits))
-                    .collect();
-                let to = holder(*swarm.local_peer_id(), &ok.key, &nodes);
-                for node in nodes {
-                    for address in node.addrs {
-                        swarm.add_peer_address(node.peer_id, address);
-                    }
-                }
-                match lookup {
-                    Lookup::MediaRepair(repair, blob, index) => {
-                        let trusted = to == *swarm.local_peer_id() || self.trust.trusted(&to);
-                        if let Some((r, _)) = self.media_repairs.get_mut(&repair) {
-                            r.holder(blob, index, trusted.then_some(to));
-                        }
-                        self.finish_puts(swarm, service, Instant::now());
-                    }
-                    Lookup::Put(put) => {
-                        self.put_holder(swarm, service, watchers, put, to);
-                        self.finish_puts(swarm, service, Instant::now());
-                    }
-                    Lookup::ShardPut(put, index) => {
-                        self.shard_holder(swarm, service, put, index, to);
-                        self.finish_puts(swarm, service, Instant::now());
-                    }
-                    Lookup::ShardGet(read, index) => {
-                        if to != *swarm.local_peer_id() && self.trust.trusted(&to) {
-                            self.media_queue
-                                .push_back((to, MediaJob::ShardGet(read, index)));
-                            self.drain_media(swarm, service);
-                        }
-                    }
-                    Lookup::ProfileRepair(record) => {
-                        match self.profile_inventory(swarm, service, to, record) {
-                            Ok(Some(request)) => self.republish.request(job, request),
-                            Ok(None) => {}
-                            Err(()) => self.republish.fail(job),
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-                return;
+            Lookup::Put(put) => {
+                self.put_holder(swarm, service, watchers, put, to);
+                self.finish_puts(swarm, service, Instant::now());
             }
-            let mut peers = ok.peers.into_iter();
-            if let Some(node) = peers.find(|p| {
-                dyapp_p2p_net::id_has_pow(&p.peer_id, bits) && self.trust.trusted(&p.peer_id)
-            }) {
-                if let Some(request) = after_lookup(swarm, service, self, lookup, ok.key, node) {
-                    self.republish.request(job, request);
+            Lookup::ShardPut(put, index) => {
+                self.shard_holder(swarm, service, put, index, to);
+                self.finish_puts(swarm, service, Instant::now());
+            }
+            Lookup::ShardGet(read, index) => {
+                if to != *swarm.local_peer_id() && self.trust.trusted(&to) {
+                    self.media_queue
+                        .push_back((to, MediaJob::ShardGet(read, index)));
+                    self.drain_media(swarm, service);
                 }
             }
+            Lookup::ProfileRepair(record) => {
+                match self.profile_inventory(swarm, service, to, record) {
+                    Ok(Some(request)) => self.republish.request(job, request),
+                    Ok(None) => {}
+                    Err(()) => self.republish.fail(job),
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
