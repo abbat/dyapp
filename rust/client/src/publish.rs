@@ -231,8 +231,9 @@ pub async fn revoke_device(
 }
 
 /// Starts the fresh store of a linked device from the record's `state` and the newest profile with
-/// its photos, kept as the draft. A failure may be retried. The caller then lists the device and
-/// calls [`relist`]; the draft of a hidden profile goes past it, as [`hide`] leaves it.
+/// its photos, kept as the draft. Returns exact ordinary readback separately from current draft
+/// and visibility. A failure may be retried. The caller then prepares its device change and calls
+/// [`relist_prepared`]; a hidden draft's later search version never proves device listing.
 ///
 /// # Errors
 ///
@@ -246,7 +247,7 @@ pub async fn adopt(
     identity: &Identity,
     state: &[u8],
     now: u64,
-) -> Result<Profile, Failure> {
+) -> Result<ProfilePublicationOutcome, Failure> {
     store.import_link_state(state)?;
     let held = newest(node, identity)
         .await?
@@ -260,9 +261,12 @@ pub async fn adopt(
         .ok_or(store::Error::ProfileVersionExhausted)?;
     take_photos(store, node, &held).await?;
     store.own_profile_age(held.version, now)?;
-    let draft = Profile { version, ..held };
+    let draft = Profile {
+        version,
+        ..held.clone()
+    };
     store.save_profile_draft(&draft)?;
-    Ok(draft)
+    Ok(store.profile_publication_state(identity, &held)?)
 }
 
 async fn send_prepared(

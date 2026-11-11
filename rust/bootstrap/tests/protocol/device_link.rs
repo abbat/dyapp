@@ -11,6 +11,9 @@ use dyapp_client::store::{Conversation, Store};
 use dyapp_profile::verify;
 use std::slice::from_mut;
 
+#[path = "device_link/finish.rs"]
+mod finish;
+
 const SEAL: [u8; 32] = [6; 32];
 /// One device's turn to commit to a group.
 const ADD_TURN_SECONDS: u64 = 3600;
@@ -24,29 +27,97 @@ fn session(person: &Person, name: &str) -> Session {
     Session::open(store, &SEAL).unwrap()
 }
 
-#[tokio::test]
-async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
-    let address = start_config(|config| {
+async fn link_node() -> Multiaddr {
+    start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
         config.limits.min_free_mb = 0;
     })
-    .await;
+    .await
+}
+
+type DeviceSession<'a> = (&'a mut Session, &'a mut Person);
+
+async fn check_added_devices(
+    participant: DeviceSession<'_>,
+    linked: &[dyapp_profile::VerifiedProfile],
+    now: u64,
+) {
+    let (session, person) = participant;
+    for added in [1, 0] {
+        assert_eq!(
+            session
+                .add_own_devices(from_mut(&mut person.node), &linked[0], linked, now, &SEAL)
+                .await
+                .unwrap(),
+            added
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
+    let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
-    let owner = alice.identity.peer_id();
-    let bob_owner = bob.identity.peer_id();
-    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+    let owners = [alice.identity.peer_id(), bob.identity.peer_id()];
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &owners[1], 1)
         .await
         .unwrap();
     let mut held = Vec::new();
-    for peer in [&owner, &bob_owner] {
+    for peer in &owners {
         held.push(alice.node.get_profile(peer).await.unwrap());
     }
 
+    let (mut alice_session, mut bob_session, group_id) =
+        begin_chat(&mut alice, &mut bob, &held).await;
+    let (mut laptop, mut laptop_session, linked) =
+        Box::pin(publish_laptop(&mut alice, &address, &held)).await;
+    let now = 1_000_000;
+    check_added_devices((&mut alice_session, &mut alice), &linked, now).await;
+    confirm_linked_delivery(
+        [
+            (&mut alice_session, &mut alice),
+            (&mut bob_session, &mut bob),
+            (&mut laptop_session, &mut laptop),
+        ],
+        &held,
+        &linked,
+        &group_id,
+    )
+    .await;
+    sync_linked_likes(
+        [
+            (&mut alice_session, &mut alice),
+            (&mut bob_session, &mut bob),
+            (&mut laptop_session, &mut laptop),
+        ],
+        &linked,
+        &group_id,
+    )
+    .await;
+    drop_linked_laptop(
+        [
+            (&mut alice_session, &mut alice),
+            (&mut bob_session, &mut bob),
+            (&mut laptop_session, &mut laptop),
+        ],
+        &held,
+        &linked,
+        &group_id,
+        now,
+    )
+    .await;
+}
+
+async fn begin_chat(
+    alice: &mut Person,
+    bob: &mut Person,
+    held: &[dyapp_profile::VerifiedProfile],
+) -> (Session, Session, Vec<u8>) {
     // The chat begins with one device on each side.
     let alice_mailbox = alice.mailbox();
-    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &held)
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, held)
         .await
         .unwrap();
     let group_id = group.id().to_vec();
@@ -64,20 +135,29 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
             &welcome,
         )
         .unwrap();
-    let mut alice_session =
+    let alice_session =
         Session::open(Store::open(&alice_path, &alice.identity).unwrap(), &SEAL).unwrap();
-    let mut bob_session = session(&bob, "link-bob");
+    let mut bob_session = session(bob, "link-bob");
     alice.node.put_prepared(&welcome[0]).await.unwrap();
     bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &held, &SEAL)
+        .receive(from_mut(&mut bob.node), &bob.device_key, held, &SEAL)
         .await
         .unwrap();
 
+    (alice_session, bob_session, group_id)
+}
+
+async fn publish_laptop(
+    alice: &mut Person,
+    address: &Multiaddr,
+    held: &[dyapp_profile::VerifiedProfile],
+) -> (Person, Session, Vec<dyapp_profile::VerifiedProfile>) {
+    let owner = alice.identity.peer_id();
     // The owner links a laptop: it publishes a profile that lists it, then its KeyPackages.
     let identity = Identity::from_secret(&alice.identity.secret());
-    let mut laptop = Person::device(&address, identity, 2).await;
+    let mut laptop = Person::device(address, identity, 2).await;
     let mut devices =
-        [&alice, &laptop].map(|person| (person.mailbox(), person.device.certificate()));
+        [&*alice, &laptop].map(|person| (person.mailbox(), person.device.certificate()));
     devices.sort_by_key(|(mailbox, _)| *mailbox);
     let profile = Profile {
         version: 2,
@@ -98,26 +178,26 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
     )
     .await
     .unwrap();
-    let mut laptop_session = session(&laptop, "link-laptop");
+    let laptop_session = session(&laptop, "link-laptop");
     let linked = vec![
         alice.node.get_profile(&owner).await.unwrap(),
         held[1].clone(),
     ];
 
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
-    for added in [1, 0] {
-        assert_eq!(
-            alice_session
-                .add_own_devices(from_mut(&mut alice.node), &linked[0], &linked, now, &SEAL)
-                .await
-                .unwrap(),
-            added
-        );
-    }
+    (laptop, laptop_session, linked)
+}
 
+async fn confirm_linked_delivery(
+    participants: [DeviceSession<'_>; 3],
+    held: &[dyapp_profile::VerifiedProfile],
+    linked: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+) {
+    let [(alice_session, alice), (bob_session, bob), (laptop_session, laptop)] = participants;
+    let owner = alice.identity.peer_id();
     // Bob still holds the older profile: the commit waits instead of being refused.
     let events = bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &held, &SEAL)
+        .receive(from_mut(&mut bob.node), &bob.device_key, held, &SEAL)
         .await
         .unwrap();
     assert!(matches!(
@@ -125,7 +205,7 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         [Event::UnknownOwner(peer)] if *peer == owner
     ));
     let events = bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &linked, &SEAL)
+        .receive(from_mut(&mut bob.node), &bob.device_key, linked, &SEAL)
         .await
         .unwrap();
     assert!(matches!(
@@ -137,7 +217,7 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         .receive(
             from_mut(&mut laptop.node),
             &laptop.device_key,
-            &linked,
+            linked,
             &SEAL,
         )
         .await
@@ -148,15 +228,21 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
     );
 
     bob_session
-        .send_message(from_mut(&mut bob.node), &group_id, b"to both", &SEAL)
+        .send_message(from_mut(&mut bob.node), group_id, b"to both", &SEAL)
         .await
         .unwrap();
-    for (session, node, key) in [
-        (&mut alice_session, &mut alice.node, &alice.device_key),
-        (&mut laptop_session, &mut laptop.node, &laptop.device_key),
-    ] {
+    check_fanout([(alice_session, alice), (laptop_session, laptop)], linked).await;
+}
+
+async fn check_fanout(
+    participants: [DeviceSession<'_>; 2],
+    linked: &[dyapp_profile::VerifiedProfile],
+) {
+    for (session, person) in participants {
+        let node = &mut person.node;
+        let key = &person.device_key;
         let events = session
-            .receive(from_mut(node), key, &linked, &SEAL)
+            .receive(from_mut(node), key, linked, &SEAL)
             .await
             .unwrap();
         assert!(events.iter().any(|event| matches!(
@@ -164,21 +250,29 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
             Event::Message { body: Body::Text { text, .. }, .. } if text == b"to both"
         )));
     }
+}
 
+async fn sync_linked_likes(
+    participants: [DeviceSession<'_>; 3],
+    linked: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+) {
+    let [(alice_session, alice), (bob_session, bob), (laptop_session, laptop)] = participants;
+    let bob_owner = bob.identity.peer_id();
     // A like and an unlike from the phone hold on the laptop too, with the chat and its copy.
     bob_session
-        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
+        .interact(from_mut(&mut bob.node), group_id, Kind::Like, &SEAL)
         .await
         .unwrap();
     alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .interact(from_mut(&mut alice.node), group_id, Kind::Like, &SEAL)
         .await
         .unwrap();
     laptop_session
         .receive(
             from_mut(&mut laptop.node),
             &laptop.device_key,
-            &linked,
+            linked,
             &SEAL,
         )
         .await
@@ -189,14 +283,14 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         Conversation::Open
     );
     alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::Unlike, &SEAL)
+        .interact(from_mut(&mut alice.node), group_id, Kind::Unlike, &SEAL)
         .await
         .unwrap();
     laptop_session
         .receive(
             from_mut(&mut laptop.node),
             &laptop.device_key,
-            &linked,
+            linked,
             &SEAL,
         )
         .await
@@ -207,7 +301,18 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         Conversation::Closed
     );
     assert!(laptop_session.store().chat_rows().unwrap().is_empty());
+}
 
+async fn drop_linked_laptop(
+    participants: [DeviceSession<'_>; 3],
+    held: &[dyapp_profile::VerifiedProfile],
+    linked: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+    now: u64,
+) {
+    let [(alice_session, alice), (bob_session, bob), (laptop_session, laptop)] = participants;
+    let owner = alice.identity.peer_id();
+    let bob_owner = bob.identity.peer_id();
     // The owner drops the laptop: the member first by device key commits, the other waits its turn.
     let profile = Profile {
         version: 3,
@@ -216,44 +321,16 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
     };
     let dropped = verify(&profile.sign(&alice.identity)).unwrap();
     let dropped = vec![dropped, held[1].clone()];
-    let alice_first = alice.device_key.public_key() < bob.device_key.public_key();
-    let now = now + ADD_TURN_SECONDS;
-    assert_eq!(
-        bob_session
-            .remove_dropped_devices(from_mut(&mut bob.node), &dropped, now, &SEAL)
-            .await
-            .unwrap(),
-        usize::from(!alice_first)
-    );
-    assert_eq!(
-        alice_session
-            .remove_dropped_devices(from_mut(&mut alice.node), &dropped, now, &SEAL)
-            .await
-            .unwrap(),
-        usize::from(alice_first)
-    );
-    let (second, second_node, key) = if alice_first {
-        (&mut bob_session, &mut bob.node, &bob.device_key)
-    } else {
-        (&mut alice_session, &mut alice.node, &alice.device_key)
-    };
-    let events = second
-        .receive(from_mut(second_node), key, &dropped, &SEAL)
-        .await
-        .unwrap();
-    assert!(events
-        .iter()
-        .any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
-    let next_turn = now + ADD_TURN_SECONDS;
-    assert_eq!(
-        second
-            .remove_dropped_devices(from_mut(second_node), &dropped, next_turn, &SEAL)
-            .await
-            .unwrap(),
-        0
-    );
+    check_removal_turns(
+        (&mut *alice_session, &mut *alice),
+        (&mut *bob_session, &mut *bob),
+        &dropped,
+        group_id,
+        now,
+    )
+    .await;
     alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .interact(from_mut(&mut alice.node), group_id, Kind::Like, &SEAL)
         .await
         .unwrap();
     bob_session
@@ -265,7 +342,7 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         .receive(
             from_mut(&mut laptop.node),
             &laptop.device_key,
-            &linked,
+            linked,
             &SEAL,
         )
         .await
@@ -273,14 +350,56 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
     assert!(!laptop_session.likes(&bob_owner).unwrap().ours);
 }
 
+async fn check_removal_turns(
+    alice: DeviceSession<'_>,
+    bob: DeviceSession<'_>,
+    dropped: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+    now: u64,
+) {
+    let (alice_session, alice) = alice;
+    let (bob_session, bob) = bob;
+    let alice_first = alice.device_key.public_key() < bob.device_key.public_key();
+    let now = now + ADD_TURN_SECONDS;
+    assert_eq!(
+        bob_session
+            .remove_dropped_devices(from_mut(&mut bob.node), dropped, now, &SEAL)
+            .await
+            .unwrap(),
+        usize::from(!alice_first)
+    );
+    assert_eq!(
+        alice_session
+            .remove_dropped_devices(from_mut(&mut alice.node), dropped, now, &SEAL)
+            .await
+            .unwrap(),
+        usize::from(alice_first)
+    );
+    let (second, second_node, key) = if alice_first {
+        (&mut *bob_session, &mut bob.node, &bob.device_key)
+    } else {
+        (&mut *alice_session, &mut alice.node, &alice.device_key)
+    };
+    let events = second
+        .receive(from_mut(second_node), key, dropped, &SEAL)
+        .await
+        .unwrap();
+    assert!(events
+        .iter()
+        .any(|event| matches!(event, Event::Commit(id) if *id == group_id)));
+    let next_turn = now + ADD_TURN_SECONDS;
+    assert_eq!(
+        second
+            .remove_dropped_devices(from_mut(second_node), dropped, next_turn, &SEAL)
+            .await
+            .unwrap(),
+        0
+    );
+}
+
 #[tokio::test]
 async fn a_device_that_missed_an_edit_never_overwrites_it() {
-    let address = start_config(|config| {
-        config.roles = vec![Role::Store];
-        config.limits.requests_per_second = 1000;
-        config.limits.min_free_mb = 0;
-    })
-    .await;
+    let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
     let held = alice.node.get_profile(&owner).await.unwrap().profile;
@@ -333,8 +452,18 @@ async fn a_device_that_missed_an_edit_never_overwrites_it() {
     assert!(matches!(failure, Failure::Node(_)), "{failure}");
     assert_eq!(alice.node.get_profile(&owner).await.unwrap().profile, next);
 
+    check_old_draft_withdrawal(&laptop, &mut alice, &edited, &next).await;
+}
+
+async fn check_old_draft_withdrawal(
+    laptop: &Store,
+    alice: &mut Person,
+    edited: &Profile,
+    next: &Profile,
+) {
+    let owner = alice.identity.peer_id();
     // A withdrawal goes past everything, from a draft however old.
-    let kept = publish::withdraw(&laptop, &mut alice.node, &alice.identity, &edited)
+    let kept = publish::withdraw(laptop, &mut alice.node, &alice.identity, edited)
         .await
         .unwrap();
     assert_eq!(kept.version, next.version + 2);
@@ -345,16 +474,42 @@ async fn a_device_that_missed_an_edit_never_overwrites_it() {
 
 #[tokio::test]
 async fn own_devices_share_a_group_that_is_not_a_chat() {
-    let address = start_config(|config| {
-        config.roles = vec![Role::Store];
-        config.limits.requests_per_second = 1000;
-        config.limits.min_free_mb = 0;
-    })
+    let address = link_node().await;
+    let (mut first, mut second, own) = Box::pin(own_device_pair(&address)).await;
+    let held = [own.clone()];
+    let now = 1_000_000;
+    let mut first_session = session(&first, "own-first");
+    let second_path = store_path("own-second");
+    let mut store = Store::open(&second_path, &second.identity).unwrap();
+    store
+        .stage_outbound(&second.device.seal(&SEAL).unwrap(), &[])
+        .unwrap();
+    let mut second_session = Session::open(store, &SEAL).unwrap();
+    check_own_group_join(
+        (&mut first_session, &mut first),
+        (&mut second_session, &mut second),
+        &own,
+        now,
+    )
     .await;
-    let phone = Person::new(&address).await;
+    sync_own_private_state(
+        (&mut first_session, &mut first),
+        (&mut second_session, &mut second),
+        &held,
+    )
+    .await;
+    let group = second_session.own_group().unwrap();
+    drop(second_session);
+    let store = Store::open(&second_path, &second.identity).unwrap();
+    let reopened = Session::open(store, &SEAL).unwrap();
+    assert_eq!(reopened.own_group(), Some(group));
+}
+
+async fn own_device_pair(address: &Multiaddr) -> (Person, Person, dyapp_profile::VerifiedProfile) {
+    let phone = Person::new(address).await;
     let owner = phone.identity.peer_id();
     let identity = Identity::from_secret(&phone.identity.secret());
-    let laptop = Person::device(&address, identity, 2).await;
+    let laptop = Person::device(address, identity, 2).await;
     let mut devices = vec![phone, laptop];
     devices.sort_by_key(Person::mailbox);
     let (mut first, mut second) = (devices.remove(0), devices.remove(0));
@@ -383,23 +538,25 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
         .unwrap();
     }
     let own = first.node.get_profile(&owner).await.unwrap();
-    let held = [own.clone()];
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
-    let mut first_session = session(&first, "own-first");
-    let second_path = store_path("own-second");
-    let mut store = Store::open(&second_path, &second.identity).unwrap();
-    store
-        .stage_outbound(&second.device.seal(&SEAL).unwrap(), &[])
-        .unwrap();
-    let mut second_session = Session::open(store, &SEAL).unwrap();
+    (first, second, own)
+}
 
+async fn check_own_group_join(
+    first: DeviceSession<'_>,
+    second: DeviceSession<'_>,
+    own: &dyapp_profile::VerifiedProfile,
+    now: u64,
+) {
+    let (first_session, first) = first;
+    let (second_session, second) = second;
+    let held = [own.clone()];
     // Only the first device by mailbox starts it; the second waits for its turn.
     assert!(!second_session
-        .join_own_devices(from_mut(&mut second.node), &own, now, &SEAL)
+        .join_own_devices(from_mut(&mut second.node), own, now, &SEAL)
         .await
         .unwrap());
     assert!(first_session
-        .join_own_devices(from_mut(&mut first.node), &own, now, &SEAL)
+        .join_own_devices(from_mut(&mut first.node), own, now, &SEAL)
         .await
         .unwrap());
     let group = first_session.own_group().unwrap();
@@ -414,7 +571,7 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
     assert_eq!(second_session.own_group().as_ref(), Some(&group));
     // A later turn does not start another, and it is no chat on either device.
     assert!(!second_session
-        .join_own_devices(from_mut(&mut second.node), &own, now + 86_400, &SEAL)
+        .join_own_devices(from_mut(&mut second.node), own, now + 86_400, &SEAL)
         .await
         .unwrap());
     first_session
@@ -424,7 +581,15 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
     for held_here in [&first_session, &second_session] {
         assert!(held_here.store().chat_rows().unwrap().is_empty());
     }
+}
 
+async fn sync_own_private_state(
+    first: DeviceSession<'_>,
+    second: DeviceSession<'_>,
+    held: &[dyapp_profile::VerifiedProfile],
+) {
+    let (first_session, first) = first;
+    let (second_session, second) = second;
     // A change on one device reaches the other, in both directions.
     let bob = "ab".repeat(32);
     for change in [
@@ -439,7 +604,7 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
             .unwrap();
     }
     second_session
-        .receive(from_mut(&mut second.node), &second.device_key, &held, &SEAL)
+        .receive(from_mut(&mut second.node), &second.device_key, held, &SEAL)
         .await
         .unwrap();
     let synced = second_session.store();
@@ -456,34 +621,48 @@ async fn own_devices_share_a_group_that_is_not_a_chat() {
         .await
         .unwrap();
     first_session
-        .receive(from_mut(&mut first.node), &first.device_key, &held, &SEAL)
+        .receive(from_mut(&mut first.node), &first.device_key, held, &SEAL)
         .await
         .unwrap();
     assert!(!first_session.store().blocked(&bob).unwrap());
-
-    // It survives a restart.
-    drop(second_session);
-    let store = Store::open(&second_path, &second.identity).unwrap();
-    let reopened = Session::open(store, &SEAL).unwrap();
-    assert_eq!(reopened.own_group(), Some(group));
 }
 
 #[tokio::test]
 async fn any_own_device_revokes_another_and_it_stays_out() {
-    let address = start_config(|config| {
-        config.roles = vec![Role::Store];
-        config.limits.requests_per_second = 1000;
-        config.limits.min_free_mb = 0;
-    })
-    .await;
+    let address = link_node().await;
     let mut alice = Person::new(&address).await;
-    let owner = alice.identity.peer_id();
     let alice_session = session(&alice, "revoke-alice");
     let mut laptop =
         Person::device(&address, Identity::from_secret(&alice.identity.secret()), 2).await;
     let mut laptop_session = session(&laptop, "revoke-laptop");
     let laptop_key = laptop.device_key.public_key();
 
+    let (listed, before_laptop) = check_device_listing(
+        (&mut laptop_session, &mut laptop),
+        &alice_session,
+        &mut alice,
+    )
+    .await;
+    let store = alice_session.store();
+    // The first device drops the laptop: the member first by device key commits.
+    check_revoked_device(
+        (&mut laptop_session, &mut laptop),
+        &mut alice,
+        store,
+        &listed,
+        &before_laptop,
+        &laptop_key,
+    )
+    .await;
+}
+
+async fn check_device_listing(
+    laptop: DeviceSession<'_>,
+    alice_session: &Session,
+    alice: &mut Person,
+) -> (Profile, Profile) {
+    let (laptop_session, laptop) = laptop;
+    let owner = alice.identity.peer_id();
     // Both devices list themselves, with the bindings that close their mailboxes.
     let mut draft = alice.node.get_profile(&owner).await.unwrap().profile;
     draft.device_owners = vec![dyapp_client::owner_binding(
@@ -520,14 +699,27 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
         listed
     );
 
-    // The first device drops the laptop: the node refuses its mailbox and lists only the first. Its
-    // draft predates the laptop, and the newest profile at the node takes its place.
+    (listed, before_laptop)
+}
+
+async fn check_revoked_device(
+    laptop: DeviceSession<'_>,
+    alice: &mut Person,
+    store: &Store,
+    listed: &Profile,
+    before_laptop: &Profile,
+    laptop_key: &[u8; 32],
+) {
+    let (laptop_session, laptop) = laptop;
+    let owner = alice.identity.peer_id();
+    // The first device drops the laptop: the node refuses its mailbox and lists only the first.
+    // Its draft predates the laptop, and the newest profile at the node takes its place.
     let dropped = publish::revoke_device(
         store,
         &mut alice.node,
         &alice.identity,
-        &before_laptop,
-        &laptop_key,
+        before_laptop,
+        laptop_key,
     )
     .await
     .unwrap();
@@ -540,13 +732,13 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
     assert!(alice.node.fetch(&laptop.device_key).await.is_err());
     assert!(alice.node.fetch(&alice.device_key).await.is_ok());
 
-    // The laptop sees it, ignores the older copy, and cannot list itself again.
-    assert!(laptop_session.own_device_revoked(&dropped).unwrap());
-    assert!(!laptop_session.own_device_revoked(&listed).unwrap());
-    let mut draft = dropped.clone();
-    let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
-    assert!(laptop_session.list_self(&mut draft, binding).is_err());
-    assert_eq!(draft, dropped);
+    check_cannot_relist(
+        laptop_session,
+        &laptop.device_key,
+        &alice.identity,
+        &dropped,
+        listed,
+    );
 
     // The closed mailbox and the signed profile together tell the laptop to wipe itself.
     let error = laptop_session
@@ -561,15 +753,26 @@ async fn any_own_device_revokes_another_and_it_stays_out() {
     );
 }
 
+fn check_cannot_relist(
+    session: &Session,
+    device_key: &Identity,
+    identity: &Identity,
+    dropped: &Profile,
+    listed: &Profile,
+) {
+    // The laptop sees it, ignores the older copy, and cannot list itself again.
+    assert!(session.own_device_revoked(dropped).unwrap());
+    assert!(!session.own_device_revoked(listed).unwrap());
+    let mut draft = dropped.clone();
+    let binding = dyapp_client::owner_binding(device_key, &identity.public_key());
+    assert!(session.list_self(&mut draft, binding).is_err());
+    assert_eq!(&draft, dropped);
+}
+
 #[tokio::test]
 async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     const NOW: u64 = 1_000_000;
-    let address = start_config(|config| {
-        config.roles = vec![Role::Store];
-        config.limits.requests_per_second = 1000;
-        config.limits.min_free_mb = 0;
-    })
-    .await;
+    let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
     let mut phone = Store::open(&store_path("restore-phone"), &alice.identity).unwrap();
@@ -613,21 +816,27 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     let (held, more) = inbox.fetch(&laptop_key).await.unwrap();
     assert!(held.is_empty() && !more, "the parts were acked");
 
+    Box::pin(check_restored_owner(&mut alice, &address, linked, NOW)).await;
+}
+
+async fn check_restored_owner(
+    alice: &mut Person,
+    address: &Multiaddr,
+    linked: dyapp_client::link::Linked,
+    now: u64,
+) {
+    let owner = alice.identity.peer_id();
     // The fresh store takes the state and the live profile, and the laptop lists itself.
-    let mut laptop = Person::device(
-        &address,
-        Identity::from_secret(&linked.identity.secret()),
-        2,
-    )
-    .await;
+    let mut laptop =
+        Person::device(address, Identity::from_secret(&linked.identity.secret()), 2).await;
     let mut store = Store::open(&store_path("restore-laptop"), &laptop.identity).unwrap();
     let live = alice.node.get_profile(&owner).await.unwrap().profile;
-    let mut draft = publish::adopt(
+    let adopted = publish::adopt(
         &mut store,
         &mut laptop.node,
         &alice.identity,
         &linked.state,
-        NOW,
+        now,
     )
     .await
     .unwrap();
@@ -635,6 +844,8 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     assert_eq!(store.local_name("carol").unwrap(), "Carrie");
     assert_eq!(store.passed_peers().unwrap(), ["erin"]);
     assert_eq!(store.own_profile_seen().unwrap(), live.version);
+    assert_eq!(adopted.published, live);
+    let mut draft = adopted.draft;
 
     // The profile stays hidden, and the node serves both devices.
     let binding = dyapp_client::owner_binding(&laptop.device_key, &alice.identity.public_key());
@@ -656,16 +867,18 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     );
 }
 
+async fn finish_pending(
+    store: Store,
+    node: &mut dyapp_client::Node,
+    identity: &Identity,
+    device_key: &Identity,
+) -> Result<bool, dyapp_client::session::Error> {
+    Session::finish_link(store, node, identity, device_key, 2, &SEAL, 1_000_000).await
+}
+
 #[tokio::test]
 async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version() {
-    const NOW: u64 = 1_000_000;
-    const PACKAGES: usize = 2;
-    let address = start_config(|config| {
-        config.roles = vec![Role::Store];
-        config.limits.requests_per_second = 1000;
-        config.limits.min_free_mb = 0;
-    })
-    .await;
+    let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
     let device_key = Identity::generate();
@@ -674,17 +887,10 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
     let mut laptop = Person::device(&address, copy, 2).await;
     let identity = Identity::from_secret(&alice.identity.secret());
     let store = Store::open(&path, &identity).unwrap();
-    assert!(!Session::finish_link(
-        store,
-        &mut laptop.node,
-        &identity,
-        &device_key,
-        PACKAGES,
-        &SEAL,
-        NOW
-    )
-    .await
-    .unwrap());
+    let pending = finish_pending(store, &mut laptop.node, &identity, &device_key)
+        .await
+        .unwrap();
+    assert!(!pending);
 
     // A step fails: no profile answers, and the state stays for the next pass.
     let store = Store::open(&path, &identity).unwrap();
@@ -694,32 +900,20 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
         .set_link_pending(&phone.link_state().unwrap())
         .unwrap();
     let stranger = Identity::generate();
-    assert!(Session::finish_link(
-        store,
-        &mut laptop.node,
-        &stranger,
-        &device_key,
-        PACKAGES,
-        &SEAL,
-        NOW
-    )
-    .await
-    .is_err());
+    assert!(
+        finish_pending(store, &mut laptop.node, &stranger, &device_key)
+            .await
+            .is_err()
+    );
 
     let store = Store::open(&path, &identity).unwrap();
     assert!(store.link_pending().unwrap().is_some());
     let live = alice.node.get_profile(&owner).await.unwrap().profile;
-    assert!(Session::finish_link(
-        store,
-        &mut laptop.node,
-        &identity,
-        &device_key,
-        PACKAGES,
-        &SEAL,
-        NOW
-    )
-    .await
-    .unwrap());
+    assert!(
+        finish_pending(store, &mut laptop.node, &identity, &device_key)
+            .await
+            .unwrap()
+    );
     let listed = alice.node.get_profile(&owner).await.unwrap().profile;
     assert_eq!(listed.version, live.version + 1);
     assert_eq!(listed.devices.len(), live.devices.len() + 1);
@@ -728,21 +922,15 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
     let store = Store::open(&path, &identity).unwrap();
     assert!(store.link_pending().unwrap().is_none());
     assert!(store.blocked("bob").unwrap());
-    assert!(store.device_listed().unwrap() >= listed.version);
+    assert_eq!(store.device_listed().unwrap(), listed.version);
     store
         .set_link_pending(&phone.link_state().unwrap())
         .unwrap();
-    assert!(Session::finish_link(
-        store,
-        &mut laptop.node,
-        &identity,
-        &device_key,
-        PACKAGES,
-        &SEAL,
-        NOW
-    )
-    .await
-    .unwrap());
+    assert!(
+        finish_pending(store, &mut laptop.node, &identity, &device_key)
+            .await
+            .unwrap()
+    );
     let served = alice.node.get_profile(&owner).await.unwrap().profile;
     assert_eq!(served.version, listed.version);
 }

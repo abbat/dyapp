@@ -95,8 +95,11 @@ async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
         )
         .await
         .unwrap();
-        assert_eq!(adopted.version, u64::MAX);
-        assert_eq!(store.profile_draft().unwrap(), Some(adopted));
+        assert_eq!(adopted.published.version, version);
+        assert_eq!(adopted.draft.version, u64::MAX);
+        assert_eq!(adopted.hidden, hidden);
+        assert!(!adopted.pending);
+        assert_eq!(store.profile_draft().unwrap(), Some(adopted.draft));
         assert_eq!(store.own_profile_seen().unwrap(), version);
         assert_eq!(store.profile_hidden().unwrap(), hidden);
     }

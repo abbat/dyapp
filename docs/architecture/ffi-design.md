@@ -321,6 +321,9 @@ never retries beyond the accepted tombstone version, protecting newer remote pub
 Publication, hidden linked-device adoption and stale media retries use checked version arithmetic
 and report exhaustion rather than wrapping. Adoption checks this before fetching photos or replacing
 the draft; earlier link-state import still applies. The largest visible remote version remains valid.
+Adoption returns separate exact ordinary readback and current local draft/visibility. Linked-device
+completion records only that ordinary published version, including its already-listed retry path;
+new device listing uses a prepared relist outcome. A hidden search tombstone never proves listing.
 Foreign imports, adoption/revocation prefixes and remaining prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

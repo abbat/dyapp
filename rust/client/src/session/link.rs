@@ -39,16 +39,19 @@ impl Session {
         let Some(state) = store.link_pending()? else {
             return Ok(false);
         };
-        let mut draft = publish::adopt(&mut store, node, identity, &state, now).await?;
+        let adopted = publish::adopt(&mut store, node, identity, &state, now).await?;
         let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
-        // A retry must not spend a profile version when the last relist reached the node.
-        if draft.devices.contains(&session.certificate()?) {
-            session.store.note_device_listed(draft.version)?;
+        // Only ordinary verified profiles prove listing; hidden drafts advance for search tombstones.
+        if adopted.published.devices.contains(&session.certificate()?) {
+            session
+                .store
+                .note_device_listed(adopted.published.version)?;
         } else {
+            let mut attempt = session.store.prepare_profile_publication(identity)?;
             let binding = crate::owner_binding(device_key, &identity.public_key());
-            session.list_self(&mut draft, binding)?;
-            let listed = publish::relist(&session.store, node, identity, &draft).await?;
-            session.store.note_device_listed(listed.version)?;
+            session.list_self(attempt.draft_mut(), binding)?;
+            let listed = publish::relist_prepared(&session.store, node, identity, &attempt).await?;
+            session.store.note_device_listed(listed.published.version)?;
         }
         if session.store.last_resort()?.is_none() {
             session
