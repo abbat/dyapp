@@ -57,7 +57,7 @@ class IdentitySettingsTests {
         check(active().peerId == second.peerId) { "Switch did not return to the new identity" }
         // Cancel returns to Settings with the identity intact.
         click("settings-remove")
-        compose.onNodeWithTag("remove-action").assertIsNotEnabled()
+        compose.awaitNode(hasTestTag("remove-action")).assertIsNotEnabled()
         compose.onNodeWithTag("remove-cancel").performClick()
         compose.onNodeWithTag("settings-create").assertExists()
         check(active().peerId == second.peerId) { "Cancel changed the active identity" }

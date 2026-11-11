@@ -173,8 +173,8 @@ loading frame or an old matching Recovery view. Identity-menu and Settings inven
 profile editor's initial draft/visibility snapshot and the publication preview also load on IO.
 Their keyed presentation state starts empty for a replacement owner and rejects cancelled
 owners' late values. The editor and preview show loading; publication remains disabled until
-the preview has loaded. Removal-dialog preflight and editor saves still need IO ownership
-adoption; the value-read helper must not return native handles.
+the preview has loaded. Removal preflight also runs on IO; editor saves still need IO
+ownership adoption. The value-read helper must not return native handles.
 Network checkers, proof solvers and the search session use `withNativeResource`: creation and final release
 stay on IO, while presentation callbacks return to the caller's context. If cancellation
 arrives during a blocking factory, its eventual handle is closed without being published.
@@ -192,7 +192,10 @@ registry admission protects identity lifetime and is not itself a draft-write mu
 
 ## Remove
 
-The existing confirmation shows the exact Peer ID and whether another ready slot has that key.
+The confirmation first loads the target-owned copy/visibility snapshot on IO. Loading and
+read failure leave confirmation unavailable; Cancel remains available. A visibility read error
+never counts as an unpublished profile. Once loaded, it shows the exact Peer ID and whether
+another ready slot has that key. Changing targets resets both loading and confirmation.
 Removal requires confirmation and delegates identity/key verification, owned-file preflight,
 credential erasure and cleanup to the core. Unknown files, symlinks or unowned directories refuse
 removal before any credential is erased. A key that still opens must match the confirmed Peer ID.

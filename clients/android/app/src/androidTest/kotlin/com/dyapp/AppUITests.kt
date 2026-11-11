@@ -101,6 +101,7 @@ class AppUITests {
         val alias = identityAlias((RustBridge.slots(context).open() as Opened.Ready).slot.id)
         compose.onNodeWithTag("nav-settings").performClick()
         compose.awaitNode(hasTestTag("settings-remove")).performScrollTo().performClick()
+        compose.awaitNode(hasTestTag("remove-confirm"))
         compose.onNodeWithTag("remove-title").assertTextEquals(string(R.string.remove_title))
         compose.onNodeWithTag("remove-peer").assertTextEquals(second)
         compose.onNodeWithText(string(R.string.remove_last_copy)).assertIsDisplayed()
@@ -145,7 +146,7 @@ class AppUITests {
             copiesRecoveryDetails(context)
             // No key exists, so removing loses nothing and shows no loss warning.
             compose.onNodeWithTag("remove-identity").performScrollTo().performClick()
-            compose.onNodeWithTag("remove-confirm").assertExists()
+            compose.awaitNode(hasTestTag("remove-confirm")).assertExists()
             compose.onNodeWithTag("remove-warning").assertDoesNotExist()
             compose.onNodeWithTag("remove-cancel").performClick()
         } finally {

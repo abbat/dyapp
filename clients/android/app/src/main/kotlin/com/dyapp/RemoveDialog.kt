@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,6 +33,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ProfilePublisher
+import uniffi.dyapp.profileVisibility
+
+private const val REMOVE_TITLE_TAG = "remove-title"
+private const val REMOVE_CANCEL_TAG = "remove-cancel"
 
 /** How far a removal got; a running withdrawal cannot be dismissed. */
 private class RemoveState {
@@ -63,9 +68,37 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
         else -> return
     }
     if (slot == null) return
-    val copies = remember(slot.id) { hasOtherCopy(slots, slot.id, peerId) }
-    // Only an open key can sign the withdrawal; an unreadable version counts as never published.
-    val published = remember(slot.id) { (target as? Opened.Ready)?.takeIf { loadVisibility(it).version > 0uL } }
+    val checked by rememberNativeRead(slots, target) {
+        val copies = hasOtherCopy(slots, slot.id, peerId)
+        val published = (target as? Opened.Ready)?.takeIf {
+            RustBridge.withKey(it) { dir, key -> profileVisibility(dir, key).version > 0uL }
+        }
+        RemovalView(target, slot to peerId, copies, published)
+    }
+    val view = checked?.getOrNull()
+    if (view == null) {
+        RemovalWaiting(checked != null, onDismiss)
+    } else {
+        key(target) { ReadyRemovalDialog(slots, view, act, onDismiss) }
+    }
+}
+
+private data class RemovalView(
+    val target: Opened,
+    val identity: Pair<Slot, String?>,
+    val copies: Boolean,
+    val published: Opened.Ready?
+)
+
+@Composable
+private fun ReadyRemovalDialog(
+    slots: Slots,
+    view: RemovalView,
+    act: (() -> Opened) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val (slot, peerId) = view.identity
+    val published = view.published
     val state = remember(slot.id) { RemoveState() }
     val scope = rememberCoroutineScope()
     val remove: () -> Unit = {
@@ -79,10 +112,28 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
     }
     AlertDialog(
         onDismissRequest = { if (!state.busy) onDismiss() },
-        title = { Text(stringResource(R.string.remove_title), Modifier.testTag("remove-title")) },
-        text = { state.RemoveText(target, peerId, copies, published != null) },
+        title = { Text(stringResource(R.string.remove_title), Modifier.testTag(REMOVE_TITLE_TAG)) },
+        text = { state.RemoveText(view.target, peerId, view.copies, published != null) },
         confirmButton = { RemoveActions(state, proceed, remove) },
         dismissButton = { RemoveCancel(state, onDismiss) },
+    )
+}
+
+@Composable
+private fun RemovalWaiting(failed: Boolean, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.remove_title), Modifier.testTag(REMOVE_TITLE_TAG)) },
+        text = {
+            Text(
+                stringResource(if (failed) R.string.storage_error else R.string.view_loading),
+                Modifier.testTag(if (failed) "remove-read-failed" else "remove-loading")
+            )
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onDismiss, Modifier.testTag(REMOVE_CANCEL_TAG)) { Text(stringResource(R.string.remove_cancel)) }
+        }
     )
 }
 
@@ -94,16 +145,15 @@ private fun RemoveState.RemoveText(target: Opened, peerId: String?, copies: Bool
     }
 }
 
-private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null && runCatching {
+private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null &&
     slots.list().filter { it.id != slotId }.map { slots.inspect(it.id) }
         .any { it is Opened.Ready && it.peerId == peerId }
-}.getOrDefault(false)
 
 @Composable
 private fun RemoveCancel(state: RemoveState, onDismiss: () -> Unit) {
     TextButton(
         onClick = onDismiss,
-        Modifier.testTag(if (state.offline) "remove-cancel-offline" else "remove-cancel"),
+        Modifier.testTag(if (state.offline) "remove-cancel-offline" else REMOVE_CANCEL_TAG),
         enabled = !state.busy,
     ) {
         Text(stringResource(R.string.remove_cancel))

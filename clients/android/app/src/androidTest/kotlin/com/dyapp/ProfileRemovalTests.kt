@@ -42,6 +42,7 @@ class ProfileRemovalTests {
     private fun askToRemove() {
         compose.onNodeWithTag("nav-settings").performClick()
         compose.awaitNode(hasTestTag("settings-remove")).performScrollTo().performClick()
+        compose.awaitNode(hasTestTag("remove-confirm"))
         compose.onNodeWithText(string(R.string.remove_withdraws)).assertExists()
         compose.onNodeWithTag("remove-confirm").performScrollTo().performClick()
         removalRevision = compose.identityRevision()
