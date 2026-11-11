@@ -267,4 +267,4 @@ export const setAvatarPhoto = (avatar, canvas) => {
   if (canvas) avatar.append(canvas);
 };
 
-export { drawPhoto, fitCanvas };
+export { drawPhoto };

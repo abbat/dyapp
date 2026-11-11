@@ -13,7 +13,12 @@
     const hashes = [];
     const commands = [];
     const fixture = { refusal: null };
-    const call = (command, args) => {
+    const preparation = {
+      photo_picked_byte_limit: () => Promise.resolve(64 << 20),
+      photo_decode_plan: ({ mime, width, height }) =>
+        mime === 'image/jpeg' ? Promise.resolve({ width, height }) : Promise.reject('unsupported'),
+    };
+    const store = (command, args) => {
       commands.push(command);
       if (command === 'profile_photo') return Promise.resolve(bytes);
       if (fixture.refusal) return Promise.reject(fixture.refusal);
@@ -23,6 +28,8 @@
         hashes.splice(args.to, 0, ...hashes.splice(args.from, 1));
       return Promise.resolve({ draft: { photos: [...hashes] } });
     };
+    const call = (command, args) =>
+      Object.hasOwn(preparation, command) ? preparation[command](args) : store(command, args);
     const { strings } = appApi;
     const status = byId('profile-status');
     const add = byId('profile-photo-add');

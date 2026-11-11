@@ -1,7 +1,7 @@
 import { all as domAll, byId as domById, find as domFind, query as domQuery } from './dom.js';
 import { profileBusy, profileMessage, setProfileBusy } from './app.js';
 import { drawPhoto, setAvatarPhoto } from './chat-photos.js';
-import { preparePhoto } from './chats-photo-send.js';
+import { photoPixels } from './chats-photo-send.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
@@ -11,12 +11,9 @@ controller.profilePhotoChanged = undefined;
 /** @type {Promise<void> | undefined} */
 controller.ownAvatarsShown = undefined;
 
-// Profile photos share the chat encoder. Keep the form busy while publication still requires
-// shared-core adoption; editor saves and proof steps already transform the latest draft safely.
+// Profile photos share the chat decoder; the core fits and encodes them with the profile budget.
+// Keep the form busy while a photo changes; editor saves and proof steps transform the latest draft.
 const MAX_PROFILE_PHOTOS = 6;
-const PROFILE_PHOTO_SIDES = [2048, 1600, 1280];
-const PROFILE_PHOTO_QUALITIES = [0.85, 0.7, 0.55];
-const MAX_PROFILE_PHOTO_BYTES = 1024 * 1024;
 const PROFILE_TILE_SIDE = 320;
 const profilePhotoGrid = domById('profile-photos', HTMLDivElement);
 const profilePhotoAdd = domById('profile-photo-add', HTMLButtonElement);
@@ -78,13 +75,8 @@ const changeProfilePhotos = async (work, call, focus) => {
 const addProfilePhoto = (file, call = invoke) =>
   changeProfilePhotos(
     async () => {
-      const { photo, preview } = await preparePhoto(
-        file,
-        PROFILE_PHOTO_SIDES,
-        PROFILE_PHOTO_QUALITIES,
-        MAX_PROFILE_PHOTO_BYTES,
-      );
-      return call('add_profile_photo', { full: photo, thumbnail: preview });
+      const { pixels, headers } = await photoPixels(file, 'profile', call);
+      return call('add_profile_photo', pixels, { headers });
     },
     call,
     () => profilePhotoAdd.focus(),

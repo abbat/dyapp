@@ -158,8 +158,10 @@
  *   delete_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[] }], number[]>,
  *   forward_chat_text: Command<[{ sourcePeerId: string, sourceGroupId: number[], sourceAuthor: string, sourceMessageId: number[], targetPeerId: string }], { id: number[], queued: string | null }>,
  *   announce_presence: Command<[], boolean>,
- *   send_chat_photo: Command<[{ peerId: string, photo: number[], preview: number[], width: number, height: number }], number[]>,
- *   add_profile_photo: Command<[{ full: number[], thumbnail: number[] }], import('./profile-fields.js').ProfileView>,
+ *   photo_picked_byte_limit: Command<[], number>,
+ *   photo_decode_plan: Command<[{ mime: string, width: number, height: number, bytes: number, purpose: 'profile' | 'chat' }], { width: number, height: number }>,
+ *   send_chat_photo: Command<[Uint8Array, { headers: PhotoHeaders & { 'dyapp-peer-id': string } }], number[]>,
+ *   add_profile_photo: Command<[Uint8Array, { headers: PhotoHeaders }], import('./profile-fields.js').ProfileView>,
  *   remove_profile_photo: Command<[{ index: number }], import('./profile-fields.js').ProfileView>,
  *   move_profile_photo: Command<[{ from: number, to: number }], import('./profile-fields.js').ProfileView>,
  *   profile_photo: Command<[{ hash: number[] }], BinaryResponse>,
@@ -186,7 +188,9 @@
  * @typedef {<Name extends keyof Commands>(command: Name,
  *   ...args: Commands[NoInfer<Name>]['args']
  * ) => Promise<Commands[Name]['result']>} Invoke
- * @typedef {<Result = unknown>(command: string, args?: Record<string, unknown>) => Promise<Result>} RawInvoke
+ * @typedef {{ 'dyapp-width': string, 'dyapp-height': string }} PhotoHeaders
+ * @typedef {<Result = unknown>(command: string, args?: Record<string, unknown> | Uint8Array,
+ *   options?: { headers?: Record<string, string> }) => Promise<Result>} RawInvoke
  */
 // Tauri injects this host API before page modules run; lib.dom does not declare it.
 const bridge = /** @type {{ __TAURI__: { core: { invoke: RawInvoke } } }} */ (

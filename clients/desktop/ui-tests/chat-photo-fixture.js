@@ -50,8 +50,13 @@
         fixture.autoAsked += 1;
         return Promise.resolve(fixture.autoAllowed);
       },
-      send_chat_photo: (args) => {
-        fixture.sent = args;
+      photo_picked_byte_limit: () => Promise.resolve(64 << 20),
+      photo_decode_plan: ({ mime, width, height }) =>
+        ['image/jpeg', 'image/png'].includes(mime)
+          ? Promise.resolve({ width, height })
+          : Promise.reject('unsupported'),
+      send_chat_photo: (body, options) => {
+        fixture.sent = { body, headers: options.headers };
         const refusal = sends.shift();
         return refusal ? Promise.reject(refusal) : Promise.resolve(Array(16).fill(9));
       },
@@ -63,8 +68,8 @@
       contact_names: (args) =>
         Promise.resolve(args.peerIds.map((peerId) => ({ peerId, name: '', verified: null }))),
     };
-    return (command, args) =>
-      Object.hasOwn(handlers, command) ? handlers[command](args) : Promise.resolve(0);
+    return (command, args, options) =>
+      Object.hasOwn(handlers, command) ? handlers[command](args, options) : Promise.resolve(0);
   };
   smoke.uiSmokeChatPhotoFixture = async () => {
     const original = await originalBytes();

@@ -25,16 +25,17 @@
     await appBindings.sendChatPhoto(tagged, call);
     const holds = (bytes) =>
       bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
+    const { body, headers } = fixture.sent;
     if (
-      fixture.sent.peerId !== peer ||
-      fixture.sent.width !== 8 ||
-      fixture.sent.photo[0] !== 0xff ||
-      !fixture.sent.preview.length
+      headers['dyapp-peer-id'] !== peer ||
+      headers['dyapp-width'] !== '8' ||
+      headers['dyapp-height'] !== '8' ||
+      !(body instanceof Uint8Array) ||
+      body.length !== 8 * 8 * 4
     ) {
-      throw new Error(`the photo was not sent: ${fixture.sent.width}`);
+      throw new Error(`the photo pixels were not sent: ${headers['dyapp-width']}`);
     }
-    if (holds(fixture.sent.photo) || holds(fixture.sent.preview))
-      throw new Error('the metadata left the computer');
+    if (holds([...body])) throw new Error('the metadata left the page');
   };
   const checkRefusedPhotos = async (fixture, tagged) => {
     const { sends, call } = fixture;

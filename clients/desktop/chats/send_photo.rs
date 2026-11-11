@@ -1,10 +1,12 @@
-//! Send one photo into an open conversation. The page re-encodes the picked file, so what arrives
-//! here is a bare JPEG with its preview; a chat photo never creates a message request.
+//! Send one photo into an open conversation. The page sends the picked file decoded to straight
+//! RGBA, and the shared core encodes the bare JPEG and its preview; a chat photo never creates a
+//! message request.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::attachment::{self, Attachment};
+use dyapp_client::photo::prepare::Purpose;
 use dyapp_client::session;
 use dyapp_client::Error;
 use dyapp_identity::Identity;
@@ -73,24 +75,19 @@ async fn send(
         .map_err(code)
 }
 
-/// Seal and send a photo through the active identity's MLS Session. Errors are `unsupported`,
-/// `corrupted`, `full`, `tooLarge`, `notConnected` or a message to show.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Tauri command names the photo and its claims"
-)]
+/// Prepare, seal and send a photo through the active identity's MLS Session. The body is the
+/// decoded RGBA, with `dyapp-peer-id`, `dyapp-width` and `dyapp-height` headers. Errors are
+/// `unsupported`, `corrupted`, `full`, `tooLarge`, `notConnected` or a message to show.
 #[tauri::command]
 pub(crate) async fn send_chat_photo(
     app: tauri::AppHandle,
     state: tauri::State<'_, crate::IdentityState>,
     searching: tauri::State<'_, crate::search::SearchState>,
     sessions: tauri::State<'_, super::Sessions>,
-    peer_id: String,
-    photo: Vec<u8>,
-    preview: Vec<u8>,
-    width: u32,
-    height: u32,
+    request: tauri::ipc::Request<'_>,
 ) -> Result<[u8; 16], String> {
+    let peer_id = crate::photo_prepare::header(request.headers(), "dyapp-peer-id")?.to_owned();
+    let (rgba, width, height) = crate::photo_prepare::pixels(request.headers(), request.body())?;
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
     let root = crate::config_dir(&app)?;
@@ -98,7 +95,8 @@ pub(crate) async fn send_chat_photo(
     let sessions = Arc::clone(&sessions.0);
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        let photo = sealed(&photo, preview, width, height)?;
+        let photo = crate::photo_prepare::prepared(&rgba, width, height, Purpose::Chat)?;
+        let photo = sealed(&photo.full, photo.thumbnail, photo.width, photo.height)?;
         let _session = sessions.lock().map_err(|e| e.to_string())?;
         let device = crate::device_key(&root, &dir, &identity)?;
         tauri::async_runtime::block_on(send(

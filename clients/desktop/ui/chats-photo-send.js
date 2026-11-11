@@ -1,5 +1,4 @@
 import { byId as domById } from './dom.js';
-import { fitCanvas } from './chat-photos.js';
 import { chatState } from './chat-state.js';
 import { chatSending, sendInChat } from './chats-ui.js';
 import { invoke } from './ipc.js';
@@ -9,74 +8,37 @@ const controller = {};
 controller.chatPhotoSent = undefined;
 
 // Sends a picked photo from the open chat through the imported chat controller.
-// A canvas writes a bare JPEG, so EXIF, GPS, colour profiles and anything appended to the file
-// never leave the computer. It also turns a rotated photo upright and fits the node limit.
-const MAX_PHOTO_FILE_BYTES = 64 * 1024 * 1024;
-const MAX_PHOTO_PIXELS = 64_000_000;
-// Under the 6 MiB node limit once the encrypted chunks add their tags.
-const MAX_PHOTO_BYTES = 6_000_000;
-const PHOTO_SIDES = [2560, 1920, 1280];
-const PHOTO_QUALITIES = [0.85];
-const MAX_PREVIEW_BYTES = 24 * 1024;
-const PREVIEW_SIDES = [320, 160];
-const PREVIEW_QUALITIES = [0.8, 0.7, 0.6, 0.5, 0.4];
+// The page only decodes the file upright at the size the core picks; the core fits and encodes
+// a bare JPEG, so EXIF, GPS, colour profiles and anything appended to the file never leave.
 const chatPhotoInput = domById('chat-photo-input', HTMLInputElement);
 
-/** @param {ImageBitmap} bitmap @param {number} side @param {number} quality */
-const encodePhoto = (bitmap, side, quality) =>
-  new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    fitCanvas(canvas, bitmap.width, bitmap.height, side);
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Photo canvas unavailable');
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(
-      (blob) => resolve({ blob, width: canvas.width, height: canvas.height }),
-      'image/jpeg',
-      quality,
-    );
-  });
 /**
- * @param {ImageBitmap} bitmap
- * @param {number[]} sides
- * @param {number[]} qualities
- * @param {number} limit
+ * Decodes a picked file to straight RGBA at the core's decode size.
+ * @param {File} file
+ * @param {'profile' | 'chat'} purpose
+ * @param {import('./ipc.js').Invoke} call
  */
-const fittedPhoto = async (bitmap, sides, qualities, limit) => {
-  for (const side of sides) {
-    for (const quality of qualities) {
-      const made = await encodePhoto(bitmap, side, quality);
-      if (made.blob && made.blob.size <= limit) return made;
-    }
-  }
-  return null;
-};
-/** @param {Blob} blob */
-const photoBytes = async (blob) => Array.from(new Uint8Array(await blob.arrayBuffer()));
-/** @param {File} file */
-const preparePhoto = async (
-  file,
-  sides = PHOTO_SIDES,
-  qualities = PHOTO_QUALITIES,
-  limit = MAX_PHOTO_BYTES,
-) => {
-  if (!['image/png', 'image/jpeg'].includes(file.type)) return Promise.reject('unsupported');
-  if (file.size > MAX_PHOTO_FILE_BYTES) return Promise.reject('tooLarge');
+const photoPixels = async (file, purpose, call) => {
+  if (file.size > (await call('photo_picked_byte_limit'))) return Promise.reject('tooLarge');
   const bitmap = await createImageBitmap(file).catch(() => null);
   if (!bitmap) return Promise.reject('unsupported');
   try {
-    if (bitmap.width * bitmap.height > MAX_PHOTO_PIXELS) return Promise.reject('tooLarge');
-    const photo = await fittedPhoto(bitmap, sides, qualities, limit);
-    const preview = await fittedPhoto(bitmap, PREVIEW_SIDES, PREVIEW_QUALITIES, MAX_PREVIEW_BYTES);
-    if (!photo || !preview) return Promise.reject('tooLarge');
-    return {
-      photo: await photoBytes(photo.blob),
-      preview: await photoBytes(preview.blob),
-      width: photo.width,
-      height: photo.height,
-    };
+    const { width, height } = await call('photo_decode_plan', {
+      mime: file.type,
+      width: bitmap.width,
+      height: bitmap.height,
+      bytes: file.size,
+      purpose,
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Photo canvas unavailable');
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(bitmap, 0, 0, width, height);
+    const pixels = new Uint8Array(context.getImageData(0, 0, width, height).data.buffer);
+    return { pixels, headers: { 'dyapp-width': String(width), 'dyapp-height': String(height) } };
   } finally {
     bitmap.close();
   }
@@ -97,7 +59,10 @@ const photoSendError = (code) => {
 const sendChatPhoto = async (file, call = invoke) => {
   if (!chatState.activeChat || chatSending) return;
   await sendInChat(
-    async (peerId) => call('send_chat_photo', { peerId, ...(await preparePhoto(file)) }),
+    async (peerId) => {
+      const { pixels, headers } = await photoPixels(file, 'chat', call);
+      return call('send_chat_photo', pixels, { headers: { ...headers, 'dyapp-peer-id': peerId } });
+    },
     () => {},
     photoSendError,
     call,
@@ -110,4 +75,4 @@ chatPhotoInput.addEventListener('change', () => {
   chatPhotoInput.value = '';
 });
 
-export { preparePhoto, sendChatPhoto };
+export { photoPixels, sendChatPhoto };

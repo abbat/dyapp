@@ -1,9 +1,9 @@
-//! The profile editor's photo commands over the client store. The page re-encodes a picked file,
-//! so what arrives here is a bare JPEG with its thumbnail; the pixel bound is checked here because
-//! the client core has no image decoder.
+//! The profile editor's photo commands over the client store. The page sends a picked file
+//! decoded to straight RGBA, and the shared core fits and encodes it with its thumbnail.
 
 use std::path::Path;
 
+use dyapp_client::photo::prepare::Purpose;
 use dyapp_client::store::{Error, Store};
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
@@ -46,15 +46,17 @@ async fn on_identity<T: Send + 'static>(
     .map_err(|e| e.to_string())?
 }
 
-/// Adds a photo to the draft. Errors are `corrupted`, `photoRefused` or a storage message.
+/// Adds a photo to the draft from decoded RGBA. Errors are `tooLarge`, `unsupported`,
+/// `corrupted`, `photoRefused` or a storage message.
 #[tauri::command]
 pub(crate) async fn add_profile_photo(
     state: tauri::State<'_, crate::IdentityState>,
-    full: Vec<u8>,
-    thumbnail: Vec<u8>,
+    request: tauri::ipc::Request<'_>,
 ) -> Result<View, String> {
+    let (rgba, width, height) = crate::photo_prepare::pixels(request.headers(), request.body())?;
     on_identity(&state, move |dir, identity| {
-        add(dir, identity, &full, &thumbnail)
+        let photo = crate::photo_prepare::prepared(&rgba, width, height, Purpose::Profile)?;
+        add(dir, identity, &photo.full, &photo.thumbnail)
     })
     .await
 }

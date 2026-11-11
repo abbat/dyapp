@@ -42,6 +42,7 @@ mod node_usage_commands;
 mod notify;
 #[path = "peer_photos.rs"]
 mod peer_photos;
+mod photo_prepare;
 mod places;
 #[path = "privacy.rs"]
 mod privacy;
@@ -746,6 +747,8 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     peer_photos::fetch_peer_photos,
     peer_photos::peer_photo,
     peer_photos::peer_photo_auto,
+    photo_prepare::photo_picked_byte_limit,
+    photo_prepare::photo_decode_plan,
     profile_photos::add_profile_photo,
     profile_photos::remove_profile_photo,
     profile_photos::move_profile_photo,

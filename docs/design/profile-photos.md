@@ -39,16 +39,18 @@ pipeline. Profile originals use the limits above and qualities 85, 70, 55; chat 
 6,000,000 bytes, sides 2560, 1920, 1280 and quality 85. Both share preview encoding and flatten
 transparency onto white. The platform must decode upright straight RGBA within the returned
 size before calling preparation. Android uses this common API for profile and chat picking,
-including decoder targets for displaying originals. iOS and desktop preparation migration
-remains planned.
+including decoder targets for displaying originals. The desktop uses it for profile and chat
+picking. iOS preparation migration remains planned.
 
 ## Publishing
 
-1. The page decodes the picked file and draws it on a canvas, which writes a bare JPEG. EXIF, GPS,
-   colour profiles and anything appended to the file never leave the computer, and a rotated
-   photo comes out upright. Android uses software `ImageDecoder` with the core's header-driven
-   target, then converts `Bitmap.getPixels` straight sRGB ARGB into RGBA. The shared Rust pipeline
-   flattens transparency onto white and encodes both original and preview. Core dimensions travel
+1. The desktop page decodes the picked file upright with `createImageBitmap` at the core's decode
+   plan size and sends the straight RGBA canvas pixels as a raw IPC body; the Tauri command passes
+   them to the core encoder. EXIF, GPS, colour profiles and anything appended to the file never
+   leave the computer, and a rotated photo comes out upright. Android uses software
+   `ImageDecoder` with the core's header-driven target, then converts `Bitmap.getPixels` straight
+   sRGB ARGB into RGBA. The shared Rust pipeline flattens transparency onto white and encodes both
+   original and preview. Core dimensions travel
    with the prepared bytes to chat sending; Kotlin does not parse the JPEG again. Bitmaps are
    recycled after preparation. The system photo picker needs no storage permission.
    Apple clients do this with ImageIO, then pass the JPEG through the core's `strip_metadata`,
