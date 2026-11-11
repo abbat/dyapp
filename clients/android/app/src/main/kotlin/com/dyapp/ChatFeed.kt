@@ -103,9 +103,8 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
     }
 }
 
-// shortcut: a poll in flight can make an identity removal fail after the rename, leaving its
-// hidden folder as a crash does; removal runs on the UI thread, so it cannot wait for a receive.
-// Upgrade when removal moves off the UI thread: take the chats lock there.
+// Native sessions retain identity admission and chat.lock through actual receives.
+// Removal waits on IO; disposing a screen does not release an in-flight native lease.
 private suspend fun ChatFeed.poll() {
     read()
     while (true) {

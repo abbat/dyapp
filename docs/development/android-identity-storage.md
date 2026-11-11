@@ -188,8 +188,10 @@ The network screen retains its checker in this scope until disposal; teardown ca
 before IO release, without a competing UI-side close. Search requests await the owned
 searcher's readiness, and verified-photo providers refresh when it is ready. Disposing
 the search session cancels its owner without waiting for construction or closing on UI.
-Pre-registration network cancellation remains planned separately from cancellation of an
-already registered native check.
+The common native API now offers a single-use `ConnectionAttempt`, backed by a core
+cancellation owner that exists before dispatch and survives pending admission. Each retry
+creates a fresh owner. Android's network form still needs adoption; its current checker-only
+Cancel can miss pre-registration work.
 
 While process-local draft serialization remains, every `draftWrites` monitor is acquired before
 native admission, including publication. A lease holder never waits for that monitor. Shared

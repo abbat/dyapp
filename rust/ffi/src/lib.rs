@@ -25,6 +25,8 @@ pub use network::{
     load_network, save_network_draft, CheckError, ConnectionCheck, NetworkFile, NetworkSettings,
     SeedRow,
 };
+mod network_attempt;
+pub use network_attempt::ConnectionAttempt;
 mod peer_photos;
 pub use peer_photos::peer_photo_auto;
 mod slot_chat;

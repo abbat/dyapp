@@ -6,6 +6,7 @@
 
 use crate::slot_operation::SlotWorker;
 use crate::MobileIdentityRegistry;
+use dyapp_client::cancellation::Cancellation;
 use dyapp_client::seeds::{self, Row};
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::seed::SeedError;
@@ -103,7 +104,7 @@ pub enum CheckError {
         /// Which rule the name breaks, for logs.
         reason: String,
     },
-    /// [`ConnectionCheck::cancel`] stopped the check.
+    /// The checker or the current attempt owner stopped the check.
     #[error("cancelled")]
     Cancelled,
     /// No check of this object reached a node of its network.
@@ -258,19 +259,44 @@ impl ConnectionCheck {
         }))
     }
 
-    // The readiness callback observes cancellation registration before dialing starts.
+    pub(crate) fn run_attempt(
+        &self,
+        draft: NetworkSettings,
+        wait_ms: u32,
+        cancellation: &Cancellation,
+    ) -> Result<Vec<SeedRow>, CheckError> {
+        self.run_attempt_with_ready(draft, wait_ms, cancellation, || {})
+    }
+
     fn run_with_ready(
         &self,
         draft: NetworkSettings,
         wait_ms: u32,
         ready: impl FnOnce(),
     ) -> Result<Vec<SeedRow>, CheckError> {
+        self.run_attempt_with_ready(draft, wait_ms, &Cancellation::new(), ready)
+    }
+
+    // Readiness is after legacy registration; the attempt owner exists before admission.
+    fn run_attempt_with_ready(
+        &self,
+        draft: NetworkSettings,
+        wait_ms: u32,
+        cancellation: &Cancellation,
+        ready: impl FnOnce(),
+    ) -> Result<Vec<SeedRow>, CheckError> {
+        if cancellation.is_cancelled() {
+            return Err(CheckError::Cancelled);
+        }
         let _operation = self
             .binding
             .as_ref()
             .map(SlotWorker::operation)
             .transpose()
             .map_err(failed)?;
+        if cancellation.is_cancelled() {
+            return Err(CheckError::Cancelled);
+        }
         let draft = Network::from(draft);
         network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
         let (stop, stopped) = oneshot::channel();
@@ -278,11 +304,21 @@ impl ConnectionCheck {
         ready();
         let rows = self.runtime.block_on(async {
             tokio::select! {
-                rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
+                biased;
+                () = cancellation.cancelled() => None,
                 _ = stopped => None,
+                rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
             }
         });
-        let rows = match rows.ok_or(CheckError::Cancelled)? {
+        self.record_rows(draft, rows.ok_or(CheckError::Cancelled)?)
+    }
+
+    fn record_rows(
+        &self,
+        draft: Network,
+        rows: Result<Vec<Row>, seeds::CheckError>,
+    ) -> Result<Vec<SeedRow>, CheckError> {
+        let rows = match rows {
             Ok(rows) => rows,
             Err(seeds::CheckError::NoSeeds) => return Err(CheckError::Empty),
             Err(seeds::CheckError::Name(reason)) => {

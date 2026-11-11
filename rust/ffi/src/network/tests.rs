@@ -1,3 +1,4 @@
+mod attempts;
 mod slots;
 
 use super::*;

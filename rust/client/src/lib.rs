@@ -5,6 +5,7 @@
 //! public profiles locally; [`places`] names and finds profile places.
 
 pub mod attachment;
+pub mod cancellation;
 pub mod chat;
 pub mod chat_composer;
 pub mod compatibility;

@@ -23,6 +23,16 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+## Network attempt ownership
+
+`ConnectionAttempt(checker)` prepares a single-use cancellation owner without key access,
+admission or network work. Its shared-core `Cancellation` retains cancellation before
+subscription. A native run checks before and after identity admission and prioritizes
+cancellation over a simultaneously ready seed result. Cancellation cannot release an
+in-flight identity lease; the actual worker must finish first. Retries allocate new attempts.
+The legacy `ConnectionCheck.run/cancel` interface remains available; clients must adopt
+attempt ownership to cover cancellation before dispatch. Android adoption remains planned.
+
 ## Shared mobile identity registry
 
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit

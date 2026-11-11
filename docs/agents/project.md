@@ -51,6 +51,8 @@ The Kotlin/Compose compiler 2.4.21 crashes in `irJoinKeyChain` on a spread-only 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
 it as C with Clang after callback changes. Binding generation alone does not validate it.
+Kotlin binding output follows its package directory (for example `uniffi/dyapp/dyapp.kt`).
+Verify new APIs and compile that generated file; a stale flat copy can hide missing coverage.
 
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
