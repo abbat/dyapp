@@ -13,7 +13,7 @@ import { placePicker, controller as placesController } from './places.js';
 import * as profileFieldsModule from './profile-fields.js';
 import { controller as savedProfilesController } from './saved-profiles.js';
 import { progress } from './ui-progress.js';
-import { drawContactQr, grayscaleFrame, safetyCameraFrame } from './contact-qr.js';
+import { drawContactQr, qrFrame, safetyCameraFrame } from './contact-qr.js';
 export const controller = {};
 /** @type {Promise<void> | undefined} */
 controller.favoriteShown = undefined;
@@ -625,19 +625,8 @@ controller.scanQrFile = async (file) => {
     if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16_000_000) {
       return report('tooLarge');
     }
-    const scale = Math.min(1, 768 / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) throw new Error('Canvas rendering is unavailable');
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, width, height);
-    context.drawImage(bitmap, 0, 0, width, height);
-    const pixels = grayscaleFrame(context, width, height);
-    const result = await invoke('scan_contact_qr', { peerId: found.peerId, width, height, pixels });
+    const frame = qrFrame(bitmap, bitmap.width, bitmap.height);
+    const result = await invoke('scan_contact_qr', { peerId: found.peerId, ...frame });
     report(result);
   } catch (_) {
     report(bitmap ? 'failed' : 'loadFailed');

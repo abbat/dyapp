@@ -15,7 +15,7 @@
   "photos.cache.clear": "Clear cache…",
   "photos.cache.loading": "Reading cache settings…",
   "photos.cache.saving": "Updating cache…",
-  "photos.cache.invalid": "Enter 1–10240 MiB, resolving to a whole number of bytes.",
+  "photos.cache.invalid": "Enter {min}–{max} MiB, resolving to a whole number of bytes.",
   "photos.cache.failed": "Cache operation failed. Refresh before changing or clearing it.",
   "settings.hub.product": "dyapp",
   "settings.hub.notifications": "Notifications",

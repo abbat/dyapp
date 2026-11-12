@@ -52,7 +52,8 @@
  * @typedef {{ offered: number[], filters: SearchFilters, profiles: FoundProfile[],
  *   partial: boolean, failures: SearchFailure[] }} SearchResults
  * @typedef {'byNetwork' | 'always' | 'onTap'} AutoDownloadMode
- * @typedef {{ enabled: boolean, limitBytes: number, usedBytes: number }} MediaCache
+ * @typedef {{ enabled: boolean, limitBytes: number, usedBytes: number, minBytes: number,
+ *   maxBytes: number }} MediaCache
  * @typedef {{ id: number[], bytes: number, name: string | null, stickers: number | null,
  *   error: string | null }} StickerPack
  * @typedef {{ entries: StickerPack[], next: number[] | null, usedBytes: number,

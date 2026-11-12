@@ -24,7 +24,7 @@ export const drawContactQr = (
 };
 
 /** @param {CanvasRenderingContext2D} context @param {number} width @param {number} height */
-export const grayscaleFrame = (context, width, height) => {
+const grayscaleFrame = (context, width, height) => {
   const rgba = context.getImageData(0, 0, width, height).data;
   const pixels = new Array(width * height);
   for (let i = 0; i < pixels.length; i += 1) {
@@ -35,17 +35,27 @@ export const grayscaleFrame = (context, width, height) => {
   return pixels;
 };
 
-/** @param {HTMLVideoElement} preview */
-export const safetyCameraFrame = (preview) => {
-  if (!preview.videoWidth || !preview.videoHeight) return null;
-  const scale = Math.min(1, 768 / Math.max(preview.videoWidth, preview.videoHeight));
-  const width = Math.max(1, Math.round(preview.videoWidth * scale));
-  const height = Math.max(1, Math.round(preview.videoHeight * scale));
+/**
+ * Gray frame of `source` on white, scaled down to the side the native scanner accepts.
+ * @param {CanvasImageSource} source @param {number} sourceWidth @param {number} sourceHeight
+ */
+export const qrFrame = (source, sourceWidth, sourceHeight) => {
+  const scale = Math.min(1, 768 / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('Canvas rendering is unavailable');
-  context.drawImage(preview, 0, 0, width, height);
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(source, 0, 0, width, height);
   return { width, height, pixels: grayscaleFrame(context, width, height) };
 };
+
+/** @param {HTMLVideoElement} preview */
+export const safetyCameraFrame = (preview) =>
+  !preview.videoWidth || !preview.videoHeight
+    ? null
+    : qrFrame(preview, preview.videoWidth, preview.videoHeight);

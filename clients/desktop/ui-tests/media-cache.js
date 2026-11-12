@@ -11,15 +11,29 @@
     return { ...fixture.config };
   };
   const createCacheFixture = (check) => {
-    const fixture = { config: { enabled: true, limitBytes: 393216123, usedBytes: 16 }, writes: [] };
+    // Fixture bounds, not the core's: the UI must use whatever range the native side reports.
+    const config = { enabled: true, limitBytes: 393216123, usedBytes: 16, minBytes: 2 * 1048576 };
+    const fixture = { config: { ...config, maxBytes: 1024 * 1048576 }, writes: [] };
     fixture.call = (command, args) => cacheCall(fixture, check, command, args);
     return fixture;
+  };
+  const checkCacheBounds = ({ writes }, { el, dialog, edit, check }) => {
+    const status = () => document.getElementById('media-cache-status').textContent;
+    for (const value of ['1', '1025']) {
+      edit(value);
+      check(
+        writes.length === 0 && !dialog.open && status().includes('2') && status().includes('1024'),
+        `Out-of-range budget ${value} not refused with the reported bounds`,
+      );
+    }
+    check(el('limit').min === '2' && el('limit').max === '1024', 'Input bounds not from IPC');
   };
   const checkCacheBudgets = async (fixture, controls) => {
     const { call, writes } = fixture;
     const { el, dialog, cancel, confirm, edit, check } = controls;
     await appApi.showMediaCache(call);
     check(Number(el('limit').value) * 1048576 === 393216123, 'Byte budget lost precision');
+    checkCacheBounds(fixture, controls);
     edit('512');
     await appApi.mediaCacheSaved;
     check(

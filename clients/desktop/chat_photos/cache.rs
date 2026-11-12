@@ -9,6 +9,8 @@ pub(crate) struct CacheView {
     enabled: bool,
     limit_bytes: u64,
     used_bytes: u64,
+    min_bytes: u64,
+    max_bytes: u64,
 }
 
 enum Operation {
@@ -56,6 +58,8 @@ async fn run(
             used_bytes: store
                 .media_cache_usage(dir)
                 .map_err(|error| error.to_string())?,
+            min_bytes: MediaCacheConfig::MIN_LIMIT_BYTES,
+            max_bytes: MediaCacheConfig::MAX_LIMIT_BYTES,
         })
     })
     .await

@@ -40,14 +40,19 @@ const render = () => {
   enabled.checked = Boolean(known?.enabled);
   enabled.setAttribute('aria-checked', String(enabled.checked));
   limit.value = known ? String(known.limitBytes / mib) : '';
+  limit.min = known ? String(known.minBytes / mib) : '';
+  limit.max = known ? String(known.maxBytes / mib) : '';
   domById('media-cache-used', HTMLSpanElement).textContent = known
     ? sizeText(known.usedBytes)
     : strings['usage.unavailable'];
 };
 /** @param {string} key */
 const status = (key) => {
+  const known = view?.config;
   domById('media-cache-status', HTMLParagraphElement).textContent = key
     ? strings[`photos.cache.${key}`]
+        .replace('{min}', String((known?.minBytes ?? 0) / mib))
+        .replace('{max}', String((known?.maxBytes ?? 0) / mib))
     : '';
 };
 const close = () => {
@@ -144,7 +149,8 @@ enabled.addEventListener('change', () => {
 limit.addEventListener('change', () => {
   if (!view?.config || view.busy) return;
   const bytes = Number(limit.value) * mib;
-  if (!limit.value.trim() || !Number.isSafeInteger(bytes) || bytes < mib || bytes > 10240 * mib) {
+  const { minBytes, maxBytes } = view.config;
+  if (!limit.value.trim() || !Number.isSafeInteger(bytes) || bytes < minBytes || bytes > maxBytes) {
     status('invalid');
     return;
   }

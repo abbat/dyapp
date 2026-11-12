@@ -15,7 +15,7 @@
   "photos.cache.clear": "Очистить кэш…",
   "photos.cache.loading": "Читаем параметры кэша…",
   "photos.cache.saving": "Обновляем кэш…",
-  "photos.cache.invalid": "Введите 1–10240 MiB с точностью до целого числа байтов.",
+  "photos.cache.invalid": "Введите {min}–{max} MiB с точностью до целого числа байтов.",
   "photos.cache.failed": "Операция с кэшем не выполнена. Обновите данные перед изменением или очисткой.",
   "settings.hub.product": "dyapp",
   "settings.hub.notifications": "Уведомления",
