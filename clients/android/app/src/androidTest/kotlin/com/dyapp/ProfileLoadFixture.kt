@@ -12,9 +12,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import uniffi.dyapp.FoundProfile
 import java.io.File
 
@@ -67,8 +65,7 @@ internal abstract class ProfileLoadFixture : ProfileViewFixture() {
         )
     }
 
-    protected fun awaitStep(signal: Deferred<Unit>) = runBlocking {
-        // A fresh failure deadline for each actual transition, never a success-path delay.
-        withTimeout(CHECK_WAIT_MS) { signal.await() }
-    }
+    // A fresh failure deadline for each actual transition; waiting through compose lets the
+    // test dispatcher run the effects that complete the step.
+    protected fun awaitStep(signal: Deferred<Unit>) = compose.waitUntil(CHECK_WAIT_MS) { signal.isCompleted }
 }

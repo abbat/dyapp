@@ -76,7 +76,7 @@ class ProfilePhotosTests {
         compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
 
         compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 1)).performClick()
-        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
         compose.waitUntil(READBACK_WAIT_MS) { hashes().size == MAX_PROFILE_PHOTOS - 1 }
         assertEquals(listOf(before[0]) + before.drop(2), hashes())
         compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
@@ -98,14 +98,14 @@ class ProfilePhotosTests {
         RustBridge.withKey(opened()) { dir, key ->
             uniffi.dyapp.moveProfilePhoto(dir, key, 1u, 0u)
         }
-        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
         compose.waitForText("profile-photo-status", R.string.profile_photo_conflict)
         assertEquals(listOf(before[1], before[0]), hashes())
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
 
         // A new confirmation uses the refreshed snapshot; the old action was never retried.
         compose.onNodeWithContentDescription(remove).performScrollTo().performClick()
-        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
         compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
         assertEquals(listOf(before[0]), hashes())
     }
@@ -123,7 +123,7 @@ class ProfilePhotosTests {
         // screen the second tile sits past the row's right edge, so it is scrolled into view.
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
         compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 2)).performScrollTo().performClick()
-        compose.onNodeWithTag("profile-photo-remove-confirm").performClick()
+        compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
         val avatar = hasTestTag("avatar-photo") and hasAnyAncestor(hasTestTag("identity-switcher"))
         // The switcher button merges its content, so the photo is found in the unmerged tree.
         compose.waitUntil(READBACK_WAIT_MS) {

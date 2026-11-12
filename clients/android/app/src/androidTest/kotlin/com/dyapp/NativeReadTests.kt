@@ -40,6 +40,9 @@ class NativeReadTests {
     @get:Rule
     val compose = createComposeRule()
 
+    // The test dispatcher starts a new key's read only while compose idles, so never block.
+    private fun await(step: CompletableFuture<Unit>) = compose.waitUntil(5_000) { step.isDone }
+
     @Test
     fun replacementOwnerStartsEmptyAndRejectsTheBlockedOwnersLateResult() {
         val old = NativeReadGate()
@@ -53,12 +56,12 @@ class NativeReadTests {
                 latest = loaded
                 Text(loaded.value?.getOrNull() ?: "loading")
             }
-            old.entered.get(5, TimeUnit.SECONDS)
+            await(old.entered)
             val oldState = compose.runOnIdle { latest!! }
             compose.runOnIdle { owner = next }
-            next.entered.get(5, TimeUnit.SECONDS)
+            await(next.entered)
             old.release()
-            old.finished.get(5, TimeUnit.SECONDS)
+            await(old.finished)
             compose.runOnIdle {
                 assertNull(oldState.value)
                 assertNull(latest!!.value)
@@ -83,7 +86,7 @@ class NativeReadTests {
             }
             compose.waitUntil(5_000) { compose.onAllNodesWithText("old").fetchSemanticsNodes().isNotEmpty() }
             compose.runOnIdle { fresh = true }
-            gate.entered.get(5, TimeUnit.SECONDS)
+            await(gate.entered)
             compose.onNodeWithText("loading").assertExists()
             compose.onNodeWithText("old").assertDoesNotExist()
         } finally {
@@ -107,11 +110,11 @@ class NativeReadTests {
                     Text("closed")
                 }
             }
-            gate.entered.get(5, TimeUnit.SECONDS)
+            await(gate.entered)
             compose.runOnIdle { visible = false }
             compose.onNodeWithText("closed").assertExists()
             gate.release()
-            gate.finished.get(5, TimeUnit.SECONDS)
+            await(gate.finished)
             compose.runOnIdle { assertNull(loaded!!.value) }
         } finally {
             gate.release()
