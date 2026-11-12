@@ -5,15 +5,12 @@ use crate::{network_metered, CoreError};
 use dyapp_client::attachment;
 use dyapp_client::store::Conversation;
 
-/// Whole hours until default node retention ends, shown only in the last day.
-/// Zero means expired or less than one hour; a kept local original can still open.
+/// Whole hours until default node retention ends, rounded up and shown only in the last day.
+/// Zero means expired; a kept local original can still open.
 #[uniffi::export]
 #[must_use]
 pub fn chat_photo_hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
-    attachment::hours_left(
-        i64::try_from(sent_ms).unwrap_or(i64::MAX),
-        i64::try_from(now_ms).unwrap_or(i64::MAX),
-    )
+    attachment::hours_left(sent_ms, now_ms)
 }
 
 #[uniffi::export]

@@ -212,17 +212,19 @@ pub fn auto_download(mode: AutoDownload, metered: bool, from_contact: bool) -> b
         }
 }
 
-/// Whole hours left of the original sent at `sent_ms`, when under a day remains; `None` before.
-/// `Some(0)` means it has expired or is about to.
+/// Whole hours left of the original sent at `sent_ms`, rounded up, when under a day remains;
+/// `None` before. `Some(0)` means it has expired, so the last hour still shows 1. A time or
+/// expiry past `i64::MAX` comes from no supported clock and counts as expired.
 #[must_use]
-pub fn hours_left(sent_ms: i64, now_ms: i64) -> Option<u32> {
-    const HOUR_MS: i64 = 3_600_000;
-    let left = sent_ms
-        .saturating_add(i64::from(RETENTION_HOURS) * HOUR_MS)
-        .saturating_sub(now_ms);
-    (left < i64::from(WARN_HOURS) * HOUR_MS)
-        .then(|| u32::try_from(left.max(0) / HOUR_MS).ok())
-        .flatten()
+pub fn hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
+    const HOUR_MS: u64 = 3_600_000;
+    let supported = i64::MAX.unsigned_abs();
+    let end = sent_ms.checked_add(u64::from(RETENTION_HOURS) * HOUR_MS);
+    let Some(end) = end.filter(|end| *end <= supported && now_ms <= supported) else {
+        return Some(0);
+    };
+    let hours = u32::try_from(end.saturating_sub(now_ms).div_ceil(HOUR_MS)).ok()?;
+    (hours < WARN_HOURS).then_some(hours)
 }
 
 /// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. A
@@ -294,12 +296,21 @@ mod tests {
     #[test]
     fn hours_left_shows_only_in_the_last_day() {
         let hour = 3_600_000;
+        let retention = u64::from(RETENTION_HOURS) * hour;
         assert_eq!(hours_left(0, 0), None);
-        assert_eq!(hours_left(0, 144 * hour), None);
-        assert_eq!(hours_left(0, 144 * hour + 1), Some(23));
-        assert_eq!(hours_left(0, 167 * hour), Some(1));
+        assert_eq!(hours_left(0, 145 * hour - 1), None);
+        assert_eq!(hours_left(0, 145 * hour), Some(23));
+        assert_eq!(hours_left(0, retention - hour - 1), Some(2));
+        assert_eq!(hours_left(0, retention - hour), Some(1));
+        assert_eq!(hours_left(0, retention - 1), Some(1));
+        assert_eq!(hours_left(0, retention), Some(0));
         assert_eq!(hours_left(0, 200 * hour), Some(0));
-        assert_eq!(hours_left(i64::MAX, i64::MIN), None);
+        // Clocks past i64::MAX are unsupported and must never extend the label.
+        let signed_max = i64::MAX.unsigned_abs();
+        assert_eq!(hours_left(signed_max, 0), Some(0));
+        assert_eq!(hours_left(signed_max + 1, 0), Some(0));
+        assert_eq!(hours_left(u64::MAX, 0), Some(0));
+        assert_eq!(hours_left(0, u64::MAX), Some(0));
     }
 
     #[test]

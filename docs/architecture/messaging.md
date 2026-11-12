@@ -130,7 +130,7 @@ automatic path covers only the open chat. An original this device opened is seal
 into `originals/` of the identity's folder up to the limit in Settings (`store::originals`), and the
 command answers from there without a node, so only a photo not opened within the retention loses its
 original.
-`attachment::hours_left` gives the "N more hours" label for the last day of the 168 h retention. A request holds 1 to 1,920 asks (30 days for
+`attachment::hours_left` gives the "N more hours" label for the last day of the 168 h retention, rounded up so that 0 means expired. A request holds 1 to 1,920 asks (30 days for
 64 owner devices), each a 32-byte mailbox, a UTC day and a 32-byte token key; an answer holds 1
 to 1,920 non-empty signed `WriteToken` records, which the receiver still verifies.
 `tokens::answer` signs, with the device mailbox key, only asks for its own mailbox and a day from

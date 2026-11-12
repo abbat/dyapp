@@ -276,23 +276,12 @@ impl From<ChatItem> for MessageView {
     }
 }
 
-const HOUR_MS: i64 = 3_600_000;
-
-fn photo_hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
-    let times = i64::try_from(sent_ms)
-        .ok()
-        .and_then(|sent| sent.checked_add(HOUR_MS - 1))
-        .zip(i64::try_from(now_ms).ok());
-    times.map_or(Some(0), |(sent, now)| hours_left(sent, now))
-}
-
 /// Label the photos of a history with the time left of their originals and those kept here.
 pub(super) fn mark_photos(views: &mut [MessageView], now_ms: u64, dir: &Path) {
     for view in views {
         if let (Some(photo), Some(sent)) = (&mut view.photo, view.sent_at_ms) {
             photo.kept = originals::is_kept(dir, &photo.blob);
-            // Round up valid times; unsupported clocks must never extend the label's lifetime.
-            photo.hours_left = photo_hours_left(sent, now_ms);
+            photo.hours_left = hours_left(sent, now_ms);
         }
     }
 }
@@ -344,8 +333,8 @@ pub struct ChatHistoryView {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_item, mark_photos, photo_hours_left, DeliveryView, MessageView, HOUR_MS};
-    use dyapp_client::attachment::{Attachment, RETENTION_HOURS};
+    use super::{last_item, mark_photos, DeliveryView, MessageView};
+    use dyapp_client::attachment::Attachment;
     use dyapp_client::chat::AttachmentMessage;
     use dyapp_client::store::messages::{ChatAttachment, MessageKey};
     use std::path::Path;
@@ -362,20 +351,6 @@ mod tests {
         assert_eq!(view(None, "hi"), expect(false, false, false));
         let long = "a".repeat(dyapp_client::chat::MAX_TEXT_BYTES + 1);
         assert_eq!(view(Some(open), &long), expect(true, false, false));
-    }
-
-    #[test]
-    fn photo_expiry_labels_reject_unrepresentable_times() {
-        assert_eq!(photo_hours_left(0, u64::MAX), Some(0));
-        assert_eq!(photo_hours_left(u64::MAX, 0), Some(0));
-        let signed_max = u64::try_from(i64::MAX).unwrap();
-        assert_eq!(photo_hours_left(signed_max, 0), Some(0));
-        let hour = u64::try_from(HOUR_MS).unwrap();
-        let retention = u64::from(RETENTION_HOURS) * hour;
-        assert_eq!(photo_hours_left(0, retention), Some(0));
-        assert_eq!(photo_hours_left(0, retention - 1), Some(1));
-        assert_eq!(photo_hours_left(0, retention - hour), Some(1));
-        assert_eq!(photo_hours_left(0, retention - hour - 1), Some(2));
     }
 
     #[test]
