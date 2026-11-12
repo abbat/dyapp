@@ -2,7 +2,7 @@ import XCTest
 
 /// Form rows outside the screen are created only once scrolled into view, so drag the form up
 /// (`above`: down, for a row above the screen) until `element` can be tapped or `timeout` passes,
-/// with at least three drags.
+/// with at least twelve drags.
 @MainActor
 @discardableResult
 func reveal(
@@ -21,7 +21,8 @@ func reveal(
                 forDuration: 0.05,
                 thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: to)))
     }
-    // One drag can take the whole timeout on a slow simulator, so a few always run.
+    // A drag takes about 6 s on a slow CI simulator, so a timeout alone can stop short of a row
+    // a dozen drags down the form with doubled strings; that many always run.
     var drags = 0
     // A row's frame and `isHittable` fail the test when the row vanished since `exists`, and
     // `isHittable` does so for a row of a screen still sliding in, with an empty frame. A
@@ -35,7 +36,7 @@ func reveal(
     let search = { (up: Bool, most: Int) in
         var made = 0
         while !(onScreen() != nil && row.isHittable) && made < most
-            && (Date() < deadline || drags < 3)
+            && (Date() < deadline || drags < 12)
         {
             if up { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
             drags += 1
