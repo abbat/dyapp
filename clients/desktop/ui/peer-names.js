@@ -4,7 +4,7 @@ import { renderChatRows, visibleChatRows, openChat } from './chats-ui.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-import { shortPeer } from './peer-labels.js';
+import { shortPeerId } from './peer-labels.js';
 export const controller = {};
 /** @type {Promise<void> | undefined} */
 controller.chatRenamed = undefined;
@@ -15,7 +15,7 @@ controller.chatRenamed = undefined;
 const peerNames = new Map();
 /** @param {string} id */
 controller.peerName = (id) => {
-  const short = shortPeer(id);
+  const short = shortPeerId(id);
   const entry = peerNames.get(id);
   if (!entry?.name) return short;
   if (entry.verified === null) return entry.name;

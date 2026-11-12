@@ -6,7 +6,6 @@ import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { controller as passesController } from './passes.js';
-import { knowPeers } from './peer-labels.js';
 import { controller as peerNamesController } from './peer-names.js';
 import { controller as privacyUiController } from './privacy-ui.js';
 import { controller as settingsCollectionsController } from './settings-collections.js';
@@ -128,7 +127,7 @@ const showSettingsIdentities = async (call = invoke) => {
     if (!identityCurrent(generation) || read !== identitiesRead) return;
     settingsCollectionsController.renderSettingsRows(
       'identities',
-      knowPeers(items),
+      items,
       appController.settingsIdentity,
       (item) =>
         [

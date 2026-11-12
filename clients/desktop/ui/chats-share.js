@@ -13,7 +13,7 @@ import {
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-import { shortPeer } from './peer-labels.js';
+import { shortPeerId } from './peer-labels.js';
 import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { viewed, withPlaces, openFound } from './search.js';
 export const controller = {};
@@ -81,7 +81,7 @@ domById('view-share', HTMLButtonElement).addEventListener('click', () => {
   if (found) controller.shareOpened = openShare(found.peerId);
 });
 /** @param {string} peerId */
-const profileCardText = (peerId) => `${strings['chats.profileCard']} ${shortPeer(peerId)}`;
+const profileCardText = (peerId) => `${strings['chats.profileCard']} ${shortPeerId(peerId)}`;
 // Nothing about the shared peer is fetched until the card is pressed, and then only verified.
 /** @param {HTMLButtonElement} card @param {string} peerId */
 const openShared = async (peerId, card, call = invoke) => {

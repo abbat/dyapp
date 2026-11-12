@@ -44,11 +44,11 @@
     if (
       !public_.includes('Bank Support') ||
       !public_.includes(mark) ||
-      !public_.includes(appBindings.shortPeerId(claimed, appBindings.knownPeers))
+      !public_.includes(appBindings.shortPeerId(claimed))
     ) {
       throw new Error(`a public name lost its mark or Peer ID: ${public_}`);
     }
-    if (label(plain) !== appBindings.shortPeerId(plain, appBindings.knownPeers))
+    if (label(plain) !== appBindings.shortPeerId(plain))
       throw new Error('no name lost the Peer ID');
   };
   const checkRename = async (fixture) => {
@@ -89,7 +89,7 @@
     const { plain } = fixture;
     document.getElementById('chat-back').click();
     document.dispatchEvent(new Event('dyapp:identity-change'));
-    if (appApi.peerName(plain) !== appBindings.shortPeerId(plain, appBindings.knownPeers)) {
+    if (appApi.peerName(plain) !== appBindings.shortPeerId(plain)) {
       throw new Error('a name crossed to another identity');
     }
     await appApi.showChats(() => Promise.resolve([]));

@@ -9,8 +9,7 @@ writes per identity; each platform decides when to submit an editor or composer 
 `locale.js` owns catalogue loading and exports live `locale`, `pseudoLocale` and `strings`
 bindings. The profile form, interests and seeking modules import their catalogue and helpers
 explicitly. `profile-fields.js` owns the current scale metadata and shared range validation;
-`peer-labels.js` privately owns the peers used to disambiguate short IDs. Chat and search add
-peers through `addKnownPeers`; reloading the identities replaces that set through `knowPeers`.
+`peer-labels.js` holds no state: a short ID is always `@` and the last 6 characters.
 `sticker-pixels.js` exports the validated canvas builders. These modules publish no page globals.
 The page loads one native ES-module entry, `entry.js`. Controllers import their helpers, live
 bindings and controller APIs explicitly; page globals and classic-script order are not used.

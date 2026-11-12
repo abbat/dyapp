@@ -750,10 +750,7 @@ const checkModuleStartup = async () => {
     seeking.showSeeking !== appApi.showSeeking ||
     seeking.seekingFacts !== appApi.seekingFacts ||
     seeking.profileFormValid !== appApi.profileFormValid ||
-    peers.shortPeerId !== appApi.shortPeerId ||
-    peers.shortPeer !== appApi.shortPeer ||
-    peers.knowPeers !== appApi.knowPeers ||
-    peers.addKnownPeers !== appApi.addKnownPeers
+    peers.shortPeerId !== appApi.shortPeerId
   )
     throw new Error('Desktop module startup bridge is inconsistent');
 };

@@ -2,7 +2,7 @@ import { byId as domById, query as domQuery } from './dom.js';
 import { drawPhoto, setAvatarPhoto } from './chat-photos.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-import { shortPeer } from './peer-labels.js';
+import { shortPeerId } from './peer-labels.js';
 import { viewStatus } from './search.js';
 export const controller = {};
 /** @type {Promise<boolean | undefined> | undefined} */
@@ -126,7 +126,7 @@ const foundPhotoChoice = ({ thumbnails, originals, buttons, showMain, auto, call
 
 /** @param {import('./ipc.js').FoundProfile} found */
 controller.showFoundPhotos = async (found, call = invoke) => {
-  const letters = shortPeer(found.peerId).slice(1, 3);
+  const letters = shortPeerId(found.peerId).slice(1, 3);
   const thumbnails = found.draft.photos ?? [];
   const originals = found.fullPhotos ?? [];
   const count = thumbnails.length;

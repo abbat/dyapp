@@ -55,20 +55,13 @@ const hiddenRendered = () =>
   [...document.querySelectorAll('[hidden]')]
     .filter((element) => getComputedStyle(element).display !== 'none')
     .map((element) => element.id || element.tagName);
-// The short Peer ID rule: "@" and the last 6 characters, one more per shared tail, and a copy
-// of the same ID in another slot is no collision.
+// The short Peer ID rule: "@" and the last 6 characters, as on Android and iOS; two IDs that
+// share the tail keep the same label.
 const shortPeerIdRule = () => {
   const short = appApi.shortPeerId;
   const a = `${'0'.repeat(56)}12abcdef`;
   const b = `${'1'.repeat(56)}92abcdef`;
-  const c = `${'2'.repeat(56)}12abcdef`;
-  return (
-    short(a, [a]) === '@abcdef' &&
-    short(a, [a, a]) === '@abcdef' &&
-    short(a, [a, b]) === '@12abcdef' &&
-    short(b, [a, b]) === '@92abcdef' &&
-    short(a, [a, b, c]) === '@012abcdef'
-  );
+  return short(a) === '@abcdef' && short(b) === '@abcdef';
 };
 // First run: no identity actions, the recommended available store preselected, and a storage
 // choice alone creates nothing until Create.
@@ -197,7 +190,7 @@ const checkSettingsInventory = async (peerId, mode) => {
   });
   await smoke.shot('settings');
   const active = [...list.children].filter((item) => item.dataset.active === 'true');
-  const short = appApi.shortPeerId(peerId, expected.map((item) => item.peerId).filter(Boolean));
+  const short = appApi.shortPeerId(peerId);
   if (
     active.length !== 1 ||
     active[0].dataset.peerId !== peerId ||

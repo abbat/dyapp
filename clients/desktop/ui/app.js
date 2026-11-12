@@ -9,7 +9,7 @@ import { invoke } from './ipc.js';
 import * as localeModule from './locale.js';
 import { strings as localeModule_strings, stringsShown, locale } from './locale.js';
 import { connectAtLaunch, wizardStep, controller as networkController } from './network.js';
-import { knowPeers, shortPeer } from './peer-labels.js';
+import { shortPeerId } from './peer-labels.js';
 import { controller as peerNamesController } from './peer-names.js';
 import { placePicker } from './places.js';
 import * as profileFieldsModule from './profile-fields.js';
@@ -143,7 +143,7 @@ const who = (element, id, reason, caption) => {
   avatar.setAttribute('aria-hidden', 'true');
   const name = document.createElement(id ? 'code' : 'span');
   name.textContent = id ? peerLabel(element, id) : reasonText(reason);
-  avatar.textContent = id ? shortPeer(id).slice(1, 3) : '!';
+  avatar.textContent = id ? shortPeerId(id).slice(1, 3) : '!';
   const note = document.createElement('span');
   note.className = 'caption';
   note.textContent = caption;
@@ -803,9 +803,6 @@ async function renderReady(state, generation, fresh) {
   domById('peer-id', HTMLElement).textContent = state.peerId;
   domById('file-backup', HTMLDivElement).hidden = state.mode !== 'file';
   domById('key-path', HTMLElement).textContent = state.keyPath || '';
-  const items = await invoke('list_identities');
-  if (!identityCurrent(generation)) return state;
-  knowPeers(items);
   const sidebarIdentity = domById('sidebar-identity', HTMLDivElement);
   const [avatar, text] = who(sidebarIdentity, state.peerId, '', modeText(state));
   text.className = 'label';
@@ -840,7 +837,7 @@ async function render(state, generation = identityState.generation, fresh = fals
   if (state.status === 'picker') {
     const items = await invoke('list_identities');
     if (!identityCurrent(generation)) return state;
-    domById('identities', HTMLDivElement).replaceChildren(...knowPeers(items).map(identityButton));
+    domById('identities', HTMLDivElement).replaceChildren(...items.map(identityButton));
     show(sections[2], 'status.pick');
     return state;
   }

@@ -90,16 +90,13 @@
     const card = liveRow('search-results', peer);
     const marked = (mark) => card.textContent.includes(`Anna · ${appApi.strings[mark]}`);
     if (!marked('peer.unverified')) throw new Error(`no unverified card: ${card.textContent}`);
-    if (
-      card.querySelector('.avatar').textContent !==
-      appBindings.shortPeerId(peer, appBindings.knownPeers).slice(1, 3)
-    ) {
+    if (card.querySelector('.avatar').textContent !== appBindings.shortPeerId(peer).slice(1, 3)) {
       throw new Error('the avatar left the short Peer ID');
     }
     await smoke.shot('search-public-name');
     appBindings.openFound(found, card, call);
     const title = document.getElementById('view-title');
-    const peerShort = appBindings.shortPeerId(peer, appBindings.knownPeers);
+    const peerShort = appBindings.shortPeerId(peer);
     assertPublicNameTheViewLostTheNameOrThe(title, peerShort);
     await appBindings.confirmContact(call);
     if (!marked('peer.verified')) throw new Error('the card did not follow the mark');
@@ -292,7 +289,7 @@
     const fixture = profileShareFixture();
     const { chatPeer, sharedPeer, rows, call } = fixture;
     appBindings.renderChatRows(rows);
-    const text = `${appApi.strings['chats.profileCard']} ${appApi.shortPeer(sharedPeer)}`;
+    const text = `${appApi.strings['chats.profileCard']} ${appApi.shortPeerId(sharedPeer)}`;
     assertProfileShareChatPreviewDidNotNameTheShared(chatPeer, text);
     await appBindings.openChat(chatPeer, call);
     const card = appBindings.chatMessages.querySelector(`button[data-peer-id="${sharedPeer}"]`);

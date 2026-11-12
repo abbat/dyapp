@@ -41,7 +41,6 @@ import {
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-import { addKnownPeers } from './peer-labels.js';
 import { closeRename, loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { controller as peerPhotosController } from './peer-photos.js';
 import { viewed, withPlaces, resultCard } from './search.js';
@@ -286,7 +285,6 @@ const chatRow = (row) =>
 /** @param {import('./chat-state.js').ChatRow[]} rows */
 const renderChatRows = (rows, call = invoke) => {
   visibleChatRows = rows;
-  addKnownPeers(rows);
   const requests = rows.filter((row) => row.state === 'requestReceived');
   const conversations = rows.filter((row) => row.state !== 'requestReceived');
   chatRequests.replaceChildren(...requests.map(chatRow));
@@ -879,7 +877,6 @@ controller.showChats = async (call = invoke) => {
   try {
     const found = await withPlaces(await call('liked_you'));
     if (!currentChats()) return;
-    addKnownPeers(found);
     likedList.replaceChildren(
       ...found.map((item, index) => resultCard(item, `liked-${index + 1}`)),
     );

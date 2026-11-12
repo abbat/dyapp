@@ -231,9 +231,6 @@ const appBindings = {
   get invoke() {
     return ipcModule.invoke;
   },
-  get knownPeers() {
-    return peerLabelsModule.knownPeers;
-  },
   get linkJoined() {
     return linkModule.linkJoined;
   },
@@ -492,9 +489,6 @@ const appBindings = {
 };
 // biome-ignore lint/correctness/noUnusedVariables: shared by the concatenated native smoke scripts
 const appApi = {
-  get addKnownPeers() {
-    return peerLabelsModule.addKnownPeers;
-  },
   get announcePresence() {
     return chatsUiModule.controller.announcePresence;
   },
@@ -569,9 +563,6 @@ const appApi = {
   },
   get identityShown() {
     return appModule.controller.identityShown;
-  },
-  get knowPeers() {
-    return peerLabelsModule.knowPeers;
   },
   get likeDone() {
     return searchModule.controller.likeDone;
@@ -722,9 +713,6 @@ const appApi = {
   },
   get sharedOpened() {
     return chatsShareModule.controller.sharedOpened;
-  },
-  get shortPeer() {
-    return peerLabelsModule.shortPeer;
   },
   get shortPeerId() {
     return peerLabelsModule.shortPeerId;

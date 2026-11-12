@@ -445,7 +445,7 @@
       messages.length !== 2 ||
       !messages[0].textContent.includes(appApi.strings['chats.forwarded']) ||
       messages[1].textContent.includes(appApi.strings['chats.forwarded']) ||
-      !messages[0].textContent.startsWith(appBindings.shortPeerId(peer, appBindings.knownPeers))
+      !messages[0].textContent.startsWith(appBindings.shortPeerId(peer))
     ) {
       throw new Error('forwarded history marker or verified MLS sender was lost');
     }

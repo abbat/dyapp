@@ -6,7 +6,7 @@ import { controller as favoritesController } from './favorites.js';
 import { identityState, identityCurrent } from './identity-state.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
-import { shortPeer, addKnownPeers } from './peer-labels.js';
+import { shortPeerId } from './peer-labels.js';
 import { loadPeerNames, controller as peerNamesController } from './peer-names.js';
 import { controller as peerPhotosController } from './peer-photos.js';
 import { placePicker, controller as placesController } from './places.js';
@@ -255,7 +255,7 @@ const showVerified = (verified) => {
 };
 /** @param {FoundWithPlace} found */
 const showFound = (found) => {
-  const short = shortPeer(found.peerId);
+  const short = shortPeerId(found.peerId);
   peerLabel(domById('view-peer', HTMLElement), found.peerId);
   domById('view-peer', HTMLElement).textContent = short;
   domById('view-title', HTMLHeadingElement).textContent = peerNamesController.peerName(
@@ -900,7 +900,6 @@ const runSearch = async (call = invoke) => {
     if (!identityCurrent(generation)) return;
     const found = await withPlaces(result.profiles);
     if (!identityCurrent(generation)) return;
-    addKnownPeers(result.profiles);
     await loadPeerNames(
       found.map((item) => item.peerId),
       call,
