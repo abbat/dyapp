@@ -109,13 +109,7 @@ pub struct Reputation {
 
 impl Reputation {
     /// A peer with `strikes` strikes, each less than `ban` after the previous one, is banned
-    /// until `ban` passes without a strike.
-    #[must_use]
-    pub fn new(strikes: u32, ban: Duration) -> Self {
-        Self::with_clock(strikes, ban, Clock::system())
-    }
-
-    /// [`Self::new`] reading time from `clock`.
+    /// until `ban` passes without a strike, by `clock`.
     #[must_use]
     pub fn with_clock(strikes: u32, ban: Duration, clock: Clock) -> Self {
         Self {
