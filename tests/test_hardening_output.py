@@ -91,7 +91,59 @@ def elf(
     return body + b"\x00" * (dynamic_at - len(body)) + dynamic_bytes
 
 
+def pe(
+    magic: int = 0x20B, flags: int = 0x8160, characteristics: int = 0x22
+) -> bytes:
+    """DOS stub pointing at a PE header with a 240-byte optional header."""
+    dos = b"MZ" + b"\x00" * 58 + struct.pack("<I", 64)
+    coff = struct.pack("<HHIIIHH", 0x8664, 0, 0, 0, 0, 240, characteristics)
+    optional = bytearray(240)
+    struct.pack_into("<H", optional, 0, magic)
+    struct.pack_into("<H", optional, 70, flags)
+    return dos + b"PE\x00\x00" + coff + bytes(optional)
+
+
 class Hardening(unittest.TestCase):
+    def test_windows_pe_profile(self) -> None:
+        script = ROOT / "tools/scripts/check-hardening.py"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs"))
+
+            def run(
+                name: str, body: bytes, *flags: str
+            ) -> subprocess.CompletedProcess[str]:
+                (root / name).write_bytes(body)
+                command = [
+                    sys.executable,
+                    str(script),
+                    *flags,
+                    str(root / name),
+                ]
+                return subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    check=False,
+                )
+
+            good = run("good.exe", pe(), "--raw")
+            self.assertEqual(good.returncode, 0, good.stderr)
+            self.assertIn("PE32+, ASLR, high-entropy ASLR, DEP", good.stdout)
+            bad = {
+                "no-aslr": (pe(flags=0x8120), "no DYNAMIC_BASE"),
+                "low-entropy": (pe(flags=0x8140), "no HIGH_ENTROPY_VA"),
+                "no-dep": (pe(flags=0x8060), "no NX_COMPAT"),
+                "stripped": (pe(characteristics=0x23), "relocations stripped"),
+                "pe32": (pe(magic=0x10B), "not a 64-bit PE32+"),
+                "stub": (b"MZ" + b"\x00" * 70, "not a PE image"),
+            }
+            for name, (body, cause) in bad.items():
+                result = run(name, body)
+                self.assertEqual(result.returncode, 1, name)
+                self.assertIn(cause, result.stdout, name)
+
     def test_standalone_profile_and_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

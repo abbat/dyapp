@@ -73,7 +73,9 @@ spaces; leave it empty for no interest filter.
 
 The scheduled `release-sizes` workflow builds the release EXE on `windows-2022`, packs it with
 `tools/scripts/package-windows-zip.py` into `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` and
-`LICENSE` in one folder), extracts that ZIP and opens and closes the window. The ZIP is the run's
+`LICENSE` in one folder), extracts that ZIP and opens and closes the window. Before packing,
+`tools/scripts/check-hardening.py` checks that the EXE is a 64-bit image with ASLR, high-entropy
+ASLR and DEP, and keeps its relocations; Control Flow Guard is off, as Rust leaves it. The ZIP is the run's
 `windows-zip` artifact.
 
 ## Download

@@ -147,6 +147,8 @@ jobs:
           }
           python tools/scripts/run-check.py --log-dir build/release-check-output rust-build -- cargo build --manifest-path clients/windows/Cargo.toml --release --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tools/scripts/check-hardening.py build/release/dyapp-windows.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/scripts/package-windows-zip.py build/release/dyapp-windows.exe build/windows-zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Expand-Archive -Path build/windows-zip/*.zip -DestinationPath $env:RUNNER_TEMP/portable

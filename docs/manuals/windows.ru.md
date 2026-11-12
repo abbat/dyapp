@@ -70,7 +70,9 @@
 
 Плановый workflow `release-sizes` собирает release-EXE на `windows-2022`, упаковывает его
 скриптом `tools/scripts/package-windows-zip.py` в `dyapp-<version>-x86_64-windows.zip` (`dyapp.exe` и
-`LICENSE` в одной папке), распаковывает этот ZIP, открывает и закрывает окно. ZIP — артефакт
+`LICENSE` в одной папке), распаковывает этот ZIP, открывает и закрывает окно. Перед упаковкой
+`tools/scripts/check-hardening.py` проверяет, что EXE 64-битный, с ASLR, ASLR с высокой
+энтропией и DEP и сохранил таблицу перемещений; Control Flow Guard выключен, как его оставляет Rust. ZIP — артефакт
 `windows-zip` этого запуска.
 
 ## Загрузка

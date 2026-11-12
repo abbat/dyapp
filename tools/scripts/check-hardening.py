@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the hardening profile of a release ELF binary.
+"""Checks the hardening profile of a release ELF or Windows PE binary.
 
 Usage: check-hardening.py <binary>. Fails unless the 64-bit little-endian ELF
 is a position-independent executable (ET_DYN with an interpreter), its stack
@@ -8,6 +8,11 @@ RELRO), carries no RPATH or RUNPATH, and imports __stack_chk_fail. Rust code
 gets the first four from its toolchain; the canary import shows that the
 bundled C code (AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as
 Debian 12's gcc does not add -fstack-protector-strong by default.
+
+A PE must be a 64-bit (PE32+) image that keeps its relocations and asks for
+ASLR (DYNAMIC_BASE), 64-bit ASLR (HIGH_ENTROPY_VA) and DEP (NX_COMPAT); the
+Rust MSVC toolchain sets all of them. Control Flow Guard is not required: Rust
+leaves it off by default and the bundled std is not built with it.
 """
 
 from collections.abc import Iterable
@@ -38,9 +43,33 @@ def dynamic_tags(data: bytes, segments: Iterable[Segment]) -> dict[int, int]:
     return tags
 
 
+# IMAGE_FILE_RELOCS_STRIPPED, then the DllCharacteristics bits by name.
+PE_RELOCS_STRIPPED = 0x1
+PE_FLAGS = {0x40: "DYNAMIC_BASE", 0x20: "HIGH_ENTROPY_VA", 0x100: "NX_COMPAT"}
+
+
+def pe_problems(data: bytes) -> list[str]:
+    pe = struct.unpack_from("<I", data, 0x3C)[0] if len(data) >= 0x40 else 0
+    if pe == 0 or data[pe : pe + 4] != b"PE\x00\x00" or len(data) < pe + 96:
+        return ["not a PE image"]
+    characteristics = struct.unpack_from("<H", data, pe + 22)[0]
+    (magic,) = struct.unpack_from("<H", data, pe + 24)
+    if magic != 0x20B:
+        return ["not a 64-bit PE32+ image"]
+    flags = struct.unpack_from("<H", data, pe + 24 + 70)[0]
+    found = [f"no {name}" for bit, name in PE_FLAGS.items() if not flags & bit]
+    if characteristics & PE_RELOCS_STRIPPED:
+        found.append("relocations stripped, ASLR cannot move the image")
+    return found
+
+
 def problems(binary: str | os.PathLike[str]) -> list[str]:
     with open(binary, "rb") as f:
         data = f.read()
+    return pe_problems(data) if data[:2] == b"MZ" else elf_problems(data)
+
+
+def elf_problems(data: bytes) -> list[str]:
     if data[:6] != b"\x7fELF\x02\x01":
         return ["not a 64-bit little-endian ELF"]
     e_type = struct.unpack_from("<H", data, 16)[0]
@@ -97,11 +126,14 @@ def main(raw: bool = False) -> None:
     found = problems(binary)
     if found:
         sys.exit(f"{binary}: {'; '.join(found)}")
-    print(
-        f"{binary}: PIE, NX, full RELRO, no RPATH, stack protector"
-        if raw
-        else "OK hardening"
+    with open(binary, "rb") as f:
+        pe = f.read(2) == b"MZ"
+    profile = (
+        "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"
+        if pe
+        else "PIE, NX, full RELRO, no RPATH, stack protector"
     )
+    print(f"{binary}: {profile}" if raw else "OK hardening")
 
 
 if __name__ == "__main__":
