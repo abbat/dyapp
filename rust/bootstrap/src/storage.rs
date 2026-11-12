@@ -630,6 +630,7 @@ mod tests {
     use dyapp_profile::Profile;
     use uuid::Uuid;
 
+    mod interleavings;
     mod records;
 
     pub(super) fn temp_store() -> BootstrapStore {
