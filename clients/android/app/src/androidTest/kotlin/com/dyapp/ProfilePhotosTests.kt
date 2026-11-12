@@ -94,11 +94,14 @@ class ProfilePhotosTests {
         }
         val before = hashes()
         val remove = string(R.string.profile_photo_remove, 1)
+        compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
         compose.onNodeWithContentDescription(remove).performScrollTo().performClick()
+        // The other writer reorders while the confirmation is open.
+        val confirm = compose.awaitNode(hasTestTag("profile-photo-remove-confirm"))
         RustBridge.withKey(opened()) { dir, key ->
             uniffi.dyapp.moveProfilePhoto(dir, key, 1u, 0u)
         }
-        compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
+        confirm.performClick()
         compose.waitForText("profile-photo-status", R.string.profile_photo_conflict)
         assertEquals(listOf(before[1], before[0]), hashes())
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()
