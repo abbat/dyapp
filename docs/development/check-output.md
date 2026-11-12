@@ -56,7 +56,7 @@ Shell aggregate raw mode uses the first argument.
 
 | Entry points | Role |
 |---|---|
-| `check-repository.py`, `check-batches.py`, `docs-sync.py`, `triggers.py` validation, `check-panics.py`, `check-unused-public.py`, `check-dependency-age.py`, `check-advisory-ignores.py` | repository and policy validation |
+| `check-repository.py`, `check-batches.py`, `docs-sync.py`, `triggers.py` validation, `check-panics.py`, `check-clock.py`, `check-unused-public.py`, `check-dependency-age.py`, `check-advisory-ignores.py` | repository and policy validation |
 | `check_coverage.py` | coverage ratchet; metrics remain in report files |
 | `check-junit-results.py`, `check-apple-results.py`, `check-instrumentation-results.py` | reject incomplete, empty or failing test inventories |
 | `check-container-isolation.sh`, `check-auditable.py`, `check-hardening.py` | self-contained isolation/ELF/PE/Mach-O checks; fixtures bind their fix pointers to the map |

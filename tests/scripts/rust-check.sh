@@ -64,6 +64,7 @@ step() {
             # Lint only: the tests run in the coverage build (CI job core, `make test` locally).
             check clippy python3 -B tests/scripts/check-rust-complexity.py --raw
             check panics python3 -B tests/scripts/check-panics.py --raw
+            check clock python3 -B tests/scripts/check-clock.py
             step rustdoc
             ;;
         unused-public)
