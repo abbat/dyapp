@@ -284,6 +284,11 @@ mod tests {
         assert!(verify(&forged, &peer).is_none());
         let id = peer.to_string();
         assert!(store.keep_received(&id, list.time, &record).unwrap());
+        assert!(store.add("203.0.113.0/24", "").unwrap());
+        // Both lists survive a restart, and a replay of the kept list is still not newer.
+        drop(store);
+        let store = DenyStore::open(&dir.join("deny.db")).unwrap();
+        assert!(store.entries().unwrap().contains("203.0.113.0/24"));
         assert!(
             !store.keep_received(&id, list.time, &record).unwrap(),
             "not newer"

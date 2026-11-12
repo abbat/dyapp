@@ -220,7 +220,12 @@ assertion changes.
 | Debian 12's `systemd-analyze verify` prints nothing for the packaged unit | Package | `deb-test.sh` | exists, local only |
 | Install and upgrade warn about a link-local nameserver in `/etc/resolv.conf` and stay quiet otherwise | Package | `deb-test.sh` | exists, local only |
 | The tarball installs by hand on Debian 12 as in the manual; `status` tells the running node from the stopped one | Package | `tarball-test.sh` | exists, local only |
-| A store file newer than the binary is refused | Unit | `storage.rs::a_newer_store_file_is_refused` | exists |
+| Each store file (profiles, messages, media, deny, search index) newer than the binary is refused with its name and format, and its bytes stay unchanged | Unit | `storage.rs::a_newer_store_file_is_refused_and_left_untouched` | exists |
+| Mailbox pages left unacked before a restart come back once from the old cursor and from the head; acked pages stay gone | Unit | `storage/tests/records.rs::unacked_mailbox_pages_resume_after_reopen_without_loss_or_duplicates` | exists |
+| A half-done repair window resumes after reopen | Unit | `media_repair/tests/ancestry/recovery.rs::resume_after_reopen` | exists |
+| A restart keeps the highest complete search generation and drops an unfinished later one | Unit | `search/generations.rs::rebuild_switches_and_restart_keeps_the_highest_complete_generation` | exists |
+| Received deny lists and local entries survive a restart; a list that is not newer is still refused after it | Unit | `deny.rs::received_lists_are_checked_and_only_newer_ones_kept` | exists |
+| Rate limits, reputation, bans and the replication cursor live in memory and start over after a restart; the cursor rescans the store | Unit | `republish/tests.rs::cursor_resumes_and_wraps` | accepted: ADR 0008 |
 | Maintenance frees pages in bounded steps | Unit | `storage.rs::maintenance_frees_pages_in_bounded_steps`, `maintenance.rs` | exists |
 | Config precedence file < env < CLI; unknown keys fail; node key bound to the data | Unit, Property | `config.rs` | exists |
 | Stopped-node snapshot writer copies required files and SQLite WAL/journal to a private new directory with sorted SHA-256 records; unsafe source paths fail | Python unit | `test_backup_bootstrap.py` | exists; updater integration planned |

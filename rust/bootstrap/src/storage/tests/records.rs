@@ -373,6 +373,54 @@ fn data_survives_reopen() {
 }
 
 #[test]
+fn unacked_mailbox_pages_resume_after_reopen_without_loss_or_duplicates() {
+    let path = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+    let mailbox = [3; 32];
+    let ids = |page: &[SignedRecord]| page.iter().map(|r| r.payload[0]).collect::<Vec<_>>();
+    let store = BootstrapStore::new(&path).unwrap();
+    for id in 0..6u8 {
+        let record = SignedRecord {
+            payload: vec![id],
+            ..SignedRecord::default()
+        };
+        assert!(store
+            .put_plain(&mailbox, &[id], &record, false, i64::MAX, u64::MAX)
+            .unwrap());
+    }
+    let (first, more, cursor) = store
+        .fetch_envelopes_after(&mailbox, None, 2, u64::MAX)
+        .unwrap();
+    assert_eq!((ids(&first), more), (vec![0, 1], true));
+    // The first page is acked; the second is fetched but the node stops before its ack.
+    store.ack_envelopes(&mailbox, &[vec![0], vec![1]]).unwrap();
+    let (second, _, _) = store
+        .fetch_envelopes_after(&mailbox, cursor, 2, u64::MAX)
+        .unwrap();
+    assert_eq!(ids(&second), [2, 3]);
+    drop(store);
+
+    let store = BootstrapStore::new(&path).unwrap();
+    // A cursor taken before the restart still points into the same rows.
+    let (resumed, _, _) = store
+        .fetch_envelopes_after(&mailbox, cursor, 10, u64::MAX)
+        .unwrap();
+    assert_eq!(ids(&resumed), [2, 3, 4, 5]);
+    let (all, more) = store.fetch_envelopes(&mailbox, 10, u64::MAX).unwrap();
+    assert_eq!(
+        (ids(&all), more),
+        (vec![2, 3, 4, 5], false),
+        "acked rows stay gone"
+    );
+    store.ack_envelopes(&mailbox, &[vec![2], vec![3]]).unwrap();
+    drop(store);
+    let store = BootstrapStore::new(&path).unwrap();
+    assert_eq!(
+        ids(&store.fetch_envelopes(&mailbox, 10, u64::MAX).unwrap().0),
+        [4, 5]
+    );
+}
+
+#[test]
 fn test_health_check() {
     assert!(temp_store().health_check().is_ok());
 }

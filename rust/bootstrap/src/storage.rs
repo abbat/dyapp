@@ -688,19 +688,41 @@ mod tests {
     }
 
     #[test]
-    fn a_newer_store_file_is_refused() {
-        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
-        drop(BootstrapStore::new(&dir).unwrap());
-        drop(BootstrapStore::new(&dir).unwrap());
-        Connection::open(format!("{dir}/profiles.db"))
-            .unwrap()
-            .pragma_update(None, "user_version", 1)
-            .unwrap();
-        let error = BootstrapStore::new(&dir).err().unwrap().to_string();
-        assert!(
-            error.contains("profiles.db") && error.contains("format 1"),
-            "{error}"
-        );
+    fn a_newer_store_file_is_refused_and_left_untouched() {
+        use crate::{config::Search, deny::DenyStore, media::MediaStore, search::SearchIndex};
+        type Open = fn(&Path) -> Result<()>;
+        let stores: [(&str, Open); 5] = [
+            ("profiles.db", |dir| {
+                BootstrapStore::new(dir.to_str().unwrap()).map(drop)
+            }),
+            ("messages.db", |dir| {
+                BootstrapStore::new(dir.to_str().unwrap()).map(drop)
+            }),
+            ("media.db", |dir| MediaStore::open(dir).map(drop)),
+            ("deny.db", |dir| {
+                DenyStore::open(&dir.join("deny.db")).map(drop)
+            }),
+            ("profiles-idx.db", |dir| {
+                SearchIndex::open(&dir.join("profiles-idx.db"), &Search::default()).map(drop)
+            }),
+        ];
+        for (file, open) in stores {
+            let dir = Path::new("/tmp/ai").join(format!("test-bootstrap-{}", Uuid::new_v4()));
+            std::fs::create_dir_all(&dir).unwrap();
+            open(&dir).unwrap();
+            let path = dir.join(file);
+            Connection::open(&path)
+                .unwrap()
+                .pragma_update(None, "user_version", 1)
+                .unwrap();
+            let before = std::fs::read(&path).unwrap();
+            let error = open(&dir).err().unwrap().to_string();
+            assert!(
+                error.contains(file) && error.contains("format 1"),
+                "{error}"
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), before, "{file} changed");
+        }
     }
 
     #[test]
