@@ -847,8 +847,8 @@ fn heartbeat_keeps_the_profile_seen() {
 mod expiry;
 mod keypackages;
 mod mailbox;
-mod media;
 mod manual_clock;
+mod media;
 mod revoke;
 mod write_token;
 use mailbox::mailbox_status;

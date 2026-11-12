@@ -93,7 +93,10 @@ fn heartbeat_skew_window_follows_the_node_clock() {
         version: 1,
         ..Profile::default()
     };
-    assert_eq!(status(&node.send(publish(profile.sign(&node.identity)))), Status::Ok);
+    assert_eq!(
+        status(&node.send(publish(profile.sign(&node.identity)))),
+        Status::Ok
+    );
     // A fresh publish is seen at the node's time, not the host's.
     assert_eq!(node.seen(), T);
 
@@ -142,7 +145,10 @@ fn replica_age_meets_the_profile_ttl_at_the_expiry_cutoff() {
     // The hourly sweep at the same instant keeps the TTL-1 replica; a second later it goes.
     assert_eq!(node.service.store.expire_profiles(cutoff(T)).unwrap(), 0);
     manual.advance(Duration::from_secs(1));
-    assert_eq!(node.service.store.expire_profiles(cutoff(T + 1)).unwrap(), 1);
+    assert_eq!(
+        node.service.store.expire_profiles(cutoff(T + 1)).unwrap(),
+        1
+    );
     assert_eq!(node.seen_of(&last), None);
     assert_eq!(node.seen_of(&fresh), Some(T));
 }

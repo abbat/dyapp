@@ -363,7 +363,10 @@ mod tests {
         assert!(!reputation.banned("bad"), "banned after the ban passed");
         assert!(!reputation.strike("bad"), "old strikes were kept");
         clock.advance(ban);
-        assert!(!reputation.strike("bad"), "a strike a whole window later counted");
+        assert!(
+            !reputation.strike("bad"),
+            "a strike a whole window later counted"
+        );
     }
 
     #[test]
@@ -373,7 +376,10 @@ mod tests {
         assert!(limiter.check_limit("p") && limiter.check_limit("p"));
         assert!(!limiter.check_limit("p"));
         clock.set_unix(0);
-        assert!(!limiter.check_limit("p"), "a wall-clock jump refilled the bucket");
+        assert!(
+            !limiter.check_limit("p"),
+            "a wall-clock jump refilled the bucket"
+        );
         clock.advance(499 * MS);
         assert!(!limiter.check_limit("p"), "refilled early");
         clock.advance(MS);
