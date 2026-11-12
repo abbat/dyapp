@@ -236,6 +236,22 @@ assertion changes.
 | Restore holds `dyappd.lock`, re-probes the snapshot, refuses a running node, a corrupt or another node's snapshot and too little space before touching live storage, and swaps in the restored copy while keeping the failed store | Python unit | `test_restore_bootstrap.py` | exists |
 | Migrated-store rollback is rehearsed: a new binary migrates and fails to start, restore brings back the snapshot's data and identity, writes after the snapshot are lost and the migrated store is kept aside | Fault test | `test_restore_bootstrap.py::test_failed_migrated_update_is_rehearsed_end_to_end` | exists |
 
+### Concurrent writers
+
+Each store serializes its calls on one SQLite connection, so a seeded schedule of whole calls
+covers every interleaving the node can produce. The property tests check each schedule against a
+reference model; proptest prints the failing schedule and keeps its seed under `/tmp/ai`.
+
+| Behaviour | Layer | Test | Status |
+|-----------|-------|------|--------|
+| Mailbox puts, retried puts, paged fetches and acks from the owner and other senders interleave: no acked envelope comes back, an envelope stored for a whole pass appears in it, and a pass from the head returns every unacked one | Property | `storage/tests/interleavings.rs::mailbox_writers_interleave_without_lost_or_revived_envelopes` | exists |
+| A reused mailbox sequence number can move a new envelope behind a mid-pass cursor; it arrives on the next pass from the head, which the client starts after every last page | Property | `storage/tests/interleavings.rs::mailbox_writers_interleave_without_lost_or_revived_envelopes` | accepted: delayed, not lost |
+| Profile publish, replica apply, repair and tombstone interleave: the stored version never goes back, the newest revision wins, nothing replaces a tombstone and last-seen keeps its maximum | Property | `storage/tests/interleavings.rs::profile_publish_replica_repair_and_tombstone_interleave` | exists |
+| KeyPackage upload, retried upload, last-resort rotation and allocation interleave: each ordinary package is handed out once, the last-resort one only when none is left | Property | `storage/tests/interleavings.rs::keypackage_upload_retry_rotation_and_allocation_interleave` | exists |
+| Eight senders allocate on threads while the owner re-uploads and rotates: 20 ordinary packages go out exactly once each, then the newest last-resort one | Unit | `storage/tests/interleavings.rs::concurrent_allocations_hand_out_each_ordinary_package_once` | exists |
+| Search puts, tombstones and queries land before, during and after a generation rebuild and its switch: versions never go back, queries see the newest live versions and the digest stays consistent | Property | `search/interleavings.rs::index_writes_queries_and_a_rebuild_interleave` | exists |
+| The operator edits the deny list on its own connection while the node reloads and answers media requests; after the edits one reload serves exactly the final list | Property | `node/tests/deny_media.rs::operator_edits_and_node_reloads_interleave` | exists |
+
 ## Decisions
 
 Each accepted gap has a trigger that reopens it.

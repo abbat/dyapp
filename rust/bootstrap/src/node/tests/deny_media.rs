@@ -134,3 +134,68 @@ fn outgoing_media_requests_skip_listed_blobs() {
         })
     ));
 }
+
+proptest::proptest! {
+    #![proptest_config(proptest::prelude::ProptestConfig {
+        cases: 16,
+        failure_persistence: Some(Box::new(
+            proptest::test_runner::FileFailurePersistence::Direct(
+                "/tmp/ai/dyapp-bootstrap-deny-regressions.txt"
+            )
+        )),
+        ..proptest::prelude::ProptestConfig::default()
+    })]
+
+    /// The operator edits the list on its own connection while the node reloads and serves
+    /// requests; once the edits stop, one reload serves exactly the final list.
+    #[test]
+    fn operator_edits_and_node_reloads_interleave(
+        edits in proptest::collection::vec((0usize..6, proptest::bool::ANY), 1..60),
+    ) {
+        let service = service();
+        let blobs: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i; 8]).collect();
+        let entry = |i: usize| dyapp_identity::hex(&dyapp_identity::sha256(&blobs[i]));
+        let path = service.config.storage.deny_path();
+        let node = DenyStore::open(&path).unwrap();
+        let operator = DenyStore::open(&path).unwrap();
+        let listed = |i: usize| {
+            listed_media_request(
+                &service,
+                &Request::ReplicaPut(proto::MediaReplicaPut {
+                    data: blobs[i].clone(),
+                    ..Default::default()
+                }),
+            )
+        };
+        let mut version = None;
+        let done = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for &(i, add) in &edits {
+                    if add {
+                        operator.add(&entry(i), "operator decision").unwrap();
+                    } else {
+                        operator.remove(&entry(i)).unwrap();
+                    }
+                    std::thread::yield_now();
+                }
+                done.store(true, std::sync::atomic::Ordering::Release);
+            });
+            while !done.load(std::sync::atomic::Ordering::Acquire) {
+                reload_deny(&service, &node, &mut version);
+                for i in 0..blobs.len() {
+                    listed(i);
+                }
+            }
+        });
+        reload_deny(&service, &node, &mut version);
+        let expected = operator.entries().unwrap();
+        proptest::prop_assert_eq!(&*service.deny.read().unwrap(), &expected);
+        for i in 0..blobs.len() {
+            proptest::prop_assert_eq!(listed(i), expected.contains(&entry(i)), "blob {}", i);
+        }
+        // A reload with no new commit keeps the list.
+        reload_deny(&service, &node, &mut version);
+        proptest::prop_assert_eq!(&*service.deny.read().unwrap(), &expected);
+    }
+}

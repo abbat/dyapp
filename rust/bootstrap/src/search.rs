@@ -780,6 +780,9 @@ pub use writer::Overflow;
 use writer::Writer;
 
 #[cfg(test)]
+#[path = "search/interleavings.rs"]
+mod interleaving_tests;
+#[cfg(test)]
 #[path = "search/rebuild.rs"]
 mod rebuild_tests;
 #[cfg(test)]
