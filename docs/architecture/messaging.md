@@ -124,8 +124,9 @@ unmetered network (or in the "always" mode) and a stranger's only on a tap.
 The desktop `chat_photo_original` command fetches one original and checks its real dimensions from
 the header before the page decodes it, at most 64 megapixels. On each mail pass of an open chat the
 page asks `chat_photo_auto` whether waiting originals may download: Linux reads NetworkManager's
-`Metered` property over the system bus, and any other platform or an unavailable service counts as
-metered. The automatic path covers only the open chat. An original this device opened is sealed
+`Metered` property over the system bus, Windows the Internet connection cost and macOS the
+Network.framework path (`dyapp_bootstrap::network`); an unavailable source counts as metered. The
+automatic path covers only the open chat. An original this device opened is sealed
 into `originals/` of the identity's folder up to the limit in Settings (`store::originals`), and the
 command answers from there without a node, so only a photo not opened within the retention loses its
 original.

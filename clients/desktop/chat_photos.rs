@@ -182,10 +182,13 @@ fn unmetered(kind: NetworkCostType, limits: [bool; 4]) -> bool {
     kind == NetworkCostType::Unrestricted && !limits.contains(&true)
 }
 
-/// No source of this yet: an unknown network counts as metered.
+/// The Network.framework path, read anew on each call. An expensive or constrained path, no
+/// path or no answer counts as metered, as on Linux and Windows.
 #[cfg(target_os = "macos")]
 pub(crate) async fn metered() -> bool {
-    true
+    // The path monitor blocks until its first update; keep it off the async workers.
+    let unmetered = tauri::async_runtime::spawn_blocking(dyapp_bootstrap::network::unmetered).await;
+    !matches!(unmetered, Ok(Some(true)))
 }
 
 /// Whether the open chat's originals may download without a tap now. Called again on each mail

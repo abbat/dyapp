@@ -46,6 +46,10 @@ dyapp-p2p-net = { path = "../p2p-net" }
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
+# The Network.framework path monitor takes its update handler as a block.
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+
 [[test]]
 name = "integration_tests"
 path = "../../tests/integration_tests.rs"

@@ -1478,6 +1478,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "block2",
  "chrono",
  "dyapp-identity",
  "dyapp-p2p-net",

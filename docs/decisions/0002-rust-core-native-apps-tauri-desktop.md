@@ -40,6 +40,10 @@ source is selected by `target_os`; `cfg(unix)` stays only for code that is the s
 macOS (file modes, `statvfs`). D-Bus notifications, tray-host discovery, Linux
 single-instance signaling, NetworkManager metering and WebKitGTK camera permissions
 compile only on Linux; other desktops use their platform paths. iOS and Android stay native.
+Network metering is such a path on each desktop: Windows reads the WinRT connection cost, and
+macOS reads the Network.framework path through `dyapp-bootstrap`, whose `network` module keeps
+the C calls and their `block2` handler behind a safe API, as `storage::free` does
+([ADR 0035](0035-windows-free-disk-space.md)).
 
 The shared Rust client photo core decodes incoming previews with `jpeg-decoder` 0.3.2; the
 common UniFFI adapter only converts data and errors. `image` remains the encoder

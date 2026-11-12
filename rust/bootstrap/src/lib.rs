@@ -10,6 +10,7 @@ pub mod maintenance;
 pub mod media;
 mod media_repair;
 pub mod metrics;
+pub mod network;
 pub mod node;
 pub mod places;
 pub mod pow;
