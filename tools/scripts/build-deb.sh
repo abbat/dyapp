@@ -5,8 +5,9 @@
 set -euo pipefail
 # Debian's hardening flags for the C code that cc and cmake build (AWS-LC, SQLite): Debian 12's gcc
 # adds no stack protector or FORTIFY by itself, and cc reads CFLAGS but not CPPFLAGS. Rust code
-# gets PIE, NX and full RELRO from its toolchain.
-CFLAGS="$(dpkg-buildflags --get CFLAGS) $(dpkg-buildflags --get CPPFLAGS)"
+# gets PIE, NX and full RELRO from its toolchain. -O2 is stripped: cc appends CFLAGS last, and AWS-LC
+# refuses to build its jitterentropy source unless its own -O0 wins; cc already sets the level.
+CFLAGS="$(DEB_CFLAGS_MAINT_STRIP=-O2 dpkg-buildflags --get CFLAGS) $(dpkg-buildflags --get CPPFLAGS)"
 export CFLAGS
 cargo auditable build --release --locked --offline --package dyapp-bootstrap --bin dyappd
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
