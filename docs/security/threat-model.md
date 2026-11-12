@@ -25,6 +25,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | **Cloud host** (provider staff, a stolen cloud account, compelled access) | Behind an honest operator's back: dump the node VM's memory, read its disk, snapshots and backups, write to its disk or restore an old snapshot ([below](#cloud-host-access)) |
 | **Network observer** (ISP, Wi-Fi) | See connection endpoints, sizes and timing; tamper with packets |
 | **Malicious client or peer** | Send any request to any node: floods, oversized or malformed messages, forged signatures, replayed requests, writes into strangers' mailboxes |
+| **Hostile contact** | Everything a member of an MLS group may send: any text, attachments, stickers, edits and receipts, signed by a key the client accepts |
 | **Sybil** | Create unlimited libp2p peer IDs and identity keys for free, run many nodes, surround a key in the DHT (eclipse) |
 | **Compromised device** | Everything that device's keys allow |
 | **Hostile contributor** | Open pull requests and issues, write text that maintainers and AI agents read |
@@ -35,7 +36,7 @@ Status](encryption.md) remains the source of truth for crypto claims and
 | Threat | Defence | Status |
 |--------|---------|--------|
 | Observer reads or tampers with traffic | libp2p QUIC (TLS 1.3) and TCP + Noise | ✅ Implemented ([p2p-net](../architecture/p2p-networking.md)) |
-| Operator or observer reads messages | MLS end-to-end encryption ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) | ⚠️ Partial: MLS is implemented in `rust/messaging`; no client sends messages with it yet |
+| Operator or observer reads messages | MLS end-to-end encryption ([ADR 0005](../decisions/0005-openmls-end-to-end-encryption.md)) | ⚠️ Partial: MLS is implemented in `rust/messaging` and used by `rust/client` and the desktop client |
 | Forged or rolled-back profile | Ed25519 signature by the owner; a node rejects an older version | ✅ Implemented; a node can still serve an older version it kept, and `rust/client` refuses a version below the one it holds ([below](#data-tampering)) |
 | Another client reads or empties a mailbox | Fetch and ack signed by the device key over a nonce issued for this connection | ✅ Implemented ([mailboxes](../architecture/bootstrap.md#mailboxes)) |
 | Replayed mailbox request | The nonce is bound to one libp2p connection; other requests are idempotent | ✅ Implemented |
@@ -84,6 +85,7 @@ defences already in place. Nodes are untrusted by design
 | 21 | Side channels and timing | Medium | Low | ✅ Rated: no secret comparison on nodes, constant-time rule for secrets; the rest accepted ([below](#side-channels-and-timing)) |
 | 22 | Clock manipulation against freshness windows and TTLs | Medium | Low | ⚠️ Partial: 10-minute windows, authenticated time sync on nodes; client clock correction planned ([below](#clock-manipulation)) |
 | 23 | Cloud host access to a node VM: memory dump, disk read, disk write | High | Medium | ⚠️ Partial: no client IPs on disk, a key-compromise runbook; no core dumps or swap; the node key sealed to the host and its vTPM; binary replacement, snapshot rollback and planted content are accepted for v1 ([below](#cloud-host-access)) |
+| 24 | Hostile contact or hostile node against the client: crafted messages and media, hostile seeds, DHT and search replies | High | High | ⚠️ Partial: authenticated authors, size, frame and clock limits, core preview and sticker checks; core decoding of full photos, a client dial filter, search reply caps and a per-contact store quota are planned ([below](#attacks-on-the-client)) |
 
 ### Cryptography
 
@@ -451,7 +453,7 @@ a signed tombstone blocks older versions, and the keep list is versioned.
 |--------|-------------|---------------------|---------|
 | A node swaps a media blob or a shard | Media fetch, shard rebuild | High × medium | Accept: the key is the SHA-256 of the blob and a rebuilt shard is checked against it; media is encrypted with a key sent inside MLS (planned) |
 | A node re-encodes a record, adds or drops fields, or mauls the signature | Any `SignedRecord` | High × low | Accept: the signature covers the bytes as received, never a re-encoding; unknown fields are kept; `verify_strict` |
-| Rust and Dart parse the same signed bytes differently | FFI | High × low | Accept: signed records are parsed and verified only in Rust; Dart gets checked records, never Protobuf ([FFI rules](../architecture/ffi-design.md#design-rules-target)) |
+| Rust and the app languages parse the same signed bytes differently | FFI | High × low | Accept: signed records are parsed and verified only in Rust; Kotlin and Swift get checked records, never Protobuf ([FFI rules](../architecture/ffi-design.md#design-rules-target)) |
 | A node serves an older, validly signed profile of a contact (rollback or freeze) | `profile.get` | High × medium | Fix: the client keeps the highest version it has seen per contact and refuses lower ones; it asks two holders with different replica keys and takes the higher version |
 | A rolled-back device list or a stale KeyPackage | KeyPackage fetch | Critical × medium | The node checks its current profile and expiry; `rust/client` keeps the highest version seen (`profiles::Profiles`) and verifies the full MLS signature, certified leaf key and lifetime (`Device::create_group`). See [MITM and key verification](#mitm-and-key-verification) |
 | An old keep list or a tombstone replayed | `media.keep`, `profile.publish` | Medium × low | Accept: the keep list is versioned and cannot restore a removed hash; a tombstone blocks older versions |
@@ -496,8 +498,8 @@ by the hex hash of their content; no node code runs a command; peer-supplied tex
 | Path tricks in config | `dyappd` config | Low × low | Accept: paths are set by the operator, who already controls the host |
 | Log injection: newlines or ANSI escapes in logged values | `tracing` | Low × low | Accept: logs carry peer ids, addresses and error kinds, not peer text; `tracing-subscriber` escapes ANSI sequences in fields |
 | Command injection | Packaging scripts, systemd unit, Makefile | High × low | Accept: no node code runs a command and the scripts take no network input |
-| Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML, autolinks or WebView, and register no URL schemes ([code quality](../development/code-quality.md)) |
-| A malicious preview or profile thumbnail exploits or crashes the image decoder | Chat previews, `Photo.thumbnail` | High × medium | Fix (core done, no client calls it yet): `check_preview` refuses over 24 KiB, a non-JPEG or a frame header over 320 × 320 before decoding, caps decoded JPEG bytes at 1 MiB, accepts RGB and grayscale pixels, and turns a decoder panic into an error (`rust/ffi`, `preview.rs`); the crash found in `zune-jpeg` AVX2 is retained in the fuzz corpus |
+| Markup, links or URL schemes in profile text | Apps | High × low | Accept: apps show peer data as plain text, with no markdown, HTML or autolinks, the desktop webview only as text nodes ([Attacks on the client](#attacks-on-the-client)), and register no URL schemes ([code quality](../development/code-quality.md)) |
+| A malicious preview or profile thumbnail exploits or crashes the image decoder | Chat previews, `Photo.thumbnail` | High × medium | Fix (core done, Android calls it through UniFFI): `check_preview` refuses over 24 KiB, a non-JPEG or a frame header over 320 × 320 before decoding, caps decoded JPEG bytes at 1 MiB, accepts RGB and grayscale pixels, and turns a decoder panic into an error (`rust/ffi`, `preview.rs`); the crash found in `zune-jpeg` AVX2 is retained in the fuzz corpus |
 | Bidi overrides, zero-width or oversized strings in profile fields | `profile.publish`, `search.publish` | Medium × medium | In place: every profile string has a character limit and the text rule in [Spoofing](#spoofing); `interests` has a count limit |
 
 ### Downgrade
@@ -614,6 +616,49 @@ risks are accepted for v1 below.
 | Restore an old snapshot: an old deny list, a store without recent data, a key the operator already replaced | Snapshot restore | Medium × low | Accept: replication repairs missing data and other nodes refuse older profile versions; a revived replaced key is the key-theft row above, and the runbook's rotation covers it. For v1 the node does not detect that its state went back in time |
 | Poison the peer cache or anchors so the node restarts into the attacker's nodes | Disk write | Medium × low | Accept: the configured seeds, pinned to peer IDs, and the routing defences of [ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md) still apply |
 | Forge a profile, a message, a media blob or a deny list of another node; read end-to-end content | Any | — | Not possible: these are signed by keys that never reach the node, or encrypted end to end once MLS lands |
+
+### Attacks on the client
+
+Class 24 in detail. Two adversaries aim at the user's own app rather than at a node. A hostile
+contact sends through the nodes whatever MLS lets a group member send. A hostile node, a seed the
+client joins through or a node it meets in the DHT, answers the client's requests with anything a
+reply can carry. Neither can forge another person's signature or read end-to-end content; both can
+send the client bytes that its parsers, decoders, store and network stack then handle.
+
+In place in `rust/client`: edits and deletes apply only from the MLS-authenticated author, with
+at most 64 pending operations; message time is bounded by a 60-second clock skew; chat text is at
+most 64 KiB; attachment previews, MIME types and claimed dimensions are checked before use;
+sticker archives, manifests and WebP frames have size, count, frame and duration limits and never
+reach an OS decoder; media blobs are addressed by their SHA-256 and transport frames are capped;
+profile links parse only the exact `dyapp-profile:1:` form with a canonical peer ID; desktop
+notifications put peer text in as text nodes or escaped markup.
+
+#### Hostile contact
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| A crafted full-size photo exploits or crashes a platform image decoder | Opened originals: the desktop webview, iOS ImageIO | High × medium | Fix: full peer photos are decoded by the core photo decoder, as on Android, and shown as pixels it produced; the platform decoder never sees peer bytes |
+| A crafted preview or profile thumbnail | Chat previews, `Photo.thumbnail` | High × medium | In place: `check_preview` in core ([Injection](#injection)) |
+| A contact floods messages and attachments until the client's disk is full | Mailbox, client store | Medium × medium | Fix: a per-contact quota on stored messages and kept media, past which the oldest is dropped; mute and block stay the user's answer to an abusive contact |
+| A declared attachment size differs from the blob | Attachment metadata | Low × medium | Fix: the decrypted length must equal the declared size, or the attachment is refused; the transport cap bounds the fetch meanwhile |
+| Hidden, bidi or lookalike characters in chat text, names and labels | Messages, profiles | Medium × medium | Fix: the core text safeguard drops invisible and bidi controls before display ([Homoglyphs](#homoglyphs-and-unicode-tricks)) |
+| Markup or script in peer text runs in the desktop webview | Messages, profiles, file names | High × low | Fix: peer text is inserted as text only, with tests that try script and markup in every field the webview shows |
+| A contact edits or deletes another person's messages, or floods pending operations | Edit, delete | Medium × low | In place: only the authenticated author's operations apply; pending operations are capped |
+| Timestamps far in the future pin a message on top | Message time | Low × medium | In place: the clock-skew bound |
+| A link or QR code that opens something else than a profile | Paste, QR scan | Medium × low | Fix: every client sends pasted and scanned text, with a length cap, only through the core profile-link parser |
+| A crafted sticker pack | Sticker install | High × low | In place: core archive, manifest and WebP checks |
+
+#### Hostile node, seed or DHT peer
+
+| Attack | Entry point | Impact × likelihood | Verdict |
+|--------|-------------|---------------------|---------|
+| Seeds or DHT provider records point the client at loopback, LAN or a third party, so it probes the user's network or floods someone else | Seeds, `providers`, peer addresses | Medium × medium | Fix: the client refuses to dial non-global addresses, as nodes do with the dial guard, unless it is configured for a local network |
+| A search node returns thousands of hits signed by fresh keys that claim proof of work, so the client fetches all of them and runs an Argon2 check on each | `search.query`, `search.get` | Medium × medium | Fix: the client keeps at most the hits it asked for and caps the Argon2 checks per search |
+| A node fills a mailbox page with garbage envelopes | `mailbox.fetch` | Low × medium | Accept: each costs one failed MLS parse; frames are capped and the cross-check scores the node |
+| A node demands a heavy puzzle | Search puzzle | Low × medium | In place: the client refuses puzzles over 24 bits |
+| A node swaps media, serves old profiles or hides data | Media, profiles, mailbox | High × medium | Class 8 ([Hostile node](#hostile-node)): content addressing, version checks, cross-checks |
+| A node's text reaches the UI | Error messages | Low × low | Accept: client errors carry local libp2p text and status codes, not text from the node, and the UI shows them as text |
+| A hostile seed eclipses a new client: every node it hands out belongs to the attacker | Joining | High × medium | Accept for v0.0.1: the attacker can withhold data and observe metadata, not forge or read content; pinned built-in seeds are class 3. Research: whether a client should demand independent seeds or check the diversity of what they return, against the cost of more seed operators |
 
 ## Out of scope
 
