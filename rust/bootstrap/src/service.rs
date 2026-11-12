@@ -6,6 +6,7 @@ mod keypackages;
 
 use crate::replication::MediaManifestExt;
 use crate::{
+    clock::Clock,
     config::{Role, Turn},
     maintenance::RebuildBudget,
     media::{Attached, MediaStore, Put},
@@ -135,6 +136,8 @@ pub struct Service {
     /// Keys envelope source groups; in memory only, so a seized disk cannot map them back to IP
     /// groups, and new on restart.
     salt: [u8; 32],
+    /// Wall and monotonic time for limits, signed-time checks and retention.
+    clock: Clock,
 }
 
 const GUARDS: [&str; 7] = [
@@ -150,6 +153,11 @@ const GUARDS: [&str; 7] = [
 impl Service {
     /// A service over `store` with every limit from `config`, no other role store and no deny list.
     pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
+        Self::with_clock(store, config, Clock::system())
+    }
+
+    /// [`Service::new`] reading time from `clock`.
+    pub fn with_clock(store: BootstrapStore, config: NodeConfig, clock: Clock) -> Self {
         let l = &config.limits;
         let ban = Duration::from_secs(u64::from(l.ban_minutes) * 60);
         Self {
@@ -158,23 +166,30 @@ impl Service {
             search: None,
             search_peers: Mutex::default(),
             pow: Arc::default(),
-            search_sync: Traffic::new(u64::from(config.maintenance.io_mb_per_s) << 20),
+            search_sync: Traffic::with_clock(
+                u64::from(config.maintenance.io_mb_per_s) << 20,
+                clock.clone(),
+            ),
             puzzle: crate::puzzle::Puzzle::new(
                 config.search.puzzle_wait_ms,
                 config.search.max_puzzle_bits,
-                std::time::Instant::now(),
+                clock.instant(),
             ),
-            rate_limiter: PeerRateLimiter::new(l.requests_per_second),
-            media_peers: PeerRateLimiter::new(l.media_requests_per_second),
-            media_bytes: PeerRateLimiter::new(
+            rate_limiter: PeerRateLimiter::with_clock(l.requests_per_second, clock.clone()),
+            media_peers: PeerRateLimiter::with_clock(l.media_requests_per_second, clock.clone()),
+            media_bytes: PeerRateLimiter::with_clock(
                 u32::try_from(l.bytes_per_second).unwrap_or(u32::MAX).max(1),
+                clock.clone(),
             ),
-            groups: PeerRateLimiter::new(l.ip_group_requests_per_second),
+            groups: PeerRateLimiter::with_clock(l.ip_group_requests_per_second, clock.clone()),
             // Saturates for an unvalidated config, such as the fuzz node's unlimited one.
-            coarse_groups: PeerRateLimiter::new(l.ip_group_requests_per_second.saturating_mul(10)),
-            senders: PeerRateLimiter::new(l.sender_puts_per_second),
-            reputation: Reputation::new(l.strikes_to_ban, ban),
-            traffic: Traffic::new(l.bytes_per_second),
+            coarse_groups: PeerRateLimiter::with_clock(
+                l.ip_group_requests_per_second.saturating_mul(10),
+                clock.clone(),
+            ),
+            senders: PeerRateLimiter::with_clock(l.sender_puts_per_second, clock.clone()),
+            reputation: Reputation::with_clock(l.strikes_to_ban, ban, clock.clone()),
+            traffic: Traffic::with_clock(l.bytes_per_second, clock.clone()),
             wire: Arc::default(),
             dial_filter: dyapp_p2p_net::DialFilter::default(),
             protocols: Arc::new(dyapp_p2p_net::Protocols::public()),
@@ -189,6 +204,7 @@ impl Service {
             reported: Default::default(),
             metrics: crate::metrics::Metrics::default(),
             salt: crate::random(),
+            clock,
         }
     }
 
@@ -417,7 +433,7 @@ impl Service {
         if self.refused(peer) {
             return node_status(Status::Refused);
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.unix_secs();
         NodeResponse {
             turn: Some(turn_credentials(
                 &self.config.turn,
@@ -480,7 +496,7 @@ impl Service {
             },
             puzzle_bits: puzzle.1,
             puzzle_challenge: if search { puzzle.0.to_vec() } else { vec![] },
-            server_time: chrono::Utc::now().timestamp().unsigned_abs(),
+            server_time: self.clock.unix_secs(),
             capabilities: [
                 (store, proto::Capability::ProfileHeartbeat),
                 (search, proto::Capability::SearchPuzzle),
@@ -623,7 +639,7 @@ impl Service {
                         // The owner would already have expired here: accept without storing.
                         return Ok(reply(Status::Ok, None));
                     }
-                    let now = chrono::Utc::now().timestamp();
+                    let now = self.clock.timestamp();
                     last_seen = Some(now - i64::from(request.age_seconds));
                 }
                 let response = self.publish(&record, store, max, last_seen, check_pow)?;
@@ -670,7 +686,7 @@ impl Service {
                 if self.listed(&owner) {
                     return Ok(reply(Status::Refused, None));
                 }
-                let now = chrono::Utc::now().timestamp();
+                let now = self.clock.timestamp();
                 if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
                     return Ok(ProfileResponse {
                         server_time: now.unsigned_abs(),
@@ -770,7 +786,7 @@ impl Service {
         )? {
             return Ok(reply(Status::Full, None));
         }
-        let last_seen = last_seen.unwrap_or_else(|| chrono::Utc::now().timestamp());
+        let last_seen = last_seen.unwrap_or_else(|| self.clock.timestamp());
         match self.store.put_profile_seen(record, last_seen) {
             Ok(_) => Ok(reply(Status::Ok, None)),
             Err(BootstrapError::Profile(dyapp_profile::Error::Stale)) => {

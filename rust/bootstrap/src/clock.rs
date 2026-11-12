@@ -60,6 +60,12 @@ impl Clock {
     pub fn unix_secs(&self) -> u64 {
         self.source.unix().as_secs()
     }
+
+    /// Signed whole seconds since the Unix epoch, as `chrono::Utc::now().timestamp()` gives.
+    #[must_use]
+    pub fn timestamp(&self) -> i64 {
+        i64::try_from(self.unix_secs()).unwrap_or(i64::MAX)
+    }
 }
 
 impl Default for Clock {

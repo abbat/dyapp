@@ -331,7 +331,7 @@ impl Service {
         if !self.pow.confirmed(&check) {
             return Ok(Applied::Pow(check));
         }
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         Ok(
             match index.put(&key, &verified.profile, record, now, limit)? {
                 crate::search::Put::Stored => Applied::Done,
@@ -342,7 +342,7 @@ impl Service {
     }
 
     pub(super) fn beat_search(&self, record: &SignedRecord) -> crate::Result<Applied> {
-        self.beat_search_at(record, chrono::Utc::now().timestamp())
+        self.beat_search_at(record, self.clock.timestamp())
     }
 
     /// Cheap checks first: the signature, the clock, the stored version and day limit, then

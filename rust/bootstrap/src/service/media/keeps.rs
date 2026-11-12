@@ -134,7 +134,7 @@ impl Service {
         {
             return Ok(media_status(Status::Invalid));
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.unix_secs();
         if keep.time.abs_diff(now) > CLOCK_SKEW {
             return Ok(media_clock_invalid(now));
         }
@@ -167,7 +167,7 @@ impl Service {
         if self.listed(&owner) {
             return Ok(media_status(Status::Refused));
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.unix_secs();
         if keep.time.abs_diff(now) > CLOCK_SKEW {
             return Ok(media_clock_invalid(now));
         }
