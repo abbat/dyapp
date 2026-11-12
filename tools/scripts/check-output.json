@@ -21,6 +21,7 @@
   "swiftlint": {"fix":"docs/development/linting.md#swift-swiftlintyml","format":"lines","pattern":"^.+:\\d+:\\d+:"},
   "detekt": {"fix":"docs/development/linting.md#kotlin-detektyml","format":"lines","pattern":"^.+:\\d+:\\d+:"},
   "rustfmt": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^Diff in .+:\\d+:|^[+-](?![+-])|^error:"},
+  "clock": {"fix":"docs/development/ci-base.md#quality--quality","format":"lines","pattern":"direct clock reads"},
   "unused-public": {"fix":"docs/development/linting.md#rust","format":"json"},
   "cargo-shear": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"(?i)unused|^\\s{2,}[\\w-]+\\s*$"},
   "clippy": {"fix":"docs/development/linting.md#rust","format":"lines","pattern":"^(?:error(?:\\[[^]]+\\])?:|\\s*-->\\s)"},
