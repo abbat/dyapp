@@ -5,6 +5,8 @@
  *   chatsDone?: Promise<unknown>,
  *   connectionShown?: Promise<unknown>,
  *   stickersShown?: Promise<unknown>,
+ *   composerShown?: Promise<unknown>,
+ *   editShown?: Promise<unknown>,
  *   passedShown?: Promise<unknown>,
  *   devicesShown?: Promise<unknown>,
  *   noteShown?: Promise<unknown>

@@ -796,6 +796,7 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     stickers::saved_sticker_packs,
     stickers::remove_saved_sticker_pack,
     chats::commands::receive_mail,
+    chats::commands::chat_composer,
     chats::commands::chat_rows,
     chats::commands::chat_history,
     stickers::chat::chat_sticker_frame,

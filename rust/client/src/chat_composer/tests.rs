@@ -36,8 +36,10 @@ fn blank_text_matches_the_linux_javascript_composer() {
     for blank in ["", " \t\r\n", "\u{a0}", "\u{2007}\u{202f}", "\u{feff}"] {
         assert!(!assess(Some(State::Open), blank).sendable);
         assert!(assess(Some(State::Open), blank).writable);
+        assert!(assess(None, blank).blank);
     }
     for nonblank in ["text", "  text\n", "\u{85}", "\u{1c}"] {
         assert!(assess(Some(State::Open), nonblank).sendable);
+        assert!(!assess(None, nonblank).blank);
     }
 }

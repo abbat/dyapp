@@ -1,6 +1,7 @@
 //! Local chat projection converted to desktop JSON without exposing internal request IDs.
 
 use dyapp_client::attachment::{hours_left, layout_size};
+use dyapp_client::chat_composer as composer;
 use dyapp_client::store::messages::{
     ChatAttachment, ChatItem, ChatMessage, ChatSticker, DeliveryState,
 };
@@ -38,10 +39,9 @@ impl BlockResult {
 }
 
 /// Conversation states exposed to the desktop without the request's internal message ID.
-#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub enum ChatState {
+pub(crate) enum ChatState {
     None,
     RequestSent,
     RequestReceived,
@@ -58,6 +58,37 @@ impl From<Conversation> for ChatState {
             Conversation::Open => Self::Open,
             Conversation::Closed => Self::Closed,
         }
+    }
+}
+
+impl From<ChatState> for composer::State {
+    fn from(state: ChatState) -> Self {
+        match state {
+            ChatState::None => Self::None,
+            ChatState::RequestSent => Self::RequestSent,
+            ChatState::RequestReceived => Self::RequestReceived,
+            ChatState::Open => Self::Open,
+            ChatState::Closed => Self::Closed,
+        }
+    }
+}
+
+/// Shared core composer controls; sending still checks authorization and limits itself.
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ComposerView {
+    too_long: bool,
+    blank: bool,
+    sendable: bool,
+}
+
+/// Assess composer text for a chat phase; no phase means the chat is still loading.
+pub(crate) fn composer(state: Option<ChatState>, text: &str) -> ComposerView {
+    let policy = composer::assess(state.map(composer::State::from), text);
+    ComposerView {
+        too_long: policy.too_long,
+        blank: policy.blank,
+        sendable: policy.sendable,
     }
 }
 
@@ -318,6 +349,20 @@ mod tests {
     use dyapp_client::chat::AttachmentMessage;
     use dyapp_client::store::messages::{ChatAttachment, MessageKey};
     use std::path::Path;
+
+    #[test]
+    fn composer_reads_ui_states_and_follows_core_policy() {
+        let open: super::ChatState = serde_json::from_str("\"open\"").unwrap();
+        let waiting: super::ChatState = serde_json::from_str("\"requestSent\"").unwrap();
+        let view = |state, text| serde_json::to_value(super::composer(state, text)).unwrap();
+        let expect = |too_long, blank, sendable| serde_json::json!({ "tooLong": too_long, "blank": blank, "sendable": sendable });
+        assert_eq!(view(Some(open), "hi"), expect(false, false, true));
+        assert_eq!(view(Some(open), " \n"), expect(false, true, false));
+        assert_eq!(view(Some(waiting), "hi"), expect(false, false, false));
+        assert_eq!(view(None, "hi"), expect(false, false, false));
+        let long = "a".repeat(dyapp_client::chat::MAX_TEXT_BYTES + 1);
+        assert_eq!(view(Some(open), &long), expect(true, false, false));
+    }
 
     #[test]
     fn photo_expiry_labels_reject_unrepresentable_times() {

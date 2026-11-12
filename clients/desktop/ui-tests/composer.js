@@ -6,6 +6,7 @@
     for (const text of ['draft', '']) {
       appBindings.chatInput.value = text;
       appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await appApi.composerShown;
       const changed = appBindings.chatInput.getBoundingClientRect();
       check(
         appBindings.chatSend.hidden === !text && appBindings.chatSend.disabled === !text,
@@ -23,6 +24,7 @@
     }
     appBindings.chatInput.value = 'draft';
     appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await appApi.composerShown;
     for (const options of [{ shiftKey: true }, { isComposing: true }]) {
       const event = new KeyboardEvent('keydown', {
         key: 'Enter',
@@ -35,6 +37,7 @@
     }
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     appBindings.chatInput.dispatchEvent(enter);
+    await appApi.composerShown;
     check(enter.defaultPrevented && submits() === 1, 'Enter did not use form submission');
     stickers.focus();
     stickers.click();

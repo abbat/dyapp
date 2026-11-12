@@ -96,6 +96,7 @@
  *   place_countries: Command<[], string[]>,
  *   place_name: Command<[{ country: string, id: number, lang: string }], Place | null>,
  *   search_places: Command<[{ country: string, prefix: string, lang: string, limit: number }], Place[]>,
+ *   chat_composer: Command<[{ state: import('./chat-state.js').ConversationState | null, text: string }], { tooLong: boolean, blank: boolean, sendable: boolean }>,
  *   chat_rows: Command<[], import('./chat-state.js').ChatRow[]>,
  *   chat_history: Command<[{ peerId: string }], import('./chat-state.js').ChatHistory>,
  *   mark_chat_read: Command<[{ peerId: string }], number>,

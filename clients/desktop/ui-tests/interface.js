@@ -603,6 +603,12 @@ const appApi = {
   get nodeShown() {
     return settingsModule.controller.nodeShown;
   },
+  get composerShown() {
+    return progressModule.progress.composerShown;
+  },
+  get editShown() {
+    return progressModule.progress.editShown;
+  },
   get noteShown() {
     return progressModule.progress.noteShown;
   },

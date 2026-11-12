@@ -97,6 +97,7 @@
     });
     appBindings.chatInput.value = 'late';
     appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appApi.composerShown;
     const finishSendCall = smoke.pendingSmokeCall();
     const oldSend = appBindings.sendChatText(() => finishSendCall.call());
     await appBindings.act(Promise.resolve({ status: 'picker' }));
@@ -116,6 +117,7 @@
     });
     appBindings.chatInput.value = 'keep draft';
     appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appApi.composerShown;
     await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('notConnected');
       if (command === 'chat_history')
@@ -123,6 +125,7 @@
       throw new Error(`unexpected failed send command: ${command}`);
     });
     assertChatProjectionFailedSendLostTheUnstagedDraft();
+    await appApi.composerShown;
     await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('peerUnavailable');
       if (command === 'chat_history')
@@ -130,6 +133,7 @@
       throw new Error(`unexpected unavailable send command: ${command}`);
     });
     assertChatProjectionAnInviteWithoutStockDidNotSay();
+    await appApi.composerShown;
     await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('nodeFailed');
       if (command === 'chat_history')
@@ -177,6 +181,7 @@
   const checkChatProjectionReply = async (peer, message, rows) => {
     appBindings.chatInput.value = 'reply';
     appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appApi.composerShown;
     let sentArgs;
     const reply = {
       author: appBindings.current.peerId,
@@ -278,6 +283,7 @@
     assertFirstMessageFirstMessageDetailDidNotOpen(found);
     appBindings.chatInput.value = 'first text';
     appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appApi.composerShown;
     let sent;
     const own = {
       author: appBindings.current.peerId,
@@ -302,6 +308,7 @@
     });
     assertFirstMessageFirstTextDidNotCreateAPending(sent, found);
     let second = 0;
+    await appApi.composerShown;
     await appBindings.sendChatText(() => {
       second += 1;
       throw new Error('second request sent');

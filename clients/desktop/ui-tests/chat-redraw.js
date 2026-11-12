@@ -81,6 +81,7 @@
       messages = appBindings.activeChat.messages;
     appBindings.chatInput.value = 'draft survives refresh';
     appBindings.chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await appApi.composerShown;
     appBindings.chatInput.focus();
     fixture.historyGate = deferred();
     fixture.historyStarted = deferred();

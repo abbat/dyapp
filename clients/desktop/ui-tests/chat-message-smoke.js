@@ -73,6 +73,7 @@
     appBindings.chatMessages.querySelector('button').click();
     appBindings.editInput.value = 'late';
     appBindings.editInput.dispatchEvent(new Event('input'));
+    await appApi.editShown;
     const finishEditCall = smoke.pendingSmokeCall();
     const oldEdit = appBindings.editChatText((command) =>
       command === 'edit_chat_text' ? finishEditCall.call() : call(command),
@@ -106,6 +107,7 @@
     editButtons[0].click();
     appBindings.editInput.value = 'replacement';
     appBindings.editInput.dispatchEvent(new Event('input'));
+    await appApi.editShown;
     let editedArgs;
     fixture.messages = [{ ...own, text: 'replacement', edited: true }, theirs, deleted];
     await appBindings.editChatText((command, args) => {
@@ -119,12 +121,14 @@
     appBindings.chatMessages.querySelector('button').click();
     appBindings.editInput.value = 'keep draft';
     appBindings.editInput.dispatchEvent(new Event('input'));
+    await appApi.editShown;
     await appBindings.editChatText((command) =>
       command === 'edit_chat_text' ? Promise.reject('diskFailed') : call(command),
     );
     assertChatEditUnstagedEditLostItsDraft();
     appBindings.editInput.value = 'queued text';
     appBindings.editInput.dispatchEvent(new Event('input'));
+    await appApi.editShown;
     await appBindings.editChatText((command) => {
       if (command === 'edit_chat_text') {
         fixture.messages = [{ ...own, text: 'queued text', edited: true }, theirs, deleted];

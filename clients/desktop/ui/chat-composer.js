@@ -3,19 +3,31 @@ import { chatState } from './chat-state.js';
 import { openChat, chatSending, chatBlocking } from './chats-ui.js';
 import { chatInput, chatSend, chatComposeStatus } from './elements.js';
 import { identityState, identityCurrent } from './identity-state.js';
+import { invoke } from './ipc.js';
 import { strings } from './locale.js';
 import { controller as stickerPickerController } from './sticker-picker.js';
 import { progress } from './ui-progress.js';
+
+let composerRun = 0;
+/**
+ * Text and phase rules come from the core so every client agrees on what can be sent.
+ * @param {import('./chat-state.js').ConversationState | null} state
+ * @param {string} text
+ */
+export const assess = (state, text) =>
+  invoke('chat_composer', { state, text }).catch(() => ({
+    tooLong: false,
+    blank: true,
+    sendable: false,
+  }));
 
 export const updateComposer = () => {
   const waiting = chatState.activeChat?.state === 'requestSent';
   const closed = chatState.activeChat?.state === 'closed';
   const writable =
     Boolean(chatState.activeChat) && !waiting && !closed && !chatSending && !chatBlocking;
-  const bytes = new TextEncoder().encode(chatInput.value).length;
   chatInput.disabled = !writable;
-  chatSend.disabled = !writable || !chatInput.value.trim() || bytes > 65536;
-  chatSend.hidden = !chatInput.value.trim();
+  if (!writable) chatSend.disabled = true;
   const attach = domById('chat-attach', HTMLButtonElement);
   attach.hidden = false;
   attach.disabled = !writable || chatState.activeChat?.state !== 'open';
@@ -32,7 +44,15 @@ export const updateComposer = () => {
   const mute = domById('chat-mute', HTMLButtonElement);
   mute.dataset.i18n = chatState.activeChat?.muted ? 'chats.unmute' : 'chats.mute';
   mute.textContent = strings[mute.dataset.i18n];
-  if (bytes > 65536) chatComposeStatus.textContent = strings['chats.tooLong'];
+  const run = ++composerRun;
+  const shown = assess(chatState.activeChat?.state ?? null, chatInput.value).then((policy) => {
+    if (run !== composerRun) return;
+    chatSend.disabled = !writable || !policy.sendable;
+    chatSend.hidden = policy.blank;
+    if (policy.tooLong) chatComposeStatus.textContent = strings['chats.tooLong'];
+  });
+  progress.composerShown = shown;
+  return shown;
 };
 chatInput.addEventListener('input', () => {
   chatComposeStatus.textContent = '';
@@ -43,7 +63,10 @@ chatInput.addEventListener('input', () => {
 chatInput.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
   event.preventDefault();
-  if (!chatSend.disabled) domById('chat-composer', HTMLFormElement).requestSubmit();
+  // The keystroke may arrive before the core assessed the latest text.
+  void progress.composerShown?.then(() => {
+    if (!chatSend.disabled) domById('chat-composer', HTMLFormElement).requestSubmit();
+  });
 });
 domById('chat-stickers', HTMLButtonElement).addEventListener('click', () => {
   if (chatInput.disabled || chatState.activeChat?.state !== 'open') return;

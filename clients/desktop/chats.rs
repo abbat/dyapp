@@ -437,6 +437,19 @@ pub mod commands {
         .map_err(|error| error.to_string())?
     }
 
+    /// Composer and edit controls from the shared core policy, without storage work.
+    #[tauri::command]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "Tauri extracts command request values by value"
+    )]
+    pub(crate) fn chat_composer(
+        state: Option<super::view::ChatState>,
+        text: String,
+    ) -> super::view::ComposerView {
+        super::view::composer(state, &text)
+    }
+
     /// Current Chats rows for the active identity, including empty conversations.
     #[tauri::command]
     #[expect(

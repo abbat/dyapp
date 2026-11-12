@@ -32,11 +32,17 @@ impl From<Conversation> for State {
 
 /// Current composer controls, computed without network or storage work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Independent phase, length, blank and send answers that each drive a separate control"
+)]
 pub struct Assessment {
     /// Whether the phase permits typing; a missing phase means loading.
     pub writable: bool,
     /// Whether UTF-8 text exceeds the protocol limit, regardless of phase.
     pub too_long: bool,
+    /// Whether the text is empty after trimming, regardless of phase.
+    pub blank: bool,
     /// Whether nonblank bounded text can be submitted in this phase.
     pub sendable: bool,
 }
@@ -49,11 +55,12 @@ pub fn assess(state: Option<State>, text: &str) -> Assessment {
         Some(State::None | State::RequestReceived | State::Open)
     );
     let too_long = text.len() > MAX_TEXT_BYTES;
-    let nonblank = !crate::text_input::trim(text).is_empty();
+    let blank = crate::text_input::trim(text).is_empty();
     Assessment {
         writable,
         too_long,
-        sendable: writable && nonblank && !too_long,
+        blank,
+        sendable: writable && !blank && !too_long,
     }
 }
 

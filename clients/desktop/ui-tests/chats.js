@@ -46,6 +46,7 @@ const liveOpen = async (row) => {
 const liveSend = async (text, results = ['chats.sent']) => {
   appBindings.chatInput.value = text;
   appBindings.chatInput.dispatchEvent(new Event('input'));
+  await appApi.composerShown;
   document.getElementById('chat-composer').requestSubmit();
   await appApi.chatSent;
   const status = appBindings.chatComposeStatus.textContent;
@@ -185,6 +186,7 @@ const peerSteps = {
     liveAction('later text', 'chats.edit');
     appBindings.editInput.value = 'edited text';
     appBindings.editInput.dispatchEvent(new Event('input'));
+    await appApi.editShown;
     document.getElementById('chat-edit-form').requestSubmit();
     await appApi.chatEdited;
     if (appBindings.chatComposeStatus.textContent !== appApi.strings['chats.editSent']) {

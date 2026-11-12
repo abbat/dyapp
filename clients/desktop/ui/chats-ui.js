@@ -1,7 +1,7 @@
 import { chatRow as buildChatRow } from './chat-row.js';
 import { byId as domById, all as domAll, eventDetail } from './dom.js';
 import { chatTime, chatLinkHosts } from './formatting.js';
-import { updateComposer } from './chat-composer.js';
+import { updateComposer, assess } from './chat-composer.js';
 import { statusMessage, peerLabel, showArea } from './app.js';
 import { controller as chatMessageController } from './chat-message.js';
 import { controller as chatPhotosController } from './chat-photos.js';
@@ -119,18 +119,23 @@ editDialog.addEventListener('cancel', (event) => {
   if (editBusy) event.preventDefault();
 });
 editCancel.addEventListener('click', closeEdit);
+let editRun = 0;
 const updateEdit = () => {
-  const bytes = new TextEncoder().encode(editInput.value).length;
-  editSave.disabled =
-    editBusy ||
-    !editTarget ||
-    !editInput.value.trim() ||
-    editInput.value === editTarget.text ||
-    bytes > 65536;
-  if (bytes > 65536) {
-    editError.textContent = strings['chats.tooLong'];
-    editError.hidden = false;
+  const run = ++editRun;
+  if (editBusy || !editTarget || editInput.value === editTarget.text) {
+    editSave.disabled = true;
+    return Promise.resolve();
   }
+  const shown = assess('open', editInput.value).then((policy) => {
+    if (run !== editRun) return;
+    editSave.disabled = !policy.sendable;
+    if (policy.tooLong) {
+      editError.textContent = strings['chats.tooLong'];
+      editError.hidden = false;
+    }
+  });
+  progress.editShown = shown;
+  return shown;
 };
 editInput.addEventListener('input', () => {
   editError.hidden = true;
