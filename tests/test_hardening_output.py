@@ -103,7 +103,79 @@ def pe(
     return dos + b"PE\x00\x00" + coff + bytes(optional)
 
 
+def macho_slice(
+    flags: int = 0x200085,
+    rpath: bool = False,
+    name: bytes = b"___stack_chk_fail",
+) -> bytes:
+    """MH_EXECUTE header, LC_SYMTAB, an optional LC_RPATH, string table."""
+    commands = 24 + 16 * rpath
+    strtab = b"\x00" + name + b"\x00"
+    header = struct.pack(
+        "<IiiIIIII", 0xFEEDFACF, 0, 0, 2, 1 + rpath, commands, flags, 0
+    )
+    symtab = struct.pack("<IIIIII", 0x2, 24, 0, 0, 32 + commands, len(strtab))
+    path = struct.pack("<III", 0x8000001C, 16, 12) + b"@x\x00\x00"
+    return header + symtab + (path if rpath else b"") + strtab
+
+
+def macho(slices: Mapping[int, bytes]) -> bytes:
+    """Universal header with each slice 16-byte aligned after it."""
+    at = 8 + 20 * len(slices)
+    header, body = struct.pack(">II", 0xCAFEBABE, len(slices)), b""
+    for cpu, data in slices.items():
+        offset = at + len(body)
+        header += struct.pack(">IIIII", cpu, 0, offset, len(data), 4)
+        body += data + b"\x00" * (-len(data) % 16)
+    return header + body
+
+
 class Hardening(unittest.TestCase):
+    def test_macos_macho_profile(self) -> None:
+        script = ROOT / "tools/scripts/check-hardening.py"
+        arm, intel = 0x0100000C, 0x01000007
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(root / "logs"))
+
+            def run(
+                name: str, body: bytes
+            ) -> subprocess.CompletedProcess[str]:
+                (root / name).write_bytes(body)
+                return subprocess.run(
+                    [sys.executable, str(script), "--raw", str(root / name)],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    check=False,
+                )
+
+            good = run(
+                "good", macho({arm: macho_slice(), intel: macho_slice()})
+            )
+            self.assertEqual(good.returncode, 0, good.stderr)
+            self.assertIn("arm64+x86_64, PIE, NX stack", good.stdout)
+            bad = {
+                "no-pie": (macho_slice(flags=0x85), "x86_64: not a PIE"),
+                "exec-stack": (
+                    macho_slice(flags=0x220085),
+                    "x86_64: executable stack",
+                ),
+                "rpath": (macho_slice(rpath=True), "x86_64: LC_RPATH set"),
+                "no-canary": (
+                    macho_slice(name=b"_main"),
+                    "x86_64: no stack protector",
+                ),
+                "thin-32": (b"\xce\xfa\xed\xfe" + bytes(28), "not a 64-bit"),
+            }
+            for name, (body, cause) in bad.items():
+                result = run(name, macho({arm: macho_slice(), intel: body}))
+                self.assertEqual(result.returncode, 1, name)
+                self.assertIn(cause, result.stderr, name)
+            arm_only = run("arm-only", macho({arm: macho_slice()}))
+            self.assertEqual(arm_only.returncode, 1)
+            self.assertIn("not arm64 and x86_64", arm_only.stderr)
+
     def test_windows_pe_profile(self) -> None:
         script = ROOT / "tools/scripts/check-hardening.py"
         with tempfile.TemporaryDirectory() as directory:

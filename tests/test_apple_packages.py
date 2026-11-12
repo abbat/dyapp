@@ -100,6 +100,38 @@ class ApplePackages(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not executable"):
                 CHECK.executable(app, "ios")
 
+    def test_macos_zip_icon(self) -> None:
+        spec = importlib.util.spec_from_file_location(
+            "macos_icon", ROOT / "tests/scripts/check-macos-icon.py"
+        )
+        assert spec is not None and spec.loader is not None
+        icon = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(icon)
+        icns = ROOT / "clients/macos/icons/icon.icns"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app, _ = app_fixture(root, "macos")
+            plist = app / "Contents/Info.plist"
+            metadata = plistlib.loads(plist.read_bytes())
+            resources = app / "Contents/Resources"
+            resources.mkdir()
+            for name, setup, cause in (
+                ("good", {"CFBundleIconFile": "icon"}, None),
+                ("unnamed", {}, "no CFBundleIconFile"),
+                ("missing", {"CFBundleIconFile": "other"}, "other.icns"),
+                ("stale", {"CFBundleIconFile": "old.icns"}, "differs"),
+            ):
+                plist.write_bytes(plistlib.dumps({**metadata, **setup}))
+                (resources / "icon.icns").write_bytes(icns.read_bytes())
+                (resources / "old.icns").write_bytes(b"icns")
+                output = root / f"{name}.zip"
+                CHECK.package(app, "macos", output, {"arm64", "x86_64"})
+                found = icon.problem(output, icns)
+                if cause is None:
+                    self.assertIsNone(found, name)
+                else:
+                    self.assertIn(cause, found or "", name)
+
 
 if __name__ == "__main__":
     unittest.main()

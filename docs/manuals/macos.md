@@ -97,7 +97,11 @@ a copy from the same tag; that signed copy is theirs, not an upstream release.
 ## Where the ZIP comes from
 
 The tagged `release` workflow builds Release on `macos-15` with `CODE_SIGNING_ALLOWED=NO` and checks
-the bundle (`tools/scripts/package-apple-release.py`: both architectures, executable, layout). It
+the bundle (`tools/scripts/package-apple-release.py`: both architectures, executable, layout).
+`tools/scripts/check-hardening.py` then checks that each slice of the executable is a PIE with no
+executable stack and no `LC_RPATH`, and that the bundled C code imports the stack protector;
+`tests/scripts/check-macos-icon.py` checks that the ZIP's `CFBundleIconFile` is the app icon. The
+hardened runtime is a signing flag, so the unsigned ZIP cannot carry it. The workflow then
 publishes the ZIP on the [release page](https://github.com/abbat/dyapp/releases) with
 `SHA256SUMS` and build provenance. No release has been published yet. Check a download with
 `sha256sum -c --ignore-missing SHA256SUMS` and

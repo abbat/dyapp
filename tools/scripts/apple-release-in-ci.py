@@ -100,6 +100,27 @@ def main() -> "int":
             ],
             reports / "package.log",
         )
+        if args.target == "macos":
+            binary = app / "Contents/MacOS/dyapp-macos"
+            run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(ROOT / "tools/scripts/check-hardening.py"),
+                    str(binary),
+                ],
+                reports / "hardening.log",
+            )
+            run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(ROOT / "tests/scripts/check-macos-icon.py"),
+                    str(archive),
+                    str(ROOT / "clients/macos/icons/icon.icns"),
+                ],
+                reports / "icon.log",
+            )
         run(
             [
                 sys.executable,

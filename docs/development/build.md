@@ -230,7 +230,9 @@ architecture and filesystem layout.
 and universal macOS arm64/x86_64. iOS uses `build-apple-core.sh ios-device release`,
 XcodeGen and `CODE_SIGNING_ALLOWED=NO`. macOS uses
 `build-macos-client.py --profile release --universal` over the shared Tauri crate.
-`tools/scripts/apple-release-in-ci.py <ios|macos>` packages the app and records
+`tools/scripts/apple-release-in-ci.py <ios|macos>` packages the app, checks the
+macOS executable with `check-hardening.py` and the ZIP icon with
+`tests/scripts/check-macos-icon.py`, and records
 bytes/hash/source/compiler in `measurement.json`, together with Xcode version
 and captured logs. The existing universal ZIP budget predates Tauri; refresh it
 only from a native CI measurement with the correct compiler and profile.

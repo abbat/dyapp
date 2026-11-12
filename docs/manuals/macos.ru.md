@@ -92,7 +92,11 @@
 ## Откуда берётся ZIP
 
 Workflow `release` для тега собирает Release на `macos-15` с `CODE_SIGNING_ALLOWED=NO` и проверяет
-бандл (`tools/scripts/package-apple-release.py`: обе архитектуры, исполняемый файл, структура). ZIP
+бандл (`tools/scripts/package-apple-release.py`: обе архитектуры, исполняемый файл, структура).
+Затем `tools/scripts/check-hardening.py` проверяет, что каждый срез исполняемого файла — PIE без
+исполняемого стека и без `LC_RPATH`, а встроенный код на C импортирует защиту стека;
+`tests/scripts/check-macos-icon.py` проверяет, что `CFBundleIconFile` в ZIP — иконка приложения.
+Hardened runtime задаётся подписью, поэтому в неподписанном ZIP его нет. После этого ZIP
 публикуется на [странице релизов](https://github.com/abbat/dyapp/releases) с `SHA256SUMS` и
 подтверждением происхождения сборки. Релизов пока не было. Проверить скачанный файл можно командами
 `sha256sum -c --ignore-missing SHA256SUMS` и `gh attestation verify <файл> --repo abbat/dyapp`.

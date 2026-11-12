@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the hardening profile of a release ELF or Windows PE binary.
+"""Checks the hardening profile of a release ELF, Windows PE or Mach-O binary.
 
 Usage: check-hardening.py <binary>. Fails unless the 64-bit little-endian ELF
 is a position-independent executable (ET_DYN with an interpreter), its stack
@@ -13,6 +13,12 @@ A PE must be a 64-bit (PE32+) image that keeps its relocations and asks for
 ASLR (DYNAMIC_BASE), 64-bit ASLR (HIGH_ENTROPY_VA) and DEP (NX_COMPAT); the
 Rust MSVC toolchain sets all of them. Control Flow Guard is not required: Rust
 leaves it off by default and the bundled std is not built with it.
+
+A Mach-O must be a universal binary with arm64 and x86_64 slices, and each
+slice a 64-bit PIE executable that does not allow an executable stack, has no
+LC_RPATH and imports ___stack_chk_fail. Apple clang adds the stack protector
+to the bundled C code by default. 64-bit Mach-O heaps are never executable,
+and the hardened runtime is a code-signing flag the unsigned ZIP cannot carry.
 """
 
 from collections.abc import Iterable
@@ -63,10 +69,64 @@ def pe_problems(data: bytes) -> list[str]:
     return found
 
 
+MH_EXECUTE, MH_PIE, MH_ALLOW_STACK_EXECUTION = 2, 0x200000, 0x20000
+LC_SYMTAB, LC_RPATH = 0x2, 0x8000001C
+MACHO_CPUS = {0x0100000C: "arm64", 0x01000007: "x86_64"}
+
+
+def macho_slice_problems(data: bytes) -> list[str]:
+    if data[:4] != b"\xcf\xfa\xed\xfe" or len(data) < 32:
+        return ["not a 64-bit Mach-O"]
+    _, _, _, filetype, ncmds, _, flags, _ = struct.unpack_from(
+        "<IiiIIIII", data
+    )
+    found = []
+    if filetype != MH_EXECUTE or not flags & MH_PIE:
+        found.append("not a PIE")
+    if flags & MH_ALLOW_STACK_EXECUTION:
+        found.append("executable stack")
+    names: list[bytes] = []
+    at = 32
+    for _ in range(ncmds):
+        cmd, size = struct.unpack_from("<II", data, at)
+        if cmd == LC_RPATH:
+            found.append("LC_RPATH set")
+        if cmd == LC_SYMTAB:
+            stroff, strsize = struct.unpack_from("<II", data, at + 16)
+            names = data[stroff : stroff + strsize].split(b"\x00")
+        at += max(size, 8)
+    if b"___stack_chk_fail" not in names:
+        found.append(
+            "no stack protector in the C code (___stack_chk_fail not imported)"
+        )
+    return found
+
+
+def macho_problems(data: bytes) -> list[str]:
+    (count,) = struct.unpack_from(">I", data, 4)
+    slices = {}
+    for i in range(count):
+        cpu, _, offset, size, _ = struct.unpack_from(
+            ">IIIII", data, 8 + 20 * i
+        )
+        slices[MACHO_CPUS.get(cpu, hex(cpu))] = data[offset : offset + size]
+    if sorted(slices) != sorted(MACHO_CPUS.values()):
+        return [f"slices {', '.join(sorted(slices))}, not arm64 and x86_64"]
+    return [
+        f"{cpu}: {problem}"
+        for cpu, body in sorted(slices.items())
+        for problem in macho_slice_problems(body)
+    ]
+
+
 def problems(binary: str | os.PathLike[str]) -> list[str]:
     with open(binary, "rb") as f:
         data = f.read()
-    return pe_problems(data) if data[:2] == b"MZ" else elf_problems(data)
+    if data[:2] == b"MZ":
+        return pe_problems(data)
+    if data[:4] == b"\xca\xfe\xba\xbe":
+        return macho_problems(data)
+    return elf_problems(data)
 
 
 def elf_problems(data: bytes) -> list[str]:
@@ -127,12 +187,13 @@ def main(raw: bool = False) -> None:
     if found:
         sys.exit(f"{binary}: {'; '.join(found)}")
     with open(binary, "rb") as f:
-        pe = f.read(2) == b"MZ"
-    profile = (
-        "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"
-        if pe
-        else "PIE, NX, full RELRO, no RPATH, stack protector"
-    )
+        magic = f.read(4)
+    if magic[:2] == b"MZ":
+        profile = "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"
+    elif magic == b"\xca\xfe\xba\xbe":
+        profile = "arm64+x86_64, PIE, NX stack, no RPATH, stack protector"
+    else:
+        profile = "PIE, NX, full RELRO, no RPATH, stack protector"
     print(f"{binary}: {profile}" if raw else "OK hardening")
 
 
