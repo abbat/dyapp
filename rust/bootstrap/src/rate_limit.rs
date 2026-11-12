@@ -1,8 +1,10 @@
 //! Request, ban, byte-rate and memory limits of the node.
 
-#[cfg(test)]
-use governor::clock::{Clock, FakeRelativeClock};
-use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
+use crate::clock::Clock;
+use governor::middleware::NoOpMiddleware;
+use governor::nanos::Nanos;
+use governor::state::{InMemoryState, NotKeyed};
+use governor::{Quota, RateLimiter};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex, RwLock};
@@ -11,54 +13,40 @@ use std::time::{Duration, Instant};
 /// Buckets kept before idle ones are dropped: bounds the map against rotating peer IDs.
 const MAX_BUCKETS: usize = 10_000;
 
+type Bucket = RateLimiter<NotKeyed, InMemoryState, Clock, NoOpMiddleware<Nanos>>;
+
 /// Buckets per key with the last time idle ones were dropped.
 type Buckets = (HashMap<String, (Bucket, Instant)>, Instant);
-
-enum Bucket {
-    Real(DefaultDirectRateLimiter),
-    #[cfg(test)]
-    Frozen(
-        RateLimiter<
-            governor::state::direct::NotKeyed,
-            governor::state::InMemoryState,
-            FakeRelativeClock,
-            governor::middleware::NoOpMiddleware<<FakeRelativeClock as Clock>::Instant>,
-        >,
-    ),
-}
 
 /// A request-rate bucket per key (peer ID, IP group or sender key), dropping idle ones once a
 /// second and at `MAX_BUCKETS`.
 pub struct PeerRateLimiter {
     limiters: Arc<RwLock<Buckets>>,
     messages_per_second: u32,
-    #[cfg(test)]
-    frozen_clock: Option<FakeRelativeClock>,
-    #[cfg(test)]
-    frozen_instant: Option<Instant>,
+    clock: Clock,
 }
 
 impl PeerRateLimiter {
     /// Allows `messages_per_second` units per key; zero panics on first use.
     #[must_use]
     pub fn new(messages_per_second: u32) -> Self {
+        Self::with_clock(messages_per_second, Clock::system())
+    }
+
+    /// [`Self::new`] reading time from `clock`.
+    #[must_use]
+    pub fn with_clock(messages_per_second: u32, clock: Clock) -> Self {
         Self {
-            limiters: Arc::new(RwLock::new((HashMap::new(), Instant::now()))),
+            limiters: Arc::new(RwLock::new((HashMap::new(), clock.instant()))),
             messages_per_second,
-            #[cfg(test)]
-            frozen_clock: None,
-            #[cfg(test)]
-            frozen_instant: None,
+            clock,
         }
     }
 
-    /// Keep governor's clock fixed for assertions about a single quota window.
+    /// Keep the clock fixed for assertions about a single quota window.
     #[cfg(test)]
     pub(crate) fn frozen(messages_per_second: u32) -> Self {
-        let mut limiter = Self::new(messages_per_second);
-        limiter.frozen_clock = Some(FakeRelativeClock::default());
-        limiter.frozen_instant = Some(Instant::now());
-        limiter
+        Self::with_clock(messages_per_second, crate::clock::Manual::new().clock())
     }
 
     /// Charges one request to `peer_id`; false when its bucket is empty.
@@ -81,10 +69,7 @@ impl PeerRateLimiter {
         let mut guard = self.limiters.write().unwrap();
         let (limiters, pruned) = &mut *guard;
 
-        #[cfg(test)]
-        let now = self.frozen_instant.unwrap_or_else(Instant::now);
-        #[cfg(not(test))]
-        let now = Instant::now();
+        let now = self.clock.instant();
         let second = Duration::from_secs(1);
         // Not only at the cap: one-off keys (fresh peer IDs) would hold the map at its high water.
         if limiters.len() >= MAX_BUCKETS || now - *pruned >= second {
@@ -94,21 +79,11 @@ impl PeerRateLimiter {
         }
         let (limiter, seen) = limiters.entry(peer_id.to_string()).or_insert_with(|| {
             let quota = Quota::per_second(NonZeroU32::new(self.messages_per_second).unwrap());
-            #[cfg(test)]
-            if let Some(clock) = &self.frozen_clock {
-                return (
-                    Bucket::Frozen(RateLimiter::direct_with_clock(quota, clock.clone())),
-                    now,
-                );
-            }
-            (Bucket::Real(RateLimiter::direct(quota)), now)
+            let limiter = RateLimiter::direct_with_clock(quota, self.clock.clone());
+            (limiter, now)
         });
         *seen = now;
-        match limiter {
-            Bucket::Real(limiter) => matches!(limiter.check_n(units), Ok(Ok(()))),
-            #[cfg(test)]
-            Bucket::Frozen(limiter) => matches!(limiter.check_n(units), Ok(Ok(()))),
-        }
+        matches!(limiter.check_n(units), Ok(Ok(())))
     }
 
     /// Keys with a bucket.
@@ -129,6 +104,7 @@ pub struct Reputation {
     strikes: u32,
     ban: Duration,
     peers: Mutex<HashMap<String, (u32, Instant)>>,
+    clock: Clock,
 }
 
 impl Reputation {
@@ -136,10 +112,17 @@ impl Reputation {
     /// until `ban` passes without a strike.
     #[must_use]
     pub fn new(strikes: u32, ban: Duration) -> Self {
+        Self::with_clock(strikes, ban, Clock::system())
+    }
+
+    /// [`Self::new`] reading time from `clock`.
+    #[must_use]
+    pub fn with_clock(strikes: u32, ban: Duration, clock: Clock) -> Self {
         Self {
             strikes,
             ban,
             peers: Mutex::new(HashMap::new()),
+            clock,
         }
     }
 
@@ -149,7 +132,7 @@ impl Reputation {
     ///
     /// Panics if the reputation-state lock is poisoned.
     pub fn strike(&self, peer: &str) -> bool {
-        let now = Instant::now();
+        let now = self.clock.instant();
         let mut peers = self.peers.lock().unwrap();
         if peers.len() >= MAX_BUCKETS {
             peers.retain(|_, (_, last)| now - *last < self.ban);
@@ -168,10 +151,11 @@ impl Reputation {
     ///
     /// Panics if the reputation-state lock is poisoned.
     pub fn banned(&self, peer: &str) -> bool {
+        let now = self.clock.instant();
         let peers = self.peers.lock().unwrap();
         peers
             .get(peer)
-            .is_some_and(|(count, last)| *count >= self.strikes && last.elapsed() < self.ban)
+            .is_some_and(|(count, last)| *count >= self.strikes && now - *last < self.ban)
     }
 }
 
@@ -180,15 +164,23 @@ pub struct Traffic {
     rate: u64,
     /// Bytes counted in the current second (Unix time).
     second: Mutex<(u64, u64)>,
+    clock: Clock,
 }
 
 impl Traffic {
     /// A counter allowing `rate` bytes per second; 0 = no limit.
     #[must_use]
     pub fn new(rate: u64) -> Self {
+        Self::with_clock(rate, Clock::system())
+    }
+
+    /// [`Self::new`] reading time from `clock`.
+    #[must_use]
+    pub fn with_clock(rate: u64, clock: Clock) -> Self {
         Self {
             rate,
             second: Mutex::default(),
+            clock,
         }
     }
 
@@ -223,9 +215,7 @@ impl Traffic {
     }
 
     fn update(&self, bytes: u64, share: Option<u64>) -> Option<u64> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |since| since.as_secs());
+        let now = self.clock.unix_secs();
         let mut second = self.second.lock().unwrap();
         if second.0 != now {
             *second = (now, 0);
@@ -258,6 +248,7 @@ pub(crate) fn fresh_second() {
 pub struct Memory {
     max: u64,
     sample: Mutex<Option<(Instant, u64)>>,
+    clock: Clock,
 }
 
 impl Memory {
@@ -267,6 +258,7 @@ impl Memory {
         Self {
             max,
             sample: Mutex::default(),
+            clock: Clock::system(),
         }
     }
 
@@ -279,7 +271,7 @@ impl Memory {
         if self.max == 0 {
             return 0;
         }
-        let now = Instant::now();
+        let now = self.clock.instant();
         let mut sample = self.sample.lock().unwrap();
         match *sample {
             Some((at, share)) if now < at + Duration::from_millis(100) => share,
@@ -299,7 +291,7 @@ impl Memory {
     ///
     /// Panics if the sample-state lock is poisoned.
     pub fn set(&self, share: u64) {
-        let later = Instant::now() + Duration::from_secs(3600);
+        let later = self.clock.instant() + Duration::from_secs(3600);
         *self.sample.lock().unwrap() = Some((later, share));
     }
 }
@@ -307,6 +299,9 @@ impl Memory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::Manual;
+
+    const MS: Duration = Duration::from_millis(1);
 
     #[test]
     fn memory_share_of_the_limit() {
@@ -317,11 +312,11 @@ mod tests {
 
     #[test]
     fn traffic_counts_the_byte_rate() {
-        // ponytail: a second boundary between the calls resets the count; rare enough.
-        let rate = Traffic::new(1000);
+        let clock = Manual::new();
+        let rate = Traffic::with_clock(1000, clock.clock());
         rate.add(800);
         assert_eq!(rate.second(), 80);
-        let repair = Traffic::new(1000);
+        let repair = Traffic::with_clock(1000, clock.clock());
         assert!(repair.try_add(700, 75));
         assert!(!repair.try_add(51, 75));
         assert!(repair.try_add(50, 75), "failed reservation spent bytes");
@@ -334,41 +329,89 @@ mod tests {
     }
 
     #[test]
+    fn traffic_window_is_the_wall_second() {
+        let clock = Manual::at(100_000);
+        let traffic = Traffic::with_clock(1000, clock.clock());
+        traffic.add(400);
+        clock.advance(999 * MS);
+        assert_eq!(traffic.second(), 40, "reset within the second");
+        clock.advance(MS);
+        assert_eq!(traffic.second(), 0, "kept past the second");
+        traffic.add(300);
+        clock.set_unix(100_000 - 3 * 3600);
+        assert_eq!(traffic.second(), 0, "kept after the clock went back");
+        traffic.add(200);
+        clock.set_unix(100_000 + 3 * 3600);
+        assert_eq!(traffic.second(), 0, "kept after the clock jumped forward");
+    }
+
+    #[test]
     fn strikes_ban_until_quiet() {
-        let reputation = Reputation::new(2, Duration::from_millis(300));
+        let clock = Manual::new();
+        let ban = Duration::from_secs(300);
+        let almost = Duration::from_millis(299_999);
+        let reputation = Reputation::with_clock(2, ban, clock.clock());
         assert!(!reputation.strike("bad"));
         assert!(!reputation.banned("bad"));
-        assert!(reputation.strike("bad"));
+        clock.advance(almost);
+        assert!(reputation.strike("bad"), "a strike just inside the window");
         assert!(reputation.banned("bad") && !reputation.banned("good"));
-        std::thread::sleep(Duration::from_millis(350));
-        assert!(!reputation.banned("bad"));
+        clock.set_unix(0);
+        clock.advance(almost);
+        assert!(reputation.banned("bad"), "unbanned before the ban passed");
+        clock.advance(MS);
+        assert!(!reputation.banned("bad"), "banned after the ban passed");
         assert!(!reputation.strike("bad"), "old strikes were kept");
+        clock.advance(ban);
+        assert!(!reputation.strike("bad"), "a strike a whole window later counted");
+    }
+
+    #[test]
+    fn bucket_refills_at_the_quota_rate_on_monotonic_time() {
+        let clock = Manual::new();
+        let limiter = PeerRateLimiter::with_clock(2, clock.clock());
+        assert!(limiter.check_limit("p") && limiter.check_limit("p"));
+        assert!(!limiter.check_limit("p"));
+        clock.set_unix(0);
+        assert!(!limiter.check_limit("p"), "a wall-clock jump refilled the bucket");
+        clock.advance(499 * MS);
+        assert!(!limiter.check_limit("p"), "refilled early");
+        clock.advance(MS);
+        assert!(limiter.check_limit("p"), "not refilled at half a second");
+        assert!(!limiter.check_limit("p"));
+        clock.advance(Duration::from_secs(3600));
+        assert!(limiter.check_units("p", 2), "an idle bucket did not refill");
+        assert!(!limiter.check_units("p", 1), "refilled past the burst");
     }
 
     #[test]
     fn idle_buckets_are_dropped_at_the_cap() {
-        let limiter = PeerRateLimiter::new(1);
+        let clock = Manual::new();
+        let limiter = PeerRateLimiter::with_clock(1, clock.clock());
         assert!(limiter.check_limit("busy"));
         for peer in 1..MAX_BUCKETS {
             assert!(limiter.check_limit(&peer.to_string()));
         }
         assert!(!limiter.check_limit("busy"), "an active bucket was reset");
-        std::thread::sleep(Duration::from_millis(1100));
+        clock.advance(Duration::from_secs(1));
         assert!(limiter.check_limit("new"));
         assert_eq!(limiter.get_active_peers(), 1);
     }
 
     #[test]
     fn idle_buckets_are_dropped_after_a_second_below_the_cap() {
-        let limiter = PeerRateLimiter::new(1);
+        let clock = Manual::new();
+        let limiter = PeerRateLimiter::with_clock(1, clock.clock());
         for peer in 0..3 {
             assert!(limiter.check_limit(&peer.to_string()));
         }
+        clock.advance(999 * MS);
         assert!(
             !limiter.check_limit("0"),
             "the bucket was dropped within a second"
         );
-        std::thread::sleep(Duration::from_millis(1100));
+        assert_eq!(limiter.get_active_peers(), 3);
+        clock.advance(Duration::from_secs(1));
         assert!(limiter.check_limit("new"));
         assert_eq!(limiter.get_active_peers(), 1);
     }

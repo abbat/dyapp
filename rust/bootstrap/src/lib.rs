@@ -2,6 +2,7 @@
 
 pub mod catch_up;
 pub mod claims;
+pub mod clock;
 pub mod config;
 pub mod deny;
 /// Error and result types.

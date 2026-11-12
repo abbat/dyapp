@@ -96,7 +96,7 @@ async fn closest(
 
 #[tokio::test]
 async fn foreign_identify_address_stays_out_of_both_dhts() {
-    let (address, node_peer) = start_dht_node().await;
+    let (address, node_peer) = Box::pin(start_dht_node()).await;
     let fake: Multiaddr = "/ip4/203.0.113.7/tcp/9".parse().unwrap();
     let advertiser_key = Keypair::generate_ed25519();
     let advertiser_peer = advertiser_key.public().to_peer_id();
@@ -245,7 +245,7 @@ async fn start_dht_node() -> (Multiaddr, PeerId) {
 
 #[tokio::test]
 async fn foreign_provider_address_is_not_returned_to_a_third_peer() {
-    let (address, node_peer) = start_dht_node().await;
+    let (address, node_peer) = Box::pin(start_dht_node()).await;
     let fake: Multiaddr = "/ip4/203.0.113.7/tcp/9".parse().unwrap();
     let key = kad::RecordKey::new(&b"foreign-provider");
     let attacker_key = Keypair::generate_ed25519();
