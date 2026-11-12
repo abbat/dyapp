@@ -86,10 +86,5 @@ mod tests {
         assert!(!unmetered_path(true, true, false));
         assert!(!unmetered_path(true, false, true));
     }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn the_path_monitor_answers() {
-        assert!(super::unmetered().is_some());
-    }
+    // The live call is tested by the desktop crate, whose tests the macOS CI job runs.
 }

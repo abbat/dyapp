@@ -340,6 +340,14 @@ mod tests {
         let _ = tauri::async_runtime::block_on(metered());
     }
 
+    /// The Network.framework path monitor answers on the runner within its timeout.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_macos_path_monitor_answers() {
+        assert!(dyapp_bootstrap::network::unmetered().is_some());
+        let _ = tauri::async_runtime::block_on(super::metered());
+    }
+
     #[test]
     fn every_mode_keeps_its_name_for_the_page() {
         for mode in MODES {
