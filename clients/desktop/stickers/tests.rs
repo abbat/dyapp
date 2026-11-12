@@ -8,7 +8,7 @@ pub(super) fn archive_count(count: usize) -> Vec<u8> {
 }
 pub(super) fn archive_labels(labels: &[&str]) -> Vec<u8> {
     let image = include_bytes!("../../../tests/fuzz/corpus/sticker_webp/lossy.webp");
-    let hash = crate::hex::encode(&dyapp_identity::sha256(image));
+    let hash = dyapp_identity::hex(&dyapp_identity::sha256(image));
     let names: Vec<_> = (0..labels.len())
         .map(|index| format!("cat{index}.webp"))
         .collect();

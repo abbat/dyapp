@@ -18,7 +18,6 @@ mod contact_notes;
 mod favorites;
 #[path = "file_store.rs"]
 mod file_store;
-mod hex;
 #[path = "identity_gate.rs"]
 mod identity_gate;
 mod identity_runtime;
