@@ -118,21 +118,28 @@ case "${1:?suite required}" in
             fi
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
-        # Separate instrumentation invocations must reopen the same native test identity.
-        retained_peer_phase() {
-            local phase=$1
+        # Separate invocations exercise isolated and actual-worker native registries.
+        peer_phase() {
+            local fixture=$1 phase=$2 argument test_class
+            case "$fixture" in
+                retained) argument=retainedPeerPhase; test_class=RetainedPeerPhaseTests ;;
+                worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
+                *) return 2 ;;
+            esac
             timeout 300 adb -s emulator-5554 shell am instrument -w \
-                -e retainedPeerPhase "$phase" -e class com.dyapp.RetainedPeerPhaseTests \
+                -e "$argument" "$phase" -e class "com.dyapp.$test_class" \
                 com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
-                > "$report_dir/retained-peer-$phase.txt" || return
-            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/retained-peer-$phase.txt" 1
+                > "$report_dir/$fixture-peer-$phase.txt" || return
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
         }
-        if retained_peer_phase prepare && retained_peer_phase reopen; then
-            retained_peer_phase cleanup
-        else
-            retained_peer_phase cleanup || true
-            exit 1
-        fi
+        for fixture in retained worker; do
+            if peer_phase "$fixture" prepare && peer_phase "$fixture" reopen; then
+                peer_phase "$fixture" cleanup
+            else
+                peer_phase "$fixture" cleanup || true
+                exit 1
+            fi
+        done
         # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
         python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
         timeout 300 adb -s emulator-5554 shell am instrument -w -e forged 1 \

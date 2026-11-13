@@ -38,10 +38,13 @@ Android's theme paints the system-bar background and consumes safe-drawing inset
 root surface. Nested scaffolds receive the consumed insets; do not add a second system-bar
 padding layer. Status and navigation icon contrast follows the chosen light or dark theme.
 
-Android instrumentation runs retained-peer prepare/reopen/cleanup phases in separate invocations
-before the forged-search fixture. They use native inventory and credential ownership; only explicit
-cleanup removes the retained identity. A normal suite skips the phase-only test without its argument.
-This proves no reboot or background delivery by itself; those lifecycle phases remain separate work.
+Android instrumentation runs retained-peer and worker-peer prepare/reopen/cleanup phases in separate
+invocations before the forged-search fixture. Both use native inventory and credential ownership.
+Worker-peer uses the actual `noBackupFilesDir` registry, atomically records only public selectors and
+the previous logical selection/inventory, then removes only its fixture and restores that selection.
+Recovery, unfinished checkpoints or fixture selectors naming pre-existing inventory fail explicitly.
+A normal suite skips phase-only tests without their arguments. These phases alone prove no reboot or
+background delivery; those remain separate work.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs
 `timeout 30 bash tests/scripts/android-node-control.sh command /reports/node stop` (or `start`,
 `status`, `shutdown`). Stop/shutdown acknowledge only after child exit; start acknowledges spawning,
