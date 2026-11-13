@@ -374,8 +374,16 @@ The review captures draft, visibility, pending-link bytes, exact signed search h
 versions and database identity in one read snapshot. `is_current` rejects a replaced link, another
 Store (even for the same owner), or changed profile/publication progress; ACK/backoff for the same
 head does not invalidate the review. Reopening the same Store retains validity. This read-only
-preflight holds no transaction after return and is not a write authorization: actual confirmation must
-recheck under the completion writer and separately verify remote readback. Confirmation and client
+preflight holds no transaction after return and is not a write authorization.
+`confirm_adoption_review` validates explicit choices and the actual restored session certificate,
+requires that exact certificate in reviewed remote authorization, fetches missing selected photo
+bytes, rechecks ordinary readback, then repeats local matching under the completion writer.
+It atomically saves the selected local draft, privacy-preserving search projection, retention and
+completion receipt. Selected local values remain pending; public profile publication is the normal
+separate consent-gated action. A hidden draft advances above local/search floors with a tombstone;
+a visible draft queues only exact already-published remote content. Pending-link state stays until
+existing key-package/fallback completion succeeds. Changed context requires new review and cannot
+erase newer local edits; an unlisted credential is not automatically restored. Client adapters and
 presentation remain unimplemented. A malformed or
 already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.

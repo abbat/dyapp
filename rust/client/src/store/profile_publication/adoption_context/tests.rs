@@ -3,6 +3,73 @@ use crate::store::tests::temp_db_path;
 use dyapp_profile::Profile;
 use std::path::Path;
 
+#[test]
+fn reviewed_draft_receipt_failure_rolls_back_projection_and_blob_pruning() {
+    let (identity, store) = fixture();
+    let before = store.profile_draft().unwrap();
+    let orphan = store.save_profile_blob(&[0xFF, 0xD8, 0xFF, 7]).unwrap();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    let remote = Profile {
+        version: 3,
+        name: "remote".into(),
+        ..Default::default()
+    };
+    let selected = Profile {
+        name: "chosen local".into(),
+        ..remote.clone()
+    };
+    store
+        .db
+        .execute_batch(
+            "CREATE TEMP TRIGGER `refuse_review_receipt` BEFORE INSERT ON `settings`
+         WHEN NEW.`key` = 'profile_completion_receipt'
+         BEGIN SELECT RAISE(ABORT, 'review receipt refused'); END;",
+        )
+        .unwrap();
+    let error = store
+        .commit_reviewed_adoption(&identity, &context, &remote, &selected)
+        .unwrap_err();
+    assert!(error.to_string().contains("review receipt refused"));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert!(store
+        .completed_profile_version(&identity, &remote)
+        .unwrap()
+        .is_none());
+    assert!(store.profile_photo(&orphan).unwrap().is_some());
+    assert_eq!(
+        store.link_pending().unwrap(),
+        Some(b"original link".to_vec())
+    );
+}
+
+#[test]
+fn hidden_review_exhaustion_is_refused_before_any_completion_write() {
+    let (identity, store) = fixture();
+    store.set_profile_hidden(true).unwrap();
+    let before = store.profile_draft().unwrap();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    let remote = Profile {
+        version: u64::MAX,
+        ..Default::default()
+    };
+    assert!(matches!(
+        store.validate_reviewed_adoption(&identity, &context, &remote, &remote),
+        Err(Error::ProfileVersionExhausted)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert!(store
+        .profile_adoption_context_current(&identity, &context)
+        .unwrap());
+}
+
 fn fixture() -> (Identity, Store) {
     let identity = Identity::from_secret(&[7; 32]);
     let store = Store::open(&temp_db_path(), &identity).unwrap();

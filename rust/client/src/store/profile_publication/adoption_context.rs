@@ -1,7 +1,8 @@
 //! One local review context, including link ownership and monotonic publication progress.
-use super::{Error, ProfilePublication, Store};
+use super::{profile_retention, Error, ProfilePublication, ProfilePublicationOutcome, Store};
 use crate::store::search_projection::Head;
 use dyapp_identity::Identity;
+use dyapp_profile::Profile;
 use rusqlite::{Transaction, TransactionBehavior};
 
 pub(crate) struct ProfileAdoptionContext {
@@ -32,12 +33,32 @@ impl Store {
         identity: &Identity,
         expected: &ProfileAdoptionContext,
     ) -> Result<bool, Error> {
+        self.admit_adoption_review_owner(identity, expected)?;
+        let snapshot = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
+        let matches = self.adoption_review_matches_in_snapshot(expected)?;
+        snapshot.commit()?;
+        Ok(matches)
+    }
+
+    fn admit_adoption_review_owner(
+        &self,
+        identity: &Identity,
+        expected: &ProfileAdoptionContext,
+    ) -> Result<(), Error> {
         if identity.peer_id() != self.owner_peer_id
             || expected.publication.owner != self.owner_peer_id
         {
             return Err(Error::WrongIdentity);
         }
-        let Some(current) = self.prepare_profile_adoption_context(identity)? else {
+        Ok(())
+    }
+
+    // The preflight and final writer use exactly the same matching predicate.
+    fn adoption_review_matches_in_snapshot(
+        &self,
+        expected: &ProfileAdoptionContext,
+    ) -> Result<bool, Error> {
+        let Some(current) = self.profile_adoption_context_in_snapshot()? else {
             return Ok(false);
         };
         Ok(current.database == expected.database
@@ -47,6 +68,53 @@ impl Store {
             && current.head == expected.head
             && current.seen == expected.seen
             && current.listed == expected.listed)
+    }
+
+    pub(crate) fn validate_reviewed_adoption(
+        &self,
+        identity: &Identity,
+        expected: &ProfileAdoptionContext,
+        remote: &Profile,
+        selected: &Profile,
+    ) -> Result<(), Error> {
+        self.admit_adoption_review_owner(identity, expected)?;
+        let snapshot = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
+        if !self.adoption_review_matches_in_snapshot(expected)? {
+            return Err(Error::ProfileCompletionSuperseded);
+        }
+        review_projection(expected, remote, selected)?;
+        snapshot.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn commit_reviewed_adoption(
+        &self,
+        identity: &Identity,
+        expected: &ProfileAdoptionContext,
+        remote: &Profile,
+        selected: &Profile,
+    ) -> Result<ProfilePublicationOutcome, Error> {
+        self.admit_adoption_review_owner(identity, expected)?;
+        let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)?;
+        if !self.adoption_review_matches_in_snapshot(expected)? {
+            return Err(Error::ProfileCompletionSuperseded);
+        }
+        let (draft, queued) = review_projection(expected, remote, selected)?;
+        let hashes: Vec<_> = remote
+            .photos
+            .iter()
+            .flat_map(|photo| photo.full.iter().chain([&photo.thumbnail]).cloned())
+            .collect();
+        self.save_profile_draft(&draft)?;
+        self.hold_search_profile_in_tx(&queued.sign(identity))?;
+        profile_retention::retain(&self.db, &hashes, &draft)?;
+        self.remember_profile_completion(identity, remote, &queued)?;
+        transaction.commit()?;
+        Ok(ProfilePublicationOutcome::snapshot(
+            remote,
+            draft,
+            expected.publication.hidden,
+        ))
     }
 
     // Caller holds one SQLite snapshot. Search ACK/backoff may change without changing its head.
@@ -66,6 +134,45 @@ impl Store {
             listed: self.device_listed()?,
         }))
     }
+}
+
+// The owner saves a reviewed local draft; ordinary public content stays exactly as read back.
+fn review_projection(
+    expected: &ProfileAdoptionContext,
+    remote: &Profile,
+    selected: &Profile,
+) -> Result<(Profile, Profile), Error> {
+    if remote.deleted
+        || expected.publication.draft().deleted
+        || remote.version < expected.seen.max(expected.listed)
+    {
+        return Err(Error::ProfileCompletionSuperseded);
+    }
+    if selected.devices != remote.devices
+        || selected.device_owners != remote.device_owners
+        || selected.deleted
+        || selected.version != remote.version
+    {
+        return Err(Error::InvalidSetting);
+    }
+    let floor = remote
+        .version
+        .max(expected.publication.draft().version)
+        .max(expected.head.map_or(0, Head::version))
+        .max(expected.seen)
+        .max(expected.listed);
+    let mut draft = selected.clone();
+    let queued = if expected.publication.hidden {
+        draft.version = floor.checked_add(1).ok_or(Error::ProfileVersionExhausted)?;
+        Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
+    } else {
+        if floor > remote.version {
+            return Err(Error::ProfileCompletionSuperseded);
+        }
+        draft.version = remote.version;
+        remote.clone()
+    };
+    Ok((draft, queued))
 }
 
 #[cfg(test)]

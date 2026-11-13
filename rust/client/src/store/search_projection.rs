@@ -13,6 +13,12 @@ pub(super) struct Head {
     digest: [u8; 32],
 }
 
+impl Head {
+    pub(super) fn version(self) -> u64 {
+        self.version
+    }
+}
+
 impl Store {
     fn record_head(&self, record: &SignedRecord) -> Result<Head, Error> {
         let owner = record

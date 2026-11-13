@@ -31,8 +31,8 @@ pub enum AdoptionSelectionError {
 /// It owns no key, database transaction or identity lease. Confirmation must revalidate context;
 /// field selection alone does not authorize writes, complete the link or clear its pending row.
 pub struct AdoptionReview {
-    context: ProfileAdoptionContext,
-    remote: Profile,
+    pub(super) context: ProfileAdoptionContext,
+    pub(super) remote: Profile,
 }
 
 impl AdoptionReview {

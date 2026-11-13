@@ -12,10 +12,12 @@ use dyapp_p2p_net::proto::Status;
 use dyapp_profile::{CivilDate, DeviceCertificate, Profile};
 use prost::Message as _;
 
+mod adoption_confirm;
 mod adoption_fields;
 mod adoption_review;
 mod photos;
 
+pub use adoption_confirm::{confirm_adoption_review, AdoptionConfirmError};
 pub use adoption_fields::AdoptionField;
 pub use adoption_review::{
     review_adoption, AdoptionReview, AdoptionSelectionError, AdoptionSource,
@@ -541,6 +543,8 @@ mod tests {
     use libp2p::swarm::SwarmEvent;
     use std::sync::{Arc, Mutex};
 
+    #[path = "adoption_confirmation_tests.rs"]
+    mod adoption_confirmation_tests;
     #[path = "adoption_tests.rs"]
     mod adoption_tests;
     #[path = "foreign_import_tests.rs"]

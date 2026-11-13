@@ -113,6 +113,48 @@ impl HiddenLink {
 }
 
 #[tokio::test]
+async fn reviewed_pending_fields_stay_private_while_the_original_link_finishes() {
+    let mut f = Box::pin(HiddenLink::new()).await;
+    let remote = f.prepare_legacy_partial_link().await;
+    let mut store = f.store();
+    store
+        .update_profile_draft(|draft| {
+            draft.name = "chosen private draft".into();
+            Ok(())
+        })
+        .unwrap();
+    let session = Session::open(store, &SEAL).unwrap();
+    let review = publish::review_adoption(session.store(), &mut f.laptop.node, &f.laptop.identity)
+        .await
+        .unwrap();
+    let saved = publish::confirm_adoption_review(
+        &session,
+        &mut f.laptop.node,
+        &f.laptop.identity,
+        &review,
+        &[(publish::AdoptionField::Name, publish::AdoptionSource::Local)],
+    )
+    .await
+    .unwrap();
+    assert_eq!(saved.published, remote);
+    assert_eq!(saved.draft.name, "chosen private draft");
+    assert!(saved.pending && saved.hidden);
+    assert!(session.store().link_pending().unwrap().is_some());
+    drop(session);
+    assert_eq!(f.finish().await, remote);
+    let completed = f.store();
+    assert!(completed.link_pending().unwrap().is_none());
+    assert_eq!(
+        completed.profile_draft().unwrap(),
+        Some(saved.draft.clone())
+    );
+    assert_eq!(completed.device_listed().unwrap(), remote.version);
+    drop(completed);
+    assert_eq!(f.finish().await, remote);
+    assert_eq!(f.store().profile_draft().unwrap(), Some(saved.draft));
+}
+
+#[tokio::test]
 async fn ambiguous_legacy_link_reports_review_without_replacing_pending_edits() {
     let mut f = Box::pin(HiddenLink::new()).await;
     let remote = f.prepare_legacy_partial_link().await;
