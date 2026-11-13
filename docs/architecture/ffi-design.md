@@ -325,8 +325,12 @@ the draft; earlier link-state import still applies. The largest visible remote v
 Adoption returns separate exact ordinary readback and current local draft/visibility. Linked-device
 completion records only that ordinary published version, including its already-listed retry path;
 new device listing uses a prepared relist outcome. A hidden search tombstone never proves listing.
-Foreign imports, adoption/revocation prefixes and remaining prepared-outcome adapters still require
-migration before frontend monitors can be removed.
+Device revocation captures its local baseline and visibility before the first network await and
+changes only the prepared device-list request. Completion preserves concurrent local edits. A foreign
+profile observed after mailbox closure returns a conflict without replacing the local draft; closure
+may already have succeeded, so failure does not imply rollback. Checked version exhaustion is refused
+before closure. Ordinary foreign imports, adoption prefixes and remaining prepared-outcome adapters
+still require migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own

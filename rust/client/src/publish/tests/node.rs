@@ -72,6 +72,39 @@ pub(super) async fn observed(
     (node, held)
 }
 
+fn answer_mailbox(
+    server: &mut Server,
+    request: &proto::MailboxRequest,
+    channel: libp2p::request_response::ResponseChannel<proto::MailboxResponse>,
+) {
+    assert!(matches!(
+        request.request,
+        Some(proto::mailbox_request::Request::Revoke(_))
+    ));
+    server
+        .behaviour_mut()
+        .mailbox
+        .send_response(
+            channel,
+            proto::MailboxResponse {
+                status: Status::Ok.into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+}
+
+fn conditional_reply(
+    request: proto::MediaRequest,
+    state: &mut proto::MediaKeepState,
+    on_keep: &mut impl FnMut(&proto::MediaKeep),
+) -> proto::MediaResponse {
+    let Some(proto::media_request::Request::ConditionalKeep(record)) = request.request else {
+        panic!("unexpected fixture media request");
+    };
+    media_reply(record, state, on_keep)
+}
+
 async fn serve(
     mut server: Server,
     held: Arc<Mutex<Option<SignedRecord>>>,
@@ -99,6 +132,15 @@ async fn serve(
                     .send_response(channel, response)
                     .unwrap();
             }
+            SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
+                message:
+                    RequestMessage::Request {
+                        request, channel, ..
+                    },
+                ..
+            })) => {
+                answer_mailbox(&mut server, &request, channel);
+            }
             SwarmEvent::Behaviour(BehaviourEvent::Media(RequestEvent::Message {
                 message:
                     RequestMessage::Request {
@@ -106,11 +148,7 @@ async fn serve(
                     },
                 ..
             })) => {
-                let Some(proto::media_request::Request::ConditionalKeep(record)) = request.request
-                else {
-                    panic!("unexpected fixture media request");
-                };
-                let response = media_reply(record, &mut media, &mut on_keep);
+                let response = conditional_reply(request, &mut media, &mut on_keep);
                 server
                     .behaviour_mut()
                     .media

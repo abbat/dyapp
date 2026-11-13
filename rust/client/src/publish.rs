@@ -163,7 +163,7 @@ pub async fn publish_prepared(
     identity: &Identity,
     attempt: &ProfilePublication,
 ) -> Result<ProfilePublicationOutcome, Failure> {
-    send_prepared(store, node, identity, attempt, false).await
+    send_prepared(store, node, identity, attempt, false, ForeignDraft::Import).await
 }
 
 /// Relist a prepared device change, retaining the visibility captured with its baseline.
@@ -176,7 +176,15 @@ pub async fn relist_prepared(
     identity: &Identity,
     attempt: &ProfilePublication,
 ) -> Result<ProfilePublicationOutcome, Failure> {
-    send_prepared(store, node, identity, attempt, attempt.hidden()).await
+    send_prepared(
+        store,
+        node,
+        identity,
+        attempt,
+        attempt.hidden(),
+        ForeignDraft::Import,
+    )
+    .await
 }
 
 /// [`publish`] a device list change, which leaves a hidden profile hidden. Returns the new draft.
@@ -199,9 +207,9 @@ pub async fn relist(
 }
 
 /// Revokes the owner's device with the mailbox key `device_key`: closes its mailbox, then [`relist`]s
-/// `draft` without it. A newer profile at the node first replaces the saved draft, as in [`publish`],
-/// so a device listed elsewhere can go and no other device is lost. A failure may be retried, as a
-/// repeated close is harmless and the draft keeps the binding until the relist succeeds. Returns the
+/// `draft` without it. A newer profile at the node enriches the prepared request, retaining the
+/// local baseline captured before network work so concurrent edits survive completion. A failure may
+/// be retried: repeated close is harmless and the saved draft keeps its binding until relist. Returns the
 /// new draft.
 ///
 /// # Errors
@@ -216,18 +224,34 @@ pub async fn revoke_device(
     draft: &Profile,
     device_key: &[u8],
 ) -> Result<Profile, Failure> {
-    let mut draft = match newest(node, identity).await? {
-        Some(held) if held.version > draft.version => {
+    let mut attempt = store.prepare_profile_publication(identity)?;
+    let request = match newest(node, identity).await? {
+        Some(mut held) if held.version > draft.version => {
+            held.version = held
+                .version
+                .checked_add(u64::from(attempt.hidden()))
+                .ok_or(store::Error::ProfileVersionExhausted)?;
             take_photos(store, node, &held).await?;
-            store.save_profile_draft(&held)?;
             held
         }
         _ => draft.clone(),
     };
-    let binding =
-        unlist_device(&mut draft, device_key).ok_or(Error::Input("device has no owner binding"))?;
+    *attempt.draft_mut() = request;
+    let binding = unlist_device(attempt.draft_mut(), device_key)
+        .ok_or(Error::Input("device has no owner binding"))?;
+    // Refuse exhausted/invalid requests before the irreversible mailbox closure.
+    store.profile_publication_record(identity, &attempt)?;
     node.close_mailbox(identity, binding).await?;
-    relist(store, node, identity, &draft).await
+    Ok(send_prepared(
+        store,
+        node,
+        identity,
+        &attempt,
+        attempt.hidden(),
+        ForeignDraft::PreserveLocal,
+    )
+    .await?
+    .draft)
 }
 
 /// Starts the fresh store of a linked device from the record's `state` and the newest profile with
@@ -269,12 +293,18 @@ pub async fn adopt(
     Ok(store.profile_publication_state(identity, &held)?)
 }
 
+enum ForeignDraft {
+    Import,
+    PreserveLocal,
+}
+
 async fn send_prepared(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
     attempt: &ProfilePublication,
     stay_hidden: bool,
+    foreign: ForeignDraft,
 ) -> Result<ProfilePublicationOutcome, Failure> {
     let draft = attempt.draft();
     let next = store.profile_publication_record(identity, attempt)?;
@@ -285,8 +315,10 @@ async fn send_prepared(
     }
     if let Some(held) = held {
         if held != next && from_another_device(store, identity, &held, draft)? {
-            take_photos(store, node, &held).await?;
-            store.save_profile_draft(&held)?;
+            if matches!(foreign, ForeignDraft::Import) {
+                take_photos(store, node, &held).await?;
+                store.save_profile_draft(&held)?;
+            }
             return Err(Failure::Missed);
         }
     }
@@ -500,6 +532,8 @@ mod tests {
     mod node;
     #[path = "publication_tests.rs"]
     mod publication_tests;
+    #[path = "revocation_tests.rs"]
+    mod revocation_tests;
     #[path = "version_tests.rs"]
     mod version_tests;
     #[path = "withdrawal_identity_tests.rs"]
