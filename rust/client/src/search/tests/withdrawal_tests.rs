@@ -76,6 +76,68 @@ async fn search_withdrawal_respects_server_backoff_across_reopening() {
     assert_eq!(store.due_search_profile(u64::MAX).unwrap(), None);
 }
 
+fn hidden_legacy(owner: &Identity) -> Store {
+    let store = Store::open(&crate::store::tests::temp_db_path(), owner).unwrap();
+    store
+        .save_profile_draft(&Profile {
+            version: 2,
+            name: "keep draft".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    store.set_profile_hidden(true).unwrap();
+    store
+        .hold_search_profile(&Profile::tombstone(2, 0, 0).sign(owner))
+        .unwrap();
+    store
+}
+
+#[tokio::test]
+async fn owner_recovery_retries_only_the_new_withdrawal_and_keeps_unsupported_heads() {
+    let owner = Identity::from_secret(&[7; 32]);
+    let store = hidden_legacy(&owner);
+    let plan = store.prepare_search_withdrawal_recovery().unwrap().unwrap();
+    let mut replies = [Status::Unsupported, Status::Ok].into_iter();
+    let (node, asked) = fake(move |request| {
+        assert!(matches!(request, Request::Withdraw(_)));
+        status(replies.next().unwrap(), 0)
+    })
+    .await;
+    let mut nodes = vec![node];
+    assert!(matches!(
+        publish_due(&store, &mut nodes, 1000).await,
+        Err(store::Error::SearchWithdrawalReviewRequired)
+    ));
+    assert!(asked.lock().unwrap().is_empty());
+    let restored = store
+        .confirm_search_withdrawal_recovery(&owner, &plan)
+        .unwrap();
+    assert_eq!(
+        (restored.version, restored.name.as_str()),
+        (3, "keep draft")
+    );
+    let record = store.due_search_profile(1000).unwrap().unwrap();
+    assert!(!publish_due(&store, &mut nodes, 1000).await.unwrap());
+    assert_eq!(
+        store
+            .confirm_search_withdrawal_recovery(&owner, &plan)
+            .unwrap(),
+        restored
+    );
+    assert!(publish_due(&store, &mut nodes, 1001).await.unwrap());
+    assert_eq!(
+        store
+            .confirm_search_withdrawal_recovery(&owner, &plan)
+            .unwrap(),
+        restored
+    );
+    assert_eq!(store.due_search_profile(u64::MAX).unwrap(), None);
+    assert_eq!(
+        asked.lock().unwrap().as_slice(),
+        &[Request::Withdraw(record.clone()), Request::Withdraw(record)]
+    );
+}
+
 async fn source(record: SignedRecord) -> Node {
     let owner = dyapp_identity::sha256(&record.public_key).to_vec();
     let version = dyapp_profile::verify_search(&record)

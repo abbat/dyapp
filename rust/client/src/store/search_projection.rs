@@ -63,6 +63,11 @@ impl Head {
     pub(super) fn version(self) -> u64 {
         self.version
     }
+
+    pub(super) fn needs_withdrawal_recovery(self) -> bool {
+        self.purpose
+            .is_none_or(|purpose| purpose == Purpose::LegacyWithdrawal)
+    }
 }
 
 impl Store {

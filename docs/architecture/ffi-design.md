@@ -338,8 +338,18 @@ complete signed record (32 bytes), then verified purpose (0 ordinary, 1 search w
 Opening or reading a Store never rewrites either format. Matching verified pending bytes can
 resolve an unknown purpose in the read snapshot; a contradictory known purpose is invalid.
 Purpose metadata is queue bookkeeping and never authorizes ordinary account/device changes.
-Legacy queued Hide signatures require owner reauthorization before sending; recovery of pending
-and acknowledged legacy/unknown heads is still planned and never happens implicitly on opening.
+Legacy queued Hide signatures require owner reauthorization before sending. Shared Rust now exposes
+`Store::prepare_search_withdrawal_recovery` and `confirm_search_withdrawal_recovery` for hidden
+legacy/unknown heads. The opaque plan retains no key, session or operation lease and signs nothing
+on preparation. Confirmation binds the owner and database path, exact draft/visibility,
+queue/head/ACK/backoff, observed/listed version floors and link/enrollment context. A stale review
+fails without writes; an already completed same-plan retry preserves current draft edits and does
+not spend another version, including after ACK. The new search-only head and updated draft version
+commit atomically, preserving private fields, sealed credentials, visibility and server backoff;
+the strongest available proof pair from the draft or verified pending record survives recovery.
+Ordinary deletion and known new withdrawals need no recovery; a visible ambiguous head, missing
+draft, pending link or exhausted version requires explicit resolution. Opening never migrates or
+re-signs state. Native/Tauri transport and gated UI for this action remain planned.
 Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version

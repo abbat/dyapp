@@ -381,8 +381,10 @@ resent from the sender's retry queue.
   `verify_search` accepts discovery evidence. Historical readability does not grant authority.
   Search withdrawals suppress older/equal cached hits without changing ordinary contact or MLS
   profiles; withdrawal wins equal-version ties regardless of reply order. Legacy pending Hide
-  publication requires owner reauthorization and retains its queue state. Migration of legacy
-  pending and acknowledged search heads remains planned.
+  publication requires owner reauthorization and retains its queue state. Shared Store preparation
+  and confirmation can replace a reviewed hidden legacy/unknown head with fresh search-only bytes,
+  preserving private fields, credentials and backoff; stale reviews fail and successful retries
+  never spend another version. The native/Tauri adapters and gated recovery UI remain planned.
 
 ### Device directory and KeyPackages
 

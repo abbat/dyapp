@@ -43,6 +43,8 @@ pub use profile_work::{ProfileWork, ProfileWorkResult};
 mod reads;
 mod search_projection;
 mod search_publish;
+mod search_recovery;
+pub use search_recovery::SearchWithdrawalRecovery;
 pub mod sticker_packs;
 mod tokens;
 pub use chat_list::ChatRow;

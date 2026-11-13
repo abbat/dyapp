@@ -46,6 +46,9 @@ pub enum Error {
     /// An old ambiguous Hide signature must be reauthorized before network submission.
     #[error("legacy search withdrawal requires owner reauthorization")]
     SearchWithdrawalReviewRequired,
+    /// The reviewed search withdrawal, draft, visibility or link context changed.
+    #[error("search withdrawal recovery changed; review again")]
+    SearchWithdrawalRecoveryChanged,
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,

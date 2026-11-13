@@ -13,7 +13,7 @@ const BEAT_KEY: &str = "search_heartbeat";
 const WINDOW: u64 = 600;
 
 // `last_sent` and `hold_until` in Unix seconds, and the held record, if any.
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub(super) struct State {
     pub(super) last_sent: u64,
     pub(super) hold_until: u64,
