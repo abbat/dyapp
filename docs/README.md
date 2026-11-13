@@ -99,7 +99,7 @@ it are entry points that tools discover by path (see
 - [Quorum](agents/quorum.md): multi-model cross-review of design, decisions and code
 - [Answering issues](agents/issues.md): trust, reply language and tone in issues
 
-Not written yet: API reference, contributing guide, performance.
+Not written yet: API reference, performance.
 
 ## Required entry points
 
@@ -112,4 +112,5 @@ short and point here.
 | `AGENTS.md` | AI agents |
 | `LICENSE` | Git hosting, package metadata |
 | `.github/SECURITY.md` | GitHub security policy and private report guidance |
+| `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` | Git hosting: contributor guide, pull request and issue forms |
 | `.agents/skills/*/SKILL.md` | Agent skill discovery (Codex; Claude Code via the `.claude/skills/*` symlinks) |

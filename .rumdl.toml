@@ -5,6 +5,10 @@ disable = ["MD013"]
 # bd writes .beads/ itself.
 exclude = [".beads"]
 
+[per-file-ignores]
+# A pull request body has its title outside the text, so it starts with the issue link.
+".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
+
 [MD033]
 # Explicit anchors on list items and paragraphs, which have no heading id to link to.
 allowed-elements = ["a"]

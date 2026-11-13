@@ -3,3 +3,6 @@ contact_links:
   - name: Security vulnerability / Уязвимость
     url: https://github.com/abbat/dyapp/security/advisories/new
     about: Report privately, never in a public issue. Сообщайте закрыто, не в открытом issue.
+  - name: Contributing guide / Как помочь проекту
+    url: https://github.com/abbat/dyapp/blob/main/CONTRIBUTING.md
+    about: How issues and pull requests are handled. Как мы разбираем issue и pull request.
