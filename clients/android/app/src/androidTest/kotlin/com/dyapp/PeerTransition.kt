@@ -8,18 +8,22 @@ internal class PeerTransition(
     private val timeoutMs: Long = PEER_WAIT_MS,
     private val now: () -> Long = SystemClock::uptimeMillis,
 ) {
-    fun await(ready: () -> Boolean, advance: () -> Unit) {
+    fun await(ready: () -> Boolean, advance: () -> Unit) = awaitSignal(ready) { advance() }
+
+    fun awaitSignal(ready: () -> Boolean, advance: (Long) -> Unit) {
         val started = now()
         while (true) {
-            checkDeadline(started)
+            remaining(started)
             val complete = ready()
-            checkDeadline(started)
+            val budget = remaining(started)
             if (complete) return
-            advance()
+            advance(budget)
         }
     }
 
-    private fun checkDeadline(started: Long) {
-        check(now() - started < timeoutMs) { "Timed out waiting for $what after $timeoutMs ms" }
+    private fun remaining(started: Long): Long {
+        val budget = timeoutMs - (now() - started)
+        check(budget > 0) { "Timed out waiting for $what after $timeoutMs ms" }
+        return budget
     }
 }

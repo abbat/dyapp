@@ -61,8 +61,8 @@ internal class WorkerMailPair(private val context: Context) {
         return owner
     }
 
-    /** Calls the actual worker body; this does not assert JobScheduler or idle scheduling. */
-    fun catchUpBody(): Opened.Ready {
+    /** Dispatches the actual service; periodic and idle policy remain separate acceptance. */
+    fun catchUpScheduled(): Opened.Ready {
         val owner = reopen()
         val other = counterpart.reopen()
         val record = record(owner, other)
@@ -71,13 +71,9 @@ internal class WorkerMailPair(private val context: Context) {
         val incoming = RustBridge.withChats(other) { it.submitText(owner.peerId, WORKER_INCOMING) }
         check(incoming is ChatSubmission.Accepted) { "Counterpart incoming message was not accepted" }
         record.record(WORKER_INCOMING, incoming.id)
-        receiveMail(context)
-        check(workerMessagePresent(owner, other.peerId, incoming.id, WORKER_INCOMING)) {
-            "Worker body did not apply incoming mail"
-        }
+        ScheduledWorkerMail(context).awaitDelivery(owner, other.peerId, incoming.id, WORKER_INCOMING)
         val queued = record.id(WORKER_OFFLINE)
         receiveWorkerCounterpart(other, owner.peerId, queued, WORKER_OFFLINE)
-        receiveMail(context)
         RustBridge.withChats(other) { it.receive() }
         check(workerMessagePresent(owner, other.peerId, incoming.id, WORKER_INCOMING))
         check(workerMessagePresent(other, owner.peerId, queued, WORKER_OFFLINE))

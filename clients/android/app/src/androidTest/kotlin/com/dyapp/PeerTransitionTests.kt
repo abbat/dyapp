@@ -42,6 +42,37 @@ class PeerTransitionTests {
     }
 
     @Test
+    fun signalWaitsConsumeOneDeadlineUntilTheExpectedStateIsReady() {
+        var clock = 0L
+        var signals = 0
+        val budgets = mutableListOf<Long>()
+        PeerTransition("signalled message", 10) { clock }.awaitSignal({ signals == 3 }) { remaining ->
+            budgets += remaining
+            clock += 3
+            signals++
+        }
+        assertEquals(listOf(10L, 7L, 4L), budgets)
+    }
+
+    @Test
+    fun timeSpentReadingHistoryIsRemovedFromTheSignalBudget() {
+        var clock = 0L
+        var applied = false
+        val budgets = mutableListOf<Long>()
+        PeerTransition("history read", 10) { clock }.awaitSignal(
+            ready = {
+                clock += 3
+                applied
+            },
+            advance = {
+                budgets += it
+                applied = true
+            }
+        )
+        assertEquals(listOf(7L), budgets)
+    }
+
+    @Test
     fun receiveAndHistoryFailuresPropagateWithoutRetryMasking() {
         val failure = IllegalStateException("mailbox unavailable")
         val transition = PeerTransition("reply", 10) { 0L }

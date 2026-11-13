@@ -120,13 +120,16 @@ case "${1:?suite required}" in
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
         # Separate invocations exercise isolated and actual-worker native registries.
         peer_phase() {
-            local fixture=$1 phase=$2 argument test_class
+            local fixture=$1 phase=$2 argument test_class deadline=300
+            case "$fixture:$phase" in
+                worker:prepare|worker:catchUpScheduled) deadline=900 ;;
+            esac
             case "$fixture" in
                 retained) argument=retainedPeerPhase; test_class=RetainedPeerPhaseTests ;;
                 worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
                 *) return 2 ;;
             esac
-            timeout 300 adb -s emulator-5554 shell am instrument -w \
+            timeout "$deadline" adb -s emulator-5554 shell am instrument -w \
                 -e "$argument" "$phase" -e class "com.dyapp.$test_class" \
                 com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
                 > "$report_dir/$fixture-peer-$phase.txt" || return
@@ -140,7 +143,7 @@ case "${1:?suite required}" in
             node_action stop || return
             if peer_phase worker queue && peer_phase worker reopenQueued; then
                 node_action start || return
-                peer_phase worker catchUpBody
+                peer_phase worker catchUpScheduled
             else
                 node_action start || true
                 return 1

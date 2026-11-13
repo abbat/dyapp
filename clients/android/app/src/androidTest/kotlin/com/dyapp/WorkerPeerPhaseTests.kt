@@ -20,7 +20,7 @@ class WorkerPeerPhaseTests {
             "reopen" -> assertActive(context, fixture.reopen())
             "queue" -> assertActive(context, fixture.queueOffline())
             "reopenQueued" -> assertActive(context, fixture.reopenQueued())
-            "catchUpBody" -> assertActive(context, fixture.catchUpBody())
+            "catchUpScheduled" -> assertActive(context, fixture.catchUpScheduled())
             "cleanup" -> fixture.cleanup()
             else -> error("Unknown worker peer phase: $phase")
         }

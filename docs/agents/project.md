@@ -45,14 +45,19 @@ the previous logical selection/inventory, then removes only its fixture and rest
 Recovery, unfinished checkpoints or fixture selectors naming pre-existing inventory fail explicitly.
 A normal suite skips phase-only tests without their arguments. Worker phases publish a retained pair,
 record an anchor ID, stop the real node, queue and reopen the exact offline ID, then restart the node
-and check incoming/outgoing IDs through the real `receiveMail` body. Only the counterpart advances
+and check incoming/outgoing IDs through a JobScheduler-dispatched `MailJob`. Only the counterpart advances
 its mailbox directly. The message checkpoint is bound to both native Peer IDs; reopen never republishes
 profiles. Only preparation lowers test PoW; receive phases use a fresh process with production defaults
 and reject the preparation process by PID/start timestamp within the same boot. Native explicit-seed
 mail uses the client swarm without the node dial guard, and direct profile verification checks content
 and signatures rather than search PoW. This does not establish default-policy search/discovery coverage.
-`catchUpBody` invokes the body synchronously; JobScheduler scheduling, reboot,
-update and Doze/App Standby delivery remain separate acceptance work.
+`catchUpScheduled` uses a separate expedited one-shot job targeting the real service, dynamically
+allocates an unused job ID and cancels only that test job. It refuses live Activities as alternate mail
+consumers. FileObserver changes wake read-only history checks with the remaining transition budget;
+SQLite SHM writes do not reset or satisfy readiness. This checks service dispatch, not the production
+periodic job's timing or idle policy. Reboot, update and Doze/App Standby remain separate acceptance.
+Prepare and scheduled catch-up have a 15-minute outer process guard for multiple independent steps;
+individual proof, connection and delivery waits retain their own completion-based deadlines.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs
 `timeout 30 bash tests/scripts/android-node-control.sh command /reports/node stop` (or `start`,
 `status`, `shutdown`). Stop/shutdown acknowledge only after child exit; start acknowledges spawning,
