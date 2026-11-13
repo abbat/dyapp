@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
@@ -18,12 +19,14 @@ class RetainedPeerPhaseTests {
         when (phase) {
             "prepare" -> {
                 val peer = RetainedTestPeer.prepare(root)
+                assertTrue(peer.withChats { it.chatRows() }.isEmpty())
                 expected.writeText("${peer.ready.slot.id}\n${peer.peerId}\n")
             }
             "reopen" -> {
                 val peer = RetainedTestPeer.reopen(root)
                 assertEquals("${peer.ready.slot.id}\n${peer.peerId}\n", expected.readText())
                 assertEquals(peer.peerId, peer.withKey { _, key -> key.peerId() })
+                assertTrue(peer.withChats { it.chatRows() }.isEmpty())
             }
             "cleanup" -> {
                 val peer = RetainedTestPeer.reopen(root)
