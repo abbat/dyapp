@@ -10,7 +10,7 @@ use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_attempt, send_held, ProfilePublished,
 };
 use crate::{CoreError, FoundProfile};
-use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, publish, session::Session};
+use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, session::Session};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[uniffi::export]
@@ -26,29 +26,24 @@ impl ChatSession {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        let mut attempt = publishable_attempt(session.store(), &self.key.identity, attested)?;
-        let owner = self.key.identity.public_key();
-        let binding = dyapp_client::owner_binding(&self.device_key.identity, &owner);
-        session
-            .list_self(attempt.draft_mut(), binding)
-            .map_err(failed)?;
+        let attempt = publishable_attempt(session.store(), &self.key.identity, attested)?;
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let published = publish::publish_prepared(
-                    session.store(),
-                    &mut node,
-                    &self.key.identity,
-                    &attempt,
-                )
-                .await
-                .map_err(publish_failed)?
-                .published;
-                session
-                    .store()
-                    .note_device_listed(published.version)
-                    .map_err(failed)?;
+                let published = session
+                    .publish_profile(
+                        &mut node,
+                        &self.key.identity,
+                        &self.device_key.identity,
+                        attempt,
+                    )
+                    .await
+                    .map_err(|error| match error {
+                        dyapp_client::session::Error::Publish(failure) => publish_failed(failure),
+                        error => failed(error),
+                    })?
+                    .published;
                 // shortcut: a fixed batch per publish, as on desktop; peers can exhaust it until
                 // the next publish, so refill it when the receive loop lands.
                 session

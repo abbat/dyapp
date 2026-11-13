@@ -2,7 +2,7 @@
 use super::*;
 use prost::Message as _;
 
-fn at_readback(
+pub(super) fn at_readback(
     action: impl FnOnce(&Profile) + Send + 'static,
 ) -> impl FnMut(&Request, &proto::ProfileResponse) + Send {
     let (mut accepted, mut action) = (None, Some(action));
@@ -53,7 +53,10 @@ async fn prepared_baseline_covers_edits_during_the_earlier_connection_await() {
     assert!(outcome.pending);
 }
 
-fn edit_at_readback(path: std::path::PathBuf, identity: Identity) -> impl FnOnce(&Profile) + Send {
+pub(super) fn edit_at_readback(
+    path: std::path::PathBuf,
+    identity: Identity,
+) -> impl FnOnce(&Profile) + Send {
     move |_| {
         let mut other = Store::open(&path, &identity).unwrap();
         other

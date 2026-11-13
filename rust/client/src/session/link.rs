@@ -131,6 +131,8 @@ impl Session {
         Ok(!newest.deleted && listed != 0 && newest.version > listed)
     }
 
+    /// Low-level owner device-list edit: the caller supplies verified ordinary authority and
+    /// separately authorizes enrollment. Client field saves use [`Self::publish_profile`].
     /// [`publish::list_device`] for this device, refused with [`Error::Revoked`] once `draft`
     /// revokes it: a draft taken from the newest profile must not list the device again.
     ///

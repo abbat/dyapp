@@ -930,6 +930,7 @@ mod forward;
 mod link;
 mod local;
 mod operations;
+mod publication;
 mod receive;
 mod staging;
 mod state;

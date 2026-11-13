@@ -211,7 +211,8 @@ impl ProfilePublisher {
         on_network_stack(|| self.runtime.block_on(connect(&network)).map(|_| ()))
     }
 
-    /// Publish a solved draft through the active network and verify its signed readback.
+    /// Publish solved editable fields through verified network directory authority.
+    /// This does not enroll devices; session-aware clients use `ChatSession::publish_profile`.
     /// Any error leaves the saved draft available for retry.
     ///
     /// # Errors
@@ -237,9 +238,10 @@ impl ProfilePublisher {
             let store = store;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let outcome = publish::publish_prepared(&store, &mut node, &key.identity, &attempt)
-                    .await
-                    .map_err(failed)?;
+                let outcome =
+                    publish::publish_fields_prepared(&store, &mut node, &key.identity, attempt)
+                        .await
+                        .map_err(failed)?;
                 let published = outcome.published;
                 send_held(&store, &mut node, &network).await?;
                 store

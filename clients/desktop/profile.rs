@@ -543,7 +543,7 @@ pub async fn publish(
     bits: u32,
 ) -> Result<View, String> {
     let store = open(dir, identity)?;
-    let mut attempt = store
+    let attempt = store
         .prepare_profile_publication(identity)
         .map_err(|e| e.to_string())?;
     let today = today()?;
@@ -558,20 +558,14 @@ pub async fn publish(
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
-    session
-        .list_self(
-            attempt.draft_mut(),
-            dyapp_client::owner_binding(device_key, &identity.public_key()),
-        )
-        .map_err(|e| e.to_string())?;
-    let published = publish::publish_prepared(session.store(), &mut node, identity, &attempt)
+    let published = session
+        .publish_profile(&mut node, identity, device_key, attempt)
         .await
-        .map_err(publish_code)?
+        .map_err(|error| match error {
+            dyapp_client::session::Error::Publish(failure) => publish_code(failure),
+            error => error.to_string(),
+        })?
         .published;
-    session
-        .store()
-        .note_device_listed(published.version)
-        .map_err(|e| e.to_string())?;
     // One single-use batch per device: repeats would hit the node's quota and fail this save.
     // The last-resort package answers every invite after the batch runs out.
     if session

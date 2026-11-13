@@ -37,6 +37,8 @@ fn seed_row(address: &Multiaddr) -> String {
 
 #[path = "ffi_chats/offline.rs"]
 mod offline;
+#[path = "ffi_chats/publication.rs"]
+mod publication;
 
 /// Retained credentials reopen the same native device after every session handle is dropped.
 struct NativePeer {
@@ -98,6 +100,23 @@ fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
     (peer.key.clone(), peer.open())
 }
 
+fn receive_events(chats: &ChatSession) {
+    assert!(
+        chats.receive().unwrap() > 0,
+        "expected a completed mailbox event"
+    );
+}
+
+fn message(chats: &ChatSession, peer: &str, id: &[u8]) -> dyapp_ffi::ChatMessage {
+    chats
+        .chat_history(peer.to_owned())
+        .unwrap()
+        .messages
+        .into_iter()
+        .find(|row| row.id == id)
+        .expect("submitted message")
+}
+
 fn texts(chats: &ChatSession, peer_id: &str) -> Vec<String> {
     chats
         .chat_history(peer_id.to_owned())
@@ -138,14 +157,14 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
         alice.like(bob_id.clone(), true).unwrap(),
         likes(true, false)
     );
-    assert!(bob.receive().unwrap() > 0);
+    receive_events(&bob);
     assert_eq!(bob.liked_you().unwrap(), std::slice::from_ref(&alice_id));
     assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(false, false));
 
     assert_eq!(bob.like(alice_id.clone(), true).unwrap(), likes(true, true));
     assert_eq!(bob.liked_you().unwrap(), [] as [std::string::String; 0]);
     assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);
-    assert!(alice.receive().unwrap() > 0);
+    receive_events(&alice);
     assert_eq!(alice.likes(bob_id.clone()).unwrap(), likes(true, true));
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::Open);
 
@@ -155,7 +174,7 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
         likes(false, false)
     );
     assert_eq!(alice.state(bob_id).unwrap(), ChatState::Closed);
-    assert!(bob.receive().unwrap() > 0);
+    receive_events(&bob);
     assert_eq!(bob.likes(alice_id.clone()).unwrap(), likes(true, false));
     assert_eq!(bob.state(alice_id).unwrap(), ChatState::Closed);
 }
@@ -171,7 +190,7 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::RequestSent);
     assert_eq!(texts(&alice, &bob_id), ["hello bob"]);
 
-    assert!(bob.receive().unwrap() > 0);
+    receive_events(&bob);
     assert_eq!(
         bob.state(alice_id.clone()).unwrap(),
         ChatState::RequestReceived
@@ -187,7 +206,7 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
 
     bob.send_text(alice_id.clone(), "hello alice".into())
         .unwrap();
-    assert!(alice.receive().unwrap() > 0);
+    receive_events(&alice);
     assert_eq!(alice.state(bob_id.clone()).unwrap(), ChatState::Open);
     assert_eq!(bob.state(alice_id.clone()).unwrap(), ChatState::Open);
     assert_eq!(texts(&alice, &bob_id), ["hello bob", "hello alice"]);
@@ -200,27 +219,19 @@ fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
     let (alice_key, alice) = person(&address);
     let (bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
-    alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
-    assert!(bob.receive().unwrap() > 0);
+    let id = alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
+    receive_events(&bob);
     assert_eq!(bob.mark_read(alice_id.clone()).unwrap(), 1);
     assert_eq!(bob.mark_read(alice_id.clone()).unwrap(), 0);
     assert_eq!(bob.chat_rows().unwrap()[0].unread_count, 0);
 
-    let sent = alice
-        .chat_history(bob_id.clone())
-        .unwrap()
-        .messages
-        .remove(0);
-    let (group, id) = (sent.group_id.clone(), sent.id.clone());
+    let sent = message(&alice, &bob_id, &id);
+    let group = sent.group_id.clone();
     let edited =
         |text: &str| alice.edit_text(bob_id.clone(), group.clone(), id.clone(), text.into());
     assert_eq!(edited("hi bob").unwrap().len(), 16);
-    assert!(bob.receive().unwrap() > 0);
-    let current = bob
-        .chat_history(alice_id.clone())
-        .unwrap()
-        .messages
-        .remove(0);
+    receive_events(&bob);
+    let current = message(&bob, &alice_id, &id);
     assert_eq!(
         (current.text.as_deref(), current.edited),
         (Some("hi bob"), true)
@@ -232,8 +243,8 @@ fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
     alice
         .delete_text(bob_id.clone(), group.clone(), id.clone())
         .unwrap();
-    assert!(bob.receive().unwrap() > 0);
-    assert!(bob.chat_history(alice_id.clone()).unwrap().messages[0].deleted);
+    receive_events(&bob);
+    assert!(message(&bob, &alice_id, &id).deleted);
     assert_eq!(edited("again").unwrap_err().to_string(), "unknownMessage");
 
     // Clearing is local: the author keeps the deletion marker.

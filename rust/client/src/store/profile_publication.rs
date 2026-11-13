@@ -12,6 +12,8 @@ mod import;
 mod import_tests;
 mod merge;
 mod receipt;
+mod source;
+use source::Source;
 
 /// Owner-bound local baseline and mutable request; prepare before any network await.
 pub struct ProfilePublication {
@@ -19,14 +21,16 @@ pub struct ProfilePublication {
     baseline: Option<Profile>,
     hidden: bool,
     request: Profile,
-    directory_source: Option<Box<Profile>>,
+    source: Source,
+    directory_only: bool,
 }
 
 impl ProfilePublication {
     // The actual local baseline stays unchanged for admission and concurrent directory edits.
     pub(crate) fn directory_from(&mut self, published: &Profile) {
         self.request = published.clone();
-        self.directory_source = Some(Box::new(published.clone()));
+        self.source = Source::Present(Box::new(published.clone()));
+        self.directory_only = true;
         if let Some(local) = &self.baseline {
             self.request.version = self.request.version.max(local.version);
             if local.pow_bits > self.request.pow_bits {
@@ -36,7 +40,10 @@ impl ProfilePublication {
     }
 
     pub(crate) fn directory_source(&self) -> Option<&Profile> {
-        self.directory_source.as_deref()
+        match (&self.source, self.directory_only) {
+            (Source::Present(profile), true) => Some(profile.as_ref()),
+            _ => None,
+        }
     }
 
     // Without a proven editable merge base, adoption must ask rather than discard old edits.
@@ -59,7 +66,7 @@ impl ProfilePublication {
         current.map_or_else(
             || published.clone(),
             |current| {
-                if self.directory_source.is_some() {
+                if self.directory_only {
                     merge::directory_completion(baseline, &current, published)
                 } else {
                     merge::merge(baseline, &current, published)
@@ -161,7 +168,8 @@ impl Store {
             owner: self.owner_peer_id.clone(),
             request: baseline.clone().unwrap_or_default(),
             baseline,
-            directory_source: None,
+            source: Source::Unchecked,
+            directory_only: false,
             hidden: self.profile_hidden()?,
         })
     }

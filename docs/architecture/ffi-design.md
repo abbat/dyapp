@@ -337,6 +337,21 @@ the draft; earlier link-state import still applies. The largest visible remote v
 Adoption returns separate exact ordinary readback and current local draft/visibility. Linked-device
 completion records only that ordinary published version, including its already-listed retry path;
 new device listing uses a prepared relist outcome. A hidden search tombstone never proves listing.
+Ordinary native and Tauri profile saves delegate directory policy to `Session::publish_profile`.
+It validates the original owner/device keys, reads verified ordinary authority and copies only its
+certificates/owner bindings into the captured editable request. It never treats a saved or hidden draft
+as listing evidence. Verified removal refuses the original device; absent/withdrawn or unproven
+authority returns `Failure::DirectoryAuthorityRequired`. A genuinely new account with no remote
+directory or prior/link evidence can list its original first device. `Failure::LinkPending` requires
+original-session link completion before publishing fields; a field-save click cannot complete or renew
+enrollment. Device listing counters advance only from verified ordinary membership/publication.
+The field-only `publish::publish_fields_prepared` path applies the same directory-source guard
+without enrolling devices. Both paths preserve the original editor baseline and use ordinary field
+completion, separately from directory-only completion. A changed semantic source at the subsequent
+read conflicts even below a higher hidden floor; this is not the still-planned wire CAS condition.
+Low-level owner signing/publication and `Session::list_self` remain explicit primitives, not client
+authorization checks against editable drafts. Stored listing floors never decrease to match an older
+ordinary readback; explicit recovery for uncertain legacy provenance remains planned.
 Unlisted-link completion prepares a directory-only request from exact adopted public fields and adds
 the restored device, retaining the local version floor and stronger proof. It checks revocation at
 the exact ordinary readback before applying that floor. The next read must still match the captured

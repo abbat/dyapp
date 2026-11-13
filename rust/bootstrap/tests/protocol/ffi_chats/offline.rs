@@ -14,7 +14,7 @@ async fn listening(swarm: &mut libp2p::Swarm<dyapp_p2p_net::Behaviour>) -> Multi
     .expect("listener readiness deadline")
 }
 
-fn refusing_seed(runtime: &tokio::runtime::Runtime) -> String {
+pub(super) fn refusing_seed(runtime: &tokio::runtime::Runtime) -> String {
     runtime.block_on(async {
         let mut swarm = dyapp_p2p_net::build_configured_swarm(
             Keypair::generate_ed25519(),
@@ -65,7 +65,7 @@ async fn check_connect_refusals(seed: &str) {
     }
 }
 
-fn set_seed(peer: &NativePeer, seed: String) {
+pub(super) fn set_seed(peer: &NativePeer, seed: String) {
     network::save(
         std::path::Path::new(&peer.dir),
         Settings::Active,

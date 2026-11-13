@@ -15,7 +15,10 @@ use prost::Message as _;
 mod adoption_confirm;
 mod adoption_fields;
 mod adoption_review;
+mod fields;
 mod photos;
+pub(crate) use fields::prepare_fields;
+pub use fields::publish_fields_prepared;
 
 pub use adoption_confirm::{confirm_adoption_review, AdoptionConfirmError};
 pub use adoption_fields::AdoptionField;
@@ -370,13 +373,11 @@ async fn send_prepared(
     let draft = attempt.draft();
     let next = store.profile_publication_record(identity, attempt)?;
     let held = newest(node, identity).await?;
-    if let Some(source) = attempt.directory_source() {
-        if held.as_ref() != Some(source) && held.as_ref() != Some(&next) {
-            return Err(Failure::Missed);
-        }
+    if !attempt.source_matches(held.as_ref(), &next) {
+        return Err(Failure::Missed);
     }
     let seen = held.as_ref().map_or(0, |held| held.version);
-    if attempt.directory_source().is_some() {
+    if attempt.source_checked() {
         admit_directory_version(store, seen)?;
     } else if store.own_profile_seen()? > seen.max(draft.version) {
         return Err(Error::Reply("the node holds an older own profile").into());
@@ -569,6 +570,12 @@ async fn send(node: &mut Node, identity: &Identity, profile: Profile) -> Result<
 /// Why publication or adoption failed; adoption review requires an explicit recovery decision.
 #[derive(Debug, thiserror::Error)]
 pub enum Failure {
+    /// A field-save click cannot complete or renew pending device enrollment.
+    #[error("complete linked-device recovery before publishing")]
+    LinkPending,
+    /// Missing, withdrawn or ambiguous directory authority requires explicit owner action.
+    #[error("verified device authority is required before publishing")]
+    DirectoryAuthorityRequired,
     /// Adoption cannot safely project the remote profile over the current local state.
     /// Retain the pending link, draft and credentials; blind retries are not a recovery decision.
     #[error(
@@ -611,6 +618,8 @@ mod tests {
     mod adoption_tests;
     #[path = "directory_relist_tests.rs"]
     mod directory_relist_tests;
+    #[path = "field_publication_tests.rs"]
+    mod field_publication_tests;
     #[path = "foreign_import_tests.rs"]
     mod foreign_import_tests;
     #[path = "node.rs"]
