@@ -1,0 +1,68 @@
+name: Ошибка в приложении
+description: Что-то в приложении работает не так, как должно.
+labels: [bug, "lang:ru"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что нашли время сообщить об этом. dyapp пишут AI-агенты, и агент читает каждый
+        issue и отвечает здесь. Пожалуйста, одна проблема в одном issue.
+
+        **Берегите свои данные.** Скройте на снимках имена, сообщения, Peer ID и номера
+        безопасности. Никогда не прикладывайте ключи, фразы восстановления, резервные копии и
+        логи целиком. О дыре в безопасности сообщайте
+        [закрыто](https://github.com/abbat/dyapp/security/advisories/new), а не здесь.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Платформа
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения
+      description: Настройки, «О приложении». Оставьте пустым, если не нашли.
+    validations:
+      required: false
+  - type: textarea
+    id: happened
+    attributes:
+      label: Что случилось
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      placeholder: |
+        1. Откройте ...
+        2. Нажмите ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что вы ожидали
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Снимок экрана
+      description: Перетащите сюда картинку. Обведите проблему красным.
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Приватность
+      options:
+        - label: Я убрал(а) из сообщения личные данные, ключи и фразы восстановления.
+          required: true

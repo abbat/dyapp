@@ -1,0 +1,57 @@
+name: Wrong or awkward text
+description: A typo, a bad translation or a confusing message in the app.
+labels: [translation, "lang:en"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Good words matter as much as working code. An AI agent reads this and replies
+        here. Please hide names, messages and Peer IDs on screenshots.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: App language
+      options:
+        - English
+        - Russian
+    validations:
+      required: true
+  - type: input
+    id: text
+    attributes:
+      label: The text as it appears
+      description: Copy or type it, so it can be found in the code.
+    validations:
+      required: true
+  - type: input
+    id: place
+    attributes:
+      label: Where you saw it
+      placeholder: Settings, Network, error after saving
+    validations:
+      required: true
+  - type: textarea
+    id: better
+    attributes:
+      label: What it should say
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drop an image here. Circle the text in red.
+    validations:
+      required: false

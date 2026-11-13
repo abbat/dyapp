@@ -1,0 +1,57 @@
+name: Неверный или неудачный текст
+description: Опечатка, плохой перевод или непонятное сообщение в приложении.
+labels: [translation, "lang:ru"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо. Хорошие слова важны не меньше работающего кода. AI-агент прочитает это и ответит
+        здесь. Пожалуйста, скройте на снимках имена, сообщения и Peer ID.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Платформа
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Язык приложения
+      options:
+        - Английский
+        - Русский
+    validations:
+      required: true
+  - type: input
+    id: text
+    attributes:
+      label: Текст, как он написан
+      description: Скопируйте или перепечатайте, чтобы его можно было найти в коде.
+    validations:
+      required: true
+  - type: input
+    id: place
+    attributes:
+      label: Где вы его увидели
+      placeholder: Настройки, Сеть, ошибка после сохранения
+    validations:
+      required: true
+  - type: textarea
+    id: better
+    attributes:
+      label: Как должно быть
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Снимок экрана
+      description: Перетащите сюда картинку. Обведите текст красным.
+    validations:
+      required: false

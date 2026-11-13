@@ -1,0 +1,67 @@
+name: Bug in the app
+description: Something in the app does not work as it should.
+labels: [bug, "lang:en"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report this. dyapp is written by AI agents, and an agent
+        reads every issue and replies here. One problem per issue, please.
+
+        **Keep your data private.** Hide names, messages, Peer IDs and safety numbers on
+        screenshots. Never attach keys, recovery phrases, backups or whole logs. A security hole
+        goes to [private reporting](https://github.com/abbat/dyapp/security/advisories/new), not here.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Settings, About. Leave empty if you cannot find it.
+    validations:
+      required: false
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: |
+        1. Open ...
+        2. Tap ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drop an image here. Circle the problem in red.
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed personal data, keys and recovery phrases from this report.
+          required: true

@@ -763,12 +763,16 @@ def validate_clients(texts: "dict[str, str]") -> None:
     from repository_unused import script_reference_errors
     from repository_translations import unused_apple_errors
     from desktop_translations import desktop_errors
+    from issue_forms import form_errors
 
     errors = i18n_errors(texts) + translation_errors(texts)
     errors.extend(unused_apple_errors(texts))
     errors.extend(desktop_errors(texts))
     if errors:
         raise ValueError("UI strings (practice D1):\n" + "\n".join(errors))
+    errors = form_errors(texts)
+    if errors:
+        raise ValueError("Issue forms (en/ru):\n" + "\n".join(errors))
     errors = screen_errors(texts)
     if errors:
         raise ValueError("Screen IDs (docs/design):\n" + "\n".join(errors))
@@ -855,7 +859,8 @@ def main() -> None:
         "characters, ASCII paths, crates follow the unsafe "
         "policy, no tracker IDs, protobuf and serde types have round-trip "
         "properties, network handlers have fuzz targets, UI strings "
-        "come from catalogues, screen pages match their prototypes, "
+        "come from catalogues, issue forms match in en and ru, "
+        "screen pages match their prototypes, "
         "prototype settings keep their checkbox and row budgets, "
         "mutants skips give a reason, "
         f"source files <= {size['max_lines']} "
