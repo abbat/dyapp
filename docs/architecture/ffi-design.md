@@ -370,7 +370,13 @@ owner reviews it. Its shared field vocabulary keeps birth, place, income and see
 missing, duplicate or unoffered choices. Selection produces a preview only: remote devices, owner
 bindings and metadata remain authoritative, stronger local proof survives, and storage is unchanged.
 The vocabulary exhaustively classifies wire fields so new fields require an explicit policy decision.
-Actual confirmation, stale-context validation and client presentation remain unimplemented. A malformed or
+The review captures draft, visibility, pending-link bytes, exact signed search head, observed/listed
+versions and database identity in one read snapshot. `is_current` rejects a replaced link, another
+Store (even for the same owner), or changed profile/publication progress; ACK/backoff for the same
+head does not invalidate the review. Reopening the same Store retains validity. This read-only
+preflight holds no transaction after return and is not a write authorization: actual confirmation must
+recheck under the completion writer and separately verify remote readback. Confirmation and client
+presentation remain unimplemented. A malformed or
 already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

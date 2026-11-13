@@ -4,6 +4,8 @@ use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 use rusqlite::{Transaction, TransactionBehavior};
 
+mod adoption_context;
+pub(crate) use adoption_context::ProfileAdoptionContext;
 mod import;
 #[cfg(test)]
 #[path = "profile_publication/import_tests.rs"]
@@ -96,14 +98,19 @@ impl Store {
             return Err(Error::WrongIdentity);
         }
         let snapshot = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
-        let baseline = self.profile_draft()?;
-        let hidden = self.profile_hidden()?;
+        let prepared = self.profile_publication_snapshot()?;
         snapshot.commit()?;
+        Ok(prepared)
+    }
+
+    // Caller holds a read snapshot or the completion writer; never begin a nested transaction.
+    fn profile_publication_snapshot(&self) -> Result<ProfilePublication, Error> {
+        let baseline = self.profile_draft()?;
         Ok(ProfilePublication {
             owner: self.owner_peer_id.clone(),
             request: baseline.clone().unwrap_or_default(),
             baseline,
-            hidden,
+            hidden: self.profile_hidden()?,
         })
     }
 

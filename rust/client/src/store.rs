@@ -32,6 +32,7 @@ mod peers;
 mod presence;
 mod profile_draft;
 mod profile_publication;
+pub(crate) use profile_publication::ProfileAdoptionContext;
 pub use profile_publication::{ProfilePublication, ProfilePublicationOutcome};
 pub mod profile_photos;
 mod profile_retention;

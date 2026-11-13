@@ -7,8 +7,12 @@ fn frozen(local: &Profile, remote: Profile) -> (AdoptionReview, Store) {
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     store.save_profile_draft(local).unwrap();
     store.set_profile_hidden(true).unwrap();
-    let attempt = store.prepare_profile_publication(&identity).unwrap();
-    (AdoptionReview { attempt, remote }, store)
+    store.set_link_pending(b"fixture link").unwrap();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    (AdoptionReview { context, remote }, store)
 }
 
 #[test]

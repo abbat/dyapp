@@ -77,6 +77,7 @@ async fn review_freezes_local_state_before_the_remote_reply_without_replacing_ne
         .unwrap();
     assert_eq!(review.local_profile(), &local);
     assert_eq!(review.remote_profile(), &remote);
+    assert!(!review.is_current(&store, &identity).unwrap());
     assert_eq!(
         store.profile_draft().unwrap().unwrap().name,
         "after review started"

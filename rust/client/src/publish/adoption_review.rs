@@ -1,8 +1,6 @@
 //! Immutable owner-bound adoption comparison; selecting fields never writes or publishes.
-use super::{
-    adoption_fields::AdoptionField, newest, Failure, Identity, Node, Profile, ProfilePublication,
-    Store,
-};
+use super::{adoption_fields::AdoptionField, newest, Failure, Identity, Node, Profile, Store};
+use crate::store::ProfileAdoptionContext;
 use std::collections::BTreeMap;
 
 /// The owner-selected source for one differing editable field.
@@ -33,7 +31,7 @@ pub enum AdoptionSelectionError {
 /// It owns no key, database transaction or identity lease. Confirmation must revalidate context;
 /// field selection alone does not authorize writes, complete the link or clear its pending row.
 pub struct AdoptionReview {
-    attempt: ProfilePublication,
+    context: ProfileAdoptionContext,
     remote: Profile,
 }
 
@@ -41,7 +39,7 @@ impl AdoptionReview {
     /// The exact local snapshot, before the remote request.
     #[must_use]
     pub fn local_profile(&self) -> &Profile {
-        self.attempt.draft()
+        self.context.publication.draft()
     }
 
     /// The exact decoded ordinary remote readback, never overlaid with local choices.
@@ -53,7 +51,21 @@ impl AdoptionReview {
     /// Visibility captured with the local baseline.
     #[must_use]
     pub fn hidden(&self) -> bool {
-        self.attempt.hidden()
+        self.context.publication.hidden()
+    }
+
+    /// Check local review context without holding a lease across the owner's decision.
+    /// This is a preflight: confirmation must repeat the check under its completion writer
+    /// and separately verify the remote readback.
+    ///
+    /// # Errors
+    /// Returns wrong owner or invalid/unreadable local state.
+    pub fn is_current(
+        &self,
+        store: &Store,
+        identity: &Identity,
+    ) -> Result<bool, crate::store::Error> {
+        store.profile_adoption_context_current(identity, &self.context)
     }
 
     /// Differing editable fields in the shared stable presentation order.
@@ -112,17 +124,16 @@ pub async fn review_adoption(
     node: &mut Node,
     identity: &Identity,
 ) -> Result<AdoptionReview, Failure> {
-    let attempt = store.prepare_profile_publication(identity)?;
-    if store.link_pending()?.is_none() {
-        return Err(super::Error::Input("no pending linked-device recovery").into());
-    }
+    let context = store
+        .prepare_profile_adoption_context(identity)?
+        .ok_or(super::Error::Input("no pending linked-device recovery"))?;
     let remote = newest(node, identity)
         .await?
         .ok_or(super::Error::Reply("the account has no profile"))?;
     if remote.deleted {
         return Err(Failure::AdoptionReviewRequired);
     }
-    Ok(AdoptionReview { attempt, remote })
+    Ok(AdoptionReview { context, remote })
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 const HEAD_KEY: &str = "search_profile_head";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct Head {
     version: u64,
     digest: [u8; 32],
