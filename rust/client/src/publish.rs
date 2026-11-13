@@ -12,7 +12,14 @@ use dyapp_p2p_net::proto::Status;
 use dyapp_profile::{CivilDate, DeviceCertificate, Profile};
 use prost::Message as _;
 
+mod adoption_fields;
+mod adoption_review;
 mod photos;
+
+pub use adoption_fields::AdoptionField;
+pub use adoption_review::{
+    review_adoption, AdoptionReview, AdoptionSelectionError, AdoptionSource,
+};
 
 /// Why a draft cannot be published yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]

@@ -363,7 +363,14 @@ reports typed `publish::Failure::AdoptionReviewRequired` for a superseded local 
 the pending link, draft and credentials. Callers must distinguish this from a transient transport
 failure; blind retries do not resolve it. The planned recovery compares local and verified remote
 profile fields and requires explicit owner selection; device authorization stays remote-authoritative.
-Its core confirmation and client presentation remain unimplemented. A malformed or
+Shared `publish::review_adoption` now freezes an owner-bound local draft/visibility before fetching
+verified ordinary readback. `AdoptionReview` owns no identity lease or database transaction while the
+owner reviews it. Its shared field vocabulary keeps birth, place, income and seeking groups indivisible;
+`select_fields` requires one explicit local/remote choice for every differing editable field and rejects
+missing, duplicate or unoffered choices. Selection produces a preview only: remote devices, owner
+bindings and metadata remain authoritative, stronger local proof survives, and storage is unchanged.
+The vocabulary exhaustively classifies wire fields so new fields require an explicit policy decision.
+Actual confirmation, stale-context validation and client presentation remain unimplemented. A malformed or
 already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
