@@ -83,6 +83,20 @@ android {
     }
 }
 
+// Lifecycle tests replace the debug APK without changing release versioning or rebuilding Rust.
+androidComponents {
+    onVariants(selector().withBuildType('debug')) { variant ->
+        def upgradeVersion = providers.gradleProperty('dyapp.testUpgradeVersionCode')
+        if (upgradeVersion.isPresent()) {
+            def code = upgradeVersion.get().toInteger()
+            if (code <= android.defaultConfig.versionCode) {
+                throw new GradleException('Test upgrade versionCode must increase')
+            }
+            variant.outputs.each { output -> output.versionCode.set(code) }
+        }
+    }
+}
+
 dependencies {
     // Core Android
     implementation 'androidx.core:core-ktx:1.19.1'

@@ -16,6 +16,14 @@ case "${1:?suite required}" in
         # The debug core is x86_64 only: the emulator is the only device these packages run on.
         (cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
             :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin :app:lintDebug)
+        # Preserve both versions, signed by this container's same debug keystore.
+        apk_dir=build/android/app/outputs/apk/debug
+        lifecycle_dir=build/android/lifecycle
+        mkdir -p "$lifecycle_dir"
+        cp -f "$apk_dir/app-debug.apk" "$lifecycle_dir/app-base.apk"
+        (cd clients/android && ./gradlew --offline --no-daemon -Pdyapp.prebuiltRust \
+            -Pdyapp.testUpgradeVersionCode=2 :app:assembleDebug)
+        cp -f "$apk_dir/app-debug.apk" "$lifecycle_dir/app-upgrade.apk"
         # Host dyappd for the emulator runner's loopback node.
         cargo build --locked -p dyapp-bootstrap --bin dyappd
         ;;
@@ -83,7 +91,7 @@ case "${1:?suite required}" in
             exit "$code"
         }
         trap collect_ui_reports EXIT
-        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/debug/app-debug.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/lifecycle/app-base.apk
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
         # A freshly booted emulator may still show the lock screen or a system ANR dialog over
         # the app; AppUITests requires the app to own the active window.
@@ -143,10 +151,20 @@ case "${1:?suite required}" in
             python3 /app/tests/scripts/android_lifecycle.py \
                 --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1
         }
+        upgrade_worker() {
+            timeout 300 adb -s emulator-5554 install --no-streaming -r \
+                /app/build/android/lifecycle/app-upgrade.apk \
+                > "$report_dir/worker-upgrade.txt" 2>&1 || return
+            # Probe before instrumentation/Application.onCreate can recreate a lost registration.
+            timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
+                --user current com.dyapp 1 > "$report_dir/worker-upgrade-job.txt" 2>&1 || return
+            test -s "$report_dir/worker-upgrade-job.txt" || return
+            peer_phase worker upgraded
+        }
         offline_worker_phases() {
             node_action stop || return
             if peer_phase worker queue && peer_phase worker reopenQueued &&
-                reboot_worker && peer_phase worker reopenQueued; then
+                reboot_worker && peer_phase worker reopenQueued && upgrade_worker; then
                 node_action start || return
                 peer_phase worker catchUpScheduled
             else

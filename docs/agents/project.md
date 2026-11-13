@@ -59,7 +59,14 @@ SQLite SHM writes do not reset or satisfy readiness. This checks service dispatc
 periodic job's timing or idle policy. The host reboot helper requires a changed kernel boot ID, boot
 completion and package-manager readiness with fresh deadlines, and probes production job 1 before any
 instrumentation launch can reschedule it. Its JSON report records the before/after boot IDs and job
-states. Runtime reboot evidence, APK upgrade and Doze/App Standby remain separate acceptance.
+states. The build suite preserves `app-base.apk` and `app-upgrade.apk` under `build/android/lifecycle/`
+(outside Gradle's replaceable output directories). It assembles the upgrade with
+`-Pdyapp.testUpgradeVersionCode=2 -Pdyapp.prebuiltRust` in the same container/signing context.
+Only debug variant output versioning changes. While the node remains offline, the UI runner installs
+the upgrade with `adb install -r`, probes job 1 before launching instrumentation, then requires installed
+`longVersionCode` to exceed
+the value checkpointed during preparation, then reopens the original native pair and queued ID.
+Runtime reboot/upgrade evidence and Doze/App Standby remain separate acceptance.
 Prepare and scheduled catch-up have a 15-minute outer process guard for multiple independent steps;
 individual proof, connection and delivery waits retain their own completion-based deadlines.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs
