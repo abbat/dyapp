@@ -116,6 +116,21 @@ case "${1:?suite required}" in
             fi
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
+        # Separate instrumentation invocations must reopen the same native test identity.
+        retained_peer_phase() {
+            local phase=$1
+            timeout 300 adb -s emulator-5554 shell am instrument -w \
+                -e retainedPeerPhase "$phase" -e class com.dyapp.RetainedPeerPhaseTests \
+                com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
+                > "$report_dir/retained-peer-$phase.txt" || return
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/retained-peer-$phase.txt" 1
+        }
+        if retained_peer_phase prepare && retained_peer_phase reopen; then
+            retained_peer_phase cleanup
+        else
+            retained_peer_phase cleanup || true
+            exit 1
+        fi
         # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
         python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
         timeout 300 adb -s emulator-5554 shell am instrument -w -e forged 1 \

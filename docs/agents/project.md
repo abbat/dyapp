@@ -38,6 +38,11 @@ Android's theme paints the system-bar background and consumes safe-drawing inset
 root surface. Nested scaffolds receive the consumed insets; do not add a second system-bar
 padding layer. Status and navigation icon contrast follows the chosen light or dark theme.
 
+Android instrumentation runs retained-peer prepare/reopen/cleanup phases in separate invocations
+before the forged-search fixture. They use native inventory and credential ownership; only explicit
+cleanup removes the retained identity. A normal suite skips the phase-only test without its argument.
+This proves no reboot or background delivery by itself; those lifecycle phases remain separate work.
+
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
