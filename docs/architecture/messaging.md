@@ -229,7 +229,11 @@ adapter, and the desktop catch-up pass calls its paged form.
 
 The desktop [catch-up runtime](../design/client-local-storage.md#catch-up-runtime) owns due
 outbox sends, mailbox fetches and ACK retries for the active slot: a runtime thread runs a
-pass every minute, and Chats requests one when it opens. Mobile runtimes are planned.
+pass every minute, and Chats requests one when it opens. Android also schedules a persisted,
+network-constrained `MailJob` with a requested 15-minute period. It resolves the active ready identity
+and calls native `ChatSession.receive()`, which retries due writes and applies incoming mail. Recovery
+or absent identities are skipped. This is scheduled catch-up without push, not a delivery deadline;
+Doze/App Standby, reboot and update delivery verification remains pending.
 
 Mailbox fetch can now return a cursor after at most 100 records ordered by class and
 insertion sequence. `Node::fetch_page` signs a fresh challenge with an explicit
@@ -246,8 +250,8 @@ Cross-replica union is separate work.
 
 **What exists vs planned:**
 
-- Durable outbox and retries: `rust/client` `Session`; the desktop runtime drives them, a mobile
-  worker is planned
+- Durable outbox and retries: `rust/client` `Session`; desktop catch-up and Android `MailJob`
+  drive them. Android idle/reboot/update delivery verification remains pending
 - Hybrid logical clock timestamps with a peer-ID tie-break for ordering
   ([ADR 0010](../decisions/0010-data-sync-without-automerge.md)); the append-only log is
   planned

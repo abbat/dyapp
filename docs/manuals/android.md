@@ -22,6 +22,15 @@ Create a protected GitHub Actions environment named `android-release`, restricte
 
 The signing job needs both secrets. It fails if either is missing, if the keystore cannot sign, or if `apksigner verify` fails. The key is never stored in the repository or passed to the unsigned build job. Keep the offline backup even after the GitHub secrets are set. Before publishing the first tag, verify the environment protection and the key's certificate fingerprint; use the same signing key for every later APK update.
 
+## Background mail
+
+The app schedules a network-constrained background mail job for the active ready identity, requesting
+a 15-minute period. Each run retries due queued messages and receives mail through the shared core.
+This is not an exact delivery interval or a push wake-up service. The app lock protects the interface;
+it does not prevent this background receive. Missing or recovery identities are skipped. The job is
+configured as persisted, but delivery under idle restrictions and across reboot or app update still
+requires release verification. Foreground use remains available for catch-up.
+
 ## Share a profile
 
 On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
