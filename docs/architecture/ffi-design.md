@@ -326,7 +326,9 @@ beyond all known versions with checked arithmetic, preserves stronger proof/curr
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
 failure leaves that local projection unchanged. New search tombstones carry protected `search_only`
 metadata and a separate signature domain; common queue publication uses `SearchRequest.withdraw`
-without downgrade. Ordinary verification/cache admission reject search-purpose and ambiguous legacy
+without downgrade. Withdrawal bypasses the normal publication window but respects a server's
+explicit retry deadline, including after reopening the local Store. Ordinary verification/cache
+admission reject search-purpose and ambiguous legacy
 unconditional tombstones, even when a peer returns them through `GetProfile`. Historical/search
 verification remains explicit and never authorizes account deletion or device-directory changes.
 Search merges track withdrawal version evidence separately from ordinary contact/MLS caches.

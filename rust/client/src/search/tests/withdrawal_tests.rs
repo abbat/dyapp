@@ -38,6 +38,44 @@ async fn unsupported_search_withdrawal_preserves_the_queue_without_downgrading()
     assert_eq!(store.link_state().unwrap(), before);
 }
 
+#[tokio::test]
+async fn search_withdrawal_respects_server_backoff_across_reopening() {
+    let owner = Identity::from_secret(&[7; 32]);
+    let path = crate::store::tests::temp_db_path();
+    let store = Store::open(&path, &owner).unwrap();
+    let hidden = Profile::search_tombstone(2, 0, 0).sign(&owner);
+    store.hold_search_profile(&hidden).unwrap();
+    let mut replies = [Status::RateLimited, Status::Ok].into_iter();
+    let (node, asked) = fake(move |request| {
+        assert!(matches!(request, Request::Withdraw(_)));
+        status(
+            replies
+                .next()
+                .expect("no request before the retry deadline"),
+            120,
+        )
+    })
+    .await;
+    let mut nodes = vec![node];
+    assert!(!publish_due(&store, &mut nodes, 1000).await.unwrap());
+    drop(store);
+    let store = Store::open_existing(&path, &owner).unwrap();
+    assert_eq!(store.search_profile_minutes_left(1000).unwrap(), Some(2));
+    assert_eq!(store.due_search_profile(1119).unwrap(), None);
+    assert!(!publish_due(&store, &mut nodes, 1119).await.unwrap());
+    assert_eq!(asked.lock().unwrap().len(), 1);
+    assert_eq!(
+        store.due_search_profile(1120).unwrap(),
+        Some(hidden.clone())
+    );
+    assert!(publish_due(&store, &mut nodes, 1120).await.unwrap());
+    assert_eq!(
+        asked.lock().unwrap().as_slice(),
+        &[Request::Withdraw(hidden.clone()), Request::Withdraw(hidden)]
+    );
+    assert_eq!(store.due_search_profile(u64::MAX).unwrap(), None);
+}
+
 async fn source(record: SignedRecord) -> Node {
     let owner = dyapp_identity::sha256(&record.public_key).to_vec();
     let version = dyapp_profile::verify_search(&record)

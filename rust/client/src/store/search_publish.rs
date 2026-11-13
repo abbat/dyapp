@@ -21,13 +21,13 @@ pub(super) struct State {
 }
 
 impl State {
-    // Search nodes take a tombstone at once, so hiding a profile is never held.
+    // Withdrawal bypasses the update window, but still respects explicit server backoff.
     fn ready_at(&self) -> u64 {
         let tombstone = self.pending.as_ref().is_some_and(|record| {
             dyapp_profile::Profile::decode(record.payload.as_slice()).is_ok_and(|p| p.deleted)
         });
         if tombstone {
-            return 0;
+            return self.hold_until;
         }
         self.hold_until.max(self.last_sent.saturating_add(WINDOW))
     }
