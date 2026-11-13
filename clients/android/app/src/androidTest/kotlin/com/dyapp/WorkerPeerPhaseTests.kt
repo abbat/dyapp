@@ -13,7 +13,7 @@ class WorkerPeerPhaseTests {
         val phase = InstrumentationRegistry.getArguments().getString("workerPeerPhase")
         assumeTrue(phase != null)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        workerTestPolicy()
+        if (phase == "prepare") workerTestPolicy()
         val fixture = WorkerMailPair(context)
         when (phase) {
             "prepare" -> assertActive(context, fixture.prepare())

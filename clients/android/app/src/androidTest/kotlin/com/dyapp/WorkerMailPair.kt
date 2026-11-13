@@ -66,6 +66,7 @@ internal class WorkerMailPair(private val context: Context) {
         val owner = reopen()
         val other = counterpart.reopen()
         val record = record(owner, other)
+        record.requireFreshProcess()
         activateWorkerPeer(owner)
         val incoming = RustBridge.withChats(other) { it.submitText(owner.peerId, WORKER_INCOMING) }
         check(incoming is ChatSubmission.Accepted) { "Counterpart incoming message was not accepted" }

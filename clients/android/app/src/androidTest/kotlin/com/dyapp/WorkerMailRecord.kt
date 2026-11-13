@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.os.Process
 import android.util.Base64
 import org.json.JSONObject
 import java.io.File
@@ -7,10 +8,23 @@ import java.io.File
 private const val WORKER_MESSAGE_ID_BYTES = 16
 
 /** Bind persisted opaque IDs to the exact retained pair, so old runs cannot satisfy new phases. */
-internal class WorkerMailRecord(file: File, private val owner: String, private val counterpart: String) {
+internal class WorkerMailRecord(
+    file: File,
+    private val owner: String,
+    private val counterpart: String,
+    private val process: () -> String = ::workerProcessMarker,
+) {
     private val checkpoint = PeerCheckpoint(file)
 
-    fun begin() = checkpoint.write(JSONObject().put("owner", owner).put("counterpart", counterpart))
+    fun begin() = checkpoint.write(
+        JSONObject().put("owner", owner).put("counterpart", counterpart).put("preparationProcess", process())
+    )
+
+    fun requireFreshProcess() {
+        check(read().getString("preparationProcess") != process()) {
+            "Worker body reused the preparation process and its proof overrides"
+        }
+    }
 
     fun record(text: String, id: ByteArray) {
         check(id.size == WORKER_MESSAGE_ID_BYTES) { "Invalid native message ID width" }
@@ -27,3 +41,6 @@ internal class WorkerMailRecord(file: File, private val owner: String, private v
         }
     }
 }
+
+// This outage scenario stays within one boot; the start timestamp protects against PID reuse.
+private fun workerProcessMarker(): String = "${Process.myPid()}:${Process.getStartElapsedRealtime()}"

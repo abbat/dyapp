@@ -43,6 +43,17 @@ class WorkerMailRecordTests {
     }
 
     @Test
+    fun aFreshProcessMustDifferFromTheRecordedPreparationProcess() {
+        val file = file()
+        var process = "preparation"
+        val record = WorkerMailRecord(file, "owner", "other") { process }
+        record.begin()
+        assertThrows(IllegalStateException::class.java) { record.requireFreshProcess() }
+        process = "receiver"
+        WorkerMailRecord(file, "owner", "other") { process }.requireFreshProcess()
+    }
+
+    @Test
     fun aMissingRecordFailsWithoutInitializingIt() {
         val file = file()
         val record = WorkerMailRecord(file, "owner", "other")

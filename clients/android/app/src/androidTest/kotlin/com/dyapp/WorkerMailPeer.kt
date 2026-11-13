@@ -9,7 +9,7 @@ internal const val WORKER_ANCHOR = "worker anchor"
 internal const val WORKER_OFFLINE = "worker offline"
 internal const val WORKER_INCOMING = "worker incoming"
 
-/** Every instrumentation process must match the real fixture node's proof policy. */
+/** Only preparation lowers proof costs; receive phases keep fresh-process defaults. */
 internal fun workerTestPolicy() {
     setTestNodeIdPowBits(8u)
     setTestProfilePowBits(4u)
