@@ -349,7 +349,14 @@ commit atomically, preserving private fields, sealed credentials, visibility and
 the strongest available proof pair from the draft or verified pending record survives recovery.
 Ordinary deletion and known new withdrawals need no recovery; a visible ambiguous head, missing
 draft, pending link or exhausted version requires explicit resolution. Opening never migrates or
-re-signs state. Native/Tauri transport and gated UI for this action remain planned.
+re-signs state. Common native exports `MobileSearchRecovery.prepare` return an optional opaque
+`SearchWithdrawalReview`; `confirm` reacquires existing original-slot credentials and binding,
+then delegates the local commit to core. Idle handles retain no keys, sessions or leases.
+`dismiss` invalidates the shared review; generated object disposal only releases its wrapper.
+`SearchRecoverySaved` reports the shared core's consistent local draft/visibility/search-pending
+snapshot. Confirmation currently only queues bytes: the native sender has no generic queue pump
+(`send_held` is invoked only by publish/hide/withdraw), so explicit exact-record retry dispatch is
+still required before this action is usable. Tauri transport and gated UI also remain planned.
 Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version

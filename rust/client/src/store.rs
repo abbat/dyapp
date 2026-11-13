@@ -43,6 +43,7 @@ pub use profile_work::{ProfileWork, ProfileWorkResult};
 mod reads;
 mod search_projection;
 mod search_publish;
+pub use search_publish::SearchVisibility;
 mod search_recovery;
 pub use search_recovery::SearchWithdrawalRecovery;
 pub mod sticker_packs;

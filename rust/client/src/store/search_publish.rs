@@ -5,7 +5,7 @@
 use super::{Error, Store};
 use dyapp_identity::SignedRecord;
 use prost::Message;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 
 const KEY: &str = "search_publish";
 const BEAT_KEY: &str = "search_heartbeat";
@@ -33,7 +33,33 @@ impl State {
     }
 }
 
+/// One consistent local visibility/search-queue snapshot, not proof of network-wide removal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchVisibility {
+    /// Current local draft version, zero before its first save.
+    pub version: u64,
+    /// Current local visibility intent.
+    pub hidden: bool,
+    /// Whether signed search publication remains queued.
+    pub search_pending: bool,
+}
+
 impl Store {
+    /// Read visibility and search-pending state in one SQLite snapshot without writing.
+    ///
+    /// # Errors
+    /// Returns malformed stored state, nested transaction or database errors.
+    pub fn search_visibility(&self) -> Result<SearchVisibility, Error> {
+        let snapshot = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
+        let state = SearchVisibility {
+            version: self.profile_draft()?.map_or(0, |draft| draft.version),
+            hidden: self.profile_hidden()?,
+            search_pending: self.search_projection()?.0.pending.is_some(),
+        };
+        snapshot.commit()?;
+        Ok(state)
+    }
+
     /// The held profile once the window has ended at Unix second `now`; ask again after an edit
     /// and on app start.
     ///
