@@ -337,6 +337,16 @@ the draft; earlier link-state import still applies. The largest visible remote v
 Adoption returns separate exact ordinary readback and current local draft/visibility. Linked-device
 completion records only that ordinary published version, including its already-listed retry path;
 new device listing uses a prepared relist outcome. A hidden search tombstone never proves listing.
+Unlisted-link completion prepares a directory-only request from exact adopted public fields and adds
+the restored device, retaining the local version floor and stronger proof. It checks revocation at
+the exact ordinary readback before applying that floor. The next read must still match the captured
+public source or the exact intended target; a different source conflicts without replacing local
+pending values, even below a higher local/search version. Completion retains current editable draft
+fields and applies directory results against the actual local baseline, including later directory
+edits. Draft/search/privacy/retention and receipt remain one atomic completion. Private pending photo
+bytes are retained locally and never uploaded by this directory-only request.
+Profile publication still lacks an expected-readback condition on the wire: a write after the final
+read can race a version-gap submission. Conditional profile writes remain planned.
 Device revocation captures its local baseline and visibility before the first network await and
 changes only the prepared device-list request. Completion preserves concurrent local edits. A foreign
 profile observed after mailbox closure returns a conflict without replacing the local draft; closure

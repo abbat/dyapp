@@ -65,6 +65,15 @@ pub(super) fn merge(base: &Profile, local: &Profile, remote: &Profile) -> Profil
     }
 }
 
+// Directory consent never publishes or discards pre-existing editable draft values.
+// Directory changes made after preparation still use the real local baseline.
+pub(super) fn directory_completion(base: &Profile, local: &Profile, remote: &Profile) -> Profile {
+    let mut comparison = remote.clone();
+    comparison.devices.clone_from(&base.devices);
+    comparison.device_owners.clone_from(&base.device_owners);
+    merge(&comparison, local, remote)
+}
+
 fn location<'a>(base: &Profile, local: &'a Profile, remote: &'a Profile) -> &'a Profile {
     if (&base.country, &base.place) == (&local.country, &local.place) {
         remote

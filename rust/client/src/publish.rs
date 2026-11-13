@@ -129,8 +129,9 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 }
 
 /// Publish `draft` (version: the last one published) to `node` at the next version and read it
-/// back. A profile another device published first is never overwritten: it replaces the saved
-/// draft and the publish fails with [`Failure::Missed`]. A node holding less than this device has
+/// back. A newer foreign profile observed before submission replaces the saved draft and the
+/// publish fails with [`Failure::Missed`]. The protocol still lacks conditional profile writes:
+/// another write after the final read can race a version-gap publication. A node holding less than this device has
 /// seen is refused, since it may have lost a device list change.
 /// Succeeds only when signed readback equals the submitted profile. Own completion atomically
 /// preserves post-start draft value changes, queues exact published data and projects visibility
@@ -176,6 +177,8 @@ pub async fn publish_prepared(
 }
 
 /// Relist a prepared device change, retaining the visibility captured with its baseline.
+/// Directory-only attempts preserve pre-existing pending fields and refuse foreign readback
+/// without replacing those local values.
 ///
 /// # Errors
 /// Returns the same publication/completion errors as [`publish_prepared`].
@@ -318,12 +321,20 @@ async fn send_prepared(
     let draft = attempt.draft();
     let next = store.profile_publication_record(identity, attempt)?;
     let held = newest(node, identity).await?;
+    if let Some(source) = attempt.directory_source() {
+        if held.as_ref() != Some(source) && held.as_ref() != Some(&next) {
+            return Err(Failure::Missed);
+        }
+    }
     let seen = held.as_ref().map_or(0, |held| held.version);
     if store.own_profile_seen()? > seen.max(draft.version) {
         return Err(Error::Reply("the node holds an older own profile").into());
     }
     if let Some(held) = held {
-        if held != next && from_another_device(store, identity, &held, draft)? {
+        if attempt.directory_source().is_none()
+            && held != next
+            && from_another_device(store, identity, &held, draft)?
+        {
             if matches!(foreign, ForeignDraft::Import) {
                 take_photos(store, node, &held).await?;
                 store.commit_profile_import(identity, attempt, &held)?;
@@ -547,6 +558,8 @@ mod tests {
     mod adoption_confirmation_tests;
     #[path = "adoption_tests.rs"]
     mod adoption_tests;
+    #[path = "directory_relist_tests.rs"]
+    mod directory_relist_tests;
     #[path = "foreign_import_tests.rs"]
     mod foreign_import_tests;
     #[path = "node.rs"]

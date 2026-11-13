@@ -19,9 +19,41 @@ pub struct ProfilePublication {
     baseline: Option<Profile>,
     hidden: bool,
     request: Profile,
+    directory_source: Option<Box<Profile>>,
 }
 
 impl ProfilePublication {
+    // The actual local baseline stays unchanged for admission and concurrent directory edits.
+    pub(crate) fn directory_from(&mut self, published: &Profile) {
+        self.request = published.clone();
+        self.directory_source = Some(Box::new(published.clone()));
+        if let Some(local) = &self.baseline {
+            self.request.version = self.request.version.max(local.version);
+            if local.pow_bits > self.request.pow_bits {
+                (self.request.pow_nonce, self.request.pow_bits) = (local.pow_nonce, local.pow_bits);
+            }
+        }
+    }
+
+    pub(crate) fn directory_source(&self) -> Option<&Profile> {
+        self.directory_source.as_deref()
+    }
+
+    fn reconcile(&self, current: Option<Profile>, published: &Profile) -> Profile {
+        let initial = Profile::default();
+        let baseline = self.baseline.as_ref().unwrap_or(&initial);
+        current.map_or_else(
+            || published.clone(),
+            |current| {
+                if self.directory_source.is_some() {
+                    merge::directory_completion(baseline, &current, published)
+                } else {
+                    merge::merge(baseline, &current, published)
+                }
+            },
+        )
+    }
+
     /// The request to validate, enrich with this device, then publish.
     #[must_use]
     pub fn draft(&self) -> &Profile {
@@ -110,6 +142,7 @@ impl Store {
             owner: self.owner_peer_id.clone(),
             request: baseline.clone().unwrap_or_default(),
             baseline,
+            directory_source: None,
             hidden: self.profile_hidden()?,
         })
     }
@@ -142,12 +175,7 @@ impl Store {
         let current = self.profile_draft()?;
         let known = self.search_profile_known(&signed)?;
         self.admit_publication(attempt, current.as_ref(), published.version, known)?;
-        let initial = Profile::default();
-        let baseline = attempt.baseline.as_ref().unwrap_or(&initial);
-        let mut draft = current.map_or_else(
-            || published.clone(),
-            |current| merge::merge(baseline, &current, published),
-        );
+        let mut draft = attempt.reconcile(current, published);
         let queued = if stay_hidden {
             draft.version = draft
                 .version

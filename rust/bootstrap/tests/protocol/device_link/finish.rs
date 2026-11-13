@@ -1,6 +1,9 @@
 //! Hidden link completion must remember ordinary readback, never its search tombstone.
 use super::*;
 
+#[path = "finish/directory.rs"]
+mod directory;
+
 struct HiddenLink {
     owner: Person,
     laptop: Person,
@@ -9,8 +12,12 @@ struct HiddenLink {
 }
 impl HiddenLink {
     async fn new() -> Self {
-        let address = start_config(|config| {
-            config.roles = vec![Role::Store];
+        Box::pin(Self::with_roles(vec![Role::Store])).await
+    }
+
+    async fn with_roles(roles: Vec<Role>) -> Self {
+        let address = start_config(move |config| {
+            config.roles = roles;
             config.limits.requests_per_second = 1000;
             config.limits.min_free_mb = 0;
         })

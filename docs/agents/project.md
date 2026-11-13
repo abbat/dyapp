@@ -27,6 +27,9 @@ Profile publication intents identify the exact encoded `SignedRecord`, including
 fields. Use the client's verified signed-record readback for digest comparisons; decoding and
 re-signing a `Profile` changes those bytes. Media revisions are independent of profile versions,
 and refresh must preserve a different pending target when renewing live references.
+Automatic device-list writes use verified ordinary public fields and preserve the independent
+editable draft. Keep the actual local baseline for concurrency admission when preparing a
+directory-only request; a hidden search version never proves device authorization.
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,

@@ -47,9 +47,7 @@ impl Session {
                 .store
                 .note_device_listed(adopted.published.version)?;
         } else {
-            let mut attempt = session.store.prepare_profile_publication(identity)?;
-            let binding = crate::owner_binding(device_key, &identity.public_key());
-            session.list_self(attempt.draft_mut(), binding)?;
+            let attempt = session.prepare_link_listing(identity, device_key, &adopted.published)?;
             let listed = publish::relist_prepared(&session.store, node, identity, &attempt).await?;
             session.store.note_device_listed(listed.published.version)?;
         }
@@ -63,6 +61,26 @@ impl Session {
             .await?;
         session.store.clear_link_pending()?;
         Ok(true)
+    }
+
+    fn prepare_link_listing(
+        &self,
+        identity: &Identity,
+        device_key: &Identity,
+        published: &Profile,
+    ) -> Result<crate::store::ProfilePublication, Error> {
+        // Revocation is evaluated at the exact ordinary readback, before any hidden-version floor.
+        if self.own_device_revoked(published)? {
+            return Err(Error::Revoked);
+        }
+        let mut attempt = self.store.prepare_profile_publication(identity)?;
+        attempt.directory_from(published);
+        publish::list_device(
+            attempt.draft_mut(),
+            self.certificate()?,
+            crate::owner_binding(device_key, &identity.public_key()),
+        );
+        Ok(attempt)
     }
 
     /// Whether `newest`, an own profile, revokes this device: a version past the last one known to
