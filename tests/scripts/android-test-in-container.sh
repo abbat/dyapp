@@ -139,9 +139,14 @@ case "${1:?suite required}" in
             timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
                 > "$report_dir/node-$1.txt"
         }
+        reboot_worker() {
+            python3 /app/tests/scripts/android_lifecycle.py \
+                --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1
+        }
         offline_worker_phases() {
             node_action stop || return
-            if peer_phase worker queue && peer_phase worker reopenQueued; then
+            if peer_phase worker queue && peer_phase worker reopenQueued &&
+                reboot_worker && peer_phase worker reopenQueued; then
                 node_action start || return
                 peer_phase worker catchUpScheduled
             else

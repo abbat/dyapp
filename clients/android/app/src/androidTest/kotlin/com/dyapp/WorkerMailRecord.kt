@@ -1,7 +1,9 @@
 package com.dyapp
 
 import android.os.Process
+import android.provider.Settings
 import android.util.Base64
+import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import java.io.File
 
@@ -42,5 +44,9 @@ internal class WorkerMailRecord(
     }
 }
 
-// This outage scenario stays within one boot; the start timestamp protects against PID reuse.
-private fun workerProcessMarker(): String = "${Process.myPid()}:${Process.getStartElapsedRealtime()}"
+// Boot count separates reboots; the start timestamp also protects against same-boot PID reuse.
+private fun workerProcessMarker(): String {
+    val resolver = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver
+    val boot = Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT)
+    return "$boot:${Process.myPid()}:${Process.getStartElapsedRealtime()}"
+}
