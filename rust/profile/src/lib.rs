@@ -1,8 +1,8 @@
 //! Public profile: a plaintext document signed by its owner's identity key.
 //!
-//! Each published version carries a version number; the highest validly signed version wins.
+//! Each published version carries a version number; conditional writes also fence the previous state.
 //! Deleting a profile publishes a tombstone: a signed version with `deleted` set and every other
-//! field but the proof of work empty. Nodes keep the tombstone so older versions are not
+//! field but proof of work and protected publication metadata empty. Nodes keep the tombstone so older versions are not
 //! re-imported.
 
 use argon2::{Algorithm, Argon2, Params, Version};
@@ -65,7 +65,9 @@ mod generated {
     #![expect(missing_docs, reason = "prost-generated messages omit documentation")]
     include!(concat!(env!("OUT_DIR"), "/dyapp.profile.rs"));
 }
-pub use generated::{DeviceCertificate, Photo, Profile};
+pub use generated::{DeviceCertificate, Photo, Profile, ProfileCondition};
+
+mod publication;
 
 mod birth_date;
 pub mod birth_input;
@@ -122,7 +124,7 @@ impl Profile {
     /// Signs the encoded profile with the owner's identity key.
     #[must_use]
     pub fn sign(&self, identity: &Identity) -> SignedRecord {
-        identity.sign(Domain::Profile, self.encode_to_vec())
+        identity.sign(self.signature_domain(), self.encode_to_vec())
     }
 
     /// Re-encodes an edited profile without discarding fields this client does not know.
@@ -158,6 +160,7 @@ impl Profile {
     }
 
     fn validate(&self, owner_key: &[u8]) -> Result<(), Error> {
+        self.validate_condition()?;
         self.validate_fields()?;
         self.validate_text()?;
         self.validate_photos()?;
@@ -168,7 +171,11 @@ impl Profile {
         if self.version == 0 {
             return Err(Error::Invalid("version must start at 1"));
         }
-        if self.deleted && *self != Self::tombstone(self.version, self.pow_nonce, self.pow_bits) {
+        let tombstone = Self {
+            previous: self.previous.clone(),
+            ..Self::tombstone(self.version, self.pow_nonce, self.pow_bits)
+        };
+        if self.deleted && *self != tombstone {
             return Err(Error::Invalid("tombstone carries data"));
         }
         if !self.valid_birth_parts() {
@@ -339,8 +346,11 @@ pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
     if record.payload.len() > MAX_PAYLOAD_LEN {
         return Err(Error::Invalid("profile too large"));
     }
-    let peer_id = record.verify(Domain::Profile)?;
+    let (peer_id, domain) = publication::verify_signature(record)?;
     let profile = Profile::decode(record.payload.as_slice()).map_err(|_| Error::Decode)?;
+    if profile.signature_domain() != domain {
+        return Err(dyapp_identity::Error::InvalidSignature.into());
+    }
     profile.validate(&record.public_key)?;
     Ok(VerifiedProfile { peer_id, profile })
 }

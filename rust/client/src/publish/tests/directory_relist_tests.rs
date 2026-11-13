@@ -39,6 +39,9 @@ async fn directory_only_completion_keeps_existing_pending_fields_and_photo_bytes
     assert_eq!(outcome.published.photos, [] as [dyapp_profile::Photo; 0]);
     let expected = Profile {
         version: outcome.draft.version,
+        previous: Some(
+            dyapp_profile::ProfileCondition::observed(Some(&remote.sign(&identity))).unwrap(),
+        ),
         ..pending
     };
     assert_eq!(outcome.draft, expected);

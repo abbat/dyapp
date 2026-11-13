@@ -121,7 +121,7 @@ schemas with their roles. Each request is a `oneof`; a node that gets a variant 
 | Protocol | Role | Requests |
 |----------|------|----------|
 | `/dyapp/node` | all | `info`: roles, limits (payload, message, mailbox, media), supported search filters, minimum profile proof of work, retention TTL |
-| `/dyapp/profile` | store | `publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
+| `/dyapp/profile` | store | `publish(SignedRecord)`, `conditional_publish(SignedRecord)`, `get(identity)`, `heartbeat(SignedRecord)`; node to node `replica_put(SignedRecord)`, `inventory(identity)` → version |
 | `/dyapp/keypackage` | store | `publish(device-signed KeyPackageRecord)`, `fetch(owner, mailbox, profile version, slot)`; node to node `replica_put` |
 | `/dyapp/mailbox` | store | `challenge`, `put(envelope)`, `fetch(mailbox)`, `ack(ids)`, `revoke(token keys, or close)`; node to node `replica_ack`, `replica_revoke`, `inventory(ids)` → `missing(ids)`, `replica_put(envelopes)` |
 | `/dyapp/mailbox-push` | client | the node pushes new envelopes to a connected device over its connection |
@@ -945,7 +945,7 @@ Source: `rust/identity` (keys, `SignedRecord`) and `rust/profile` (`Profile`, ch
 pub struct SignedRecord {          // protobuf, sent and stored as is
     public_key: Vec<u8>,           // owner's Ed25519 identity key (32 bytes)
     payload: Vec<u8>,              // protobuf-encoded Profile
-    signature: Vec<u8>,            // Ed25519 over "dyapp/profile/v1\0" || payload
+    signature: Vec<u8>,            // Ed25519 over the profile domain label || payload
 }
 ```
 
@@ -956,7 +956,23 @@ profession, company, industry, career stage, work-life balance, and independentl
 optional birth year, month and day); every public field is optional by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)).
 
-`/dyapp/profile` `publish` stores a record only if:
+New client publications use `conditional_publish` (request tag 7; tag 6 remains `age_seconds`).
+`Profile.previous` (tag 57) is protected metadata signed with `dyapp/profile-conditional/v1\0`.
+It binds the ordinary version and SHA-256 of the complete encoded source `SignedRecord`, including
+its original payload; zero version and empty hash mean confirmed absence. The target version must
+exceed the observed version. Removing or modifying this condition invalidates the signature, and
+re-signing a decoded conditional profile retains its domain. Legacy `publish` remains an explicit
+primitive; conditional clients never fall back to it after `UNSUPPORTED`.
+
+Storage compares the condition under the same lock as version admission and persistence. A newer
+current profile, or a different signed record at the observed version, returns `STALE` without
+replacing it. Missing/older replicas may accept the signed target for repair and TTL recovery.
+This fence applies to conditional records arriving via legacy publish, replica put and local repair
+too; it protects each replica's retained state, not a global ordering across independent replicas.
+An exact accepted target may return `STALE` on retry; clients require matching verified readback
+before treating that as success. A later local failure can still follow remote success.
+
+`/dyapp/profile` stores a record only if:
 
 - the signature verifies against `public_key`;
 - the payload is at most 1 MiB and decodes as a `Profile` (media are separate blobs on `/dyapp/media`);
@@ -967,7 +983,7 @@ optional birth year, month and day); every public field is optional by design
   other strings at most 64 and at most 32 `interests`, every
   string passing the text rule above, at most 16 `photos`, each a
   32-byte thumbnail hash and 1–64 full-image blob hashes, a tombstone (`deleted = true`)
-  carries no other field but the proof of work (`pow_nonce`, `pow_bits`). `education_level` and
+  carries no other field but proof of work (`pow_nonce`, `pow_bits`) and protected `previous` metadata. `education_level` and
   the categorical scales take any value, so a code added by a later release reaches old nodes
   ([ADR 0028](../decisions/0028-ordered-education-level.md)); `height`, when present, is 50–272
   whole centimetres ([ADR 0041](../decisions/0041-optional-profile-height.md)); `about` is at most
@@ -1035,7 +1051,7 @@ The current protocol replies are:
 | `/dyapp/node` | `info` | `STATUS_OK`, roles (`ROLE_STORE`, `ROLE_MEDIA`, `ROLE_SEARCH`), `max_media_bytes` (6 MiB, media role only), `max_search_profile_bytes` (`search.max_profile_bytes`, search role only), `min_profile_pow` (`search.min_profile_pow_bits`, enforced by store and search), `min_heartbeat_pow` (`search.min_heartbeat_pow_bits`, search role only), `puzzle_bits` and `puzzle_challenge` (search role only, 0 while off), `max_profile_bytes` (1 MiB), `max_message_bytes` (100 KiB), `max_mailbox_bytes` (10 MiB), `max_signal_bytes` (1 KiB), `signal_quota_bytes` (`limits.signal_max_kb`), `mailbox_pool_bytes` (`limits.mailbox_pool_kb` in bytes), `require_write_tokens` (`limits.require_write_tokens`), `retention_seconds` (`limits.message_ttl_hours`); a node without the store role serves no protocol |
 | `/dyapp/node` | `turn` | `OK` with coturn credentials and URLs ([TURN](#turn-credentials)); `RATE_LIMITED`; `REFUSED` a denied peer; `UNSUPPORTED` without the turn role and on older nodes |
 | `/dyapp/node` | `deny_list` | `OK` with the signed list when `network.share_deny_list` is on, else `NOT_FOUND` ([exchange](#deny-list-exchange)) |
-| `/dyapp/profile` | `publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature or forged PoW (strike); `INVALID` bad key or content, or weak PoW with `required_pow_bits`; `RATE_LIMITED` when proof workers are busy; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
+| `/dyapp/profile` | `publish(SignedRecord)`, `conditional_publish(SignedRecord)` | `OK` after two distinct stores (one only with no routing peers); `FULL` pending cap or 10-second timeout; `STALE` with a verified equal/newer holder record; `DENIED` bad signature or forged PoW (strike); `INVALID` bad key or content, or weak PoW with `required_pow_bits`; `RATE_LIMITED` when proof workers are busy; `TOO_LARGE` with checked `max_bytes` for payload over 1 MiB |
 | `/dyapp/profile` | `replica_put(SignedRecord)` (node to node) | stores and verifies like publish, never forwards; costs one request unit; same validation replies |
 | `/dyapp/profile` | `get(peer_id)`, 32 raw bytes | `OK` with the record, tombstone included; `NOT_FOUND`; `INVALID` wrong length |
 | `/dyapp/profile` | `heartbeat(SignedRecord)`, payload `Heartbeat { time }` signed by the identity key | `OK` advances `last_seen` to the signed time if newer; `NOT_FOUND` no profile, publish it; `DENIED` bad signature; `INVALID` time more than 10 min off; `REFUSED` denied key; older nodes `UNSUPPORTED` |

@@ -32,10 +32,13 @@ impl ProfilePublication {
 
     // Semantic source comparison only; this is not a server CAS token or raw wire-record digest.
     pub(crate) fn source_matches(&self, held: Option<&Profile>, next: &Profile) -> bool {
+        let mut candidate = next.clone();
+        candidate.previous = held.and_then(|profile| profile.previous.clone());
+        let own_target = held == Some(&candidate);
         match &self.source {
             Source::Unchecked => true,
-            Source::Missing => held.is_none() || held == Some(next),
-            Source::Present(source) => held == Some(source.as_ref()) || held == Some(next),
+            Source::Missing => held.is_none() || own_target,
+            Source::Present(source) => held == Some(source.as_ref()) || own_target,
         }
     }
 }

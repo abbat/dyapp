@@ -245,15 +245,14 @@ async fn hidden_link_completion_and_retry_record_exact_readback_and_detect_next_
     let retried = f.finish().await;
     assert_eq!(retried, published, "retry must not spend a profile version");
     f.check_listed(&retried);
-    let revoked = Profile {
+    let mut revoked = Profile {
         version: published.version.checked_add(1).unwrap(),
         devices: vec![f.owner.device.certificate().clone()],
         device_owners: Vec::new(),
         ..published
     };
-    f.owner
-        .node
-        .publish_profile(revoked.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut revoked)
         .await
         .unwrap();
     let remote = f

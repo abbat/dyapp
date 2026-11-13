@@ -51,6 +51,8 @@ macro_rules! signature_domains {
 signature_domains! {
     /// A public profile, signed by the owner's identity key.
     Profile => b"dyapp/profile/v1\0",
+    /// A profile with an owner-signed previous-state fence.
+    ProfileConditional => b"dyapp/profile-conditional/v1\0",
     /// One device's mailbox and MLS keys, certified by the owner.
     DeviceCertificate => b"dyapp/device-certificate/v1\0",
     /// The identity key a device accepts as its owner (the payload), signed by its device key.

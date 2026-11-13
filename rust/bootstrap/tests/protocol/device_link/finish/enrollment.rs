@@ -65,15 +65,14 @@ async fn accepted_listing_retry_completes_with_the_original_certificate() {
 async fn interrupted_listing_cannot_restore_a_subsequently_revoked_device() {
     let mut f = Box::pin(HiddenLink::with_roles(vec![Role::Store, Role::Media])).await;
     let (certificate, sealed, listed) = Box::pin(interrupted(&mut f)).await;
-    let revoked = Profile {
+    let mut revoked = Profile {
         version: listed.version.checked_add(1).unwrap(),
         devices: vec![f.owner.device.certificate().clone()],
         device_owners: Vec::new(),
         ..listed
     };
-    f.owner
-        .node
-        .publish_profile(revoked.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut revoked)
         .await
         .unwrap();
     let session = Session::open(f.store(), &SEAL).unwrap();

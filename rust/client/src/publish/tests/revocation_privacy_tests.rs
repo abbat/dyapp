@@ -69,6 +69,10 @@ impl Fixture {
             version: current.version,
             devices: published.devices.clone(),
             device_owners: published.device_owners.clone(),
+            previous: Some(
+                dyapp_profile::ProfileCondition::observed(Some(&self.remote.sign(&self.identity)))
+                    .unwrap(),
+            ),
             ..self.pending.clone()
         };
         assert_eq!(*current, expected);
@@ -156,7 +160,10 @@ async fn a_partial_revoke_retries_without_publishing_another_profile_version() {
     let (mut node, held) = node::observed_revokes(
         Vec::new(),
         move |request, _| {
-            if matches!(request, Request::Publish(_)) {
+            if matches!(
+                request,
+                Request::Publish(_) | Request::ConditionalPublish(_)
+            ) {
                 on_write.fetch_add(1, Ordering::SeqCst);
                 Store::open_existing(&path, &copy)
                     .unwrap()

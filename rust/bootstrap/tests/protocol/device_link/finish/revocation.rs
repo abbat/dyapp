@@ -15,9 +15,8 @@ async fn linked_with_both_owner_bindings() -> HiddenLink {
         &f.owner.identity.public_key(),
     )];
     remote.version = remote.version.checked_add(1).unwrap();
-    f.owner
-        .node
-        .publish_profile(remote.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut remote)
         .await
         .unwrap();
     f.finish().await;
@@ -46,6 +45,7 @@ fn check_private(pending: &Profile, current: &Profile, before: &Profile, accepte
         version: current.version,
         devices: accepted.devices.clone(),
         device_owners: accepted.device_owners.clone(),
+        previous: accepted.previous.clone(),
         ..pending.clone()
     };
     assert_eq!(*current, expected);

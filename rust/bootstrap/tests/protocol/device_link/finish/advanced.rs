@@ -44,9 +44,8 @@ async fn prepare(hidden: bool, listed: bool, revoked: bool) -> (HiddenLink, Prof
             .device_owners
             .retain(|value| value.public_key != f.laptop.device_key.public_key());
     }
-    f.owner
-        .node
-        .publish_profile(remote.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut remote)
         .await
         .unwrap();
     (f, pending, remote)
@@ -122,6 +121,7 @@ async fn choose_local(f: &mut HiddenLink, review: &publish::AdoptionReview) -> b
             version: saved.draft.version,
             devices: saved.published.devices.clone(),
             device_owners: saved.published.device_owners.clone(),
+            previous: saved.published.previous.clone(),
             ..review.local_profile().clone()
         };
         assert_eq!(saved.draft, expected);

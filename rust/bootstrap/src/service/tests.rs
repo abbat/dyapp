@@ -844,6 +844,7 @@ fn heartbeat_keeps_the_profile_seen() {
     assert_eq!(service.store.expire_profiles(cutoff).unwrap(), 1);
 }
 
+mod conditional_profile;
 mod expiry;
 mod keypackages;
 mod mailbox;

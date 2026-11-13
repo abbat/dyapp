@@ -34,6 +34,17 @@ fn protocol_build_path(name: &str) -> std::path::PathBuf {
     root.join(format!("{name}-{}", uuid::Uuid::new_v4()))
 }
 
+// Fixture writes authorize new changes against actual signed source bytes, never a stale fence.
+async fn publish_profile_change(
+    node: &mut dyapp_client::Node,
+    owner: &Identity,
+    profile: &mut Profile,
+) -> Result<(), dyapp_client::Error> {
+    let (source, _) = node.get_profile_signed(&owner.peer_id()).await?;
+    profile.previous = Some(dyapp_profile::ProfileCondition::observed(Some(&source))?);
+    node.publish_profile_conditional(profile.sign(owner)).await
+}
+
 fn now_ms() -> i64 {
     i64::try_from(
         std::time::SystemTime::now()

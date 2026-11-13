@@ -108,15 +108,14 @@ async fn confirmed_readback_protects_an_unrecorded_device_from_later_revocation(
     )
     .await
     .unwrap();
-    let revoked = Profile {
+    let mut revoked = Profile {
         version: saved.draft.version.checked_add(1).unwrap(),
         devices: vec![f.owner.device.certificate().clone()],
         device_owners: Vec::new(),
         ..listed.clone()
     };
-    f.owner
-        .node
-        .publish_profile(revoked.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut revoked)
         .await
         .unwrap();
     let result = Box::pin(resume(&mut f, session)).await;

@@ -1,6 +1,6 @@
 //! Serialized search queue updates and a durable version high-water mark.
 use super::{search_publish::State, Error, Store};
-use dyapp_identity::{sha256, Domain, SignedRecord};
+use dyapp_identity::{sha256, SignedRecord};
 use prost::Message;
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use std::time::Duration;
@@ -21,14 +21,12 @@ impl Head {
 
 impl Store {
     fn record_head(&self, record: &SignedRecord) -> Result<Head, Error> {
-        let owner = record
-            .verify(Domain::Profile)
-            .map_err(|_| Error::InvalidSetting)?;
-        if owner != self.owner_peer_id {
+        let verified = dyapp_profile::verify(record).map_err(|_| Error::InvalidSetting)?;
+        if verified.peer_id != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }
         Ok(Head {
-            version: dyapp_profile::stored_version(record).map_err(|_| Error::InvalidSetting)?,
+            version: verified.profile.version,
             digest: sha256(&record.encode_to_vec()),
         })
     }

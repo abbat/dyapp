@@ -348,7 +348,7 @@ enrollment. Device listing counters advance only from verified ordinary membersh
 The field-only `publish::publish_fields_prepared` path applies the same directory-source guard
 without enrolling devices. Both paths preserve the original editor baseline and use ordinary field
 completion, separately from directory-only completion. A changed semantic source at the subsequent
-read conflicts even below a higher hidden floor; this is not the still-planned wire CAS condition.
+read conflicts even below a higher hidden floor; a signed wire fence then guards the write itself.
 Low-level owner signing/publication and `Session::list_self` remain explicit primitives, not client
 authorization checks against editable drafts. Stored listing floors never decrease to match an older
 ordinary readback; explicit recovery for uncertain legacy provenance remains planned.
@@ -360,8 +360,15 @@ pending values, even below a higher local/search version. Completion retains cur
 fields and applies directory results against the actual local baseline, including later directory
 edits. Draft/search/privacy/retention and receipt remain one atomic completion. Private pending photo
 bytes are retained locally and never uploaded by this directory-only request.
-Profile publication still lacks an expected-readback condition on the wire: a write after the final
-read can race a version-gap submission. Conditional profile writes remain planned.
+Prepared publication, relisting and withdrawal use `conditional_publish` with protected
+`Profile.previous` metadata signed in the `ProfileConditional` domain. The fence binds the last
+ordinary version and SHA-256 of its complete encoded signed record, retaining original payload bytes.
+Each replica atomically refuses replacing newer state or a different record at the observed version;
+missing/older replicas may seed the target. This is a per-replica fence, not global consensus.
+A wire conflict returns `Failure::Missed` and retains local pending data. Exact accepted readback
+after a lost reply reuses its original fence; local completion/search re-signing retains the domain.
+Older nodes return `UNSUPPORTED`; clients never retry conditional authorization as legacy publish.
+The explicit low-level legacy publication primitive remains available for existing authorizations.
 Device revocation captures its actual local baseline and visibility before the first network await.
 Its directory-only request always starts from verified public readback, even when the local or caller
 version is equal or higher. The caller draft supplies only a version floor or an authenticated owner

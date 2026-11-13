@@ -7,9 +7,9 @@ import "identity.proto";
 // Public profile, the payload of a `SignedRecord` signed by the owner's identity key.
 // Every field is public. Empty strings, zero scales and unset optionals mean "not published".
 message Profile {
-  // Starts at 1; the highest validly signed version wins.
+  // Starts at 1; increasing versions are subject to the signed previous-state fence when present.
   uint64 version = 1;
-  // Tombstone: every other field except the proof of work is empty.
+  // Tombstone: every other field except proof of work and protected publication metadata is empty.
   bool deleted = 2;
   // Retired before the first release; never reuse this field number.
   reserved 3;
@@ -89,6 +89,18 @@ message Profile {
   optional uint32 seeking_age_to = 55;
   // The owner is not looking now, and so states none of the three fields above.
   bool not_looking = 56;
+  // Protected publication metadata, never an editable field. Covered by `ProfileConditional`'s
+  // signature; removing it cannot turn this record into a legacy profile authorization.
+  ProfileCondition previous = 57;
+}
+
+// The ordinary profile observed before authorizing a write. Zero/empty means no profile.
+// Replacements refuse a newer current version or a different record at this version.
+// Missing/older replicas may seed the target; this is a per-replica fence, not global consensus.
+message ProfileCondition {
+  uint64 version = 1;
+  // SHA-256 of the complete encoded `SignedRecord`, including its original signed payload.
+  bytes record_hash = 2;
 }
 
 // Signed by the owner's identity key under dyapp/device-certificate/v1\0.

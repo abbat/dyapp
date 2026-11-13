@@ -15,6 +15,7 @@ use prost::Message as _;
 mod adoption_confirm;
 mod adoption_fields;
 mod adoption_review;
+mod condition;
 mod fields;
 mod photos;
 pub(crate) use fields::prepare_fields;
@@ -133,9 +134,9 @@ pub fn work(draft: &mut Profile, key: &[u8; 32], bits: u32, tries: u64) -> bool 
 
 /// Publish `draft` (version: the last one published) to `node` at the next version and read it
 /// back. A newer foreign profile observed before submission replaces the saved draft and the
-/// publish fails with [`Failure::Missed`]. The protocol still lacks conditional profile writes:
-/// another write after the final read can race a version-gap publication. A node holding less than this device has
-/// seen is refused, since it may have lost a device list change.
+/// publish fails with [`Failure::Missed`]. An owner-signed previous-state fence also refuses
+/// intervening newer or forked state at each replica, including version-gap publications.
+/// A node holding less than this device has seen is refused, since it may have lost a directory change.
 /// Succeeds only when signed readback equals the submitted profile. Own completion atomically
 /// preserves post-start draft value changes, queues exact published data and projects visibility
 /// and protected photo cleanup. The return value is the exact published profile, not pending edits.
@@ -370,32 +371,21 @@ async fn send_prepared(
     stay_hidden: bool,
     foreign: ForeignDraft,
 ) -> Result<ProfilePublicationOutcome, Failure> {
-    let draft = attempt.draft();
-    let next = store.profile_publication_record(identity, attempt)?;
-    let held = newest(node, identity).await?;
-    if !attempt.source_matches(held.as_ref(), &next) {
+    let mut next = store.profile_publication_record(identity, attempt)?;
+    let observed = condition::newest(node, identity).await?;
+    let held = observed.as_ref().map(|(_, profile)| profile);
+    if let Some(held) = condition::foreign_source(store, identity, attempt, held, &next)? {
+        if matches!(foreign, ForeignDraft::Import) {
+            take_photos(store, node, held).await?;
+            store.commit_profile_import(identity, attempt, held)?;
+        }
         return Err(Failure::Missed);
     }
-    let seen = held.as_ref().map_or(0, |held| held.version);
-    if attempt.source_checked() {
-        admit_directory_version(store, seen)?;
-    } else if store.own_profile_seen()? > seen.max(draft.version) {
-        return Err(Error::Reply("the node holds an older own profile").into());
-    }
-    if let Some(held) = held {
-        if attempt.directory_source().is_none()
-            && held != next
-            && from_another_device(store, identity, &held, draft)?
-        {
-            if matches!(foreign, ForeignDraft::Import) {
-                take_photos(store, node, &held).await?;
-                store.commit_profile_import(identity, attempt, &held)?;
-            }
-            return Err(Failure::Missed);
-        }
-    }
+    condition::bind(&mut next, observed.as_ref())?;
     let staged = photos::prepare(store, node, identity, &next).await?;
-    let profile = send(node, identity, next).await?;
+    let profile = send(node, identity, next)
+        .await
+        .map_err(condition::publication_error)?;
     photos::finish(store, node, identity, staged, &profile).await?;
     Ok(store.commit_profile_publication(identity, attempt, &profile, stay_hidden)?)
 }
@@ -468,11 +458,9 @@ async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Res
 /// Returns an error if the profile request or reply validation fails, except
 /// that a node's not-found response returns `Ok(None)`.
 pub async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
-    match node.get_profile(&identity.peer_id()).await {
-        Ok(held) => Ok(Some(held.profile)),
-        Err(Error::Status(Status::NotFound)) => Ok(None),
-        Err(error) => Err(error),
-    }
+    Ok(condition::newest(node, identity)
+        .await?
+        .map(|(_, profile)| profile))
 }
 
 fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
@@ -543,10 +531,14 @@ pub async fn withdraw(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    let held = newest(node, identity).await?.map_or(0, |held| held.version);
-    let next = store.prepare_profile_withdrawal(identity, draft, held)?;
+    let observed = condition::newest(node, identity).await?;
+    let held = observed.as_ref().map_or(0, |(_, held)| held.version);
+    let mut next = store.prepare_profile_withdrawal(identity, draft, held)?;
+    condition::bind(&mut next, observed.as_ref())?;
     let staged = photos::prepare(store, node, identity, &next).await?;
-    let tombstone = send(node, identity, next).await?;
+    let tombstone = send(node, identity, next)
+        .await
+        .map_err(condition::publication_error)?;
     photos::finish(store, node, identity, staged, &tombstone).await?;
     Ok(store.commit_profile_withdrawal(identity, draft, &tombstone)?)
 }
@@ -555,13 +547,19 @@ pub async fn withdraw(
 // profile, from a publish whose reply was lost.
 async fn send(node: &mut Node, identity: &Identity, profile: Profile) -> Result<Profile, Error> {
     let peer_id = identity.peer_id();
-    match node.publish_profile(profile.sign(identity)).await {
+    let signed = profile.sign(identity);
+    let result = if profile.previous.is_some() {
+        node.publish_profile_conditional(signed.clone()).await
+    } else {
+        node.publish_profile(signed.clone()).await
+    };
+    match result {
         Ok(()) => {}
         Err(Error::Status(Status::Stale))
-            if node.get_profile(&peer_id).await?.profile == profile => {}
+            if node.get_profile_signed(&peer_id).await?.0 == signed => {}
         Err(error) => return Err(error),
     }
-    if node.get_profile(&peer_id).await?.profile != profile {
+    if node.get_profile_signed(&peer_id).await?.0 != signed {
         return Err(Error::Reply("readback differs from the published profile"));
     }
     Ok(profile)
@@ -588,8 +586,8 @@ pub enum Failure {
     /// The published profile could not be saved locally.
     #[error(transparent)]
     Store(#[from] store::Error),
-    /// Another device published first. Its profile is now the saved draft, so the owner sees it
-    /// before publishing again. Pre-attempt unpublished edits give way to it; later edits remain pending.
+    /// Another device changed the profile. Guard/conditional-write conflicts preserve local edits.
+    /// The legacy foreign-import path projects remote content while retaining post-start edits.
     #[error("the profile changed on another device")]
     Missed,
 }
@@ -715,14 +713,21 @@ mod tests {
         request: Request,
     ) -> proto::ProfileResponse {
         let (status, record) = match request {
-            Request::Publish(record) => {
+            Request::Publish(record) | Request::ConditionalPublish(record) => {
                 let version = dyapp_profile::stored_version(&record).unwrap();
                 let stored = held
                     .as_ref()
                     .map(|r| dyapp_profile::stored_version(r).unwrap());
                 match refuse.next() {
                     Some(status) => (status, None),
-                    None if stored >= Some(version) => (Status::Stale, None),
+                    None if stored >= Some(version)
+                        || dyapp_profile::verify(&record)
+                            .unwrap()
+                            .check_condition(held.as_ref())
+                            .is_err() =>
+                    {
+                        (Status::Stale, None)
+                    }
                     None => {
                         *held = Some(record);
                         (Status::Ok, None)
@@ -770,6 +775,7 @@ mod tests {
             published,
             Profile {
                 version: 1,
+                previous: Some(dyapp_profile::ProfileCondition::default()),
                 ..preview.clone()
             }
         );

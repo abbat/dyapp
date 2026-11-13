@@ -7,7 +7,9 @@ pub(super) fn at_readback(
 ) -> impl FnMut(&Request, &proto::ProfileResponse) + Send {
     let (mut accepted, mut action) = (None, Some(action));
     move |request, response| match request {
-        Request::Publish(record) if response.status == i32::from(Status::Ok) => {
+        Request::Publish(record) | Request::ConditionalPublish(record)
+            if response.status == i32::from(Status::Ok) =>
+        {
             accepted = Some(record.clone());
         }
         Request::Get(_) => {
@@ -101,7 +103,14 @@ async fn readback_keeps_pending_fields_photos_proof_and_device_removal() {
     let outcome = crate::publish::publish_prepared(&store, &mut node, &identity, &attempt)
         .await
         .unwrap();
-    assert_eq!(outcome.published, Profile { version: 1, ..base });
+    assert_eq!(
+        outcome.published,
+        Profile {
+            version: 1,
+            previous: Some(dyapp_profile::ProfileCondition::default()),
+            ..base
+        }
+    );
     assert_eq!(outcome.draft.name, "during readback");
     assert_eq!(outcome.draft.interests, vec!["pending".to_owned()]);
     assert_eq!(outcome.draft.devices, Vec::new());

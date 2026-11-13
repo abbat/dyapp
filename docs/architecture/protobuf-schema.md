@@ -12,7 +12,7 @@
 | File | Package | Messages |
 |------|---------|----------|
 | `proto/identity.proto` | `dyapp.identity` | `SignedRecord` |
-| `proto/profile.proto` | `dyapp.profile` | `Profile`, `DeviceCertificate` |
+| `proto/profile.proto` | `dyapp.profile` | `Profile`, `ProfileCondition`, `DeviceCertificate` |
 | `proto/node.proto` | `dyapp.node` | `Status`, `Role`; requests and replies of `/dyapp/node`, `/dyapp/profile`, `/dyapp/keypackage`, `/dyapp/mailbox`, `/dyapp/mailbox-push`, `/dyapp/media`, `/dyapp/search`, `/dyapp/inventory`, `/dyapp/digest` |
 
 The files are the source; comments in them define each field.
@@ -39,7 +39,8 @@ as received, so a node keeps fields it does not understand.
 
 | Payload | Domain | Signed by |
 |---------|--------|-----------|
-| `dyapp.profile.Profile` | `dyapp/profile/v1\0` | identity key |
+| Legacy `dyapp.profile.Profile` without `previous` | `dyapp/profile/v1\0` | identity key |
+| `dyapp.profile.Profile` with protected `previous` | `dyapp/profile-conditional/v1\0` | identity key |
 | `dyapp.profile.DeviceCertificate` | `dyapp/device-certificate/v1\0` | identity key |
 | `Revoke.owner` (payload: the owner's identity key) | `dyapp/device-owner/v1\0` | device key |
 | `dyapp.node.KeyPackageRecord` | `dyapp/keypackage/v1\0` | certified device key |
@@ -73,8 +74,8 @@ scale's maximum are invalid. The numeric vocabulary lives in `rust/profile/src/s
 [ADR 0028](../decisions/0028-ordered-education-level.md) lists its values. Zodiac is
 self-declared, independent of the birth date. `name` is optional public text,
 which proves nothing ([ADR 0027](../decisions/0027-optional-public-profile-name.md)). `version` orders updates (the highest validly
-signed version wins); `deleted` marks a tombstone with every other field except `pow_nonce` and
-`pow_bits` empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
+signed version wins, subject to a conditional record's previous-state fence); `deleted` marks a
+tombstone with every other field except `pow_nonce`, `pow_bits` and protected `previous` metadata empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
 key (see [Proof of work](bootstrap.md#search)); missing means 0 bits. Tag 5 held
 coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
 full image as ordered blobs plus one `thumbnail` blob for lists and search results: a JPEG,

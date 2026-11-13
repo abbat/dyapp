@@ -53,6 +53,7 @@ impl ProfilePublication {
         };
         local.version = published.version;
         local.deleted = published.deleted;
+        local.previous.clone_from(&published.previous);
         local.pow_nonce = published.pow_nonce;
         local.pow_bits = published.pow_bits;
         local.devices.clone_from(&published.devices);
@@ -110,6 +111,7 @@ impl ProfilePublicationOutcome {
     fn snapshot(published: &Profile, draft: Profile, hidden: bool) -> Self {
         let mut content = draft.clone();
         content.version = published.version;
+        content.previous.clone_from(&published.previous);
         Self {
             published: published.clone(),
             pending: content != *published,
@@ -189,7 +191,10 @@ impl Store {
         published: &Profile,
         stay_hidden: bool,
     ) -> Result<ProfilePublicationOutcome, Error> {
-        if self.profile_publication_record(identity, attempt)? != *published {
+        let mut expected = self.profile_publication_record(identity, attempt)?;
+        // The network fence is protected metadata bound after the editor request was captured.
+        expected.previous.clone_from(&published.previous);
+        if expected != *published {
             return Err(Error::InvalidSetting);
         }
         let signed = published.sign(identity);

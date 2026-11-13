@@ -247,6 +247,23 @@ impl Node {
         ok(response.status)
     }
 
+    /// Publishes a profile carrying its owner-signed previous-state fence.
+    /// Older nodes return unsupported; this method never falls back to legacy publication.
+    ///
+    /// # Errors
+    /// Returns verification errors for a missing/invalid fence, or request/status failures.
+    pub async fn publish_profile_conditional(&mut self, record: SignedRecord) -> Result<(), Error> {
+        if dyapp_profile::verify(&record)?.profile.previous.is_none() {
+            return Err(Error::Input(
+                "conditional publication requires a signed fence",
+            ));
+        }
+        let response = self
+            .profile(profile_request::Request::ConditionalPublish(record))
+            .await?;
+        ok(response.status)
+    }
+
     /// The owner's profile, checked; `peer_id` is its hex Peer ID.
     ///
     /// # Errors
@@ -259,7 +276,12 @@ impl Node {
             .map(|(_, profile)| profile)
     }
 
-    pub(crate) async fn get_profile_signed(
+    /// Return verified ordinary content together with the original signed record.
+    /// Use these bytes for publication fences; decoding and re-signing loses unknown fields.
+    ///
+    /// # Errors
+    /// Returns the same input, network, status and verification errors as [`Self::get_profile`].
+    pub async fn get_profile_signed(
         &mut self,
         peer_id: &str,
     ) -> Result<(SignedRecord, VerifiedProfile), Error> {

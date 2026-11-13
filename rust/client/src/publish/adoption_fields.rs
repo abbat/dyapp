@@ -17,7 +17,7 @@ macro_rules! fields {
             pub(super) fn copy(self, source: &Profile, target: &mut Profile) {
                 // New wire fields must be classified as editable or protected before this compiles.
                 let Profile { version: _, deleted: _, pow_nonce: _, pow_bits: _, devices: _,
-                    device_owners: _, $($($field: _),+),+ } = source;
+                    device_owners: _, previous: _, $($($field: _),+),+ } = source;
                 match self { $(Self::$variant => { $(target.$field.clone_from(&source.$field);)+ }),+ }
             }
         }

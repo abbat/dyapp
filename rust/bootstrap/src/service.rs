@@ -568,15 +568,23 @@ impl Service {
         record: SignedRecord,
         check_pow: &impl Fn(&PowCheck) -> Option<bool>,
     ) -> crate::Result<ProfileResponse> {
-        self.profile_inner(
+        self.prepare_profile_request_with_pow(
             peer,
             ProfileRequest {
                 request: Some(profile_request::Request::Publish(record)),
                 age_seconds: 0,
             },
-            false,
             check_pow,
         )
+    }
+
+    pub(crate) fn prepare_profile_request_with_pow(
+        &self,
+        peer: &Peer,
+        request: ProfileRequest,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
+    ) -> crate::Result<ProfileResponse> {
+        self.profile_inner(peer, request, false, check_pow)
     }
 
     fn profile_inner(
@@ -597,7 +605,13 @@ impl Service {
             self.strike(peer);
             return Ok(reply(Status::Denied, None));
         }
-        let units = if matches!(request.request, Some(profile_request::Request::Publish(_))) {
+        let units = if matches!(
+            request.request,
+            Some(
+                profile_request::Request::Publish(_)
+                    | profile_request::Request::ConditionalPublish(_)
+            )
+        ) {
             5
         } else {
             1
@@ -624,30 +638,10 @@ impl Service {
         }
         match request.request {
             Some(
-                profile_request::Request::Publish(record)
-                | profile_request::Request::ReplicaPut(record),
-            ) => {
-                let max = if is_replica {
-                    PROFILE_ACCEPT_BYTES
-                } else {
-                    PROFILE_SEND_BYTES
-                };
-                let mut last_seen = None;
-                if is_replica && request.age_seconds > 0 {
-                    let ttl = u64::from(self.config.limits.profile_ttl_days) * 86_400;
-                    if u64::from(request.age_seconds) >= ttl {
-                        // The owner would already have expired here: accept without storing.
-                        return Ok(reply(Status::Ok, None));
-                    }
-                    let now = self.clock.timestamp();
-                    last_seen = Some(now - i64::from(request.age_seconds));
-                }
-                let response = self.publish(&record, store, max, last_seen, check_pow)?;
-                if response.status == i32::from(Status::Denied) {
-                    self.strike(peer);
-                }
-                Ok(response)
-            }
+                profile_request::Request::Publish(_)
+                | profile_request::Request::ConditionalPublish(_)
+                | profile_request::Request::ReplicaPut(_),
+            ) => self.profile_write_request(peer, request, store, check_pow),
             Some(profile_request::Request::Get(get)) => {
                 let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
                     return Ok(reply(Status::Invalid, None));
@@ -719,6 +713,54 @@ impl Service {
         self.publish(record, true, PROFILE_ACCEPT_BYTES, None, &|_| None)
     }
 
+    fn profile_write_request(
+        &self,
+        peer: &Peer,
+        request: ProfileRequest,
+        store: bool,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
+    ) -> crate::Result<ProfileResponse> {
+        let conditional = matches!(
+            request.request,
+            Some(profile_request::Request::ConditionalPublish(_))
+        );
+        let replica = matches!(
+            request.request,
+            Some(profile_request::Request::ReplicaPut(_))
+        );
+        let Some(
+            profile_request::Request::Publish(record)
+            | profile_request::Request::ConditionalPublish(record)
+            | profile_request::Request::ReplicaPut(record),
+        ) = request.request
+        else {
+            return Ok(reply(Status::Unsupported, None));
+        };
+        if conditional && record.verify(Domain::ProfileConditional).is_err() {
+            self.strike(peer);
+            return Ok(reply(Status::Denied, None));
+        }
+        let max = if replica {
+            PROFILE_ACCEPT_BYTES
+        } else {
+            PROFILE_SEND_BYTES
+        };
+        let mut last_seen = None;
+        if replica && request.age_seconds > 0 {
+            let ttl = u64::from(self.config.limits.profile_ttl_days) * 86_400;
+            if u64::from(request.age_seconds) >= ttl {
+                // Expired replicas acknowledge without reviving the owner.
+                return Ok(reply(Status::Ok, None));
+            }
+            last_seen = Some(self.clock.timestamp() - i64::from(request.age_seconds));
+        }
+        let response = self.publish(&record, store, max, last_seen, check_pow)?;
+        if response.status == i32::from(Status::Denied) {
+            self.strike(peer);
+        }
+        Ok(response)
+    }
+
     fn publish(
         &self,
         record: &SignedRecord,
@@ -766,14 +808,13 @@ impl Service {
         if !store {
             // Reject revival before replica fan-out: otherwise an isolated node waits for
             // the put timeout because its retained tombstone will refuse the local copy.
-            if self
-                .store
-                .get_profile(&verified.peer_id)?
-                .map(|held| dyapp_profile::verify(&held))
-                .transpose()?
-                .is_some_and(|held| held.profile.deleted)
-            {
+            let held = self.store.get_profile(&verified.peer_id)?;
+            let current = held.as_ref().map(dyapp_profile::verify).transpose()?;
+            if current.is_some_and(|held| held.profile.deleted) {
                 return Ok(reply(Status::Invalid, None));
+            }
+            if verified.check_condition(held.as_ref()).is_err() {
+                return Ok(reply(Status::Stale, held));
             }
             return Ok(reply(Status::Ok, None));
         }

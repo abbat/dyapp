@@ -27,15 +27,14 @@ pub(super) fn pending_profile(store: &Store, adopted: &Profile, identity: &Ident
 async fn finishing_an_already_revoked_link_does_not_restore_its_device() {
     let mut f = Box::pin(HiddenLink::new()).await;
     let listed = f.prepare_legacy_partial_link().await;
-    let revoked = Profile {
+    let mut revoked = Profile {
         version: listed.version.checked_add(1).unwrap(),
         devices: vec![f.owner.device.certificate().clone()],
         device_owners: Vec::new(),
         ..listed
     };
-    f.owner
-        .node
-        .publish_profile(revoked.sign(&f.owner.identity))
+    let owner = &mut f.owner;
+    publish_profile_change(&mut owner.node, &owner.identity, &mut revoked)
         .await
         .unwrap();
     let result = Session::finish_link(
@@ -87,6 +86,7 @@ async fn finishing_an_unlisted_link_does_not_publish_retained_pending_profile_fi
         version: local.version,
         devices: published.devices.clone(),
         device_owners: published.device_owners.clone(),
+        previous: published.previous.clone(),
         ..pending
     };
     assert_eq!(local, expected);

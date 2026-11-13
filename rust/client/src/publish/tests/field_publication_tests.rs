@@ -16,6 +16,13 @@ struct Subject {
     path: std::path::PathBuf,
 }
 impl Subject {
+    fn attempt(&self) -> crate::store::ProfilePublication {
+        self.session
+            .store()
+            .prepare_profile_publication(&self.identity)
+            .unwrap()
+    }
+
     fn new(known_listing: bool) -> Self {
         let identity = Identity::from_secret(&[7; 32]);
         let device_key = Identity::from_secret(&[8; 32]);
@@ -67,11 +74,7 @@ impl Subject {
 #[tokio::test]
 async fn ordinary_fields_keep_the_original_editor_baseline_and_verified_directory() {
     let f = Subject::new(true);
-    let mut attempt = f
-        .session
-        .store()
-        .prepare_profile_publication(&f.identity)
-        .unwrap();
+    let mut attempt = f.attempt();
     attempt.draft_mut().name = "explicit request".into();
     let (mut node, held) = profile_node(Vec::new()).await;
     *held.lock().unwrap() = Some(f.authority.sign(&f.identity));
@@ -94,11 +97,7 @@ async fn ordinary_fields_keep_the_original_editor_baseline_and_verified_director
 #[tokio::test]
 async fn actual_accepted_readback_keeps_later_private_fields_photos_and_proof() {
     let f = Subject::new(true);
-    let attempt = f
-        .session
-        .store()
-        .prepare_profile_publication(&f.identity)
-        .unwrap();
+    let attempt = f.attempt();
     let path = f.path.clone();
     let (mut node, held) = profile_node_observed(
         Vec::new(),
@@ -133,11 +132,7 @@ async fn actual_accepted_readback_keeps_later_private_fields_photos_and_proof() 
 async fn source_change_before_the_guard_cannot_restore_an_observed_directory() {
     let f = Subject::new(true);
     let before = f.session.store().profile_draft().unwrap();
-    let attempt = f
-        .session
-        .store()
-        .prepare_profile_publication(&f.identity)
-        .unwrap();
+    let attempt = f.attempt();
     let current = Arc::new(OnceLock::<ProfileCell>::new());
     let callback_cell = current.clone();
     let mut changed = false;
@@ -152,7 +147,10 @@ async fn source_change_before_the_guard_cannot_restore_an_observed_directory() {
     let writes = Arc::new(AtomicUsize::new(0));
     let observed_writes = writes.clone();
     let (mut node, held) = profile_node_observed(Vec::new(), move |request, reply| {
-        if matches!(request, Request::Publish(_)) {
+        if matches!(
+            request,
+            Request::Publish(_) | Request::ConditionalPublish(_)
+        ) {
             observed_writes.fetch_add(1, Ordering::SeqCst);
         }
         if !changed && matches!(request, Request::Get(_)) && reply.record.as_ref() == Some(&first) {
@@ -184,6 +182,92 @@ async fn source_change_before_the_guard_cannot_restore_an_observed_directory() {
 }
 
 #[tokio::test]
+async fn intervening_revocation_after_the_guard_survives_a_hidden_version_gap() {
+    let f = Subject::new(true);
+    let mut editor = Store::open(&f.path, &f.identity).unwrap();
+    editor
+        .add_profile_photo(&[0xff, 0xd8, 0xff, 31], &[0xff, 0xd8, 0xff, 32])
+        .unwrap();
+    let before = editor.profile_draft().unwrap();
+    let attempt = f.attempt();
+    let current = Arc::new(OnceLock::<ProfileCell>::new());
+    let callback_cell = current.clone();
+    let replacement = Profile {
+        version: f.authority.version.checked_add(1).unwrap(),
+        devices: Vec::new(),
+        device_owners: Vec::new(),
+        ..f.authority.clone()
+    };
+    let mut intervening = Some(replacement.sign(&f.identity));
+    let (mut node, held) = node::observed(
+        Vec::new(),
+        |_, _| {},
+        move |_| {
+            // Preparing actual media follows the final profile guard and precedes publication.
+            if let Some(record) = intervening.take() {
+                *callback_cell.get().unwrap().lock().unwrap() = Some(record);
+            }
+        },
+    )
+    .await;
+    assert!(current.set(held.clone()).is_ok());
+    *held.lock().unwrap() = Some(f.authority.sign(&f.identity));
+    let result = f
+        .session
+        .publish_profile(&mut node, &f.identity, &f.device_key, attempt)
+        .await;
+    let actual = held.lock().unwrap().clone().unwrap();
+    let actual = dyapp_profile::verify(&actual).unwrap();
+    assert_eq!(actual.profile.version, replacement.version);
+    assert_eq!(actual.profile.devices.len(), 0);
+    assert!(
+        matches!(result, Err(SessionError::Publish(Failure::Missed))),
+        "a stale publication must require review"
+    );
+    assert_eq!(editor.profile_draft().unwrap(), before);
+    let photo = &before.as_ref().unwrap().photos[0];
+    assert!(editor.profile_photo(&photo.thumbnail).unwrap().is_some());
+}
+
+#[tokio::test]
+async fn unsupported_conditional_publication_never_falls_back_to_legacy_authorization() {
+    let f = Subject::new(true);
+    let before = f.session.store().profile_draft().unwrap();
+    let attempt = f.attempt();
+    let legacy = Arc::new(AtomicUsize::new(0));
+    let observed_legacy = legacy.clone();
+    let conditional = Arc::new(AtomicUsize::new(0));
+    let observed_conditional = conditional.clone();
+    let (mut node, held) =
+        profile_node_observed(vec![Status::Unsupported], move |request, _| match request {
+            Request::Publish(_) => {
+                observed_legacy.fetch_add(1, Ordering::SeqCst);
+            }
+            Request::ConditionalPublish(_) => {
+                observed_conditional.fetch_add(1, Ordering::SeqCst);
+            }
+            _ => {}
+        })
+        .await;
+    let original = f.authority.sign(&f.identity);
+    *held.lock().unwrap() = Some(original.clone());
+    let result = f
+        .session
+        .publish_profile(&mut node, &f.identity, &f.device_key, attempt)
+        .await;
+    assert!(matches!(
+        result,
+        Err(SessionError::Publish(Failure::Node(Error::Status(
+            Status::Unsupported
+        ))))
+    ));
+    assert_eq!(legacy.load(Ordering::SeqCst), 0);
+    assert_eq!(conditional.load(Ordering::SeqCst), 1);
+    assert_eq!(*held.lock().unwrap(), Some(original));
+    assert_eq!(f.session.store().profile_draft().unwrap(), before);
+}
+
+#[tokio::test]
 async fn wrong_keys_and_pending_enrollment_refuse_before_any_profile_request() {
     let f = Subject::new(true);
     let reads = Arc::new(AtomicUsize::new(0));
@@ -194,11 +278,7 @@ async fn wrong_keys_and_pending_enrollment_refuse_before_any_profile_request() {
     .await;
     let wrong = Identity::from_secret(&[4; 32]);
     for owner_wrong in [true, false] {
-        let attempt = f
-            .session
-            .store()
-            .prepare_profile_publication(&f.identity)
-            .unwrap();
+        let attempt = f.attempt();
         let identity = if owner_wrong { &wrong } else { &f.identity };
         let device = if owner_wrong { &f.device_key } else { &wrong };
         assert!(matches!(
@@ -211,11 +291,7 @@ async fn wrong_keys_and_pending_enrollment_refuse_before_any_profile_request() {
     let pending = f.session.store().link_state().unwrap();
     f.session.store().set_link_pending(&pending).unwrap();
     let before = f.session.store().profile_draft().unwrap();
-    let attempt = f
-        .session
-        .store()
-        .prepare_profile_publication(&f.identity)
-        .unwrap();
+    let attempt = f.attempt();
     assert!(matches!(
         f.session
             .publish_profile(&mut node, &f.identity, &f.device_key, attempt)
@@ -245,11 +321,7 @@ async fn missing_withdrawn_or_unproven_membership_cannot_become_first_enrollment
         };
         *held.lock().unwrap() = source.as_ref().map(|profile| profile.sign(&f.identity));
         let original = held.lock().unwrap().clone();
-        let attempt = f
-            .session
-            .store()
-            .prepare_profile_publication(&f.identity)
-            .unwrap();
+        let attempt = f.attempt();
         assert!(matches!(
             f.session
                 .publish_profile(&mut node, &f.identity, &f.device_key, attempt)
@@ -279,11 +351,7 @@ async fn legacy_draft_derived_listing_knowledge_is_not_silently_decremented() {
     let (mut node, held) = profile_node(Vec::new()).await;
     let actual = f.authority.sign(&f.identity);
     *held.lock().unwrap() = Some(actual.clone());
-    let attempt = f
-        .session
-        .store()
-        .prepare_profile_publication(&f.identity)
-        .unwrap();
+    let attempt = f.attempt();
     let result = f
         .session
         .publish_profile(&mut node, &f.identity, &f.device_key, attempt)

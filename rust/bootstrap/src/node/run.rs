@@ -189,8 +189,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                             let _permit = permits.clone().try_acquire_owned().ok()?;
                             Some(service.pow.check(check))
                         };
-                        if let Some(proto::profile_request::Request::Publish(record)) = &request.request {
-                            let result = service.prepare_profile_with_pow(&from, record.clone(), &check_pow);
+                        if let Some(proto::profile_request::Request::Publish(record) | proto::profile_request::Request::ConditionalPublish(record)) = &request.request {
+                            let result = service.prepare_profile_request_with_pow(&from, request.clone(), &check_pow);
                             return StoreDone::ProfilePublish(channel, record.clone(), result);
                         }
                         let heartbeat = match &request.request {

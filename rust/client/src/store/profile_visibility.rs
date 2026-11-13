@@ -56,10 +56,11 @@ impl Store {
         if identity.peer_id() != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }
-        if tombstone.version == 0
-            || *tombstone
-                != Profile::tombstone(tombstone.version, tombstone.pow_nonce, tombstone.pow_bits)
-        {
+        let canonical = Profile {
+            previous: tombstone.previous.clone(),
+            ..Profile::tombstone(tombstone.version, tombstone.pow_nonce, tombstone.pow_bits)
+        };
+        if tombstone.version == 0 || *tombstone != canonical {
             return Err(Error::InvalidSetting);
         }
         let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)?;
@@ -68,6 +69,7 @@ impl Store {
             return Err(Error::ProfileCompletionSuperseded);
         }
         latest.version = tombstone.version;
+        latest.previous.clone_from(&tombstone.previous);
         if tombstone.pow_bits > latest.pow_bits {
             (latest.pow_nonce, latest.pow_bits) = (tombstone.pow_nonce, tombstone.pow_bits);
         }

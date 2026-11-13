@@ -1,6 +1,6 @@
 use super::*;
 use crate::store::tests::temp_db_path;
-use dyapp_identity::Identity;
+use dyapp_identity::{Domain, Identity};
 use dyapp_profile::Profile;
 
 fn assert_busy(result: &Result<(), Error>) {

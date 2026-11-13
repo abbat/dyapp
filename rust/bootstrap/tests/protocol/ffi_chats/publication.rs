@@ -57,7 +57,7 @@ fn ordinary_native_profile_save_cannot_restore_a_revoked_device_below_its_hidden
     let factual = store.device_listed().unwrap();
     assert_eq!(factual, listed.version);
     let local = hidden_draft(&mut store, &identity, "explicit editable choice");
-    let revoked = Profile {
+    let mut revoked = Profile {
         version: listed.version.checked_add(1).unwrap(),
         devices: Vec::new(),
         device_owners: Vec::new(),
@@ -68,7 +68,7 @@ fn ordinary_native_profile_save_cannot_restore_a_revoked_device_below_its_hidden
         "ordinary removal is below the hidden draft floor"
     );
     runtime
-        .block_on(remote.publish_profile(revoked.sign(&identity)))
+        .block_on(publish_profile_change(&mut remote, &identity, &mut revoked))
         .unwrap();
     let result = peer.open().publish_profile(true);
     let held = runtime
@@ -112,7 +112,7 @@ fn ordinary_native_fields_publish_without_restoring_another_devices_certificate_
     );
     joined.version = joined.version.checked_add(1).unwrap();
     runtime
-        .block_on(remote.publish_profile(joined.sign(&identity)))
+        .block_on(publish_profile_change(&mut remote, &identity, &mut joined))
         .unwrap();
     store.save_profile_draft(&joined).unwrap();
     let local = hidden_draft(&mut store, &identity, "approved fields");
@@ -121,7 +121,7 @@ fn ordinary_native_fields_publish_without_restoring_another_devices_certificate_
     revoked.version = revoked.version.checked_add(1).unwrap();
     assert!(revoked.version < local.version);
     runtime
-        .block_on(remote.publish_profile(revoked.sign(&identity)))
+        .block_on(publish_profile_change(&mut remote, &identity, &mut revoked))
         .unwrap();
     let accepted = peer.open().publish_profile(true).unwrap();
     let held = runtime

@@ -20,6 +20,7 @@ pub(super) fn merge(base: &Profile, local: &Profile, remote: &Profile) -> Profil
     Profile {
         version: remote.version,
         deleted: remote.deleted,
+        previous: remote.previous.clone(),
         country: location(base, local, remote).country.clone(),
         income_from: income(base, local, remote).income_from,
         income_to: income(base, local, remote).income_to,

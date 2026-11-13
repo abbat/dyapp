@@ -396,10 +396,13 @@ impl BootstrapStore {
         let verified = dyapp_profile::verify(record)?;
         // The connection lock serialises the read-compare-write of profile versions.
         let db = lock(&self.profiles)?;
-        let current = Self::profile(&db, &verified.peer_id)?
-            .map(|stored| dyapp_profile::verify(&stored))
+        let record_before = Self::profile(&db, &verified.peer_id)?;
+        let current = record_before
+            .as_ref()
+            .map(dyapp_profile::verify)
             .transpose()?;
         verified.check_newer(current.as_ref().map(|stored| stored.profile.version))?;
+        verified.check_condition(record_before.as_ref())?;
         if current.is_some_and(|stored| stored.profile.deleted) {
             return Err(dyapp_profile::Error::Invalid("profile already deleted").into());
         }

@@ -6,7 +6,7 @@ use dyapp_bootstrap::replication::ReplicationFragment;
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_messaging::{Message, MessageStatus, Timestamp};
 use dyapp_p2p_net::proto::*;
-use dyapp_profile::{DeviceCertificate, Photo, Profile};
+use dyapp_profile::{DeviceCertificate, Photo, Profile, ProfileCondition};
 use dyapp_video::{CodecFormat, CodecInfo, ICECandidate, ICEGatheringState};
 use proptest::prelude::*;
 use prost::Message as _;
@@ -74,6 +74,7 @@ macro_rules! json_round_trip {
 protobuf_round_trip! {
     signed_record: SignedRecord,
     profile: Profile,
+    profile_condition: ProfileCondition,
     device_certificate: DeviceCertificate,
     photo: Photo,
     node_request: NodeRequest,

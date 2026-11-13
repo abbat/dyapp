@@ -173,7 +173,10 @@ fn reply(swarm: &mut Swarm<Behaviour>, event: BehaviourEvent, replies: &Replies)
 fn profile_reply(replies: &Replies, request: &proto::ProfileRequest) -> proto::ProfileResponse {
     if matches!(
         request.request,
-        Some(proto::profile_request::Request::Publish(_))
+        Some(
+            proto::profile_request::Request::Publish(_)
+                | proto::profile_request::Request::ConditionalPublish(_)
+        )
     ) {
         replies.profile_writes.fetch_add(1, Ordering::SeqCst);
         return proto::ProfileResponse {
