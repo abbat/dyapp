@@ -54,6 +54,8 @@ mod safety;
 mod sealing;
 #[path = "search.rs"]
 mod search;
+mod search_recovery;
+mod search_recovery_state;
 mod slot_keys;
 #[path = "slots.rs"]
 mod slots;
@@ -767,6 +769,10 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     cancel_profile_solve,
     publish_profile,
     hide_profile,
+    search_recovery::prepare_search_recovery,
+    search_recovery::confirm_search_recovery,
+    search_recovery::retry_search_recovery,
+    search_recovery::dismiss_search_recovery,
     withdraw_profile,
     send_search_profile,
     search_profiles,
@@ -886,6 +892,7 @@ fn main() {
         .manage(IdentityState::new())
         .manage(NetworkState::default())
         .manage(ProfileState::default())
+        .manage(search_recovery_state::RecoveryState::default())
         .manage(search::SearchState::default())
         .manage(chats::Sessions::default())
         .manage(link::Links::default())

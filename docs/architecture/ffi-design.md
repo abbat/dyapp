@@ -363,7 +363,13 @@ Native `SearchWithdrawalReview.retry` reacquires original-slot admission, checks
 network access and dispatches on the dedicated network stack. Unsupported servers retain the queue;
 retry returns current local state, not proof of network-wide removal. The native sender still has no
 generic queue pump (`send_held` is invoked only by publish/hide/withdraw), so restart-safe automatic
-delivery remains planned separately. Tauri transport and gated UI also remain planned.
+delivery remains planned separately. Common Tauri commands `prepare_search_recovery`,
+`confirm_search_recovery`, `retry_search_recovery` and `dismiss_search_recovery` use opaque string
+handles and the same core policy. Idle desktop state retains only owner/path/generation and the
+review; each worker holds a fresh identity lease through completion. A changed identity generation,
+owner, database path or replaced/dismissed handle refuses work. Dismissing an old handle cannot
+close a newer review. Confirmation and retry return the local `version`, `hidden`, `searchPending`
+snapshot; gated recovery UI remains planned.
 Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version

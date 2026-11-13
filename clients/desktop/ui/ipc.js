@@ -38,6 +38,7 @@
  * @typedef {'multiple' | 'unreadable' | 'invalid' | 'matched' | 'foreign' | 'notFound'} QrScan
  * @typedef {{ code: string, qr: QrMatrix }} LinkCode
  * @typedef {{ key: number[], this: boolean }} Device
+ * @typedef {{ version: number, hidden: boolean, searchPending: boolean }} SearchRecoverySaved
  * @typedef {'any' | 'same' | 'exclude'} EmployerChoice
  * @typedef {Partial<{ offered: number[], picked: Record<string, number>, country: string,
  *   interest: string, place: number | null, ageMin: string, ageMax: string, heightMin: string,
@@ -93,6 +94,10 @@
  *   cancel_profile_solve: Command<[], void>,
  *   publish_profile: Command<[{ attested: boolean }], import('./profile-fields.js').ProfileView>,
  *   hide_profile: Command<[], import('./profile-fields.js').ProfileView>,
+ *   prepare_search_recovery: Command<[], string | null>,
+ *   confirm_search_recovery: Command<[{ token: string }], SearchRecoverySaved>,
+ *   retry_search_recovery: Command<[{ token: string }], SearchRecoverySaved>,
+ *   dismiss_search_recovery: Command<[{ token: string }], void>,
  *   withdraw_profile: Command<[], import('./profile-fields.js').ProfileView>,
  *   send_search_profile: Command<[], import('./profile-fields.js').ProfileView>,
  *   place_countries: Command<[], string[]>,
