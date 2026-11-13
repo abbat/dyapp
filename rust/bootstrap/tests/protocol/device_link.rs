@@ -13,6 +13,8 @@ use std::slice::from_mut;
 
 #[path = "device_link/finish.rs"]
 mod finish;
+#[path = "device_link/offline.rs"]
+mod offline;
 
 const SEAL: [u8; 32] = [6; 32];
 /// One device's turn to commit to a group.
@@ -115,6 +117,15 @@ async fn begin_chat(
     bob: &mut Person,
     held: &[dyapp_profile::VerifiedProfile],
 ) -> (Session, Session, Vec<u8>) {
+    begin_chat_at(alice, bob, held, &store_path("link-alice")).await
+}
+
+async fn begin_chat_at(
+    alice: &mut Person,
+    bob: &mut Person,
+    held: &[dyapp_profile::VerifiedProfile],
+    alice_path: &std::path::Path,
+) -> (Session, Session, Vec<u8>) {
     // The chat begins with one device on each side.
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, held)
@@ -125,8 +136,7 @@ async fn begin_chat(
         .into_iter()
         .map(|delivery| dyapp_client::prepare_put(&delivery.mailbox, delivery.mls).unwrap())
         .collect::<Vec<_>>();
-    let alice_path = store_path("link-alice");
-    Store::open(&alice_path, &alice.identity)
+    Store::open(alice_path, &alice.identity)
         .unwrap()
         .stage_group(
             &group,
@@ -136,7 +146,7 @@ async fn begin_chat(
         )
         .unwrap();
     let alice_session =
-        Session::open(Store::open(&alice_path, &alice.identity).unwrap(), &SEAL).unwrap();
+        Session::open(Store::open(alice_path, &alice.identity).unwrap(), &SEAL).unwrap();
     let mut bob_session = session(bob, "link-bob");
     alice.node.put_prepared(&welcome[0]).await.unwrap();
     bob_session
