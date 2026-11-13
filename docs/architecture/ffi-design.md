@@ -303,7 +303,7 @@ The exhaustive profile constructor makes new wire fields require an explicit ove
 `ProfilePublicationOutcome` separates exact published values from the current draft and pending flag;
 UniFFI's existing published payload remains exact remote output, alongside a fresh local snapshot.
 Android applies that snapshot to its existing form without replacing unsaved or in-flight save inputs.
-New pending presentation, remaining adapters and foreign/revocation/adoption paths still require
+New pending presentation, remaining adapters and ordinary linked-device adoption still require
 migration before frontend monitors can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
@@ -336,8 +336,15 @@ Device revocation captures its local baseline and visibility before the first ne
 changes only the prepared device-list request. Completion preserves concurrent local edits. A foreign
 profile observed after mailbox closure returns a conflict without replacing the local draft; closure
 may already have succeeded, so failure does not imply rollback. Checked version exhaustion is refused
-before closure. Ordinary foreign imports, adoption prefixes and remaining prepared-outcome adapters
-still require migration before frontend monitors can be removed.
+before closure. Ordinary foreign publication conflicts now project through a prepared Store import:
+unchanged baseline fields yield to the winning remote profile, while post-prepare edits remain pending.
+The transaction preserves current visibility, paired device-directory edits, stronger proof and protected
+photo bytes; its search record contains exact remote content or a higher hidden tombstone, never pending
+local edits. Newer known versions, missing prior drafts, wrong owners and equal-version search forks
+refuse the local projection. Draft/search/photo retention roll back together on failure. The caller still
+reports `Failure::Missed`, so clients must reload the local draft rather than claim it was published.
+Ordinary adoption prefixes and remaining prepared-outcome adapters still require migration before
+frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own

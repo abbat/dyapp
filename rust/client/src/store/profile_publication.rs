@@ -4,6 +4,10 @@ use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 use rusqlite::{Transaction, TransactionBehavior};
 
+mod import;
+#[cfg(test)]
+#[path = "profile_publication/import_tests.rs"]
+mod import_tests;
 mod merge;
 
 /// Owner-bound local baseline and mutable request; prepare before any network await.

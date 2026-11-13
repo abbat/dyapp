@@ -317,7 +317,7 @@ async fn send_prepared(
         if held != next && from_another_device(store, identity, &held, draft)? {
             if matches!(foreign, ForeignDraft::Import) {
                 take_photos(store, node, &held).await?;
-                store.save_profile_draft(&held)?;
+                store.commit_profile_import(identity, attempt, &held)?;
             }
             return Err(Failure::Missed);
         }
@@ -505,7 +505,7 @@ pub enum Failure {
     #[error(transparent)]
     Store(#[from] store::Error),
     /// Another device published first. Its profile is now the saved draft, so the owner sees it
-    /// before publishing again; unpublished edits on this device give way to it.
+    /// before publishing again. Pre-attempt unpublished edits give way to it; later edits remain pending.
     #[error("the profile changed on another device")]
     Missed,
 }
@@ -528,6 +528,8 @@ mod tests {
     use libp2p::swarm::SwarmEvent;
     use std::sync::{Arc, Mutex};
 
+    #[path = "foreign_import_tests.rs"]
+    mod foreign_import_tests;
     #[path = "node.rs"]
     mod node;
     #[path = "publication_tests.rs"]
