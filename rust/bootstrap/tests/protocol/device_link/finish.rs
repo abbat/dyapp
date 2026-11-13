@@ -42,6 +42,10 @@ impl HiddenLink {
     }
 
     async fn prepare_legacy_partial_link(&mut self) -> Profile {
+        Box::pin(self.prepare_partial_link(true)).await
+    }
+
+    async fn prepare_partial_link(&mut self, remember_listing: bool) -> Profile {
         let mut remote = self
             .owner
             .node
@@ -82,7 +86,9 @@ impl HiddenLink {
                     .sign(&self.laptop.identity),
             )
             .unwrap();
-        store.note_device_listed(remote.version).unwrap();
+        if remember_listing {
+            store.note_device_listed(remote.version).unwrap();
+        }
         store.set_link_pending(&self.state).unwrap();
         remote
     }

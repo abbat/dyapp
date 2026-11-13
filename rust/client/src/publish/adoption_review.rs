@@ -48,6 +48,13 @@ impl AdoptionReview {
         &self.remote
     }
 
+    /// Exact pending private-state snapshot captured with this comparison.
+    /// Adapters use it to refuse completion of a replacement link; it authorizes no writes.
+    #[must_use]
+    pub fn pending_link_state(&self) -> &[u8] {
+        self.context.pending_link_state()
+    }
+
     /// Visibility captured with the local baseline.
     #[must_use]
     pub fn hidden(&self) -> bool {

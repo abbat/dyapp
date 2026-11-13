@@ -62,7 +62,7 @@ fn publish_failed(failure: publish::Failure) -> CoreError {
 }
 
 /// `KeyPackages` each publish adds, so peers can invite this device.
-const KEY_PACKAGES: usize = 4;
+pub(crate) const KEY_PACKAGES: usize = 4;
 
 /// A new MLS state key encrypted by `store`, for the app to persist once per identity before
 /// the first [`ChatSession::open`].
@@ -217,13 +217,7 @@ async fn apply_mailbox(
         for event in events {
             match event {
                 Event::UnknownOwner(peer) => {
-                    if profiles.iter().any(|known| known.peer_id == peer) {
-                        continue;
-                    }
-                    if let Ok(found) = node.get_profile(&peer).await {
-                        profiles.push(found);
-                        fetched = true;
-                    }
+                    fetched |= fetch_unknown_owner(node, &mut profiles, &peer).await;
                 }
                 Event::Gap(_) | Event::Refused(_) => {}
                 _ => changed += 1,
@@ -234,6 +228,22 @@ async fn apply_mailbox(
         }
     }
     Ok(changed)
+}
+
+async fn fetch_unknown_owner(
+    node: &mut Node,
+    profiles: &mut Vec<VerifiedProfile>,
+    peer: &str,
+) -> bool {
+    if profiles.iter().any(|known| known.peer_id == peer) {
+        return false;
+    }
+    if let Ok(found) = node.get_profile(peer).await {
+        profiles.push(found);
+        true
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]

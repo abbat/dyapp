@@ -92,6 +92,10 @@ fn replacing_a_device_with_another_consistent_sealed_session_cannot_reuse_the_re
         review.confirm(Fixture::choices()),
         Err(LinkReviewError::ReviewRequired)
     ));
+    assert!(matches!(
+        review.resume_link(),
+        Err(LinkReviewError::ReviewRequired)
+    ));
     assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 4);
 }
 
@@ -117,6 +121,10 @@ fn replacing_only_the_sealing_key_cannot_reuse_the_original_certificate_review()
     drop(admitted);
     assert!(matches!(
         review.confirm(Fixture::choices()),
+        Err(LinkReviewError::ReviewRequired)
+    ));
+    assert!(matches!(
+        review.resume_link(),
         Err(LinkReviewError::ReviewRequired)
     ));
     assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 4);
@@ -185,6 +193,10 @@ fn replaced_link_and_active_network_are_refused_before_a_local_save() {
             review.confirm(Fixture::choices()),
             Err(LinkReviewError::ReviewRequired)
         ));
+        assert!(matches!(
+            review.resume_link(),
+            Err(LinkReviewError::ReviewRequired)
+        ));
         assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 4);
     }
 }
@@ -198,6 +210,10 @@ fn a_non_ready_slot_is_refused_without_saving() {
     fs::write(f.directory.join("state"), b"pending\n").unwrap();
     assert!(matches!(
         review.confirm(Fixture::choices()),
+        Err(LinkReviewError::Failed { .. })
+    ));
+    assert!(matches!(
+        review.resume_link(),
         Err(LinkReviewError::Failed { .. })
     ));
     assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 4);
@@ -234,6 +250,7 @@ fn an_unlisted_original_device_cannot_restore_its_certificate() {
         review.confirm(Fixture::choices()),
         Err(LinkReviewError::DeviceNotListed)
     ));
+    assert_eq!(f.store().device_listed().unwrap(), 0);
     assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 4);
 }
 
@@ -245,6 +262,10 @@ fn a_missing_database_is_not_recreated_by_an_old_review() {
     fs::rename(&path, f.directory.join("client.db.saved")).unwrap();
     assert!(matches!(
         review.confirm(Fixture::choices()),
+        Err(LinkReviewError::Failed { .. })
+    ));
+    assert!(matches!(
+        review.resume_link(),
         Err(LinkReviewError::Failed { .. })
     ));
     assert!(!path.exists());

@@ -33,6 +33,8 @@ directory-only request; a hidden search version never proves device authorizatio
 Pending-link retries reuse exact private-state import progress; a profile completion receipt does
 not prove that prefix was imported. Check owner before import and clear only the exact applied
 pending bytes after network completion. Missing legacy progress requires explicit recovery.
+Public Store helpers own their transactions; compose their internal in-transaction helpers under
+an existing writer instead of nesting another public transaction.
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,

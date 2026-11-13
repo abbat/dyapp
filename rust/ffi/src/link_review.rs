@@ -158,19 +158,62 @@ impl ProfileAdoptionReview {
             })
         })
     }
+
+    /// Resume the original pending link through shared core, including key packages and fallback.
+    /// This is separate from field confirmation; it never publishes chosen editable values.
+    /// Reopen the original existing session for each retry, retaining admission through completion.
+    /// Returns false when no pending link remains, without connecting to the network.
+    ///
+    /// # Errors
+    /// Refuses a replacement slot/device/network/link, ambiguous profile or private-state import,
+    /// revoked authorization, and backend failures. Earlier steps may already have succeeded.
+    pub fn resume_link(&self) -> Result<bool, LinkReviewError> {
+        link_network(|runtime| {
+            let admitted = self.owner.open()?;
+            self.admit_device(&admitted)?;
+            let Some(pending) = admitted.session.store().link_pending().map_err(failed)? else {
+                return Ok(false);
+            };
+            if pending != self.review.pending_link_state() {
+                return Err(LinkReviewError::ReviewRequired);
+            }
+            let Admitted { session, operation } = admitted;
+            // The moved session lives in the awaited future; its admission outlives that future.
+            runtime.block_on(async {
+                let mut node = connect(&self.network).await?;
+                session
+                    .resume_link(
+                        &mut node,
+                        operation.identity(),
+                        operation.device(),
+                        crate::chats::KEY_PACKAGES,
+                        operation.state_key(),
+                        dyapp_client::now(),
+                    )
+                    .await
+                    .map_err(LinkReviewError::from)
+            })
+        })
+    }
 }
 impl ProfileAdoptionReview {
     fn admit(&self, admitted: &Admitted) -> Result<(), LinkReviewError> {
-        if admitted.operation.binding() != self.admission
-            || admitted.session.certificate().map_err(failed)? != self.certificate
-            || !self
-                .review
-                .is_current(admitted.session.store(), admitted.operation.identity())
-                .map_err(failed)?
+        self.admit_device(admitted)?;
+        if !self
+            .review
+            .is_current(admitted.session.store(), admitted.operation.identity())
+            .map_err(failed)?
         {
             return Err(LinkReviewError::ReviewRequired);
         }
-        if active_network(&admitted.operation.slot().dir)? != self.network {
+        Ok(())
+    }
+
+    fn admit_device(&self, admitted: &Admitted) -> Result<(), LinkReviewError> {
+        if admitted.operation.binding() != self.admission
+            || admitted.session.certificate().map_err(failed)? != self.certificate
+            || active_network(&admitted.operation.slot().dir)? != self.network
+        {
             return Err(LinkReviewError::ReviewRequired);
         }
         Ok(())

@@ -1,4 +1,5 @@
 mod behavior;
+mod completion;
 mod server;
 
 use super::*;
@@ -89,7 +90,6 @@ fn prepare_review_state(admitted: &Admitted) -> SignedRecord {
     store.save_profile_draft(&local).unwrap();
     store.set_profile_hidden(true).unwrap();
     store.set_link_pending(b"original link").unwrap();
-    store.note_device_listed(remote.version).unwrap();
     store
         .hold_search_profile(&Profile::tombstone(local.version, 0, 0).sign(operation.identity()))
         .unwrap();

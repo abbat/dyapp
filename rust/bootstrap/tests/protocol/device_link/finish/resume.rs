@@ -87,6 +87,56 @@ async fn actual_link_completion_retains_newer_private_choices_after_prefix_impor
 }
 
 #[tokio::test]
+async fn confirmed_readback_protects_an_unrecorded_device_from_later_revocation() {
+    let mut f = Box::pin(HiddenLink::with_roles(vec![Role::Store, Role::Media])).await;
+    let listed = f.prepare_partial_link(false).await;
+    assert_eq!(f.store().device_listed().unwrap(), 0);
+    let session = Session::open(f.store(), &SEAL).unwrap();
+    let review = publish::review_adoption(session.store(), &mut f.laptop.node, &f.laptop.identity)
+        .await
+        .unwrap();
+    let certificate = session.certificate().unwrap();
+    let saved = publish::confirm_adoption_review(
+        &session,
+        &mut f.laptop.node,
+        &f.laptop.identity,
+        &review,
+        &[],
+    )
+    .await
+    .unwrap();
+    let revoked = Profile {
+        version: saved.draft.version.checked_add(1).unwrap(),
+        devices: vec![f.owner.device.certificate().clone()],
+        device_owners: Vec::new(),
+        ..listed.clone()
+    };
+    f.owner
+        .node
+        .publish_profile(revoked.sign(&f.owner.identity))
+        .await
+        .unwrap();
+    let result = Box::pin(resume(&mut f, session)).await;
+    let held = f
+        .owner
+        .node
+        .get_profile(&f.owner.identity.peer_id())
+        .await
+        .unwrap()
+        .profile;
+    assert_eq!(held.version, revoked.version);
+    assert_eq!(held.devices.len(), revoked.devices.len());
+    assert!(!held.devices.contains(&certificate));
+    assert_eq!(held.device_owners.len(), 0);
+    assert!(
+        matches!(result, Err(dyapp_client::session::Error::Revoked)),
+        "{result:?}"
+    );
+    assert_eq!(f.store().device_listed().unwrap(), listed.version);
+    assert!(f.store().link_pending().unwrap().is_some());
+}
+
+#[tokio::test]
 async fn original_existing_session_can_finish_an_unlisted_link() {
     let mut f = Box::pin(HiddenLink::new()).await;
     let store = f.store();

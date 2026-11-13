@@ -383,7 +383,8 @@ device. Initial adoption without a saved draft and post-prepare edits retain the
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/
 fallback completion. It never creates credentials or a session. The pending row goes last; on failure,
-reopen the original session and retry. Native recovery exposure of this operation remains planned.
+reopen the original session and retry. Common native `ProfileAdoptionReview.resume_link` delegates to
+this operation; client presentation remains planned.
 Adoption checks the Store owner before any private-state prefix import. Export reads peer, like/pass,
 HLC and visibility values from one read snapshot without changing their wire ordering or actor fields.
 Pending link creation atomically records exact private-state bytes and a format-1 import phase bound
@@ -439,13 +440,25 @@ session or operation lease stays in either idle handle. `snapshot` includes comp
 and remote values, all original photo chunks, visibility and typed differing field groups.
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
-changed active network, and delegates all field selection and atomic completion to core. Typed errors separate review-required, invalid selection/profile,
-unlisted-device and backend failures. The worker continues using the originally reviewed network;
+changed active network, and delegates all field selection and atomic completion to core. Typed errors
+separate profile-review-required, private-state-review-required, invalid selection/profile, unlisted,
+revoked-device and backend failures. Confirmation atomically records the exact ordinary version
+proven to list the original session certificate alongside draft/search/retention/receipt changes,
+including from an initially zero listing counter. Later readback cannot mistake its removal for
+first enrollment. The worker continues using the originally reviewed network;
 UI cancellation does not drop its admission before actual completion. The credential binding is
 not a filesystem generation counter and does not identify an identical externally restored copy.
-Native key-package/link resumption, Tauri adapters and presentation remain unimplemented. A malformed or
-already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
-migration before frontend monitors can be removed.
+`resume_link` reopens the original existing session and checks its slot/key binding, certificate,
+network and exact original pending bytes. It delegates directory listing, key-package/fallback
+publication and final pending completion to core. Post-confirmation editable profile fields remain pending; resumption
+cannot bypass a required owner choice or publish editable values implicitly. A missing pending row
+returns false without connecting. Failed fallback publication keeps the exact saved signed record
+for retry, and a replacement pending link is never cleared by the older completion. Admission stays
+alive until the actual session/future finishes, including after UI handle disposal.
+Tauri adapters, presentation, durable interrupted-enrollment admission and explicit legacy
+private-state recovery remain planned. Automatic
+pre-receipt recovery never treats a malformed or nonmatching existing receipt as absent. Remaining
+client prepared-outcome adapters still require migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own

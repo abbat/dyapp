@@ -1,4 +1,5 @@
 use dyapp_client::publish::{AdoptionConfirmError, Failure};
+use dyapp_client::{session::Error as SessionError, store::Error as StoreError};
 
 /// Recovery policy refusals are distinct from backend failures and cannot be retried blindly.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -6,6 +7,12 @@ pub enum LinkReviewError {
     /// Another local/link/remote context or device requires a fresh comparison.
     #[error("linked-device recovery needs a fresh review")]
     ReviewRequired,
+    /// The original pending private snapshot has no proven import progress.
+    #[error("linked-device private state requires explicit recovery")]
+    PrivateStateReviewRequired,
+    /// Verified ordinary readback revoked the original device.
+    #[error("the original device was revoked")]
+    Revoked,
     /// A field decision is missing, duplicated or was never offered.
     #[error("invalid field selection: {detail}")]
     Selection {
@@ -42,6 +49,26 @@ impl From<Failure> for LinkReviewError {
     fn from(error: Failure) -> Self {
         match error {
             Failure::AdoptionReviewRequired => Self::ReviewRequired,
+            Failure::Store(error) => error.into(),
+            error => failed(error),
+        }
+    }
+}
+impl From<StoreError> for LinkReviewError {
+    fn from(error: StoreError) -> Self {
+        match error {
+            StoreError::LinkStateReviewRequired => Self::PrivateStateReviewRequired,
+            StoreError::LinkStateChanged => Self::ReviewRequired,
+            error => failed(error),
+        }
+    }
+}
+impl From<SessionError> for LinkReviewError {
+    fn from(error: SessionError) -> Self {
+        match error {
+            SessionError::Publish(error) => error.into(),
+            SessionError::Store(error) => error.into(),
+            SessionError::Revoked => Self::Revoked,
             error => failed(error),
         }
     }

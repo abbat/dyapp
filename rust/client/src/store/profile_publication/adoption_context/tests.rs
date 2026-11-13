@@ -66,6 +66,7 @@ fn reviewed_draft_receipt_failure_rolls_back_projection_and_blob_pruning() {
         .commit_reviewed_adoption(&identity, &context, &remote, &selected)
         .unwrap_err();
     assert!(error.to_string().contains("review receipt refused"));
+    assert_eq!(store.device_listed().unwrap(), 0);
     assert_eq!(store.profile_draft().unwrap(), before);
     assert!(store.due_search_profile(1000).unwrap().is_none());
     assert!(store
@@ -239,7 +240,7 @@ fn uncommitted_writer_cannot_expose_a_mixed_profile_link_and_search_snapshot() {
         ..Default::default()
     };
     writer.save_profile_draft(&staged).unwrap();
-    writer.set_link_pending(b"staged link").unwrap();
+    writer.set_link_pending_in_tx(b"staged link").unwrap();
     writer
         .hold_search_profile_in_tx(&staged.sign(&identity))
         .unwrap();

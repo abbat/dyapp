@@ -12,6 +12,13 @@ impl Store {
     /// Exact pending bytes preserve import progress; a new/replaced link resets it.
     pub fn set_link_pending(&self, state: &[u8]) -> Result<(), Error> {
         let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)?;
+        self.set_link_pending_in_tx(state)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    // Caller holds the writer through the linked marker, pending bytes and import phase.
+    pub(in crate::store) fn set_link_pending_in_tx(&self, state: &[u8]) -> Result<(), Error> {
         if self.link_pending()?.as_deref() != Some(state) {
             progress::save(&self.db, state, false)?;
         }
@@ -25,7 +32,6 @@ impl Store {
              ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
             params![PENDING, state],
         )?;
-        transaction.commit()?;
         Ok(())
     }
 

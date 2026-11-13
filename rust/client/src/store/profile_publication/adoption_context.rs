@@ -14,6 +14,12 @@ pub(crate) struct ProfileAdoptionContext {
     listed: u64,
 }
 
+impl ProfileAdoptionContext {
+    pub(crate) fn pending_link_state(&self) -> &[u8] {
+        &self.pending_link
+    }
+}
+
 impl Store {
     pub(crate) fn prepare_profile_adoption_context(
         &self,
@@ -108,6 +114,8 @@ impl Store {
         self.save_profile_draft(&draft)?;
         self.hold_search_profile_in_tx(&queued.sign(identity))?;
         profile_retention::retain(&self.db, &hashes, &draft)?;
+        // The caller verified this session certificate in the exact remote readback.
+        self.note_device_listed(remote.version)?;
         self.remember_profile_completion(identity, remote, &queued)?;
         transaction.commit()?;
         Ok(ProfilePublicationOutcome::snapshot(
