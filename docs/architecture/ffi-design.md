@@ -380,6 +380,10 @@ unchanged. The completion digest alone is not an editable merge base. Protected 
 differences do not by themselves require field review. Confirmation still requires the original device
 certificate in the verified remote directory; owner field choices never restore an unlisted or revoked
 device. Initial adoption without a saved draft and post-prepare edits retain their existing behavior.
+`Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
+against its saved device before importing pending state, and reuses the ordinary directory/key-package/
+fallback completion. It never creates credentials or a session. The pending row goes last; on failure,
+reopen the original session and retry. Native recovery exposure of this operation remains planned.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility
 byte, the SHA-256 digest of the canonical owner-signed ordinary profile, then its signed search
 projection. This local receipt compares decoded profile content; media intent checks retain original

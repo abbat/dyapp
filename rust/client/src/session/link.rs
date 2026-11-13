@@ -15,6 +15,9 @@ use dyapp_profile::{Profile, VerifiedProfile};
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const ADD_TURN_SECONDS: u64 = 3600;
 
+#[path = "link/resume.rs"]
+mod resume;
+
 impl Session {
     /// Finishes the link whose state [`Store::set_link_pending`] kept: takes the state and the
     /// newest profile, lists this device, relists and publishes its `KeyPackages`. Returns whether a
@@ -41,26 +44,49 @@ impl Session {
         };
         let adopted = publish::adopt(&mut store, node, identity, &state, now).await?;
         let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
+        session
+            .complete_link_directory(node, identity, device_key, &adopted.published)
+            .await?;
+        session
+            .complete_link_packages(node, device_key, key_packages, seal_key, now)
+            .await?;
+        Ok(true)
+    }
+
+    async fn complete_link_directory(
+        &self,
+        node: &mut Node,
+        identity: &Identity,
+        device_key: &Identity,
+        published: &Profile,
+    ) -> Result<(), Error> {
         // Only ordinary verified profiles prove listing; hidden drafts advance for search tombstones.
-        if adopted.published.devices.contains(&session.certificate()?) {
-            session
-                .store
-                .note_device_listed(adopted.published.version)?;
+        if published.devices.contains(&self.certificate()?) {
+            self.store.note_device_listed(published.version)?;
         } else {
-            let attempt = session.prepare_link_listing(identity, device_key, &adopted.published)?;
-            let listed = publish::relist_prepared(&session.store, node, identity, &attempt).await?;
-            session.store.note_device_listed(listed.published.version)?;
+            let attempt = self.prepare_link_listing(identity, device_key, published)?;
+            let listed = publish::relist_prepared(&self.store, node, identity, &attempt).await?;
+            self.store.note_device_listed(listed.published.version)?;
         }
-        if session.store.last_resort()?.is_none() {
-            session
-                .publish_key_packages(node, device_key, key_packages, seal_key)
+        Ok(())
+    }
+
+    async fn complete_link_packages(
+        &mut self,
+        node: &mut Node,
+        device_key: &Identity,
+        key_packages: usize,
+        seal_key: &[u8; 32],
+        now: u64,
+    ) -> Result<(), Error> {
+        if self.store.last_resort()?.is_none() {
+            self.publish_key_packages(node, device_key, key_packages, seal_key)
                 .await?;
         }
-        session
-            .keep_last_resort(node, device_key, now, seal_key)
+        self.keep_last_resort(node, device_key, now, seal_key)
             .await?;
-        session.store.clear_link_pending()?;
-        Ok(true)
+        self.store.clear_link_pending()?;
+        Ok(())
     }
 
     fn prepare_link_listing(
