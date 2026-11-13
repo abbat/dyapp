@@ -1,7 +1,7 @@
 use super::*;
 use crate::{session::Session, store::Store};
 
-fn initialize(registry: &Registry, wrapping: &Wrapping) {
+pub(super) fn initialize(registry: &Registry, wrapping: &Wrapping) {
     let operation = registry
         .chat_operation(FIRST, &wrapping.owner.peer_id(), wrapping, wrapping)
         .unwrap();

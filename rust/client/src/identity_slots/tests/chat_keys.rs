@@ -1,4 +1,5 @@
 mod concurrency;
+mod existing;
 mod recovery;
 
 use super::{root, slot, FIRST};

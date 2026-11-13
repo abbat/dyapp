@@ -120,6 +120,35 @@ impl Registry {
         })
     }
 
+    /// Admit only an initialized mobile chat session, without bootstrapping credentials.
+    /// An idle recovery review must release this guard and reacquire it for confirmation.
+    ///
+    /// # Errors
+    /// Returns unsupported layout, lifecycle, key, sealed-state or lock failures.
+    /// Missing credentials and sessions are never regenerated.
+    pub fn existing_chat_operation(
+        &self,
+        id: &str,
+        expected_peer: &str,
+        keys: &dyn KeyReader,
+        wrapping: &dyn ChatKeyStore,
+    ) -> Result<ChatOperation, String> {
+        if self.layout == Layout::Desktop {
+            return Err("Wrapped chat admission requires a mobile layout".into());
+        }
+        let identity = self.operation(id, expected_peer, keys)?;
+        let chat_lock = super::registry::open_lock_file(&identity.slot().dir.join("chat.lock"))?;
+        chat_lock.lock().map_err(|error| error.to_string())?;
+        let (device, state_key) =
+            storage::existing(identity.slot(), identity.identity(), wrapping)?;
+        Ok(ChatOperation {
+            device,
+            state_key,
+            _chat_lock: chat_lock,
+            identity,
+        })
+    }
+
     fn ready_chat_slot(
         &self,
         id: &str,

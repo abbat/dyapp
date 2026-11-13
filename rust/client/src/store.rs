@@ -5,7 +5,7 @@ use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
@@ -115,6 +115,22 @@ impl Store {
     /// Rejects relative paths, symlinks, unknown schemas and another identity's
     /// database. Returns database errors for opening, schema or binding failures.
     pub fn open(path: &Path, identity: &Identity) -> Result<Self, Error> {
+        Self::open_with_flags(path, identity, OpenFlags::default())
+    }
+
+    /// Open an already initialized store without creating a database or schema.
+    ///
+    /// # Errors
+    /// Returns missing storage, path, schema, owner-binding or database failures.
+    pub fn open_existing(path: &Path, identity: &Identity) -> Result<Self, Error> {
+        Self::open_with_flags(
+            path,
+            identity,
+            OpenFlags::default() & !OpenFlags::SQLITE_OPEN_CREATE,
+        )
+    }
+
+    fn open_with_flags(path: &Path, identity: &Identity, flags: OpenFlags) -> Result<Self, Error> {
         if !path.is_absolute() {
             return Err(Error::RelativePath);
         }
@@ -122,25 +138,13 @@ impl Store {
             return Err(Error::Symlink);
         }
         let _opening = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
-        let mut db = Connection::open(path)?;
+        let mut db = Connection::open_with_flags(path, flags)?;
+        let initialize = Self::needs_schema(&db, flags)?;
         db.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;",
         )?;
-        let version: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        match version {
-            0 => {
-                let tables: i64 = db.query_row(
-                    "SELECT COUNT(*) FROM `sqlite_master` WHERE `name` NOT LIKE 'sqlite_%'",
-                    [],
-                    |row| row.get(0),
-                )?;
-                if tables != 0 {
-                    return Err(Error::Unversioned);
-                }
-                create_schema(&mut db, identity)?;
-            }
-            VERSION => {}
-            other => return Err(Error::FutureVersion(other)),
+        if initialize {
+            create_schema(&mut db, identity)?;
         }
         let bound: String = db.query_row(
             "SELECT `peer_id` FROM `profile_binding` WHERE `slot` = 1",
@@ -154,6 +158,26 @@ impl Store {
             db,
             owner_peer_id: bound,
         })
+    }
+
+    fn needs_schema(db: &Connection, flags: OpenFlags) -> Result<bool, Error> {
+        let version: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        match version {
+            VERSION => Ok(false),
+            0 if flags.contains(OpenFlags::SQLITE_OPEN_CREATE) => {
+                let tables: i64 = db.query_row(
+                    "SELECT COUNT(*) FROM `sqlite_master` WHERE `name` NOT LIKE 'sqlite_%'",
+                    [],
+                    |row| row.get(0),
+                )?;
+                if tables != 0 {
+                    return Err(Error::Unversioned);
+                }
+                Ok(true)
+            }
+            0 => Err(Error::Unversioned),
+            other => Err(Error::FutureVersion(other)),
+        }
     }
 
     /// Whether this profile sends optional view signals; absent means off.

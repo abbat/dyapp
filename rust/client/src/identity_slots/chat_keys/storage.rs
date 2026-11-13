@@ -9,7 +9,11 @@ fn read(slot: &Slot, kind: ChatKeyKind) -> Result<Option<Zeroizing<Vec<u8>>>, St
     keys::wrapped_bytes(&slot.dir.join(kind.file_name()))
 }
 
-fn snapshot(slot: &Slot, identity: &Identity) -> Result<Option<Vec<u8>>, String> {
+fn snapshot(
+    slot: &Slot,
+    identity: &Identity,
+    open: impl FnOnce(&std::path::Path, &Identity) -> Result<Store, crate::store::Error>,
+) -> Result<Option<Vec<u8>>, String> {
     let path = slot.dir.join("client.db");
     match fs::symlink_metadata(&path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -17,7 +21,7 @@ fn snapshot(slot: &Slot, identity: &Identity) -> Result<Option<Vec<u8>>, String>
         Ok(_) => return Err("Chat database is not a regular file".into()),
         Err(error) => return Err(error.to_string()),
     }
-    Store::open(&path, identity)
+    open(&path, identity)
         .and_then(|store| store.sealed_device())
         .map_err(|error| error.to_string())
 }
@@ -33,8 +37,8 @@ pub(super) fn prepare(
     }
     let device = read(slot, ChatKeyKind::Device)?;
     let state = read(slot, ChatKeyKind::State)?;
-    if let Some(sealed) = snapshot(slot, identity)? {
-        return verify_snapshot(slot, device, state, &sealed, wrapping);
+    if let Some(sealed) = snapshot(slot, identity, Store::open)? {
+        return verify_snapshot(slot, device, state, &sealed, wrapping).map(|_| ());
     }
     let existing = [(ChatKeyKind::Device, device), (ChatKeyKind::State, state)];
     for (kind, bytes) in &existing {
@@ -50,13 +54,32 @@ pub(super) fn prepare(
     Ok(())
 }
 
+pub(super) fn existing(
+    slot: &Slot,
+    identity: &Identity,
+    wrapping: &dyn ChatKeyStore,
+) -> Result<(Identity, Zeroizing<[u8; 32]>), String> {
+    if required(slot, ChatKeyKind::Identity, wrapping)? != identity.secret() {
+        return Err("The wrapping store does not match this identity".into());
+    }
+    let sealed = snapshot(slot, identity, Store::open_existing)?
+        .ok_or("Chat session has not been initialized")?;
+    verify_snapshot(
+        slot,
+        read(slot, ChatKeyKind::Device)?,
+        read(slot, ChatKeyKind::State)?,
+        &sealed,
+        wrapping,
+    )
+}
+
 fn verify_snapshot(
     slot: &Slot,
     device: Option<Zeroizing<Vec<u8>>>,
     state: Option<Zeroizing<Vec<u8>>>,
     sealed: &[u8],
     wrapping: &dyn ChatKeyStore,
-) -> Result<(), String> {
+) -> Result<(Identity, Zeroizing<[u8; 32]>), String> {
     let (Some(device), Some(state)) = (device, state) else {
         return Err("An initialized chat database is missing device or state keys".into());
     };
@@ -64,12 +87,11 @@ fn verify_snapshot(
     let state = wrapping.unwrap(slot, ChatKeyKind::State, &state)?;
     let saved =
         dyapp_messaging::mls::Device::open(sealed, &state).map_err(|error| error.to_string())?;
-    if saved.device_key().map_err(|error| error.to_string())?
-        != Identity::from_secret(&device).public_key()
-    {
+    let device = Identity::from_secret(&device);
+    if saved.device_key().map_err(|error| error.to_string())? != device.public_key() {
         return Err("The saved chat device key changed".into());
     }
-    Ok(())
+    Ok((device, state))
 }
 
 fn fresh(slot: &Slot, kind: ChatKeyKind, wrapping: &dyn ChatKeyStore) -> Result<(), String> {

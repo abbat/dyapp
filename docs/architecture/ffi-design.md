@@ -96,6 +96,11 @@ under the exclusive registry lock. It validates existing keys before creating an
 checks a stored MLS snapshot against the existing state/device keys, and refuses to regenerate
 keys for initialized chats. Fresh wrapped bytes are verified before and after exclusive,
 synchronized file creation. Partial bootstrap preserves the first verified file for retry.
+Recovery confirmation uses `Registry::existing_chat_operation` instead: it requires an initialized
+database and verifies the existing owner, device and sealing keys without bootstrap or replacement.
+`Store::open_existing` disables SQLite file creation and schema initialization, including for
+an existing empty file. The returned operation retains the same registry/session locks only
+through actual work; a review dialog retains neither operation nor session.
 
 Bootstrap releases its exclusive lock before shared identity admission; it never upgrades a
 held shared lease. The returned `ChatOperation` retains both identity protection and an
