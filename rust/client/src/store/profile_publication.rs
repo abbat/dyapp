@@ -99,6 +99,11 @@ impl ProfilePublicationOutcome {
 }
 
 impl Store {
+    // Ordinary observation/listing clocks only; editable and hidden search versions are separate.
+    pub(crate) fn ordinary_profile_floor(&self) -> Result<u64, Error> {
+        Ok(self.own_profile_seen()?.max(self.device_listed()?))
+    }
+
     /// Read current draft/visibility after follow-up network awaits, retaining exact readback.
     ///
     /// # Errors

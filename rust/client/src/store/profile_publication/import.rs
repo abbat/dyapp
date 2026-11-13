@@ -1,7 +1,5 @@
 //! Foreign readback replaces the old baseline, never edits committed during the request.
-use super::{
-    merge, profile_retention, Error, ProfilePublication, ProfilePublicationOutcome, Store,
-};
+use super::{profile_retention, Error, ProfilePublication, ProfilePublicationOutcome, Store};
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 use rusqlite::{Transaction, TransactionBehavior};
@@ -39,7 +37,16 @@ impl Store {
         if identity.peer_id() != self.owner_peer_id || attempt.owner != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }
+        if attempt
+            .directory_source()
+            .is_some_and(|source| source != imported)
+        {
+            return Err(Error::InvalidSetting);
+        }
         let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)?;
+        if imported.version < self.ordinary_profile_floor()? {
+            return Err(Error::ProfileCompletionSuperseded);
+        }
         let current = self.profile_draft()?;
         let floor = current
             .as_ref()
@@ -47,7 +54,7 @@ impl Store {
             .max(self.own_profile_seen()?)
             .max(self.known_search_version()?);
         let outcome = if let Some(outcome) =
-            self.replayed_profile_import(identity, imported, current.as_ref(), floor)?
+            self.replayed_profile_import(identity, attempt, imported, current.as_ref(), floor)?
         {
             outcome
         } else {
@@ -66,6 +73,7 @@ impl Store {
     fn replayed_profile_import(
         &self,
         identity: &Identity,
+        attempt: &ProfilePublication,
         imported: &Profile,
         current: Option<&Profile>,
         floor: u64,
@@ -82,9 +90,18 @@ impl Store {
         if !confirmed {
             return Ok(None);
         }
+        let draft = if attempt.directory_source().is_some() {
+            let mut draft = attempt.reconcile(Some(current.clone()), imported);
+            draft.version = current.version;
+            self.save_profile_draft(&draft)?;
+            self.retain_imported_profile(imported, &draft)?;
+            draft
+        } else {
+            current.clone()
+        };
         Ok(Some(ProfilePublicationOutcome::snapshot(
             imported,
-            current.clone(),
+            draft,
             self.profile_hidden()?,
         )))
     }
@@ -97,12 +114,7 @@ impl Store {
         imported: &Profile,
         current: Option<Profile>,
     ) -> Result<ProfilePublicationOutcome, Error> {
-        let initial = Profile::default();
-        let baseline = attempt.baseline.as_ref().unwrap_or(&initial);
-        let mut draft = current.map_or_else(
-            || imported.clone(),
-            |current| merge::merge(baseline, &current, imported),
-        );
+        let mut draft = attempt.reconcile(current, imported);
         let hidden = self.profile_hidden()?;
         let queued = if hidden && !imported.deleted {
             draft.version = imported
@@ -113,15 +125,19 @@ impl Store {
         } else {
             imported.clone()
         };
+        self.save_profile_draft(&draft)?;
+        self.hold_search_profile_in_tx(&queued.sign(identity))?;
+        self.retain_imported_profile(imported, &draft)?;
+        self.remember_profile_completion(identity, imported, &queued)?;
+        Ok(ProfilePublicationOutcome::snapshot(imported, draft, hidden))
+    }
+
+    fn retain_imported_profile(&self, imported: &Profile, draft: &Profile) -> Result<(), Error> {
         let hashes: Vec<_> = imported
             .photos
             .iter()
             .flat_map(|photo| photo.full.iter().chain([&photo.thumbnail]).cloned())
             .collect();
-        self.save_profile_draft(&draft)?;
-        self.hold_search_profile_in_tx(&queued.sign(identity))?;
-        profile_retention::retain(&self.db, &hashes, &draft)?;
-        self.remember_profile_completion(identity, imported, &queued)?;
-        Ok(ProfilePublicationOutcome::snapshot(imported, draft, hidden))
+        profile_retention::retain(&self.db, &hashes, draft)
     }
 }

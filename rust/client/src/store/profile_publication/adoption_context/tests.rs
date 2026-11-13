@@ -4,6 +4,39 @@ use dyapp_profile::Profile;
 use std::path::Path;
 
 #[test]
+fn an_exact_receipt_cannot_replay_below_a_newer_ordinary_observation() {
+    let (identity, store) = fixture();
+    store.set_profile_hidden(true).unwrap();
+    let mut local = store.profile_draft().unwrap().unwrap();
+    local.version = 4;
+    store.save_profile_draft(&local).unwrap();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    let remote = Profile {
+        version: 2,
+        name: "remote".into(),
+        ..Default::default()
+    };
+    store
+        .commit_reviewed_adoption(&identity, &context, &remote, &remote)
+        .unwrap();
+    let saved = store.profile_draft().unwrap();
+    let head = store.due_search_profile(0).unwrap();
+    assert!(saved.as_ref().unwrap().version > remote.version);
+    store.own_profile_age(3, 10).unwrap();
+    let attempt = store.prepare_profile_publication(&identity).unwrap();
+    assert!(matches!(
+        store.commit_profile_import(&identity, &attempt, &remote),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), saved);
+    assert_eq!(store.due_search_profile(0).unwrap(), head);
+    assert_eq!(store.own_profile_seen().unwrap(), 3);
+}
+
+#[test]
 fn reviewed_draft_receipt_failure_rolls_back_projection_and_blob_pruning() {
     let (identity, store) = fixture();
     let before = store.profile_draft().unwrap();

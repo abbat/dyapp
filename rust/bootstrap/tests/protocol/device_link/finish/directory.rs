@@ -1,7 +1,7 @@
 //! Directory publication is not consent to publish the pending local profile.
 use super::*;
 
-fn pending_profile(store: &Store, adopted: &Profile, identity: &Identity) -> Profile {
+pub(super) fn pending_profile(store: &Store, adopted: &Profile, identity: &Identity) -> Profile {
     let hash = store.save_profile_blob(&[0xFF, 0xD8, 0xFF, 7]).unwrap();
     let mut pending = Profile {
         name: "private pending name".into(),

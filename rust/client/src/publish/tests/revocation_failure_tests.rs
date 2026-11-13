@@ -14,11 +14,19 @@ fn draft(identity: &Identity, key: &Identity, version: u64) -> Profile {
 
 #[tokio::test]
 async fn exhausted_version_never_closes_the_mailbox() {
+    for hidden in [false, true] {
+        Box::pin(check_exhausted_version(hidden)).await;
+    }
+}
+
+async fn check_exhausted_version(hidden: bool) {
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
-    let before = draft(&identity, &key, u64::MAX);
+    let version = u64::MAX.checked_sub(u64::from(hidden)).unwrap();
+    let before = draft(&identity, &key, version);
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     store.save_profile_draft(&before).unwrap();
+    store.set_profile_hidden(hidden).unwrap();
     let calls = Arc::new(AtomicUsize::new(0));
     let observed = Arc::clone(&calls);
     let (mut node, held) = node::observed_revokes(

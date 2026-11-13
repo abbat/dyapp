@@ -218,17 +218,18 @@ pub async fn relist(
         .draft)
 }
 
-/// Revokes the owner's device with the mailbox key `device_key`: closes its mailbox, then [`relist`]s
-/// `draft` without it. A newer profile at the node enriches the prepared request, retaining the
-/// local baseline captured before network work so concurrent edits survive completion. A failure may
-/// be retried: repeated close is harmless and the saved draft keeps its binding until relist. Returns the
-/// new draft.
+/// Close the device mailbox and publish only its verified public directory change.
+/// The actual local baseline is captured before network work; pending editable fields remain local.
+/// Only a version floor and retained authenticated owner binding are read from `draft`.
+/// If the remote directory already omits the device, finish using that retained binding and project
+/// the exact readback without another public version. Returns the current local draft.
 ///
 /// # Errors
 ///
-/// Returns an error if the device has no owner binding, storage or node requests
-/// fail, or relisting fails as described in [`relist`]. A newer draft may already
-/// be saved or the device mailbox closed when a later step fails.
+/// Returns an error for a missing/removed public profile, unavailable current/retained owner
+/// binding, version exhaustion, or storage, network and local projection failures.
+/// Mailbox closure or remote publication may succeed before a later error; retain the original
+/// binding and reload current state for retry. Unavailable source content never republishes a draft.
 pub async fn revoke_device(
     store: &Store,
     node: &mut Node,
@@ -237,23 +238,33 @@ pub async fn revoke_device(
     device_key: &[u8],
 ) -> Result<Profile, Failure> {
     let mut attempt = store.prepare_profile_publication(identity)?;
-    let request = match newest(node, identity).await? {
-        Some(mut held) if held.version > draft.version => {
-            held.version = held
-                .version
-                .checked_add(u64::from(attempt.hidden()))
-                .ok_or(store::Error::ProfileVersionExhausted)?;
-            take_photos(store, node, &held).await?;
-            held
-        }
-        _ => draft.clone(),
+    let held = newest(node, identity)
+        .await?
+        .ok_or(Error::Reply("the account has no profile"))?;
+    if held.deleted {
+        return Err(Error::Reply("the account was removed").into());
+    }
+    admit_directory_version(store, held.version)?;
+    let binding = prepare_revocation(&mut attempt, &held, draft, device_key)?;
+    let changed = (&attempt.draft().devices, &attempt.draft().device_owners)
+        != (&held.devices, &held.device_owners);
+    let version = if changed {
+        store
+            .profile_publication_record(identity, &attempt)?
+            .version
+    } else {
+        held.version
     };
-    *attempt.draft_mut() = request;
-    let binding = unlist_device(attempt.draft_mut(), device_key)
-        .ok_or(Error::Input("device has no owner binding"))?;
-    // Refuse exhausted/invalid requests before the irreversible mailbox closure.
-    store.profile_publication_record(identity, &attempt)?;
+    version
+        .checked_add(u64::from(attempt.hidden()))
+        .ok_or(store::Error::ProfileVersionExhausted)?;
+    take_photos(store, node, &held).await?;
     node.close_mailbox(identity, binding).await?;
+    if !changed {
+        return Ok(store
+            .commit_profile_import(identity, &attempt, &held)?
+            .draft);
+    }
     Ok(send_prepared(
         store,
         node,
@@ -264,6 +275,40 @@ pub async fn revoke_device(
     )
     .await?
     .draft)
+}
+
+fn admit_directory_version(store: &Store, version: u64) -> Result<(), Failure> {
+    if version < store.ordinary_profile_floor()? {
+        return Err(Error::Reply("the node holds an older own profile").into());
+    }
+    Ok(())
+}
+
+fn prepare_revocation(
+    attempt: &mut ProfilePublication,
+    source: &Profile,
+    draft: &Profile,
+    device_key: &[u8],
+) -> Result<SignedRecord, Failure> {
+    let fallback = attempt
+        .draft()
+        .device_owners
+        .iter()
+        .chain(&draft.device_owners)
+        .find(|binding| binding.public_key == device_key)
+        .cloned();
+    attempt.directory_from(source);
+    attempt.draft_mut().version = attempt.draft().version.max(draft.version);
+    if !attempt
+        .draft()
+        .device_owners
+        .iter()
+        .any(|binding| binding.public_key == device_key)
+    {
+        attempt.draft_mut().device_owners.extend(fallback);
+    }
+    unlist_device(attempt.draft_mut(), device_key)
+        .ok_or_else(|| Error::Input("device has no owner binding").into())
 }
 
 /// Starts the fresh store of a linked device from the record's `state` and the newest profile with
@@ -327,7 +372,9 @@ async fn send_prepared(
         }
     }
     let seen = held.as_ref().map_or(0, |held| held.version);
-    if store.own_profile_seen()? > seen.max(draft.version) {
+    if attempt.directory_source().is_some() {
+        admit_directory_version(store, seen)?;
+    } else if store.own_profile_seen()? > seen.max(draft.version) {
         return Err(Error::Reply("the node holds an older own profile").into());
     }
     if let Some(held) = held {
@@ -568,6 +615,8 @@ mod tests {
     mod publication_tests;
     #[path = "revocation_failure_tests.rs"]
     mod revocation_failure_tests;
+    #[path = "revocation_privacy_tests.rs"]
+    mod revocation_privacy_tests;
     #[path = "revocation_tests.rs"]
     mod revocation_tests;
     #[path = "version_tests.rs"]

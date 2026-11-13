@@ -347,11 +347,22 @@ edits. Draft/search/privacy/retention and receipt remain one atomic completion. 
 bytes are retained locally and never uploaded by this directory-only request.
 Profile publication still lacks an expected-readback condition on the wire: a write after the final
 read can race a version-gap submission. Conditional profile writes remain planned.
-Device revocation captures its local baseline and visibility before the first network await and
-changes only the prepared device-list request. Completion preserves concurrent local edits. A foreign
-profile observed after mailbox closure returns a conflict without replacing the local draft; closure
-may already have succeeded, so failure does not imply rollback. Checked version exhaustion is refused
-before closure. Ordinary foreign publication conflicts now project through a prepared Store import:
+Device revocation captures its actual local baseline and visibility before the first network await.
+Its directory-only request always starts from verified public readback, even when the local or caller
+version is equal or higher. The caller draft supplies only a version floor or an authenticated owner
+binding retained for retry; editable caller/local fields are never implicitly published. Completion
+retains both pre-existing pending fields and later local edits, stronger proof and protected photos.
+If the remote directory already omits the target, a retained binding permits repeated mailbox close
+and atomic directory-only import without another public version. Exact receipt replay retains the
+current search version, ACK state and receipt while applying the directory change. Missing/removed
+public profiles and unknown bindings fail without republishing local data. A foreign source observed
+after closure conflicts without replacing pending fields; closure or remote publication can precede
+a later failure. Ordinary and hidden completion version exhaustion is checked before closure.
+Directory readback is checked against persisted ordinary observation/listing versions before closure
+and at final readback. Imports repeat that check under the writer, including exact receipt replay;
+a higher editable/search version never makes an older ordinary profile current.
+
+Ordinary foreign publication conflicts now project through a prepared Store import:
 unchanged baseline fields yield to the winning remote profile, while post-prepare edits remain pending.
 The transaction preserves current visibility, paired device-directory edits, stronger proof and protected
 photo bytes; its search record contains exact remote content or a higher hidden tombstone, never pending

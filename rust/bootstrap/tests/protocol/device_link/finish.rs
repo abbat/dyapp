@@ -3,6 +3,8 @@ use super::*;
 
 #[path = "finish/directory.rs"]
 mod directory;
+#[path = "finish/revocation.rs"]
+mod revocation;
 
 struct HiddenLink {
     owner: Person,
