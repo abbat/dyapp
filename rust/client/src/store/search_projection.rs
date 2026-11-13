@@ -7,13 +7,59 @@ use std::time::Duration;
 
 const HEAD_KEY: &str = "search_profile_head";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum Purpose {
+    Ordinary = 0,
+    SearchWithdrawal = 1,
+    LegacyWithdrawal = 2,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct Head {
     version: u64,
     digest: [u8; 32],
+    purpose: Option<Purpose>,
 }
 
 impl Head {
+    fn decode(format: i64, value: &[u8]) -> Result<Self, Error> {
+        let (bytes, purpose) = match (format, value.len()) {
+            (1, 40) => (value, None),
+            (2, 41) => {
+                let (purpose, bytes) = value.split_last().ok_or(Error::InvalidSetting)?;
+                let purpose = match purpose {
+                    0 => Purpose::Ordinary,
+                    1 => Purpose::SearchWithdrawal,
+                    2 => Purpose::LegacyWithdrawal,
+                    _ => return Err(Error::InvalidSetting),
+                };
+                (bytes, Some(purpose))
+            }
+            _ => return Err(Error::InvalidSetting),
+        };
+        let (version, digest) = bytes.split_first_chunk().ok_or(Error::InvalidSetting)?;
+        let version = u64::from_be_bytes(*version);
+        if version == 0 {
+            return Err(Error::InvalidSetting);
+        }
+        Ok(Self {
+            version,
+            digest: digest.try_into().map_err(|_| Error::InvalidSetting)?,
+            purpose,
+        })
+    }
+
+    fn encode(self) -> (i64, Vec<u8>) {
+        let mut value = self.version.to_be_bytes().to_vec();
+        value.extend(self.digest);
+        let format = self.purpose.map_or(1, |purpose| {
+            value.push(purpose as u8);
+            2
+        });
+        (format, value)
+    }
+
     pub(super) fn version(self) -> u64 {
         self.version
     }
@@ -25,9 +71,17 @@ impl Store {
         if verified.peer_id != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }
+        let purpose = if verified.profile.search_only {
+            Purpose::SearchWithdrawal
+        } else if verified.profile.deleted && verified.profile.previous.is_none() {
+            Purpose::LegacyWithdrawal
+        } else {
+            Purpose::Ordinary
+        };
         Ok(Head {
             version: verified.profile.version,
             digest: sha256(&record.encode_to_vec()),
+            purpose: Some(purpose),
         })
     }
 
@@ -43,23 +97,15 @@ impl Store {
         let Some((format, value)) = value else {
             return Ok(None);
         };
-        if format != 1 || value.len() != 40 {
-            return Err(Error::InvalidSetting);
-        }
-        let (version, digest) = value.split_first_chunk().ok_or(Error::InvalidSetting)?;
-        Ok(Some(Head {
-            version: u64::from_be_bytes(*version),
-            digest: digest.try_into().map_err(|_| Error::InvalidSetting)?,
-        }))
+        Head::decode(format, &value).map(Some)
     }
 
     fn set_search_head(&self, head: Head) -> Result<(), Error> {
-        let mut value = head.version.to_be_bytes().to_vec();
-        value.extend(head.digest);
+        let (format, value) = head.encode();
         self.db.execute(
-            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
-             ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",
-            params![HEAD_KEY, value],
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, ?2, ?3)
+             ON CONFLICT (`key`) DO UPDATE SET `format_version` = excluded.`format_version`, `value` = excluded.`value`",
+            params![HEAD_KEY, format, value],
         )?;
         Ok(())
     }
@@ -87,8 +133,15 @@ impl Store {
                 {
                     return Err(Error::SearchProfileConflict)
                 }
-                Some(saved) if pending.version == saved.version => {}
-                _ => head = Some(pending), // Derive the marker for legacy format-1 queues.
+                Some(saved)
+                    if pending.version == saved.version
+                        && saved
+                            .purpose
+                            .is_some_and(|purpose| Some(purpose) != pending.purpose) =>
+                {
+                    return Err(Error::InvalidSetting)
+                }
+                _ => head = Some(pending), // Verified pending bytes resolve an unknown legacy purpose.
             }
         }
         if let Some(snapshot) = snapshot {
@@ -214,3 +267,7 @@ impl Store {
 #[cfg(test)]
 #[path = "search_projection_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "search_head_purpose_tests.rs"]
+mod purpose_tests;

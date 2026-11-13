@@ -332,8 +332,14 @@ admission reject search-purpose and ambiguous legacy
 unconditional tombstones, even when a peer returns them through `GetProfile`. Historical/search
 verification remains explicit and never authorizes account deletion or device-directory changes.
 Search merges track withdrawal version evidence separately from ordinary contact/MLS caches.
-Legacy queued Hide signatures require owner reauthorization before sending; pending and acknowledged
-head migration is still planned, and opening a Store does not migrate or erase that state.
+New `search_profile_head` writes use setting format 2: big-endian version (8 bytes), digest of the
+complete signed record (32 bytes), then verified purpose (0 ordinary, 1 search withdrawal,
+2 ambiguous legacy withdrawal). Format 1 retains the same version/digest with unknown purpose.
+Opening or reading a Store never rewrites either format. Matching verified pending bytes can
+resolve an unknown purpose in the read snapshot; a contradictory known purpose is invalid.
+Purpose metadata is queue bookkeeping and never authorizes ordinary account/device changes.
+Legacy queued Hide signatures require owner reauthorization before sending; recovery of pending
+and acknowledged legacy/unknown heads is still planned and never happens implicitly on opening.
 Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version
