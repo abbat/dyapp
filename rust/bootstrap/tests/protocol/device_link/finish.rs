@@ -1,6 +1,8 @@
 //! Hidden link completion must remember ordinary readback, never its search tombstone.
 use super::*;
 
+#[path = "finish/advanced.rs"]
+mod advanced;
 #[path = "finish/directory.rs"]
 mod directory;
 #[path = "finish/revocation.rs"]

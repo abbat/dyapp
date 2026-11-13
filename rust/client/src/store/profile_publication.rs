@@ -39,6 +39,20 @@ impl ProfilePublication {
         self.directory_source.as_deref()
     }
 
+    // Without a proven editable merge base, adoption must ask rather than discard old edits.
+    fn adoption_conflicts(&self, published: &Profile) -> bool {
+        let Some(mut local) = self.baseline.clone() else {
+            return false;
+        };
+        local.version = published.version;
+        local.deleted = published.deleted;
+        local.pow_nonce = published.pow_nonce;
+        local.pow_bits = published.pow_bits;
+        local.devices.clone_from(&published.devices);
+        local.device_owners.clone_from(&published.device_owners);
+        local != *published
+    }
+
     fn reconcile(&self, current: Option<Profile>, published: &Profile) -> Profile {
         let initial = Profile::default();
         let baseline = self.baseline.as_ref().unwrap_or(&initial);

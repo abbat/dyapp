@@ -324,7 +324,8 @@ fn prepare_revocation(
 /// fetching photos or replacing the draft and rechecked on completion. The baseline is captured after
 /// link-state import and before the first network await. Completion preserves later local edits and
 /// visibility, committing the observed-version clock with draft/search/retention. Earlier link-state
-/// imports remain applied on failure.
+/// imports remain applied on failure. Without an exact completion replay, differing pre-existing
+/// editable fields require owner review rather than replacement by a newer readback.
 pub async fn adopt(
     store: &mut Store,
     node: &mut Node,

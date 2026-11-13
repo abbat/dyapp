@@ -373,7 +373,13 @@ Ordinary linked-device adoption captures a baseline after the intentional link-s
 its first network await. Its completion uses the same import projection and atomically records the
 exact remote observed-version clock alongside draft/search/photo retention. Visibility and version
 floors are re-read under the writer, including hidden-version exhaustion after photo fetching; failures
-roll back completion writes, while the earlier link-state prefix remains applied.
+roll back completion writes, while the earlier link-state prefix remains applied. After exact replay
+and narrowly proven legacy replay, a different readback cannot replace differing pre-existing editable
+fields: adoption returns the typed owner-review outcome with draft, search, receipt and photo retention
+unchanged. The completion digest alone is not an editable merge base. Protected version/proof/directory
+differences do not by themselves require field review. Confirmation still requires the original device
+certificate in the verified remote directory; owner field choices never restore an unlisted or revoked
+device. Initial adoption without a saved draft and post-prepare edits retain their existing behavior.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility
 byte, the SHA-256 digest of the canonical owner-signed ordinary profile, then its signed search
 projection. This local receipt compares decoded profile content; media intent checks retain original

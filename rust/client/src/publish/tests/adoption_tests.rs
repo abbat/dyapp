@@ -98,8 +98,8 @@ async fn adoption_keeps_edits_made_during_its_initial_remote_read() {
     let mut store = Store::open(&path, &identity).unwrap();
     let baseline = Profile {
         version: 1,
-        name: "before".into(),
-        profession: "old job".into(),
+        name: "remote".into(),
+        profession: "remote job".into(),
         ..Default::default()
     };
     store.save_profile_draft(&baseline).unwrap();
@@ -109,8 +109,6 @@ async fn adoption_keeps_edits_made_during_its_initial_remote_read() {
         .unwrap();
     let remote = Profile {
         version: 3,
-        name: "remote".into(),
-        profession: "remote job".into(),
         ..baseline
     };
     let copy = Identity::from_secret(&identity.secret());

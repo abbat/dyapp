@@ -43,7 +43,7 @@ fn a_legacy_hidden_readback_requires_content_head_and_listed_device_evidence() {
 
 #[test]
 fn malformed_completion_receipts_fail_without_changing_any_projection() {
-    let (identity, store, attempt, imported) = fixture();
+    let (identity, store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -89,7 +89,7 @@ fn malformed_completion_receipts_fail_without_changing_any_projection() {
 
 #[test]
 fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
-    let (identity, mut store, attempt, imported) = fixture();
+    let (identity, mut store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -118,7 +118,7 @@ fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
 
 #[test]
 fn an_adoption_receipt_does_not_admit_a_fork_or_changed_visibility() {
-    let (identity, store, attempt, imported) = fixture();
+    let (identity, store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -143,7 +143,7 @@ fn an_adoption_receipt_does_not_admit_a_fork_or_changed_visibility() {
 
 #[test]
 fn adoption_clock_commits_only_the_remote_version_and_refuses_an_older_completion() {
-    let (identity, store, attempt, imported) = fixture();
+    let (identity, store, attempt, imported) = adoption_fixture();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
         .unwrap();
@@ -163,7 +163,7 @@ fn adoption_clock_commits_only_the_remote_version_and_refuses_an_older_completio
 
 #[test]
 fn adoption_clock_failure_rolls_back_draft_search_and_prior_blob_pruning() {
-    let (identity, store, attempt, imported) = fixture();
+    let (identity, store, attempt, imported) = adoption_fixture();
     let before = store.profile_draft().unwrap();
     let orphan = store.save_profile_blob(&[0xFF, 0xD8, 0xFF, 7]).unwrap();
     store
@@ -186,7 +186,7 @@ fn adoption_clock_failure_rolls_back_draft_search_and_prior_blob_pruning() {
 
 #[test]
 fn adoption_rechecks_hidden_version_exhaustion_without_partially_recording_age() {
-    let (identity, store, attempt, mut imported) = fixture();
+    let (identity, store, attempt, mut imported) = adoption_fixture();
     imported.version = u64::MAX;
     let before = store.profile_draft().unwrap();
     store.set_profile_hidden(true).unwrap();
@@ -253,6 +253,30 @@ fn invalid_imported_photo_rolls_back_draft_and_search_projection() {
         .profile_photo(&before.photos[0].thumbnail)
         .unwrap()
         .is_some());
+}
+
+fn adoption_fixture() -> (Identity, Store, ProfilePublication, Profile) {
+    let (identity, store, _, imported) = fixture();
+    let baseline = Profile {
+        version: 1,
+        ..imported.clone()
+    };
+    store.save_profile_draft(&baseline).unwrap();
+    let attempt = store.prepare_profile_publication(&identity).unwrap();
+    (identity, store, attempt, imported)
+}
+
+#[test]
+fn adoption_requires_review_for_unconfirmed_existing_editable_values() {
+    let (identity, store, attempt, imported) = fixture();
+    let before = store.profile_draft().unwrap();
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &imported, 100),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert_eq!(store.own_profile_seen().unwrap(), 0);
 }
 
 fn fixture() -> (Identity, Store, ProfilePublication, Profile) {

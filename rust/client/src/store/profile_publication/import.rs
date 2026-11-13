@@ -58,7 +58,10 @@ impl Store {
         {
             outcome
         } else {
-            if (attempt.baseline.is_some() && current.is_none()) || floor > imported.version {
+            if (attempt.baseline.is_some() && current.is_none())
+                || floor > imported.version
+                || (observed_at.is_some() && attempt.adoption_conflicts(imported))
+            {
                 return Err(Error::ProfileCompletionSuperseded);
             }
             self.project_profile_import(identity, attempt, imported, current)?
