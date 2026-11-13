@@ -132,8 +132,26 @@ case "${1:?suite required}" in
                 > "$report_dir/$fixture-peer-$phase.txt" || return
             python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
         }
+        node_action() {
+            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
+                > "$report_dir/node-$1.txt"
+        }
+        offline_worker_phases() {
+            node_action stop || return
+            if peer_phase worker queue && peer_phase worker reopenQueued; then
+                node_action start || return
+                peer_phase worker catchUpBody
+            else
+                node_action start || true
+                return 1
+            fi
+        }
         for fixture in retained worker; do
             if peer_phase "$fixture" prepare && peer_phase "$fixture" reopen; then
+                if [[ $fixture == worker ]] && ! offline_worker_phases; then
+                    peer_phase worker cleanup || true
+                    exit 1
+                fi
                 peer_phase "$fixture" cleanup
             else
                 peer_phase "$fixture" cleanup || true

@@ -43,8 +43,12 @@ invocations before the forged-search fixture. Both use native inventory and cred
 Worker-peer uses the actual `noBackupFilesDir` registry, atomically records only public selectors and
 the previous logical selection/inventory, then removes only its fixture and restores that selection.
 Recovery, unfinished checkpoints or fixture selectors naming pre-existing inventory fail explicitly.
-A normal suite skips phase-only tests without their arguments. These phases alone prove no reboot or
-background delivery; those remain separate work.
+A normal suite skips phase-only tests without their arguments. Worker phases publish a retained pair,
+record an anchor ID, stop the real node, queue and reopen the exact offline ID, then restart the node
+and check incoming/outgoing IDs through the real `receiveMail` body. Only the counterpart advances
+its mailbox directly. The message checkpoint is bound to both native Peer IDs; reopen never republishes
+profiles. `catchUpBody` invokes the body synchronously; JobScheduler scheduling, reboot,
+update and Doze/App Standby delivery remain separate acceptance work.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs
 `timeout 30 bash tests/scripts/android-node-control.sh command /reports/node stop` (or `start`,
 `status`, `shutdown`). Stop/shutdown acknowledge only after child exit; start acknowledges spawning,

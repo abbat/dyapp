@@ -1,10 +1,8 @@
 package com.dyapp
 
-import android.util.AtomicFile
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileNotFoundException
 
 private const val STAGE = "stage"
 private const val BEFORE = "before"
@@ -17,19 +15,19 @@ private const val CLEANED = "cleaned"
 /** Test orchestration only: the registry owns every identity operation and directory. */
 internal class WorkerPeerFixture(root: File, checkpoint: File) {
     private val slots = Slots(root)
-    private val checkpoint = AtomicFile(checkpoint)
+    private val checkpoint = PeerCheckpoint(checkpoint)
 
     fun prepare(): Opened.Ready {
-        val existing = existing()
+        val existing = checkpoint.existing()
         check(existing == null || existing.getString(STAGE) == CLEANED) {
             "An earlier worker fixture needs explicit cleanup"
         }
         val state = JSONObject().put(BEFORE, captureWorkerSelection(slots)).put(STAGE, "preparing")
-        save(state)
+        checkpoint.write(state)
         val ready = slots.create()
         state.put(FIXTURE, workerSelector(ready)).put(STAGE, READY)
         return runCatching {
-            save(state)
+            checkpoint.write(state)
             requireWorkerDurability(slots)
             ready
         }.onFailure { failure ->
@@ -38,13 +36,13 @@ internal class WorkerPeerFixture(root: File, checkpoint: File) {
     }
 
     fun reopen(): Opened.Ready {
-        val state = load()
+        val state = checkpoint.read()
         check(state.getString(STAGE) == READY) { "Worker fixture is not ready" }
         return verifyWorkerSelector(slots.open(), ownedFixture(state))
     }
 
     fun cleanup() {
-        val state = load()
+        val state = checkpoint.read()
         if (state.getString(STAGE) == CLEANED) return
         check(state.getString(STAGE) == READY) { "Worker fixture creation has an ambiguous outcome" }
         cleanupState(state)
@@ -65,7 +63,7 @@ internal class WorkerPeerFixture(root: File, checkpoint: File) {
             throw failure
         }
         restoration.getOrThrow()
-        save(state.put(STAGE, CLEANED))
+        checkpoint.write(state.put(STAGE, CLEANED))
     }
 
     private fun restore(before: JSONObject) {
@@ -96,24 +94,6 @@ internal class WorkerPeerFixture(root: File, checkpoint: File) {
             "Worker checkpoint points to a pre-existing identity"
         }
         return fixture
-    }
-
-    private fun load(): JSONObject =
-        checkpoint.openRead().bufferedReader().use { JSONObject(it.readText()) }
-
-    private fun existing(): JSONObject? = try {
-        load()
-    } catch (failure: FileNotFoundException) {
-        if (checkpoint.baseFile.exists()) throw failure
-        null
-    }
-
-    private fun save(state: JSONObject) {
-        val stream = checkpoint.startWrite()
-        runCatching {
-            stream.write(state.toString().toByteArray(Charsets.UTF_8))
-            checkpoint.finishWrite(stream)
-        }.onFailure { checkpoint.failWrite(stream) }.getOrThrow()
     }
 }
 
