@@ -35,8 +35,32 @@ fn seed_row(address: &Multiaddr) -> String {
     format!("127.0.0.1:{}/{}", port.unwrap(), peer.unwrap())
 }
 
+#[path = "ffi_chats/offline.rs"]
+mod offline;
+
+/// Retained credentials reopen the same native device after every session handle is dropped.
+struct NativePeer {
+    dir: String,
+    key: Arc<IdentityKey>,
+    device: Arc<IdentityKey>,
+    state_key: Vec<u8>,
+}
+
+impl NativePeer {
+    fn open(&self) -> Arc<ChatSession> {
+        ChatSession::open(
+            self.dir.clone(),
+            self.key.clone(),
+            self.device.clone(),
+            Arc::new(TestStore),
+            self.state_key.clone(),
+        )
+        .unwrap()
+    }
+}
+
 /// An identity folder on the node's network whose device is published with `KeyPackages`.
-fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
+fn retained_person(address: &Multiaddr) -> NativePeer {
     let dir = protocol_build_path("ffi-chats");
     std::fs::create_dir_all(&dir).unwrap();
     let active = Network {
@@ -58,11 +82,20 @@ fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
     let solve = ProfileSolve::new(dir.clone(), key.clone()).unwrap();
     while !solve.run_step(true).unwrap().solved {}
     let store: Arc<dyn KeyStore> = Arc::new(TestStore);
-    let state_key = new_chat_state_key(store.clone()).unwrap();
-    let chats =
-        ChatSession::open(dir, key.clone(), IdentityKey::generate(), store, state_key).unwrap();
-    chats.publish_profile(true).unwrap();
-    (key, chats)
+    let state_key = new_chat_state_key(store).unwrap();
+    let peer = NativePeer {
+        dir,
+        key,
+        device: IdentityKey::generate(),
+        state_key,
+    };
+    peer.open().publish_profile(true).unwrap();
+    peer
+}
+
+fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
+    let peer = retained_person(address);
+    (peer.key.clone(), peer.open())
 }
 
 fn texts(chats: &ChatSession, peer_id: &str) -> Vec<String> {
