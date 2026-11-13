@@ -2,6 +2,7 @@
 /**
  * @type {{
  *   trayShown?: Promise<unknown>,
+ *   versionShown?: Promise<unknown>,
  *   chatsDone?: Promise<unknown>,
  *   connectionShown?: Promise<unknown>,
  *   stickersShown?: Promise<unknown>,

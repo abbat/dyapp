@@ -298,6 +298,15 @@ const changeTray = () => setTray({ show: trayShow.checked, closeToTray: trayClos
 trayShow.addEventListener('change', changeTray);
 trayClose.addEventListener('change', changeTray);
 progress.trayShown = stringsShown.then(() => setTray(null));
+// About names the version so people can quote it in an issue; on failure the caption stays empty.
+progress.versionShown = stringsShown
+  .then(() => invoke('app_version'))
+  .then((version) => {
+    domById('settings-version', HTMLParagraphElement).textContent = localeModule_strings[
+      'settings.version'
+    ].replace('{version}', version);
+  })
+  .catch(() => {});
 
 // Settings → Appearance: kept by this app for every identity; a language change reloads the page.
 /** @param {string | null} theme */

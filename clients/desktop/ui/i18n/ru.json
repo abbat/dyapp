@@ -18,6 +18,7 @@
   "photos.cache.invalid": "Введите {min}–{max} MiB с точностью до целого числа байтов.",
   "photos.cache.failed": "Операция с кэшем не выполнена. Обновите данные перед изменением или очисткой.",
   "settings.hub.product": "dyapp",
+  "settings.version": "Версия {version}",
   "settings.hub.notifications": "Уведомления",
   "settings.hub.account": "Учётная запись",
   "settings.hub.about": "О приложении",

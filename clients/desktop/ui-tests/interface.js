@@ -807,6 +807,9 @@ const appApi = {
   get toggleFavorite() {
     return favoritesModule.controller.toggleFavorite;
   },
+  get versionShown() {
+    return progressModule.progress.versionShown;
+  },
   get trayShown() {
     return progressModule.progress.trayShown;
   },

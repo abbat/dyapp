@@ -15,6 +15,15 @@
       );
     }
   };
+  const checkVersionShown = async (check) => {
+    await appApi.versionShown;
+    check(
+      /^(Version|Версия) \d+\.\d+\.\d+/.test(
+        document.getElementById('settings-version').textContent,
+      ),
+      'About lacks the app version',
+    );
+  };
   smoke.checkSettingsNavigation = async () => {
     await openArea('settings');
     const root = document.getElementById('settings-root');
@@ -65,5 +74,6 @@
       'Identity change retained a category',
     );
     checkPreferenceSwitches(check);
+    await checkVersionShown(check);
   };
 })();

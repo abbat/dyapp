@@ -592,6 +592,16 @@ fn locale_options() -> [bool; 2] {
     [pseudo, russian]
 }
 
+/// The bundle version from `tauri.conf.json`, the same string as the release artifact.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts command state and request values by value"
+)]
+fn app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
 #[cfg(feature = "ui-smoke")]
 fn ui_test_russian() -> bool {
     std::env::args().any(|arg| arg == "--ui-test")
@@ -839,6 +849,7 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     node_usage_commands::storage_usage,
     node_usage_commands::status,
     locale_options,
+    app_version,
     #[cfg(feature = "ui-smoke")]
     ui_test_mode,
     #[cfg(feature = "ui-smoke")]

@@ -18,6 +18,7 @@
   "photos.cache.invalid": "Enter {min}–{max} MiB, resolving to a whole number of bytes.",
   "photos.cache.failed": "Cache operation failed. Refresh before changing or clearing it.",
   "settings.hub.product": "dyapp",
+  "settings.version": "Version {version}",
   "settings.hub.notifications": "Notifications",
   "settings.hub.account": "Account",
   "settings.hub.about": "About",

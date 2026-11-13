@@ -76,6 +76,7 @@
 /**
  * @typedef {{
  *   locale_options: Command<[], [boolean, boolean]>,
+ *   app_version: Command<[], string>,
  *   identity_state: Command<[], IdentityResponse>,
  *   storage_options: Command<[], SetupIdentity>,
  *   list_identities: Command<[], (ReadyIdentity | RecoveryIdentity)[]>,
