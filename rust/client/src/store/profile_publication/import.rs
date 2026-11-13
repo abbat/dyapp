@@ -73,9 +73,13 @@ impl Store {
         let Some(current) = current else {
             return Ok(None);
         };
-        if floor != current.version
-            || self.completed_profile_version(identity, imported)? != Some(current.version)
-        {
+        if floor != current.version {
+            return Ok(None);
+        }
+        let confirmed = self.completed_profile_version(identity, imported)?
+            == Some(current.version)
+            || self.migrate_legacy_profile_completion(identity, imported, current)?;
+        if !confirmed {
             return Ok(None);
         }
         Ok(Some(ProfilePublicationOutcome::snapshot(

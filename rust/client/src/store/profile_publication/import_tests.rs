@@ -2,6 +2,46 @@ use super::*;
 use crate::store::tests::temp_db_path;
 
 #[test]
+fn a_legacy_hidden_readback_requires_content_head_and_listed_device_evidence() {
+    let (identity, store, _, imported) = fixture();
+    let current = Profile {
+        version: imported.version + 1,
+        ..imported.clone()
+    };
+    store.save_profile_draft(&current).unwrap();
+    store.set_profile_hidden(true).unwrap();
+    let attempt = store.prepare_profile_publication(&identity).unwrap();
+    let queued = Profile::tombstone(current.version, imported.pow_nonce, imported.pow_bits);
+    store.hold_search_profile(&queued.sign(&identity)).unwrap();
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &imported, 100),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    store.note_device_listed(imported.version).unwrap();
+    let fork = Profile {
+        name: "foreign fork".into(),
+        ..imported.clone()
+    };
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &fork, 100),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    let outcome = store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap();
+    assert_eq!(outcome.draft, current);
+    assert_eq!(outcome.published, imported);
+    assert!(outcome.hidden);
+    assert!(!outcome.pending);
+    assert_eq!(
+        store
+            .completed_profile_version(&identity, &imported)
+            .unwrap(),
+        Some(current.version)
+    );
+}
+
+#[test]
 fn malformed_completion_receipts_fail_without_changing_any_projection() {
     let (identity, store, attempt, imported) = fixture();
     store.set_profile_hidden(true).unwrap();

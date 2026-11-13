@@ -354,8 +354,12 @@ projection. This local receipt compares decoded profile content; media intent ch
 verified wire bytes separately.
 A repeated import preserves the complete pending draft only when that readback, visibility and current
 search head still match, including after ACK. This admits the confirmed hidden successor without
-accepting an arbitrary older/forked profile or spending another version. Missing or malformed receipts
-never grant the stale-version exception. Remaining client prepared-outcome adapters still require
+accepting an arbitrary older/forked profile or spending another version. Without a receipt, a legacy
+hidden-link completion can migrate only if its listed-device version matches ordinary readback,
+all decoded draft fields match that readback (apart from the hidden successor and stronger local proof),
+and the exact signed search head matches the local or remote proof. The receipt is installed under the
+same writer; pending content changes or ambiguous evidence refuse automatic migration. A malformed or
+already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version

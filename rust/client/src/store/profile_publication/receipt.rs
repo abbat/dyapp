@@ -8,6 +8,44 @@ use rusqlite::{params, OptionalExtension};
 const KEY: &str = "profile_completion_receipt";
 
 impl Store {
+    // Called only under the completion writer; an offset alone never proves legacy readback.
+    pub(super) fn migrate_legacy_profile_completion(
+        &self,
+        identity: &Identity,
+        published: &Profile,
+        current: &Profile,
+    ) -> Result<bool, Error> {
+        let exists: bool = self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM `settings` WHERE `key` = ?1)",
+            [KEY],
+            |row| row.get(0),
+        )?;
+        if exists
+            || !self.profile_hidden()?
+            || published.deleted
+            || published.version.checked_add(1) != Some(current.version)
+            || self.device_listed()? != published.version
+            || current.pow_bits < published.pow_bits
+        {
+            return Ok(false);
+        }
+        let mut content = current.clone();
+        content.version = published.version;
+        content.pow_bits = published.pow_bits;
+        content.pow_nonce = published.pow_nonce;
+        if content != *published {
+            return Ok(false);
+        }
+        for proof in [current, published] {
+            let queued = Profile::tombstone(current.version, proof.pow_nonce, proof.pow_bits);
+            if self.search_profile_known(&queued.sign(identity))? {
+                self.remember_profile_completion(identity, published, &queued)?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub(super) fn remember_profile_completion(
         &self,
         identity: &Identity,

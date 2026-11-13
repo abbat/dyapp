@@ -28,6 +28,52 @@ impl HiddenLink {
         }
     }
 
+    async fn prepare_legacy_partial_link(&mut self) -> Profile {
+        let mut remote = self
+            .owner
+            .node
+            .get_profile(&self.owner.identity.peer_id())
+            .await
+            .unwrap()
+            .profile;
+        let session = Session::open_or_create(
+            self.store(),
+            &self.laptop.identity,
+            &self.laptop.device_key,
+            &SEAL,
+        )
+        .unwrap();
+        let binding = dyapp_client::owner_binding(
+            &self.laptop.device_key,
+            &self.laptop.identity.public_key(),
+        );
+        session.list_self(&mut remote, binding).unwrap();
+        remote.version = remote.version.checked_add(1).unwrap();
+        self.owner
+            .node
+            .publish_profile(remote.sign(&self.owner.identity))
+            .await
+            .unwrap();
+        drop(session);
+        // Write the pre-receipt completion layout through the old storage APIs, never erase a receipt.
+        let store = self.store();
+        store.set_profile_hidden(true).unwrap();
+        let current = Profile {
+            version: remote.version.checked_add(1).unwrap(),
+            ..remote.clone()
+        };
+        store.save_profile_draft(&current).unwrap();
+        store
+            .hold_search_profile(
+                &Profile::tombstone(current.version, current.pow_nonce, current.pow_bits)
+                    .sign(&self.laptop.identity),
+            )
+            .unwrap();
+        store.note_device_listed(remote.version).unwrap();
+        store.set_link_pending(&self.state).unwrap();
+        remote
+    }
+
     async fn finish(&mut self) -> Profile {
         let store = self.store();
         store.set_link_pending(&self.state).unwrap();
@@ -64,6 +110,22 @@ impl HiddenLink {
             published.version.checked_add(1).unwrap()
         );
     }
+}
+
+#[tokio::test]
+async fn a_pre_receipt_hidden_partial_link_finishes_after_store_reopen() {
+    let mut f = Box::pin(HiddenLink::new()).await;
+    let remote = f.prepare_legacy_partial_link().await;
+    assert!(f.store().link_pending().unwrap().is_some());
+    let completed = f.finish().await;
+    assert_eq!(
+        completed, remote,
+        "legacy recovery must not spend a profile version"
+    );
+    f.check_listed(&completed);
+    let retried = f.finish().await;
+    assert_eq!(retried, remote);
+    f.check_listed(&retried);
 }
 
 #[tokio::test]
