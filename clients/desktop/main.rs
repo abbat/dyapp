@@ -54,6 +54,7 @@ mod safety;
 mod sealing;
 #[path = "search.rs"]
 mod search;
+mod slot_keys;
 #[path = "slots.rs"]
 mod slots;
 use sealing::sealing_key;

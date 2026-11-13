@@ -7,13 +7,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
+use dyapp_client::identity_slots::{self as core, Layout, Registry};
 use dyapp_client::link::{Invite, Linked};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
 use crate::safety::QrMatrix;
 use crate::slots::{self, Opened, Slot};
-use crate::IdentityState;
+use crate::{slot_keys, IdentityState};
 
 struct Pending {
     invite: Invite,
@@ -171,7 +172,7 @@ pub async fn poll_link(
 ) -> Result<Option<HashMap<&'static str, String>>, String> {
     let root = crate::config_dir(&app)?;
     let lease = state.lease()?;
-    let (current, dir) = lease.active().clone();
+    let (_, dir) = lease.active().clone();
     let Some((mut pending, turn)) = links.take(&dir) else {
         return Ok(None);
     };
@@ -203,8 +204,7 @@ pub async fn poll_link(
     let transition = crate::drain_identity(&app, &state).await?;
     let recover_dir = root.clone();
     let written = tauri::async_runtime::spawn_blocking(move || {
-        write(&root, &current, &pending, &linked, wizard.as_deref())
-            .map(|slot| (slot, linked.identity))
+        write(&root, &pending, &linked, wizard.as_deref())
     })
     .await
     .map_err(|e| e.to_string())
@@ -218,60 +218,33 @@ pub async fn poll_link(
     }
 }
 
-// The record goes in last: a slot that gets it has all it needs to finish on its own.
-fn fill(slot: &Slot, from: &Path, device: &Identity, linked: &Linked) -> Result<(), String> {
-    crate::save_key(slot, &slot.device_path(), &slot.device_name(), device)?;
-    match crate::load_key(slot, &slot.device_path(), &slot.device_name())? {
-        Some(saved) if saved.public_key() == device.public_key() => {}
-        _ => return Err("Saved device key does not reopen".into()),
-    }
-    for which in [Settings::Active, Settings::Draft] {
-        if let Some(network) = network::load(from, which).map_err(|e| e.to_string())? {
-            network::save(&slot.dir, which, &network).map_err(|e| e.to_string())?;
-        }
-    }
-    crate::profile::open(&slot.dir, &linked.identity)?
-        .set_link_pending(&linked.state)
-        .map_err(|e| e.to_string())
-}
-
-/// Makes the slot of `linked` in the storage mode of the slot the wait ran in, then removes that
-/// slot when it is `wizard`'s. It goes only without a draft: the identity made this run may have
-/// been published since, and the link then came from Settings. A failed removal does not fail the
-/// link: a `deleting` slot stays for recovery to retry.
+/// Makes the slot of `linked` in the storage mode of the slot the wait ran in, through the core
+/// registry. It removes that slot when it is `wizard`'s and holds no draft: the identity made this
+/// run may have been published since, and the link then came from Settings.
 fn write(
     root: &Path,
-    current: &Identity,
     pending: &Pending,
     linked: &Linked,
     wizard: Option<&str>,
-) -> Result<Slot, String> {
-    let old = slots::list(root)?
+) -> Result<(Slot, Identity), String> {
+    let from = slots::list(root)?
         .into_iter()
         .find(|slot| slot.dir == pending.dir)
-        .ok_or("Unknown identity")?;
-    let mode = old.mode.ok_or("Unknown identity storage mode")?;
-    let slot = slots::adopt(
-        root,
-        mode,
-        &linked.identity,
-        &crate::save,
-        &crate::load,
-        &|slot| fill(slot, &pending.dir, &pending.device, linked),
-    )?;
-    let draft = crate::profile::open(&old.dir, current)
-        .and_then(|store| store.profile_draft().map_err(|e| e.to_string()));
-    if wizard == Some(old.id.as_str()) && matches!(draft, Ok(None)) {
-        let peer_id = current.peer_id();
-        let _ = slots::remove(
-            root,
-            &old.id,
-            Some(peer_id.as_str()),
-            &crate::load,
-            &crate::erase,
-        );
-    }
-    Ok(slot)
+        .ok_or("Unknown identity")?
+        .id;
+    let device = |slot: &core::Slot| {
+        let slot = slot_keys::local(slot);
+        let (path, name) = (slot.device_path(), slot.device_name());
+        crate::save_key(&slot, &path, &name, &pending.device)?;
+        match crate::load_key(&slot, &path, &name)? {
+            Some(saved) if saved.public_key() == pending.device.public_key() => Ok(()),
+            _ => Err("Saved device key does not reopen".into()),
+        }
+    };
+    let registry = Registry::new(root.to_path_buf(), Layout::Desktop);
+    let wizard = wizard == Some(from.as_str());
+    let (slot, identity, _) = registry.link(&from, linked, wizard, &slot_keys::Keys, &device)?;
+    Ok((slot_keys::local(&slot), identity))
 }
 
 #[cfg(test)]
@@ -309,7 +282,7 @@ mod tests {
             state: b"state".to_vec(),
         };
         let wizard = wizard.then_some(old.id.as_str());
-        let slot = write(&root, &current, &pending, &linked, wizard).unwrap();
+        let (slot, _) = write(&root, &pending, &linked, wizard).unwrap();
 
         assert_eq!(slots::active(&root).as_deref(), Some(slot.id.as_str()));
         let opened = crate::load(&slot).unwrap().unwrap();

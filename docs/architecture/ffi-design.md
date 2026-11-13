@@ -424,8 +424,16 @@ file contents before advancing; Windows currently has no directory-flush guarant
 portable API. Stranded `.tmp` files fail closed rather than being followed,
 truncated or deleted. `Registry::select` finds the requested ID in the current inventory,
 requires ready metadata and opens its key before atomically changing the pointer; invalid IDs,
-incomplete slots and unavailable keys preserve the prior selection. Confirmed removal and
-native/client adoption remain planned.
+incomplete slots and unavailable keys preserve the prior selection.
+`Registry::link` turns an owner's link record into a new slot under the same lock. It
+reserves a pending slot in the storage mode of the slot that waited, saves and reopens the
+linked identity, then calls the client's device-key step, since desktop and mobile keep that
+key differently. It copies the waiting slot's network settings, stores the link state in the
+new database, writes `ready` and only then the active pointer. Any failure before that leaves
+the new slot pending and the old selection in place. A waiting slot made only to link is
+removed afterwards when it has no saved profile draft; a failed cleanup does not fail the
+link and stays visible as a deleting slot. The desktop link flow calls it; the FFI wrapper
+and mobile adoption remain planned.
 
 ## Exported surface
 
