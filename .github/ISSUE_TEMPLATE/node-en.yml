@@ -1,0 +1,48 @@
+name: dyappd node problem
+description: A bootstrap node you run does not start, sync or answer.
+labels: [node, "lang:en"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for running a node. An AI agent reads this and replies here. The
+        [operator manual](https://github.com/abbat/dyapp/blob/main/docs/manuals/bootstrap.md)
+        may already have the answer.
+
+        **Never paste the node key, the config with secrets or a whole log.** Remove IP addresses
+        and Peer IDs you do not want public.
+  - type: input
+    id: version
+    attributes:
+      label: dyappd version
+      description: The release, package or image tag you installed.
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: How it runs
+      placeholder: Debian 12, systemd, release tarball
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: excerpt
+    attributes:
+      label: Error lines
+      description: A few lines around the error, with addresses removed.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed keys, secrets and addresses I want to keep private.
+          required: true

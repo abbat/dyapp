@@ -1,0 +1,21 @@
+name: Идея
+description: Что сделало бы dyapp лучше для вас.
+labels: [idea, "lang:ru"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за идею. AI-агент прочитает её, ответит здесь и скажет, что будет дальше.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что вам мешает
+      description: Опишите ситуацию, а не только решение.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Что помогло бы
+    validations:
+      required: false

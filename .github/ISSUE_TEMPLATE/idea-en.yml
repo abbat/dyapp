@@ -1,0 +1,21 @@
+name: Idea
+description: Something that would make dyapp better for you.
+labels: [idea, "lang:en"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the idea. An AI agent reads it, replies here and says what happens next.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What gets in your way
+      description: Describe the situation, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+    validations:
+      required: false

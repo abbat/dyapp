@@ -1,0 +1,47 @@
+name: Проблема с узлом dyappd
+description: Ваш bootstrap-узел не запускается, не синхронизируется или не отвечает.
+labels: [node, "lang:ru"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что держите узел. AI-агент прочитает это и ответит здесь. Возможно, ответ уже
+        есть в [руководстве оператора](https://github.com/abbat/dyapp/blob/main/docs/manuals/bootstrap.ru.md).
+
+        **Никогда не вставляйте ключ узла, конфиг с секретами или лог целиком.** Уберите
+        IP-адреса и Peer ID, которые не хотите показывать.
+  - type: input
+    id: version
+    attributes:
+      label: Версия dyappd
+      description: Релиз, пакет или тег образа, который вы установили.
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Как запущен
+      placeholder: Debian 12, systemd, архив релиза
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: Что случилось
+    validations:
+      required: true
+  - type: textarea
+    id: excerpt
+    attributes:
+      label: Строки с ошибкой
+      description: Несколько строк вокруг ошибки, без адресов.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Приватность
+      options:
+        - label: Я убрал(а) ключи, секреты и адреса, которые хочу скрыть.
+          required: true

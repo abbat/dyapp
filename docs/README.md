@@ -97,6 +97,7 @@ it are entry points that tools discover by path (see
 - [lean-ctx](agents/lean-ctx.md): optional MCP context tools
 - [Beads (`bd`)](agents/beads.md): optional local issue tracker
 - [Quorum](agents/quorum.md): multi-model cross-review of design, decisions and code
+- [Answering issues](agents/issues.md): trust, reply language and tone in issues
 
 Not written yet: API reference, contributing guide, performance.
 
