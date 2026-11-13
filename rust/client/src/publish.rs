@@ -264,7 +264,10 @@ pub async fn revoke_device(
 /// Returns an error if importing link state, reading or saving local state,
 /// fetching the profile or its photos fails, or the account profile is missing
 /// or deleted, or its hidden draft version cannot be advanced. Exhaustion is checked before
-/// fetching photos or replacing the draft. Earlier link-state imports remain applied on failure.
+/// fetching photos or replacing the draft and rechecked on completion. The baseline is captured after
+/// link-state import and before the first network await. Completion preserves later local edits and
+/// visibility, committing the observed-version clock with draft/search/retention. Earlier link-state
+/// imports remain applied on failure.
 pub async fn adopt(
     store: &mut Store,
     node: &mut Node,
@@ -273,24 +276,18 @@ pub async fn adopt(
     now: u64,
 ) -> Result<ProfilePublicationOutcome, Failure> {
     store.import_link_state(state)?;
+    let attempt = store.prepare_profile_publication(identity)?;
     let held = newest(node, identity)
         .await?
         .ok_or(Error::Reply("the account has no profile"))?;
     if held.deleted {
         return Err(Error::Reply("the account was removed").into());
     }
-    let version = held
-        .version
+    held.version
         .checked_add(u64::from(store.profile_hidden()?))
         .ok_or(store::Error::ProfileVersionExhausted)?;
     take_photos(store, node, &held).await?;
-    store.own_profile_age(held.version, now)?;
-    let draft = Profile {
-        version,
-        ..held.clone()
-    };
-    store.save_profile_draft(&draft)?;
-    Ok(store.profile_publication_state(identity, &held)?)
+    Ok(store.commit_profile_adoption(identity, &attempt, &held, now)?)
 }
 
 enum ForeignDraft {
@@ -528,6 +525,8 @@ mod tests {
     use libp2p::swarm::SwarmEvent;
     use std::sync::{Arc, Mutex};
 
+    #[path = "adoption_tests.rs"]
+    mod adoption_tests;
     #[path = "foreign_import_tests.rs"]
     mod foreign_import_tests;
     #[path = "node.rs"]

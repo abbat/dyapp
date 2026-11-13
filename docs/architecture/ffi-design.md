@@ -303,8 +303,8 @@ The exhaustive profile constructor makes new wire fields require an explicit ove
 `ProfilePublicationOutcome` separates exact published values from the current draft and pending flag;
 UniFFI's existing published payload remains exact remote output, alongside a fresh local snapshot.
 Android applies that snapshot to its existing form without replacing unsaved or in-flight save inputs.
-New pending presentation, remaining adapters and ordinary linked-device adoption still require
-migration before frontend monitors can be removed.
+New pending presentation and remaining adapters still require migration before frontend monitors
+can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
 namespace/key/format and rolls back on failure. Shared publication stages an owner-signed conditional
@@ -343,8 +343,20 @@ photo bytes; its search record contains exact remote content or a higher hidden 
 local edits. Newer known versions, missing prior drafts, wrong owners and equal-version search forks
 refuse the local projection. Draft/search/photo retention roll back together on failure. The caller still
 reports `Failure::Missed`, so clients must reload the local draft rather than claim it was published.
-Ordinary adoption prefixes and remaining prepared-outcome adapters still require migration before
-frontend monitors can be removed.
+Ordinary linked-device adoption captures a baseline after the intentional link-state import and before
+its first network await. Its completion uses the same import projection and atomically records the
+exact remote observed-version clock alongside draft/search/photo retention. Visibility and version
+floors are re-read under the writer, including hidden-version exhaustion after photo fetching; failures
+roll back completion writes, while the earlier link-state prefix remains applied.
+Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility
+byte, the SHA-256 digest of the canonical owner-signed ordinary profile, then its signed search
+projection. This local receipt compares decoded profile content; media intent checks retain original
+verified wire bytes separately.
+A repeated import preserves the complete pending draft only when that readback, visibility and current
+search head still match, including after ACK. This admits the confirmed hidden successor without
+accepting an arbitrary older/forked profile or spending another version. Missing or malformed receipts
+never grant the stale-version exception. Remaining client prepared-outcome adapters still require
+migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable
 version/signed-record digest prevents stale requeue after ACK/restart and rejects equal-version
 forks; timestamps/backoff are monotonic. Local hide composes the queue helper inside its own

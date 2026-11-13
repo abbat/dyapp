@@ -2,6 +2,165 @@ use super::*;
 use crate::store::tests::temp_db_path;
 
 #[test]
+fn malformed_completion_receipts_fail_without_changing_any_projection() {
+    let (identity, store, attempt, imported) = fixture();
+    store.set_profile_hidden(true).unwrap();
+    store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap();
+    let key = "profile_completion_receipt";
+    let receipt: Vec<u8> = store
+        .db
+        .query_row(
+            "SELECT `value` FROM `settings` WHERE `key` = ?1",
+            [key],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let before = store.profile_draft().unwrap();
+    let queued = store.due_search_profile(1000).unwrap();
+    let mut bad_visibility = receipt.clone();
+    bad_visibility[0] = 2;
+    let mut bad_record = receipt[..33].to_vec();
+    bad_record.push(0xFF);
+    for (format, bytes) in [
+        (2, receipt.clone()),
+        (1, Vec::new()),
+        (1, receipt[..33].to_vec()),
+        (1, bad_visibility),
+        (1, bad_record),
+    ] {
+        store
+            .db
+            .execute(
+                "UPDATE `settings` SET `format_version` = ?1, `value` = ?2 WHERE `key` = ?3",
+                rusqlite::params![format, bytes, key],
+            )
+            .unwrap();
+        assert!(matches!(
+            store.commit_profile_adoption(&identity, &attempt, &imported, 200),
+            Err(Error::InvalidSetting)
+        ));
+        assert_eq!(store.profile_draft().unwrap(), before);
+        assert_eq!(store.due_search_profile(1000).unwrap(), queued);
+        assert_eq!(store.own_profile_age(3, 210).unwrap(), 110);
+    }
+}
+
+#[test]
+fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
+    let (identity, mut store, attempt, imported) = fixture();
+    store.set_profile_hidden(true).unwrap();
+    store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap();
+    let tombstone = Profile::tombstone(4, 0, 0).sign(&identity);
+    store.search_profile_sent(&tombstone, 100).unwrap();
+    store
+        .update_profile_draft(|draft| {
+            draft.name = "still pending".into();
+            Ok(())
+        })
+        .unwrap();
+    let work = store.prepare_profile_work(&identity, 1, 1024).unwrap();
+    assert!(store.commit_profile_work(&work).unwrap().solved);
+    let before = store.profile_draft().unwrap().unwrap();
+    let retry = store.prepare_profile_publication(&identity).unwrap();
+    let outcome = store
+        .commit_profile_adoption(&identity, &retry, &imported, 200)
+        .unwrap();
+    assert_eq!(outcome.draft, before);
+    assert_eq!(outcome.published, imported);
+    assert!(outcome.pending && outcome.hidden);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert_eq!(store.own_profile_age(3, 210).unwrap(), 110);
+}
+
+#[test]
+fn an_adoption_receipt_does_not_admit_a_fork_or_changed_visibility() {
+    let (identity, store, attempt, imported) = fixture();
+    store.set_profile_hidden(true).unwrap();
+    store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap();
+    let before = store.profile_draft().unwrap();
+    let fork = Profile {
+        name: "same version fork".into(),
+        ..imported.clone()
+    };
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &fork, 200),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    store.set_profile_hidden(false).unwrap();
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &imported, 200),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert_eq!(store.own_profile_age(3, 210).unwrap(), 110);
+}
+
+#[test]
+fn adoption_clock_commits_only_the_remote_version_and_refuses_an_older_completion() {
+    let (identity, store, attempt, imported) = fixture();
+    store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap();
+    assert_eq!(store.own_profile_seen().unwrap(), imported.version);
+    assert_eq!(store.own_profile_age(imported.version, 110).unwrap(), 10);
+    let older = Profile {
+        version: 2,
+        ..imported.clone()
+    };
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &older, 200),
+        Err(Error::ProfileCompletionSuperseded)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), Some(imported));
+    assert_eq!(store.own_profile_age(3, 210).unwrap(), 110);
+}
+
+#[test]
+fn adoption_clock_failure_rolls_back_draft_search_and_prior_blob_pruning() {
+    let (identity, store, attempt, imported) = fixture();
+    let before = store.profile_draft().unwrap();
+    let orphan = store.save_profile_blob(&[0xFF, 0xD8, 0xFF, 7]).unwrap();
+    store
+        .db
+        .execute_batch(
+            "CREATE TEMP TRIGGER `refuse_adoption_clock` BEFORE INSERT ON `settings`
+         WHEN NEW.`key` = 'own_profile_seen'
+         BEGIN SELECT RAISE(ABORT, 'adoption clock refused'); END;",
+        )
+        .unwrap();
+    let error = store
+        .commit_profile_adoption(&identity, &attempt, &imported, 100)
+        .unwrap_err();
+    assert!(error.to_string().contains("adoption clock refused"));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert_eq!(store.own_profile_seen().unwrap(), 0);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert!(store.profile_photo(&orphan).unwrap().is_some());
+}
+
+#[test]
+fn adoption_rechecks_hidden_version_exhaustion_without_partially_recording_age() {
+    let (identity, store, attempt, mut imported) = fixture();
+    imported.version = u64::MAX;
+    let before = store.profile_draft().unwrap();
+    store.set_profile_hidden(true).unwrap();
+    assert!(matches!(
+        store.commit_profile_adoption(&identity, &attempt, &imported, 100),
+        Err(Error::ProfileVersionExhausted)
+    ));
+    assert_eq!(store.profile_draft().unwrap(), before);
+    assert_eq!(store.own_profile_seen().unwrap(), 0);
+    assert!(store.due_search_profile(1000).unwrap().is_none());
+    assert!(store.profile_hidden().unwrap());
+}
+
+#[test]
 fn foreign_import_keeps_device_removal_as_one_directory_edit() {
     let (identity, store, _, mut imported) = fixture();
     let key = Identity::from_secret(&[8; 32]);

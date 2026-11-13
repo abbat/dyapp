@@ -15,6 +15,27 @@ impl Store {
         attempt: &ProfilePublication,
         imported: &Profile,
     ) -> Result<ProfilePublicationOutcome, Error> {
+        self.complete_profile_import(identity, attempt, imported, None)
+    }
+
+    /// Complete linked-device adoption and its observed-version clock in the same transaction.
+    pub(crate) fn commit_profile_adoption(
+        &self,
+        identity: &Identity,
+        attempt: &ProfilePublication,
+        imported: &Profile,
+        now: u64,
+    ) -> Result<ProfilePublicationOutcome, Error> {
+        self.complete_profile_import(identity, attempt, imported, Some(now))
+    }
+
+    fn complete_profile_import(
+        &self,
+        identity: &Identity,
+        attempt: &ProfilePublication,
+        imported: &Profile,
+        observed_at: Option<u64>,
+    ) -> Result<ProfilePublicationOutcome, Error> {
         if identity.peer_id() != self.owner_peer_id || attempt.owner != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }
@@ -25,9 +46,53 @@ impl Store {
             .map_or(0, |draft| draft.version)
             .max(self.own_profile_seen()?)
             .max(self.known_search_version()?);
-        if (attempt.baseline.is_some() && current.is_none()) || floor > imported.version {
-            return Err(Error::ProfileCompletionSuperseded);
+        let outcome = if let Some(outcome) =
+            self.replayed_profile_import(identity, imported, current.as_ref(), floor)?
+        {
+            outcome
+        } else {
+            if (attempt.baseline.is_some() && current.is_none()) || floor > imported.version {
+                return Err(Error::ProfileCompletionSuperseded);
+            }
+            self.project_profile_import(identity, attempt, imported, current)?
+        };
+        if let Some(now) = observed_at {
+            self.own_profile_age(imported.version, now)?;
         }
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    fn replayed_profile_import(
+        &self,
+        identity: &Identity,
+        imported: &Profile,
+        current: Option<&Profile>,
+        floor: u64,
+    ) -> Result<Option<ProfilePublicationOutcome>, Error> {
+        let Some(current) = current else {
+            return Ok(None);
+        };
+        if floor != current.version
+            || self.completed_profile_version(identity, imported)? != Some(current.version)
+        {
+            return Ok(None);
+        }
+        Ok(Some(ProfilePublicationOutcome::snapshot(
+            imported,
+            current.clone(),
+            self.profile_hidden()?,
+        )))
+    }
+
+    // Caller holds the writer through draft, queue, receipt and retention changes.
+    fn project_profile_import(
+        &self,
+        identity: &Identity,
+        attempt: &ProfilePublication,
+        imported: &Profile,
+        current: Option<Profile>,
+    ) -> Result<ProfilePublicationOutcome, Error> {
         let initial = Profile::default();
         let baseline = attempt.baseline.as_ref().unwrap_or(&initial);
         let mut draft = current.map_or_else(
@@ -51,8 +116,8 @@ impl Store {
             .collect();
         self.save_profile_draft(&draft)?;
         self.hold_search_profile_in_tx(&queued.sign(identity))?;
-        profile_retention::retain(&transaction, &hashes, &draft)?;
-        transaction.commit()?;
+        profile_retention::retain(&self.db, &hashes, &draft)?;
+        self.remember_profile_completion(identity, imported, &queued)?;
         Ok(ProfilePublicationOutcome::snapshot(imported, draft, hidden))
     }
 }

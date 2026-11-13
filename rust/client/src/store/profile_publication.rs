@@ -9,6 +9,7 @@ mod import;
 #[path = "profile_publication/import_tests.rs"]
 mod import_tests;
 mod merge;
+mod receipt;
 
 /// Owner-bound local baseline and mutable request; prepare before any network await.
 pub struct ProfilePublication {
@@ -153,6 +154,7 @@ impl Store {
         self.hold_search_profile_in_tx(&queued.sign(identity))?;
         self.set_profile_hidden(stay_hidden)?;
         profile_retention::retain(&transaction, &hashes, &draft)?;
+        self.remember_profile_completion(identity, published, &queued)?;
         transaction.commit()?;
         Ok(ProfilePublicationOutcome::snapshot(
             published,
