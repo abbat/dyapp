@@ -248,6 +248,16 @@ reporting zero. Details are saved in `build/panics.json` (CI artifact
 not covered. These three lints do not prove runtime panic freedom: indexing,
 assertions, allocation failure and transitive dependency panics are outside this check.
 
+The same run counts Clippy `arithmetic_side_effects` against `[arithmetic]`, a separate
+budget so a removed `unwrap` cannot pay for a new `+`. Release builds keep `overflow-checks`
+off, so an unchecked integer operation wraps silently there; this ratchet catches new ones
+statically instead. Clippy has no range analysis and flags every integer `+`, `-` and `*`,
+which is why the existing sites (347 on 2026-11-13) ratchet rather than fail at once.
+Lowering a count means rewriting the site as `checked_`, `saturating_` or `wrapping_`, the
+last only where wrapping is the intended meaning; modules that handle peer data go first.
+The zero-for-FFI rule applies to panics only. `build/panics.json` keys counts, budgets and
+excluded diagnostics by table.
+
 The budget is the barrier, not `deny`: an `allow` cannot hide a counted site, so a new
 production `unwrap`/`expect` fails `make quality` unless one is removed in the same commit.
 Unit tests (`#[cfg(test)]`), integration tests, fuzz targets and generated protobuf modules

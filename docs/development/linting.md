@@ -171,7 +171,8 @@ rounding; test byte streams explicitly select their low byte when modulo-256 dat
 `pedantic`; Windows currently enables selected rules. `nursery` and `restriction` lints (for example `arithmetic_side_effects`) are not
 generally enabled. A separate
 [B8 check](code-quality.md#explicit-panic-budgets) force-enables `unwrap_used`,
-`expect_used` and `panic` on non-test workspace targets and enforces their budgets.
+`expect_used`, `panic` and `arithmetic_side_effects` on non-test workspace targets and
+enforces their budgets.
 
 The dev image and CI bootstrap provision [Hawk 0.1.17](https://github.com/astral-sh/hawk/tree/0.1.17)
 with a pinned release checksum. Its compiler wrappers require the existing Rust 1.99.0

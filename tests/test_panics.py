@@ -63,6 +63,25 @@ class PanicBudgets(unittest.TestCase):
         self.assertEqual(excluded, {"dyapp-ffi": 1})
         self.assertIn("> 0", CHECK.errors(counts, {"dyapp-ffi": 0})[0])
 
+    def test_ratchets_count_only_their_own_lints(self) -> None:
+        metadata = {
+            "packages": [{"id": "ffi", "name": "dyapp-ffi"}],
+            "workspace_members": ["ffi"],
+            "target_directory": str(ROOT / "build"),
+        }
+        overflow = message()
+        overflow["message"]["code"] = {
+            "code": "clippy::arithmetic_side_effects"
+        }
+        done = {"reason": "build-finished", "success": True}
+        rows = [message(), overflow, done]
+        for section, lints in CHECK.RATCHETS.items():
+            counts = CHECK.count(metadata, rows, lints)[0]
+            self.assertEqual(counts, {"dyapp-ffi": 1}, section)
+        budget = {"dyapp-ffi": 1}
+        self.assertEqual(CHECK.errors(budget, budget, "arithmetic"), [])
+        self.assertIn("must stay zero", CHECK.errors(budget, budget)[0])
+
     def test_incomplete_or_failed_clippy_is_not_zero(self) -> None:
         metadata = {
             "packages": [{"id": "ffi", "name": "dyapp-ffi"}],

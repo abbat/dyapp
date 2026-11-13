@@ -1,4 +1,4 @@
-"""Ratchet panic lints (B8)."""
+"""Ratchet panic and integer-overflow lints (B8)."""
 
 from __future__ import annotations
 
@@ -15,11 +15,18 @@ if TYPE_CHECKING:
     import quality_contracts as qc
 
 ROOT = Path(__file__).resolve().parents[2]
-LINTS = ("clippy::unwrap_used", "clippy::expect_used", "clippy::panic")
+# One baselines.toml table per kind, so one kind cannot pay for another.
+RATCHETS = {
+    "panics": ("clippy::unwrap_used", "clippy::expect_used", "clippy::panic"),
+    "arithmetic": ("clippy::arithmetic_side_effects",),
+}
+LINTS = tuple(lint for lints in RATCHETS.values() for lint in lints)
 
 
 def count(
-    metadata: qc.CargoMetadata, messages: Iterable[qc.CompilerRecord]
+    metadata: qc.CargoMetadata,
+    messages: Iterable[qc.CompilerRecord],
+    lints: tuple[str, ...] = RATCHETS["panics"],
 ) -> tuple[dict[str, int], list[qc.PanicLocation], dict[str, int]]:
     packages = {
         p["id"]: p["name"]
@@ -39,7 +46,7 @@ def count(
         code = (message.get("code") or {}).get("code")
         package_id = item.get("package_id")
         name = packages.get(package_id) if package_id is not None else None
-        if not name or code is None or code not in LINTS:
+        if not name or code is None or code not in lints:
             continue
         spans = []
         for span in message["spans"]:
@@ -71,19 +78,28 @@ def count(
     return dict(counts), locations, dict(excluded)
 
 
-def errors(counts: Mapping[str, int], budgets: Mapping[str, int]) -> list[str]:
+def errors(
+    counts: Mapping[str, int],
+    budgets: Mapping[str, int],
+    section: str = "panics",
+) -> list[str]:
     result = []
-    if budgets.get("dyapp-ffi") != 0:
+    if section == "panics" and budgets.get("dyapp-ffi") != 0:
         result.append("FFI panic budget must stay zero")
     for name in sorted(counts.keys() | budgets.keys()):
         if name not in counts or name not in budgets:
-            result.append(f"{name}: missing workspace member or budget")
+            result.append(
+                f"{section} {name}: missing workspace member or budget"
+            )
         elif counts[name] > budgets[name]:
             result.append(
-                f"{name}: {counts[name]} > {budgets[name]} lint diagnostics"
+                f"{section} {name}: {counts[name]} > {budgets[name]}"
+                " lint diagnostics"
             )
         elif counts[name] < budgets[name]:
-            result.append(f"{name}: lower lint budget to {counts[name]}")
+            result.append(
+                f"{section} {name}: lower lint budget to {counts[name]}"
+            )
     return result
 
 
@@ -127,22 +143,22 @@ def main() -> bool:
         )
         if run.returncode:
             raise ValueError("Clippy failed: " + run.stderr[-4096:])
-        messages = map(json.loads, run.stdout.splitlines())
-        counts, locations, excluded = count(metadata, messages)
+        messages = [json.loads(line) for line in run.stdout.splitlines()]
         policy = tomllib.loads(
             (ROOT / "tests/scripts/baselines.toml").read_text()
         )
-        budgets = policy["panics"]
-        failures = errors(counts, budgets)
-        result.update(
-            {
-                "counts": counts,
-                "budgets": budgets,
-                "diagnostics": locations,
-                "excluded_diagnostics": excluded,
-                "errors": failures,
-            }
-        )
+        result["counts"] = {}
+        result["budgets"] = {}
+        result["diagnostics"] = []
+        result["excluded_diagnostics"] = {}
+        for section, lints in RATCHETS.items():
+            counts, locations, excluded = count(metadata, messages, lints)
+            budgets = policy[section]
+            result["counts"][section] = counts
+            result["budgets"][section] = budgets
+            result["diagnostics"] += locations
+            result["excluded_diagnostics"][section] = excluded
+            result["errors"] += errors(counts, budgets, section)
     except (
         ValueError,
         KeyError,

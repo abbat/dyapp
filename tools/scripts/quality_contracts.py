@@ -228,10 +228,10 @@ class ComplexityReport(TypedDict):
 
 class PanicReport(TypedDict, total=False):
     errors: Required[list[str]]
-    counts: dict[str, int]
-    budgets: dict[str, int]
+    counts: dict[str, dict[str, int]]
+    budgets: dict[str, dict[str, int]]
     diagnostics: list[PanicLocation]
-    excluded_diagnostics: dict[str, int]
+    excluded_diagnostics: dict[str, dict[str, int]]
 
 
 FunctionKey: TypeAlias = tuple[str, str]

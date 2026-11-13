@@ -224,7 +224,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Format | Cargo fmt for workspace, native and tool manifests; `desktop-rust-format.py check` explicitly checks the shared desktop Rust reached through `include!` |
 | Unused dependencies | `cargo shear`: every manifest's dependencies, dev and build ones included, against the imports; a false positive goes to `[package.metadata.cargo-shear] ignored` |
 | Lint | `check-rust-complexity.py`: strict all-feature/all-target workspace Clippy, 15/50/5 function limits with exact shrinking legacy budgets; `missing_docs` is denied ([B9](code-quality.md#public-api-documentation)). Raw metadata, diagnostics and parser reports stay under `build/complexity/`. `COMPLEXITY_BASE` binds budget changes to the push or PR base. |
-| Explicit panic budgets | `tests/scripts/check-panics.py`: [B8](code-quality.md#explicit-panic-budgets), non-test workspace Clippy `unwrap_used`/`expect_used`/`panic` counts; JSON artifact `panic-budgets` when the checker ran |
+| Explicit panic budgets | `tests/scripts/check-panics.py`: [B8](code-quality.md#explicit-panic-budgets), non-test workspace Clippy `unwrap_used`/`expect_used`/`panic` and `arithmetic_side_effects` counts; JSON artifact `panic-budgets` when the checker ran |
 | Direct clock reads | `tests/scripts/check-clock.py`: bootstrap production code reads time through `rust/bootstrap/src/clock.rs`; per-file budgets of `Instant::now`/`SystemTime::now`/`Utc::now` outside test modules may only shrink |
 | Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 
