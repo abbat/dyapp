@@ -61,6 +61,17 @@ private fun SaveStatus(state: ProfileSaveUi) {
     }
 }
 
+/** Owns publication disposal on edits/save transitions, independently of native network timing. */
+@Composable
+internal fun PublicationBoundary(
+    generation: Any,
+    unsaved: Boolean,
+    saving: Boolean,
+    content: @Composable () -> Unit,
+) {
+    key(generation, unsaved, saving) { content() }
+}
+
 // Editing or starting/completing a save clears the publication confirmations and cancels its attempt.
 @Composable
 internal fun SaveAndPublish(
@@ -74,7 +85,7 @@ internal fun SaveAndPublish(
     val scope = rememberCoroutineScope()
     val state = remember(scope, resources) { ProfileSaveUi(scope, resources) }
     SaveStatus(state)
-    key(state, state.revision, editor.value.unsaved, state.saving, lang) {
+    PublicationBoundary(Triple(state, state.revision, lang), editor.value.unsaved, state.saving) {
         val publication = remember(visibility, editor, lang) {
             PublishState(
                 visibility
