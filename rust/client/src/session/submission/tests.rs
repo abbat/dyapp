@@ -1,6 +1,7 @@
 mod forwarding;
 mod interactions;
 mod media;
+mod offline;
 
 use super::*;
 use crate::store::messages::MessageKey;

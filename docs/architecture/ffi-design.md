@@ -233,7 +233,14 @@ open-chat/blocked guards. `submit_attachment(_to)` uploads the blob before messa
 `submit_pack_sticker_to` also retains upload reservations/reuse and strips the owner's release
 capability from the chat descriptor. Both expose queued post-commit failures. The existing
 saved-pack send API still returns an ID on committed client delivery errors and propagates other
-failures. Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
+failures. For native text submission, a missing active network or failed connection can use an established
+open local pair: core checks the canonical target, block/conversation policy and existing MLS group,
+then commits through the same durable staging path. Own-device listing admission remains required.
+Only an absent local group may fall through to online first-contact admission; a staging refusal never
+triggers another submission. The connected path still verifies the peer profile. Offline operation
+cannot discover remote revocations it has not received.
+
+Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
 `submit_chat_photo` return `ChatSubmission::Accepted` or `Queued` with the committed ID;
 pre-commit failures remain errors. The adapter only converts core outcomes and operation-specific
 error codes. Legacy native send/edit/delete methods keep strict delivery errors through the same

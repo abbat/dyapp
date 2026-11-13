@@ -120,10 +120,26 @@ impl ChatSession {
             return Err(CoreError::Failed("blocked".into()));
         }
         let own = listed_own(session, &self.key.identity)?;
-        let network = active_network(&self.dir)?;
+        let network = active_network(&self.dir);
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let connected = async { connect(&network?).await }.await;
+                let mut node = match connected {
+                    Ok(node) => node,
+                    Err(error) => {
+                        return session
+                            .try_submit_established_text(
+                                &mut [],
+                                &peer_id,
+                                text.as_bytes(),
+                                &self.seal_key,
+                            )
+                            .await
+                            .map_err(failed)?
+                            .map(ChatSubmission::from)
+                            .ok_or(error);
+                    }
+                };
                 let peer = node.get_profile(&peer_id).await.map_err(failed)?;
                 if peer.profile.deleted || peer.profile.version == 0 {
                     return Err(CoreError::Failed("unpublished".into()));

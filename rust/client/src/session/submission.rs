@@ -42,6 +42,34 @@ impl Submission {
 }
 
 impl Session {
+    /// Submit through an established open pair without fetching profiles or `KeyPackages`.
+    ///
+    /// `None` means no local pair exists, before staging; callers may then use online admission.
+    /// Any error is a refusal or staging failure and must never trigger a second submission.
+    ///
+    /// # Errors
+    /// Returns canonical-target, blocked/conversation, MLS or storage staging errors.
+    pub async fn try_submit_established_text(
+        &mut self,
+        nodes: &mut [Node],
+        peer: &str,
+        text: &[u8],
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Submission>, Error> {
+        crate::private_peer::check(&self.store, peer).map_err(|_| Error::UnknownGroup)?;
+        let Some(group) = self.pair_group(peer) else {
+            return Ok(None);
+        };
+        if self.store.blocked(peer)? {
+            return Err(crate::store::Error::BlockedPeer.into());
+        }
+        if self.store.conversation(peer)? != crate::store::Conversation::Open {
+            return Err(Error::ConversationNotOpen);
+        }
+        let (id, writes) = self.stage_text(&group, text, seal_key)?;
+        Ok(Some(self.submit_staged(nodes, id, writes, seal_key).await))
+    }
+
     /// Submit text to the other owner, retaining its ID on post-commit delivery failure.
     ///
     /// # Errors

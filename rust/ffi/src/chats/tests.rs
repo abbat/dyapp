@@ -8,6 +8,8 @@ mod contact_notes;
 mod favorites;
 #[path = "tests/forwarding.rs"]
 mod forwarding;
+#[path = "tests/offline.rs"]
+mod offline;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {
