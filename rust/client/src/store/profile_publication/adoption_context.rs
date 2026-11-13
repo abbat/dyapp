@@ -125,6 +125,28 @@ impl Store {
         ))
     }
 
+    // Historical verified membership is factual knowledge, not field consent. Local draft edits
+    // may advance after review; the original database, owner and pending operation must still match.
+    pub(crate) fn remember_reviewed_membership(
+        &self,
+        identity: &Identity,
+        expected: &ProfileAdoptionContext,
+        version: Option<u64>,
+    ) -> Result<(), Error> {
+        self.admit_adoption_review_owner(identity, expected)?;
+        let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)?;
+        if self.db.path() != Some(expected.database.as_str())
+            || self.link_pending()?.as_deref() != Some(expected.pending_link.as_slice())
+        {
+            return Err(Error::LinkStateChanged);
+        }
+        if let Some(version) = version {
+            self.note_device_listed(version)?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
     // Caller holds one SQLite snapshot. Search ACK/backoff may change without changing its head.
     fn profile_adoption_context_in_snapshot(
         &self,

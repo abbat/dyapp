@@ -269,6 +269,61 @@ fn uncommitted_writer_cannot_expose_a_mixed_profile_link_and_search_snapshot() {
 }
 
 #[test]
+fn historical_membership_requires_the_original_database_owner_and_pending_operation() {
+    let (identity, store) = fixture();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    let (_, other) = fixture();
+    assert!(matches!(
+        other.remember_reviewed_membership(&identity, &context, Some(2)),
+        Err(Error::LinkStateChanged)
+    ));
+    let wrong = Identity::from_secret(&[9; 32]);
+    assert!(matches!(
+        store.remember_reviewed_membership(&wrong, &context, Some(2)),
+        Err(Error::WrongIdentity)
+    ));
+    store.set_link_pending(b"replacement").unwrap();
+    assert!(matches!(
+        store.remember_reviewed_membership(&identity, &context, Some(2)),
+        Err(Error::LinkStateChanged)
+    ));
+    assert_eq!(other.device_listed().unwrap(), 0);
+    assert_eq!(store.device_listed().unwrap(), 0);
+    assert!(store.db.is_autocommit());
+}
+
+#[test]
+fn historical_membership_survives_draft_edits_without_treating_them_as_consent() {
+    let (identity, mut store) = fixture();
+    let context = store
+        .prepare_profile_adoption_context(&identity)
+        .unwrap()
+        .unwrap();
+    store
+        .update_profile_draft(|draft| {
+            draft.name = "later private choice".into();
+            Ok(())
+        })
+        .unwrap();
+    let draft = store.profile_draft().unwrap();
+    store
+        .remember_reviewed_membership(&identity, &context, Some(2))
+        .unwrap();
+    store
+        .remember_reviewed_membership(&identity, &context, Some(1))
+        .unwrap();
+    assert_eq!(store.device_listed().unwrap(), 2);
+    assert_eq!(store.profile_draft().unwrap(), draft);
+    assert!(!store
+        .profile_adoption_context_current(&identity, &context)
+        .unwrap());
+    assert!(store.link_pending().unwrap().is_some());
+}
+
+#[test]
 fn no_pending_link_produces_no_context_or_default_profile() {
     let identity = Identity::from_secret(&[7; 32]);
     let store = Store::open(&temp_db_path(), &identity).unwrap();

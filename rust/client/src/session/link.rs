@@ -45,7 +45,7 @@ impl Session {
         let adopted = publish::adopt(&mut store, node, identity, &state, now).await?;
         let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
         session
-            .complete_link_directory(node, identity, device_key, &adopted.published)
+            .complete_link_directory(node, identity, device_key, &adopted.published, &state)
             .await?;
         session
             .complete_link_packages(node, device_key, key_packages, seal_key, now, &state)
@@ -59,12 +59,15 @@ impl Session {
         identity: &Identity,
         device_key: &Identity,
         published: &Profile,
+        state: &[u8],
     ) -> Result<(), Error> {
         // Only ordinary verified profiles prove listing; hidden drafts advance for search tombstones.
         if published.devices.contains(&self.certificate()?) {
             self.store.note_device_listed(published.version)?;
         } else {
             let attempt = self.prepare_link_listing(identity, device_key, published)?;
+            self.store
+                .admit_link_enrollment(identity, &self.certificate()?, &attempt, state)?;
             let listed = publish::relist_prepared(&self.store, node, identity, &attempt).await?;
             self.store.note_device_listed(listed.published.version)?;
         }

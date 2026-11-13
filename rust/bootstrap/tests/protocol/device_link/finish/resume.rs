@@ -1,7 +1,7 @@
 //! Recovery completes the admitted original device, never a newly generated session.
 use super::*;
 
-async fn resume(
+pub(super) async fn resume(
     f: &mut HiddenLink,
     session: Session,
 ) -> Result<bool, dyapp_client::session::Error> {
@@ -17,7 +17,10 @@ async fn resume(
         .await
 }
 
-async fn check_packages_and_retry(f: &mut HiddenLink, certificate: &dyapp_identity::SignedRecord) {
+pub(super) async fn check_packages_and_retry(
+    f: &mut HiddenLink,
+    certificate: &dyapp_identity::SignedRecord,
+) {
     let own = f
         .owner
         .node

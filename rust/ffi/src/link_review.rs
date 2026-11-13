@@ -177,6 +177,9 @@ impl ProfileAdoptionReview {
             if pending != self.review.pending_link_state() {
                 return Err(LinkReviewError::ReviewRequired);
             }
+            self.review
+                .remember_device_membership(&admitted.session, admitted.operation.identity())
+                .map_err(LinkReviewError::from)?;
             let Admitted { session, operation } = admitted;
             // The moved session lives in the awaited future; its admission outlives that future.
             runtime.block_on(async {

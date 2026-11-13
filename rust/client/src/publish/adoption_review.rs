@@ -55,6 +55,29 @@ impl AdoptionReview {
         self.context.pending_link_state()
     }
 
+    /// Retain verified historical membership when actual recovery starts. This does not select
+    /// fields, authorize relisting, or modify the prepared comparison. Preparation stays read-only.
+    /// Call before resumption's fresh network read, while holding the original session admission.
+    ///
+    /// # Errors
+    /// Refuses another owner, database or pending operation and propagates storage/session errors.
+    pub fn remember_device_membership(
+        &self,
+        session: &crate::session::Session,
+        identity: &Identity,
+    ) -> Result<(), crate::session::Error> {
+        let certificate = session.certificate()?;
+        if certificate.public_key != identity.public_key() {
+            return Err(crate::store::Error::WrongIdentity.into());
+        }
+        let listed = (!self.remote.deleted && self.remote.devices.contains(&certificate))
+            .then_some(self.remote.version);
+        session
+            .store()
+            .remember_reviewed_membership(identity, &self.context, listed)?;
+        Ok(())
+    }
+
     /// Visibility captured with the local baseline.
     #[must_use]
     pub fn hidden(&self) -> bool {

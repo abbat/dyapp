@@ -21,6 +21,7 @@ mod group_catalog_tests;
 mod inbox;
 mod last_resort;
 mod likes;
+mod link_enrollment;
 mod link_state;
 mod mailbox_cursor;
 pub mod messages;

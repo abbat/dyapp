@@ -10,6 +10,9 @@ pub enum LinkReviewError {
     /// The original pending private snapshot has no proven import progress.
     #[error("linked-device private state requires explicit recovery")]
     PrivateStateReviewRequired,
+    /// A prior enrollment is uncertain; refresh cannot grant permission to restore this device.
+    #[error("linked-device enrollment requires new owner authorization")]
+    EnrollmentAuthorizationRequired,
     /// Verified ordinary readback revoked the original device.
     #[error("the original device was revoked")]
     Revoked,
@@ -59,6 +62,7 @@ impl From<StoreError> for LinkReviewError {
         match error {
             StoreError::LinkStateReviewRequired => Self::PrivateStateReviewRequired,
             StoreError::LinkStateChanged => Self::ReviewRequired,
+            StoreError::LinkEnrollmentReviewRequired => Self::EnrollmentAuthorizationRequired,
             error => failed(error),
         }
     }

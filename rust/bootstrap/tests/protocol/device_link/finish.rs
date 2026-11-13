@@ -5,6 +5,8 @@ use super::*;
 mod advanced;
 #[path = "finish/directory.rs"]
 mod directory;
+#[path = "finish/enrollment.rs"]
+mod enrollment;
 #[path = "finish/resume.rs"]
 mod resume;
 #[path = "finish/revocation.rs"]

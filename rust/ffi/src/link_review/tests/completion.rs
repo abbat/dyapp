@@ -235,6 +235,56 @@ fn verified_revocation_has_a_distinct_native_error_and_cannot_restore_its_device
 }
 
 #[test]
+fn an_unconfirmed_comparison_still_protects_verified_device_authorization() {
+    for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
+        for advance in [0, 1] {
+            let f = Fixture::new(layout);
+            // Equal editable fields need no owner field decision. Preparation itself stays read-only.
+            let remote = f.worker.prepare().unwrap().review.remote_profile().clone();
+            let store = f.store();
+            store.save_profile_draft(&remote).unwrap();
+            store
+                .set_link_pending(&store.link_state().unwrap())
+                .unwrap();
+            drop(store);
+            let review = f.worker.prepare().unwrap();
+            assert_eq!(
+                review.review.differences(),
+                [] as [publish::AdoptionField; 0]
+            );
+            assert_eq!(f.store().device_listed().unwrap(), 0);
+            let revoked = Profile {
+                version: remote.version.checked_add(advance).unwrap(),
+                devices: Vec::new(),
+                device_owners: Vec::new(),
+                ..remote.clone()
+            };
+            *f.server.record.lock().unwrap() = revoked.sign(&f.slot.key.identity);
+            let result = review.resume_link();
+            if advance == 0 {
+                // The unchanged hidden search head can refuse the contradictory import first.
+                assert!(
+                    matches!(
+                        result,
+                        Err(LinkReviewError::Revoked | LinkReviewError::ReviewRequired)
+                    ),
+                    "{result:?}"
+                );
+            } else {
+                assert!(
+                    matches!(result, Err(LinkReviewError::Revoked)),
+                    "{result:?}"
+                );
+            }
+            assert_eq!(f.store().device_listed().unwrap(), remote.version);
+            assert_eq!(f.server.profile_writes.load(Ordering::SeqCst), 0);
+            assert!(f.server.packages.records.lock().unwrap().is_empty());
+            assert!(f.store().link_pending().unwrap().is_some());
+        }
+    }
+}
+
+#[test]
 fn nested_private_import_refusal_remains_distinct_from_backend_failure() {
     let error = dyapp_client::session::Error::Publish(publish::Failure::Store(
         dyapp_client::store::Error::LinkStateReviewRequired,

@@ -26,7 +26,7 @@ impl Session {
             return Ok(false);
         };
         let adopted = publish::adopt(&mut self.store, node, identity, &state, now).await?;
-        self.complete_link_directory(node, identity, device_key, &adopted.published)
+        self.complete_link_directory(node, identity, device_key, &adopted.published, &state)
             .await?;
         self.complete_link_packages(node, device_key, key_packages, seal_key, now, &state)
             .await?;

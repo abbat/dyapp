@@ -5,6 +5,8 @@ use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 impl Store {
     /// Keeps a received record's `state` until [`crate::session::Session::finish_link`] ends: the
     /// mailbox no longer holds the record, so a failed step must not lose it.
+    /// The caller supplies an authenticated accepted owner link, never a local state edit.
+    /// New/replaced bytes seed enrollment provenance; identical bytes do not renew authorization.
     ///
     /// # Errors
     ///
@@ -21,6 +23,7 @@ impl Store {
     pub(in crate::store) fn set_link_pending_in_tx(&self, state: &[u8]) -> Result<(), Error> {
         if self.link_pending()?.as_deref() != Some(state) {
             progress::save(&self.db, state, false)?;
+            self.reset_link_enrollment_in_tx(state)?;
         }
         self.db.execute(
             "INSERT OR IGNORE INTO `settings` (`key`, `format_version`, `value`)

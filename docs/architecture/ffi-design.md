@@ -385,6 +385,17 @@ against its saved device before importing pending state, and reuses the ordinary
 fallback completion. It never creates credentials or a session. The pending row goes last; on failure,
 reopen the original session and retry. Common native `ProfileAdoptionReview.resume_link` delegates to
 this operation; client presentation remains planned.
+New/replaced pending links atomically retain fresh enrollment provenance. Before an unlisted device's
+first relist request, shared core commits an intent bound to the exact pending snapshot, original
+certificate and verified semantic ordinary source, checking the operation's original pending bytes
+under the writer so replacement cannot supply a new grant to an older attempt. It never records
+speculative `device_listed` membership. An unchanged source allows a retry; a current listing proves acceptance even if the local
+proof write previously failed. A changed source without the certificate, or a legacy pending link
+without enrollment provenance, requires new owner authorization (`LinkEnrollmentReviewRequired`).
+Repeatedly saving the same pending bytes cannot renew that authorization. This conservatively refuses
+a changed source even if the original request never reached the server. Actual listing proof also
+refuses contradictory absence at the same ordinary version; hidden draft versions remain unrelated.
+This journal is local admission evidence, not a wire digest or server-side compare-and-swap token.
 Adoption checks the Store owner before any private-state prefix import. Export reads peer, like/pass,
 HLC and visibility values from one read snapshot without changing their wire ordering or actor fields.
 Pending link creation atomically records exact private-state bytes and a format-1 import phase bound
@@ -441,7 +452,8 @@ and remote values, all original photo chunks, visibility and typed differing fie
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
 changed active network, and delegates all field selection and atomic completion to core. Typed errors
-separate profile-review-required, private-state-review-required, invalid selection/profile, unlisted,
+separate profile-review-required, private-state-review-required, enrollment-authorization-required,
+invalid selection/profile, unlisted,
 revoked-device and backend failures. Confirmation atomically records the exact ordinary version
 proven to list the original session certificate alongside draft/search/retention/receipt changes,
 including from an initially zero listing counter. Later readback cannot mistake its removal for
@@ -449,14 +461,19 @@ first enrollment. The worker continues using the originally reviewed network;
 UI cancellation does not drop its admission before actual completion. The credential binding is
 not a filesystem generation counter and does not identify an identical externally restored copy.
 `resume_link` reopens the original existing session and checks its slot/key binding, certificate,
-network and exact original pending bytes. It delegates directory listing, key-package/fallback
+network and exact original pending bytes. At actual resumption, core
+`AdoptionReview::remember_device_membership` retains the comparison's verified historical membership
+under the original owner/database/pending writer, including when no field confirmation was needed.
+Preparation itself stays read-only. This observation grants no field consent or device restoration;
+a subsequent refusal may require a fresh field comparison because the factual listing counter advanced.
+It delegates directory listing, key-package/fallback
 publication and final pending completion to core. Post-confirmation editable profile fields remain pending; resumption
 cannot bypass a required owner choice or publish editable values implicitly. A missing pending row
 returns false without connecting. Failed fallback publication keeps the exact saved signed record
 for retry, and a replacement pending link is never cleared by the older completion. Admission stays
 alive until the actual session/future finishes, including after UI handle disposal.
-Tauri adapters, presentation, durable interrupted-enrollment admission and explicit legacy
-private-state recovery remain planned. Automatic
+Tauri adapters, presentation, renewed-owner authorization for uncertain legacy enrollment, and explicit
+legacy private-state recovery remain planned. Automatic
 pre-receipt recovery never treats a malformed or nonmatching existing receipt as absent. Remaining
 client prepared-outcome adapters still require migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

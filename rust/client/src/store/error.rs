@@ -22,6 +22,9 @@ pub enum Error {
     /// An old pending link has no evidence of which private-state prefix was imported.
     #[error("linked-device private state requires explicit recovery")]
     LinkStateReviewRequired,
+    /// A prior listing may have succeeded and later been revoked, or lacks a durable intent.
+    #[error("linked-device enrollment requires new owner authorization")]
+    LinkEnrollmentReviewRequired,
     /// A pending link was replaced while an earlier completion was in flight.
     #[error("pending linked-device state changed")]
     LinkStateChanged,
