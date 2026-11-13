@@ -361,9 +361,19 @@ hidden intent, unchanged link context and exact remembered head, honor server ba
 work after ACK. A newer head requires a fresh action rather than sending it through the old review.
 Native `SearchWithdrawalReview.retry` reacquires original-slot admission, checks readiness before
 network access and dispatches on the dedicated network stack. Unsupported servers retain the queue;
-retry returns current local state, not proof of network-wide removal. The native sender still has no
-generic queue pump (`send_held` is invoked only by publish/hide/withdraw), so restart-safe automatic
-delivery remains planned separately. Common Tauri commands `prepare_search_recovery`,
+retry returns current local state, not proof of network-wide removal. The original native sender
+`send_held` is invoked only by publish/hide/withdraw; restart-safe automatic lifecycle scheduling
+remains planned separately from the generic outbox entry point below. Core `Store::search_outbox_schedule` distinguishes idle,
+owner-review-required and the exact Unix-second send deadline in one read snapshot.
+`due_search_publication` admits only authorized signed records at that deadline; raw queue access
+remains available for explicit owner recovery. Reading the schedule never signs or migrates state.
+Common native `MobileSearchOutbox` retains only original-slot coordinates; `status` reopens the
+existing database and returns `Idle`, `ReviewRequired` or `Scheduled { readyAt }` in Unix seconds.
+`poll` reacquires the original owner, checks core readiness before network access, and dispatches
+already signed bytes on the dedicated network stack. Missing databases remain idle without creation;
+legacy records remain blocked and no MLS/chat credentials are created. Network errors leave the
+queue intact. This API alone does not schedule OS wakes; Android/iOS lifecycle wiring remains planned.
+Common Tauri commands `prepare_search_recovery`,
 `confirm_search_recovery`, `retry_search_recovery` and `dismiss_search_recovery` use opaque string
 handles and the same core policy. Idle desktop state retains only owner/path/generation and the
 review; each worker holds a fresh identity lease through completion. A changed identity generation,

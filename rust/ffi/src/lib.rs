@@ -35,6 +35,8 @@ mod network_attempt;
 pub use network_attempt::ConnectionAttempt;
 mod peer_photos;
 pub use peer_photos::peer_photo_auto;
+mod search_outbox;
+pub use search_outbox::{MobileSearchOutbox, SearchOutboxStatus};
 mod search_recovery;
 pub use search_recovery::{
     MobileSearchRecovery, SearchRecoveryError, SearchRecoverySaved, SearchWithdrawalReview,

@@ -262,7 +262,7 @@ pub async fn publish_due(
     nodes: &mut [Node],
     now: u64,
 ) -> Result<bool, store::Error> {
-    let Some(record) = store.due_search_profile(now)? else {
+    let Some(record) = store.due_search_publication(now)? else {
         return Ok(false);
     };
     publish_record(store, nodes, record, now).await
@@ -294,9 +294,6 @@ async fn publish_record(
     let profile = dyapp_profile::verify_search(&record)
         .map_err(|_| store::Error::InvalidSetting)?
         .profile;
-    if profile.deleted && !profile.search_only && profile.previous.is_none() {
-        return Err(store::Error::SearchWithdrawalReviewRequired);
-    }
     let (mut taken, mut wait) = (false, None);
     for node in nodes {
         let result = if profile.search_only {
