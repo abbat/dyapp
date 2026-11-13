@@ -102,6 +102,9 @@ caller cancellation. Keep installation node work outside that lease and never up
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).
 Reusable UI-owned workers reacquire verified admission for actual calls instead of holding a lease
 while idle: profile selection may need to finish before the old screen disposes its worker handle.
+Group an admitted session and its operation in a struct with the guard declared last: separate local
+bindings can release the registry lock before SQLite closes. Recovery uses existing-only admission
+and store opening; ordinary chat opening can bootstrap missing credentials.
 Android identity UI tests use `identityAction`/`awaitIdentityCompletion`, which await a new completed
 screen revision. `waitForIdle` alone does not await native IO, and waiting for a loading frame fails
 when fast operations are conflated. Start a fresh readiness check after Activity recreation.
@@ -287,6 +290,10 @@ Their first `--raw` argument bypasses the aggregate frontend; `DYAPP_VERBOSE=1`
 streams the existing underlying stages. Help and valid interactive shells keep
 their direct output. Image-test cleanup preserves an original failure; failed
 mandatory cleanup also fails an otherwise successful check.
+
+The dev container mounts a separate volume at `/workspace/build`, hiding the host's `build/`.
+Bind-mount ad-hoc scripts and cached compiler inputs explicitly; use a dedicated host `build/`
+output mount when generated artifacts must be read afterwards.
 
 Use the Make targets above for quiet successful checks. `tools/scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB

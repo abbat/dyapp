@@ -388,8 +388,18 @@ completion receipt. Selected local values remain pending; public profile publica
 separate consent-gated action. A hidden draft advances above local/search floors with a tombstone;
 a visible draft queues only exact already-published remote content. Pending-link state stays until
 existing key-package/fallback completion succeeds. Changed context requires new review and cannot
-erase newer local edits; an unlisted credential is not automatically restored. Client adapters and
-presentation remain unimplemented. A malformed or
+erase newer local edits; an unlisted credential is not automatically restored.
+The common native `MobileLinkRecovery(registry, id, expected_peer, store)` binds existing credentials
+without opening them. Its blocking `prepare` returns an opaque `ProfileAdoptionReview`; no key,
+session or operation lease stays in either idle handle. `snapshot` includes complete editable local
+and remote values, all original photo chunks, visibility and typed differing field groups.
+`confirm(choices)` reacquires existing-only admission, checks the original session certificate and
+local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
+changed active network, and delegates all field selection and atomic completion to core. Typed errors separate review-required, invalid selection/profile,
+unlisted-device and backend failures. The worker continues using the originally reviewed network;
+UI cancellation does not drop its admission before actual completion. The credential binding is
+not a filesystem generation counter and does not identify an identical externally restored copy.
+Native key-package/link resumption, Tauri adapters and presentation remain unimplemented. A malformed or
 already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

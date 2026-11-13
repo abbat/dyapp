@@ -88,6 +88,24 @@ pub struct MobileIdentityRegistry {
     keys: SlotKeys,
 }
 
+impl MobileIdentityRegistry {
+    pub(crate) fn existing_chat_operation(
+        &self,
+        id: &str,
+        expected_peer: &str,
+        store: Arc<dyn crate::KeyStore>,
+    ) -> Result<core::ChatOperation, CoreError> {
+        self.registry
+            .existing_chat_operation(
+                id,
+                expected_peer,
+                &self.keys,
+                &crate::slot_chat::ChatWrapping(store),
+            )
+            .map_err(CoreError::Failed)
+    }
+}
+
 #[uniffi::export]
 impl MobileIdentityRegistry {
     /// Bind existing mobile storage without creating an identity.

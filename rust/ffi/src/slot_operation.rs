@@ -27,6 +27,14 @@ impl SlotWorker {
         self.registry
             .operation(self.id.clone(), self.expected_peer.clone())
     }
+
+    pub(crate) fn existing_chat_operation(
+        &self,
+        store: Arc<dyn crate::KeyStore>,
+    ) -> Result<dyapp_client::identity_slots::ChatOperation, CoreError> {
+        self.registry
+            .existing_chat_operation(&self.id, &self.expected_peer, store)
+    }
 }
 
 /// Hold through actual blocking-worker completion, including after UI cancellation.

@@ -18,6 +18,12 @@ pub use chats::{
     ChatMediaCache, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatRevocation, ChatRow,
     ChatSession, ChatState, ChatSticker, ChatSubmission, ContactNoteError, FavoriteError,
 };
+mod link_review;
+pub use link_review::{
+    LinkReviewChoice, LinkReviewError, LinkReviewField, LinkReviewPhoto, LinkReviewProfile,
+    LinkReviewSaved, LinkReviewSnapshot, LinkReviewSource, MobileLinkRecovery,
+    ProfileAdoptionReview,
+};
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod network;

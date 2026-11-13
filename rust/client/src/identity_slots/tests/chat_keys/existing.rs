@@ -25,6 +25,7 @@ fn existing_admission_reopens_the_same_device_and_releases_all_locks_when_idle()
             .unwrap();
         let device = operation.device().peer_id();
         let state = *operation.state_key();
+        let binding = operation.binding();
         assert!(matches!(
             handle(&wrapping.lock).try_lock(),
             Err(TryLockError::WouldBlock)
@@ -41,6 +42,7 @@ fn existing_admission_reopens_the_same_device_and_releases_all_locks_when_idle()
             .unwrap();
         assert_eq!(resumed.device().peer_id(), device);
         assert_eq!(resumed.state_key(), &state);
+        assert_eq!(resumed.binding(), binding);
         assert_eq!(*wrapping.generated.borrow(), generated);
     }
 }

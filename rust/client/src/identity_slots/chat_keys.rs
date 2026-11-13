@@ -60,7 +60,30 @@ pub struct ChatOperation {
     identity: IdentityOperation,
 }
 
+/// Opaque slot and credential context for reacquisition after an idle recovery review.
+/// Contains no secret or lease; it is not a filesystem-generation counter.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ChatBinding {
+    slot: String,
+    directory: std::path::PathBuf,
+    owner: String,
+    device: String,
+    state_digest: [u8; 32],
+}
+
 impl ChatOperation {
+    /// Capture slot, owner, device and sealing-key identity without retaining secrets or locks.
+    #[must_use]
+    pub fn binding(&self) -> ChatBinding {
+        ChatBinding {
+            slot: self.slot().id.clone(),
+            directory: self.slot().dir.clone(),
+            owner: self.identity().peer_id(),
+            device: self.device().peer_id(),
+            state_digest: dyapp_identity::sha256(self.state_key()),
+        }
+    }
+
     /// Existing verified slot.
     #[must_use]
     pub fn slot(&self) -> &Slot {
