@@ -324,7 +324,15 @@ Shared desktop normalization remains separate work.
 Local `publish::hide` now uses `Store::hide_profile_draft`: it re-reads the latest draft, advances
 beyond all known versions with checked arithmetic, preserves stronger proof/current fields and commits
 draft/search tombstone/hidden flag together. Owner mismatch, invalid state, exhaustion or any write
-failure leaves that local projection unchanged. Withdrawal now prepares checked version/proof
+failure leaves that local projection unchanged. New search tombstones carry protected `search_only`
+metadata and a separate signature domain; common queue publication uses `SearchRequest.withdraw`
+without downgrade. Ordinary verification/cache admission reject search-purpose and ambiguous legacy
+unconditional tombstones, even when a peer returns them through `GetProfile`. Historical/search
+verification remains explicit and never authorizes account deletion or device-directory changes.
+Search merges track withdrawal version evidence separately from ordinary contact/MLS caches.
+Legacy queued Hide signatures require owner reauthorization before sending; pending and acknowledged
+head migration is still planned, and opening a Store does not migrate or erase that state.
+Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version
 search forks refuse the local commit; remote success may already have occurred. The remembered

@@ -39,14 +39,20 @@ pub fn check(
     let mut order = Vec::new();
     let mut newest: HashMap<[u8; 32], VerifiedProfile> = HashMap::new();
     for record in replies.iter().flatten() {
-        let Ok(verified) = dyapp_profile::verify(record) else {
+        let Ok(verified) = dyapp_profile::verify_search(record) else {
             continue;
         };
         // A verified record has a valid 32-byte key.
         let owner: [u8; 32] = record.public_key.as_slice().try_into().unwrap_or_default();
         match newest.get(&owner) {
             None => order.push(owner),
-            Some(v) if v.profile.version >= verified.profile.version => continue,
+            // At an equal-version fork, authenticated withdrawal wins over disclosure.
+            Some(v)
+                if (v.profile.version, v.profile.deleted)
+                    >= (verified.profile.version, verified.profile.deleted) =>
+            {
+                continue
+            }
             Some(_) => {}
         }
         newest.insert(owner, verified);

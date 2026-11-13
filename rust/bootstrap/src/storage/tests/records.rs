@@ -249,6 +249,38 @@ fn signals_never_block_messages_and_come_after_them() {
 }
 
 #[test]
+fn historical_tombstone_remains_readable_and_final_without_new_authority() {
+    let store = temp_store();
+    let owner = Identity::from_secret(&[7; 32]);
+    let legacy = Profile::tombstone(2, 0, 0).sign(&owner);
+    lock(&store.profiles).unwrap().execute(
+        "INSERT INTO `profiles` (`peer_id`, `record`, `live`, `last_seen`) VALUES (?1, ?2, ?3, ?4)",
+        params![owner.peer_id(), legacy.encode_to_vec(), false, 1],
+    ).unwrap();
+    let held = store.get_profile(&owner.peer_id()).unwrap().unwrap();
+    assert_eq!(held, legacy);
+    assert!(
+        dyapp_profile::verify_historical(&held)
+            .unwrap()
+            .profile
+            .deleted
+    );
+    assert!(dyapp_profile::verify(&held).is_err());
+    let revival = Profile {
+        version: 3,
+        ..Default::default()
+    }
+    .sign(&owner);
+    assert!(matches!(
+        store.put_profile(&revival),
+        Err(BootstrapError::Profile(dyapp_profile::Error::Invalid(
+            "profile already deleted"
+        )))
+    ));
+    assert_eq!(store.get_profile(&owner.peer_id()).unwrap(), Some(legacy));
+}
+
+#[test]
 fn signed_profile_versions_and_tombstone() {
     let store = temp_store();
     let owner = Identity::generate();
@@ -274,9 +306,11 @@ fn signed_profile_versions_and_tombstone() {
         [] as [dyapp_identity::SignedRecord; 0]
     );
 
-    store
-        .put_profile(&Profile::tombstone(3, 0, 0).sign(&owner))
-        .unwrap();
+    let deleted = Profile {
+        previous: Some(dyapp_profile::ProfileCondition::observed(Some(&stored)).unwrap()),
+        ..Profile::tombstone(3, 0, 0)
+    };
+    store.put_profile(&deleted.sign(&owner)).unwrap();
     assert_eq!(
         store.list_profiles(0, 10).unwrap(),
         [] as [dyapp_identity::SignedRecord; 0]
@@ -342,9 +376,10 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
         };
         store.put_profile(&profile.sign(owner)).unwrap();
     }
-    store
-        .put_profile(&Profile::tombstone(2, 0, 0).sign(&owners[1]))
-        .unwrap();
+    let source = store.get_profile(&owners[1].peer_id()).unwrap();
+    let mut deleted = Profile::tombstone(2, 0, 0);
+    deleted.previous = Some(dyapp_profile::ProfileCondition::observed(source.as_ref()).unwrap());
+    store.put_profile(&deleted.sign(&owners[1])).unwrap();
     let after = store.profiles_after(&owners[0].peer_id(), 10).unwrap();
     assert_eq!(after.len(), 1, "tombstone skipped");
     assert_eq!(after[0].public_key, owners[2].public_key());

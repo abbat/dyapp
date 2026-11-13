@@ -624,6 +624,8 @@ mod tests {
     mod node;
     #[path = "publication_tests.rs"]
     mod publication_tests;
+    #[path = "read_authority_tests.rs"]
+    mod read_authority_tests;
     #[path = "revocation_failure_tests.rs"]
     mod revocation_failure_tests;
     #[path = "revocation_privacy_tests.rs"]
@@ -809,8 +811,8 @@ mod tests {
         assert_eq!(dyapp_profile::verify(&retained).unwrap().profile, shown);
         let tombstone = store.due_search_profile(1_001).unwrap().unwrap();
         assert_eq!(
-            dyapp_profile::verify(&tombstone).unwrap().profile,
-            Profile::tombstone(2, shown.pow_nonce, shown.pow_bits)
+            dyapp_profile::verify_search(&tombstone).unwrap().profile,
+            Profile::search_tombstone(2, shown.pow_nonce, shown.pow_bits)
         );
         let again = publish(&store, &mut node, &alice, &hidden).await.unwrap();
         assert_eq!((again.version, again.gender), (3, shown.gender));

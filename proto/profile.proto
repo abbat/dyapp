@@ -92,6 +92,9 @@ message Profile {
   // Protected publication metadata, never an editable field. Covered by `ProfileConditional`'s
   // signature; removing it cannot turn this record into a legacy profile authorization.
   ProfileCondition previous = 57;
+  // Protected search withdrawal purpose; only a tombstone without an ordinary previous-state fence.
+  // Signed in the search-withdrawal domain and never ordinary profile-storage authorization.
+  bool search_only = 58;
 }
 
 // The ordinary profile observed before authorizing a write. Zero/empty means no profile.

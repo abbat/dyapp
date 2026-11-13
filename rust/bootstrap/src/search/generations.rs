@@ -3,6 +3,9 @@ use super::*;
 use crate::maintenance::RebuildBudget;
 use crate::search::candidate;
 use crate::search::tests::{fill, index};
+use crate::search::Put;
+use dyapp_profile::Profile;
+use prost::Message as _;
 use std::time::Duration;
 
 const NOW: [Duration; 2] = [Duration::ZERO; 2];
@@ -76,6 +79,47 @@ async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
         error.contains(&format!("profiles-idx-v{NEXT}.db")),
         "{error}"
     );
+}
+
+#[tokio::test]
+async fn withdrawal_proof_survives_generation_rebuild_without_a_visible_profile() {
+    let owner = dyapp_identity::Identity::from_secret(&[7; 32]);
+    let profile = Profile::search_tombstone(2, 0, 0);
+    let record = profile.sign(&owner);
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let index = index();
+    assert_eq!(
+        index
+            .put(&key, &profile, &record, index.created(), false)
+            .unwrap(),
+        Put::Stored
+    );
+    assert_eq!(
+        index.records(&[key], usize::MAX).unwrap(),
+        vec![record.clone()]
+    );
+    let bytes: i64 = index
+        .reader()
+        .unwrap()
+        .query_row(
+            "SELECT `bytes` FROM `key` WHERE `key` = ?",
+            [&key[..]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(usize::try_from(bytes).unwrap(), record.encoded_len());
+    let base = index.path.clone();
+    drop(index);
+    let index = reopen(&base, NEXT).unwrap();
+    index.rebuild_with(&RebuildBudget::new(64), 0, NOW).await;
+    assert_eq!(index.index_version(), NEXT);
+    assert_eq!(index.records(&[key], usize::MAX).unwrap(), vec![record]);
+    let visible: i64 = index
+        .reader()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM `profile`", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(visible, 0);
 }
 
 #[tokio::test]

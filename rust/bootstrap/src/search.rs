@@ -275,6 +275,15 @@ pub struct SearchIndex {
     newcomer_evictions_taken: AtomicU64,
 }
 
+fn insert_record(db: &Connection, key: &[u8; 32], record: &[u8]) -> Result<()> {
+    db.execute(
+        "INSERT INTO `record` VALUES (?, ?)",
+        params![&key[..], record],
+    )
+    .map_err(storage_error)?;
+    Ok(())
+}
+
 /// i64 for SQLite; `put` refuses versions above `i64::MAX` as stale.
 fn sql(v: u64) -> Option<i64> {
     i64::try_from(v).ok()
@@ -495,7 +504,7 @@ impl SearchIndex {
             .map_err(storage_error)?;
         }
         let topic = topic(key);
-        let bytes = if p.deleted {
+        let bytes = if p.deleted && !p.search_only {
             0
         } else {
             i64::try_from(record.encoded_len()).map_err(storage_error)?
@@ -514,11 +523,10 @@ impl SearchIndex {
         .map_err(storage_error)?;
         if !p.deleted {
             insert_profile(&tx, key, p, i64::from_ne_bytes(rand_bytes()))?;
-            tx.execute(
-                "INSERT INTO `record` VALUES (?, ?)",
-                params![&key[..], record.encode_to_vec()],
-            )
-            .map_err(storage_error)?;
+        }
+        // Retain purpose-separated negative evidence for authenticated discovery catch-up.
+        if !p.deleted || p.search_only {
+            insert_record(&tx, key, &record.encode_to_vec())?;
         }
         tx.commit()?;
         let newcomer = first_seen > now - self.newcomer_seconds;

@@ -53,6 +53,8 @@ signature_domains! {
     Profile => b"dyapp/profile/v1\0",
     /// A profile with an owner-signed previous-state fence.
     ProfileConditional => b"dyapp/profile-conditional/v1\0",
+    /// A search-only withdrawal, never account deletion authority.
+    SearchWithdrawal => b"dyapp/search-withdrawal/v1\0",
     /// One device's mailbox and MLS keys, certified by the owner.
     DeviceCertificate => b"dyapp/device-certificate/v1\0",
     /// The identity key a device accepts as its owner (the payload), signed by its device key.

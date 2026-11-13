@@ -32,7 +32,11 @@ async fn review_refuses_wrong_owner_deleted_remote_and_missing_pending_link() {
     store.save_profile_draft(&local).unwrap();
     store.set_link_pending(b"pending state").unwrap();
     let (mut node, held) = profile_node(Vec::new()).await;
-    *held.lock().unwrap() = Some(Profile::tombstone(3, 0, 0).sign(&identity));
+    let deletion = Profile {
+        previous: Some(dyapp_profile::ProfileCondition::default()),
+        ..Profile::tombstone(3, 0, 0)
+    };
+    *held.lock().unwrap() = Some(deletion.sign(&identity));
     let stranger = Identity::from_secret(&[8; 32]);
     assert!(matches!(
         crate::publish::review_adoption(&store, &mut node, &stranger).await,

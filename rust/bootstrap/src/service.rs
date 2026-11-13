@@ -22,6 +22,7 @@ use dyapp_p2p_net::proto::{
     MailboxResponse, MediaRequest, MediaResponse, NodeInfo, NodeRequest, NodeResponse,
     ProfileRequest, ProfileResponse, SearchRequest, SearchResponse, Status, TurnCredentials,
 };
+use dyapp_profile::verify_historical;
 use prost::Message;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -775,7 +776,7 @@ impl Service {
         if self.listed_key(&record.public_key) {
             return Ok(reply(Status::Refused, None));
         }
-        let verified = match dyapp_profile::verify(record) {
+        let verified = match dyapp_profile::verify_storage(record) {
             Ok(verified) => verified,
             Err(dyapp_profile::Error::Signature(_)) => return Ok(reply(Status::Denied, None)),
             Err(_) => return Ok(reply(Status::Invalid, None)),
@@ -809,7 +810,7 @@ impl Service {
             // Reject revival before replica fan-out: otherwise an isolated node waits for
             // the put timeout because its retained tombstone will refuse the local copy.
             let held = self.store.get_profile(&verified.peer_id)?;
-            let current = held.as_ref().map(dyapp_profile::verify).transpose()?;
+            let current = held.as_ref().map(verify_historical).transpose()?;
             if current.is_some_and(|held| held.profile.deleted) {
                 return Ok(reply(Status::Invalid, None));
             }

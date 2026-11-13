@@ -686,6 +686,23 @@ impl Node {
         .map(drop)
     }
 
+    /// Submit a purpose-separated search withdrawal without legacy fallback.
+    ///
+    /// # Errors
+    /// Returns profile verification/input errors or search request/status failures.
+    pub async fn search_withdraw(&mut self, record: SignedRecord) -> Result<(), Error> {
+        if !dyapp_profile::verify_search(&record)?.profile.search_only {
+            return Err(Error::Input(
+                "search-only withdrawal authorization required",
+            ));
+        }
+        search_ok(
+            self.search(search_request::Request::Withdraw(record))
+                .await?,
+        )
+        .map(drop)
+    }
+
     /// Sends a signed heartbeat that keeps the owner's search profile listed.
     ///
     /// # Errors

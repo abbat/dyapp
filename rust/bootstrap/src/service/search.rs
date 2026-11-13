@@ -25,7 +25,11 @@ pub(super) fn search_reply(status: Status) -> SearchResponse {
 #[must_use]
 pub fn search_key(request: &SearchRequest) -> Option<[u8; 32]> {
     match &request.request {
-        Some(search_request::Request::Publish(r) | search_request::Request::Heartbeat(r)) => {
+        Some(
+            search_request::Request::Publish(r)
+            | search_request::Request::Withdraw(r)
+            | search_request::Request::Heartbeat(r),
+        ) => {
             let key: [u8; 32] = r.public_key.as_slice().try_into().ok()?;
             Some(dyapp_identity::key_hash(&key))
         }
@@ -117,6 +121,24 @@ pub fn run_get(index: &SearchIndex, keys: &[[u8; 32]]) -> crate::Result<SearchRe
 }
 
 impl Service {
+    fn get_search(&self, peer: &Peer, get: &proto::SearchGet) -> Search {
+        if let Some(reply) = self.puzzled(peer, get.puzzle.as_ref()) {
+            return reply;
+        }
+        let keys: Option<Vec<[u8; 32]>> = (get.keys.len() <= MAX_SEARCH_GET)
+            .then(|| {
+                get.keys
+                    .iter()
+                    .map(|k| k.as_slice().try_into().ok())
+                    .collect()
+            })
+            .flatten();
+        let Some(keys) = keys else {
+            return Search::Reply(search_reply(Status::Invalid));
+        };
+        Search::Get(keys.into_iter().filter(|k| !self.listed(k)).collect())
+    }
+
     /// Errors as in [`Service::profile`].
     ///
     /// # Errors
@@ -130,7 +152,11 @@ impl Service {
         }
         // A get is also charged by its reply size in `charge_get`; search nodes only there.
         let units = match &request.request {
-            Some(search_request::Request::Publish(_) | search_request::Request::Heartbeat(_)) => 5,
+            Some(
+                search_request::Request::Publish(_)
+                | search_request::Request::Withdraw(_)
+                | search_request::Request::Heartbeat(_),
+            ) => 5,
             Some(search_request::Request::Get(_)) if self.is_search_peer(peer) => 0,
             _ => 1,
         };
@@ -156,6 +182,10 @@ impl Service {
                 self.publish_search(&record, true, self.config.search.max_profile_bytes)?,
                 search_request::Request::Publish(record),
             ),
+            Some(search_request::Request::Withdraw(record)) => pow(
+                self.withdraw_search(&record, true, self.config.search.max_profile_bytes)?,
+                search_request::Request::Withdraw(record),
+            ),
             Some(search_request::Request::Heartbeat(record)) => pow(
                 self.beat_search(&record)?,
                 search_request::Request::Heartbeat(record),
@@ -166,23 +196,7 @@ impl Service {
                     None => Search::Query(query),
                 }
             }
-            Some(search_request::Request::Get(get)) => {
-                if let Some(reply) = self.puzzled(peer, get.puzzle.as_ref()) {
-                    return Ok(reply);
-                }
-                let keys: Option<Vec<[u8; 32]>> = (get.keys.len() <= MAX_SEARCH_GET)
-                    .then(|| {
-                        get.keys
-                            .iter()
-                            .map(|k| k.as_slice().try_into().ok())
-                            .collect()
-                    })
-                    .flatten();
-                let Some(keys) = keys else {
-                    return reply(Status::Invalid);
-                };
-                Search::Get(keys.into_iter().filter(|k| !self.listed(k)).collect())
-            }
+            Some(search_request::Request::Get(get)) => self.get_search(peer, &get),
             None => Search::Reply(search_reply(Status::Unsupported)),
         })
     }
@@ -283,10 +297,28 @@ impl Service {
             Some(search_request::Request::Publish(record)) => {
                 self.publish_search(record, true, self.config.search.max_profile_bytes)?
             }
+            Some(search_request::Request::Withdraw(record)) => {
+                self.withdraw_search(record, true, self.config.search.max_profile_bytes)?
+            }
             Some(search_request::Request::Heartbeat(record)) => self.beat_search(record)?,
             _ => Applied::Status(Status::Unsupported),
         };
         Ok(self.applied(peer, &applied))
+    }
+
+    fn withdraw_search(
+        &self,
+        record: &SignedRecord,
+        limit: bool,
+        max: usize,
+    ) -> crate::Result<Applied> {
+        if record.encoded_len() > max {
+            return Ok(Applied::TooLarge(max));
+        }
+        if record.verify(Domain::SearchWithdrawal).is_err() {
+            return Ok(Applied::Bad);
+        }
+        self.publish_search(record, limit, max)
     }
 
     /// `limit = false` (catch-up) skips only the 10-minute update limit.
@@ -302,7 +334,7 @@ impl Service {
         if record.encoded_len() > max {
             return Ok(Applied::TooLarge(max));
         }
-        let verified = match dyapp_profile::verify(record) {
+        let verified = match dyapp_profile::verify_search(record) {
             Ok(verified) => verified,
             Err(dyapp_profile::Error::Signature(_)) => return Ok(Applied::Bad),
             Err(_) => return Ok(Applied::Status(Status::Invalid)),
@@ -399,6 +431,9 @@ impl Service {
         let applied = match &request.request {
             Some(search_request::Request::Publish(record)) => {
                 self.publish_search(record, true, SEARCH_ACCEPT_BYTES)
+            }
+            Some(search_request::Request::Withdraw(record)) => {
+                self.withdraw_search(record, true, SEARCH_ACCEPT_BYTES)
             }
             Some(search_request::Request::Heartbeat(record)) => self.beat_search(record),
             _ => return Verdict::Reject,

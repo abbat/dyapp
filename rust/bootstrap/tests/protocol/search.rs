@@ -303,12 +303,10 @@ async fn hits(node: &mut dyapp_client::Node) -> usize {
 async fn search_tombstone_keeps_the_direct_profile() {
     dyapp_p2p_net::set_id_pow_bits(0);
     let address = start_search(None).await;
-    let mut node = dyapp_client::Node::connect(
-        address,
-        std::sync::Arc::new(dyapp_p2p_net::Protocols::public()),
-    )
-    .await
-    .unwrap();
+    let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
+    let mut node = dyapp_client::Node::connect(address.clone(), protocols.clone())
+        .await
+        .unwrap();
     let owner = Identity::generate();
     let nonce = dyapp_profile::solve(&owner.public_key(), 2, 0, 100_000).unwrap();
     let profile = Profile {
@@ -323,10 +321,22 @@ async fn search_tombstone_keeps_the_direct_profile() {
     node.search_publish(record).await.unwrap();
     assert_eq!(hits(&mut node).await, 1);
 
-    node.search_publish(Profile::tombstone(2, nonce, 2).sign(&owner))
+    let store =
+        dyapp_client::store::Store::open(&super::chat::store_path("hide-replay"), &owner).unwrap();
+    store.save_profile_draft(&profile).unwrap();
+    store.hide_profile_draft(&owner, &profile).unwrap();
+    let withdrawal = store.due_search_profile(u64::MAX).unwrap().unwrap();
+    node.search_withdraw(withdrawal.clone()).await.unwrap();
+    assert_eq!(hits(&mut node).await, 0);
+    // A different transport peer replays only the captured record, without the owner's key.
+    let mut attacker = dyapp_client::Node::connect(address, protocols)
         .await
         .unwrap();
-    assert_eq!(hits(&mut node).await, 0);
+    let replay = attacker.publish_profile(withdrawal).await;
+    assert!(
+        matches!(replay, Err(dyapp_client::Error::Status(Status::Denied))),
+        "{replay:?}"
+    );
     assert_eq!(
         node.get_profile(&owner.peer_id()).await.unwrap().profile,
         profile

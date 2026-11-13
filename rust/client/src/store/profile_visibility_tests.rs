@@ -47,10 +47,13 @@ fn hide_uses_latest_fields_photos_devices_and_stronger_proof() {
     assert_eq!(saved(&editor), expected);
     assert!(store.profile_hidden().unwrap());
     let held = store.due_search_profile(0).unwrap().unwrap();
-    assert_eq!(held.verify(Domain::Profile).unwrap(), identity.peer_id());
     assert_eq!(
-        dyapp_profile::verify(&held).unwrap().profile,
-        Profile::tombstone(8, expected.pow_nonce, expected.pow_bits)
+        held.verify(Domain::SearchWithdrawal).unwrap(),
+        identity.peer_id()
+    );
+    assert_eq!(
+        dyapp_profile::verify_search(&held).unwrap().profile,
+        Profile::search_tombstone(8, expected.pow_nonce, expected.pow_bits)
     );
 }
 
@@ -139,7 +142,10 @@ fn empty_storage_uses_the_supplied_draft_without_publishing_its_fields() {
     let hidden = store.hide_profile_draft(&identity, &request).unwrap();
     assert_eq!((hidden.version, hidden.about.as_str()), (5, "local fields"));
     let held = store.due_search_profile(0).unwrap().unwrap();
-    assert_eq!(dyapp_profile::verify(&held).unwrap().profile.about, "");
+    assert_eq!(
+        dyapp_profile::verify_search(&held).unwrap().profile.about,
+        ""
+    );
 }
 
 #[test]

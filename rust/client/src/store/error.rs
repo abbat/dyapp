@@ -43,6 +43,9 @@ pub enum Error {
     /// Two different signed search records claim the same profile version.
     #[error("search profile version conflicts with stored bytes")]
     SearchProfileConflict,
+    /// An old ambiguous Hide signature must be reauthorized before network submission.
+    #[error("legacy search withdrawal requires owner reauthorization")]
+    SearchWithdrawalReviewRequired,
     /// A clock value does not fit the SQLite integer representation.
     #[error("client store clock value is out of range")]
     ClockRange,

@@ -325,6 +325,17 @@ async fn providers_are_dialed_for_their_addresses() {
     task.abort();
 }
 
+fn search_kind(request: &proto::search_request::Request) -> &'static str {
+    use proto::search_request::Request;
+    match request {
+        Request::Publish(_) => "publish",
+        Request::Withdraw(_) => "withdraw",
+        Request::Heartbeat(_) => "heartbeat",
+        Request::Query(_) => "query",
+        Request::Get(_) => "get",
+    }
+}
+
 #[tokio::test]
 async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
     use proto::{search_request::Request, SearchResponse, Status};
@@ -428,12 +439,7 @@ async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
     let received = received.lock().unwrap();
     let kinds: Vec<_> = received
         .iter()
-        .map(|(_, request)| match request {
-            Request::Publish(_) => "publish",
-            Request::Heartbeat(_) => "heartbeat",
-            Request::Query(_) => "query",
-            Request::Get(_) => "get",
-        })
+        .map(|(_, request)| search_kind(request))
         .collect();
     assert_eq!(
         kinds,

@@ -124,7 +124,7 @@ impl Store {
                 .version
                 .checked_add(1)
                 .ok_or(Error::ProfileVersionExhausted)?;
-            Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
+            Profile::search_tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
         } else {
             imported.clone()
         };

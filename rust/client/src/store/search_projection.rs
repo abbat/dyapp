@@ -21,7 +21,7 @@ impl Head {
 
 impl Store {
     fn record_head(&self, record: &SignedRecord) -> Result<Head, Error> {
-        let verified = dyapp_profile::verify(record).map_err(|_| Error::InvalidSetting)?;
+        let verified = dyapp_profile::verify_search(record).map_err(|_| Error::InvalidSetting)?;
         if verified.peer_id != self.owner_peer_id {
             return Err(Error::WrongIdentity);
         }

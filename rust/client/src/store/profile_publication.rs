@@ -54,6 +54,7 @@ impl ProfilePublication {
         local.version = published.version;
         local.deleted = published.deleted;
         local.previous.clone_from(&published.previous);
+        local.search_only = published.search_only;
         local.pow_nonce = published.pow_nonce;
         local.pow_bits = published.pow_bits;
         local.devices.clone_from(&published.devices);
@@ -112,6 +113,7 @@ impl ProfilePublicationOutcome {
         let mut content = draft.clone();
         content.version = published.version;
         content.previous.clone_from(&published.previous);
+        content.search_only = published.search_only;
         Self {
             published: published.clone(),
             pending: content != *published,
@@ -213,7 +215,7 @@ impl Store {
                 .version
                 .checked_add(1)
                 .ok_or(Error::ProfileVersionExhausted)?;
-            Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
+            Profile::search_tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
         } else {
             published.clone()
         };

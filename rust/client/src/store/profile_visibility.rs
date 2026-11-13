@@ -127,7 +127,7 @@ impl Store {
             (latest.pow_nonce, latest.pow_bits) = (request.pow_nonce, request.pow_bits);
         }
         latest.version = version;
-        let tombstone = Profile::tombstone(version, latest.pow_nonce, latest.pow_bits);
+        let tombstone = Profile::search_tombstone(version, latest.pow_nonce, latest.pow_bits);
         self.save_profile_draft(&latest)?;
         self.hold_search_profile_in_tx(&tombstone.sign(identity))?;
         self.set_profile_hidden(true)?;

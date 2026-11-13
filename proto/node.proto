@@ -626,6 +626,9 @@ message SearchRequest {
     dyapp.identity.SignedRecord heartbeat = 2;
     SearchQuery query = 3;
     SearchGet get = 4;
+    // Search-only removal signed in the search-withdrawal domain. Older nodes return UNSUPPORTED.
+    // Clients never retry this authorization as legacy publish.
+    dyapp.identity.SignedRecord withdraw = 5;
   }
 }
 

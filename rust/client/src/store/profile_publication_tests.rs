@@ -253,7 +253,7 @@ fn hidden_relist_commits_tombstone_and_pending_edits_in_one_transaction() {
     assert_eq!(
         store.due_search_profile(0).unwrap(),
         Some(
-            Profile::tombstone(
+            Profile::search_tombstone(
                 outcome.draft.version,
                 outcome.draft.pow_nonce,
                 outcome.draft.pow_bits

@@ -41,6 +41,7 @@ as received, so a node keeps fields it does not understand.
 |---------|--------|-----------|
 | Legacy `dyapp.profile.Profile` without `previous` | `dyapp/profile/v1\0` | identity key |
 | `dyapp.profile.Profile` with protected `previous` | `dyapp/profile-conditional/v1\0` | identity key |
+| Search-only deleted `dyapp.profile.Profile` | `dyapp/search-withdrawal/v1\0` | identity key |
 | `dyapp.profile.DeviceCertificate` | `dyapp/device-certificate/v1\0` | identity key |
 | `Revoke.owner` (payload: the owner's identity key) | `dyapp/device-owner/v1\0` | device key |
 | `dyapp.node.KeyPackageRecord` | `dyapp/keypackage/v1\0` | certified device key |
@@ -75,7 +76,7 @@ scale's maximum are invalid. The numeric vocabulary lives in `rust/profile/src/s
 self-declared, independent of the birth date. `name` is optional public text,
 which proves nothing ([ADR 0027](../decisions/0027-optional-public-profile-name.md)). `version` orders updates (the highest validly
 signed version wins, subject to a conditional record's previous-state fence); `deleted` marks a
-tombstone with every other field except `pow_nonce`, `pow_bits` and protected `previous` metadata empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
+tombstone with every other field except `pow_nonce`, `pow_bits` and protected purpose/condition metadata empty. `pow_nonce` and `pow_bits` carry the Argon2id proof of work over the signer's
 key (see [Proof of work](bootstrap.md#search)); missing means 0 bits. Tag 5 held
 coordinates and is reserved. `photos` link `/dyapp/media` blobs by SHA-256: each `Photo` is the
 full image as ordered blobs plus one `thumbnail` blob for lists and search results: a JPEG,
@@ -96,6 +97,13 @@ most 500 code points that may hold line feeds; it is not indexed. `smoking`, `dr
 for: at most 16 nonzero distinct `Gender` codes and age bounds of 18–120 that are not reversed.
 `not_looking` together with any of the other three invalidates the profile
 ([ADR 0043](../decisions/0043-seeking-and-mutual-search.md)).
+
+`search_only` (tag 58) is protected metadata: it requires `deleted = true` and no
+`previous` condition, and selects the search-withdrawal signing domain. Decoding and re-signing
+preserve that purpose. It cannot authorize ordinary storage or account/device decisions.
+Ordinary deletion requires an owner-signed conditional record (`previous`, tag 57).
+Legacy unconditional tombstones remain readable through explicit historical/search verification,
+but ordinary verification and storage admission reject them because old Hide used the same bytes.
 
 ## Node protocol
 
@@ -188,8 +196,12 @@ SHA-256 of the device public key (32 bytes each).
   local availability without repair remains the fallback when admission is unavailable.
   `attach` is a signed chat attachment: blob hashes, the SHA-256 of a release secret and a
   creation time; `release(secret)` drops it on that node, so release every replica holder.
-- **`/dyapp/search`** (search role): `publish(SignedRecord)` and `heartbeat(SignedRecord)`
-  as on `/dyapp/profile`; `Heartbeat.version` names the owner's current profile version, and a
+- **`/dyapp/search`** (search role): `publish(SignedRecord)`, purpose-separated
+  `withdraw(SignedRecord)` (tag 5), and `heartbeat(SignedRecord)`. Withdrawal records remain
+  fetchable through `get` for authenticated catch-up but never appear in query results;
+  their retained bytes count toward index storage quotas. Clients do not downgrade withdrawal
+  to legacy publication when a node reports unsupported.
+  `Heartbeat.version` names the owner's current profile version, and a
   search node holding an older one answers `STATUS_NOT_FOUND` (store nodes ignore the field).
   `query(SearchQuery)` takes up to 32 `Condition`s (`OP_EQ`, `OP_IN` with up to 16 values,
   inclusive `OP_RANGE`) and returns `SearchHit`s (key hash, version), the `applied` fields and

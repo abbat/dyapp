@@ -2,7 +2,7 @@
 use super::*;
 use dyapp_profile::ProfileCondition;
 
-fn fixture() -> (Service, Identity) {
+pub(super) fn fixture() -> (Service, Identity) {
     let mut config = NodeConfig::default();
     config.storage.dir =
         std::env::temp_dir().join(format!("profile-condition-{}", uuid::Uuid::new_v4()));

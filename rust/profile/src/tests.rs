@@ -232,7 +232,12 @@ fn highest_valid_version_wins() {
 #[test]
 fn tombstone_supersedes_and_must_be_empty() {
     let owner = Identity::generate();
-    let tombstone = Profile::tombstone(3, 0, 0).sign(&owner);
+    let source = sample(2).sign(&owner);
+    let tombstone = Profile {
+        previous: Some(ProfileCondition::observed(Some(&source)).unwrap()),
+        ..Profile::tombstone(3, 0, 0)
+    }
+    .sign(&owner);
     assert!(accept(&tombstone, Some(2)).unwrap().profile.deleted);
     assert_eq!(accept(&sample(2).sign(&owner), Some(3)), Err(Error::Stale));
 
@@ -280,7 +285,7 @@ fn pow_is_pinned_and_solvable() {
 fn tombstone_keeps_pow() {
     let owner = Identity::generate();
     let tombstone = Profile::tombstone(3, 77, 11).sign(&owner);
-    let verified = verify(&tombstone).unwrap().profile;
+    let verified = verify_historical(&tombstone).unwrap().profile;
     assert_eq!((verified.pow_nonce, verified.pow_bits), (77, 11));
 }
 
@@ -501,7 +506,7 @@ fn verify_takes_scale_codes_from_a_newer_client() {
     }
     profile.education_level = EducationLevel::MAX + 1;
     assert!(verify(&profile.sign(&owner)).is_ok());
-    assert!(verify(&Profile::tombstone(2, 0, 0).sign(&owner)).is_ok());
+    assert!(verify_historical(&Profile::tombstone(2, 0, 0).sign(&owner)).is_ok());
 }
 
 #[test]

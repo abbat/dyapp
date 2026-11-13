@@ -370,8 +370,19 @@ resent from the sender's retry queue.
   store and search only when it is done; messaging works before that. Both roles reject a
   profile below their shared minimum or with a forged proof. Only zero-minimum test networks
   accept a zero-difficulty profile.
-- Deletion is a signed tombstone kept for the TTL
-  ([ADR 0011](../decisions/0011-best-effort-deletion.md)).
+- Ordinary deletion is an owner-signed conditional tombstone kept for the TTL
+  ([ADR 0011](../decisions/0011-best-effort-deletion.md)). Search Hide instead signs a protected
+  `search_only` tombstone in `dyapp/search-withdrawal/v1\0` and sends `SearchRequest.withdraw`
+  (tag 5), without falling back to legacy publication on unsupported nodes. Search RPC, gossip
+  and catch-up verify that purpose; ordinary publication, replicas and repair reject it.
+  Captured legacy unconditional tombstones are also rejected as ordinary authority, including
+  `GetProfile` replies and ordinary profile-cache admission. `dyapp_profile::verify` is the
+  authoritative verifier; `verify_historical` only inspects retained ordinary bytes, and
+  `verify_search` accepts discovery evidence. Historical readability does not grant authority.
+  Search withdrawals suppress older/equal cached hits without changing ordinary contact or MLS
+  profiles; withdrawal wins equal-version ties regardless of reply order. Legacy pending Hide
+  publication requires owner reauthorization and retains its queue state. Migration of legacy
+  pending and acknowledged search heads remains planned.
 
 ### Device directory and KeyPackages
 

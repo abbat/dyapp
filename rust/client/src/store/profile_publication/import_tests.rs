@@ -94,7 +94,13 @@ fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
         .unwrap();
-    let tombstone = Profile::tombstone(4, 0, 0).sign(&identity);
+    let tombstone = store.due_search_profile(100).unwrap().unwrap();
+    assert!(
+        dyapp_profile::verify_search(&tombstone)
+            .unwrap()
+            .profile
+            .search_only
+    );
     store.search_profile_sent(&tombstone, 100).unwrap();
     store
         .update_profile_draft(|draft| {
@@ -331,7 +337,7 @@ fn foreign_import_keeps_current_visibility_and_pending_edits_out_of_search() {
     assert!(outcome.pending && outcome.hidden);
     assert_eq!(
         store.due_search_profile(1000).unwrap(),
-        Some(Profile::tombstone(4, 0, 0).sign(&identity))
+        Some(Profile::search_tombstone(4, 0, 0).sign(&identity))
     );
     assert!(store.profile_hidden().unwrap());
 }

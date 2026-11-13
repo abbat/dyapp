@@ -68,6 +68,8 @@ mod generated {
 pub use generated::{DeviceCertificate, Photo, Profile, ProfileCondition};
 
 mod publication;
+mod search_withdrawal;
+pub use search_withdrawal::{verify_search, verify_storage};
 
 mod birth_date;
 pub mod birth_input;
@@ -173,6 +175,7 @@ impl Profile {
         }
         let tombstone = Self {
             previous: self.previous.clone(),
+            search_only: self.search_only,
             ..Self::tombstone(self.version, self.pow_nonce, self.pow_bits)
         };
         if self.deleted && *self != tombstone {
@@ -337,12 +340,24 @@ pub struct VerifiedProfile {
     pub profile: Profile,
 }
 
-/// Checks size, signature, encoding and content rules of a profile record.
+/// Verify an ordinary profile's signature, content and account/device authority.
+/// Ambiguous legacy deletion markers are readable only through [`verify_historical`].
+///
+/// # Errors
+/// Returns validation errors or insufficient ordinary deletion authorization.
+pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
+    let profile = verify_historical(record)?;
+    profile.check_storage_authorization()?;
+    Ok(profile)
+}
+
+/// Check historical ordinary bytes without granting account/device authority.
+/// Use only for retained storage state or legacy inspection; network consumers use [`verify`].
 ///
 /// # Errors
 /// Returns an error for an oversized payload, invalid signature, malformed protobuf
 /// or a profile that violates the content rules.
-pub fn verify(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
+pub fn verify_historical(record: &SignedRecord) -> Result<VerifiedProfile, Error> {
     if record.payload.len() > MAX_PAYLOAD_LEN {
         return Err(Error::Invalid("profile too large"));
     }

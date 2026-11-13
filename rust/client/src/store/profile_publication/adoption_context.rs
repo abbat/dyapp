@@ -194,7 +194,7 @@ fn review_projection(
     let mut draft = selected.clone();
     let queued = if expected.publication.hidden {
         draft.version = floor.checked_add(1).ok_or(Error::ProfileVersionExhausted)?;
-        Profile::tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
+        Profile::search_tombstone(draft.version, draft.pow_nonce, draft.pow_bits)
     } else {
         if floor > remote.version {
             return Err(Error::ProfileCompletionSuperseded);

@@ -851,6 +851,7 @@ mod mailbox;
 mod manual_clock;
 mod media;
 mod revoke;
+mod search_withdrawal;
 mod write_token;
 use mailbox::mailbox_status;
 pub(super) use media::media_service;

@@ -393,13 +393,13 @@ impl BootstrapStore {
         record: &SignedRecord,
         last_seen: i64,
     ) -> Result<VerifiedProfile> {
-        let verified = dyapp_profile::verify(record)?;
+        let verified = dyapp_profile::verify_storage(record)?;
         // The connection lock serialises the read-compare-write of profile versions.
         let db = lock(&self.profiles)?;
         let record_before = Self::profile(&db, &verified.peer_id)?;
         let current = record_before
             .as_ref()
-            .map(dyapp_profile::verify)
+            .map(dyapp_profile::verify_historical)
             .transpose()?;
         verified.check_newer(current.as_ref().map(|stored| stored.profile.version))?;
         verified.check_condition(record_before.as_ref())?;

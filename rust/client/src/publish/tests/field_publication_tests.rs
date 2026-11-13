@@ -312,7 +312,10 @@ async fn missing_withdrawn_or_unproven_membership_cannot_become_first_enrollment
         let (mut node, held) = profile_node(Vec::new()).await;
         let source = match case {
             0 => None,
-            1 => Some(Profile::tombstone(f.authority.version, 0, 0)),
+            1 => Some(Profile {
+                previous: Some(dyapp_profile::ProfileCondition::default()),
+                ..Profile::tombstone(f.authority.version, 0, 0)
+            }),
             _ => Some(Profile {
                 devices: Vec::new(),
                 device_owners: Vec::new(),

@@ -35,7 +35,9 @@ impl ProfileCondition {
 
 impl Profile {
     pub(crate) fn signature_domain(&self) -> Domain {
-        if self.previous.is_some() {
+        if self.search_only {
+            Domain::SearchWithdrawal
+        } else if self.previous.is_some() {
             Domain::ProfileConditional
         } else {
             Domain::Profile
@@ -43,6 +45,9 @@ impl Profile {
     }
 
     pub(crate) fn validate_condition(&self) -> Result<(), Error> {
+        if self.search_only && (!self.deleted || self.previous.is_some()) {
+            return Err(Error::Invalid("invalid search withdrawal purpose"));
+        }
         let Some(previous) = &self.previous else {
             return Ok(());
         };
@@ -65,7 +70,7 @@ impl VerifiedProfile {
         let (Some(previous), Some(current)) = (&self.profile.previous, current) else {
             return Ok(());
         };
-        let version = verify(current)?.profile.version;
+        let version = crate::verify_historical(current)?.profile.version;
         if version > previous.version
             || (version == previous.version
                 && sha256(&current.encode_to_vec()).as_slice() != previous.record_hash)

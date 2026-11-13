@@ -17,6 +17,8 @@ use std::time::Duration;
 /// Keys one get request may carry.
 const GET_KEYS: usize = 50;
 
+mod evidence;
+
 /// Verified profiles and whether search coverage may be incomplete.
 pub struct SearchResults {
     /// Matches, one per owner at the highest seen version, in no set order.
@@ -177,17 +179,15 @@ pub async fn search(
     blocked: &[String],
 ) -> SearchResults {
     let (mut replies, mut cached) = (Vec::new(), Vec::new());
+    let mut observed = evidence::Observed::default();
     let mut partial = nodes.is_empty();
     let mut failures = Vec::new();
     if nodes.is_empty() {
         failures.push(SearchFailure::NoNodes);
     }
-    let active = conditions
-        .iter()
-        .any(|c| c.field == search_results::ACTIVE_DAY);
-    let age = conditions
-        .iter()
-        .any(|c| c.field == search_results::BIRTH_AGE);
+    let needs = |field| conditions.iter().any(|condition| condition.field == field);
+    let active = needs(search_results::ACTIVE_DAY);
+    let age = needs(search_results::BIRTH_AGE);
     for node in nodes {
         let reply = match node.search_query(conditions.to_vec(), limit).await {
             Ok(reply) => reply,
@@ -217,7 +217,7 @@ pub async fn search(
         let (records, incomplete) = fetch(node, keys, &mut failures).await;
         partial |= incomplete;
         // `check` drops such a record anyway; the node that sent it is not to be trusted.
-        if records.iter().any(|r| dyapp_profile::verify(r).is_err()) {
+        if !observed.observe(&records) {
             failures.push(SearchFailure::Invalid);
         }
         replies.push(records);
@@ -237,6 +237,7 @@ pub async fn search(
     }
     found.retain(|profile| {
         !blocked.contains(&profile.peer_id)
+            && observed.permits(profile)
             && search_results::passes(conditions, min_pow_bits, &profile.profile)
     });
     SearchResults {
@@ -264,9 +265,20 @@ pub async fn publish_due(
     let Some(record) = store.due_search_profile(now)? else {
         return Ok(false);
     };
+    let profile = dyapp_profile::verify_search(&record)
+        .map_err(|_| store::Error::InvalidSetting)?
+        .profile;
+    if profile.deleted && !profile.search_only && profile.previous.is_none() {
+        return Err(store::Error::SearchWithdrawalReviewRequired);
+    }
     let (mut taken, mut wait) = (false, None);
     for node in nodes {
-        match node.search_publish(record.clone()).await {
+        let result = if profile.search_only {
+            node.search_withdraw(record.clone()).await
+        } else {
+            node.search_publish(record.clone()).await
+        };
+        match result {
             // A node that holds this version already took it.
             Ok(()) | Err(Error::Status(Status::Stale)) => taken = true,
             Err(Error::RateLimited(after)) => wait = wait.max(Some(after)),
@@ -373,6 +385,9 @@ pub async fn beat_due(
 
 #[cfg(test)]
 mod tests {
+    #[path = "withdrawal_tests.rs"]
+    mod withdrawal_tests;
+
     use super::*;
     use dyapp_identity::Identity;
     use dyapp_p2p_net::proto::{search_request::Request, Op, SearchHit, SearchResponse, Status};

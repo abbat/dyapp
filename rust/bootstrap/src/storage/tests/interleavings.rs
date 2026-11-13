@@ -163,7 +163,12 @@ fn check_profiles(
     for step in schedule {
         let owner = &owners[step.owner];
         let record = if step.deleted {
-            Profile::tombstone(step.version, 0, 0).sign(owner)
+            let source = store.get_profile(&owner.peer_id()).unwrap();
+            Profile {
+                previous: Some(dyapp_profile::ProfileCondition::observed(source.as_ref()).unwrap()),
+                ..Profile::tombstone(step.version, 0, 0)
+            }
+            .sign(owner)
         } else {
             Profile {
                 version: step.version,

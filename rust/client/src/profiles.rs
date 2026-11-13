@@ -20,8 +20,12 @@ impl Profiles {
     /// # Errors
     ///
     /// Returns [`Error::Rollback`] for an older version or [`Error::Deleted`]
-    /// for a newer version after a held tombstone.
+    /// for a newer version after a held tombstone. Returns [`Error::Input`] for search-only
+    /// or ambiguous legacy withdrawals, which never become account or MLS device authority.
     pub fn accept(&mut self, profile: VerifiedProfile) -> Result<&VerifiedProfile, Error> {
+        profile
+            .check_storage_authorization()
+            .map_err(|_| Error::Input("search withdrawal is not ordinary profile authority"))?;
         let Some(index) = self
             .0
             .iter()
@@ -142,7 +146,16 @@ mod tests {
         let alice = Identity::generate();
         let mut profiles = Profiles::default();
         profiles.accept(signed(&alice, 3)).unwrap();
-        let tombstone = dyapp_profile::verify(&Profile::tombstone(4, 0, 0).sign(&alice)).unwrap();
+        let source = Profile {
+            version: 3,
+            ..Default::default()
+        }
+        .sign(&alice);
+        let deletion = Profile {
+            previous: Some(dyapp_profile::ProfileCondition::observed(Some(&source)).unwrap()),
+            ..Profile::tombstone(4, 0, 0)
+        };
+        let tombstone = dyapp_profile::verify(&deletion.sign(&alice)).unwrap();
         assert!(profiles.accept(tombstone).unwrap().profile.deleted);
         assert!(matches!(
             profiles.accept(signed(&alice, 5)),
