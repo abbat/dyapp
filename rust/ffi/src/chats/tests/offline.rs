@@ -77,6 +77,24 @@ fn snapshot(f: &Fixture) -> (Option<Vec<u8>>, Vec<Vec<u8>>) {
 }
 
 #[test]
+fn locally_unlisted_device_cannot_stage_offline_text_in_an_established_chat() {
+    let f = Fixture::new();
+    let peer = establish(&f);
+    {
+        let session = f.chats.session.lock().unwrap();
+        let mut own = session.store().profile_draft().unwrap().unwrap();
+        own.devices.clear();
+        session.store().save_profile_draft(&own).unwrap();
+    }
+    let before = snapshot(&f);
+    let history = f.chats.chat_history(peer.clone()).unwrap().messages;
+    let result = f.chats.submit_text(peer.clone(), "must not commit".into());
+    assert!(matches!(result, Err(crate::CoreError::Failed(reason)) if reason == "unpublished"));
+    assert_eq!(snapshot(&f), before);
+    assert_eq!(f.chats.chat_history(peer).unwrap().messages, history);
+}
+
+#[test]
 fn first_contact_without_a_network_does_not_stage_or_advance_mls() {
     let f = Fixture::new();
     establish(&f);
