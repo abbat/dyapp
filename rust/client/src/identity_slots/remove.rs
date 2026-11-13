@@ -74,9 +74,20 @@ impl Registry {
         id: &str,
         confirmed_peer: Option<&str>,
         keys: &dyn KeyRemover,
-        mut checkpoint: impl FnMut(Stage) -> Result<(), String>,
+        checkpoint: impl FnMut(Stage) -> Result<(), String>,
     ) -> Result<RemovalOutcome, String> {
         let _guard = self.lock()?;
+        self.remove_locked(id, confirmed_peer, keys, checkpoint)
+    }
+
+    /// [`Self::remove_with`] under a registry lock the caller already holds.
+    pub(super) fn remove_locked(
+        &self,
+        id: &str,
+        confirmed_peer: Option<&str>,
+        keys: &dyn KeyRemover,
+        mut checkpoint: impl FnMut(Stage) -> Result<(), String>,
+    ) -> Result<RemovalOutcome, String> {
         let mut slot = super::list(&self.root, self.layout)
             .map_err(|error| error.to_string())?
             .into_iter()

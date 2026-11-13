@@ -42,7 +42,7 @@ impl Registry {
         Ok((slot, identity, durability))
     }
 
-    fn reserve(&self, storage: Storage, keys: &dyn KeyWriter) -> Result<Slot, String> {
+    pub(super) fn reserve(&self, storage: Storage, keys: &dyn KeyWriter) -> Result<Slot, String> {
         self.reserve_with(storage, keys, new_id)
     }
 
@@ -99,7 +99,7 @@ impl Registry {
     }
 }
 
-fn save(
+pub(super) fn save(
     slot: &Slot,
     storage: Storage,
     identity: &Identity,

@@ -8,6 +8,7 @@ pub use create::KeyWriter;
 pub use write::SelectionDurability;
 mod inventory;
 mod keys;
+mod link;
 mod markers;
 mod open;
 mod owned;

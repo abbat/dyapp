@@ -1,5 +1,6 @@
 mod chat_keys;
 mod create;
+mod link;
 mod open;
 mod operation;
 mod registry;
