@@ -532,6 +532,8 @@ mod tests {
     mod node;
     #[path = "publication_tests.rs"]
     mod publication_tests;
+    #[path = "revocation_failure_tests.rs"]
+    mod revocation_failure_tests;
     #[path = "revocation_tests.rs"]
     mod revocation_tests;
     #[path = "version_tests.rs"]

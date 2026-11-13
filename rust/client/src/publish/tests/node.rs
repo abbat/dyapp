@@ -63,9 +63,25 @@ pub(super) async fn observed(
     on_reply: impl FnMut(&Request, &proto::ProfileResponse) + Send + 'static,
     on_keep: impl FnMut(&proto::MediaKeep) + Send + 'static,
 ) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
+    observed_revokes(refuse, on_reply, on_keep, || Status::Ok).await
+}
+
+pub(super) async fn observed_revokes(
+    refuse: Vec<Status>,
+    on_reply: impl FnMut(&Request, &proto::ProfileResponse) + Send + 'static,
+    on_keep: impl FnMut(&proto::MediaKeep) + Send + 'static,
+    on_revoke: impl FnMut() -> Status + Send + 'static,
+) -> (Node, Arc<Mutex<Option<SignedRecord>>>) {
     let (server, address) = listening().await;
     let held = Arc::new(Mutex::new(None));
-    tokio::spawn(serve(server, Arc::clone(&held), refuse, on_reply, on_keep));
+    tokio::spawn(serve(
+        server,
+        Arc::clone(&held),
+        refuse,
+        on_reply,
+        on_keep,
+        on_revoke,
+    ));
     let node = Node::connect(address, Arc::new(Protocols::public()))
         .await
         .unwrap();
@@ -76,6 +92,7 @@ fn answer_mailbox(
     server: &mut Server,
     request: &proto::MailboxRequest,
     channel: libp2p::request_response::ResponseChannel<proto::MailboxResponse>,
+    status: Status,
 ) {
     assert!(matches!(
         request.request,
@@ -87,7 +104,7 @@ fn answer_mailbox(
         .send_response(
             channel,
             proto::MailboxResponse {
-                status: Status::Ok.into(),
+                status: status.into(),
                 ..Default::default()
             },
         )
@@ -111,6 +128,7 @@ async fn serve(
     refuse: Vec<Status>,
     mut on_reply: impl FnMut(&Request, &proto::ProfileResponse),
     mut on_keep: impl FnMut(&proto::MediaKeep),
+    mut on_revoke: impl FnMut() -> Status,
 ) {
     let mut refuse = refuse.into_iter();
     let mut media = proto::MediaKeepState::default();
@@ -139,7 +157,7 @@ async fn serve(
                     },
                 ..
             })) => {
-                answer_mailbox(&mut server, &request, channel);
+                answer_mailbox(&mut server, &request, channel, on_revoke());
             }
             SwarmEvent::Behaviour(BehaviourEvent::Media(RequestEvent::Message {
                 message:
