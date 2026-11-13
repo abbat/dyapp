@@ -113,6 +113,52 @@ impl HiddenLink {
 }
 
 #[tokio::test]
+async fn ambiguous_legacy_link_reports_review_without_replacing_pending_edits() {
+    let mut f = Box::pin(HiddenLink::new()).await;
+    let remote = f.prepare_legacy_partial_link().await;
+    let mut store = f.store();
+    store
+        .update_profile_draft(|draft| {
+            draft.name = "pending before upgrade".into();
+            Ok(())
+        })
+        .unwrap();
+    let before = store.profile_draft().unwrap();
+    let result = Session::finish_link(
+        store,
+        &mut f.laptop.node,
+        &f.laptop.identity,
+        &f.laptop.device_key,
+        2,
+        &SEAL,
+        1_000_000,
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(dyapp_client::session::Error::Publish(
+            Failure::AdoptionReviewRequired
+        ))
+    ));
+    let restored = f.store();
+    assert_eq!(restored.profile_draft().unwrap(), before);
+    assert_eq!(restored.device_listed().unwrap(), remote.version);
+    assert!(restored.profile_hidden().unwrap());
+    assert!(restored.link_pending().unwrap().is_some());
+    let session = Session::open(restored, &SEAL).unwrap();
+    assert!(remote.devices.contains(&session.certificate().unwrap()));
+    assert_eq!(
+        f.owner
+            .node
+            .get_profile(&f.owner.identity.peer_id())
+            .await
+            .unwrap()
+            .profile,
+        remote
+    );
+}
+
+#[tokio::test]
 async fn a_pre_receipt_hidden_partial_link_finishes_after_store_reopen() {
     let mut f = Box::pin(HiddenLink::new()).await;
     let remote = f.prepare_legacy_partial_link().await;

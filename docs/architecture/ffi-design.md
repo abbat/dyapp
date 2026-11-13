@@ -358,7 +358,12 @@ accepting an arbitrary older/forked profile or spending another version. Without
 hidden-link completion can migrate only if its listed-device version matches ordinary readback,
 all decoded draft fields match that readback (apart from the hidden successor and stronger local proof),
 and the exact signed search head matches the local or remote proof. The receipt is installed under the
-same writer; pending content changes or ambiguous evidence refuse automatic migration. A malformed or
+same writer; pending content changes or ambiguous evidence refuse automatic migration. Adoption
+reports typed `publish::Failure::AdoptionReviewRequired` for a superseded local projection, preserving
+the pending link, draft and credentials. Callers must distinguish this from a transient transport
+failure; blind retries do not resolve it. The planned recovery compares local and verified remote
+profile fields and requires explicit owner selection; device authorization stays remote-authoritative.
+Its core confirmation and client presentation remain unimplemented. A malformed or
 already present nonmatching receipt never falls back to this path. Remaining client prepared-outcome adapters still require
 migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

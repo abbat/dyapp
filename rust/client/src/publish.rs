@@ -287,7 +287,10 @@ pub async fn adopt(
         .checked_add(u64::from(store.profile_hidden()?))
         .ok_or(store::Error::ProfileVersionExhausted)?;
     take_photos(store, node, &held).await?;
-    Ok(store.commit_profile_adoption(identity, &attempt, &held, now)?)
+    match store.commit_profile_adoption(identity, &attempt, &held, now) {
+        Err(store::Error::ProfileCompletionSuperseded) => Err(Failure::AdoptionReviewRequired),
+        result => Ok(result?),
+    }
 }
 
 enum ForeignDraft {
@@ -492,9 +495,15 @@ async fn send(node: &mut Node, identity: &Identity, profile: Profile) -> Result<
     Ok(profile)
 }
 
-/// Why [`publish`] failed; all are retryable.
+/// Why publication or adoption failed; adoption review requires an explicit recovery decision.
 #[derive(Debug, thiserror::Error)]
 pub enum Failure {
+    /// Adoption cannot safely project the remote profile over the current local state.
+    /// Retain the pending link, draft and credentials; blind retries are not a recovery decision.
+    #[error(
+        "linked-device profile conflict requires review; local draft and credentials are preserved"
+    )]
+    AdoptionReviewRequired,
     /// The node refused, did not answer, or read back something else.
     #[error(transparent)]
     Node(#[from] Error),
