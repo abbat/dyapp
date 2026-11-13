@@ -1,4 +1,4 @@
-"""Reboot readiness observes state and deadlines without sleeping or launching apps."""
+"""Observe reboot readiness without sleeping or launching apps."""
 
 import importlib.util
 import subprocess
@@ -109,9 +109,7 @@ class AndroidLifecycle(unittest.TestCase):
             any("instrument" in command for command in fake.calls)
         )
 
-    def test_an_unchanged_boot_expires_without_reading_the_old_completion_property(
-        self,
-    ) -> None:
+    def test_unchanged_boot_expires_before_reading_completion(self) -> None:
         fake = FakeAdb(
             setup_steps()
             + [
