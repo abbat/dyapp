@@ -82,6 +82,25 @@ class NativeSlotsTests {
     }
 
     @Test
+    fun aMissingPointerTargetRemainsRecoveryWithoutInventingACandidate() {
+        NativeSlotFixture().use { fixture ->
+            check(fixture.root.mkdirs())
+            val id = UUID.randomUUID().toString()
+            File(fixture.root, "active-profile").writeText("$id\n")
+            val recovery = fixture.slots.open() as Opened.Recovery
+            assertEquals(id, recovery.id)
+            assertNull(recovery.slot)
+            assertFalse(removable(recovery))
+            val retried = fixture.slots.retry(recovery) as Opened.Recovery
+            assertEquals(id, retried.id)
+            assertNull(retried.slot)
+            assertEquals("$id\n", File(fixture.root, "active-profile").readText())
+            assertFalse(PlatformKeyStore.exists(identityAlias(id)))
+            assertTrue(fixture.slots.list().isEmpty())
+        }
+    }
+
+    @Test
     fun malformedPointersNeedNoFabricatedLocationOrRemovalAction() {
         NativeSlotFixture().use { fixture ->
             check(fixture.root.mkdirs())
