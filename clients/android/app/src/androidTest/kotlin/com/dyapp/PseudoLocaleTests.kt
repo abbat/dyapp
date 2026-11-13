@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -55,11 +57,13 @@ class PseudoLocaleTests {
         val none = russian.getString(R.string.status_no_network)
         check(none != base.getString(R.string.status_no_network)) { "Russian translation missing: $none" }
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("app-ready").assertTextEquals(russian.getString(R.string.nav_settings))
-        compose.onNodeWithTag("settings-active").assertTextEquals(russian.getString(R.string.settings_active_key))
+        compose.awaitNode(hasTestTag("app-ready") and hasText(russian.getString(R.string.nav_settings)))
+        // The section title precedes the asynchronous native identity list.
+        compose.awaitNode(hasTestTag("settings-active"))
+            .assertTextEquals(russian.getString(R.string.settings_active_key))
         compose.onNodeWithTag("settings-create").assertTextEquals(russian.getString(R.string.identity_add))
         // Other tests leave no active network.
-        compose.waitUntil(CHECK_WAIT_MS) { compose.texts("connection-status") == listOf(none) }
+        compose.awaitNode(hasTestTag("connection-status") and hasText(none))
     }
 
     @Test

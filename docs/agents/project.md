@@ -105,6 +105,9 @@ while idle: profile selection may need to finish before the old screen disposes 
 Android identity UI tests use `identityAction`/`awaitIdentityCompletion`, which await a new completed
 screen revision. `waitForIdle` alone does not await native IO, and waiting for a loading frame fails
 when fast operations are conflated. Start a fresh readiness check after Activity recreation.
+Settings navigation/title readiness does not complete its separate native identity-list read. Tests
+asserting identity rows must await those rows (for example `settings-active`) through semantic readiness,
+then check their content; use the localized context for expected strings.
 
 Raw search input uses `dyapp_profile::text_input::trim` for Linux-compatible whitespace:
 Rust `str::trim` treats BOM/NEL differently. Reuse the core helper for blank checks and parsing;
