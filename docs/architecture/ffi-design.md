@@ -384,6 +384,19 @@ device. Initial adoption without a saved draft and post-prepare edits retain the
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/
 fallback completion. It never creates credentials or a session. The pending row goes last; on failure,
 reopen the original session and retry. Native recovery exposure of this operation remains planned.
+Adoption checks the Store owner before any private-state prefix import. Export reads peer, like/pass,
+HLC and visibility values from one read snapshot without changing their wire ordering or actor fields.
+Pending link creation atomically records exact private-state bytes and a format-1 import phase bound
+to their SHA-256 digest. Setting the same pending bytes keeps that phase; a new/replaced operation
+resets it. Private peer/like/pass state, HLC, visibility and the applied phase commit together. Exact
+applied retries leave later local/synchronized changes untouched, including after process reopen.
+Final pending completion clears only its own exact applied prefix and import phase under the writer,
+retaining the linked-device marker. A replaced or unapplied pending operation returns `LinkStateChanged`
+without clearing the new link.
+An old pending row without a phase returns `LinkStateReviewRequired` before import, preserving both
+snapshots and credentials; explicit recovery for this legacy private-state conflict remains planned.
+A standalone fresh-store import can replay its exact snapshot; a different source needs a new pending
+operation. A profile completion receipt or version offset never proves private-state import.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility
 byte, the SHA-256 digest of the canonical owner-signed ordinary profile, then its signed search
 projection. This local receipt compares decoded profile content; media intent checks retain original

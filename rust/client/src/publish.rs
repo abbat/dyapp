@@ -333,6 +333,9 @@ pub async fn adopt(
     state: &[u8],
     now: u64,
 ) -> Result<ProfilePublicationOutcome, Failure> {
+    if identity.peer_id() != store.owner_peer_id() {
+        return Err(store::Error::WrongIdentity.into());
+    }
     store.import_link_state(state)?;
     let attempt = store.prepare_profile_publication(identity)?;
     let held = newest(node, identity)

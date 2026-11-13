@@ -2,6 +2,26 @@
 use super::*;
 
 #[tokio::test]
+async fn adoption_refuses_another_owner_before_applying_the_private_prefix() {
+    let identity = Identity::from_secret(&[7; 32]);
+    let stranger = Identity::from_secret(&[8; 32]);
+    let source = Store::open(&temp_db_path(), &stranger).unwrap();
+    source.set_blocked("carol", true).unwrap();
+    source.set_profile_hidden(true).unwrap();
+    let state = source.link_state().unwrap();
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    store.set_link_pending(&state).unwrap();
+    let before = store.link_state().unwrap();
+    let (mut node, _) = profile_node(Vec::new()).await;
+    assert!(matches!(
+        crate::publish::adopt(&mut store, &mut node, &stranger, &state, 100).await,
+        Err(Failure::Store(crate::store::Error::WrongIdentity))
+    ));
+    assert_eq!(store.link_state().unwrap(), before);
+    assert_eq!(store.link_pending().unwrap(), Some(state));
+}
+
+#[tokio::test]
 async fn review_refuses_wrong_owner_deleted_remote_and_missing_pending_link() {
     let identity = Identity::from_secret(&[7; 32]);
     let store = Store::open(&temp_db_path(), &identity).unwrap();

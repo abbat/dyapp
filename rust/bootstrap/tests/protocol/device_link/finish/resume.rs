@@ -46,6 +46,46 @@ async fn check_packages_and_retry(f: &mut HiddenLink, certificate: &dyapp_identi
     assert!(f.store().link_pending().unwrap().is_none());
 }
 
+async fn imported_with_newer_private_choices(f: &mut HiddenLink) -> Session {
+    let phone = Store::open(&store_path("resume-private-phone"), &f.owner.identity).unwrap();
+    phone.set_blocked("bob", true).unwrap();
+    phone.set_muted("carol", true).unwrap();
+    phone.set_local_name("carol", "original alias").unwrap();
+    phone.set_profile_hidden(true).unwrap();
+    f.state = phone.link_state().unwrap();
+    let store = f.store();
+    store.set_link_pending(&f.state).unwrap();
+    drop(Session::open_or_create(store, &f.laptop.identity, &f.laptop.device_key, &SEAL).unwrap());
+    let mut store = f.store();
+    publish::adopt(
+        &mut store,
+        &mut f.laptop.node,
+        &f.laptop.identity,
+        &f.state,
+        1_000_000,
+    )
+    .await
+    .unwrap();
+    store.set_blocked("bob", false).unwrap();
+    store.set_muted("carol", false).unwrap();
+    store.set_local_name("carol", "later alias").unwrap();
+    Session::open(store, &SEAL).unwrap()
+}
+
+#[tokio::test]
+async fn actual_link_completion_retains_newer_private_choices_after_prefix_import() {
+    let mut f = Box::pin(HiddenLink::new()).await;
+    let session = Box::pin(imported_with_newer_private_choices(&mut f)).await;
+    let certificate = session.certificate().unwrap();
+    assert!(Box::pin(resume(&mut f, session)).await.unwrap());
+    let store = f.store();
+    assert!(!store.blocked("bob").unwrap());
+    assert!(!store.muted("carol").unwrap());
+    assert_eq!(store.local_name("carol").unwrap(), "later alias");
+    assert!(store.profile_hidden().unwrap());
+    Box::pin(check_packages_and_retry(&mut f, &certificate)).await;
+}
+
 #[tokio::test]
 async fn original_existing_session_can_finish_an_unlisted_link() {
     let mut f = Box::pin(HiddenLink::new()).await;

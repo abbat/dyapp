@@ -30,6 +30,9 @@ and refresh must preserve a different pending target when renewing live referenc
 Automatic device-list writes use verified ordinary public fields and preserve the independent
 editable draft. Keep the actual local baseline for concurrency admission when preparing a
 directory-only request; a hidden search version never proves device authorization.
+Pending-link retries reuse exact private-state import progress; a profile completion receipt does
+not prove that prefix was imported. Check owner before import and clear only the exact applied
+pending bytes after network completion. Missing legacy progress requires explicit recovery.
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,

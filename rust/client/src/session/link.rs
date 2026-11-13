@@ -48,7 +48,7 @@ impl Session {
             .complete_link_directory(node, identity, device_key, &adopted.published)
             .await?;
         session
-            .complete_link_packages(node, device_key, key_packages, seal_key, now)
+            .complete_link_packages(node, device_key, key_packages, seal_key, now, &state)
             .await?;
         Ok(true)
     }
@@ -78,6 +78,7 @@ impl Session {
         key_packages: usize,
         seal_key: &[u8; 32],
         now: u64,
+        state: &[u8],
     ) -> Result<(), Error> {
         if self.store.last_resort()?.is_none() {
             self.publish_key_packages(node, device_key, key_packages, seal_key)
@@ -85,7 +86,7 @@ impl Session {
         }
         self.keep_last_resort(node, device_key, now, seal_key)
             .await?;
-        self.store.clear_link_pending()?;
+        self.store.clear_completed_link(state)?;
         Ok(())
     }
 

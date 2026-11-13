@@ -19,6 +19,12 @@ pub enum Error {
     /// A stored setting has an unsupported format or value.
     #[error("client store setting is invalid")]
     InvalidSetting,
+    /// An old pending link has no evidence of which private-state prefix was imported.
+    #[error("linked-device private state requires explicit recovery")]
+    LinkStateReviewRequired,
+    /// A pending link was replaced while an earlier completion was in flight.
+    #[error("pending linked-device state changed")]
+    LinkStateChanged,
     /// A photo is not a JPEG within its size, or the profile has no room or no such photo.
     #[error("profile photo refused")]
     PhotoRefused,
