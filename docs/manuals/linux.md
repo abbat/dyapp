@@ -1,5 +1,7 @@
 # Linux desktop client
 
+Who can see what about you: [Your privacy in dyapp](privacy.md).
+
 The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local identities,
 connects to bootstrap nodes, edits and publishes a public profile and searches published
 profiles and opens chat histories.

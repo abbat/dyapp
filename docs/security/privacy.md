@@ -149,7 +149,9 @@ not "safe" data. The target design therefore needs:
 - photo metadata (EXIF, GPS, device) stripped on the client before any upload: `strip_metadata` in the core
   (see [FFI design](../architecture/ffi-design.md)). The Linux chat composer does not call it: it
   re-encodes every photo to a bare JPEG on a canvas, which also drops colour profiles and data
-  appended to the file. The app setting and the call in the mobile apps are planned;
+  appended to the file. The Android chat composer decodes the photo to pixels and has the core
+  encode a new JPEG from them, so the original file's metadata is not sent. The app setting and
+  the call in the iOS and macOS apps are planned;
 - a heartbeat at most once a day at a random time, so `last_seen` does not track app use
   (done in the core: `Store::search_heartbeat_due`); the
   "active since" search filter still lets any searcher learn, to about a day, when a profile last

@@ -1,5 +1,7 @@
 # Windows desktop client
 
+Who can see what about you: [Your privacy in dyapp](privacy.md).
+
 The `dyapp` client for Windows is a portable ZIP with one EXE and no installer. This first version
 uses the shared desktop interface for identities, profiles, search and chats.
 

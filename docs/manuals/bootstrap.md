@@ -12,7 +12,8 @@ option needs more than a paragraph.
 > ciphertext, padded to the next power of two from 1 KiB, so an operator sees envelope sizes and
 > timing but not text; the node cannot check that a client encrypts. The node checks Ed25519
 > signatures: the owner's on profiles, the sender's on envelopes and the device's on mailbox reads.
-> What a node sees is listed in [Privacy](../security/privacy.md).
+> What a node sees is listed in [Privacy](../security/privacy.md); what your users should know is
+> in [Your privacy in dyapp](privacy.md).
 
 ## Contents
 

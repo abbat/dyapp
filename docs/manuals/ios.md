@@ -1,5 +1,7 @@
 # iOS client
 
+Who can see what about you: [Your privacy in dyapp](privacy.md).
+
 The `DYApp` client for iOS runs on iOS 15 or later. It covers identities, the network connection,
 the public profile, search, the Chats lists and the chat screen with message sending.
 

@@ -1,5 +1,7 @@
 # Android client
 
+Who can see what about you: [Your privacy in dyapp](privacy.md).
+
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.
 

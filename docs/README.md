@@ -84,6 +84,7 @@ it are entry points that tools discover by path (see
 
 - [Deployment](operations/deployment.md)
 - [Abuse reports and legal requests](operations/abuse-and-legal-requests.md)
+- [Your privacy in dyapp](manuals/privacy.md) ([Russian](manuals/privacy.ru.md)): plain-language summary for users
 - [Bootstrap node operator manual](manuals/bootstrap.md) ([Russian](manuals/bootstrap.ru.md))
 - [Linux desktop client](manuals/linux.md) ([Russian](manuals/linux.ru.md))
 - [Windows desktop client](manuals/windows.md) ([Russian](manuals/windows.ru.md))
