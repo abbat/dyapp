@@ -1,8 +1,9 @@
 //! Explicit owner confirmation for ambiguous old search withdrawals; never device enrollment.
 use super::{search_projection::Head, search_publish::State, Error, Store};
-use dyapp_identity::{sha256, Identity};
+use dyapp_identity::{sha256, Identity, SignedRecord};
 use dyapp_profile::Profile;
 use rusqlite::{params, Transaction, TransactionBehavior};
+use std::sync::OnceLock;
 
 #[derive(PartialEq)]
 struct Snapshot {
@@ -22,6 +23,7 @@ pub struct SearchWithdrawalRecovery {
     database: String,
     baseline: Snapshot,
     version: u64,
+    confirmed: OnceLock<SignedRecord>,
 }
 
 impl SearchWithdrawalRecovery {
@@ -125,6 +127,7 @@ impl Store {
             database: self.db.path().ok_or(Error::InvalidSetting)?.into(),
             baseline,
             version,
+            confirmed: OnceLock::new(),
         }))
     }
 
@@ -152,21 +155,58 @@ impl Store {
         let draft = plan.draft()?;
         let record =
             Profile::search_tombstone(plan.version, draft.pow_nonce, draft.pow_bits).sign(identity);
-        if current
+        let draft = if current
             .draft
             .as_ref()
             .is_some_and(|draft| draft.version >= plan.version)
             && self.search_profile_known(&record)?
         {
-            return current.draft.ok_or(Error::SearchWithdrawalReviewRequired);
+            current.draft.ok_or(Error::SearchWithdrawalReviewRequired)?
+        } else {
+            if current != plan.baseline {
+                return Err(Error::SearchWithdrawalRecoveryChanged);
+            }
+            self.save_profile_draft(&draft)?;
+            self.hold_search_profile_in_tx(&record)?;
+            draft
+        };
+        transaction.commit()?;
+        plan.confirmed.get_or_init(|| record);
+        Ok(draft)
+    }
+
+    /// The exact explicitly confirmed withdrawal when it is still current and due.
+    /// Preparation alone grants no retry authority; no signing occurs here.
+    ///
+    /// # Errors
+    /// Returns owner mismatch, changed review context, or malformed/storage state.
+    pub fn due_search_withdrawal_recovery(
+        &self,
+        plan: &SearchWithdrawalRecovery,
+        now: u64,
+    ) -> Result<Option<SignedRecord>, Error> {
+        if plan.owner != self.owner_peer_id() {
+            return Err(Error::WrongIdentity);
         }
-        if current != plan.baseline {
+        if self.db.path() != Some(plan.database.as_str()) {
             return Err(Error::SearchWithdrawalRecoveryChanged);
         }
-        self.save_profile_draft(&draft)?;
-        self.hold_search_profile_in_tx(&record)?;
+        let Some(record) = plan.confirmed.get() else {
+            return Ok(None);
+        };
+        let transaction = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
+        if !self.profile_hidden()?
+            || self.withdrawal_recovery_context()? != plan.baseline.link
+            || !self.search_profile_known(record)?
+        {
+            return Err(Error::SearchWithdrawalRecoveryChanged);
+        }
+        let due = self.due_search_profile(now)?;
+        if due.as_ref().is_some_and(|pending| pending != record) {
+            return Err(Error::SearchWithdrawalRecoveryChanged);
+        }
         transaction.commit()?;
-        Ok(draft)
+        Ok(due)
     }
 }
 

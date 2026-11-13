@@ -354,9 +354,16 @@ re-signs state. Common native exports `MobileSearchRecovery.prepare` return an o
 then delegates the local commit to core. Idle handles retain no keys, sessions or leases.
 `dismiss` invalidates the shared review; generated object disposal only releases its wrapper.
 `SearchRecoverySaved` reports the shared core's consistent local draft/visibility/search-pending
-snapshot. Confirmation currently only queues bytes: the native sender has no generic queue pump
-(`send_held` is invoked only by publish/hide/withdraw), so explicit exact-record retry dispatch is
-still required before this action is usable. Tauri transport and gated UI also remain planned.
+snapshot. Confirmation only queues bytes and captures a public signed receipt after the commit.
+`Store::due_search_withdrawal_recovery` and `search::publish_recovery` admit and send only that
+confirmed receipt, without signing or renewing intent. They require the original owner/database,
+hidden intent, unchanged link context and exact remembered head, honor server backoff, and do no
+work after ACK. A newer head requires a fresh action rather than sending it through the old review.
+Native `SearchWithdrawalReview.retry` reacquires original-slot admission, checks readiness before
+network access and dispatches on the dedicated network stack. Unsupported servers retain the queue;
+retry returns current local state, not proof of network-wide removal. The native sender still has no
+generic queue pump (`send_held` is invoked only by publish/hide/withdraw), so restart-safe automatic
+delivery remains planned separately. Tauri transport and gated UI also remain planned.
 Withdrawal now prepares checked version/proof
 floors before sending and projects verified readback through one immediate transaction, preserving
 current draft fields/photos/devices and stronger proof. Superseded versions and equal-version

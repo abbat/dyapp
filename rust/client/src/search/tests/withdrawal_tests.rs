@@ -77,7 +77,11 @@ async fn search_withdrawal_respects_server_backoff_across_reopening() {
 }
 
 fn hidden_legacy(owner: &Identity) -> Store {
-    let store = Store::open(&crate::store::tests::temp_db_path(), owner).unwrap();
+    hidden_legacy_at(owner, &crate::store::tests::temp_db_path())
+}
+
+fn hidden_legacy_at(owner: &Identity, path: &std::path::Path) -> Store {
+    let store = Store::open(path, owner).unwrap();
     store
         .save_profile_draft(&Profile {
             version: 2,
@@ -97,17 +101,16 @@ async fn owner_recovery_retries_only_the_new_withdrawal_and_keeps_unsupported_he
     let owner = Identity::from_secret(&[7; 32]);
     let store = hidden_legacy(&owner);
     let plan = store.prepare_search_withdrawal_recovery().unwrap().unwrap();
-    let mut replies = [Status::Unsupported, Status::Ok].into_iter();
+    let mut replies = [Status::Unsupported, Status::RateLimited, Status::Ok].into_iter();
     let (node, asked) = fake(move |request| {
         assert!(matches!(request, Request::Withdraw(_)));
-        status(replies.next().unwrap(), 0)
+        status(replies.next().unwrap(), 120)
     })
     .await;
     let mut nodes = vec![node];
-    assert!(matches!(
-        publish_due(&store, &mut nodes, 1000).await,
-        Err(store::Error::SearchWithdrawalReviewRequired)
-    ));
+    assert!(!publish_recovery(&store, &plan, &mut nodes, 1000)
+        .await
+        .unwrap());
     assert!(asked.lock().unwrap().is_empty());
     let restored = store
         .confirm_search_withdrawal_recovery(&owner, &plan)
@@ -117,25 +120,84 @@ async fn owner_recovery_retries_only_the_new_withdrawal_and_keeps_unsupported_he
         (3, "keep draft")
     );
     let record = store.due_search_profile(1000).unwrap().unwrap();
-    assert!(!publish_due(&store, &mut nodes, 1000).await.unwrap());
-    assert_eq!(
-        store
-            .confirm_search_withdrawal_recovery(&owner, &plan)
-            .unwrap(),
-        restored
-    );
-    assert!(publish_due(&store, &mut nodes, 1001).await.unwrap());
-    assert_eq!(
-        store
-            .confirm_search_withdrawal_recovery(&owner, &plan)
-            .unwrap(),
-        restored
-    );
+    assert!(!publish_recovery(&store, &plan, &mut nodes, 1000)
+        .await
+        .unwrap());
+    assert_confirmed(&store, &owner, &plan, &restored);
+    assert!(!publish_recovery(&store, &plan, &mut nodes, 1001)
+        .await
+        .unwrap());
+    assert!(!publish_recovery(&store, &plan, &mut nodes, 1120)
+        .await
+        .unwrap());
+    assert_eq!(asked.lock().unwrap().len(), 2);
+    assert!(publish_recovery(&store, &plan, &mut nodes, 1121)
+        .await
+        .unwrap());
+    assert!(!publish_recovery(&store, &plan, &mut nodes, 1122)
+        .await
+        .unwrap());
+    assert_confirmed(&store, &owner, &plan, &restored);
     assert_eq!(store.due_search_profile(u64::MAX).unwrap(), None);
     assert_eq!(
         asked.lock().unwrap().as_slice(),
-        &[Request::Withdraw(record.clone()), Request::Withdraw(record)]
+        &[
+            Request::Withdraw(record.clone()),
+            Request::Withdraw(record.clone()),
+            Request::Withdraw(record),
+        ]
     );
+}
+
+fn assert_confirmed(
+    store: &Store,
+    owner: &Identity,
+    plan: &store::SearchWithdrawalRecovery,
+    restored: &Profile,
+) {
+    assert_eq!(
+        &store
+            .confirm_search_withdrawal_recovery(owner, plan)
+            .unwrap(),
+        restored
+    );
+}
+
+#[tokio::test]
+async fn recovery_ack_preserves_a_newer_queue_created_by_the_request_callback() {
+    let owner = Identity::from_secret(&[7; 32]);
+    let path = crate::store::tests::temp_db_path();
+    let store = hidden_legacy_at(&owner, &path);
+    let plan = store.prepare_search_withdrawal_recovery().unwrap().unwrap();
+    store
+        .confirm_search_withdrawal_recovery(&owner, &plan)
+        .unwrap();
+    let confirmed = store.due_search_profile(1000).unwrap().unwrap();
+    let newer = Profile {
+        version: 4,
+        ..Default::default()
+    }
+    .sign(&owner);
+    let changed = newer.clone();
+    let (node, asked) = fake(move |request| {
+        assert_eq!(request, &Request::Withdraw(confirmed.clone()));
+        Store::open_existing(&path, &owner)
+            .unwrap()
+            .hold_search_profile(&changed)
+            .unwrap();
+        status(Status::Ok, 0)
+    })
+    .await;
+    let mut nodes = vec![node];
+    assert!(publish_recovery(&store, &plan, &mut nodes, 1000)
+        .await
+        .unwrap());
+    assert_eq!(store.due_search_profile(u64::MAX).unwrap(), Some(newer));
+    assert!(matches!(
+        publish_recovery(&store, &plan, &mut nodes, u64::MAX).await,
+        Err(store::Error::SearchWithdrawalRecoveryChanged)
+    ));
+    assert_eq!(asked.lock().unwrap().len(), 1);
 }
 
 async fn source(record: SignedRecord) -> Node {

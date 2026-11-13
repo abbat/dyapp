@@ -128,8 +128,33 @@ fn close_is_idempotent_and_precedes_credential_admission() {
     review.dismiss().unwrap();
     fs::rename(f.dir.join("device.key"), f.dir.join("missing-device.key")).unwrap();
     assert!(matches!(review.confirm(), Err(SearchRecoveryError::Closed)));
+    assert!(matches!(review.retry(), Err(SearchRecoveryError::Closed)));
     assert_eq!(f.store().profile_draft().unwrap(), draft);
     assert!(!f.dir.join("device.key").exists());
+}
+
+#[test]
+fn retry_never_confirms_and_skips_network_until_the_record_is_due() {
+    for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
+        let f = Fixture::new(layout);
+        let review = f.worker.prepare().unwrap().unwrap();
+        let credentials = f.credentials();
+        let pending = f.store().due_search_profile(u64::MAX).unwrap();
+        assert!(review.retry().unwrap().search_pending);
+        assert_eq!(f.store().due_search_profile(u64::MAX).unwrap(), pending);
+        assert_eq!(f.store().profile_draft().unwrap().unwrap().version, 2);
+        review.confirm().unwrap();
+        f.store()
+            .search_profile_rate_limited(0, std::time::Duration::from_secs(u64::MAX))
+            .unwrap();
+        assert!(review.retry().unwrap().search_pending);
+        assert_eq!(f.credentials(), credentials);
+        let record = f.store().due_search_profile(u64::MAX).unwrap().unwrap();
+        f.store().search_profile_sent(&record, 1000).unwrap();
+        assert!(!review.retry().unwrap().search_pending);
+        f.store().set_profile_hidden(false).unwrap();
+        assert!(matches!(review.retry(), Err(SearchRecoveryError::Changed)));
+    }
 }
 
 #[test]

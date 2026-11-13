@@ -69,7 +69,7 @@ pub struct SearchRecoverySaved {
     pub version: u64,
     /// Current local visibility intent.
     pub hidden: bool,
-    /// Whether signed search publication remains queued for the normal publisher.
+    /// Whether signed search publication remains queued for delivery.
     pub search_pending: bool,
 }
 impl From<store::SearchVisibility> for SearchRecoverySaved {
@@ -169,6 +169,15 @@ impl SearchWithdrawalReview {
             .confirm_search_withdrawal_recovery(admitted.operation.identity(), plan)?;
         Ok(admitted.store.search_visibility()?.into())
     }
+    /// Retry only this review's explicitly confirmed record on a worker thread.
+    /// No confirmation or signing occurs; backoff and unsupported servers keep it queued.
+    ///
+    /// # Errors
+    /// Returns closed/changed review, original-slot admission, network or storage failures.
+    pub fn retry(&self) -> Result<SearchRecoverySaved, SearchRecoveryError> {
+        crate::profile_network::on_network_stack(|| Ok(self.retry_held()))?
+    }
+
     /// Dismiss the shared review without signing, opening credentials or changing a profile.
     /// Generated object disposal releases one wrapper; dismissal invalidates every review reference.
     ///
@@ -179,5 +188,52 @@ impl SearchWithdrawalReview {
         Ok(())
     }
 }
+impl SearchWithdrawalReview {
+    fn retry_held(&self) -> Result<SearchRecoverySaved, SearchRecoveryError> {
+        let plan = self.plan.lock().map_err(poisoned)?;
+        let plan = plan.as_ref().ok_or(SearchRecoveryError::Closed)?;
+        let admitted = self.owner.open()?;
+        if admitted.operation.binding() != self.binding {
+            return Err(SearchRecoveryError::Changed);
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(network_failed)?
+            .as_secs();
+        if admitted
+            .store
+            .due_search_withdrawal_recovery(plan, now)?
+            .is_some()
+        {
+            let network = crate::profile_network::active_network(&admitted.operation.slot().dir)?;
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(network_failed)?;
+            runtime.block_on(send_recovery(&admitted.store, plan, &network, now))?;
+        }
+        Ok(admitted.store.search_visibility()?.into())
+    }
+}
+
+async fn send_recovery(
+    store: &Store,
+    plan: &store::SearchWithdrawalRecovery,
+    network: &dyapp_identity::network::Network,
+    now: u64,
+) -> Result<(), SearchRecoveryError> {
+    let mut entry = crate::profile_network::connect(network).await?;
+    let protocols = Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(network_failed)?);
+    let mut reached = dyapp_client::search::connect_search_nodes(&mut entry, protocols, 2).await;
+    dyapp_client::search::publish_recovery(store, plan, &mut reached.nodes, now).await?;
+    Ok(())
+}
+
+fn network_failed(error: impl std::fmt::Display) -> SearchRecoveryError {
+    SearchRecoveryError::Failed {
+        reason: error.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests;

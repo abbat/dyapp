@@ -6,6 +6,7 @@ use prost::Message as _;
 use std::{path::PathBuf, time::Duration};
 
 mod proof_tests;
+mod retry_tests;
 
 type Rows = Vec<(String, i64, Vec<u8>)>;
 fn rows(store: &Store) -> Rows {

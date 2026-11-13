@@ -265,6 +265,32 @@ pub async fn publish_due(
     let Some(record) = store.due_search_profile(now)? else {
         return Ok(false);
     };
+    publish_record(store, nodes, record, now).await
+}
+
+/// Retry only the exact explicitly confirmed recovery record, without signing or confirming.
+/// Unsupported nodes leave it queued; a changed owner context or head is refused.
+///
+/// # Errors
+/// Returns changed review, malformed state or storage errors.
+pub async fn publish_recovery(
+    store: &Store,
+    plan: &store::SearchWithdrawalRecovery,
+    nodes: &mut [Node],
+    now: u64,
+) -> Result<bool, store::Error> {
+    let Some(record) = store.due_search_withdrawal_recovery(plan, now)? else {
+        return Ok(false);
+    };
+    publish_record(store, nodes, record, now).await
+}
+
+async fn publish_record(
+    store: &Store,
+    nodes: &mut [Node],
+    record: SignedRecord,
+    now: u64,
+) -> Result<bool, store::Error> {
     let profile = dyapp_profile::verify_search(&record)
         .map_err(|_| store::Error::InvalidSetting)?
         .profile;
