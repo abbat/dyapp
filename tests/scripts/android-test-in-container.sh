@@ -59,7 +59,9 @@ case "${1:?suite required}" in
         # The UI container forges this index after the suite, so it lives on the shared volume.
         rm -rf /reports/node && mkdir -p /reports/node
         /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
-        /app/build/debug/dyappd > /reports/node/node.log 2>&1 &
+        control=/app/tests/scripts/android-node-control.sh
+        bash "$control" init /reports/node
+        bash "$control" serve /reports/node /app/build/debug/dyappd &
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
             -feature -Vulkan

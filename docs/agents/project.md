@@ -42,6 +42,12 @@ Android instrumentation runs retained-peer prepare/reopen/cleanup phases in sepa
 before the forged-search fixture. They use native inventory and credential ownership; only explicit
 cleanup removes the retained identity. A normal suite skips the phase-only test without its argument.
 This proves no reboot or background delivery by itself; those lifecycle phases remain separate work.
+The emulator test node is supervised through shared report FIFOs. One host client at a time runs
+`timeout 30 bash tests/scripts/android-node-control.sh command /reports/node stop` (or `start`,
+`status`, `shutdown`). Stop/shutdown acknowledge only after child exit; start acknowledges spawning,
+so the next native connection check must separately establish listener readiness. A timed-out exchange
+must fail the phase, not be retried against a possibly stale acknowledgement. Controller tests run with
+Python unittest and use pipe readiness and Linux pidfds; they do not build Android.
 
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
