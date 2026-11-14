@@ -1,14 +1,7 @@
 //! A screen names a current message; media capabilities and peer WebP stay in native code.
 use super::owner_matches;
 use crate::{chat_photos, chats, profile, IdentityState};
-use dyapp_client::{
-    attachment,
-    sticker_webp::decode::Frame,
-    store::{
-        messages::{ChatSticker, MessageKey},
-        Store,
-    },
-};
+use dyapp_client::{attachment, sticker_webp::decode::Frame, store::messages::MessageKey};
 use dyapp_identity::{
     network::{self, Settings},
     Identity,
@@ -34,11 +27,6 @@ impl Selection {
     }
 }
 
-pub(crate) fn selected(store: &Store, selection: &Selection) -> Result<ChatSticker, String> {
-    dyapp_client::sticker_media::select(store, &selection.peer_id, &selection.key())
-        .map(|snapshot| snapshot.message().clone())
-        .map_err(|error| error.to_string())
-}
 pub(crate) fn frame_bytes(frame: Frame) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(8 + frame.pixels.len());
     bytes.extend(frame.width.to_le_bytes());

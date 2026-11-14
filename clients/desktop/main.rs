@@ -917,20 +917,22 @@ fn main() {
     builder
         .build(tauri::generate_context!())
         .expect("launch DYApp")
-        .run(|app, event| {
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { .. } = event {
-                #[cfg(feature = "ui-smoke")]
-                let _ = ui_smoke::window::marker(app, "dock-reopened");
-                tray::show(app);
-            }
-            if let tauri::RunEvent::Exit = event {
-                node_usage_commands::shutdown(app);
-                if let Ok(config) = config_dir(app) {
-                    window::save(&app.state::<window::WindowState>(), &config);
-                }
-            }
-        });
+        .run(|app, event| run_event(app, &event));
+}
+
+fn run_event(app: &tauri::AppHandle, event: &tauri::RunEvent) {
+    #[cfg(target_os = "macos")]
+    if let tauri::RunEvent::Reopen { .. } = event {
+        #[cfg(feature = "ui-smoke")]
+        let _ = ui_smoke::window::marker(app, "dock-reopened");
+        tray::show(app);
+    }
+    if let tauri::RunEvent::Exit = event {
+        node_usage_commands::shutdown(app);
+        if let Ok(config) = config_dir(app) {
+            window::save(&app.state::<window::WindowState>(), &config);
+        }
+    }
 }
 
 #[cfg(test)]

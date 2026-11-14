@@ -1,4 +1,5 @@
 use super::*;
+use dyapp_client::store::messages::ChatSticker;
 
 fn fixture() -> (ChatSticker, Selection, Vec<u8>) {
     let bytes = include_bytes!("../../../../tests/fuzz/corpus/sticker_webp/lossy.webp").to_vec();
