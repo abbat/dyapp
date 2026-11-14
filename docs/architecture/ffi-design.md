@@ -424,7 +424,12 @@ completion, separately from directory-only completion. A changed semantic source
 read conflicts even below a higher hidden floor; a signed wire fence then guards the write itself.
 Low-level owner signing/publication and `Session::list_self` remain explicit primitives, not client
 authorization checks against editable drafts. Stored listing floors never decrease to match an older
-ordinary readback; explicit recovery for uncertain legacy provenance remains planned.
+ordinary readback. `Failure::DirectoryBehindKnown` reports both the known floor and observed ordinary
+version, asking for sufficiently new verified authority while retaining local data and credentials.
+The same refusal applies to legacy draft-derived counters and genuine newer membership. A sufficiently
+new directory resumes field publication only when it still lists this original device; missing membership
+never enrolls it through field consent. Explicit owner/relink recovery when such authority is unavailable
+remains planned.
 Unlisted-link completion prepares a directory-only request from exact adopted public fields and adds
 the restored device, retaining the local version floor and stronger proof. It checks revocation at
 the exact ordinary readback before applying that floor. The next read must still match the captured

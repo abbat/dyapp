@@ -115,7 +115,10 @@ async fn an_older_node_cannot_restore_a_device_revoked_in_a_known_newer_ordinary
     *held.lock().unwrap() = Some(obsolete.clone());
     assert!(matches!(
         f.revoke(&mut node).await,
-        Err(Failure::Node(crate::Error::Reply(_)))
+        Err(Failure::DirectoryBehindKnown {
+            known_version: 3,
+            ..
+        })
     ));
     assert_eq!(counter.load(Ordering::SeqCst), 0);
     assert_eq!(held.lock().unwrap().as_ref(), Some(&obsolete));

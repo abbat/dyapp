@@ -282,8 +282,12 @@ pub async fn revoke_device(
 }
 
 fn admit_directory_version(store: &Store, version: u64) -> Result<(), Failure> {
-    if version < store.ordinary_profile_floor()? {
-        return Err(Error::Reply("the node holds an older own profile").into());
+    let known_version = store.ordinary_profile_floor()?;
+    if version < known_version {
+        return Err(Failure::DirectoryBehindKnown {
+            known_version,
+            observed_version: version,
+        });
     }
     Ok(())
 }
@@ -574,6 +578,17 @@ pub enum Failure {
     /// Missing, withdrawn or ambiguous directory authority requires explicit owner action.
     #[error("verified device authority is required before publishing")]
     DirectoryAuthorityRequired,
+    /// A legacy draft-derived counter and genuine newer membership are indistinguishable.
+    /// Keep both local state and the monotonic floor until sufficiently new authority is verified.
+    #[error(
+        "device directory version {observed_version} is below known version {known_version}; obtain a verified ordinary profile at least as new before publishing; local data and credentials are preserved"
+    )]
+    DirectoryBehindKnown {
+        /// Highest locally known ordinary membership/version floor.
+        known_version: u64,
+        /// Version of the verified ordinary profile returned by this node.
+        observed_version: u64,
+    },
     /// Adoption cannot safely project the remote profile over the current local state.
     /// Retain the pending link, draft and credentials; blind retries are not a recovery decision.
     #[error(

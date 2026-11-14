@@ -337,6 +337,50 @@ async fn missing_withdrawn_or_unproven_membership_cannot_become_first_enrollment
 }
 
 #[tokio::test]
+async fn a_new_enough_verified_directory_resolves_the_floor_without_enrolling_a_missing_device() {
+    for listed in [true, false] {
+        let f = Subject::new(true);
+        // Isolate membership recovery from the independent hidden-profile conflict policy.
+        f.session.store().set_profile_hidden(false).unwrap();
+        let before = f.session.store().profile_draft().unwrap().unwrap();
+        let mut legacy = before.clone();
+        f.session
+            .list_self(
+                &mut legacy,
+                crate::owner_binding(&f.device_key, &f.identity.public_key()),
+            )
+            .unwrap();
+        let floor = f.session.store().device_listed().unwrap();
+        let mut authority = f.authority.clone();
+        authority.version = floor;
+        if !listed {
+            unlist_device(&mut authority, &f.device_key.public_key()).unwrap();
+        }
+        let (mut node, held) = profile_node(Vec::new()).await;
+        let original = authority.sign(&f.identity);
+        *held.lock().unwrap() = Some(original.clone());
+        let result = f
+            .session
+            .publish_profile(&mut node, &f.identity, &f.device_key, f.attempt())
+            .await;
+        if listed {
+            let accepted = result.unwrap();
+            assert_eq!(accepted.published.devices, authority.devices);
+            assert_eq!(accepted.published.device_owners, authority.device_owners);
+            assert!(f.session.store().device_listed().unwrap() >= floor);
+        } else {
+            assert!(matches!(
+                result,
+                Err(SessionError::Publish(Failure::DirectoryAuthorityRequired))
+            ));
+            assert_eq!(f.session.store().device_listed().unwrap(), floor);
+            assert_eq!(f.session.store().profile_draft().unwrap(), Some(before));
+            assert_eq!(*held.lock().unwrap(), Some(original));
+        }
+    }
+}
+
+#[tokio::test]
 async fn legacy_draft_derived_listing_knowledge_is_not_silently_decremented() {
     let f = Subject::new(true);
     let before = f.session.store().profile_draft().unwrap().unwrap();
@@ -362,7 +406,10 @@ async fn legacy_draft_derived_listing_knowledge_is_not_silently_decremented() {
     assert!(
         matches!(
             result,
-            Err(SessionError::Publish(Failure::Node(Error::Reply(_))))
+            Err(SessionError::Publish(Failure::DirectoryBehindKnown {
+                known_version,
+                observed_version,
+            })) if known_version == poisoned && observed_version == f.authority.version
         ),
         "{result:?}"
     );
