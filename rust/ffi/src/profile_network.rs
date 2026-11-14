@@ -471,35 +471,45 @@ mod tests {
                 crate::load_profile_draft(path.clone(), key.clone()).unwrap(),
                 Some(saved.clone())
             );
-            let publisher = ProfilePublisher::new(path.clone()).unwrap();
-            assert_eq!(
-                publisher.hide(key.clone()).unwrap_err().to_string(),
-                "notConnected"
-            );
-            assert_eq!(
-                profile_visibility(path.clone(), key.clone()).unwrap(),
-                shown
-            );
-            assert_eq!(
-                crate::load_profile_draft(path.clone(), key.clone()).unwrap(),
-                Some(saved.clone())
-            );
             let network = Network {
                 seeds: vec![format!("127.0.0.1:{port}/{peer}")],
                 name: String::new(),
             };
-            network::save(&dir, Settings::Active, &network).unwrap();
-            let hidden = ProfileVisibility {
-                version: 1,
-                hidden: true,
-            };
-            assert_eq!(publisher.hide(key.clone()).unwrap(), hidden);
-            assert_eq!(
-                profile_visibility(path.clone(), key.clone()).unwrap(),
-                hidden
-            );
-            assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(saved));
+            assert_hide_preserves_saved_draft(path, key, saved, &shown, &network);
         }
+    }
+
+    fn assert_hide_preserves_saved_draft(
+        path: String,
+        key: Arc<IdentityKey>,
+        saved: PublicProfileDraft,
+        shown: &ProfileVisibility,
+        network: &Network,
+    ) {
+        let publisher = ProfilePublisher::new(path.clone()).unwrap();
+        assert_eq!(
+            publisher.hide(key.clone()).unwrap_err().to_string(),
+            "notConnected"
+        );
+        assert_eq!(
+            &profile_visibility(path.clone(), key.clone()).unwrap(),
+            shown
+        );
+        assert_eq!(
+            crate::load_profile_draft(path.clone(), key.clone()).unwrap(),
+            Some(saved.clone())
+        );
+        network::save(std::path::Path::new(&path), Settings::Active, network).unwrap();
+        let hidden = ProfileVisibility {
+            version: 1,
+            hidden: true,
+        };
+        assert_eq!(publisher.hide(key.clone()).unwrap(), hidden);
+        assert_eq!(
+            profile_visibility(path.clone(), key.clone()).unwrap(),
+            hidden
+        );
+        assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(saved));
     }
 
     #[test]
