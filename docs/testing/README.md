@@ -36,6 +36,12 @@ These rules apply to every new or modified test:
 - Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
   timing and bound it with a diagnostic deadline rather than a guessed wait.
 
+The desktop contrast auditor hides covered sibling paint along the entire ancestor path of an
+opaque, untextured modal, preserving layout and the modal subtree. It restores original inline
+visibility, focus and scroll positions after the audit. Its nested, scrolling modal calibration
+checks both readable and deliberately low-contrast text over different backing surfaces;
+incomplete contrast results remain failures.
+
 ## Test Layers
 
 ### 1. Unit Tests (In Each Crate)

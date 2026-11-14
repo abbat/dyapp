@@ -120,6 +120,12 @@ const resolveScrollableContrast = async (result, options) => {
   return result;
 };
 
+const coveredModalBranches = (modal) => {
+  const covered = [];
+  for (let branch = modal; branch.parentElement; branch = branch.parentElement)
+    covered.push(...[...branch.parentElement.children].filter((child) => child !== branch));
+  return covered;
+};
 // Keep layout while hiding paint behind opaque native or ARIA modals during the audit.
 const runAccessibilityAudit = async () => {
   const options = smoke.accessibilityOptions();
@@ -130,8 +136,7 @@ const runAccessibilityAudit = async () => {
     const style = getComputedStyle(modal);
     const opaque = window.axe.commons.color.getOwnBackgroundColor(style).alpha === 1;
     if (opaque && style.opacity === '1' && style.backgroundImage === 'none') {
-      for (const child of document.body.children) {
-        if (child.contains(modal)) continue;
+      for (const child of coveredModalBranches(modal)) {
         const visibility = child.style.getPropertyValue('visibility');
         const priority = child.style.getPropertyPriority('visibility');
         hidden.push([child, visibility, priority, child.hasAttribute('style')]);
@@ -219,6 +224,15 @@ const calibrationFailure = (id, fixture, result) => {
     })}`,
   );
 };
+const nestedContrastHost = (fixture) => {
+  const host = document.createElement('section');
+  host.style.cssText = 'position:fixed;inset:0';
+  host.innerHTML =
+    '<div style="position:absolute;inset:0 50% 0 0;background:black"></div><div style="position:absolute;inset:0 0 0 50%;background:white"></div>';
+  host.append(fixture);
+  document.body.append(host);
+  return host;
+};
 const calibrateScrollableContrast = async () => {
   const previous = document.activeElement;
   const fixture = document.createElement('dialog');
@@ -228,7 +242,7 @@ const calibrateScrollableContrast = async () => {
     'position:fixed;top:0;left:0;width:240px;height:30vh;max-height:30vh;overflow:auto;background:white';
   fixture.innerHTML =
     '<div aria-hidden="true"></div><p id="criteria-scrollable-text" style="font:18px sans-serif">Contrast remains checkable when this text starts partially outside its scrolling container.</p><div aria-hidden="true"></div><button>Anchor</button>';
-  document.body.append(fixture);
+  const host = nestedContrastHost(fixture);
   fixture.showModal();
   const text = fixture.querySelector('p');
   for (const spacer of fixture.querySelectorAll('div'))
@@ -264,7 +278,7 @@ const calibrateScrollableContrast = async () => {
     const finished = closed(fixture);
     fixture.close();
     await finished;
-    fixture.remove();
+    host.remove();
     previous?.focus({ preventScroll: true });
   }
 };
