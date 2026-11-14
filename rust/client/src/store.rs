@@ -23,6 +23,9 @@ mod last_resort;
 mod likes;
 mod link_enrollment;
 mod link_state;
+pub use link_state::{
+    LinkPreference, LinkPreferenceDifference, LinkPreferenceValue, LinkStateReview,
+};
 mod mailbox_cursor;
 pub mod messages;
 mod notice;

@@ -111,6 +111,9 @@ mod import;
 mod pending;
 #[path = "link_state/progress.rs"]
 mod progress;
+#[path = "link_state/review.rs"]
+mod review;
+pub use review::{LinkPreference, LinkPreferenceDifference, LinkPreferenceValue, LinkStateReview};
 #[cfg(test)]
 #[path = "link_state/tests.rs"]
 mod tests;

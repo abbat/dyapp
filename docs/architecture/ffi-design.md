@@ -508,8 +508,16 @@ without clearing the new link.
 An old pending row without a phase can record applied progress without replay only when its raw bytes
 exactly match the current canonical ordered private snapshot under the writer. This comparison includes
 visibility, trust observations and actor/HLC metadata; unknown wire fields also prevent admission.
-Any difference returns `LinkStateReviewRequired`, preserving both snapshots and credentials; explicit
-owner comparison/choices for differing legacy private state remain planned.
+Any difference returns `LinkStateReviewRequired`, preserving both snapshots and credentials.
+`Store.prepare_link_state_review` now freezes the owner, database path, exact pending bytes and current
+private snapshot in one read transaction. Its read-only differences cover block/mute/favorite/name/note,
+pass, visibility and the owner's outgoing like; incoming likes, trust/device observations and historical
+actor/clock/event metadata are never offered as editable preferences. A separate protected-difference
+signal also detects unknown/noncanonical pending wire data. Duplicate peer/like/pass keys are refused.
+`LinkStateReview.is_current` checks the same pending operation, absent import progress and current
+private bytes; it holds no keys or identity lease and authorizes no writes. Confirmation must revalidate
+under its writer with original-device admission. Owner choice validation, confirmation, protected-evidence
+merging and native/desktop adapters remain planned.
 A standalone fresh-store import can replay its exact snapshot; a different source needs a new pending
 operation. A profile completion receipt or version offset never proves private-state import.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility

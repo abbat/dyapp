@@ -1,6 +1,8 @@
 //! Exact pending-link retries must retain later local and synchronized private choices.
 #[path = "retry_tests/progress.rs"]
 mod progress_cases;
+#[path = "retry_tests/review.rs"]
+mod review_cases;
 use super::super::tests::temp_db_path;
 use super::*;
 use crate::{chat::PeerChange, interactions::Kind};
