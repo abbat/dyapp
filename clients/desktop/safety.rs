@@ -486,7 +486,11 @@ mod tests {
             mark(&cache, 0, &store, &dave.peer_id(), signed(&dave, 1)),
             Err("notConnected".into())
         );
-        let tombstone = dyapp_profile::verify(&Profile::tombstone(2, 0, 0).sign(&dave)).unwrap();
+        let tombstone = Profile {
+            previous: Some(dyapp_profile::ProfileCondition::default()),
+            ..Profile::tombstone(2, 0, 0)
+        };
+        let tombstone = dyapp_profile::verify(&tombstone.sign(&dave)).unwrap();
         let epoch = cache.lock().unwrap().epoch();
         assert_eq!(
             mark(&cache, epoch, &store, &dave.peer_id(), tombstone.clone()),
