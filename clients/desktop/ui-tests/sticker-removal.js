@@ -10,6 +10,23 @@
   const check = (ok, reason) => {
     if (!ok) throw new Error(reason);
   };
+  const checkCopiedPackId = (expected) => {
+    const selection = window.getSelection();
+    check(selection, 'Text selection is unavailable');
+    const saved = Array.from({ length: selection.rangeCount }, (_, index) =>
+      selection.getRangeAt(index).cloneRange(),
+    );
+    const range = document.createRange();
+    range.selectNodeContents(get('remove-id'));
+    try {
+      selection.removeAllRanges();
+      selection.addRange(range);
+      check(selection.toString() === expected, 'Copy adds separators to the Pack ID');
+    } finally {
+      selection.removeAllRanges();
+      for (const previous of saved) selection.addRange(previous);
+    }
+  };
   const createRemovalFixture = () => {
     const ui = appApi.stickerCollection;
     const panel = document.getElementById('sticker-packs');
@@ -54,6 +71,7 @@
           get('remove-id').textContent === '07'.repeat(32),
         'Confirmation lost pack name or full ID',
       );
+      checkCopiedPackId('07'.repeat(32));
       get('remove-cancel').click();
       check(!get('remove-dialog').open && fixture.removes === 0, 'Cancel removed a pack');
       button().click();

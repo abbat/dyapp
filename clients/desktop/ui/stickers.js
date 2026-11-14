@@ -79,11 +79,7 @@ const row = (entry, target) => {
     removing = { target, id: [...entry.id], button: remove };
     domById('sticker-remove-name', HTMLParagraphElement).textContent = name.textContent;
     const fullId = hexId(entry.id);
-    domById('sticker-remove-id', HTMLElement).replaceChildren(
-      fullId.slice(0, 32),
-      document.createElement('br'),
-      fullId.slice(32),
-    );
+    domById('sticker-remove-id', HTMLElement).textContent = fullId;
     dialog.hidden = false;
     dialog.showModal();
     domById('sticker-remove-cancel', HTMLButtonElement).focus();

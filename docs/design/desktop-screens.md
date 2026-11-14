@@ -515,6 +515,10 @@ has its own `sticker-manager` screen in `stickers-*` states. The prototype compo
 `sticker-picker-sending` variants. The picker has pack-choice buttons, eight labelled image
 buttons, paging, Cancel and Manage packs. This selection dialog has no default button:
 choosing a sticker is the main action; Manage packs is secondary. Its `sticker-picker-manage` opens the collection.
+Shipped pack-removal confirmations keep the full 64-character ID copyable without added
+line breaks; the shared identifier formatter supplies visual chunk boundaries. The matching
+prototype copy correction remains planned.
+
 The shipped button opens the picker too. Pack choices page at 32 records and image/recents
 pages contain at most eight safe thumbnails. Pack navigation has Previous packs/More packs;
 the image navigation has Previous/Next. Closing invalidates callbacks, returns composer focus
