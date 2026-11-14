@@ -17,18 +17,24 @@
     }
     const noticeChoice = document.getElementById('notice-content');
     if (
-      noticeChoice.value !== (restarted ? 'text' : 'fixed') ||
+      noticeChoice.querySelector('input:checked')?.value !== (restarted ? 'text' : 'fixed') ||
       noticeChoice.disabled !== restarted
     ) {
-      throw new Error(`notice content ${noticeChoice.value}, disabled ${noticeChoice.disabled}`);
+      throw new Error(
+        `notice content ${noticeChoice.querySelector('input:checked')?.value}, disabled ${noticeChoice.disabled}`,
+      );
     }
     return noticeChoice;
   };
   const changePrivacyChoices = async (noticeChoice) => {
     openSettings('notifications');
-    noticeChoice.value = 'text';
-    noticeChoice.dispatchEvent(new Event('change', { bubbles: true }));
-    await appApi.privacySaved;
+    for (const value of ['name', 'fixed', 'text']) {
+      noticeChoice.querySelector(`input[value="${value}"]`).click();
+      await appApi.privacySaved;
+      await appApi.showPrivacy();
+      if (noticeChoice.querySelector('input:checked')?.value !== value)
+        throw new Error(`notice choice ${value} was not persisted`);
+    }
     for (const id of [
       'send-views',
       'send-read-receipts',

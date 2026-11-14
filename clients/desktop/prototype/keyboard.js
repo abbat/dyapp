@@ -65,6 +65,13 @@ for (const state of ['empty', 'ready', 'recent', 'loading', 'error', 'sending'])
 export const dialogContract = () => {
   const dialog = activeDialog();
   if (!dialog) return null;
+  if (dialog.matches('dialog') && dialog.dataset.opener)
+    return {
+      dialog: selector(dialog),
+      state: dialog.dataset.returnState || document.documentElement.dataset.screen,
+      opener: `#${CSS.escape(dialog.dataset.opener)}`,
+      heading: false,
+    };
   const state = document.documentElement.dataset.screen;
   const contract = contracts[state];
   if (!contract) throw new Error(`Dialog state has no opener contract: ${state}`);
@@ -89,7 +96,9 @@ export const showState = (state) => {
     state.startsWith('sticker-picker-') ||
     state.startsWith('chat-sticker-')
       ? 'chat'
-      : state;
+      : state === 'profile-goal-dialog'
+        ? 'profile'
+        : state;
   const matches = (element, key) =>
     element.dataset[key].split(' ').some((value) => value === state || value === shown);
   for (const element of document.querySelectorAll('[data-on]'))
@@ -119,7 +128,7 @@ export const closeDialog = () => {
   target.focus();
 };
 const keydown = (event) => {
-  if (!activeDialog()) return;
+  if (!activeDialog() || activeDialog().matches('dialog')) return;
   if (event.key === 'Escape') {
     event.preventDefault();
     closeDialog();

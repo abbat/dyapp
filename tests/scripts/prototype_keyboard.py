@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, TypedDict, cast
 from gi.repository import Gdk, Gio, GLib
 
 from focus_pixels import contrasting_area, crop, required_area
+from prototype_progress import Progress
 
 if TYPE_CHECKING:
     import webkit2_contracts as WebKit2
@@ -33,6 +34,7 @@ class Plan(TypedDict):
     reverse: list[str]
     active: str
     dialog: Dialog | None
+    boundary: str
     radios: list[Radio]
     problems: list[str]
 
@@ -53,7 +55,10 @@ class Focused(Bounds):
 
 class KeyboardAudit:
     def __init__(
-        self, view: WebKit2.WebView, done: Callable[[list[str]], None]
+        self,
+        view: WebKit2.WebView,
+        done: Callable[[list[str]], None],
+        advanced: Callable[[str], None] | None = None,
     ) -> None:
         self.view, self.done = view, done
         self.pending: Callable[[object], None] = lambda _value: None
@@ -62,20 +67,34 @@ class KeyboardAudit:
         self.phase = "forward"
         self.current = ""
         self.body_skipped = False
+        self.native_skipped = False
         self.closed = False
         self.before: WebKit2.SnapshotSurface | None = None
         self.bounds: Bounds | None = None
         self.focused: Focused | None = None
         self.groups: deque[Radio] = deque()
         self.group: Radio | None = None
-        self.timer = GLib.timeout_add_seconds(120, self.expired)
+        self.advanced = advanced
+        self.deadline = Progress(
+            lambda callback: GLib.timeout_add_seconds(120, callback),
+            GLib.source_remove,
+            self.expired,
+        )
 
     def start(self) -> None:
         self.view.grab_focus()
         self.js("keys.plan()", self.planned)
 
+    def waiting(self, phase: str) -> None:
+        self.deadline.begin(phase)
+        if self.advanced is not None:
+            self.advanced(phase)
+
     def js(self, expression: str, callback: Callable[[object], None]) -> None:
+        if self.closed:
+            return
         self.pending = callback
+        self.waiting(f"JS {expression}")
         self.view.call_async_javascript_function(
             "const keys = await import("
             "'/desktop/ui-tests/prototype-keyboard.js');"
@@ -107,14 +126,11 @@ class KeyboardAudit:
         if self.closed:
             return
         self.closed = True
-        if self.timer:
-            GLib.source_remove(self.timer)
+        self.deadline.close()
         self.done(errors)
 
-    def expired(self) -> bool:
-        self.timer = 0
-        self.finish([f"keyboard deadline at {self.current}"])
-        return False
+    def expired(self, phase: str) -> None:
+        self.finish([f"keyboard deadline at {self.current}: {phase}"])
 
     def planned(self, value: object) -> None:
         self.plan = cast(Plan, value)
@@ -148,6 +164,7 @@ class KeyboardAudit:
         index = ordered.index(current) if current in ordered else -1
         self.steps = deque(ordered[index + 1 :] + ordered[: index + 1])
         self.body_skipped = False
+        self.native_skipped = False
         self.advance()
 
     def key(self, keyval: int, code: int, shift: bool = False) -> None:
@@ -182,8 +199,34 @@ class KeyboardAudit:
     def key_finished(self, value: object) -> None:
         actual = cast(str, value)
         expected = self.steps[0]
-        if not actual and not self.body_skipped and self.phase != "radios":
-            self.body_skipped = True
+        assert self.plan is not None, "Keyboard plan must exist"
+        forward = self.plan["forward"]
+        boundary = (
+            bool(actual)
+            and actual == self.plan["boundary"]
+            and bool(forward)
+            and (
+                (
+                    self.phase == "forward"
+                    and self.current == forward[-1]
+                    and expected == forward[0]
+                )
+                or (
+                    self.phase == "reverse"
+                    and self.current == forward[0]
+                    and expected == forward[-1]
+                )
+            )
+        )
+        # WebKit can traverse the native dialog root at the cycle boundary.
+        if (
+            (not actual and not self.body_skipped)
+            or (boundary and not self.native_skipped)
+        ) and self.phase != "radios":
+            if boundary:
+                self.native_skipped = True
+            else:
+                self.body_skipped = True
             self.advance()
             return
         if actual != expected:
@@ -200,6 +243,7 @@ class KeyboardAudit:
 
     def unfocused(self, value: object) -> None:
         self.bounds = cast(Bounds, value)
+        self.waiting("snapshot before focus")
         self.view.get_snapshot(
             WebKit2.SnapshotRegion.VISIBLE,
             WebKit2.SnapshotOptions.NONE,
@@ -236,6 +280,7 @@ class KeyboardAudit:
                 ]
             )
             return
+        self.waiting("snapshot after focus")
         self.view.get_snapshot(
             WebKit2.SnapshotRegion.VISIBLE,
             WebKit2.SnapshotOptions.NONE,
@@ -316,10 +361,16 @@ class KeyboardAudit:
         if self.plan["dialog"] is None:
             self.finish([])
             return
+        self.js(
+            f"keys.prepareEscape({json.dumps(self.plan['dialog'])})",
+            self.escape_ready,
+        )
+
+    def escape_ready(self, _value: object) -> None:
+        assert self.plan is not None, "Keyboard plan must exist"
         self.key(Gdk.KEY_Escape, 9)
         self.js(
-            "(await keys.afterKey(), "
-            f"keys.restored({json.dumps(self.plan['dialog'])}))",
+            f"await keys.restored({json.dumps(self.plan['dialog'])})",
             self.escaped,
         )
 

@@ -6,6 +6,7 @@ import { analyze } from './translation-values.mjs';
 
 const require = createRequire(`${process.env.DYAPP_WEB_TOOLS ?? '/opt/web-lint'}/package.json`);
 const { parse } = require('parse5');
+const { parse: parseJavaScript } = require('acorn');
 
 function htmlKeys(source) {
   const used = new Set();
@@ -76,6 +77,38 @@ function sourceKeys(sources, domains, keys) {
   return { used, errors };
 }
 
+function literalProperty(node, key) {
+  if (node?.type !== 'ObjectExpression') return undefined;
+  const matching = node.properties.filter(
+    (property) =>
+      property.type === 'Property' &&
+      !property.computed &&
+      (property.key.name ?? property.key.value) === key,
+  );
+  return matching.length === 1 ? matching[0].value : undefined;
+}
+
+function prototypeHideDisclosure(sources, english, russian) {
+  const source = sources['clients/desktop/prototype/strings.js'];
+  if (source === undefined) return [];
+  const tree = parseJavaScript(source, { ecmaVersion: 'latest', sourceType: 'script' });
+  const catalogue = tree.body
+    .filter((node) => node.type === 'VariableDeclaration')
+    .flatMap((node) => node.declarations)
+    .find((node) => node.id.type === 'Identifier' && node.id.name === 'STRINGS')?.init;
+  return [
+    ['en', english],
+    ['ru', russian],
+  ].flatMap(([language, words]) => {
+    const value = literalProperty(literalProperty(catalogue, language), 'profile.hide.hint');
+    return value?.type === 'Literal' &&
+      typeof value.value === 'string' &&
+      value.value === words['profile.hideHint']
+      ? []
+      : [`Prototype search Hide disclosure differs: ${language}`];
+  });
+}
+
 export function checkTranslations(input) {
   validateInput(input);
   const { sources, domains, direct, english, russian } = input;
@@ -87,7 +120,7 @@ export function checkTranslations(input) {
       errors.push(`Desktop catalogue parity differs: ${key}`);
     else if (!used.has(key)) errors.push(`Unused desktop translation key: ${key}`);
   }
-  return errors.sort();
+  return [...errors, ...prototypeHideDisclosure(sources, english, russian)].sort();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

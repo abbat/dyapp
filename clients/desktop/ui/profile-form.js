@@ -1,3 +1,5 @@
+import { enhanceChoice } from './profile-choice.js';
+import { identityState } from './identity-state.js';
 import { locale, strings } from './locale.js';
 import { countryName, scaleKey } from './profile-fields.js';
 import { byId as domById } from './dom.js';
@@ -67,6 +69,8 @@ export const profileForm = {
     const row = document.createElement('div');
     row.className = 'field';
     row.append(label, select);
+    if (scale.key === 'relationship_goal')
+      enhanceChoice(select, label, strings['action.cancel'], () => identityState.generation);
     return row;
   },
   /** @param {readonly string[]} countries */

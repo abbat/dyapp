@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from gi.repository import Gio, GLib
 from prototype_keyboard import KeyboardAudit
+from prototype_progress import Progress
 
 if TYPE_CHECKING:
     import webkit2_contracts as WebKit2
@@ -16,7 +17,10 @@ else:
 
 class KeyboardFixtures:
     def __init__(
-        self, view: WebKit2.WebView, done: Callable[[list[str]], None]
+        self,
+        view: WebKit2.WebView,
+        done: Callable[[list[str]], None],
+        advanced: Callable[[str], None] | None = None,
     ) -> None:
         self.view, self.done = view, done
         self.cases = deque(
@@ -31,7 +35,12 @@ class KeyboardFixtures:
         self.expected = ""
         self.problem: list[str] = []
         self.closed = False
-        self.timer = GLib.timeout_add_seconds(120, self.expired)
+        self.advanced = advanced
+        self.deadline = Progress(
+            lambda callback: GLib.timeout_add_seconds(120, callback),
+            GLib.source_remove,
+            self.expired,
+        )
 
     def start(self) -> None:
         if not self.cases:
@@ -40,8 +49,16 @@ class KeyboardFixtures:
         mode, self.expected = self.cases.popleft()
         self.evaluate(f"await keys.beginFixture({json.dumps(mode)})", self.run)
 
+    def waiting(self, phase: str) -> None:
+        self.deadline.begin(phase)
+        if self.advanced is not None:
+            self.advanced(phase)
+
     def evaluate(self, expression: str, callback: Callable[[], None]) -> None:
+        if self.closed:
+            return
         self.pending = callback
+        self.waiting(f"counterexample {expression}")
         self.view.call_async_javascript_function(
             "const keys = await import("
             "'/desktop/ui-tests/prototype-keyboard.js');"
@@ -66,7 +83,7 @@ class KeyboardFixtures:
             self.finish([f"keyboard counterexample: {error.message}"])
 
     def run(self) -> None:
-        self.runner = KeyboardAudit(self.view, self.checked)
+        self.runner = KeyboardAudit(self.view, self.checked, self.waiting)
         self.runner.start()
 
     def checked(self, errors: list[str]) -> None:
@@ -92,13 +109,10 @@ class KeyboardFixtures:
         if self.closed:
             return
         self.closed = True
-        if self.timer:
-            GLib.source_remove(self.timer)
+        self.deadline.close()
         if self.runner is not None:
             self.runner.finish([])
         self.done(errors)
 
-    def expired(self) -> bool:
-        self.timer = 0
-        self.finish(["Keyboard counterexample calibration deadline"])
-        return False
+    def expired(self, phase: str) -> None:
+        self.finish([f"Keyboard counterexample calibration deadline: {phase}"])

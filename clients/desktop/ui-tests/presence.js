@@ -186,9 +186,7 @@ const presenceSteps = {
   'notice-click': async () => {
     await openArea('settings', 'notifications');
     await appApi.showPrivacy();
-    const content = document.getElementById('notice-content');
-    content.value = 'text';
-    content.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('notice-content-text').click();
     await appApi.privacySaved;
     // Notices go only to an unfocused window, so mail is received once the hide has completed.
     await invokeTest('ui_test_hide', { close: false, restore: false });

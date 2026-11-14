@@ -47,6 +47,11 @@ fixture object; independent phases run sequentially, with each pending-response 
 `pendingSmokeCall()` creates a fresh promise on each invocation and exposes its latest resolver
 synchronously, so tests can settle old responses after navigation without adding polling waits.
 
+Notification settings smoke clicks each `name`, `fixed` and `text` radio choice, waits for the
+save completion, then reads settings back before asserting persistence. Restart coverage
+checks that disabling notices retains the selected choice; stale-profile read/write guards remain
+covered by controlled completion callbacks.
+
 Desktop native smokes use `openArea('settings', category)` and `openSettings(category)`
 to follow the actual category buttons, including parent collections, before operating
 controls. The Python desktop smoke contract checks every literal sidebar destination against
@@ -102,6 +107,13 @@ CI does not run it: run `make ui-prototype` locally after changing the prototype
 helpers; it writes JSON measurements to `build/ux-research/prototype/`. D1-D3 are checked at each screenshot, including
 negative fixtures for long titles, wrong Cancel keys and duplicate/missing defaults.
 Selection dialogs may have no default; other dialogs must declare exactly one.
+The profile choice dialog has its own screenshot state. Keyboard checks register the native
+close listener before Escape and await close plus restored focus. Each JavaScript/snapshot
+transition refreshes the failure deadline and parent watchdog only after prior completion.
+Native-dialog calibration temporarily closes an existing modal before injecting fixtures and
+restores it afterward. WebKit's BODY and native dialog-root boundary stops are bounded separately;
+a native root is permitted once only between the last and first controls, in either direction.
+Callback tests drive deadlines directly and reject missing close, late completion and focus traps.
 They wait for `document.fonts.ready` and two animation frames, with a
 30-second failure deadline, before measuring layout. The desktop composer check changes
 text through input events and compares the field's current bounds and focus as Send

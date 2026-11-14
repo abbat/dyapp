@@ -179,6 +179,7 @@ DESKTOP = [
     "picker",
     "recovery",
     "profile",
+    "profile-goal-dialog",
     "profile-hidden",
     "profile-dark",
     "publish-dialog",
@@ -597,9 +598,11 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
         from prototype_keyboard_fixtures import KeyboardFixtures
 
         if keyboard_checked:
-            KeyboardAudit(view, keyboard_done).start()
+            KeyboardAudit(view, keyboard_done, keyboard_progress).start()
         else:
-            KeyboardFixtures(view, keyboard_calibrated).start()
+            KeyboardFixtures(
+                view, keyboard_calibrated, keyboard_progress
+            ).start()
     else:
         finish_job()
 
@@ -610,6 +613,10 @@ def finish_job() -> None:
     next_job()
 
 
+def keyboard_progress(detail: str) -> None:
+    progress.begin(f"{shot_name()}: keyboard {detail}")
+
+
 def keyboard_calibrated(errors: list[str]) -> None:
     global keyboard_checked
     if errors:
@@ -618,7 +625,7 @@ def keyboard_calibrated(errors: list[str]) -> None:
     from prototype_keyboard import KeyboardAudit
 
     keyboard_checked = True
-    KeyboardAudit(view, keyboard_done).start()
+    KeyboardAudit(view, keyboard_done, keyboard_progress).start()
 
 
 def keyboard_done(errors: list[str]) -> None:

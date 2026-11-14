@@ -35,6 +35,9 @@ export const plan = () => {
     reverse: controller.tabStops(true).map(controller.selector),
     active: active(),
     dialog: controller.dialogContract(),
+    boundary: controller.activeDialog()?.matches('dialog')
+      ? controller.selector(controller.activeDialog())
+      : '',
     radios: [...groups.values()],
     problems,
   };
@@ -97,7 +100,20 @@ export const focused = async (name) => {
     active: active(),
   };
 };
-export const restored = (contract) => {
+let escapeClosed;
+export const prepareEscape = (contract) => {
+  const dialog = element(contract.dialog);
+  escapeClosed =
+    dialog instanceof HTMLDialogElement && dialog.open
+      ? new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }))
+      : null;
+  return null;
+};
+export const restored = async (contract) => {
+  const closedEvent = escapeClosed;
+  if (closedEvent) await closedEvent;
+  else await frames();
+  if (escapeClosed === closedEvent) escapeClosed = null;
   const dialog = element(contract.dialog);
   const closed =
     !dialog.getClientRects().length || getComputedStyle(dialog).visibility !== 'visible';
@@ -110,9 +126,18 @@ export const focus = async (name) => {
 };
 let fixtureState;
 let fixtureFocus;
+let fixtureDialog;
 export const beginFixture = async (mode) => {
   fixtureState = document.documentElement.dataset.screen;
   fixtureFocus = document.activeElement;
+  fixtureDialog = document.querySelector('dialog[open]');
+  if (fixtureDialog) {
+    const closed = new Promise((resolve) =>
+      fixtureDialog.addEventListener('close', resolve, { once: true }),
+    );
+    fixtureDialog.close();
+    await closed;
+  }
   controller.showState(mode === 'escape' ? 'revoked-dialog' : 'wizard-identity');
   const fixture = document.createElement('div');
   fixture.id = 'keyboard-fixture';
@@ -140,6 +165,8 @@ export const beginFixture = async (mode) => {
 export const endFixture = () => {
   document.getElementById('keyboard-fixture')?.remove();
   controller.showState(fixtureState);
+  if (fixtureDialog?.isConnected) fixtureDialog.showModal();
+  fixtureDialog = null;
   if (fixtureFocus?.isConnected) fixtureFocus.focus();
 };
 export const restoreRadios = (group) => {

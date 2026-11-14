@@ -134,4 +134,35 @@ assert.throws(
   () => checkTranslations(fixture(malformed, ['state.ready'], { 'state.': ['state.ready'] })),
   /Unsupported native translation/,
 );
+const disclosure = fixture('strings["profile.hideHint"];', ['profile.hideHint']);
+const clauses = {
+  en: ['Draft survives.', 'Known Peer IDs still open the profile.', 'Fetched copies remain.'],
+  ru: [
+    'Черновик сохранится.',
+    'По известному Peer ID профиль доступен.',
+    'Полученные копии останутся.',
+  ],
+};
+disclosure.english['profile.hideHint'] = clauses.en.join(' ');
+disclosure.russian['profile.hideHint'] = clauses.ru.join(' ');
+const prototypeFile = 'clients/desktop/prototype/strings.js';
+const prototypeWords = {
+  en: { 'profile.hide.hint': disclosure.english['profile.hideHint'] },
+  ru: { 'profile.hide.hint': disclosure.russian['profile.hideHint'] },
+};
+disclosure.sources[prototypeFile] = `const STRINGS = ${JSON.stringify(prototypeWords)};`;
+assert.deepEqual(checkTranslations(disclosure), []);
+for (const language of ['en', 'ru']) {
+  for (const omitted of [1, 2]) {
+    const changed = structuredClone(prototypeWords);
+    changed[language]['profile.hide.hint'] = clauses[language]
+      .filter((_, index) => index !== omitted)
+      .join(' ');
+    const broken = structuredClone(disclosure);
+    broken.sources[prototypeFile] = `const STRINGS = ${JSON.stringify(changed)};`;
+    assert.deepEqual(checkTranslations(broken), [
+      `Prototype search Hide disclosure differs: ${language}`,
+    ]);
+  }
+}
 console.log(`PASS ${cases.length + gates.length} translation parser fixtures`);

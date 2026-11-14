@@ -134,6 +134,8 @@ state code.
 
 Every later screen sits in the shell. `switcher` opens the identity menu; `menu` is the
 off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
+With enlarged text, navigation labels wrap and unread badges grow vertically. The top bar
+keeps the status dot and its text together and wraps that group when needed.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -168,13 +170,19 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | Add photo | `profile-photo-add` | Disabled at six; `profile-photo-limit` then replaces `profile-photo-hint` |
 | Public name | `profile-name` | Optional, at most 64 characters, no hidden symbols |
 | Gender | `profile-gender` | |
-| Looking for | `profile-goal` | |
+| Looking for | `profile-goal-choice` | Wrapping value button; `profile-goal` retains the core-generated numeric form value |
 | Birth year, month, day | `birth-year`, `birth-month`, `birth-day` | Month and day optional |
 | Shown age | `profile-age` | "31 or 32" for a partial date |
 | Country, town | `profile-country`, `profile-place` | |
 | More about you | `profile-more` | Collapsed optional fields |
 | Save draft | `profile-save` | |
 | Preview and publish | `profile-publish` | Primary; opens the dialog |
+
+`profile-goal-dialog` captures the open native choice dialog, `profile-goal-picker`.
+It lists the core's six relationship goals plus unset, shows the current choice and has Cancel
+without a default action. Values and labels wrap; Cancel and Escape preserve the form value.
+Selection emits the existing numeric change event. A detached or replaced identity owner cannot
+apply a stale choice or reclaim focus. Language selection remains an expandable catalogue.
 
 `photo-remove-dialog` asks before a photo leaves the draft: `photo-remove-cancel` is left and
 focused, `photo-remove-confirm` is right. A change keeps focus on the moved photo, or moves it to
@@ -569,7 +577,7 @@ sending off never stops receiving.
 | Show typing | `send-typing` | On |
 | Active recently to | `presence-matches`, `presence-nobody` | Matches by default |
 | New messages and likes | `message-notifications` | On: a notice when mail arrives and the window has no focus; a click shows the window. Linux only so far |
-| What a notice shows | `notice-content` | "New message" only; or the sender's name; or the name and text. Disabled while notices are off. Requests and likes stay fixed |
+| What a notice shows | `notice-content` | Three immediate radio choices: "New message" only, sender name, or name and text. Disabling notices disables the group and preserves its choice. Requests and likes stay fixed |
 | Run a node | `node-enabled` | Off |
 
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws

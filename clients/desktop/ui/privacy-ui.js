@@ -15,7 +15,10 @@ const privacyInputs = {
 };
 const privacyKeys = /** @type {(keyof typeof privacyInputs)[]} */ (Object.keys(privacyInputs));
 const privacyError = domById('privacy-error', HTMLParagraphElement);
-const noticeContent = domById('notice-content', HTMLSelectElement);
+const noticeContent = domById('notice-content', HTMLFieldSetElement);
+const noticeChoices = ['fixed', 'name', 'text'].map((value) =>
+  domById(`notice-content-${value}`, HTMLInputElement),
+);
 /** @param {boolean} failed */
 const privacyFailure = (failed) => {
   privacyError.hidden = !failed;
@@ -33,7 +36,7 @@ controller.showPrivacy = async (call = invoke) => {
       domById(privacyInputs[key], HTMLInputElement).checked = privacy[key];
     }
     domById('presence-nobody', HTMLInputElement).checked = !privacy.presenceMatches;
-    noticeContent.value = privacy.noticeContent;
+    for (const choice of noticeChoices) choice.checked = choice.value === privacy.noticeContent;
     showNoticeChoice();
     privacyFailure(false);
   } catch (_) {
@@ -42,7 +45,7 @@ controller.showPrivacy = async (call = invoke) => {
 };
 const savePrivacy = (call = invoke) => {
   const generation = identityState.generation;
-  const content = noticeContent.value;
+  const content = noticeChoices.find((choice) => choice.checked)?.value;
   if (content !== 'fixed' && content !== 'name' && content !== 'text') {
     privacyFailure(true);
     return Promise.resolve();

@@ -26,6 +26,9 @@
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3"/></symbol>
+  <symbol id="i-photo-left" viewBox="0 0 24 24"><path d="M20 12H4m7-7-7 7 7 7"/></symbol>
+  <symbol id="i-photo-right" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></symbol>
+  <symbol id="i-photo-remove" viewBox="0 0 24 24"><path d="M6 6l12 12M6 18 18 6"/></symbol>
 </svg>
 
 <!-- First run: full-window wizard, step 1 creates the identity, step 2 the network (skippable). -->
@@ -144,9 +147,9 @@
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
-    <span class="dot" data-off="search-error"></span><span class="dot off" data-on="search-error"></span>
-    <span class="caption" data-t="status.connected" data-off="search-error"></span>
-    <span class="caption" data-t="status.offline" data-on="search-error"></span>
+    <span class="topbar-status"><span class="dot" data-off="search-error"></span><span class="dot off" data-on="search-error"></span>
+      <span class="caption" data-t="status.connected" data-off="search-error"></span>
+      <span class="caption" data-t="status.offline" data-on="search-error"></span></span>
   </header>
   <div class="scrim"></div>
   <nav class="sidebar" aria-label="Main">
@@ -185,7 +188,7 @@
 
   <main class="content">
     <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
-    <section id="profile" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress menu switcher">
+    <section id="profile" data-on="profile profile-hidden profile-dark profile-goal-dialog publish-dialog photo-remove-dialog publish-progress menu switcher">
       <h1 data-t="nav.profile"></h1>
       <p class="muted" id="profile-status"><span data-off="profile-hidden" data-t="profile.status.published"></span>
         <span data-on="profile-hidden" data-t="profile.status.hidden"></span></p>
@@ -203,11 +206,11 @@
         <div id="profile-photos" class="photo-grid">
           <figure class="photo-tile"><span class="sample"></span>
             <figcaption class="caption" data-t="profile.photoMain"></figcaption>
-            <div class="photo-tools"><button type="button" class="btn quiet">→</button>
-              <button type="button" class="btn quiet">×</button></div></figure>
+            <div class="photo-tools"><button type="button" class="btn quiet" data-ta="profile.photoRight" data-tt="profile.photoRight"><svg class="icon" aria-hidden="true"><use href="#i-photo-right"/></svg></button>
+              <button type="button" class="btn quiet" data-ta="profile.photoRemoveFirst" data-tt="profile.photoRemoveFirst"><svg class="icon" aria-hidden="true"><use href="#i-photo-remove"/></svg></button></div></figure>
           <figure class="photo-tile"><span class="sample"></span>
-            <div class="photo-tools"><button type="button" class="btn quiet">←</button>
-              <button type="button" class="btn quiet">×</button></div></figure>
+            <div class="photo-tools"><button type="button" class="btn quiet" data-ta="profile.photoLeft" data-tt="profile.photoLeft"><svg class="icon" aria-hidden="true"><use href="#i-photo-left"/></svg></button>
+              <button type="button" class="btn quiet" data-ta="profile.photoRemoveLast" data-tt="profile.photoRemoveLast"><svg class="icon" aria-hidden="true"><use href="#i-photo-remove"/></svg></button></div></figure>
         </div>
         <button type="button" class="btn" id="profile-photo-add" data-t="profile.photoAdd"></button>
         <p class="caption" id="profile-photo-hint" data-t="profile.photoHint"></p>
@@ -222,7 +225,7 @@
           <div class="field"><label for="profile-gender" data-t="profile.gender"></label>
             <select id="profile-gender"><option data-t="profile.gender.value"></option></select></div>
           <div class="field"><label for="profile-goal" data-t="profile.goal"></label>
-            <select id="profile-goal"><option data-t="profile.goal.value"></option></select></div>
+            <select id="profile-goal" data-choice-picker><option value="0" data-t="profile.goal.unset"></option><option value="1" data-t="profile.goal.choice.SeriousRelationship" selected></option><option value="2" data-t="profile.goal.choice.Marriage"></option><option value="3" data-t="profile.goal.choice.Casual"></option><option value="4" data-t="profile.goal.choice.Friendship"></option><option value="5" data-t="profile.goal.choice.NotSureYet"></option><option value="6" data-t="profile.goal.choice.ShortTerm"></option></select></div>
         </div>
         <h2 class="section-heading" data-t="profile.birth"></h2>
         <div class="grid">
@@ -620,9 +623,13 @@ search providers asked: 0 of 3</pre>
       <h1 data-t="settings.notifications"></h1>
       <div class="card">
         <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
-        <div class="field"><label for="notice-content" data-t="privacy.noticeContent"></label>
-          <select id="notice-content"><option data-t="privacy.noticeContent.fixed"></option><option data-t="privacy.noticeContent.name"></option><option data-t="privacy.noticeContent.text"></option></select></div>
-        <p class="caption" data-t="privacy.noticeContent.hint"></p>
+        <fieldset id="notice-content" aria-describedby="notice-content-hint">
+          <legend data-t="privacy.noticeContent"></legend>
+          <label class="choice"><input id="notice-content-fixed" type="radio" name="notice-content" value="fixed" checked><span data-t="privacy.noticeContent.fixed"></span></label>
+          <label class="choice"><input id="notice-content-name" type="radio" name="notice-content" value="name"><span data-t="privacy.noticeContent.name"></span></label>
+          <label class="choice"><input id="notice-content-text" type="radio" name="notice-content" value="text"><span data-t="privacy.noticeContent.text"></span></label>
+        </fieldset>
+        <p class="caption" id="notice-content-hint" data-t="privacy.noticeContent.hint"></p>
       </div>
     </section>
     <section id="settings-photos" data-on="settings-photos ">
@@ -891,7 +898,8 @@ const t = lang === 'en-XA'
   : STRINGS[lang];
 window.strings = t;
 const shownScreen = screen === 'chat-draft' || screen.startsWith('sticker-picker-')
-  || screen.startsWith('chat-sticker-') ? 'chat' : screen;
+  || screen.startsWith('chat-sticker-') ? 'chat'
+  : screen === 'profile-goal-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === shownScreen || state === screen);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
@@ -928,5 +936,6 @@ if (['stickers-remove-dialog', 'stickers-remove-unreadable'].includes(screen))
 import { installIdentifiers } from '../ui/identifiers.js';
 installIdentifiers(window.strings);
 </script>
+<script type="module" src="profile-choice-fixture.js"></script>
 </body>
 </html>

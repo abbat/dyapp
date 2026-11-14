@@ -238,8 +238,11 @@ A lightweight DOM stub may miss this behavior; run the same smoke in the prepare
 prototype image with mocked IPC when testing focus or native disclosure events.
 A hash-only WebKit navigation is same-document and does not fire `load`. A probe
 that needs a fresh prototype document must use a distinct query URL and await load;
-otherwise observe the actual same-document transition. Native paste checks await
-input completion rather than treating the paste command's return as success.
+otherwise observe the actual same-document transition. For probes that scroll controls into
+view, omit a redundant fragment when the page already defaults to the required screen:
+WebKit's pending fragment navigation can override that scroll after load. Check current
+viewport geometry before sampling paint. Native paste checks await input completion rather
+than treating the paste command's return as success.
 
 Before the first app release, stored client databases have no compatibility promise. Change the
 version-1 schema directly and remove obsolete database migration paths; do not spend work on

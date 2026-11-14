@@ -498,7 +498,7 @@ details > summary {
   border-radius: 10px;
   min-width: 20px;
   padding: 0 6px;
-  font: var(--font-weight-emphasis) 0.75rem / 20px var(--font);
+  font: var(--font-weight-emphasis) 0.75rem / max(20px, 1.4em) var(--font);
   text-align: center;
   flex: none;
 }
@@ -628,6 +628,10 @@ details > summary {
 }
 .photo-tile > * + * {
   margin-top: var(--space-2);
+}
+.photo-tools .icon {
+  width: 1em;
+  height: 1em;
 }
 .photo-tools .btn {
   padding-inline: var(--space-2);
@@ -929,6 +933,10 @@ details > summary {
   color: var(--accent);
   font-weight: var(--font-weight-emphasis);
 }
+.nav .label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .nav .sub {
   display: block;
   font: var(--text-caption);
@@ -1021,6 +1029,7 @@ details > summary {
   }
   .topbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2);
@@ -1029,6 +1038,17 @@ details > summary {
     position: sticky;
     top: 0;
     z-index: 6;
+  }
+  .topbar-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    max-width: 100%;
+  }
+  .topbar-status .caption {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .topbar .title {
     font: var(--text-heading);
@@ -1232,4 +1252,20 @@ select {
 
 .symbol-definitions {
   position: absolute;
+}
+
+.field-choice,
+.choice-options .btn {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.choice-options {
+  display: grid;
+  gap: var(--space-2);
+}
+.choice-options [aria-pressed="true"] {
+  border-color: var(--accent);
+  font-weight: var(--font-weight-emphasis);
 }

@@ -129,7 +129,7 @@
       <button id="menu-open" class="btn quiet" type="button" data-i18n-label="nav.menu"
         aria-controls="sidebar" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
       <span class="title" data-i18n="app.name"></span>
-      <span class="dot connection-dot"></span><span class="caption connection-label"></span>
+      <span class="topbar-status"><span class="dot connection-dot"></span><span class="caption connection-label"></span></span>
     </header>
     <div id="scrim" class="scrim"></div>
     <nav id="sidebar" class="sidebar" data-i18n-label="nav.main">
@@ -571,13 +571,13 @@
             <h2 data-i18n="settings.hub.notifications"></h2>
           <label class="choice"><input id="message-notifications" type="checkbox">
             <span data-i18n="privacy.notifications"></span></label>
-          <div class="field"><label for="notice-content" data-i18n="privacy.noticeContent"></label>
-            <select id="notice-content">
-              <option value="fixed" data-i18n="privacy.noticeContent.fixed"></option>
-              <option value="name" data-i18n="privacy.noticeContent.name"></option>
-              <option value="text" data-i18n="privacy.noticeContent.text"></option>
-            </select></div>
-          <p class="caption" data-i18n="privacy.noticeContent.hint"></p>
+          <fieldset id="notice-content" aria-describedby="notice-content-hint">
+            <legend data-i18n="privacy.noticeContent"></legend>
+            <label class="choice"><input id="notice-content-fixed" type="radio" name="notice-content" value="fixed" checked><span data-i18n="privacy.noticeContent.fixed"></span></label>
+            <label class="choice"><input id="notice-content-name" type="radio" name="notice-content" value="name"><span data-i18n="privacy.noticeContent.name"></span></label>
+            <label class="choice"><input id="notice-content-text" type="radio" name="notice-content" value="text"><span data-i18n="privacy.noticeContent.text"></span></label>
+          </fieldset>
+          <p class="caption" id="notice-content-hint" data-i18n="privacy.noticeContent.hint"></p>
             <p id="notifications-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           </form>
         </div>

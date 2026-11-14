@@ -27,6 +27,35 @@ class Screens(unittest.TestCase):
             CHECK.screen_errors(texts), [f"{PAGE}: `gone` not in {PROTOTYPE}"]
         )
 
+    def test_declared_choice_component_exposes_only_its_generated_ids(
+        self,
+    ) -> None:
+        for markup in (
+            '<select id="goal" data-choice-picker></select>',
+            '<select data-choice-picker id="goal"></select>',
+        ):
+            texts = {
+                PAGE: "`goal-choice` `goal-picker` `goal-ghost`",
+                PROTOTYPE: markup,
+            }
+            self.assertEqual(
+                CHECK.screen_errors(texts),
+                [f"{PAGE}: `goal-ghost` not in {PROTOTYPE}"],
+            )
+
+    def test_choice_ids_require_a_marked_select_with_its_own_id(self) -> None:
+        for markup in (
+            '<select id="goal"></select>',
+            '<button id="goal" data-choice-picker></button>',
+            '<select data-id="goal" data-choice-picker></select>',
+            '<select id="goal" data-choice-picker-extra></select>',
+        ):
+            texts = {PAGE: "`goal-choice`", PROTOTYPE: markup}
+            self.assertEqual(
+                CHECK.screen_errors(texts),
+                [f"{PAGE}: `goal-choice` not in {PROTOTYPE}"],
+            )
+
     def test_repository_screens_match(self) -> None:
         texts = {
             name: (ROOT / name).read_text()
