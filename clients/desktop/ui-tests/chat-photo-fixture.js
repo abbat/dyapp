@@ -57,7 +57,12 @@
           : Promise.reject('unsupported'),
       send_chat_photo: (body, options) => {
         fixture.sent = { body, headers: options.headers };
+        fixture.photoSends += 1;
         const refusal = sends.shift();
+        if (refusal === 'queued') {
+          messages.push(entry(appBindings.current.peerId, 9, { ...photo, preview: [] }));
+          return Promise.reject('notConnected');
+        }
         return refusal ? Promise.reject(refusal) : Promise.resolve(Array(16).fill(9));
       },
       chat_photo_original: (args) => {
@@ -94,6 +99,7 @@
       autoAllowed: false,
       autoAsked: 0,
       sends: [],
+      photoSends: 0,
       sent: null,
       messages: [entry(peer, 1, photo)],
     };

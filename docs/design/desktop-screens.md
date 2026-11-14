@@ -426,6 +426,10 @@ over a direct path.
 | Attach photo | `chat-attach` | Open conversations only; picks a JPEG or PNG and sends it at once. It goes without its metadata, at most 2560 px, and a refusal stays in the composer status |
 | Send | `chat-send` | Disabled while the box is empty |
 
+Sending a photo keeps the text draft on success, queued delivery and refusal.
+A reply from a superseded chat/identity cannot change the current composer's draft
+or status; opening a different peer clears the old draft as usual.
+
 `chat-clear-dialog` confirms Clear chat: contact name and full Peer ID precede the consequence.
 Messages/originals are removed from this computer only, the peer keeps theirs, cleared messages
 do not return, and unsent messages and pending pack requests are cancelled. Saved packs stay

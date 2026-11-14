@@ -43,6 +43,20 @@
     }
     if (holds([...body])) throw new Error('the metadata left the page');
   };
+  const checkQueuedPhoto = async (fixture, tagged) => {
+    const before = fixture.photoSends;
+    fixture.sends.push('queued');
+    await appBindings.sendChatPhoto(tagged, fixture.call);
+    checkTextDraft();
+    if (
+      document.getElementById('chat-compose-status').textContent !==
+        appApi.strings['chats.queued'] ||
+      fixture.photoSends !== before + 1 ||
+      document.getElementById('chat-attach').disabled
+    ) {
+      throw new Error('a queued photo lost its status, retried or kept Attach disabled');
+    }
+  };
   const checkRefusedPhotos = async (fixture, tagged) => {
     const { sends, call } = fixture;
     const { strings } = appApi;
@@ -70,6 +84,7 @@
     appBindings.chatInput.value = textDraft;
     const { secret, tagged } = taggedPhoto(fixture.original);
     await checkSentPhoto(fixture, secret, tagged);
+    await checkQueuedPhoto(fixture, tagged);
     await checkRefusedPhotos(fixture, tagged);
   };
 })();
