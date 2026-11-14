@@ -64,7 +64,11 @@
     input.value = 'x';
     fixture.refuse = 'invalidName';
     await saveRename(call);
-    if (!dialog.open || error.textContent !== appApi.strings['chats.renameInvalid']) {
+    if (
+      !dialog.open ||
+      input.value !== 'x' ||
+      error.textContent !== appApi.strings['chats.renameInvalid']
+    ) {
       throw new Error('a refused name did not explain itself');
     }
     await checkRenameSaved(fixture, dialog, input);

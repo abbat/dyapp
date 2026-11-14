@@ -186,6 +186,22 @@
       throw new Error('a free network did not fetch the full photo without a tap');
     }
   };
+  const checkThumbnailNames = async (fixture) => {
+    const { person, call, strings } = fixture;
+    await appApi.showFoundPhotos(person('ef', [[1], [2]], [[], []]), call);
+    const [fallback, photo] = document.querySelectorAll('#view-photos .thumbs button');
+    const label = (n) => strings['profile.photoLabel'].replace('{n}', n).replace('{count}', '2');
+    if (
+      !fallback.textContent ||
+      fallback.querySelector('canvas') ||
+      fallback.getAttribute('aria-label') !== `${fallback.textContent}: ${label('1')}` ||
+      !photo.querySelector('canvas') ||
+      photo.textContent ||
+      photo.getAttribute('aria-label') !== label('2')
+    ) {
+      throw new Error('Thumbnail names lost visible letters or retained hidden ones');
+    }
+  };
   const checkMissingPhoto = async (fixture) => {
     const { held, refused, person, call, main, card } = fixture;
     held.clear();
@@ -194,10 +210,12 @@
     if (
       main.querySelector('canvas') ||
       main.getAttribute('aria-hidden') !== 'true' ||
-      !main.textContent
+      !main.textContent ||
+      document.querySelectorAll('#view-photos .thumbs button').length
     ) {
       throw new Error('a missing photo did not show the letters');
     }
+    await checkThumbnailNames(fixture);
     byId('view-back').click();
     card.remove();
   };

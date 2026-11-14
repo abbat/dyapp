@@ -72,6 +72,9 @@ and partial failures through completed production `runSearch` calls to catch sta
 Native desktop message-projection tests cover IDN/userinfo hosts, edits and deletion; the UI
 link-host smoke consumes that IPC shape and retains the caption/no-preview assertions. JavaScript
 must not reconstruct destinations from message text.
+Peer-photo checks require no thumbnail row for a single image, and distinguish accessible names
+for decoded thumbnails from letter fallbacks. Contact-renaming failure checks retain the exact
+rejected editable text alongside its localized error.
 Chat-photo rendering tests observe DOM completion for manual originals. A fixture-scoped wrapper
 awaits the actual automatic-policy Promise, preserving its arguments and return value and restoring
 the controller in `finally`. Opening and policy completion have separate named failure deadlines;
