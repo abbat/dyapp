@@ -51,15 +51,24 @@ internal fun ComposeTestRule.checkNetwork(retryUnreachable: Boolean = false, but
     repeat(if (retryUnreachable) CHECK_TRIES else 1) {
         if (checkShows(R.string.network_connected, R.string.network_active)) return@repeat
         onNodeWithTag(button).performScrollTo().performClick()
-        waitUntil(CHECK_WAIT_MS) {
-            checkShows(
-                R.string.network_connected,
-                R.string.network_active,
-                R.string.network_activation_failed,
-                R.string.network_unreachable,
-                R.string.network_check_failed,
-                R.string.network_invalid_address,
-                R.string.network_wrong
+        runCatching {
+            waitUntil(CHECK_WAIT_MS) {
+                checkShows(
+                    R.string.network_connected,
+                    R.string.network_active,
+                    R.string.network_activation_failed,
+                    R.string.network_unreachable,
+                    R.string.network_check_failed,
+                    R.string.network_invalid_address,
+                    R.string.network_wrong
+                )
+            }
+        }.onFailure {
+            val enabled = runCatching { onNodeWithTag(button).assertIsEnabled() }.isSuccess
+            throw AssertionError(
+                "no check result: status ${texts("network-check-status")}, rows ${textsIn("seed-rows")}, " +
+                    "seeds ${texts("network-seeds")}, $button enabled $enabled",
+                it
             )
         }
     }
