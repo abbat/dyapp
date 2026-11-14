@@ -12,6 +12,8 @@ mod forwarding;
 mod offline;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
+#[path = "tests/sticker_collection.rs"]
+mod sticker_collection;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {

@@ -19,6 +19,7 @@ pub use chats::{
     ChatForwardSource, ChatHistory, ChatItem, ChatLikeAttempt, ChatLikeState, ChatLikes,
     ChatMediaCache, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatRevocation, ChatRow,
     ChatSession, ChatState, ChatSticker, ChatSubmission, ContactNoteError, FavoriteError,
+    SavedStickerPackEntry, SavedStickerPackPage, SavedStickerPackState,
 };
 mod link_review;
 pub use link_review::{

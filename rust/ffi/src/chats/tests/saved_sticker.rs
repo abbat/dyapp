@@ -5,7 +5,7 @@ use dyapp_client::sticker_pack::{self, Pack};
 use prost::Message as _;
 use std::path::Path;
 
-fn pack() -> Pack {
+pub(super) fn pack() -> Pack {
     #[derive(Clone, PartialEq, prost::Message)]
     struct Record {
         #[prost(bytes = "vec", tag = "1")]
@@ -33,7 +33,7 @@ fn pack() -> Pack {
     .unwrap()
 }
 
-fn save(f: &Fixture, pack: &Pack, secret: &[u8; 32]) {
+pub(super) fn save(f: &Fixture, pack: &Pack, secret: &[u8; 32]) {
     let mut store = Store::open(&Path::new(&f.dir).join("client.db"), &f.key.identity).unwrap();
     store.save_sticker_pack(secret, pack).unwrap();
 }

@@ -219,7 +219,10 @@ native/live-node acceptance remains a CI obligation.
 Common UniFFI `ChatSession.submit_saved_sticker` loads the owner-authenticated saved pack
 and delegates to `Session::submit_pack_sticker_to`, returning typed `Accepted`/`Queued`
 with the committed logical ID. Selection refusals stage no chat message; an upload refusal
-can retain its core reservation. Mobile picker/collection wiring remains planned.
+can retain its core reservation. Common `saved_sticker_packs` exposes core-bounded metadata
+pages and exclusive cursors, with actual encrypted-byte accounting and unreadable entry states.
+It preserves invalid files and never returns compressed media or trusted labels for unreadable
+entries. Mobile picker/collection wiring remains planned.
 
 ### Receive
 

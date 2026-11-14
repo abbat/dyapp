@@ -37,6 +37,8 @@ pub use photo_settings::ChatPhotoDownload;
 mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
+mod sticker_collection;
+pub use sticker_collection::{SavedStickerPackEntry, SavedStickerPackPage, SavedStickerPackState};
 mod sticker_view;
 pub use photos::chat_photo_hours_left;
 pub use sticker_view::ChatSticker;
