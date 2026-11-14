@@ -472,8 +472,8 @@ mod tests {
             name: "first".into(),
         };
         let second = Network {
-            seeds: vec!["second:1".into()],
-            name: "second".into(),
+            seeds: vec![answering_seed()],
+            name: String::new(),
         };
         network::save(&dir, Settings::Active, &first).unwrap();
         let verified = verified_fixture_profile;
@@ -490,12 +490,10 @@ mod tests {
         started_rx.await.unwrap();
         let current = verified(&Identity::generate());
         assert!(state.0.lock().unwrap().accept_if_current(0, current));
-        checks
-            .remember_connected(0, dir.clone(), second.clone())
-            .unwrap();
+        connect_check(&checks, &dir, &second).await;
         assert_eq!(
-            state.activate_network(&checks, &dir).unwrap().name,
-            "second"
+            state.activate_network(&checks, &dir).unwrap().seeds,
+            second.seeds
         );
         assert_eq!(
             network::load(&dir, Settings::Active).unwrap(),
@@ -511,7 +509,53 @@ mod tests {
             .unwrap()
             .accept_if_current(new_epoch, verified(&Identity::generate())));
         assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
-        assert_reactivation_keeps_profiles(&state, &checks, &dir, second);
+        assert_reactivation_keeps_profiles(&state, &checks, &dir, &second).await;
+    }
+
+    /// A public-network node on its own thread, as the native network tests use; returns its seed row.
+    fn answering_seed() -> String {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(serve_node(&sender));
+        });
+        receiver.recv_timeout(Duration::from_secs(5)).unwrap()
+    }
+
+    async fn serve_node(sender: &std::sync::mpsc::Sender<String>) {
+        use libp2p::futures::StreamExt;
+        use libp2p::{multiaddr::Protocol, swarm::SwarmEvent};
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let mut swarm = dyapp_p2p_net::build_swarm(keypair, dyapp_p2p_net::Mode::Auto).unwrap();
+        let peer = *swarm.local_peer_id();
+        swarm
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        loop {
+            let SwarmEvent::NewListenAddr { address, .. } = swarm.select_next_some().await else {
+                continue;
+            };
+            if let Some(Protocol::Tcp(port)) = address.iter().nth(1) {
+                let _ = sender.send(format!("127.0.0.1:{port}/{peer}"));
+            }
+        }
+    }
+
+    /// Runs a real check of `network`, so only a reached node can grant activation.
+    async fn connect_check(checks: &crate::network::NetworkState, dir: &Path, network: &Network) {
+        let draft = network.clone().into();
+        crate::network::check(
+            checks,
+            dir.to_path_buf(),
+            draft,
+            Duration::from_secs(5),
+            || Ok(false),
+        )
+        .await
+        .unwrap();
     }
 
     fn verified_fixture_profile(owner: &Identity) -> dyapp_profile::VerifiedProfile {
@@ -525,17 +569,15 @@ mod tests {
         .unwrap()
     }
 
-    fn assert_reactivation_keeps_profiles(
+    async fn assert_reactivation_keeps_profiles(
         state: &SearchState,
         checks: &crate::network::NetworkState,
         dir: &Path,
-        second: Network,
+        second: &Network,
     ) {
         // Re-activating the same settings consumes the check but keeps valid profiles.
         let epoch = state.0.lock().unwrap().epoch();
-        checks
-            .remember_connected(checks.check_epoch().unwrap(), dir.to_path_buf(), second)
-            .unwrap();
+        connect_check(checks, dir, second).await;
         state.activate_network(checks, dir).unwrap();
         let cached = state.0.lock().unwrap();
         assert_eq!(cached.epoch(), epoch);

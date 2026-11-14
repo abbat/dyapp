@@ -1483,6 +1483,7 @@ dependencies = [
  "dyapp-p2p-net",
  "dyapp-profile",
  "image",
+ "libp2p",
  "qrcodegen",
  "quircs",
  "serde",
