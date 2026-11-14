@@ -84,5 +84,7 @@ pub fn page(pack: &Pack, after: usize) -> Result<Page, Error> {
     })
 }
 
+pub mod recents;
+
 #[cfg(test)]
 mod tests;

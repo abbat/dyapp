@@ -15,7 +15,7 @@ fn picker_pages_are_bounded_and_contain_only_labels_and_resized_pixels() {
     assert_eq!(second.next, None);
     assert!(page(&pack, 9).unwrap().entries.is_empty());
     assert!(page(&pack, 10).is_err());
-    assert!(thumbnail(&pack, 9).is_err());
+    assert!(sticker_picker::thumbnail(&pack, 9).is_err());
     let json = serde_json::to_value(first).unwrap();
     for (index, entry) in json["entries"].as_array().unwrap().iter().enumerate() {
         assert_serialized_entry(index, entry);

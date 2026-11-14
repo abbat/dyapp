@@ -304,8 +304,11 @@ remain in the adapter.
 
 Shared `sticker_picker::page`/`thumbnail` produce at most eight 96px RGBA choices in manifest
 order, with authoritative bounds and labels. Desktop only projects their existing JSON fields.
-Native picker-page exports and shared recent-choice resolution remain planned; collection listings
-and individual full-frame reads are already available but are separate APIs.
+Shared `sticker_picker::recents::page` owns hash-plus-emoji lookup, one-pack caching, missing/invalid
+pack filtering and original-list cursors; desktop only projects the resulting flattened entries.
+Callers retain identity admission and supply their transition signal. Cancellation and access/decode
+failures never publish a partial page. Native picker/recent exports remain planned; collection
+listings and individual full-frame reads are separate APIs.
 
 Common native `receive` also runs bounded core sticker-pack responses and admitted downloads
 after applying the mailbox, retaining the same session/identity operation through completion.

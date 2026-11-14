@@ -3,6 +3,10 @@ use image_webp::{ColorType, WebPEncoder};
 use prost::Message;
 
 fn pack(count: usize, width: u32, height: u32) -> Pack {
+    pack_labels(&vec!["😺"; count], width, height)
+}
+
+pub(super) fn pack_labels(labels: &[&str], width: u32, height: u32) -> Pack {
     #[derive(Clone, PartialEq, Message)]
     struct Record {
         #[prost(bytes = "vec", tag = "1")]
@@ -15,10 +19,12 @@ fn pack(count: usize, width: u32, height: u32) -> Pack {
     WebPEncoder::new(&mut image)
         .encode(&pixels, width, height, ColorType::Rgba8)
         .unwrap();
-    let entries: Vec<_> = (0..count)
-        .map(|index| {
+    let entries: Vec<_> = labels
+        .iter()
+        .enumerate()
+        .map(|(index, emoji)| {
             serde_json::json!({
-                "file": format!("{index}.webp"), "emoji": "😺",
+                "file": format!("{index}.webp"), "emoji": emoji,
                 "sha256": dyapp_identity::hex(&dyapp_identity::sha256(&image))
             })
         })
@@ -31,7 +37,7 @@ fn pack(count: usize, width: u32, height: u32) -> Pack {
     crate::sticker_pack::from_peer(
         &Record {
             manifest,
-            files: vec![image; count],
+            files: vec![image; labels.len()],
         }
         .encode_to_vec(),
         &id,

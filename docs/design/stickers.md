@@ -257,8 +257,11 @@ Mobile picker/collection wiring remains planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
 96px RGBA resizing through the bounded core decoder. Desktop maps these results to its existing
-JSON without media calculations. Shared recent-choice resolution and native picker-page exports
-remain planned; full saved-frame and collection exports do not substitute for bounded picker pages.
+JSON without media calculations. Shared `sticker_picker::recents::page` resolves exact hash-plus-emoji
+choices against saved packs, caches at most one pack, filters missing/invalid content without deleting
+files and preserves original-list cursor offsets. Transition cancellation or storage/decode failure
+returns no partial page. Desktop only projects its unchanged flattened JSON. Native picker-page and
+recent exports remain planned; full saved-frame and collection exports are separate APIs.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache

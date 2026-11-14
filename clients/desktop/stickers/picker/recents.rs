@@ -1,13 +1,7 @@
-//! Resolve local recent choices against saved packs without holding an unbounded pack cache.
-use super::{local_store, owner_matches, thumbnail, StickerView, PAGE_SIZE};
+//! Transport-only projection of common core recent choices and cancellation.
+use super::{local_store, owner_matches, StickerView};
 use crate::{chats, IdentityState};
-use dyapp_client::{
-    sticker_pack::Pack,
-    store::{
-        sticker_packs::{recents::RecentSticker, Error as PackError},
-        Store,
-    },
-};
+use dyapp_client::sticker_picker::recents;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -24,68 +18,22 @@ pub(crate) struct PageView {
     entries: Vec<Entry>,
     next: Option<usize>,
 }
-fn available_pack(store: &Store, key: &[u8; 32], id: &[u8; 32]) -> Result<Option<Pack>, String> {
-    match store.saved_sticker_pack(key, id) {
-        Ok(pack) => Ok(pack),
-        Err(PackError::Invalid) => Ok(None),
-        Err(error) => Err(error.to_string()),
+impl From<recents::Entry> for Entry {
+    fn from(value: recents::Entry) -> Self {
+        Self {
+            pack_id: value.pack_id,
+            pack_name: value.pack_name,
+            sticker: value.sticker.into(),
+        }
     }
 }
-fn page(
-    recent: &[RecentSticker],
-    after: usize,
-    mut load: impl FnMut(&[u8; 32]) -> Result<Option<Pack>, String>,
-    stop: impl Fn() -> bool,
-) -> Result<PageView, String> {
-    if after > recent.len() {
-        return Err("invalidIndex".into());
+impl From<recents::Page> for PageView {
+    fn from(value: recents::Page) -> Self {
+        Self {
+            entries: value.entries.into_iter().map(Into::into).collect(),
+            next: value.next,
+        }
     }
-    if stop() {
-        return Err("Identity changed".into());
-    }
-    let mut entries = Vec::new();
-    let mut next = None;
-    let mut cached_id = None;
-    let mut cached: Option<Pack> = None;
-    for (offset, record) in recent.iter().enumerate().skip(after) {
-        if stop() {
-            return Err("Identity changed".into());
-        }
-        if cached_id != Some(record.pack_id) {
-            drop(cached.take());
-            cached = load(&record.pack_id)?;
-            cached_id = Some(record.pack_id);
-        }
-        let Some(pack) = cached.as_ref() else {
-            continue;
-        };
-        if pack.id() != &record.pack_id {
-            return Err("corrupted".into());
-        }
-        if stop() {
-            return Err("Identity changed".into());
-        }
-        let Some(index) = pack
-            .stickers()
-            .iter()
-            .position(|entry| entry.sha256 == record.sha256 && entry.emoji == record.emoji)
-        else {
-            continue;
-        };
-        if entries.len() == PAGE_SIZE {
-            next = Some(offset);
-            break;
-        }
-        entries.push(Entry {
-            pack_id: record.pack_id,
-            pack_name: pack.name().into(),
-            sticker: thumbnail(pack, index)?,
-        });
-    }
-    if stop() {
-        return Err("Identity changed".into());
-    }
-    Ok(PageView { entries, next })
 }
 
 /// At most eight recent choices; unavailable packs/entries are filtered without deleting files.
@@ -104,13 +52,11 @@ pub(crate) async fn recent_sticker_page(
     tauri::async_runtime::spawn_blocking(move || {
         let (identity, dir) = lease.active();
         let (store, key) = local_store(&root, dir, identity, &sessions)?;
-        let recent = store.recent_stickers().map_err(|e| e.to_string())?;
-        page(
-            &recent,
-            after,
-            |id| available_pack(&store, &key, id),
-            || lease.transitioning().unwrap_or(true),
-        )
+        recents::page(&store, &key, after, || {
+            lease.transitioning().unwrap_or(true)
+        })
+        .map(Into::into)
+        .map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?

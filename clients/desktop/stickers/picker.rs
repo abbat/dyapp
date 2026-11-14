@@ -3,7 +3,6 @@ use super::{local_store, owner_matches};
 use crate::{chats, IdentityState};
 use dyapp_client::{sticker_pack::Pack, sticker_picker};
 use serde::Serialize;
-use sticker_picker::PAGE_SIZE;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,11 +53,6 @@ impl From<sticker_picker::Page> for PageView {
     }
 }
 
-pub(crate) fn thumbnail(pack: &Pack, index: usize) -> Result<StickerView, String> {
-    sticker_picker::thumbnail(pack, index)
-        .map(Into::into)
-        .map_err(|e| e.to_string())
-}
 fn page(pack: &Pack, after: usize) -> Result<PageView, String> {
     sticker_picker::page(pack, after)
         .map(Into::into)
