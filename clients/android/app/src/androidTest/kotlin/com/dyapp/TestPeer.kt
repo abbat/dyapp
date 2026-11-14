@@ -21,7 +21,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 internal const val PEER_WAIT_MS = 180_000L
-private const val CHECK_TRIES = 3
 
 private fun redPng(): ByteArray {
     val bitmap = createBitmap(640, 480, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
@@ -59,7 +58,10 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
             )
         )
         activateLocalNode()
-        ProfileSolve(path, key).use { solve -> generateSequence { solve.runStep(true) }.first { it.solved } }
+        ProfileSolve(path, key).use { solve ->
+            var solved = false
+            PeerTransition("test peer profile proof").await({ solved }) { solved = solve.runStep(true).solved }
+        }
         if (photo) {
             val prepared = preparePhoto(redPng())
             addProfilePhoto(path, key, prepared.full, prepared.thumbnail)
@@ -74,11 +76,15 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
         // The local node runs the public network: an empty name, as in NetworkDraftTests.
         val settings = NetworkSettings(listOf(LOCAL_NODE), "")
         var rows = emptyList<SeedRow>()
-        val activated = (1..CHECK_TRIES).any {
-            rows = checker.run(settings, CHECK_WAIT_MS.toUInt())
-            runCatching { checker.activate() }.isSuccess
+        var activated = false
+        try {
+            PeerTransition("test peer activation of $LOCAL_NODE").awaitSignal({ activated }) { remaining ->
+                rows = checker.run(settings, minOf(CHECK_WAIT_MS, remaining).toUInt())
+                activated = runCatching { checker.activate() }.isSuccess
+            }
+        } catch (failure: IllegalStateException) {
+            throw IllegalStateException("The test peer could not activate $LOCAL_NODE: $rows", failure)
         }
-        check(activated) { "The test peer could not activate $LOCAL_NODE: $rows" }
     }
 
     /** Receives until a message from [author] in their chat satisfies [match]. */

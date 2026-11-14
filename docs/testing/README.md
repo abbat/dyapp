@@ -525,8 +525,10 @@ Platform suites include native-core integration and UI scenarios. Commands and r
 Android `NativeStickerExchangeTests` drives two isolated native identities through the suite-owned
 node without an Activity: sticker import/send, explicit pack save, authenticated frame/collection,
 bounded picker page, resend, recent-choice readback and core notice output that must not reveal
-older retained unread text. Completed mailbox passes drive readiness with a fresh deadline per transition; hidden
-controls must not add history rows. The test APK carries a deterministic USTAR fixture containing
+older retained unread text. Completed mailbox passes drive readiness with a fresh deadline per
+transition; hidden controls must not add history rows. Peer setup likewise waits for the profile
+proof's solved result and node activation, each with its own failure deadline; node checks consume
+the remaining budget rather than a fixed retry count and retain final rows in failure diagnostics. The test APK carries a deterministic USTAR fixture containing
 one manifest and the repository's lossless-alpha WebP seed. Compilation is not execution evidence;
 the existing native Android suite must run this scenario before release acceptance.
 
