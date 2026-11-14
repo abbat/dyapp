@@ -81,6 +81,10 @@ Desktop foundation smoke renders all six core chat-preview kinds with and withou
 forwarded label. It supplies deliberately different legacy message text/time and requires the
 core payload and timestamp, unchanged history data, no visual ellipsis and the original opening
 callback. These cases are embedded in the native smoke inventory.
+Prototype first-message and received-request variants also audit the complete short Peer ID
+and notice action labels at narrow widths and enlarged text. Their header reflow must preserve
+ordinary chat, list, menu and dialog neighbors; existing request smoke retains the text-reply,
+media restriction and exact Block target contracts.
 Native desktop message-projection tests cover IDN/userinfo hosts, edits and deletion; the UI
 link-host smoke consumes that IPC shape and retains the caption/no-preview assertions. JavaScript
 must not reconstruct destinations from message text.

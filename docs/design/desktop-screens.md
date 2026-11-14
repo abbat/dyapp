@@ -322,6 +322,8 @@ disable media controls. A received request still permits a text reply. The stick
 button opens the collection manager. Enter submits through the normal validated send
 handler; Shift+Enter inserts a line and composing Enter leaves the IME in control.
 Sticker image selection and sending remain a separate transport/picker task.
+The peer header moves its text below the avatar when needed, keeping complete short Peer IDs
+readable at enlarged text sizes. Chat notice action labels wrap within the available notice width.
 
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
