@@ -113,6 +113,13 @@ avatars share that rendering contract.
 Native identifier reflow checks count overlapping vertical bands of nonempty text rectangles,
 not DOM fragment rectangles: chunk spans and WBRs can produce many rectangles on one line.
 The check waits for fonts, retains narrow/wide wrapping assertions and rejects horizontal clipping.
+The shared `installIdentifiers(strings, targetCode)` can observe a single code element; the default
+invocation still observes the document body. Native smoke checks initial and replacement formatting
+with detached siblings, so the body's default observer cannot mask a scope error or change the
+outside sibling. Each replacement awaits its actual mutation signal with a fresh failure deadline.
+Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
+wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
+supported safe centering and reachable text/control bounds at real enlarged text sizes.
 
 Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
 including the shared identifier ES module. No external network access is needed.

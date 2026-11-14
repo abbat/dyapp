@@ -210,6 +210,11 @@ first and returns to the first section, as any activity relaunch does.
   removal and the peer's copy; `clear.pending` explains cancellation and saved packs, before
   the unchanged `clear.later` warning. Dialog titles wrap long words at enlarged text sizes;
   the chat header lets the contact shrink so its navigation controls stay inside the viewport.
+  Clear names the contact in `chat-clear-name`, then shows the full `chat-clear-peer` under
+  `chat-clear-peer-label`, before the consequences. The name and ID come from the same header
+  fixture; the shared identifier renderer chunks the ID without changing copied text. Centered
+  dialogs fall back to start alignment when taller than their available space, keeping the title
+  reachable with enlarged text.
   `chat-rename` opens `chat-rename-dialog`: `chat-rename-input` starts from the local name, an
   empty one removes it, `chat-rename-save` saves and every row and the header read it again,
   `chat-rename-cancel` closes, and a line in the dialog says why a name was refused. A request hides

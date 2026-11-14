@@ -47,6 +47,35 @@
       'Identifier interpreted markup',
     );
   };
+  const checkScopedIdentifiers = async (formatted, check) => {
+    const { installIdentifiers } = await import(new URL('identifiers.js', document.baseURI).href);
+    const container = document.createElement('div');
+    const scoped = document.createElement('code');
+    const outside = document.createElement('code');
+    const raw = 'abcdef01'.repeat(8);
+    scoped.textContent = raw;
+    outside.textContent = raw;
+    container.append(scoped, outside);
+    installIdentifiers(appApi.strings, scoped);
+    check(
+      scoped.textContent === raw && scoped.querySelectorAll('wbr').length === 7,
+      'Scoped identifier was not formatted',
+    );
+    const next = 'fedcba98'.repeat(8);
+    const completed = formatted(next, scoped);
+    scoped.textContent = next;
+    await completed;
+    check(
+      scoped.textContent === next && scoped.querySelectorAll('wbr').length === 7,
+      'Scoped identifier replacement lost formatting',
+    );
+    check(
+      outside.textContent === raw &&
+        !outside.classList.contains('identifier') &&
+        !outside.querySelector('wbr'),
+      'Scoped formatter changed an outside identifier',
+    );
+  };
   smoke.checkIdentifiers = async () => {
     const selection = window.getSelection();
     const savedRanges = Array.from({ length: selection.rangeCount }, (_, index) =>
@@ -60,9 +89,9 @@
     const check = (ok, reason) => {
       if (!ok) throw Error(reason);
     };
-    const formatted = (raw) =>
+    const formatted = (raw, target = code) =>
       new Promise((resolve, reject) => {
-        const ready = () => code.textContent === raw && code.querySelector('wbr');
+        const ready = () => target.textContent === raw && target.querySelector('wbr');
         if (ready()) {
           resolve();
           return;
@@ -74,7 +103,7 @@
             resolve();
           }
         });
-        observer.observe(code, { attributes: true, childList: true, subtree: true });
+        observer.observe(target, { attributes: true, childList: true, subtree: true });
         const deadline = setTimeout(() => {
           observer.disconnect();
           reject(Error('Identifier format deadline'));
@@ -82,6 +111,7 @@
       });
     try {
       await checkIdentifierContent(code, selection, formatted, check);
+      await checkScopedIdentifiers(formatted, check);
     } finally {
       selection.removeAllRanges();
       for (const range of savedRanges) selection.addRange(range);

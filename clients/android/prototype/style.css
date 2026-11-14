@@ -2,6 +2,9 @@
 :root {
   --font: Roboto, "Noto Sans", "DejaVu Sans", sans-serif;
   --mono: "Roboto Mono", "DejaVu Sans Mono", monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
   --bg: #fbf8fd;
   --surface: #efedf4;
   --surface-high: #e9e7ef;
@@ -484,7 +487,7 @@ pre {
   inset: 0;
   background: var(--scrim);
   display: flex;
-  align-items: center;
+  align-items: safe center;
   justify-content: center;
   padding: 24px;
 }
@@ -506,6 +509,32 @@ pre {
   font: 400 24px / 32px var(--font);
   margin: 0;
   overflow-wrap: anywhere;
+}
+#chat-clear-name {
+  overflow-wrap: anywhere;
+}
+.confirm-id,
+.confirm-id dd {
+  margin: 0;
+}
+code.identifier {
+  display: block;
+  margin-block: var(--space-3);
+  padding: var(--space-2);
+  max-width: 100%;
+  border: 1px solid var(--outline-v);
+  border-radius: 8px;
+  background: var(--secondary-c);
+  font-family: var(--mono);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.identifier-chunk {
+  display: inline-block;
+  margin-inline-end: var(--space-1);
+}
+.identifier-chunk:last-child {
+  margin-inline-end: 0;
 }
 .sheet {
   width: 100%;

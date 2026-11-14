@@ -48,8 +48,11 @@ const createIdentifierFormatter = (strings) => {
   };
   return format;
 };
-/** @param {Record<string, string>} strings */
-export const installIdentifiers = (strings) => {
+/**
+ * @param {Record<string, string>} strings
+ * @param {Element} [scope]
+ */
+export const installIdentifiers = (strings, scope = document.body) => {
   const format = createIdentifierFormatter(strings);
   /** @param {Node} root */
   const codesUnderRoot = (root) => {
@@ -66,8 +69,8 @@ export const installIdentifiers = (strings) => {
   const observer = new MutationObserver((records) => {
     observer.disconnect();
     update(records.flatMap((record) => [record.target, ...record.addedNodes]));
-    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+    observer.observe(scope, { subtree: true, childList: true, characterData: true });
   });
-  update([document.body]);
-  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  update([scope]);
+  observer.observe(scope, { subtree: true, childList: true, characterData: true });
 };

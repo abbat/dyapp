@@ -373,6 +373,10 @@ Agents run long checks in the background, wait for the completion notice instead
 with `sleep`/`tail`, and read only the failing lines after `FAIL`. The original
 stage failure wins over a later stop failure; a failed stop also fails an otherwise successful
 stage.
+An orchestration timeout can leave its Docker container running: inspect the exact container before
+retrying, wait for its real exit and require complete artifacts. Keep the observer's exit status
+separate from the application's; reattach with `docker attach --no-stdin --sig-proxy=false` when
+following an existing run, preserving the original log and writing a separate continuation log.
 
 `DYAPP_VERBOSE=1 make test-all` streams output instead of capturing it. Shell targets set
 this automatically to preserve interaction and TTY behavior. Quiet checks disable the

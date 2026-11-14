@@ -333,7 +333,7 @@ search providers asked: 0 of 3</pre>
       <div class="backbar">
         <button type="button" class="icon-btn" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile. -->
-        <button type="button" class="list-item peer" id="chat-profile">
+        <button type="button" class="list-item peer" id="chat-profile" data-peer-id="a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583">
           <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
@@ -532,6 +532,9 @@ search providers asked: 0 of 3</pre>
   <div class="scrim" data-on="chat-clear-dialog">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="clear-title">
       <h2 id="clear-title" data-t="clear.title"></h2>
+      <p id="chat-clear-name"></p>
+      <dl class="confirm-id"><dt id="chat-clear-peer-label" class="caption" data-t="clear.peer"></dt>
+        <dd><code id="chat-clear-peer"></code></dd></dl>
       <p data-t="clear.text"></p>
       <p data-t="clear.pending"></p>
       <p class="caption" data-t="clear.later"></p>
@@ -631,6 +634,18 @@ for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
 document.title = `${t['app.name']} — ${screen}`;
+</script>
+<script type="module">
+import { installIdentifiers } from '../../desktop/ui/identifiers.js';
+const contact = document.getElementById('chat-profile');
+const contactName = contact?.querySelector('.grow > b');
+const targetName = document.getElementById('chat-clear-name');
+const targetPeer = document.getElementById('chat-clear-peer');
+if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
+  throw new Error('Clear confirmation target is missing');
+targetName.textContent = contactName.textContent;
+targetPeer.textContent = contact.dataset.peerId;
+installIdentifiers(t, targetPeer);
 </script>
 </body>
 </html>
