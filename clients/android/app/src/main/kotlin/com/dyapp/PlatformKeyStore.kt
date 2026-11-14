@@ -2,6 +2,7 @@ package com.dyapp
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import com.sun.jna.Native
 import uniffi.dyapp.KeyStore
 import uniffi.dyapp.WrapException
 import java.io.IOException
@@ -56,6 +57,10 @@ class PlatformKeyStore private constructor(private val alias: String, private va
 
     private fun keystoreCall(block: () -> ByteArray): ByteArray =
         try {
+            // This callback can run nested inside another core callback on a Rust thread; JNA would
+            // detach that thread on return while the outer callback still runs, and ART aborts.
+            // Staying attached is safe: JNA detaches the thread when it exits.
+            Native.detach(false)
             block()
         } catch (error: GeneralSecurityException) {
             throw failed(error)
