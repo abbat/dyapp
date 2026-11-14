@@ -8,6 +8,7 @@ import sys
 from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import patch
+import weakref
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tests/scripts"))
@@ -123,6 +124,33 @@ class CloseDeadlines(unittest.TestCase):
         self.assertEqual(self.keys, [])
         self.assertEqual(len(self.results), 1)
         self.assertIn("prepareEscape", self.results[0][0])
+
+    def assert_snapshot_released(self, errors: list[str]) -> None:
+        class Surface:
+            pass
+
+        surface = Surface()
+        reference = weakref.ref(surface)
+        self.audit.before = surface
+        self.audit.pending = self.audit.escaped
+        del surface
+
+        def completed(actual: list[str]) -> None:
+            self.assertIsNone(reference())
+            self.results.append(actual)
+
+        self.audit.done = completed
+        self.audit.finish(errors)
+        self.assertIsNone(self.audit.before)
+        self.assertEqual(self.results, [errors])
+        self.audit.finish([])
+        self.assertEqual(self.results, [errors])
+
+    def test_success_releases_snapshot_before_completion(self) -> None:
+        self.assert_snapshot_released([])
+
+    def test_failure_releases_snapshot_before_completion(self) -> None:
+        self.assert_snapshot_released(["focus failed"])
 
     def boundary_plan(self, phase: str, current: str, expected: str) -> None:
         self.audit.plan.update(

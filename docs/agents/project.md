@@ -187,6 +187,10 @@ Desktop code values use `ui/identifiers.js` in both prototype and shipped UI. It
 WBR nodes, never whitespace, so textContent/copy contracts stay raw. Its observer watches
 only text/child changes and disconnects while formatting to avoid observing its own edits.
 
+Main-world WebKit UserScript probes need a private function scope: top-level declarations can
+collide with the page's own bindings. Resolve injected dynamic imports against `location.href`;
+the injected script itself may have no usable module URL.
+
 Dialog `close()` clears `open` before its queued close event updates other visibility state.
 Tests must await close completion before reopening and require open plus visible readiness.
 Close handlers must check the current open state before hiding a modal: an older queued event can

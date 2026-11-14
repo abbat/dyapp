@@ -127,6 +127,9 @@ class KeyboardAudit:
             return
         self.closed = True
         self.deadline.close()
+        # Bound callbacks can retain this auditor until cyclic collection.
+        # Release the full screenshot before completion starts the next page.
+        self.before = None
         self.done(errors)
 
     def expired(self, phase: str) -> None:

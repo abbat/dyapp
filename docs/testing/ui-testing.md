@@ -64,7 +64,10 @@ transition. Cache identity-change checks also await the final close event before
 collection focus assertions follow native document focus and synchronous paging handlers, with no
 extra frame wait. Identity pagination
 also exercises a detached removal button: rendering uses its stable reference, preserving the
-control and its handlers for a later current-identity row. Dialog readiness
+control and its handlers for a later current-identity row. Collection smoke also checks explicit
+table/row-group/row/cell roles after responsive layout activation. Controlled reload callbacks
+exercise both success and rejection from an old identity while the current refresh is pending;
+each start, completion and cleanup has its own failure deadline. Dialog readiness
 requires both visible and open state, not only the hidden attribute.
 The removal close handler ignores an old queued event after a newer opening becomes active.
 Sticker removal waits for an explicit post-removal list-request signal before asserting loading,
@@ -787,10 +790,18 @@ for every native radio-group member. Rendered focused/unfocused pixels must meet
 3:1 contrast over at least a two-CSS-pixel perimeter area. Entirely obscured focus fails
 SC 2.4.11. Escape closes dialogs and restores the declared opener; unsolicited revocation
 focuses the next screen heading. Counterexamples prove failures for traps, invisible focus
-and ignored Escape, in addition to axe, dialog and clipping fixtures. A focus-area failure
+and ignored Escape, in addition to axe, dialog and clipping fixtures. The same calibration path
+checks queued Refresh success and failure for all four prototype collections. A controlled thenable
+settles immediately before same-turn away-and-back navigation; original row identities must survive.
+Each case restores its records, loader, screen and focus and has its own completion deadline. A focus-area failure
 also saves the last compared frames as `keyboard-focus-before.png` and
 `keyboard-focus-after.png` beside the captures. The prototype models
-these keyboard/dialog transitions without backend actions. D1's two-line limit stays in the
+these keyboard/dialog transitions without backend actions. A dialog declaring `data-initial-focus`
+is checked before the keyboard walker sets its first anchor, so traversal cannot hide an incorrect
+initial focus target. The device-code variants declare the code field as their target.
+Completed keyboard audits release their retained screenshot before invoking the next-page
+callback, on success and failure; ownership regression tests require no garbage-collection wait.
+D1's two-line limit stays in the
 frozen matrix; stress variants check clipping and accessibility instead.
 
 The prototype check runs only locally (`make ui-prototype`); CI does not run it. Set

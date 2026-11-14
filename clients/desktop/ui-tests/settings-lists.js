@@ -1,4 +1,69 @@
 (() => {
+  const deferred = () => {
+    const gate = {};
+    gate.promise = new Promise((resolve, reject) => Object.assign(gate, { resolve, reject }));
+    return gate;
+  };
+  const beginRefresh = (value, row, gate) => {
+    const started = deferred();
+    appApi.renderSettingsRows('blocked', [value], row, String, () => {
+      started.resolve();
+      return gate.promise;
+    });
+    const refresh = document.getElementById('settings-blocked-refresh');
+    refresh.click();
+    return { refresh, started: started.promise, done: appApi.settingsCollectionRefreshed };
+  };
+  const checkRefreshEpoch = async (outcome, row, check) => {
+    const oldGate = deferred(),
+      newGate = deferred();
+    const old = beginRefresh('old', row, oldGate);
+    const settled = old.done.then(
+      () => check(outcome === 'resolve', 'Unexpected stale refresh success'),
+      () => check(outcome === 'reject', 'Unexpected stale refresh failure'),
+    );
+    let current;
+    const ready = smoke.timedChecks({
+      collectionOldReloadStarted: () => old.started,
+      collectionCurrentReloadStarted: () => current.started,
+      collectionStaleReloadCompleted: () => settled,
+      collectionCurrentReloadCompleted: () => current.done,
+      collectionReloadCleanup: () => Promise.allSettled([settled, current?.done]),
+    });
+    try {
+      await ready.collectionOldReloadStarted();
+      appApi.identityGeneration += 1;
+      document.dispatchEvent(new Event('dyapp:identity-change'));
+      current = beginRefresh('new', row, newGate);
+      await ready.collectionCurrentReloadStarted();
+      check(current.refresh.disabled, 'New collection refresh is not pending');
+      if (outcome === 'resolve') oldGate.resolve();
+      else oldGate.reject(Error('stale reload failure'));
+      await ready.collectionStaleReloadCompleted();
+      check(current.refresh.disabled, 'stale refresh reenabled new view');
+      check(
+        document.getElementById('blocked-list').textContent === 'new',
+        'Stale refresh changed rows',
+      );
+      newGate.resolve();
+      await ready.collectionCurrentReloadCompleted();
+      check(!current.refresh.disabled, 'Current collection refresh stayed disabled');
+    } finally {
+      oldGate.resolve();
+      newGate.resolve();
+      await ready.collectionReloadCleanup();
+    }
+  };
+  const checkRefreshOwner = async (row, check) => {
+    const generation = appApi.identityGeneration;
+    try {
+      openSettings('blocked');
+      for (const outcome of ['resolve', 'reject']) await checkRefreshEpoch(outcome, row, check);
+    } finally {
+      appApi.identityGeneration = generation;
+      document.dispatchEvent(new Event('dyapp:identity-change'));
+    }
+  };
   const checkCollectionFocus = (name, list, previous, next, check) => {
     check(
       list.children.length === 1 && next.disabled && document.activeElement === previous,
@@ -11,6 +76,16 @@
         hidden: previous.closest('[hidden]')?.id,
       })}`,
     );
+  };
+  const checkCollectionSemantics = (list, check) => {
+    check(list.closest('table').getAttribute('role') === 'table', 'Collection table role lost');
+    check(list.getAttribute('role') === 'rowgroup', 'Collection row group role lost');
+    for (const row of list.children) {
+      check(row.getAttribute('role') === 'row', 'Collection row role lost');
+      for (const cell of row.children) {
+        check(cell.getAttribute('role') === 'cell', 'Collection cell role lost');
+      }
+    }
   };
   const checkSettingsCollection = async (name, id, items, row, selected, check) => {
     await documentFocused();
@@ -33,6 +108,7 @@
       document.querySelector(`[data-settings-open="${name}"] .settings-count`).textContent === '65',
       'Collection count is not total',
     );
+    checkCollectionSemantics(list, check);
     next.focus();
     next.click();
     next.click();
@@ -99,6 +175,7 @@
       for (const [name, id] of Object.entries(ids)) {
         await checkSettingsCollection(name, id, items, row, () => selected, check);
       }
+      await checkRefreshOwner(row, check);
     } finally {
       for (const [card, hidden] of availability) card.hidden = hidden;
       document.dispatchEvent(new Event('dyapp:identity-change'));

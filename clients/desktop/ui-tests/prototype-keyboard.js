@@ -22,6 +22,13 @@ export const plan = () => {
         (node.tabIndex < 0 && node.matches('button,input,select,textarea,a[href]')),
     )
     .map((node) => `control is outside DOM tab order: ${controller.selector(node)}`);
+  const dialog = controller.activeDialog();
+  const expected = dialog?.dataset.initialFocus;
+  if (expected) {
+    const target = document.getElementById(expected);
+    if (!target || !dialog.contains(target) || document.activeElement !== target)
+      problems.push(`initial focus does not match #${expected}`);
+  }
   const groups = new Map();
   for (const radio of enabled.filter((node) => node.type === 'radio' && node.name)) {
     const members = enabled.filter(

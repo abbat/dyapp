@@ -437,6 +437,23 @@ details > summary {
   padding-left: var(--space-3);
   text-align: right;
 }
+[data-collection-pane] .btn {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.collection-table .avatar {
+  width: max(40px, 2.5em);
+  height: max(40px, 2.5em);
+}
+.settings-hub .btn > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.settings-hub .btn > svg.icon {
+  flex: none;
+  margin-right: 0;
+}
 .state-ok {
   color: var(--ok);
 }
@@ -1156,6 +1173,14 @@ details > summary {
 .modal .actions {
   justify-content: space-between;
 }
+.modal .choice > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.modal .actions .btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 dialog.modal {
   border: 0;
   color: var(--text);
@@ -1248,6 +1273,30 @@ select {
 .rows td.who {
   display: flex;
   text-align: left;
+}
+.collection-table,
+.collection-table tbody {
+  display: block;
+  width: 100%;
+}
+.collection-table tr {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.collection-table tr + tr {
+  margin-top: var(--space-2);
+}
+.collection-table td {
+  min-width: 0;
+  border-top: 0;
+}
+.collection-table td + td {
+  padding-left: 0;
+}
+.collection-table td.who {
+  flex-wrap: wrap;
 }
 
 .symbol-definitions {

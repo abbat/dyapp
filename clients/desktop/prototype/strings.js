@@ -2,6 +2,13 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'settings.collection.search': 'Search this list',
+    'settings.collection.previous': 'Previous page',
+    'settings.collection.next': 'Next page',
+    'settings.collection.refresh': 'Refresh list',
+    'settings.collection.empty': 'No matching entries.',
+    'settings.collection.failed': 'Could not read this list. Refresh to retry.',
+    'settings.collection.page': 'Page {page} of {pages} · {count} entries',
     'identifier.label': 'Identifier',
     'app.name': 'DYApp',
     'action.copy': 'Copy',
@@ -425,6 +432,13 @@ const STRINGS = {
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'settings.collection.search': 'Поиск в списке',
+    'settings.collection.previous': 'Предыдущая страница',
+    'settings.collection.next': 'Следующая страница',
+    'settings.collection.refresh': 'Обновить список',
+    'settings.collection.empty': 'Подходящих записей нет.',
+    'settings.collection.failed': 'Не удалось прочитать список. Обновите его для повтора.',
+    'settings.collection.page': 'Страница {page} из {pages} · записей: {count}',
     'identifier.label': 'Идентификатор',
     'app.name': 'DYApp',
     'action.copy': 'Копировать',

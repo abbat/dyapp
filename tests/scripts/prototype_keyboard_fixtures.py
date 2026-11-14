@@ -28,6 +28,11 @@ class KeyboardFixtures:
                 ("trap", "expected #keyboard-fixture-second"),
                 ("focus", "focus indicator #keyboard-fixture-first"),
                 ("escape", "Escape did not close/restore focus"),
+                *[
+                    (f"collection:{name}:{outcome}", "")
+                    for name in ("identities", "devices", "blocked", "passed")
+                    for outcome in ("resolve", "reject")
+                ],
             ]
         )
         self.pending: Callable[[], None] = lambda: None
@@ -47,6 +52,16 @@ class KeyboardFixtures:
             self.finish([])
             return
         mode, self.expected = self.cases.popleft()
+        if mode.startswith("collection:"):
+            _, name, outcome = mode.split(":")
+            self.evaluate(
+                "await (await import("
+                "'/desktop/ui-tests/prototype-collections.js'"
+                ")).checkRefreshOwner("
+                f"{json.dumps(name)}, {json.dumps(outcome)})",
+                self.start,
+            )
+            return
         self.evaluate(f"await keys.beginFixture({json.dumps(mode)})", self.run)
 
     def waiting(self, phase: str) -> None:

@@ -551,6 +551,19 @@ The additional prototype states `chat-sticker-checking`, `chat-sticker-fetch`,
 `chat-sticker-read-error` and `chat-sticker-request-error` cover the typed failures and uncertain
 actions. Quota/storage recovery reuses the collection manager.
 
+The shipped and prototype identity, device, blocked and passed collections share the local
+presentation component: labelled search, 32-row pages, Previous/Next, Refresh and total counts
+on settings entries. Filtering preserves each row's original action target. Read failures and
+empty results have distinct live status messages. The prototype uses fixture records and keeps
+the original row nodes so dialog openers and return focus survive filtering and paging;
+network and identity operations remain in the shipped controller. A view change invalidates
+pending prototype refresh results, including leaving and returning to the same screen.
+Refresh admission and completion synchronously consume pending navigation mutation records, so
+queued results cannot slip through before the observer callback runs.
+Collection tables retain explicit table, row group, row and cell semantics when their visual
+layout reflows. Confirmation text and actions wrap within the modal without changing warnings,
+required confirmation or the default action.
+
 Privacy settings are local to the identity and never published. Defaults: no profile
 views and no read receipts sent, typing shown, presence to matches, notifications on. Turning
 sending off never stops receiving.
