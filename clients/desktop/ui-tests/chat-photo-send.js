@@ -1,5 +1,10 @@
 // Chat photo sending smoke preserves metadata, refusal and Attach recovery assertions.
 (() => {
+  const textDraft = 'keep text while sending a photo';
+  const checkTextDraft = () => {
+    if (appBindings.chatInput.value !== textDraft)
+      throw new Error('sending a photo changed the text draft');
+  };
   const taggedPhoto = (original) => {
     const secret = [...new TextEncoder().encode('GPS-SECRET')];
     const plain = [...new Uint8Array(original)];
@@ -23,6 +28,7 @@
   const checkSentPhoto = async (fixture, secret, tagged) => {
     const { peer, call } = fixture;
     await appBindings.sendChatPhoto(tagged, call);
+    checkTextDraft();
     const holds = (bytes) =>
       bytes.some((_, at) => secret.every((byte, i) => bytes[at + i] === byte));
     const { body, headers } = fixture.sent;
@@ -43,6 +49,7 @@
     const status = document.getElementById('chat-compose-status');
     const refused = async (file, key) => {
       await appBindings.sendChatPhoto(file, call);
+      checkTextDraft();
       if (status.textContent !== strings[key]) throw new Error(`no ${key}: ${status.textContent}`);
     };
     sends.push('full');
@@ -60,6 +67,7 @@
   };
   smoke.uiSmokeChatPhotoSend = async (fixture) => {
     if (document.getElementById('chat-attach').hidden) throw new Error('an open chat hid Attach');
+    appBindings.chatInput.value = textDraft;
     const { secret, tagged } = taggedPhoto(fixture.original);
     await checkSentPhoto(fixture, secret, tagged);
     await checkRefusedPhotos(fixture, tagged);

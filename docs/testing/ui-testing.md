@@ -74,7 +74,8 @@ link-host smoke consumes that IPC shape and retains the caption/no-preview asser
 must not reconstruct destinations from message text.
 Peer-photo checks require no thumbnail row for a single image, and distinguish accessible names
 for decoded thumbnails from letter fallbacks. Contact-renaming failure checks retain the exact
-rejected editable text alongside its localized error.
+rejected editable text alongside its localized error. Chat-photo send checks retain an existing
+text draft after successful sending and each tested refusal, including unsupported files.
 Chat-photo rendering tests observe DOM completion for manual originals. A fixture-scoped wrapper
 awaits the actual automatic-policy Promise, preserving its arguments and return value and restoring
 the controller in `finally`. Opening and policy completion have separate named failure deadlines;
