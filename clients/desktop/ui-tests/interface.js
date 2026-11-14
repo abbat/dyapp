@@ -1,6 +1,7 @@
 const appModule = await import(new URL('app.js', document.baseURI).href);
 const chatMessageModule = await import(new URL('chat-message.js', document.baseURI).href);
 const chatStateModule = await import(new URL('chat-state.js', document.baseURI).href);
+const chatPhotosModule = await import(new URL('chat-photos.js', document.baseURI).href);
 const chatsPhotoSendModule = await import(new URL('chats-photo-send.js', document.baseURI).href);
 const chatsShareModule = await import(new URL('chats-share.js', document.baseURI).href);
 const chatsUiModule = await import(new URL('chats-ui.js', document.baseURI).href);
@@ -518,6 +519,9 @@ const appApi = {
   },
   get chatOpened() {
     return chatsUiModule.controller.chatOpened;
+  },
+  get chatPhotos() {
+    return chatPhotosModule.controller.chatPhotos;
   },
   get chatPhotosShown() {
     return chatsUiModule.controller.chatPhotosShown;

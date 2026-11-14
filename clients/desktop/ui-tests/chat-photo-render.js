@@ -1,12 +1,29 @@
-// Chat photo rendering and download smoke, preserving polling and original-cache checks.
+// Chat photo rendering and download smoke uses actual policy completion and DOM readiness.
 (() => {
-  const pollPhoto = (check) =>
-    new Promise((resolve) => {
-      const again = () => {
-        if (check()) resolve();
-        else setTimeout(again, 10);
-      };
-      again();
+  const photoReady = (check) =>
+    new Promise((resolve, reject) => {
+      const observer = new MutationObserver(update);
+      const deadline = startTimer(() => finish(Error('Chat photo result deadline')), 10000);
+      function finish(error) {
+        observer.disconnect();
+        stopTimer(deadline);
+        if (error) reject(error);
+        else resolve();
+      }
+      function update() {
+        try {
+          if (check()) finish();
+        } catch (error) {
+          finish(error);
+        }
+      }
+      observer.observe(appBindings.chatMessages, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+      update();
     });
   const waitingPhoto = () => document.querySelectorAll('#chat-messages .chat-photo')[1];
   const checkCaption = (box) => {
@@ -31,11 +48,13 @@
       throw new Error('the list row did not name the photo');
     }
 
-    await appBindings.openChat(peer, call);
+    await fixture.openChat();
     const box = document.querySelector('#chat-messages .chat-photo');
     await box.ready;
     const canvas = box.querySelector('canvas');
-    const pixel = canvas.getContext('2d').getImageData(4, 4, 1, 1).data;
+    const pixel = canvas
+      .getContext('2d')
+      .getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
     if (canvas.width !== 240 || canvas.height !== 120 || pixel[3] === 0) {
       throw new Error(`the preview was not drawn: ${canvas.width}x${canvas.height}`);
     }
@@ -55,7 +74,7 @@
     await smoke.shot('chat-photo-shown');
   };
   const checkAccepted = async (fixture) => {
-    const { messages, entry, peer, photo, call } = fixture;
+    const { messages, entry, peer, photo } = fixture;
     const { strings } = appApi;
     fixture.state = 'open';
     messages.splice(
@@ -64,7 +83,7 @@
       entry(peer, 1, { ...photo, hoursLeft: 0 }),
       entry(appBindings.current.peerId, 2, { ...photo, preview: [1, 2, 3], hoursLeft: null }),
     );
-    await appBindings.openChat(peer, call);
+    await fixture.openChat();
     const [incoming, own] = document.querySelectorAll('#chat-messages .chat-photo');
     await own.ready;
     if (incoming.classList.contains('blurred')) throw new Error('an accepted photo stayed blurred');
@@ -87,7 +106,7 @@
     const { strings } = appApi;
     const button = own.querySelector('.photo-download');
     const finished = (expected) =>
-      pollPhoto(() => own.querySelector('.photo-status').textContent === expected);
+      photoReady(() => own.querySelector('.photo-status').textContent === expected);
     button.click();
     await finished(strings['chats.photoFailed']);
     if (
@@ -106,9 +125,9 @@
     await smoke.shot('chat-photo-original');
   };
   const checkOriginalCache = async (fixture) => {
-    const { peer, call, messages, entry, photo } = fixture;
+    const { messages, entry, photo } = fixture;
     const { strings } = appApi;
-    await appBindings.openChat(peer, call);
+    await fixture.openChat();
     const kept = document.querySelectorAll('#chat-messages .chat-photo')[1];
     await kept.ready;
     if (kept.querySelector('canvas').width !== 8 || kept.querySelector('.photo-download')) {
@@ -119,17 +138,17 @@
       1,
       entry(appBindings.current.peerId, 3, { ...photo, preview: [], hoursLeft: null }),
     );
-    await appBindings.openChat(peer, call);
+    await fixture.openChat();
     const gone = document.querySelectorAll('#chat-messages .chat-photo')[1];
     gone.querySelector('.photo-download').click();
-    await pollPhoto(
+    await photoReady(
       () => gone.querySelector('.photo-status').textContent === strings['chats.photoGone'],
     );
     if (gone.querySelector('.photo-download'))
       throw new Error('a missing original offered a retry');
   };
   const checkPolicy = async (fixture) => {
-    const { downloads, original, messages, entry, peer, photo, call } = fixture;
+    const { downloads, original, messages, entry, photo } = fixture;
     // Policy off leaves the button; a later pass that allows it fetches once, without a tap.
     downloads.push(original);
     messages.splice(
@@ -138,24 +157,21 @@
       entry(appBindings.current.peerId, 4, { ...photo, preview: [], hoursLeft: null }),
     );
     const asked = fixture.autoAsked;
-    await appBindings.openChat(peer, call);
-    // Wait for the refusal itself, then one task, so a wrongful fetch would already have started.
-    await pollPhoto(
-      () => fixture.autoAsked > asked && waitingPhoto()?.querySelector('.photo-download'),
-    );
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
-    if (!waitingPhoto().querySelector('.photo-download') || fixture.fetched.id[0] === 4) {
+    await fixture.openChat();
+    if (
+      fixture.autoAsked <= asked ||
+      !waitingPhoto().querySelector('.photo-download') ||
+      fixture.fetched.id[0] === 4
+    ) {
       throw new Error('a refused policy still fetched');
     }
     fixture.autoAllowed = true;
-    await appBindings.openChat(peer, call);
-    await pollPhoto(() => waitingPhoto().querySelector('canvas').width === 8);
-    if (downloads.length) throw new Error('the allowed photo was not fetched');
+    await fixture.openChat();
+    if (waitingPhoto().querySelector('canvas').width !== 8 || downloads.length)
+      throw new Error('the allowed photo was not fetched');
   };
   const checkKeptOriginal = async (fixture) => {
-    const { downloads, original, messages, entry, peer, photo, call } = fixture;
+    const { downloads, original, messages, entry, photo } = fixture;
     const { strings } = appApi;
     // A kept original needs no node: no expiry in its caption, and it opens under any policy.
     fixture.autoAllowed = false;
@@ -170,18 +186,45 @@
         kept: true,
       }),
     );
-    await appBindings.openChat(peer, call);
+    await fixture.openChat();
     if (waitingPhoto().textContent.includes(strings['chats.photoExpired'])) {
       throw new Error('a kept original showed as expired');
     }
-    await pollPhoto(() => waitingPhoto().querySelector('canvas').width === 8);
+    if (waitingPhoto().querySelector('canvas').width !== 8)
+      throw new Error('a kept original did not complete under the refused policy');
   };
   smoke.uiSmokeChatPhotoRender = async (fixture) => {
-    await checkPreview(fixture);
-    const own = await checkAccepted(fixture);
-    await checkOriginalRetry(fixture, own);
-    await checkOriginalCache(fixture);
-    await checkPolicy(fixture);
-    await checkKeptOriginal(fixture);
+    const photos = appApi.chatPhotos;
+    const fetchAllowed = photos.fetchAllowed;
+    let completion = null;
+    photos.fetchAllowed = (peer, call) => {
+      const done = fetchAllowed(peer, call);
+      if (call === fixture.call) completion = done;
+      return done;
+    };
+    const steps = smoke.timedChecks({
+      photoOpening: async () => {
+        completion = null;
+        await appBindings.openChat(fixture.peer, fixture.call);
+      },
+      photoPolicy: async () => {
+        if (!completion) throw Error('Chat render did not invoke photo policy');
+        await completion;
+      },
+    });
+    fixture.openChat = async () => {
+      await steps.photoOpening();
+      await steps.photoPolicy();
+    };
+    try {
+      await checkPreview(fixture);
+      const own = await checkAccepted(fixture);
+      await checkOriginalRetry(fixture, own);
+      await checkOriginalCache(fixture);
+      await checkPolicy(fixture);
+      await checkKeptOriginal(fixture);
+    } finally {
+      photos.fetchAllowed = fetchAllowed;
+    }
   };
 })();

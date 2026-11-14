@@ -69,6 +69,10 @@ Publication checks inspect the dialog after the expected result and await its cl
 still pending. That fresh close deadline starts after proof/publication, replacing a fixed delay.
 Disconnected-search checks require Open Network without Retry, then exercise generic, offline
 and partial failures through completed production `runSearch` calls to catch stale recovery actions.
+Chat-photo rendering tests observe DOM completion for manual originals. A fixture-scoped wrapper
+awaits the actual automatic-policy Promise, preserving its arguments and return value and restoring
+the controller in `finally`. Opening and policy completion have separate named failure deadlines;
+policy refusal requires no polling interval or extra task delay.
 
 The mixed-profile node fixture writes its LF-only network configuration as bytes on every OS;
 its regression intercepts the next native launch while simulating Windows text translation.
