@@ -65,7 +65,7 @@ services:
       - ../../build/android-avd:/avd
     environment: *android-environment
     command: [bash, /app/tests/scripts/android-test-in-container.sh, emulator]
-    healthcheck:
+    healthcheck: &android-emulator-health
       test: [CMD-SHELL, 'test "$$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")" = 1 && adb -s emulator-5554 shell cmd package path android >/dev/null']
       interval: 15s
       timeout: 60s
@@ -91,6 +91,46 @@ services:
       <<: *android-environment
       ADB_SERVER_SOCKET: tcp:android-emulator:5037
     command: [bash, /app/tests/scripts/android-test-in-container.sh, ui]
+
+  # Reuse the APK/daemon build; API 37 owns its AVD, node storage and report namespace.
+  android-permission-emulator:
+    <<: *android
+    image: dyapp:android-permission-tools
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.android-test
+      target: android-permission-tools
+    cpus: ${DYAPP_EMULATOR_CPUS:-3}
+    profiles: [android-permissions, all]
+    networks: [android-ui]
+    volumes:
+      - ../../build/android-permission-reports:/reports
+      - ../..:/app:ro
+      - ../../build/android-build:/app/build:ro
+      - ../../build/android-permission-avd:/avd
+    environment:
+      <<: *android-environment
+      DYAPP_EMULATOR_IMAGE: system-images;android-37.0;google_apis_ps16k;x86_64
+    command: [bash, /app/tests/scripts/android-test-in-container.sh, emulator]
+    healthcheck: *android-emulator-health
+
+  android-permission-test:
+    <<: *android
+    image: dyapp:android-permission-tools
+    cpus: 1
+    profiles: [android-permissions, all]
+    networks: [android-ui]
+    volumes:
+      - ../../build/android-permission-reports:/reports
+      - ../..:/app:ro
+      - ../../build/android-build:/app/build:ro
+    depends_on:
+      android-permission-emulator:
+        condition: service_healthy
+    environment:
+      <<: *android-environment
+      ADB_SERVER_SOCKET: tcp:android-permission-emulator:5037
+    command: [bash, /app/tests/scripts/android-test-in-container.sh, permissions]
 
   linux-test:
     <<: *runtime

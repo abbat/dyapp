@@ -17,9 +17,9 @@ elif [[ ${DYAPP_VERBOSE:-0} != 1 ]]; then
 fi
 case "${1:-help}" in
     help|--help|-h)
-        echo 'Usage: ui-test.sh android|android-emulator|linux|prototype|prototype-android|all|prepare|shell [platform]'
+        echo 'Usage: ui-test.sh android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]'
         exit 0 ;;
-    android|android-emulator|linux|prototype|prototype-android|all|prepare) ;;
+    android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare) ;;
     shell) case "${2:-android}" in
         android|linux) ;;
         *) echo "Unknown platform: $2" >&2; exit 2 ;;
@@ -42,6 +42,7 @@ case "${1:-help}" in
     # android-build builds the app from the checkout; a second run finds it up to date.
     android) run android-build; run android-unit-test ;;
     android-emulator) run android-build; run android-emulator-test ;;
+    android-permissions) run android-build; run android-permission-test ;;
     linux) shots; run linux-test ;;
     prototype)
         mkdir -p build/ux-research/prototype && rm -f build/ux-research/prototype/*.png
@@ -56,6 +57,7 @@ case "${1:-help}" in
         run android-build
         run android-unit-test
         run android-emulator-test
+        run android-permission-test
         shots
         run linux-test
         echo 'Local Docker UI inventory passed; Apple/Windows native CI is required separately.'
@@ -69,6 +71,6 @@ case "${1:-help}" in
         esac
         DYAPP_VERBOSE=1 python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all run --no-deps "$service" bash
         ;;
-    help|--help|-h) echo 'Usage: ui-test.sh android|android-emulator|linux|prototype|prototype-android|all|prepare|shell [platform]' ;;
+    help|--help|-h) echo 'Usage: ui-test.sh android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]' ;;
     *) echo "Unknown or unsupported command: $1" >&2; exit 2 ;;
 esac

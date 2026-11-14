@@ -95,6 +95,7 @@ class Runners(unittest.TestCase):
             "android-build",
             "android-unit-test",
             "android-emulator-test",
+            "android-permission-test",
             "linux-test",
         ):
             with self.subTest(service=service):
@@ -117,11 +118,12 @@ class Runners(unittest.TestCase):
         result, calls = self.run_script("ui-test.sh", "all")
         self.assertEqual(result.returncode, 0, result.stderr)
         runs = [line for line in calls.splitlines() if " run " in line]
-        self.assertEqual(len(runs), 4)
+        self.assertEqual(len(runs), 5)
         for service in (
             "android-build",
             "android-unit-test",
             "android-emulator-test",
+            "android-permission-test",
             "linux-test",
         ):
             self.assertIn(

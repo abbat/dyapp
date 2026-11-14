@@ -116,8 +116,12 @@ node. Revocation must happen outside instrumentation because the OS can terminat
 Successful connections use native readiness; refusal is checked from the completed native result,
 not elapsed time. Each invocation has its own failure deadline and retained report; a failed JUnit
 report stops the sequence even when adb exits zero. Without a requested phase the class is skipped.
-API 37 emulator provisioning, a deterministic public-address fixture and actual modern-device runs
-remain planned; the API 31 phase and fake-ADB driver tests do not prove API 37 enforcement.
+`ui-test.sh android-permissions` provisions an API 37 Google APIs 16 KiB x86_64 image and runs
+these modern phases. It reuses the built APKs read-only, with separate AVD, node and report data;
+the extra system image belongs to `android-permission-tools`, outside the release toolchain.
+Actual modern-device execution, a deterministic public-address fixture and restored-profile /
+foreground callback coverage remain unverified. API 31 and fake-ADB tests do not prove API 37
+socket enforcement.
 
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on
@@ -531,10 +535,11 @@ Requires Docker with Compose. All commands run from the repository root.
 bash tests/scripts/ui-test.sh prepare           # build images (online; also run by make prepare)
 bash tests/scripts/ui-test.sh android           # = make ui-test-android
 bash tests/scripts/ui-test.sh android-emulator  # = make ui-test-android-emulator
+bash tests/scripts/ui-test.sh android-permissions # API 37 LAN grant/revoke phases
 bash tests/scripts/ui-test.sh linux             # = make ui-test-linux
 bash tests/scripts/ui-test.sh prototype         # = make ui-prototype; desktop prototype screenshots
 bash tests/scripts/ui-test.sh prototype-android # = make ui-prototype-android; Android prototype screenshots
-bash tests/scripts/ui-test.sh all               # = make ui-test; the three above in order
+bash tests/scripts/ui-test.sh all               # Android unit, API 31, API 37, Linux
 bash tests/scripts/ui-test.sh shell [android|linux]   # = make ui-test-shell (android)
 ```
 
@@ -557,7 +562,7 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   read-only at `/app` and `build/android-build` at `/app/build`, so a source change needs no
   image build.
 - **`android-build`** (`android-test-in-container.sh build`, run first by `android`,
-  `android-emulator` and `all`): copies the sources to `/tmp` with `build/` linked to
+  `android-emulator`, `android-permissions` and `all`): copies the sources to `/tmp` with `build/` linked to
   `/app/build`, checks the wrapper jar checksum and builds the real Gradle project
   `clients/android/` (its own `gradlew`; Gradle 9.8.0 distribution checksum-verified; AGP 9.4.1
   with built-in Kotlin and the Compose compiler plugin 2.4.20): `:app:assembleDebug`,
@@ -595,6 +600,14 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
     `input keyevent KEYCODE_HOME` then `input swipe 160 480 160 60 500` opens the app drawer;
     `adb exec-out screencap -p > drawer.png` saves it. The system image has no icon-shape
     overlays, so only the default rounded-square mask can be seen.
+- **`android-permissions`** → service `android-permission-test`, depending on a healthy
+  `android-permission-emulator`: installs the same base debug and instrumentation APKs, then runs
+  the explicit modern LAN phases. The emulator uses
+  `system-images;android-37.0;google_apis_ps16k;x86_64`; its toolchain stage adds only that image.
+  KVM and boot/package-manager readiness follow the API 31 lane. Its AVD is
+  `build/android-permission-avd`; node data, phase reports and logcat are in
+  `build/android-permission-reports`, also uploaded in `android-check-output`.
+  `docker-local.py` stops dependencies after each suite, so the two emulator lanes run sequentially.
 
 ### Linux
 

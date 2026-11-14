@@ -39,6 +39,12 @@ ENV HOME=/home/appuser
 USER 1000:1000
 RUN cargo install cargo-ndk --version 4.1.2 --locked
 
+# Keep the extra platform image out of the release toolchain; the APK build is shared.
+FROM android-tools AS android-permission-tools
+USER root
+RUN sdkmanager 'system-images;android-37.0;google_apis_ps16k;x86_64'
+USER 1000:1000
+
 # The Release image (release.yml, release-sizes.yml): the source and a Gradle cache with the
 # Release dependencies, so the Release runner works offline.
 FROM android-tools

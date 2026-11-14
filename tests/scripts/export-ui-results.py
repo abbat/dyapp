@@ -19,7 +19,11 @@ if __name__ == "__main__":
 suite, destination_arg = sys.argv[1:]
 services = {
     "linux": ["linux-test"],
-    "android": ["android-unit-test", "android-emulator-test"],
+    "android": [
+        "android-unit-test",
+        "android-emulator-test",
+        "android-permission-test",
+    ],
 }[suite]
 destination = Path(destination_arg)
 destination.mkdir(parents=True, exist_ok=True)

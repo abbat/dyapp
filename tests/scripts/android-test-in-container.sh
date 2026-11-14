@@ -56,7 +56,8 @@ case "${1:?suite required}" in
         export ANDROID_USER_HOME=/home/appuser/.android
         mkdir -p "$ANDROID_USER_HOME"
         # /avd is a disk volume (see compose.ui.yml); --force drops the previous run's AVD.
-        echo no | avdmanager create avd --force -n test_device -k 'system-images;android-31;default;x86_64' -p /avd/test_device
+        system_image="${DYAPP_EMULATOR_IMAGE:-system-images;android-31;default;x86_64}"
+        echo no | avdmanager create avd --force -n test_device -k "$system_image" -p /avd/test_device
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
         # Loopback dyappd for the publish test; the guest reaches this container's 127.0.0.1 at 10.0.2.2.
         # Media serves the profile photos a publish uploads; without it the node replies Unsupported.
@@ -73,6 +74,19 @@ case "${1:?suite required}" in
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
             -feature -Vulkan
+        ;;
+    permissions)
+        report_dir="/reports/$HOSTNAME"
+        mkdir -p "$report_dir"
+        collect_permission_reports() {
+            local code=$?
+            timeout 30 adb -s emulator-5554 logcat -d > "$report_dir/logcat.txt" 2>&1 || true
+            exit "$code"
+        }
+        trap collect_permission_reports EXIT
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/lifecycle/app-base.apk
+        timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+        bash /app/tests/scripts/android-lan-permission-phases.sh modern "$report_dir" "10.0.2.2:33445"
         ;;
     ui)
         report_dir="/reports/$HOSTNAME"

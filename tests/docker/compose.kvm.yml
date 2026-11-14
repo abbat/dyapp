@@ -6,3 +6,8 @@ services:
     group_add: ["${DYAPP_KVM_GID:?}"]
     environment:
       EMULATOR_ACCEL: "on"
+  android-permission-emulator:
+    devices: ["/dev/kvm:/dev/kvm"]
+    group_add: ["${DYAPP_KVM_GID:?}"]
+    environment:
+      EMULATOR_ACCEL: "on"

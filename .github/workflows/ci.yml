@@ -56,9 +56,10 @@ jobs:
         env:
           DYAPP_KVM: "1"
         run: |
-          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build android-permission-emulator
           bash tests/scripts/ui-test.sh android
           bash tests/scripts/ui-test.sh android-emulator
+          bash tests/scripts/ui-test.sh android-permissions
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.android-cache.outputs.cache-hit != 'true' }}
         with:
@@ -84,6 +85,7 @@ jobs:
           path: |
             build/platform-check-output/
             build/platform-reports/
+            build/android-permission-reports/
             build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
