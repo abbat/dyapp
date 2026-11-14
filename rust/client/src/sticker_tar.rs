@@ -60,7 +60,7 @@ fn checked_header(header: &[u8]) -> Result<(), String> {
 }
 
 fn entry_data(bytes: &[u8], offset: usize, size: usize) -> Result<(&[u8], usize), String> {
-    let start = offset + BLOCK;
+    let start = offset.checked_add(BLOCK).ok_or("TAR offset overflow")?;
     let end = start.checked_add(size).ok_or("TAR size overflow")?;
     let next = start
         .checked_add(

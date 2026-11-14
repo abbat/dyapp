@@ -108,7 +108,7 @@ impl AppLock {
         if saved.failures >= MAX_FAILURES {
             return Ok(Attempt::DeviceCredentialRequired);
         }
-        saved.failures += 1;
+        saved.failures = saved.failures.saturating_add(1);
         self.store(&saved)?;
         if verify(value, &saved.verifier)? {
             saved.failures = 0;

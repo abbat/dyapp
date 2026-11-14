@@ -72,7 +72,7 @@ pub fn page(pack: &Pack, after: usize) -> Result<Page, Error> {
     if after > total {
         return Err(Error::InvalidIndex);
     }
-    let end = (after + PAGE_SIZE).min(total);
+    let end = after.saturating_add(PAGE_SIZE).min(total);
     Ok(Page {
         pack_id: *pack.id(),
         name: pack.name().into(),
