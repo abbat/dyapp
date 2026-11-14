@@ -29,6 +29,9 @@ pub enum DraftError {
     /// Unknown country/place combination.
     #[error("invalid place")]
     Place,
+    /// Invalid interest tag list after canonical normalization.
+    #[error("invalidInterests")]
+    Interests,
 }
 
 /// Validate editable fields only; protocol/proof/device fields are outside this contract.
@@ -131,6 +134,9 @@ pub fn apply(draft: &Profile, target: &mut Profile) {
         target.seeking_age_to = draft.seeking_age_to;
     }
 }
+
+mod interests;
+pub use interests::normalize_interests;
 
 #[cfg(test)]
 mod tests;

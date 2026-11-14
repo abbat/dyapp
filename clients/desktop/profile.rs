@@ -318,18 +318,7 @@ pub fn load(dir: &Path, identity: &Identity) -> Result<View, String> {
 
 /// Canonical public tags shared by the desktop draft and field-19 search conditions.
 pub(crate) fn canonical_interests(tags: &[String]) -> Result<Vec<String>, String> {
-    if tags.len() > dyapp_profile::MAX_INTERESTS {
-        return Err("invalidInterests".into());
-    }
-    tags.iter()
-        .map(|tag| {
-            let tag = dyapp_profile::normalize_interest(tag);
-            if tag.is_empty() || tag.chars().count() > MAX_FIELD_CHARS || !is_clean_text(&tag) {
-                return Err("invalidInterests".into());
-            }
-            Ok(tag)
-        })
-        .collect()
+    dyapp_client::profile_editor::normalize_interests(tags).map_err(|error| error.to_string())
 }
 
 /// Saves the page's fields into the draft, keeping its version and proof-of-work progress.

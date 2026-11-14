@@ -285,7 +285,12 @@ applies normalized fields to an existing `dyapp_profile::Profile`. It trims name
 seeking fields for not-looking, and preserves proof progress, photos, devices and all other
 noneditable fields. Editor categorical/seeking codes use the closed vocabulary; node verification
 retains its separate forward-compatible contract. Apply alone supports eligibility and search
-projections; persistence callers must validate first. The common native draft adapter converts
+projections; persistence callers must validate first. `profile_editor::normalize_interests` owns shared
+interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it. Native
+`PublicProfileDraft.interests` is an optional edit: None preserves stored tags, Some(empty) clears,
+and loaded drafts return Some with the actual tags. This keeps unrelated edits by older callers from
+erasing interests. Mobile interest controls remain planned behind the UI review gate.
+The common native draft adapter converts
 records and errors, validates through this API before opening storage, and delegates save and
 eligibility/search projections to the same normalized application. Editable saves use the core
 `Store::update_profile_draft`: a SQLite immediate transaction acquires writer ownership before

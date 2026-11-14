@@ -38,7 +38,7 @@ pub struct PublicProfileDraft {
     /// Decimal `GeoNames` ID of a place in `country`, empty when unset.
     pub place: String,
     /// Optional public name, empty when unset; saving trims it.
-    /// Last, so positional constructors keep working.
+    /// Later fields have defaults so existing positional constructors keep working.
     #[uniffi(default = "")]
     pub name: String,
     /// Optional public height in whole centimetres, 50 to 272.
@@ -74,6 +74,10 @@ pub struct PublicProfileDraft {
     /// Not looking now; saving drops the three fields above.
     #[uniffi(default = false)]
     pub not_looking: bool,
+    /// Optional interest edit: None preserves stored tags, Some(empty) clears them.
+    /// Loaded drafts always contain Some; saves use the common canonical tag rules.
+    #[uniffi(default = None)]
+    pub interests: Option<Vec<String>>,
 }
 
 impl From<&Profile> for PublicProfileDraft {
@@ -105,6 +109,7 @@ impl From<&Profile> for PublicProfileDraft {
             seeking_age_from: profile.seeking_age_from,
             seeking_age_to: profile.seeking_age_to,
             not_looking: profile.not_looking,
+            interests: Some(profile.interests.clone()),
         }
     }
 }
@@ -138,6 +143,12 @@ impl From<&PublicProfileDraft> for Profile {
             seeking_age_from: draft.seeking_age_from,
             seeking_age_to: draft.seeking_age_to,
             not_looking: draft.not_looking,
+            interests: draft
+                .interests
+                .iter()
+                .flatten()
+                .map(|tag| dyapp_profile::normalize_interest(tag))
+                .collect(),
             ..Self::default()
         }
     }
@@ -145,7 +156,11 @@ impl From<&PublicProfileDraft> for Profile {
 
 impl PublicProfileDraft {
     pub(crate) fn apply_to(&self, profile: &mut Profile) {
-        dyapp_client::profile_editor::apply(&Profile::from(self), profile);
+        let editable = Profile::from(self);
+        dyapp_client::profile_editor::apply(&editable, profile);
+        if self.interests.is_some() {
+            profile.interests = editable.interests;
+        }
     }
 }
 
@@ -207,16 +222,23 @@ pub fn save_profile_draft(
 ) -> Result<(), CoreError> {
     let editable = Profile::from(&draft);
     dyapp_client::profile_editor::validate(&editable).map_err(failed)?;
+    if draft.interests.is_some() {
+        dyapp_client::profile_editor::normalize_interests(&editable.interests).map_err(failed)?;
+    }
     let path = database(&dir)?.join("client.db");
     let mut store = Store::open(&path, &key.identity).map_err(failed)?;
     store
         .update_profile_draft(|profile| {
-            dyapp_client::profile_editor::apply(&editable, profile);
+            draft.apply_to(profile);
             Ok(())
         })
         .map(|_| ())
         .map_err(failed)
 }
+
+#[cfg(test)]
+#[path = "profile_draft/interests_tests.rs"]
+mod interests_tests;
 
 #[cfg(test)]
 mod tests {
@@ -262,6 +284,7 @@ mod tests {
             seeking_age_from: Some(18),
             seeking_age_to: Some(50),
             not_looking: true,
+            interests: Some(vec!["music".into()]),
         };
         assert_eq!(PublicProfileDraft::from(&Profile::from(&draft)), draft);
     }
@@ -280,6 +303,7 @@ mod tests {
             birth_day: Some(29),
             country: "DE".into(),
             place: "2950159".into(),
+            interests: Some(Vec::new()),
             ..Default::default()
         };
         save_profile_draft(dir.clone(), owner.clone(), draft.clone()).unwrap();
@@ -340,6 +364,7 @@ mod tests {
             seeking_genders: vec![woman],
             seeking_age_from: Some(25),
             seeking_age_to: Some(40),
+            interests: Some(Vec::new()),
             ..Default::default()
         };
         save_profile_draft(dir.clone(), owner.clone(), seeking.clone()).unwrap();
@@ -365,6 +390,7 @@ mod tests {
         };
         save_profile_draft(dir.clone(), owner.clone(), not_looking).unwrap();
         let expected = PublicProfileDraft {
+            interests: Some(Vec::new()),
             not_looking: true,
             ..Default::default()
         };
@@ -382,6 +408,7 @@ mod tests {
             tattoos: dyapp_profile::Tattoos::Visible.code(),
             marital_status: dyapp_profile::MaritalStatus::Divorced.code(),
             pets: dyapp_profile::Pets::Yes.code(),
+            interests: Some(Vec::new()),
             ..Default::default()
         };
         save_profile_draft(dir.clone(), owner.clone(), draft.clone()).unwrap();
@@ -406,7 +433,13 @@ mod tests {
         assert!(save_profile_draft(dir.clone(), owner.clone(), gap).is_err());
         save_profile_draft(dir.clone(), owner.clone(), PublicProfileDraft::default()).unwrap();
         let cleared = load_profile_draft(dir, owner).unwrap();
-        assert_eq!(cleared, Some(PublicProfileDraft::default()));
+        assert_eq!(
+            cleared,
+            Some(PublicProfileDraft {
+                interests: Some(Vec::new()),
+                ..Default::default()
+            })
+        );
     }
 
     #[test]
@@ -466,7 +499,10 @@ mod tests {
         }
         assert_eq!(
             load_profile_draft(dir, owner).unwrap(),
-            Some(PublicProfileDraft::default())
+            Some(PublicProfileDraft {
+                interests: Some(Vec::new()),
+                ..Default::default()
+            })
         );
     }
 }
