@@ -49,7 +49,9 @@ foreground checks so public-network traffic remains usable; background jobs neve
 Disposing a network form drops its pending permission continuation rather than redirecting it to
 another identity. Permission state is rechecked for every request; no IP/DNS policy is copied
 into Kotlin. Pure callback tests do not prove API 37 socket enforcement: device coverage remains
-required. See [Android guidance](https://developer.android.com/privacy-and-security/local-network-permission).
+required. SDK-jar probes must compile main/debug and androidTest as separate Kotlin modules with
+the main jar as a friend path: merging source sets can falsely conflict on private/internal constants.
+See [Android guidance](https://developer.android.com/privacy-and-security/local-network-permission).
 
 Android's theme paints the system-bar background and consumes safe-drawing insets at the
 root surface. Nested scaffolds receive the consumed insets; do not add a second system-bar

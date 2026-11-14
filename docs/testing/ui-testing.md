@@ -108,6 +108,17 @@ retries cannot invalidate assertions through growing counters. These checks do n
 OS backoff, reboot persistence, network recovery or deadline scheduling; those runtime cases remain
 planned. Host SDK compilation does not execute them.
 
+`LocalNetworkPermissionPhaseTests` uses an isolated native identity and real Rust connection checks.
+The ordinary API 31 runner explicitly executes its `legacy` phase before the UI suite. The helper
+`android-lan-permission-phases.sh modern` brackets separate instrumentation processes with shell
+permission grant/revoke, checking granted, denied, regranted and revoked states against an owned LAN
+node. Revocation must happen outside instrumentation because the OS can terminate the app process.
+Successful connections use native readiness; refusal is checked from the completed native result,
+not elapsed time. Each invocation has its own failure deadline and retained report; a failed JUnit
+report stops the sequence even when adb exits zero. Without a requested phase the class is skipped.
+API 37 emulator provisioning, a deterministic public-address fixture and actual modern-device runs
+remain planned; the API 31 phase and fake-ADB driver tests do not prove API 37 enforcement.
+
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not

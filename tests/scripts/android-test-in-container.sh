@@ -103,6 +103,7 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
         # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
         timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
+        bash /app/tests/scripts/android-lan-permission-phases.sh legacy "$report_dir" "10.0.2.2:33445"
         # am instrument has no retries: rerun the failed tests twice; failures before a passing
         # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
         failed=() only=() minimum=3
