@@ -138,20 +138,9 @@ async fn keypackage_publish_and_consume_over_tcp() {
         );
     }
     // Final withdrawal reaches profile storage; known-peer KeyPackage lookup now stops.
-    // Account deletion needs the owner's condition on the held record; a bare tombstone no longer grants it.
     eprintln!("keypackage test: publish final profile tombstone");
-    let deleted = Profile {
-        previous: Some(dyapp_profile::ProfileCondition::observed(Some(&profile)).unwrap()),
-        ..Profile::tombstone(2, 0, 0)
-    }
-    .sign(&owner);
     assert_eq!(
-        status(
-            client
-                .profile(profile_request::Request::ConditionalPublish(deleted))
-                .await
-                .status
-        ),
+        status(client.profile(deletion(&owner, &profile)).await.status),
         Status::Ok
     );
     assert_eq!(
@@ -174,4 +163,13 @@ async fn keypackage_publish_and_consume_over_tcp() {
         ),
         Status::Invalid
     );
+}
+
+/// Account deletion needs the owner's condition on the held record; a bare tombstone no longer grants it.
+fn deletion(owner: &Identity, held: &SignedRecord) -> profile_request::Request {
+    let tombstone = Profile {
+        previous: Some(dyapp_profile::ProfileCondition::observed(Some(held)).unwrap()),
+        ..Profile::tombstone(2, 0, 0)
+    };
+    profile_request::Request::ConditionalPublish(tombstone.sign(owner))
 }
