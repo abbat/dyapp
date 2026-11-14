@@ -436,7 +436,7 @@ mod tests {
             (Some(vec![]), vec![]),
             (
                 Some(vec!["  MuSiC  ".into(), "Cafe\u{301}".into()]),
-                vec!["music".into(), "caf\u{e9}".into()],
+                vec!["music".into(), "café".into()],
             ),
         ] {
             let key = IdentityKey::generate();
