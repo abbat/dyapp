@@ -7,7 +7,7 @@ rust-version = "1.99"
 [dependencies]
 tauri = { version = "=2.12.3", features = ["tray-icon"] }
 tauri-plugin-clipboard-manager = "=2.5.0"
-tauri-plugin-single-instance = "=2.5.4"
+tauri-plugin-single-instance = "=2.5.5"
 dyapp-client = { path = "../../rust/client" }
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-identity = { path = "../../rust/identity" }
@@ -16,7 +16,7 @@ dyapp-profile = { path = "../../rust/profile" }
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 qrcodegen = "=1.8.0"
 quircs = "=0.10.3"
-keyring-core = "=1.0.0"
+keyring-core = "=1.0.1"
 windows-native-keyring-store = "=1.1.0"
 # Already in the lock through Tauri: the network cost for media auto-download, and the toasts.
 windows = { version = "=0.62.2", features = [
