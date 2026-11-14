@@ -16,6 +16,8 @@ mod saved_sticker;
 mod sticker_collection;
 #[path = "tests/sticker_frame.rs"]
 mod sticker_frame;
+#[path = "tests/sticker_import.rs"]
+mod sticker_import;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {

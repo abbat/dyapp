@@ -280,8 +280,13 @@ file count. Unreadable entries retain no trusted pack label and remain saved. Th
 uses the same identity operation and session mutex, with no network, file removal or compressed
 media returned. `saved_sticker_frame` authenticates one selected saved entry and returns its
 manifest identity/index, label/hash and actual bounded first-frame RGBA from the core decoder.
-Mobile code receives no WebP input to decode. Android forwarding/sticker presentation and native
-CI verification remain planned.
+Mobile code receives no WebP input to decode. `sticker_import_byte_limit` exposes the core TAR
+bound for OS stream reads. Common `import_sticker_pack` uses the same core TAR/manifest/frame
+validation and sealed storage calls as desktop; successful results retain the validated PackID
+and whether it was newly saved or already readable. A persistence error may follow file publication:
+refresh the collection rather than assume rollback or automatically retry. Invalid archives are
+rejected before collection storage work; no chat mail or network publication is staged. Android
+forwarding/sticker presentation and native CI verification remain planned.
 
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains
@@ -774,6 +779,8 @@ or returns constants.
 | | method | `chat_photo_auto(peer_id: String) -> Result<bool, CoreError>` | Whether full chat originals may load without a tap now: shared download setting, current platform network report and an open conversation are required. Strangers never auto-download, even with Always; blocked peers err `blocked`. Original retrieval uses the separate method below. |
 | | method | `receive() -> Result<u32, CoreError>` | Over the active network: resends the staged writes that are due, applies this device's mailbox and refills tokens when due, then, best effort as on the desktop, keeps the last-resort key package and runs the daily photo keep refresh. Returns how many events changed a chat. Senders' profiles are fetched from the node on each call; an envelope whose owner has none there waits in the mailbox for the next call. |
 | | method | `chat_rows() -> Result<Vec<ChatRow>, CoreError>`, `chat_history(peer_id: String) -> Result<ChatHistory, CoreError>` | The local projection, no network. Rows leave out blocked peers; a history for a blocked peer errs `blocked`. Both carry `muted`. In a history, `read` on an own live text says the peer's read receipt covers it (the desktop rule); rows leave it false. |
+| `sticker_import_byte_limit` | function | `() -> u64` | Authoritative core picked-TAR byte bound; use it when reading an OS-selected stream. |
+| | method | `import_sticker_pack(archive: Vec<u8>) -> Result<SavedStickerPackImport, CoreError>` | Core-validated local TAR import into this identity's sealed collection. Success returns validated PackID and added=true for a new saved pack, false for an already readable identical pack. Persistence errors can follow file publication: refresh authoritative collection state rather than infer rollback. No network or chat staging. Call off the UI thread. |
 | | method | `saved_sticker_packs(after: Option<Vec<u8>>) -> Result<SavedStickerPackPage, CoreError>` | Identity-local bounded collection page from core storage. Entries retain PackID, encrypted size and Ready { name, stickers } or Unreadable { detail }; page retains the exclusive cursor, all-file used bytes and unrecognized-file count. A supplied cursor must be exactly 32 bytes. No networking, deletion, compressed media or transport secrets. Call off the UI thread. |
 | | method | `saved_sticker_frame(pack_id: Vec<u8>, index: u32) -> Result<SavedStickerFrame, CoreError>` | One authenticated saved entry, decoded by core to actual width/height and row-major RGBA8. Retains PackID, manifest index, emoji and compressed-content hash without compressed bytes, keys or release capability. No networking or file mutation; invalid/missing selections and unreadable files refuse. Call off the UI thread; scale the returned pixels for presentation. |
 | | method | `submit_saved_sticker(peer_id: String, pack_id: Vec<u8>, index: u32) -> Result<ChatSubmission, CoreError>` | Send an authenticated saved-pack entry through core upload and open-chat submission. A queued result retains its committed ID; never resubmit it. Pre-commit failures remain errors, even if an upload reservation was persisted. Invalid hash length, missing pack and invalid index fail before network access; foreign or corrupt saved files are preserved. Call off the UI thread. |

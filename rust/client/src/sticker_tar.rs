@@ -6,7 +6,8 @@ use std::collections::BTreeMap;
 mod tests;
 
 const BLOCK: usize = 512;
-const MAX_ARCHIVE: usize = 8 * 1024 * 1024;
+/// Maximum picked TAR bytes, checked before archive parsing.
+pub const MAX_ARCHIVE: usize = 8 * 1024 * 1024;
 const MAX_FILES: usize = 121;
 const MAX_FILE: usize = 256 * 1024;
 const MAX_MANIFEST: usize = 64 * 1024;
@@ -58,6 +59,23 @@ fn checked_header(header: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+fn entry_data(bytes: &[u8], offset: usize, size: usize) -> Result<(&[u8], usize), String> {
+    let start = offset + BLOCK;
+    let end = start.checked_add(size).ok_or("TAR size overflow")?;
+    let next = start
+        .checked_add(
+            size.div_ceil(BLOCK)
+                .checked_mul(BLOCK)
+                .ok_or("TAR padding overflow")?,
+        )
+        .ok_or("TAR offset overflow")?;
+    let data = bytes.get(start..end).ok_or("truncated TAR file")?;
+    if next > bytes.len() {
+        return Err("truncated TAR padding".into());
+    }
+    Ok((data, next))
+}
+
 /// Returns borrowed root-file bytes after bounded header, checksum and path validation.
 /// PAX metadata is skipped, never interpreted as a path override. Manifest membership and
 /// content hashes are validated by the caller before storing or decoding any returned file.
@@ -82,19 +100,7 @@ pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
         }
         checked_header(header)?;
         let size = octal(&header[124..136])?;
-        let start = offset + BLOCK;
-        let end = start.checked_add(size).ok_or("TAR size overflow")?;
-        let next = start
-            .checked_add(
-                size.div_ceil(BLOCK)
-                    .checked_mul(BLOCK)
-                    .ok_or("TAR padding overflow")?,
-            )
-            .ok_or("TAR offset overflow")?;
-        let data = bytes.get(start..end).ok_or("truncated TAR file")?;
-        if next > bytes.len() {
-            return Err("truncated TAR padding".into());
-        }
+        let (data, next) = entry_data(bytes, offset, size)?;
         let kind = header[156];
         if kind == b'x' || kind == b'g' {
             if size > MAX_MANIFEST {

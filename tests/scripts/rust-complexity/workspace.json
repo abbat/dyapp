@@ -144,7 +144,6 @@
   {"path":"rust/client/src/session/tests/outbound.rs","function":"fn message_is_staged_before_network_and_reopens_exact_bytes ","metrics":{"cognitive":34,"lines":154}},
   {"path":"rust/client/src/session/tests/outbound.rs","function":"fn private_changes_without_own_devices_create_no_peer_message ","metrics":{"lines":52}},
   {"path":"rust/client/src/sticker_manifest/tests.rs","function":"fn membership_digests_and_unsafe_names_fail_by_name ","metrics":{"lines":57}},
-  {"path":"rust/client/src/sticker_tar.rs","function":"fn read ","metrics":{"lines":53}},
   {"path":"rust/client/src/sticker_webp.rs","function":"fn check_header ","metrics":{"lines":110}},
   {"path":"rust/client/src/store/chat_list.rs","function":"impl Store ::fn chat_rows ","metrics":{"lines":162}},
   {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart ","metrics":{"cognitive":30,"lines":86}},
