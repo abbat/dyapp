@@ -42,6 +42,15 @@ release secrets and fetch descriptors out of screen records. Project authenticat
 through core helpers such as `ChatSticker::sent_at_ms()`: the separate native Desktop crates do
 not inherit the root workspace's dependencies, and root quality does not compile them.
 
+Android targets API 37 and declares `ACCESS_LOCAL_NETWORK`, including for raw Rust TCP/UDP.
+The activity asks automatically once after unlock, with a persisted marker; a user network-check
+can request again. Both OS and target must be 37+ before requesting. Denial still releases
+foreground checks so public-network traffic remains usable; background jobs never show a prompt.
+Disposing a network form drops its pending permission continuation rather than redirecting it to
+another identity. Permission state is rechecked for every request; no IP/DNS policy is copied
+into Kotlin. Pure callback tests do not prove API 37 socket enforcement: device coverage remains
+required. See [Android guidance](https://developer.android.com/privacy-and-security/local-network-permission).
+
 Android's theme paints the system-bar background and consumes safe-drawing insets at the
 root surface. Nested scaffolds receive the consumed insets; do not add a second system-bar
 padding layer. Status and navigation icon contrast follows the chosen light or dark theme.

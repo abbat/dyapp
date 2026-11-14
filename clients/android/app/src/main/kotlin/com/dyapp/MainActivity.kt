@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -27,6 +28,8 @@ internal const val APP_READY_TAG = "app-ready"
 class MainActivity : ComponentActivity() {
     // Fail closed until onCreate reads the saved lock choice.
     private var appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+    private val networkAccess = LocalNetworkAccess(this)
+    private val content = PrivateContent()
     private val timer = Handler(Looper.getMainLooper())
     private val deadline = Runnable { refreshLock() }
     private val store by lazy { AppLockStore.onDevice(noBackupFilesDir) }
@@ -89,23 +92,51 @@ class MainActivity : ComponentActivity() {
         refreshLock()
         // A locked relaunch drops this at the next refresh, as any return past the lock screen.
         returnTo = takeRelaunchTarget()
-        setContent {
-            DYAppTheme(chosenDarkTheme()) {
-                val biometric = lock == StoredLock.BIOMETRIC
-                when {
-                    locked && biometric -> BiometricUnlockScreen(device.secure) { verify(true) {} }
-                    locked -> UnlockScreen(device.secure, attempt) {
-                        verify(false) {
-                            recovered = true
-                            settings = true
-                        }
+        setContent { content.Show() }
+    }
+
+    private inner class PrivateContent {
+        @Composable
+        fun Show() {
+            LaunchedEffect(locked, lock) {
+                if (!locked && lock != StoredLock.NEW) networkAccess.firstUnlock()
+            }
+            ProvideLocalNetworkAccess(networkAccess) {
+                DYAppTheme(chosenDarkTheme()) {
+                    when {
+                        locked -> Locked()
+                        lock == StoredLock.NEW -> SetupScreen(
+                            device,
+                            skipLock
+                        ) { setPin(null, it) == PinAttempt.UNLOCKED }
+                        settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
+                        else -> Main()
                     }
-                    lock == StoredLock.NEW -> SetupScreen(device, skipLock) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
-                    // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
-                    biometric -> MainScreen(lockMode, returnTo) { verify(true) { settings = true } }
-                    else -> MainScreen(lockMode, returnTo) { settings = true }
                 }
+            }
+        }
+
+        @Composable
+        private fun Locked() {
+            if (lock == StoredLock.BIOMETRIC) {
+                BiometricUnlockScreen(device.secure) { verify(true) {} }
+            } else {
+                UnlockScreen(device.secure, attempt) {
+                    verify(false) {
+                        recovered = true
+                        settings = true
+                    }
+                }
+            }
+        }
+
+        @Composable
+        private fun Main() {
+            // Biometric settings changes need a fresh prompt, as a PIN asks for the current one.
+            if (lock == StoredLock.BIOMETRIC) {
+                MainScreen(lockMode, returnTo) { verify(true) { settings = true } }
+            } else {
+                MainScreen(lockMode, returnTo) { settings = true }
             }
         }
     }
@@ -126,6 +157,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        networkAccess.close()
         timer.removeCallbacks(deadline)
         super.onDestroy()
     }

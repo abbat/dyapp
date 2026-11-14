@@ -405,6 +405,10 @@ From `clients/android`, `./gradlew detekt` runs the same pinned CLI, plugin and 
 Root and app `check`, plus app `preBuild`, depend on that task. The dependency
 verification metadata pins both jars and their Maven metadata. The task parses sources
 without generating Rust bindings or compiling the Android app.
+The app targets API 37 without an `OldTargetApi` exception. LAN access uses the declared
+`ACCESS_LOCAL_NETWORK` runtime permission on OS/target 37+; existing API 31 instrumentation
+cannot verify this platform's enforcement, so SDK compilation/policy tests alone are insufficient.
+
 All Android Kotlin compilations treat warnings as errors through the built-in Kotlin
 compiler options. Android Lint also treats warnings as errors, explicitly enables
 `UnusedResources` and `UnusedIds` as errors, and checks test sources without a baseline.

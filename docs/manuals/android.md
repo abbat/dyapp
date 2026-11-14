@@ -24,6 +24,14 @@ Create a protected GitHub Actions environment named `android-release`, restricte
 
 The signing job needs both secrets. It fails if either is missing, if the keystore cannot sign, or if `apksigner verify` fails. The key is never stored in the repository or passed to the unsigned build job. Keep the offline backup even after the GitHub secrets are set. Before publishing the first tag, verify the environment protection and the key's certificate fingerprint; use the same signing key for every later APK update.
 
+## Local network permission
+
+On Android 17 or later, the app requests local-network access once after unlocking the interface.
+This permission also covers LAN connections made by the Rust core. Denying it leaves public Internet
+access available, but LAN nodes can remain unreachable. A manual network check can request access
+again; system permission settings remain available after denial. Background jobs never display the
+permission dialog. Android 12–16 do not receive this request.
+
 ## Background mail
 
 The app schedules a network-constrained background mail job for the active ready identity, requesting

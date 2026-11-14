@@ -16,8 +16,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -40,9 +43,36 @@ internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
     val state = remember(opened) { NetworkDraftState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened) { loadDraft(opened, state) }
-    DisposableEffect(state) { onDispose { state.attempt?.cancel() } }
     val actions = draftActions(opened, state, scope, activateOnConnect = onBack == null)
-    if (onBack != null) WizardNetworkPage(opened, state, onBack, actions) else NetworkSection(opened, state, actions)
+    val permitted = permittedDraftActions(state, actions)
+    if (onBack != null) {
+        WizardNetworkPage(
+            opened,
+            state,
+            onBack,
+            permitted
+        )
+    } else {
+        NetworkSection(opened, state, permitted)
+    }
+}
+
+@Composable
+private fun permittedDraftActions(state: NetworkDraftState, actions: DraftActions): DraftActions {
+    var present by remember(state) { mutableStateOf(true) }
+    DisposableEffect(state) {
+        onDispose {
+            present = false
+            state.attempt?.cancel()
+        }
+    }
+    val requestNetwork = LocalNetworkRequest.current
+    return DraftActions(
+        check = { requestNetwork { if (present) actions.check() } },
+        cancel = actions.cancel,
+        activate = actions.activate,
+        save = actions.save
+    )
 }
 
 @Composable
