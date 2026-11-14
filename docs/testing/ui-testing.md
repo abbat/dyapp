@@ -95,6 +95,16 @@ state, retry and return to the thread. Separate dialog tests exercise empty,
 failed, queued and busy states.
 These checks require Android instrumentation; lint alone does not execute them.
 
+Android `SearchOutboxJobServiceTests` exercise framework start/stop through a debug-only service
+that inherits the production lifecycle and calls the real native outbox. They run on the existing
+API 31 emulator: a free job ID excludes both production IDs, and the fixture owns an isolated
+native registry and credential. Native admission, key-open completion, platform stop and full worker
+completion each have readiness callbacks with a fresh failure deadline. The final callback follows
+the completion decision, so native return alone cannot falsely prove suppression of a late
+`jobFinished` request. The debug component and configurable probe are absent from release builds.
+These are execution/stop smoke checks, not proof of reboot persistence, network retry/backoff or
+deadline scheduling; those runtime cases remain planned. Host SDK compilation does not execute them.
+
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on
 > 2026-10-06. Nothing here was run for this document; test counts are counted from source, not

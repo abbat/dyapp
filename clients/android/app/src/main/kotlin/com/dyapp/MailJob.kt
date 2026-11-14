@@ -6,6 +6,7 @@ import android.app.job.JobScheduler
 import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import uniffi.dyapp.ChatNotice
 import uniffi.dyapp.CoreException
@@ -23,39 +24,60 @@ private const val MAIL_JOB_PERIOD_MS = 15 * 60_000L
  * Receives the active identity's mail while the app is not on screen. The identity key is not
  * bound to a user check, so this also runs while the app lock is on; the lock only covers the UI.
  */
-class MailJob : JobService() {
-    private val running = ConcurrentHashMap<Int, JobCompletion>()
+open class MailJob : JobService() {
+    private val running = ConcurrentHashMap<Pair<String?, Int>, JobCompletion>()
 
     override fun onStartJob(params: JobParameters): Boolean {
         val completion = JobCompletion()
-        running.put(params.jobId, completion)?.stop()
-        thread(name = "mail-job") {
-            if (params.jobId == MAIL_JOB_ID) receiveMail(applicationContext)
-            if (!completion.isActive()) return@thread
-            val wake = searchPass()
-            completion.complete {
-                if (running.remove(params.jobId, completion)) {
-                    val retry = params.jobId == SEARCH_OUTBOX_JOB_ID && wake == SearchOutboxWake.Retry
-                    jobFinished(params, retry)
-                    scheduleSearchOutboxWake(applicationContext, wake, retryScheduled = retry)
-                }
-            }
-        }
+        running.put(params.scopedJobId(), completion)?.stop()
+        thread(name = "mail-job") { runJob(params, completion) }
         return true
     }
 
     // Ending the OS task never releases an in-flight native admission or interrupts its worker.
     override fun onStopJob(params: JobParameters): Boolean {
-        running.remove(params.jobId)?.stop()
-        return params.jobId == SEARCH_OUTBOX_JOB_ID
+        running.remove(params.scopedJobId())?.stop()
+        return isSearchJob(params)
     }
 
-    private fun searchPass(): SearchOutboxWake = try {
+    private fun runJob(params: JobParameters, completion: JobCompletion) {
+        var completionRequested = false
+        try {
+            if (!isSearchJob(params)) receiveMail(applicationContext)
+            if (!completion.isActive()) return
+            val wake = searchPass(params)
+            completion.complete {
+                if (running.remove(params.scopedJobId(), completion)) {
+                    val retry = isSearchJob(params) && wake == SearchOutboxWake.Retry
+                    jobFinished(params, retry)
+                    completionRequested = true
+                    scheduleSearchOutboxWake(applicationContext, wake, retryScheduled = retry)
+                }
+            }
+        } finally {
+            workerFinished(params, completionRequested)
+        }
+    }
+
+    /** The framework adapter can be observed by a debug-only service without replacing its lifecycle. */
+    protected open fun workerFinished(params: JobParameters, completionRequested: Boolean) {
+        // The release service has no observer.
+    }
+
+    protected open fun isSearchJob(params: JobParameters): Boolean = params.jobId == SEARCH_OUTBOX_JOB_ID
+
+    protected open fun searchPass(params: JobParameters): SearchOutboxWake = try {
         pollSearchOutboxes(applicationContext)
     } catch (failure: CoreException) {
-        Log.i(MAIL_LOG_TAG, "Search delivery failed: ${failure.javaClass.simpleName}")
+        Log.i(MAIL_LOG_TAG, "Search delivery job ${params.jobId} failed: ${failure.javaClass.simpleName}")
         SearchOutboxWake.Retry
     }
+}
+
+/** Namespace is part of framework job identity on API 34+, including stop callbacks. */
+internal fun JobParameters.scopedJobId(): Pair<String?, Int> {
+    val namespace = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) jobNamespace else null
+    return namespace to jobId
 }
 
 /**

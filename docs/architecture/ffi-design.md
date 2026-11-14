@@ -385,6 +385,10 @@ native wake to `JobScheduler`; failed/still-due passes request its backoff rathe
 loop. Long waits are capped at `JobInfo.MAX_BACKOFF_DELAY_MILLIS` for safe OS adaptation; every
 resulting pass still checks the exact core deadline before sending.
 Stopping a job suppresses its late platform completion without releasing actual Rust admission.
+All non-search job IDs retain mail handling, including dynamically allocated instrumentation jobs;
+running callbacks are keyed by namespace and ID (namespace is absent before API 34). A final worker
+callback follows the completion decision for debug-only framework instrumentation; release has no
+configurable probe or backend.
 OS wakes remain best effort; iOS lifecycle wiring remains planned.
 Common Tauri commands `prepare_search_recovery`,
 `confirm_search_recovery`, `retry_search_recovery` and `dismiss_search_recovery` use opaque string
