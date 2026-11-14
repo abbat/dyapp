@@ -224,8 +224,10 @@ Each result carries mandatory ASCII/Punycode and, for an IDN, an additional Unic
 Unicode must not replace ASCII in destination display. The function performs no DNS, preview
 fetch or opening action. Shared input whitespace lives in `dyapp_profile::text_input`.
 The common `chat_link_hosts` adapter only converts these results to `ChatLinkHost` records.
-Desktop consumption and Android/iOS host-line presentation remain planned; existing clients
-are not switched by adding the core API.
+Desktop message projections use the core ASCII destinations as `linkHosts` in history and list
+records, recomputed from current live text and empty for deleted/media entries. JavaScript only
+renders the supplied captions, without URL parsing or extra IPC. Android/iOS host-line presentation
+remains planned.
 
 ## Shared chat composer policy
 
@@ -781,7 +783,7 @@ or returns constants.
 | `MlsGroup` | Object | `id()`, `members()`, `encrypt(device, plaintext)`, `process(device, message, profiles) -> Result<MlsReceived, CoreError>`, `remove_revoked(device, profiles)`, `export_secret(device, label, context, length)` | One group; each call takes its `MlsDevice`. `MlsReceived` is `Message { sender, plaintext }` or `Commit`. |
 | `hash_app_pin` | function | `(pin: String) -> Result<Vec<u8>, CoreError>` | Six-to-64 ASCII decimal digits to a 49-byte record: format 1, random 16-byte salt, 32-byte Argon2id tag (64 MiB, three passes, four lanes). Store the record in device-only protected storage. |
 | `verify_app_pin` | function | `(pin: String, record: Vec<u8>) -> Result<bool, CoreError>` | Constant-time tag comparison; `false` for a wrong PIN, error for invalid PIN/record or KDF failure. The platform counts failed attempts, including errors. Both calls block and belong off the UI thread. |
-| `chat_link_hosts` | function | `(text: String) -> Vec<ChatLinkHost>` | Shared display-only HTTP(S) destination extraction, without credentials. Records contain `ascii: String` (including a nondefault port) and `unicode: Option<String>` as an additional IDN spelling; keep ASCII visible. No network access or automatic opening. Client consumption remains planned. |
+| `chat_link_hosts` | function | `(text: String) -> Vec<ChatLinkHost>` | Shared display-only HTTP(S) destination extraction, without credentials. Records contain `ascii: String` (including a nondefault port) and `unicode: Option<String>` as an additional IDN spelling; keep ASCII visible. No network access or automatic opening. Mobile consumption remains planned. |
 | `profile_link_text` | function | `(peer_id: String) -> Option<String>` | The chat message text that shares a profile, `dyapp-profile:1:<Peer ID>`; none unless the Peer ID is one lowercase 64-hex value. |
 | `profile_link_peer` | function | `(text: String) -> Option<String>` | The Peer ID when a message body is exactly one profile link; other text gives none. Open it through the verified profile fetch. |
 | `make_preview` | function | `(rgba: Vec<u8>, width: u32, height: u32, max_bytes: u32) -> Result<Vec<u8>, CoreError>` | JPEG preview of pixels the app decoded: long side ≤ 320 px, quality 80 down to 40 until it fits `max_bytes` (capped at 24 KiB), then 160 px; no metadata. Fails when nothing fits. |

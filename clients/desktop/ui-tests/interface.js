@@ -88,9 +88,6 @@ const appBindings = {
   get chatInput() {
     return elementsModule.chatInput;
   },
-  get chatLinkHosts() {
-    return chatsUiModule.chatLinkHosts;
-  },
   get chatList() {
     return elementsModule.chatList;
   },

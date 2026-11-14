@@ -112,6 +112,7 @@ mod tests {
             author: author.into(),
             id: [id; 16],
             text: Some("text".into()),
+            link_hosts: Vec::new(),
             edited: false,
             deleted: false,
             unread: false,

@@ -25,18 +25,4 @@ const chatTime = (message) =>
         dateStyle: 'short',
         timeStyle: 'short',
       }).format(new Date(message.sentAtMs));
-/** @param {string | null | undefined} text */
-const chatLinkHosts = (text) => {
-  const hosts = new Set();
-  for (const match of (text || '').matchAll(/https?:\/\/[^\s<>"']+/gi)) {
-    try {
-      const url = new URL(match[0].replace(/[),.!?]+$/u, ''));
-      if (url.protocol === 'http:' || url.protocol === 'https:') hosts.add(url.host);
-    } catch {
-      /* A malformed URL remains plain text. */
-    }
-  }
-  return [...hosts];
-};
-
-export { sizeText, chatTime, chatLinkHosts };
+export { sizeText, chatTime };

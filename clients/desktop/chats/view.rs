@@ -158,6 +158,8 @@ pub struct MessageView {
     pub author: String,
     pub id: [u8; 16],
     pub text: Option<String>,
+    /// Canonical web destinations computed by the shared core; empty for deletion/media.
+    pub link_hosts: Vec<String>,
     pub edited: bool,
     pub deleted: bool,
     pub unread: bool,
@@ -184,6 +186,14 @@ impl From<ChatMessage> for MessageView {
             .current
             .text
             .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+        let link_hosts = if message.current.deleted {
+            Vec::new()
+        } else {
+            dyapp_client::chat_links::hosts(text.as_deref().unwrap_or_default())
+                .into_iter()
+                .map(|host| host.ascii)
+                .collect()
+        };
         Self {
             group_id: message.key.group,
             author: message.key.author,
@@ -193,6 +203,7 @@ impl From<ChatMessage> for MessageView {
                 .and_then(parse_profile_link)
                 .map(str::to_owned),
             text,
+            link_hosts,
             edited: message.current.edited,
             deleted: message.current.deleted,
             unread: message.unread,
@@ -216,6 +227,7 @@ impl From<ChatAttachment> for MessageView {
             author: photo.key.author,
             id: photo.key.id,
             text: None,
+            link_hosts: Vec::new(),
             edited: false,
             deleted: false,
             unread: photo.unread,
@@ -247,6 +259,7 @@ impl From<ChatSticker> for MessageView {
             author: stored.key.author,
             id: stored.key.id,
             text: None,
+            link_hosts: Vec::new(),
             edited: false,
             deleted: false,
             unread: stored.unread,
@@ -392,6 +405,53 @@ mod tests {
         assert_eq!(MessageView::from(shared).shared_peer, None);
     }
 
+    fn web_message() -> dyapp_client::store::messages::ChatMessage {
+        use dyapp_client::store::messages::{ChatMessage, CurrentMessage};
+        ChatMessage {
+            key: MessageKey {
+                group: vec![1],
+                author: "peer".into(),
+                id: [2; 16],
+            },
+            current: CurrentMessage {
+                text: Some(
+                    "https://bücher.example/ https://paypal.com@evil.example/"
+                        .as_bytes()
+                        .to_vec(),
+                ),
+                edited: false,
+                deleted: false,
+            },
+            original_hlc: None,
+            unread: false,
+            forwarded: true,
+            delivery: None,
+        }
+    }
+
+    #[test]
+    fn web_hosts_follow_current_text_and_never_survive_deletion() {
+        let mut message = web_message();
+        let project = |message| serde_json::to_value(MessageView::from(message)).unwrap();
+        assert_eq!(
+            project(message.clone())["linkHosts"],
+            serde_json::json!(["xn--bcher-kva.example", "evil.example"])
+        );
+        message.current.text = Some(b"https://replacement.example:8443/".to_vec());
+        message.current.edited = true;
+        assert_eq!(
+            project(message.clone())["linkHosts"],
+            serde_json::json!(["replacement.example:8443"])
+        );
+        message.current.deleted = true;
+        assert_eq!(project(message.clone())["linkHosts"], serde_json::json!([]));
+        message.current.deleted = false;
+        message.current.text = Some(b"javascript:alert(1)".to_vec());
+        assert_eq!(project(message.clone())["linkHosts"], serde_json::json!([]));
+        message.current.text = None;
+        assert_eq!(project(message)["linkHosts"], serde_json::json!([]));
+    }
+
     #[test]
     fn sticker_view_exposes_only_fallback_metadata() {
         let media = photo();
@@ -411,6 +471,7 @@ mod tests {
         };
         let view = last_item(None, None, Some(stored)).unwrap();
         assert_eq!(view.sent_at_ms, Some(5));
+        assert_eq!(view.link_hosts, Vec::<String>::new());
         assert!(view.text.is_none() && view.photo.is_none() && view.unread);
         let json = serde_json::to_value(view).unwrap();
         let mut fields: Vec<_> = json["sticker"]
@@ -457,6 +518,7 @@ mod tests {
         let view = MessageView::from(photo());
         assert_eq!(view.sent_at_ms, Some(5));
         assert!(view.unread && view.text.is_none());
+        assert_eq!(view.link_hosts, Vec::<String>::new());
         let json = serde_json::to_value(&view).unwrap();
         let photo_json = json["photo"].as_object().unwrap();
         let mut fields: Vec<_> = photo_json.keys().map(String::as_str).collect();

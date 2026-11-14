@@ -36,6 +36,11 @@ pending bytes after network completion. Missing legacy progress requires explici
 Public Store helpers own their transactions; compose their internal in-transaction helpers under
 an existing writer instead of nesting another public transaction.
 
+The root Cargo lockfile does not cover the three excluded native desktop crates. A shared path
+crate's dependency change also needs its edges resolved in Linux, Windows and macOS lockfiles;
+keep unrelated dependency edges unchanged as well as package versions, then validate each manifest
+with `cargo metadata --locked --offline`. A targeted Cargo update can otherwise rewire old edges.
+
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
 release secrets and fetch descriptors out of screen records. Project authenticated timestamps

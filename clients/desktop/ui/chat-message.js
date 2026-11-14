@@ -74,8 +74,7 @@ function messageContent(message, peerId, history, call, body) {
  * @param {import('./chat-state.js').ChatMessage} message
  */
 function appendMessageMetadata(item, message) {
-  const { chatLinkHosts } = chatsUiController.chatMessageHelpers;
-  const hosts = chatLinkHosts(message.deleted ? '' : message.text);
+  const hosts = message.deleted ? [] : message.linkHosts || [];
   if (hosts.length) {
     const host = document.createElement('span');
     host.className = 'caption';

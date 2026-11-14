@@ -69,6 +69,9 @@ Publication checks inspect the dialog after the expected result and await its cl
 still pending. That fresh close deadline starts after proof/publication, replacing a fixed delay.
 Disconnected-search checks require Open Network without Retry, then exercise generic, offline
 and partial failures through completed production `runSearch` calls to catch stale recovery actions.
+Native desktop message-projection tests cover IDN/userinfo hosts, edits and deletion; the UI
+link-host smoke consumes that IPC shape and retains the caption/no-preview assertions. JavaScript
+must not reconstruct destinations from message text.
 Chat-photo rendering tests observe DOM completion for manual originals. A fixture-scoped wrapper
 awaits the actual automatic-policy Promise, preserving its arguments and return value and restoring
 the controller in `finally`. Opening and policy completion have separate named failure deadlines;

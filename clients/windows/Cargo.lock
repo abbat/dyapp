@@ -1506,6 +1506,7 @@ dependencies = [
  "dyapp-p2p-net",
  "dyapp-profile",
  "getrandom 0.4.3",
+ "idna",
  "image",
  "image-webp",
  "jpeg-decoder",
@@ -1518,6 +1519,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "unicode-segmentation",
+ "url",
  "zeroize",
 ]
 

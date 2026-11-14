@@ -1,6 +1,6 @@
 import { chatRow as buildChatRow } from './chat-row.js';
 import { byId as domById, all as domAll, eventDetail } from './dom.js';
-import { chatTime, chatLinkHosts } from './formatting.js';
+import { chatTime } from './formatting.js';
 import { updateComposer, assess } from './chat-composer.js';
 import { statusMessage, peerLabel, showArea } from './app.js';
 import { controller as chatMessageController } from './chat-message.js';
@@ -934,7 +934,6 @@ controller.chatMessageHelpers = {
   openEdit,
   openDelete,
   openForward,
-  chatLinkHosts,
   photoBubble: chatPhotosController.chatPhotos.photoBubble,
 };
 // Sent on launch and on focus, never on a timer, so it follows real use; the Store keeps the hour.
@@ -958,7 +957,6 @@ likedButton.addEventListener('click', () => {
 export {
   acknowledgeDevice,
   blockChat,
-  chatLinkHosts,
   chatSending,
   chatBlocking,
   chatTime,

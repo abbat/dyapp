@@ -667,12 +667,7 @@
     await checkChatForwardStale(sourcePeer, rows, call, forwardButton);
   };
   const assertChatLinkHostsIDNOrUserinfoLinkHostWasMisidentified = (hosts) => {
-    if (
-      hosts.length !== 2 ||
-      hosts[0] !== 'xn--bcher-kva.example' ||
-      hosts[1] !== 'evil.example' ||
-      appBindings.chatLinkHosts('javascript:alert(1)').length
-    ) {
+    if (hosts.length !== 2 || hosts[0] !== 'xn--bcher-kva.example' || hosts[1] !== 'evil.example') {
       throw new Error('IDN or userinfo link host was misidentified');
     }
   };
@@ -689,13 +684,15 @@
     await appApi.chatsDone;
     const peer = '3'.repeat(64);
     const text = 'See https://bücher.example/path and https://paypal.com@evil.example/login';
-    const hosts = appBindings.chatLinkHosts(text);
+    // Native projection tests cover parsing; this fixture preserves that exact IPC result.
+    const hosts = ['xn--bcher-kva.example', 'evil.example'];
     assertChatLinkHostsIDNOrUserinfoLinkHostWasMisidentified(hosts);
     const message = {
       author: peer,
       groupId: [1],
       id: [1],
       text,
+      linkHosts: hosts,
       deleted: false,
       edited: false,
       sentAtMs: null,
@@ -709,6 +706,19 @@
     });
     const rendered = appBindings.chatMessages.querySelector('p');
     assertChatLinkHostsLinkHostMissingOrLinkPreviewWas(rendered, hosts);
+    const project = (changes) =>
+      appApi.chatMessage({ ...message, ...changes }, peer, { state: 'requestReceived' }, () => {
+        throw new Error('Link metadata unexpectedly invoked IPC');
+      });
+    assertChatLinkHostsLinkHostMissingOrLinkPreviewWas(
+      project({ text: 'https://must-not-be-parsed.example/' }),
+      hosts,
+    );
+    for (const hidden of [{ deleted: true }, { linkHosts: [] }]) {
+      if (project(hidden).textContent.includes(`${appApi.strings['chats.linkHost']}:`)) {
+        throw new Error('Deleted or unprojected text displayed link hosts');
+      }
+    }
     document.getElementById('chat-back').click();
   };
   const assertChatReadReadMarkIsNotOnTheCovered = (seen, delivered, later) => {
