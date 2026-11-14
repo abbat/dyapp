@@ -146,6 +146,10 @@ which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property te
 an explicit feature and dependency-policy decision; no `PROPTEST_FORK`/`PROPTEST_TIMEOUT`
 overrides are supported by the current configuration.
 
+Notification admission uses core `mail_notices` snapshots: actual unread items plus unanswered
+likes after mute/block filtering. The Android tab badge also counts read unanswered requests;
+that badge is not a notification count. A failed notification snapshot must not prevent mail work.
+
 Core ChatRow retains older last_message text behind a newer last_sticker marker. Notification
 formatting must let that media marker dominate even when already read, rather than exposing old
 unread text. Resolve tray/UI labels only on the detached notification thread: acquiring the tray

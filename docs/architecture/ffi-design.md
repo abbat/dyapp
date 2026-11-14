@@ -244,9 +244,15 @@ count/enabled policy separately decides whether to post the fixed notice. Read p
 markers still suppress retained older text. Sticker content carries only its emoji, with a
 trusted localized Sticker label applied during plain rendering, never pack metadata or a fetch.
 
-Desktop delegates content decisions and retains local name lookup, OS posting and markup
-escaping. Shared snapshot/count admission, native mail-pass results and Android delegation remain
-planned; the existing native notice-setting API alone does not provide this content policy.
+Core `capture` creates private identity-bound waiting snapshots after filtering muted/blocked
+peers. Counts are actual unread items plus unanswered likes, not the UI tab badge's unread-request
+floor. `decide` rejects mixed owners and admits a notice only for an enabled, increasing total;
+a like/request yields fixed content. Arithmetic overflow fails quietly through the adapter.
+
+Desktop delegates snapshots/admission and content decisions, retaining its existing privacy-load
+validation, local name lookup, OS posting and markup escaping. A failed snapshot does not prevent
+the mail pass and produces no notice. Native mail-pass results and Android delegation remain planned;
+the existing native notice-setting API alone does not provide this policy.
 
 ## Shared chat composer policy
 

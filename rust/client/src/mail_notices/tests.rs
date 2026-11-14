@@ -1,7 +1,7 @@
 use super::*;
 use crate::store::messages::{ChatAttachment, ChatMessage, CurrentMessage, MessageKey};
 
-fn row(peer: &str, state: Conversation, text: &str, unread_count: usize) -> ChatRow {
+pub(super) fn row(peer: &str, state: Conversation, text: &str, unread_count: usize) -> ChatRow {
     ChatRow {
         peer_id: peer.into(),
         state,

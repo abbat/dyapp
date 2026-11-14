@@ -100,5 +100,8 @@ pub fn content<'a>(
     })
 }
 
+mod waiting;
+pub use waiting::{capture, decide, Error, Notice, Waiting};
+
 #[cfg(test)]
 mod tests;

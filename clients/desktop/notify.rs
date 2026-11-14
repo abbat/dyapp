@@ -7,8 +7,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 #[cfg(test)]
-use dyapp_client::store::Conversation;
-use dyapp_client::store::{ChatRow, NoticeContent};
+use dyapp_client::store::{ChatRow, Conversation, NoticeContent};
 use dyapp_identity::Identity;
 use tauri::{AppHandle, Manager};
 
@@ -17,23 +16,9 @@ use dyapp_client::mail_notices::TEXT_CHARS as BODY_CHARS;
 
 /// Rows and unanswered likes without blocked or muted peers, so own, dropped, blocked and muted mail
 /// never counts.
-fn waiting(dir: &Path, identity: &Identity) -> Result<(Vec<ChatRow>, usize), String> {
+fn waiting(dir: &Path, identity: &Identity) -> Result<dyapp_client::mail_notices::Waiting, String> {
     let store = crate::chats::open(dir, identity)?;
-    let quiet = |peer: &str| -> Result<bool, String> {
-        Ok(store.blocked(peer).map_err(|e| e.to_string())?
-            || store.muted(peer).map_err(|e| e.to_string())?)
-    };
-    let mut rows = Vec::new();
-    for row in store.chat_rows().map_err(|e| e.to_string())? {
-        if !quiet(&row.peer_id)? {
-            rows.push(row);
-        }
-    }
-    let mut likes = 0;
-    for peer in store.liked_by().map_err(|e| e.to_string())? {
-        likes += usize::from(!quiet(&peer)?);
-    }
-    Ok((rows, likes))
+    dyapp_client::mail_notices::capture(&store).map_err(|e| e.to_string())
 }
 
 /// Resolve UI labels on the detached send thread, without waits on the session-owning thread.
@@ -57,6 +42,7 @@ fn body(row: &ChatRow) -> Preview {
 }
 
 /// Core selects allowed additions; the adapter resolves only the local display name.
+#[cfg(test)]
 fn content(
     mode: NoticeContent,
     before: &[ChatRow],
@@ -74,15 +60,18 @@ fn due(
     app: &AppHandle,
     dir: &Path,
     identity: &Identity,
-    before: Result<(Vec<ChatRow>, usize), String>,
-    after: Result<(Vec<ChatRow>, usize), String>,
+    before: Result<dyapp_client::mail_notices::Waiting, String>,
+    after: Result<dyapp_client::mail_notices::Waiting, String>,
 ) -> Option<(String, Preview)> {
-    let ((old, old_likes), (new, new_likes)) = (before.ok()?, after.ok()?);
-    let unread = |rows: &[ChatRow]| rows.iter().map(|row| row.unread_count).sum::<usize>();
+    let (before, after) = (before.ok()?, after.ok()?);
     let privacy = crate::privacy::load(dir, identity).ok()?;
-    if unread(&new) + new_likes <= unread(&old) + old_likes || !privacy.notifications {
-        return None;
-    }
+    let notice = dyapp_client::mail_notices::decide(
+        &before,
+        &after,
+        privacy.notifications,
+        privacy.notice_content,
+    )
+    .ok()??;
     let name = |peer_id: &str| {
         let search = app.state::<crate::search::SearchState>();
         crate::chats::open(dir, identity)
@@ -93,7 +82,8 @@ fn due(
             .and_then(|mut names| names.pop())
             .map_or_else(String::new, |view| view.name)
     };
-    Some(content(privacy.notice_content, &old, &new, name))
+    let name = notice.peer_id.as_deref().map_or_else(String::new, name);
+    Some((name, Preview(notice.preview)))
 }
 
 /// Runs a mail pass and notifies when it left more waiting. The focus check waits on the main
@@ -410,41 +400,6 @@ mod tests {
             last_sticker: None,
             unread_count,
         }
-    }
-
-    #[test]
-    fn a_muted_peer_never_counts() {
-        use dyapp_client::interactions::{Interaction, Kind};
-
-        let dir = std::env::temp_dir().join(format!("dyapp-notify-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let (me, peer) = (Identity::generate(), Identity::generate());
-        let (me_id, peer_id) = (me.peer_id(), peer.peer_id());
-        let like = |store: &mut dyapp_client::store::Store, sender: &str, target: &str, n: u8| {
-            let kind = Kind::Like;
-            let (event_id, hlc) = ([n; 16], u64::from(n) << 16);
-            let interaction = Interaction {
-                kind,
-                event_id,
-                hlc,
-            };
-            store
-                .apply_interaction(sender, target, &[n; 32], interaction)
-                .unwrap();
-        };
-        let counts = || {
-            let (rows, likes) = waiting(&dir, &me).unwrap();
-            (rows.len(), likes)
-        };
-        let mut store = crate::chats::open(&dir, &me).unwrap();
-        like(&mut store, &peer_id, &me_id, 1);
-        assert_eq!(counts(), (0, 1));
-        store.set_muted(&peer_id, true).unwrap();
-        assert_eq!(counts(), (0, 0));
-        like(&mut store, &me_id, &peer_id, 2);
-        assert_eq!(counts(), (0, 0));
-        store.set_muted(&peer_id, false).unwrap();
-        assert_eq!(counts(), (1, 0));
     }
 
     fn shown(mode: NoticeContent, state: Conversation) -> (String, String) {
