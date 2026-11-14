@@ -1,6 +1,7 @@
 package com.dyapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,11 +10,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.core.content.edit
 
 private const val LAN_PERMISSION_PREFS = "local-network-permission"
 private const val AUTO_REQUESTED = "auto-requested"
 
 /** OS adapter only: Rust retains all socket/address and network-selection policy. */
+// The permission name is an inlined string; required() keeps every use off pre-API-37 systems.
+@SuppressLint("InlinedApi")
 internal class LocalNetworkAccess(private val activity: ComponentActivity) {
     private val requests = NetworkPermissionRequests {
         required() &&
@@ -37,7 +41,7 @@ internal class LocalNetworkAccess(private val activity: ComponentActivity) {
     /** Restore existing active LAN profiles after target/OS upgrade, without repeated automatic prompts. */
     fun firstUnlock() {
         if (!required() || preferences.getBoolean(AUTO_REQUESTED, false)) return
-        preferences.edit().putBoolean(AUTO_REQUESTED, true).apply()
+        preferences.edit { putBoolean(AUTO_REQUESTED, true) }
         run {}
     }
 

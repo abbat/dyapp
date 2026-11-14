@@ -1,6 +1,7 @@
 package com.dyapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.platform.app.InstrumentationRegistry
@@ -87,6 +88,8 @@ class LocalNetworkPermissionPhaseTests {
         assertFalse("Permission phases reused a process", workerProcessMarker() == previous.getString("process"))
     }
 
+    // The permission is read only after the legacy lane returns, so only API 37 reaches it.
+    @SuppressLint("InlinedApi")
     private fun expectedAccess(phase: String): Boolean {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val required = localNetworkPermissionRequired(Build.VERSION.SDK_INT, context.applicationInfo.targetSdkVersion)

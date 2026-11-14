@@ -1,0 +1,14 @@
+// Lifecycle tests replace the debug APK without changing release versioning or rebuilding Rust.
+// Kept out of build.gradle: there this block hides its bundle settings from Android lint.
+androidComponents {
+    onVariants(selector().withBuildType('debug')) { variant ->
+        def upgradeVersion = providers.gradleProperty('dyapp.testUpgradeVersionCode')
+        if (upgradeVersion.isPresent()) {
+            def code = upgradeVersion.get().toInteger()
+            if (code <= android.defaultConfig.versionCode) {
+                throw new GradleException('Test upgrade versionCode must increase')
+            }
+            variant.outputs.each { output -> output.versionCode.set(code) }
+        }
+    }
+}
