@@ -516,8 +516,11 @@ actor/clock/event metadata are never offered as editable preferences. A separate
 signal also detects unknown/noncanonical pending wire data. Duplicate peer/like/pass keys are refused.
 `LinkStateReview.is_current` checks the same pending operation, absent import progress and current
 private bytes; it holds no keys or identity lease and authorizes no writes. Confirmation must revalidate
-under its writer with original-device admission. Owner choice validation, confirmation, protected-evidence
-merging and native/desktop adapters remain planned.
+under its writer with original-device admission. `select_preferences` requires one explicit Local/Pending
+source for every differing owner preference, rejects duplicate/unoffered choices and returns a frozen
+preview in core presentation order. It exposes selected values without historical actors/clocks/event IDs;
+a preview neither imports state nor resolves protected evidence or grants enrollment. Atomic confirmation,
+protected-evidence merging and native/desktop adapters remain planned.
 A standalone fresh-store import can replay its exact snapshot; a different source needs a new pending
 operation. A profile completion receipt or version offset never proves private-state import.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility

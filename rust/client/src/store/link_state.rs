@@ -113,7 +113,10 @@ mod pending;
 mod progress;
 #[path = "link_state/review.rs"]
 mod review;
-pub use review::{LinkPreference, LinkPreferenceDifference, LinkPreferenceValue, LinkStateReview};
+pub use review::{
+    LinkPreference, LinkPreferenceChoice, LinkPreferenceDifference, LinkPreferenceSelectionError,
+    LinkPreferenceSource, LinkPreferenceValue, LinkSelectedPreference, LinkStateReview,
+};
 #[cfg(test)]
 #[path = "link_state/tests.rs"]
 mod tests;

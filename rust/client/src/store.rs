@@ -24,7 +24,8 @@ mod likes;
 mod link_enrollment;
 mod link_state;
 pub use link_state::{
-    LinkPreference, LinkPreferenceDifference, LinkPreferenceValue, LinkStateReview,
+    LinkPreference, LinkPreferenceChoice, LinkPreferenceDifference, LinkPreferenceSelectionError,
+    LinkPreferenceSource, LinkPreferenceValue, LinkSelectedPreference, LinkStateReview,
 };
 mod mailbox_cursor;
 pub mod messages;

@@ -5,6 +5,13 @@ use prost::Message as _;
 use rusqlite::{Transaction, TransactionBehavior};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "review/selection.rs"]
+mod selection;
+pub use selection::{
+    LinkPreferenceChoice, LinkPreferenceSelectionError, LinkPreferenceSource,
+    LinkSelectedPreference,
+};
+
 /// Owner-controlled preference, never a trust observation or another person's event.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LinkPreference {
@@ -117,8 +124,8 @@ impl LinkStateReview {
         Ok(same)
     }
 
-    /// Compare owner values only. Future confirmation must validate all choices and context
-    /// under its writer and use real owner actions, never overwrite historical event metadata.
+    /// Compare owner values only. Future confirmation must validate choices, context and each
+    /// field's domain policy under its writer. A comparison never authorizes event-history changes.
     #[must_use]
     pub fn differences(&self) -> Vec<LinkPreferenceDifference> {
         let local = preferences(&self.local, &self.owner);
