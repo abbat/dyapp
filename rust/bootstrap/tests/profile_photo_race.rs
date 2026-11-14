@@ -98,7 +98,8 @@ impl Fixture {
                 }
                 (Status::Ok, Some(record))
             }
-            profile_request::Request::Publish(record) => {
+            profile_request::Request::Publish(record)
+            | profile_request::Request::ConditionalPublish(record) => {
                 if std::mem::take(&mut self.refuse_publish_once) {
                     return proto::ProfileResponse {
                         status: Status::Refused.into(),
@@ -107,6 +108,10 @@ impl Fixture {
                 }
                 if dyapp_profile::stored_version(&record).unwrap()
                     <= dyapp_profile::stored_version(&self.held).unwrap()
+                    || dyapp_profile::verify(&record)
+                        .unwrap()
+                        .check_condition(Some(&self.held))
+                        .is_err()
                 {
                     (Status::Stale, Some(self.held.clone()))
                 } else {
@@ -320,10 +325,10 @@ async fn race(publication: bool) {
         publish::refresh_photos(&store, &mut node, &identity, 100).await
     };
     if publication {
-        assert!(matches!(
-            result,
-            Err(publish::Failure::Node(Error::Status(Status::Stale)))
-        ));
+        assert!(
+            matches!(result, Err(publish::Failure::Missed)),
+            "a fenced publication must miss the newer profile: {result:?}"
+        );
     } else {
         assert!(
             result.is_ok(),
