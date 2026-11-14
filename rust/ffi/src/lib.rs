@@ -11,6 +11,8 @@ use zeroize::Zeroizing;
 mod android;
 mod chat_composer;
 pub use chat_composer::{chat_composer_policy, ChatComposerPolicy};
+mod chat_links;
+pub use chat_links::{chat_link_hosts, ChatLinkHost};
 mod chats;
 pub use chats::{
     chat_photo_hours_left, new_chat_state_key, ChatBlock, ChatDelivery, ChatForwardError,
