@@ -20,8 +20,8 @@ pub use chats::{
     ChatLikes, ChatMediaCache, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload,
     ChatRevocation, ChatRow, ChatSession, ChatState, ChatSticker, ChatStickerFrame, ChatSubmission,
     ContactNoteError, FavoriteError, SavedStickerFrame, SavedStickerPackEntry,
-    SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState, StickerPackSaveFailure,
-    StickerPackSaveState, StickerPackSaveStatus,
+    SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState, StickerPackSaveAction,
+    StickerPackSaveAttempt, StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,
 };
 mod link_review;
 pub use link_review::{

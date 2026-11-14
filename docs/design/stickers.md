@@ -240,7 +240,12 @@ current generation and retry deadline, without networking or peer capabilities. 
 return an owner-bound staging plan only after local publication admission. The plan revalidates
 selection and device listing against the admitted session, then queues the core MLS/outbox
 transaction without networking. Desktop delegates to this path. StopWaiting retires acceptance
-without recalling queued packets. Native action exports and their mobile UI are still planned.
+without recalling queued packets. Common `ChatSession.change_sticker_pack_request` projects typed
+Request/Retry/Fresh/StopWaiting actions into this path under the native session lease, without
+opening a second MLS session. Retry preserves the answer but rotates its generation. Its successful
+attempt contains either current status or an explicit unavailable projection; a later read failure
+never becomes an application failure or permission to blindly resubmit. Success is local application
+or no-op, not delivery. Mobile action UI remains planned.
 
 Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed
 PackID through core storage. It needs identity admission but no chat/media sealing key, matching
