@@ -65,7 +65,12 @@ locks, so they can run alongside admitted operations. Every acquisition opens it
 never upgrade a held lease to a mutation lock. The common native `MobileIdentityOperation`
 exposes an opaque key and verified slot; retaining the key alone does not retain the lease.
 Move the operation object into blocking workers and keep it until actual completion, including
-after UI cancellation. Installation-owned node work must run outside identity leases.
+after UI cancellation. Its `remove_saved_sticker_pack(pack_id)` delegates one explicitly
+confirmed selection to core storage without opening chat keys or requiring a media sealing
+secret; corrupt saved content remains removable. Missing files return false. Invalid PackIDs
+refuse before storage work. An error after unlink does not prove rollback: refresh the collection
+before deciding whether to retry. The operation retains its identity lease through completion;
+other packs, history and outbox are untouched. Installation-owned node work must run outside identity leases.
 Android's `NativeSlotKeys` implements the common credential callback with existing alias names
 and typed errors, using opaque keys. Its callback inputs release their native key handles after
 wrapping. Android's `Slots` now delegates lifecycle operations to this registry; Swift adoption

@@ -1,6 +1,7 @@
 //! Fixtures cross the exported registry and opaque-key callback boundary.
 
 mod chats;
+mod stickers;
 pub(crate) mod workers;
 
 use crate::{

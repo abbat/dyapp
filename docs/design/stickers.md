@@ -228,6 +228,10 @@ never receive its compressed WebP bytes. Common `import_sticker_pack` uses the s
 validator and sealed store as desktop and reports validated PackID plus new/already-readable
 success. `sticker_import_byte_limit` exports the parser's picked-file bound. Storage failure
 can occur after file publication; refresh the collection before deciding what to retry.
+Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed
+PackID through core storage. It needs identity admission but no chat/media sealing key, matching
+desktop recovery of unreadable packs. Missing is false; post-unlink failures require authoritative
+refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
 Mobile picker/collection wiring remains planned.
 
 ### Receive
