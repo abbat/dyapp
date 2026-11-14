@@ -280,7 +280,7 @@ const publishProfileOnLoopback = async (saved = false, fails = false, photos = 0
     throw new Error(`elapsed time not shown: ${byId('publish-elapsed').textContent}`);
   }
   await result;
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  if (!byId('publish-dialog').hidden) await closed(byId('publish-dialog'));
   if (!byId('publish-dialog').hidden) throw new Error('publish dialog stayed open');
   await smoke.shot(fails ? 'profile-publish-failed' : 'profile-published');
   if (byId('profile-open-network').hidden !== !fails) {
