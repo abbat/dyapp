@@ -36,12 +36,18 @@ PackageKey: TypeAlias = tuple[str, str, str | None]
 Packages: TypeAlias = dict[PackageKey, LockPackage]
 
 
+class ReproducedArtifact(TypedDict):
+    sha256: str
+    bytes: int
+
+
 class ReproducedBuild(TypedDict):
     directory: str
     log: str
     exit_code: int
     sha256: NotRequired[str]
     bytes: NotRequired[int]
+    artifacts: NotRequired[dict[str, ReproducedArtifact]]
 
 
 class ReproducibilityReport(TypedDict):
@@ -49,6 +55,10 @@ class ReproducibilityReport(TypedDict):
     revision: str | None
     rustc: str
     lock_sha256: str
+    image_id: NotRequired[str]
+    source_archive_sha256: NotRequired[str]
+    difference: NotRequired[str]
+    diffoscope: NotRequired[str]
     source_date_epoch: str | None
     builds: list[ReproducedBuild]
     errors: list[str]

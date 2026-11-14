@@ -18,7 +18,13 @@ mkdir -p "$reports"
 reports=$(cd "$reports" && pwd)
 export CARGO_NET_OFFLINE=true CARGO_INCREMENTAL=0 CARGO_TARGET_DIR="$root/build"
 cd "$root/clients/android"
-if sh ./gradlew --offline --no-daemon :app:assembleRelease :app:bundleRelease \
+gradle_args=(--offline --no-daemon)
+if [[ ${DYAPP_ANDROID_FRESH:-0} == 1 ]]; then
+    gradle_args+=(--rerun-tasks --no-build-cache --no-configuration-cache
+        --project-cache-dir "$root/build/gradle-project-cache" -Pkotlin.incremental=false)
+fi
+if python3 "$root/tools/scripts/android_release_environment.py" "$root" \
+    sh ./gradlew "${gradle_args[@]}" :app:assembleRelease :app:bundleRelease \
     > "$reports/build.log" 2>&1; then
     apk="$root/build/android/app/outputs/apk/release/app-release-unsigned.apk"
     aab="$root/build/android/app/outputs/bundle/release/app-release.aab"

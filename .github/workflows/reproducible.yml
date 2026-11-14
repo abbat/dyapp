@@ -80,3 +80,35 @@ jobs:
             build/artifact-size-*.json
             build/reproducible/**/build-*.log
           if-no-files-found: error
+
+  android:
+    name: release - android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      DYAPP_BUILD_CACHE: gha
+      DYAPP_CHECK_LOG_DIR: build/release-check-output
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: prepare dependencies
+        run: python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile release build android-release
+      # Only downloaded dependencies are reused; project/compiler outputs start empty.
+      - name: compare
+        run: python3 -B tests/scripts/check-reproducible.py android
+      - name: evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reproducible-android
+          path: |
+            build/release-check-output/
+            build/reproducible-android.json
+            build/reproducible/android-*/build-*.log
+            build/reproducible/android-*/difference.json
+            build/reproducible/android-*/diffoscope.*
+            build/reproducible/android-*/[12]/
+          if-no-files-found: error

@@ -52,6 +52,10 @@ def build_pair(
     revision: str | None = None,
     epoch: str | None = None,
 ) -> pc.ReproducibilityReport:
+    if target == "android":
+        from android_reproducible import build_pair as android_pair
+
+        return android_pair(directory, revision, epoch)
     manifest, binary, lock = TARGETS[target]
     directory.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix=f"{target}-", dir=directory))
@@ -138,7 +142,7 @@ def build_pair(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("target", choices=TARGETS)
+    parser.add_argument("target", choices=(*TARGETS, "android"))
     parser.add_argument(
         "--target-root", type=Path, default=ROOT / "build" / "reproducible"
     )

@@ -53,6 +53,26 @@ same-environment scope. Nightly runner results remain independently observable.
 Tests cover changed bytes, empty/missing files, a successful Cargo exit without
 the second executable, and a failed build with host-supplied Git metadata.
 
+The Android target runs on the host with the prepared `dyapp:android-test`
+image. It exports the committed Git tree, pins the image by immutable ID, and
+builds two copies in distinct source/output directories without network access.
+Each copy starts with an empty Cargo target and Gradle project/user caches;
+only the downloaded Gradle wrapper/modules and Cargo sources are reused.
+Gradle task/build/configuration caches and Kotlin incremental compilation are
+disabled. Release and comparison builds share epoch validation and compiler
+path remapping in `android_release_environment.py`.
+
+`check-reproducible.py android` validates APK/AAB structure and both native
+ABIs, then compares raw unsigned APK/AAB hashes and every packaged `.so`.
+It never strips signatures or normalizes ZIP metadata to conceal differences.
+The JSON report records the source archive digest, immutable image ID, compiler,
+commit/epoch, exit statuses and artifact hashes. Differences retain raw packages
+and ZIP entry metadata/payload hashes in `difference.json`; an already-installed
+diffoscope adds optional diagnostics. Reports/build logs and both packages are
+uploaded even on failure. Two actual clean Android builds and a green nightly
+run remain required release evidence; fixture tests alone do not establish
+Android reproducibility. D8 is exercised; R8 is currently disabled in Gradle.
+
 ## Artifact size budgets
 
 `tools/scripts/check-artifact-size.py <name> <file> --base <ancestor> --report <json>`
