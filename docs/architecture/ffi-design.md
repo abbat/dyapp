@@ -311,8 +311,12 @@ these typed states to its existing JSON; an unreadable pack retains failure plus
 is never silently new. Status can write reconciliation state and needs guarded mutable storage.
 Common `chat_sticker_pack_status` projects that core result as typed phase/failure,
 optional 16-byte generation and exact retry deadline under the native session lease. It performs
-no networking and never treats a lookup error as New or Saved. Native Save pack action exports
-remain planned.
+no networking and never treats a lookup error as New or Saved.
+Shared `sticker_requests::prepare` owns explicit action and generation admission: Retry/StopWaiting
+complete using storage only; Request/Fresh produce an owner-bound plan after local publication
+admission. Staging revalidates selection and the session's local device listing before the core
+MLS/outbox commit. Desktop opens MLS only for such a plan; native callers can reuse their admitted
+session. This is offline local commitment, not delivery. Native Save pack action exports remain planned.
 
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains

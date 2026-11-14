@@ -6,6 +6,8 @@ use crate::store::InboxKey;
 
 const SEAL: [u8; 32] = [5; 32];
 
+mod actions;
+
 fn read(f: &mut Fixture) -> Status {
     status(&mut f.store, &SEAL, &f.peer, &f.key).unwrap()
 }

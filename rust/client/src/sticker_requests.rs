@@ -108,7 +108,13 @@ pub enum Error {
     /// Saved-file reconciliation failed.
     #[error(transparent)]
     Pack(#[from] PackError),
-    /// The generation disappeared during status lookup.
+    /// Session restoration or queued control staging failed.
+    #[error(transparent)]
+    Session(#[from] crate::session::Error),
+    /// New control staging requires a published, locally listed device.
+    #[error("unpublished")]
+    Unpublished,
+    /// The generation disappeared or changed before the action.
     #[error("requestChanged")]
     RequestChanged,
 }
@@ -192,6 +198,9 @@ pub fn status(
         .ok_or(Error::RequestChanged)?;
     Ok(Status::from_download(&state, pending.token))
 }
+
+mod actions;
+pub use actions::{prepare, Action, Kind, Stage};
 
 #[cfg(test)]
 mod tests;

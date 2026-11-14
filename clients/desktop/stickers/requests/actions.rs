@@ -1,9 +1,6 @@
 //! Queue first; the common mailbox pass delivers requests even if this action runs offline.
-use super::{
-    chat, chats, owner_matches, status, IdentityState, PackDownloadJob, Selection, Status, Store,
-};
-use crate::profile;
-use dyapp_client::{session::Session, store::messages::ChatSticker};
+use super::{chats, owner_matches, pack_requests, status, IdentityState, Selection, Status, Store};
+use dyapp_client::session::Session;
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Deserialize)]
@@ -21,108 +18,32 @@ pub(crate) struct Action {
     generation: Option<[u8; 16]>,
 }
 
-fn current_job(
-    store: &Store,
-    selection: &Selection,
-    pack_id: [u8; 32],
-    expected: Option<[u8; 16]>,
-) -> Result<PackDownloadJob, String> {
-    let pending = store
-        .pending_sticker_pack(&selection.peer_id, &pack_id)
-        .map_err(|e| e.to_string())?
-        .ok_or("requestChanged")?;
-    if expected != Some(pending.token) {
-        return Err("requestChanged".into());
-    }
-    Ok(PackDownloadJob {
-        peer: selection.peer_id.clone(),
-        pack_id,
-        sticker_hash: pending.sticker_hash,
-        token: pending.token,
-    })
-}
 fn apply(
     mut store: Store,
     key: &[u8; 32],
     selection: &Selection,
     action: &Action,
 ) -> Result<(), String> {
-    let item = chat::selected(&store, selection)?;
-    if item.key.author != selection.peer_id {
-        return Err("unknownMessage".into());
-    }
-    let job = match action.kind {
-        Kind::Request => {
-            if action.generation.is_some() {
-                return Err("requestChanged".into());
-            }
-            // A second initial click must not enqueue another request or reset current intent.
-            if status(&mut store, key, selection)?.state != "new" {
-                return Ok(());
-            }
-            None
-        }
-        _ => Some(current_job(
-            &store,
-            selection,
-            item.sticker.pack_id,
-            action.generation,
-        )?),
+    let action = pack_requests::Action {
+        kind: match action.kind {
+            Kind::Request => pack_requests::Kind::Request,
+            Kind::Retry => pack_requests::Kind::Retry,
+            Kind::Fresh => pack_requests::Kind::Fresh,
+            Kind::StopWaiting => pack_requests::Kind::StopWaiting,
+        },
+        generation: action.generation,
     };
-    if let Some(job) = job.as_ref() {
-        match action.kind {
-            Kind::Retry => {
-                return store
-                    .retry_sticker_pack_download(job)
-                    .map_err(|e| e.to_string())?
-                    .map(|_| ())
-                    .ok_or_else(|| "requestChanged".into());
-            }
-            Kind::StopWaiting => {
-                return if store
-                    .finish_sticker_pack(&job.peer, &job.pack_id, &job.token)
-                    .map_err(|e| e.to_string())?
-                {
-                    Ok(())
-                } else {
-                    Err("requestChanged".into())
-                };
-            }
-            _ => {}
-        }
-    }
-    stage_request(store, key, selection, &item, job.as_ref())
-}
-
-fn stage_request(
-    store: Store,
-    key: &[u8; 32],
-    selection: &Selection,
-    item: &ChatSticker,
-    job: Option<&PackDownloadJob>,
-) -> Result<(), String> {
-    let own = profile::stored(&store)?;
-    if own.version == 0 {
-        return Err("unpublished".into());
-    }
-    let mut session = Session::open(store, key).map_err(|e| e.to_string())?;
-    if !own
-        .devices
-        .contains(&session.certificate().map_err(|e| e.to_string())?)
+    if let Some(stage) = pack_requests::prepare(
+        &mut store,
+        key,
+        &selection.peer_id,
+        &selection.key(),
+        action,
+    )
+    .map_err(|e| e.to_string())?
     {
-        return Err("unpublished".into());
-    }
-    match job {
-        Some(job) => {
-            session
-                .stage_fresh_sticker_pack_request(job, key)
-                .map_err(|e| e.to_string())?;
-        }
-        None => {
-            session
-                .stage_sticker_pack_request(&selection.peer_id, &item.key, key)
-                .map_err(|e| e.to_string())?;
-        }
+        let mut session = Session::open(store, key).map_err(|e| e.to_string())?;
+        stage.stage(&mut session, key).map_err(|e| e.to_string())?;
     }
     Ok(())
 }

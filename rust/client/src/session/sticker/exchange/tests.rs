@@ -1,4 +1,5 @@
 use super::*;
+mod actions;
 mod download;
 mod retry;
 mod worker;

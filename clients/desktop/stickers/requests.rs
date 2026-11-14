@@ -1,13 +1,7 @@
 //! Request status contains local intent metadata, never a peer attachment capability.
-use super::{
-    chat::{self, Selection},
-    local_store, owner_matches,
-};
+use super::{chat::Selection, local_store, owner_matches};
 use crate::{chats, IdentityState};
-use dyapp_client::{
-    sticker_requests as pack_requests,
-    store::{sticker_packs::exchange::download::PackDownloadJob, Store},
-};
+use dyapp_client::{sticker_requests as pack_requests, store::Store};
 use serde::Serialize;
 
 #[derive(Serialize)]
