@@ -8,15 +8,15 @@ use dyapp_client::store::messages::{MessageKey, VerifiedChatSender};
 use dyapp_client::store::{sticker_packs::exchange::download::PackDownloadFailure, InboxKey};
 use std::path::Path;
 
-struct Received {
-    native: Fixture,
-    peer: String,
-    key: MessageKey,
-    pack: dyapp_client::sticker_pack::Pack,
+pub(super) struct Received {
+    pub(super) native: Fixture,
+    pub(super) peer: String,
+    pub(super) key: MessageKey,
+    pub(super) pack: dyapp_client::sticker_pack::Pack,
 }
 
 impl Received {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let native = Fixture::new();
         let peer = establish(&native);
         let group = native
@@ -75,7 +75,7 @@ impl Received {
             .unwrap();
     }
 
-    fn request(&self) {
+    pub(super) fn request(&self) {
         self.native
             .chats
             .session
@@ -85,7 +85,7 @@ impl Received {
             .unwrap();
     }
 
-    fn answer(&self) -> bool {
+    pub(super) fn answer(&self) -> bool {
         let (mut descriptor, _) = dyapp_client::attachment::seal(&self.pack.encode()).unwrap();
         descriptor.release_secret = [0; 32];
         let sealed = self
@@ -123,7 +123,7 @@ impl Received {
             .unwrap()
     }
 
-    fn run(&self) -> u32 {
+    pub(super) fn run(&self) -> u32 {
         let mut session = self.native.chats.session.lock().unwrap();
         self.native
             .chats

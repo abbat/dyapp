@@ -42,6 +42,10 @@ pub use sticker_collection::{SavedStickerPackEntry, SavedStickerPackPage, SavedS
 mod sticker_import;
 pub use sticker_import::{sticker_import_byte_limit, SavedStickerPackImport};
 mod sticker_exchange;
+mod sticker_request_status;
+pub use sticker_request_status::{
+    StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,
+};
 mod sticker_original;
 pub use sticker_original::ChatStickerFrame;
 mod sticker_frame;
