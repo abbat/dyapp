@@ -245,7 +245,9 @@ Request/Retry/Fresh/StopWaiting actions into this path under the native session 
 opening a second MLS session. Retry preserves the answer but rotates its generation. Its successful
 attempt contains either current status or an explicit unavailable projection; a later read failure
 never becomes an application failure or permission to blindly resubmit. Success is local application
-or no-op, not delivery. Mobile action UI remains planned.
+or no-op, not delivery. Android has a non-UI real-node instrumentation scenario for native
+import/send, explicit pack save, authenticated collection/frame and resend with hidden controls.
+Its device execution remains release acceptance work; mobile action UI remains planned.
 
 Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed
 PackID through core storage. It needs identity admission but no chat/media sealing key, matching

@@ -519,20 +519,26 @@ fn bench_hybrid_clock_now(b: &mut Bencher) {
 
 ## Platform-Specific Tests
 
-The platform apps are empty shells that do not link the Rust core. Their suites check launch,
-ready-screen render, identity and close only. Details, test counts and report export:
+Platform suites include native-core integration and UI scenarios. Commands and report export:
 [UI testing](ui-testing.md).
+
+Android `NativeStickerExchangeTests` drives two isolated native identities through the suite-owned
+node without an Activity: sticker import/send, explicit pack save, authenticated frame/collection
+and resend. Completed mailbox passes drive readiness with a fresh deadline per transition; hidden
+controls must not add history rows. The test APK carries a deterministic USTAR fixture containing
+one manifest and the repository's lossless-alpha WebP seed. Compilation is not execution evidence;
+the existing native Android suite must run this scenario before release acceptance.
 
 | Platform | Command | Runs where |
 |----------|---------|------------|
 | Android unit (1 JUnit) | `make ui-test-android` | Docker, local + CI |
-| Android instrumented (5, API 31 emulator, no KVM) | `make ui-test-android-emulator` | Docker, local + CI |
+| Android instrumented (API 31 emulator, no KVM) | `make ui-test-android-emulator` | Docker, local + CI |
 | Linux (6 cargo tests + 7 Xvfb smoke cases) | `make ui-test-linux` | Docker, local + CI |
 | All three Docker suites | `make ui-test` | Docker |
 | iOS / macOS (1 XCTest + 5 XCUITest each) | none locally (`apple-test-in-ci.sh` exits 2 outside Actions) | CI, macos-15 |
 | Windows (4 cargo tests + 13 smoke cases) | `cargo test --manifest-path clients/windows/Cargo.toml --locked` | CI, windows-2022 |
 
-There are no GLib/ctest, .NET or FFI wrapper test suites.
+Native Rust wrapper tests run in the Cargo workspace suite; they do not replace platform execution.
 
 ## Deployment Checklist
 
