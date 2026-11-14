@@ -14,6 +14,8 @@ mod offline;
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]
 mod sticker_collection;
+#[path = "tests/sticker_exchange.rs"]
+mod sticker_exchange;
 #[path = "tests/sticker_frame.rs"]
 mod sticker_frame;
 #[path = "tests/sticker_import.rs"]

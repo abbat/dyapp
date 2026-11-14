@@ -1,9 +1,9 @@
 //! Existing native chat commands; registry admission lives in creation.
 
 use super::{
-    apply_mailbox, failed, likes_in, listed_own, own_profile, publish_failed, reads, refill_if_due,
-    ChatHistory, ChatLikeAttempt, ChatLikes, ChatMessage, ChatRow, ChatSession, ChatState,
-    ChatSubmission, KEY_PACKAGES,
+    failed, likes_in, listed_own, own_profile, publish_failed, reads, refill_if_due, ChatHistory,
+    ChatLikeAttempt, ChatLikes, ChatMessage, ChatRow, ChatSession, ChatState, ChatSubmission,
+    KEY_PACKAGES,
 };
 use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
@@ -290,14 +290,15 @@ impl ChatSession {
     }
 
     /// Resend the staged writes that are due, apply this device's mailbox and refill tokens when
-    /// due. Returns how many events changed a chat. An envelope from an owner the node has no
+    /// due. Completes authorized core pack answers/downloads and counts saved packs for refresh.
+    /// Returns chat-event and saved-pack changes. An envelope from an owner the node has no
     /// profile for waits in the mailbox for the next call. Errors are `notConnected` or a node
     /// or storage message.
     ///
     /// # Errors
     ///
     /// Returns an error if the session lock, own profile, clock, active network, staged-write retry
-    /// or mailbox processing fails. Token refill and photo renewal are best effort.
+    /// or mailbox/pack-job processing fails. Token refill and photo renewal are best effort.
     pub fn receive(&self) -> Result<u32, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
@@ -315,14 +316,7 @@ impl ChatSession {
                     .retry_due(std::slice::from_mut(&mut node), now_ms, &self.seal_key)
                     .await
                     .map_err(failed)?;
-                let changed = apply_mailbox(
-                    session,
-                    &mut node,
-                    own,
-                    &self.device_key.identity,
-                    &self.seal_key,
-                )
-                .await?;
+                let changed = self.receive_mailbox(session, &mut node, own).await?;
                 refill_if_due(session, &mut node, now.as_secs(), &self.seal_key).await?;
                 // Best effort like the refill, as on the desktop: once the first publish made a
                 // last-resort package it rotates or repeats, and the photo hold renews daily.
