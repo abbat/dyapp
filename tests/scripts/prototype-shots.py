@@ -351,8 +351,10 @@ CRITERIA = (
     Path(os.environ.get("DYAPP_AXE", "/opt/axe-core/axe.min.js")).read_text()
     + "\nconst smoke = {};\n"
     + Path("/assets/desktop/ui-tests/criteria.js").read_text()
+    + Path("/assets/desktop/ui-tests/criteria-popup.js").read_text()
     + Path("/assets/desktop/ui-tests/criteria-axe.js").read_text()
     + Path("/assets/desktop/ui-tests/criteria-text.js").read_text()
+    + "\nwindow.dyappPrototypeAudit = smoke;\n"
     if PLATFORM == "desktop"
     else ""
 )

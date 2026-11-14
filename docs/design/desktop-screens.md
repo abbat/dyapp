@@ -419,7 +419,7 @@ over a direct path.
 | Back | `chat-back` | |
 | Peer | `chat-profile` | Opens the found profile |
 | Presence | `chat-presence` | "Active recently" |
-| More | `chat-more` | Opens `chat-menu` |
+| More | `chat-more` | Opens `chat-menu`; complete labels wrap, above the sticky bar and below navigation/dialogs |
 | Name this contact | `chat-rename` | In the menu, opens `chat-rename-dialog` |
 | Clear chat | `chat-clear` | In the menu |
 | Mute notifications | `chat-mute` | In the menu, reads Unmute notifications while muted |

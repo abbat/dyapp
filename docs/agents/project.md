@@ -121,6 +121,10 @@ Desktop smoke scripts are embedded by `clients/desktop/ui-tests/mod.rs`; add a n
 that inventory and expose it through `smoke`. Native asset URLs serve production `ui/`, so an
 HTTP-only dynamic import of `../ui-tests/...` does not prove native smoke availability. Web
 unused checks deliberately validate imports against the shipped asset root.
+Shared accessibility helpers need both native `SCRIPTS` registration and prototype `CRITERIA`
+registration. Prototype-only calibration modules are imported by the Python keyboard-fixture
+runner, with a fresh completion deadline per case; its audit bridge is test-only.
+Bind DOM-node identity before asynchronous audit rechecks: the same selector may name a replacement.
 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile

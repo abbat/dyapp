@@ -781,12 +781,32 @@ Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.j
 New findings and stale entries fail. The baseline is intersected with every committed version,
 so it only shrinks, including manual CI runs; full Git history is required. Dialog and keyboard
 failures cannot be budgeted. `check-ui-criteria.py` validates each slice against its expected
-shots and the complete matrix. Contrast checks hide only paint behind an opaque native or
+shots and the complete matrix. Contrast checks isolate paint behind an opaque native or
 ARIA modal, preserving layout. Incomplete contrast for an unambiguously identified node is
 rechecked after scrolling it into view and paint completion; only an affirmative pass removes
 the incomplete result, and a confirmed failure remains a violation. Unresolvable targets stay
-incomplete. The audit restores page scroll and focus, and good/poor scrolled-text fixtures
-check both contrast decisions and restoration. The existing L2/I1 measurement stays in the frozen normal-text
+incomplete. Follow-up measurements retain the original DOM-node reference; replacing a node
+with another under the same selector cannot clear its earlier result. The audit restores page
+scroll and focus, and good/poor scrolled-text fixtures check both contrast decisions and restoration.
+
+Visible out-of-flow opaque menus use separate paint contexts for the foreground and covered
+background. Original violations remain. An incomplete contrast result changes only after a
+positive measurement of the same unique DOM node. Foreground isolation requires an unchanged
+in-viewport popup with plain ancestors and no possible higher paint. Covered-background rechecks
+require actual text ranges intersecting the menu body and expose that layer as when the menu
+is dismissed; shadow-only or otherwise uncovered targets keep their original context. Clipped,
+translucent or potentially covered menus are not eligible. Text clipping still measures menu
+content and viewport bounds. A temporary fixed position removes a valid popup's contribution to
+ancestor scroll bounds only when every descendant rectangle remains identical; all styles,
+priorities and scrolling are restored even on errors.
+
+Sixteen independent popup calibration cases cover readable layers, poor foreground/background,
+application-bar ordering, higher overlays with both pointer policies, translucency, clipping
+ancestors, viewport overflow, real label clipping, measurement/pinning/paint errors, declaration
+priority, uncovered targets and same-selector node replacement. Each case runs through its own
+keyboard-fixture completion callback and fresh failure deadline. Style restoration compares
+declared properties, values and priorities instead of empty-attribute serialization.
+The existing L2/I1 measurement stays in the frozen normal-text
 English/Russian 440/1280 light matrix and is checked through `layout.json` and `[layout]`.
 
 The frozen matrix also walks real GDK Tab/Shift+Tab events in DOM order and uses arrow keys

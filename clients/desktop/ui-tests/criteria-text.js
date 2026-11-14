@@ -46,26 +46,29 @@ smoke.textClipping = () => {
   const elements = modal
     ? [modal, ...modal.querySelectorAll('*')]
     : document.querySelectorAll('body *');
-  for (const element of elements) {
-    if (
-      !visible(element) ||
-      !element.textContent.trim() ||
-      !element.clientWidth ||
-      !element.clientHeight
-    )
-      continue;
-    const style = getComputedStyle(element);
-    const x = element.scrollWidth > element.clientWidth && !/^(auto|scroll)$/.test(style.overflowX);
-    const y =
-      element.scrollHeight > element.clientHeight && !/^(auto|scroll)$/.test(style.overflowY);
-    if (x || y)
-      found.push({
-        rule: 'T1:clipping',
-        element: name(element),
-        detail: `${element.scrollWidth}x${element.scrollHeight}px content in ${element.clientWidth}x${element.clientHeight}px box`,
-      });
-  }
-  return found;
+  return smoke.withPopupGeometry(() => {
+    for (const element of elements) {
+      if (
+        !visible(element) ||
+        !element.textContent.trim() ||
+        !element.clientWidth ||
+        !element.clientHeight
+      )
+        continue;
+      const style = getComputedStyle(element);
+      const x =
+        element.scrollWidth > element.clientWidth && !/^(auto|scroll)$/.test(style.overflowX);
+      const y =
+        element.scrollHeight > element.clientHeight && !/^(auto|scroll)$/.test(style.overflowY);
+      if (x || y)
+        found.push({
+          rule: 'T1:clipping',
+          element: name(element),
+          detail: `${element.scrollWidth}x${element.scrollHeight}px content in ${element.clientWidth}x${element.clientHeight}px box`,
+        });
+    }
+    return found;
+  });
 };
 const clippingModalSelfCheck = (background, host, kind) => {
   const previous = document.activeElement;

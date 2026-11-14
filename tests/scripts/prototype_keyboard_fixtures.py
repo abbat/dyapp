@@ -30,6 +30,27 @@ class KeyboardFixtures:
                 ("escape", "Escape did not close/restore focus"),
                 ("rename-initial", ""),
                 *[
+                    (f"popup:{name}", "")
+                    for name in (
+                        "baseline",
+                        "foreground",
+                        "background",
+                        "layer",
+                        "higher-auto",
+                        "higher-none",
+                        "translucent",
+                        "clipped",
+                        "outside",
+                        "label-clipping",
+                        "measurement-error",
+                        "pin-error",
+                        "priority",
+                        "paint-error",
+                        "uncovered-target",
+                        "replaced-target",
+                    )
+                ],
+                *[
                     (f"collection:{name}:{outcome}", "")
                     for name in ("identities", "devices", "blocked", "passed")
                     for outcome in ("resolve", "reject")
@@ -53,6 +74,17 @@ class KeyboardFixtures:
             self.finish([])
             return
         mode, self.expected = self.cases.popleft()
+        if mode.startswith("popup:"):
+            name = mode.split(":", 1)[1]
+            self.evaluate(
+                "await (await import(new URL("
+                "'/desktop/ui-tests/prototype-popups.js', "
+                "location.href).href))"
+                ".runPopupCase(window.dyappPrototypeAudit, "
+                f"{json.dumps(name)})",
+                self.start,
+            )
+            return
         if mode == "rename-initial":
             self.evaluate("await keys.checkRenameInitialFocus()", self.start)
             return

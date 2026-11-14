@@ -723,10 +723,12 @@ details > summary {
   right: 0;
   left: auto;
   width: 220px;
-  z-index: 5;
+  /* Above the sticky bar (6), below navigation scrim (9) and dialogs (20). */
+  z-index: 7;
   margin: 0;
 }
 .chat-head .menu .nav {
+  overflow-wrap: anywhere;
   justify-content: flex-start;
 }
 .sticker-grid {

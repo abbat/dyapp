@@ -94,28 +94,106 @@ const contrastAtReadablePosition = async (element, options) => {
     await paintReady();
   }
 };
-const resolveScrollableContrast = async (result, options) => {
+const contrastTargets = (result) =>
+  new Map(
+    (result.incomplete.find((rule) => rule.id === 'color-contrast')?.nodes || []).map((node) => [
+      node,
+      { node, element: contrastElement(node) },
+    ]),
+  );
+const currentContrastTarget = (target) =>
+  target?.element?.isConnected && contrastElement(target.node) === target.element;
+const confirmContrast = (result, review, target, checked) => {
+  if (!currentContrastTarget(target)) return;
+  const { node, element } = target;
+  const matching = (rule) =>
+    rule?.nodes.find((candidate) => contrastElement(candidate) === element);
+  const violation = checked.violations.find((rule) => rule.id === 'color-contrast');
+  const failed = matching(violation);
+  const passing = checked.passes.find((rule) => rule.id === 'color-contrast');
+  const passed = matching(passing);
+  if (!failed && !passed) return;
+  review.nodes = review.nodes.filter((candidate) => candidate !== node);
+  const collection = failed ? result.violations : result.passes;
+  let confirmed = collection.find((rule) => rule.id === 'color-contrast');
+  if (!confirmed) {
+    confirmed = { ...(failed ? violation : passing), nodes: [] };
+    collection.push(confirmed);
+  }
+  confirmed.nodes.push({ ...(failed || passed), target: node.target });
+};
+const resolveScrollableContrast = async (result, options, targets) => {
   const review = result.incomplete.find((rule) => rule.id === 'color-contrast');
   if (!review) return result;
   for (const node of [...review.nodes]) {
-    const element = contrastElement(node);
-    if (!element) continue;
-    const checked = await contrastAtReadablePosition(element, options);
-    const matching = (rule) =>
-      rule?.nodes.find((candidate) => contrastElement(candidate) === element);
-    const violation = checked.violations.find((rule) => rule.id === 'color-contrast');
-    const failed = matching(violation);
-    const passing = checked.passes.find((rule) => rule.id === 'color-contrast');
-    const passed = matching(passing);
-    if (!failed && !passed) continue;
-    review.nodes = review.nodes.filter((candidate) => candidate !== node);
-    const collection = failed ? result.violations : result.passes;
-    let confirmed = collection.find((rule) => rule.id === 'color-contrast');
-    if (!confirmed) {
-      confirmed = { ...(failed ? violation : passing), nodes: [] };
-      collection.push(confirmed);
+    const target = targets.get(node);
+    if (currentContrastTarget(target))
+      confirmContrast(
+        result,
+        review,
+        target,
+        await contrastAtReadablePosition(target.element, options),
+      );
+  }
+  return result;
+};
+const popupForegroundContrast = async (menu, options) => {
+  const hidden = [];
+  try {
+    for (const child of coveredModalBranches(menu)) {
+      hidden.push([
+        child,
+        child.style.getPropertyValue('visibility'),
+        child.style.getPropertyPriority('visibility'),
+        child.hasAttribute('style'),
+      ]);
+      child.style.setProperty('visibility', 'hidden', 'important');
     }
-    confirmed.nodes.push({ ...(failed || passed), target: node.target });
+    await paintReady();
+    return await window.axe.run(menu, options);
+  } finally {
+    restoreVisibility(hidden);
+    await paintReady();
+  }
+};
+const popupBackgroundContrast = async (menu, options) => {
+  const saved = menu.getAttribute('style');
+  try {
+    menu.style.setProperty('opacity', '0', 'important');
+    menu.style.setProperty('pointer-events', 'none', 'important');
+    await paintReady();
+    return await window.axe.run(document, options);
+  } finally {
+    if (saved === null) menu.removeAttribute('style');
+    else menu.setAttribute('style', saved);
+    await paintReady();
+  }
+};
+const resolvePopupContrast = async (result, options, targets) => {
+  const review = result.incomplete.find((rule) => rule.id === 'color-contrast');
+  if (!review) return result;
+  for (const menu of smoke.popupMenus()) {
+    if (!smoke.popupPaintEligible(menu)) continue;
+    const inside = [...review.nodes]
+      .map((node) => targets.get(node))
+      .filter((target) => currentContrastTarget(target) && menu.contains(target.element));
+    if (inside.length) {
+      const checked = await popupForegroundContrast(menu, options);
+      for (const target of inside) confirmContrast(result, review, target, checked);
+    }
+    const outside = [...review.nodes]
+      .map((node) => targets.get(node))
+      .filter(
+        (target) =>
+          currentContrastTarget(target) &&
+          !menu.contains(target.element) &&
+          smoke.popupCoversText(menu, target.element) &&
+          target.node.any.some((check) => check.data?.messageKey === 'bgOverlap'),
+      );
+    if (outside.length) {
+      const checked = await popupBackgroundContrast(menu, options);
+      for (const target of outside) confirmContrast(result, review, target, checked);
+    }
   }
   return result;
 };
@@ -146,7 +224,10 @@ const runAccessibilityAudit = async () => {
   }
   try {
     await paintReady();
-    return await resolveScrollableContrast(await window.axe.run(document, options), options);
+    const result = await window.axe.run(document, options);
+    const targets = contrastTargets(result);
+    await resolvePopupContrast(result, options, targets);
+    return await resolveScrollableContrast(result, options, targets);
   } finally {
     restoreVisibility(hidden);
     await restorePosition();
