@@ -4,6 +4,7 @@
 //! [`scores`] ranks nodes by the faults the client saw; [`compatibility`] compares verified
 //! public profiles locally; [`places`] names and finds profile places.
 
+pub mod app_lock;
 pub mod attachment;
 pub mod cancellation;
 pub mod chat;

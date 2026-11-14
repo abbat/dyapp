@@ -1225,6 +1225,7 @@ name = "dyapp-client"
 version = "0.0.1"
 dependencies = [
  "aes-gcm",
+ "argon2",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
@@ -1240,6 +1241,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror 2.0.21",
  "tokio",
  "unicode-segmentation",
@@ -1251,7 +1253,6 @@ dependencies = [
 name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
- "argon2",
  "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
@@ -1264,7 +1265,6 @@ dependencies = [
  "libp2p",
  "ndk-context",
  "prost",
- "subtle",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

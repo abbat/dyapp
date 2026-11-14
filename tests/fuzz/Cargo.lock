@@ -1177,11 +1177,13 @@ name = "dyapp-client"
 version = "0.0.1"
 dependencies = [
  "aes-gcm",
+ "argon2",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
  "dyapp-profile",
  "getrandom 0.4.3",
+ "idna",
  "image",
  "image-webp",
  "jpeg-decoder",
@@ -1191,9 +1193,11 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror 2.0.21",
  "tokio",
  "unicode-segmentation",
+ "url",
  "zeroize",
 ]
 
@@ -1201,7 +1205,6 @@ dependencies = [
 name = "dyapp-ffi"
 version = "0.0.1"
 dependencies = [
- "argon2",
  "dyapp-client",
  "dyapp-identity",
  "dyapp-messaging",
@@ -1213,7 +1216,6 @@ dependencies = [
  "jni-sys",
  "ndk-context",
  "prost",
- "subtle",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

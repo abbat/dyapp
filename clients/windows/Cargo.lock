@@ -1501,6 +1501,7 @@ name = "dyapp-client"
 version = "0.0.1"
 dependencies = [
  "aes-gcm",
+ "argon2",
  "dyapp-identity",
  "dyapp-messaging",
  "dyapp-p2p-net",
@@ -1516,6 +1517,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror 2.0.21",
  "tokio",
  "unicode-segmentation",

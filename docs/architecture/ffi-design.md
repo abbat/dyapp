@@ -1015,7 +1015,13 @@ from foreign code. Rust turns it, and anything else the app throws, into
 The boundary is **not** secure today; see
 [Encryption & Security Status](../security/encryption.md).
 
-- The app-lock PIN crosses FFI as plaintext in a UniFFI string. Rust zeroizes its owned copy after each hash or verify call and never logs it, but UI and UniFFI temporary copies are platform-owned. The app must clear its input, protect the 49-byte verifier record, and enforce the five-attempt device-credential gate; the FFI helper does not store state.
+- The app-lock PIN crosses FFI as plaintext in a UniFFI string. The native helpers delegate PIN
+  validation, the version-1 49-byte verifier, Argon2id parameters and constant-time comparison to
+  `dyapp_client::app_lock::pin`. Rust zeroizes owned PINs and computed tags; native verification
+  also zeroizes its owned verifier buffer. UI and UniFFI temporary copies remain platform-owned.
+  The app must clear its input, protect the verifier, and currently enforce the five-attempt
+  device-credential gate. Moving the attempt state machine and the existing Android/iOS outer
+  storage-record formats into core is planned; this verifier API does not store state.
 - **Plaintext crosses FFI by necessity.** The UI owns what the user types and
   what is displayed, so message text and profile values always pass in
   plaintext (`send_message(peer_id, text)`, `update_field`). The target is that

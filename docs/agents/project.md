@@ -39,7 +39,9 @@ an existing writer instead of nesting another public transaction.
 The root Cargo lockfile does not cover the three excluded native desktop crates. A shared path
 crate's dependency change also needs its edges resolved in Linux, Windows and macOS lockfiles;
 keep unrelated dependency edges unchanged as well as package versions, then validate each manifest
-with `cargo metadata --locked --offline`. A targeted Cargo update can otherwise rewire old edges.
+with `cargo metadata --locked --offline` or `cargo tree --locked --offline --depth 0` (metadata
+with `--no-deps` does not resolve/validate the lock graph). A targeted Cargo update can otherwise
+rewire old edges. Check the fuzz workspace too when it depends on the changed crate.
 
 A core `ChatItem` variant needs matching Desktop and UniFFI history conversions. Android's
 `ChatThreadItem` is exhaustive over the generated enum; update it with the API. Keep media keys,
