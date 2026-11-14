@@ -222,7 +222,9 @@ with the committed logical ID. Selection refusals stage no chat message; an uplo
 can retain its core reservation. Common `saved_sticker_packs` exposes core-bounded metadata
 pages and exclusive cursors, with actual encrypted-byte accounting and unreadable entry states.
 It preserves invalid files and never returns compressed media or trusted labels for unreadable
-entries. Mobile picker/collection wiring remains planned.
+entries. Common `saved_sticker_frame` returns one authenticated entry as bounded core-decoded
+RGBA8 with its actual dimensions, manifest index, emoji and content hash. Mobile OS decoders
+never receive its compressed WebP bytes. Mobile picker/collection wiring remains planned.
 
 ### Receive
 
