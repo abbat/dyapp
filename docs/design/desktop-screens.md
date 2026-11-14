@@ -444,9 +444,10 @@ Sending a photo keeps the text draft on success, queued delivery and refusal.
 A reply from a superseded chat/identity cannot change the current composer's draft
 or status; opening a different peer clears the old draft as usual.
 
-`chat-clear-dialog` confirms Clear chat: contact name and full Peer ID precede the consequence.
-Messages/originals are removed from this computer only, the peer keeps theirs, cleared messages
-do not return, and unsent messages and pending pack requests are cancelled. Saved packs stay
+`chat-clear-dialog` confirms Clear chat: contact name and full Peer ID precede the consequences.
+Separate localized paragraphs explain local removal/the peer's copy and cancellation/saved packs;
+the later-message warning follows them. Messages/originals are removed from this computer only,
+the peer keeps theirs, cleared messages do not return, and unsent messages and pending pack requests are cancelled. Saved packs stay
 ([contract](message-edits-and-deletion.md#clearing-a-conversation)). `chat-cleared`: the
 same chat, empty, with a note; the match and the chat row stay.
 

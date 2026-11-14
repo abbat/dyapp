@@ -1,8 +1,6 @@
 {
   "reason": "Existing prototype accessibility and reflow findings; new violations and stale entries fail. Dialog and keyboard violations cannot be budgeted.",
   "findings": [
-    "chat-clear-dialog--dark--text200-ru-320 axe-review:color-contrast [\"p[data-t=\\\"clear.text\\\"]\"]",
-    "chat-clear-dialog--text200-ru-320 axe-review:color-contrast [\"p[data-t=\\\"clear.text\\\"]\"]",
     "link-done--dark--text200-en-320 T1:clipping html>body:nth-child(2)>main:nth-child(3)",
     "link-done--dark--text200-en-320 T1:horizontal-scroll html",
     "link-done--dark--text200-ru-320 T1:clipping html>body:nth-child(2)>main:nth-child(3)",

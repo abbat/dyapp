@@ -22,6 +22,15 @@
       warning.textContent === appApi.strings['chats.clearWarning'],
       'Clear warning is not localized',
     );
+    const pending = get('dialog').querySelector('[data-i18n="chats.clearPendingWarning"]');
+    check(
+      pending.textContent === appApi.strings['chats.clearPendingWarning'],
+      'Clear pending consequence is not localized',
+    );
+    check(
+      warning.compareDocumentPosition(pending) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'Clear pending consequence precedes local removal',
+    );
     check(
       get('name').compareDocumentPosition(get('peer')) & Node.DOCUMENT_POSITION_FOLLOWING,
       'Clear ID precedes target name',

@@ -337,7 +337,9 @@
   const assertClearChatClearChatConfirmationMissing = () => {
     if (
       !appBindings.clearDialog.open ||
-      !appBindings.clearDialog.textContent.includes(appApi.strings['chats.clearWarning'])
+      !['chats.clearWarning', 'chats.clearPendingWarning'].every((key) =>
+        appBindings.clearDialog.textContent.includes(appApi.strings[key]),
+      )
     ) {
       throw new Error('Clear chat confirmation missing');
     }

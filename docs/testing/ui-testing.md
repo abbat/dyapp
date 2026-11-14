@@ -81,6 +81,12 @@ Desktop foundation smoke renders all six core chat-preview kinds with and withou
 forwarded label. It supplies deliberately different legacy message text/time and requires the
 core payload and timestamp, unchanged history data, no visual ellipsis and the original opening
 callback. These cases are embedded in the native smoke inventory.
+Clear confirmation checks require both localized consequence paragraphs in order after the target,
+while retaining Cancel's initial focus, return to opener and cleanup checks.
+Android prototype geometry probes use WebKit text-only zoom for fixed-pixel typography and verify
+that actual glyph lines enlarge while the viewport stays fixed; changing the root font size alone
+is insufficient. Check text against its own layout block as well as the viewport and clipping
+ancestors: a visible word can still escape its dialog surface.
 Prototype first-message and received-request variants also audit the complete short Peer ID
 and notice action labels at narrow widths and enlarged text. Their header reflow must preserve
 ordinary chat, list, menu and dialog neighbors; existing request smoke retains the text-reply,

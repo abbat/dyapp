@@ -143,7 +143,9 @@ const STRINGS = {
     'clear.title': 'Clear this chat?',
     'clear.peer': 'Peer ID',
     'clear.text':
-      'Messages and their kept originals will be removed from this computer only. The other person keeps their copy. Unsent messages and pending sticker-pack requests are cancelled. Saved packs stay.',
+      'Messages and their kept originals will be removed from this computer only. The other person keeps their copy.',
+    'clear.pending':
+      'Unsent messages and pending sticker-pack requests are cancelled. Saved packs stay.',
     'clear.later': 'Cleared messages do not come back, even if delivered again. The match stays.',
     'clear.action': 'Clear chat',
     'chat.request.m1': 'Hello! Your profile caught my eye. Do you like jazz?',
@@ -580,7 +582,9 @@ const STRINGS = {
     'clear.title': 'Очистить переписку?',
     'clear.peer': 'Идентификатор собеседника',
     'clear.text':
-      'Сообщения и сохранённые оригиналы удалятся только с этого компьютера. У собеседника останется копия. Неотправленные сообщения и незавершённые запросы стикерпаков будут отменены. Сохранённые наборы останутся.',
+      'Сообщения и сохранённые оригиналы удалятся только с этого компьютера. У собеседника останется копия.',
+    'clear.pending':
+      'Неотправленные сообщения и незавершённые запросы стикерпаков будут отменены. Сохранённые наборы останутся.',
     'clear.later':
       'Очищенные сообщения не вернутся, даже если придут повторно. Взаимная симпатия остаётся.',
     'clear.action': 'Очистить',

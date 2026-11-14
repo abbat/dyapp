@@ -505,6 +505,7 @@ pre {
 .dialog h2 {
   font: 400 24px / 32px var(--font);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 .sheet {
   width: 100%;
@@ -537,6 +538,7 @@ pre {
 }
 .backbar .peer {
   flex: 1;
+  min-width: 0;
   min-height: 56px;
   padding: 0;
   gap: 12px;

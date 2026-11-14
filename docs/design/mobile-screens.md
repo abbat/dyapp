@@ -206,6 +206,10 @@ first and returns to the first section, as any activity relaunch does.
   `chat-profile`, `chat-first-notice`, `chat-closed-notice`, `chat-request-notice`, `chat-thread`,
   `chat-input` and `chat-send`, plus `chat-more` with `chat-rename`, `chat-clear`, `chat-mute` and
   `chat-block`, `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear.
+  The static Android prototype uses the shared desktop catalogue: `clear.text` explains local
+  removal and the peer's copy; `clear.pending` explains cancellation and saved packs, before
+  the unchanged `clear.later` warning. Dialog titles wrap long words at enlarged text sizes;
+  the chat header lets the contact shrink so its navigation controls stay inside the viewport.
   `chat-rename` opens `chat-rename-dialog`: `chat-rename-input` starts from the local name, an
   empty one removes it, `chat-rename-save` saves and every row and the header read it again,
   `chat-rename-cancel` closes, and a line in the dialog says why a name was refused. A request hides
