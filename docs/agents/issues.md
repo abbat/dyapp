@@ -23,7 +23,10 @@ keep their labels.
 - `security` when the report is about a vulnerability or data exposure.
 - Remove `triage` once the kind and platforms are set and the reply is posted.
 
-`scheduled` is the maintainer's decision; do not set it.
+`scheduled` and `testing` are the maintainer's; do not set them. Dependabot sets `dependencies`
+and the ecosystem label (`rust`, `java`, `github_actions`) on its pull requests; leave them.
+Close a duplicate or a declined issue with GitHub's close reason (`duplicate`, `not planned`),
+not a label.
 
 ## Language
 
