@@ -36,6 +36,7 @@ case "$mode" in
         set_permission revoke
         phase revoked
         set_permission grant
+        phase cleanup
         ;;
     *) echo "Unknown local-network permission mode: $mode" >&2; exit 2 ;;
 esac

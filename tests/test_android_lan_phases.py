@@ -105,6 +105,7 @@ class AndroidLanPhases(unittest.TestCase):
                 "revoke",
                 "revoked",
                 "grant",
+                "cleanup",
             ],
         )
 
@@ -114,6 +115,13 @@ class AndroidLanPhases(unittest.TestCase):
         code, events = self.run_phase("modern", fail="denied")
         self.assertNotEqual(code, 0)
         self.assertEqual(events, ["grant", "granted", "revoke", "denied"])
+
+    def test_cleanup_failure_is_not_reported_as_a_passing_sequence(
+        self,
+    ) -> None:
+        code, events = self.run_phase("modern", fail="cleanup")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(events[-2:], ["grant", "cleanup"])
 
     def test_unknown_mode_never_contacts_a_device(self) -> None:
         code, events = self.run_phase("unknown")

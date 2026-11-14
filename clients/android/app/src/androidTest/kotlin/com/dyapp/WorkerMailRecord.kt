@@ -45,7 +45,7 @@ internal class WorkerMailRecord(
 }
 
 // Boot count separates reboots; the start timestamp also protects against same-boot PID reuse.
-private fun workerProcessMarker(): String {
+internal fun workerProcessMarker(): String {
     val resolver = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver
     val boot = Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT)
     return "$boot:${Process.myPid()}:${Process.getStartElapsedRealtime()}"

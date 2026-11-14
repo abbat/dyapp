@@ -112,7 +112,12 @@ planned. Host SDK compilation does not execute them.
 The ordinary API 31 runner explicitly executes its `legacy` phase before the UI suite. The helper
 `android-lan-permission-phases.sh modern` brackets separate instrumentation processes with shell
 permission grant/revoke, checking granted, denied, regranted and revoked states against an owned LAN
-node. Revocation must happen outside instrumentation because the OS can terminate the app process.
+node. The first granted phase activates one retained native identity in an isolated
+`noBackupFilesDir` registry. Later phases verify its slot/Peer ID and reopen its exact saved active
+settings, without reactivating or replacing them. An atomic public checkpoint requires the preceding
+phase, the same fixture address and a different boot/PID/process-start marker. The final granted
+cleanup removes only that fixture and restores its prior inventory through the native registry.
+Revocation must happen outside instrumentation because the OS can terminate the app process.
 Successful connections use native readiness; refusal is checked from the completed native result,
 not elapsed time. Each invocation has its own failure deadline and retained report; a failed JUnit
 report stops the sequence even when adb exits zero. Without a requested phase the class is skipped.
