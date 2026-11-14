@@ -505,8 +505,11 @@ applied retries leave later local/synchronized changes untouched, including afte
 Final pending completion clears only its own exact applied prefix and import phase under the writer,
 retaining the linked-device marker. A replaced or unapplied pending operation returns `LinkStateChanged`
 without clearing the new link.
-An old pending row without a phase returns `LinkStateReviewRequired` before import, preserving both
-snapshots and credentials; explicit recovery for this legacy private-state conflict remains planned.
+An old pending row without a phase can record applied progress without replay only when its raw bytes
+exactly match the current canonical ordered private snapshot under the writer. This comparison includes
+visibility, trust observations and actor/HLC metadata; unknown wire fields also prevent admission.
+Any difference returns `LinkStateReviewRequired`, preserving both snapshots and credentials; explicit
+owner comparison/choices for differing legacy private state remain planned.
 A standalone fresh-store import can replay its exact snapshot; a different source needs a new pending
 operation. A profile completion receipt or version offset never proves private-state import.
 Own publication and import atomically store a format-1 `profile_completion_receipt`: one visibility

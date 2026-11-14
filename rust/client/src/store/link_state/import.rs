@@ -7,6 +7,8 @@ impl Store {
     /// Restore a fresh linked-device snapshot, or replay its exact completed import without writes.
     /// A pending link must match the supplied bytes and its recorded initial/applied phase.
     /// Local and synchronized changes after a successful import are retained across retries.
+    /// Legacy pending state without progress is admitted only when its exact bytes already match
+    /// the current snapshot; this records progress without replaying private writes.
     ///
     /// # Errors
     /// Returns invalid/corrupt state or progress, mismatched pending bytes, unsupported legacy
@@ -21,7 +23,9 @@ impl Store {
         }
         let phase = progress::read(&self.db, bytes)?;
         if pending.is_some() && phase.is_none() {
-            return Err(Error::LinkStateReviewRequired);
+            self.complete_identical_legacy_import(bytes)?;
+            transaction.commit()?;
+            return Ok(());
         }
         if phase == Some(true) {
             transaction.commit()?;
@@ -38,6 +42,15 @@ impl Store {
         progress::save(&self.db, bytes, true)?;
         transaction.commit()?;
         Ok(())
+    }
+    // Caller holds the pending/import writer. Exact current bytes prove that recording completion
+    // cannot replace any private value. Unknown wire fields, trust observations and clock metadata
+    // remain significant; visible preference equality alone does not admit recovery.
+    fn complete_identical_legacy_import(&self, bytes: &[u8]) -> Result<(), Error> {
+        if bytes != self.link_state_in_snapshot()? {
+            return Err(Error::LinkStateReviewRequired);
+        }
+        progress::save(&self.db, bytes, true)
     }
 }
 

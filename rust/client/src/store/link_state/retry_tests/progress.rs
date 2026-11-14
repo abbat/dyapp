@@ -185,6 +185,85 @@ fn malformed_progress_is_refused_before_any_prefix_write() {
     }
 }
 
+fn legacy_pending(store: &Store, state: &[u8]) {
+    store
+        .db
+        .execute(
+            "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)",
+            rusqlite::params![PENDING, state],
+        )
+        .unwrap();
+}
+
+#[test]
+fn identical_legacy_snapshot_records_progress_without_replaying_private_writes() {
+    let identity = Identity::from_secret(&[7; 32]);
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    private_choices(&store, false, 2_000);
+    let state = store.link_state().unwrap();
+    legacy_pending(&store, &state);
+    store
+        .db
+        .execute_batch(
+            "CREATE TEMP TRIGGER `refuse_peer_replay` BEFORE INSERT ON `peers`
+         WHEN NOT EXISTS (SELECT 1 FROM `settings` WHERE `key` = 'link_state_import')
+         BEGIN SELECT RAISE(ABORT, 'private replay refused'); END;",
+        )
+        .unwrap();
+    let writes = store.db.total_changes();
+    store.import_link_state(&state).unwrap();
+    // Only the applied-progress row is written, even when every private value is unchanged.
+    assert_eq!(store.db.total_changes() - writes, 1);
+    assert_eq!(store.link_state().unwrap(), state);
+    assert_eq!(progress::read(&store.db, &state).unwrap(), Some(true));
+    assert_eq!(store.link_pending().unwrap(), Some(state.clone()));
+    private_choices(&store, true, 3_000);
+    let changed = store.link_state().unwrap();
+    store.import_link_state(&state).unwrap();
+    assert_eq!(store.link_state().unwrap(), changed);
+}
+
+#[test]
+fn unknown_wire_fields_do_not_prove_identical_legacy_state() {
+    let identity = Identity::from_secret(&[7; 32]);
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let before = store.link_state().unwrap();
+    let mut state = before.clone();
+    state.extend([0xF8, 0x07, 0x01]);
+    legacy_pending(&store, &state);
+    assert!(matches!(
+        store.import_link_state(&state),
+        Err(Error::LinkStateReviewRequired)
+    ));
+    assert_eq!(store.link_state().unwrap(), before);
+    assert_eq!(progress::read(&store.db, &state).unwrap(), None);
+}
+
+#[test]
+fn identical_legacy_progress_failure_preserves_the_unresolved_operation() {
+    let identity = Identity::from_secret(&[7; 32]);
+    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    private_choices(&store, false, 2_000);
+    let state = store.link_state().unwrap();
+    legacy_pending(&store, &state);
+    store
+        .db
+        .execute_batch(
+            "CREATE TEMP TRIGGER `refuse_legacy_progress` BEFORE INSERT ON `settings`
+         WHEN NEW.`key` = 'link_state_import'
+         BEGIN SELECT RAISE(ABORT, 'progress refused'); END;",
+        )
+        .unwrap();
+    assert!(store
+        .import_link_state(&state)
+        .unwrap_err()
+        .to_string()
+        .contains("progress refused"));
+    assert_eq!(store.link_state().unwrap(), state);
+    assert_eq!(store.link_pending().unwrap(), Some(state.clone()));
+    assert_eq!(progress::read(&store.db, &state).unwrap(), None);
+}
+
 #[test]
 fn legacy_pending_without_progress_keeps_both_private_snapshots_for_explicit_recovery() {
     let identity = Identity::from_secret(&[7; 32]);

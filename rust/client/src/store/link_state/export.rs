@@ -12,16 +12,21 @@ impl Store {
     /// visibility state fails.
     pub fn link_state(&self) -> Result<Vec<u8>, Error> {
         let snapshot = Transaction::new_unchecked(&self.db, TransactionBehavior::Deferred)?;
-        let bytes = LinkState {
+        let bytes = self.link_state_in_snapshot()?;
+        snapshot.commit()?;
+        Ok(bytes)
+    }
+
+    /// The caller holds a read snapshot or writer transaction; never opens a nested transaction.
+    pub(super) fn link_state_in_snapshot(&self) -> Result<Vec<u8>, Error> {
+        Ok(LinkState {
             peers: peers(&self.db)?,
             likes: likes(&self.db)?,
             passes: passes(&self.db)?,
             hlc: load_hlc(&self.db)?.into(),
             hidden: self.profile_hidden()?,
         }
-        .encode_to_vec();
-        snapshot.commit()?;
-        Ok(bytes)
+        .encode_to_vec())
     }
 }
 
