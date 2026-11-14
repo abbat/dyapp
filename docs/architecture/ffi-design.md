@@ -234,6 +234,20 @@ records, recomputed from current live text and empty for deleted/media entries. 
 renders the supplied captions, without URL parsing or extra IPC. Android/iOS host-line presentation
 remains planned.
 
+## Shared mail notification content
+
+`dyapp_client::mail_notices` owns unread-delta/open-chat content selection, media-marker
+dominance and the 200-Unicode-scalar/control-character body limit. Callers currently supply
+eligible rows in core newest-first order after excluding muted/blocked peers. A fixed setting,
+no unread increase or a newest non-open chat yields no sender/body additions; the enclosing
+count/enabled policy separately decides whether to post the fixed notice. Read photo/sticker
+markers still suppress retained older text. Sticker content carries only its emoji, with a
+trusted localized Sticker label applied during plain rendering, never pack metadata or a fetch.
+
+Desktop delegates content decisions and retains local name lookup, OS posting and markup
+escaping. Shared snapshot/count admission, native mail-pass results and Android delegation remain
+planned; the existing native notice-setting API alone does not provide this content policy.
+
 ## Shared chat composer policy
 
 `dyapp_client::chat_composer::assess` projects conversation phase and text into writable,

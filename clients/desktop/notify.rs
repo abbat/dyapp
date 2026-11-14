@@ -6,12 +6,14 @@ use std::path::Path;
 #[cfg(target_os = "linux")]
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use dyapp_client::store::{ChatRow, Conversation, NoticeContent};
+#[cfg(test)]
+use dyapp_client::store::Conversation;
+use dyapp_client::store::{ChatRow, NoticeContent};
 use dyapp_identity::Identity;
 use tauri::{AppHandle, Manager};
 
-/// The most of a message a notice shows; the rest waits in the app.
-const BODY_CHARS: usize = 200;
+#[cfg(test)]
+use dyapp_client::mail_notices::TEXT_CHARS as BODY_CHARS;
 
 /// Rows and unanswered likes without blocked or muted peers, so own, dropped, blocked and muted mail
 /// never counts.
@@ -34,71 +36,37 @@ fn waiting(dir: &Path, identity: &Identity) -> Result<(Vec<ChatRow>, usize), Str
     Ok((rows, likes))
 }
 
-/// The newest row with more unread items than before.
-fn newest<'a>(before: &[ChatRow], after: &'a [ChatRow]) -> Option<&'a ChatRow> {
-    after.iter().find(|row| {
-        let old = before.iter().find(|old| old.peer_id == row.peer_id);
-        row.unread_count > old.map_or(0, |old| old.unread_count)
-    })
-}
-
-/// UI labels are resolved on the detached send thread, after the session lock is released.
+/// Resolve UI labels on the detached send thread, without waits on the session-owning thread.
 #[derive(Default)]
-enum Preview {
-    #[default]
-    Empty,
-    Text(String),
-    Sticker(String),
-}
+struct Preview(dyapp_client::mail_notices::Preview);
+
 impl Preview {
     // A server may interpret markup. A server without body-markup shows these entities.
     fn render(self, sticker_label: &str) -> String {
-        let text = match self {
-            Self::Empty => String::new(),
-            Self::Text(text) => text,
-            Self::Sticker(emoji) => format!("{emoji} {sticker_label}"),
-        };
-        text.chars()
-            .take(BODY_CHARS)
-            .map(|c| if c.is_control() { ' ' } else { c })
-            .collect::<String>()
+        self.0
+            .plain_text(sticker_label)
             .replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
     }
 }
+
+#[cfg(test)]
 fn body(row: &ChatRow) -> Preview {
-    // Core retains older text behind the newest media marker; never expose that stale text.
-    if let Some(item) = &row.last_sticker {
-        return if item.unread {
-            Preview::Sticker(item.sticker.emoji.clone())
-        } else {
-            Preview::Empty
-        };
-    }
-    let last = row.last_attachment.is_none();
-    let message = row.last_message.as_ref().filter(|m| last && m.unread);
-    let text = message.and_then(|m| m.current.text.as_deref());
-    let text = text.and_then(|text| std::str::from_utf8(text).ok());
-    text.map_or(Preview::Empty, |text| {
-        Preview::Text(text.chars().take(BODY_CHARS).collect())
-    })
+    Preview(dyapp_client::mail_notices::body(row))
 }
 
-/// The name and text the setting allows; empty ones leave the fixed text alone. Only an open chat
-/// adds them: a request or a like would put a stranger's words on the lock screen unasked.
+/// Core selects allowed additions; the adapter resolves only the local display name.
 fn content(
     mode: NoticeContent,
     before: &[ChatRow],
     after: &[ChatRow],
     name: impl FnOnce(&str) -> String,
 ) -> (String, Preview) {
-    let row = newest(before, after).filter(|row| row.state == Conversation::Open);
-    match (mode, row) {
-        (NoticeContent::Name, Some(row)) => (name(&row.peer_id), Preview::Empty),
-        (NoticeContent::Text, Some(row)) => (name(&row.peer_id), body(row)),
-        _ => Default::default(),
-    }
+    dyapp_client::mail_notices::content(mode, before, after)
+        .map_or_else(Default::default, |selected| {
+            (name(selected.peer_id), Preview(selected.preview))
+        })
 }
 
 /// The content of the notice a mail pass calls for, if any.
@@ -380,7 +348,8 @@ mod tests {
     #[test]
     fn macos_notice_preserves_literal_text_without_html_entities() {
         let text = "<b>literal</b> & &lt;unchanged&gt;";
-        let rendered = Preview::Text(text.into()).render("Sticker");
+        let rendered =
+            Preview(dyapp_client::mail_notices::Preview::Text(text.into())).render("Sticker");
         assert_eq!(plain_body(&rendered), text);
     }
 

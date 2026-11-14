@@ -426,10 +426,11 @@ controls distinguish new, saved, pending and typed failures; they never expose a
   with the exact peer/group/message selection; edit remains restricted to text. Own stickers
   expose Delete under the same open-chat action policy as text; Edit and Forward remain hidden
   and are refused by the codec.
-- The desktop chat list shows emoji and pack fallback. Linux notification Text previews now show
-  emoji plus localized Sticker for the latest unread sticker; generic/name-only, muted/blocked
-  and non-open-chat rules stay unchanged. No media or pack lookup is needed. Windows toasts and
-  the mobile closed-app paths (`MailNotice`, `MailJob`) remain separate platform work.
+- The desktop chat list shows emoji and pack fallback. Shared core notification Text content shows
+  emoji plus localized Sticker for the latest unread sticker; a read media marker still suppresses
+  older retained text. Generic/name-only, muted/blocked and non-open-chat rules stay unchanged.
+  Desktop delegates to this policy without media/pack lookup; OS posting stays platform-specific.
+  Shared native mail-pass and Android closed-app delegation (`MailNotice`, `MailJob`) remain planned.
 - The accessibility label is "Sticker: 😺, pack Cats".
 - Manage packs in the composer picker lists packs with their size, import and confirmed removal.
   Photos settings control the shared individual-media cache; saved packs have a separate fixed quota.
