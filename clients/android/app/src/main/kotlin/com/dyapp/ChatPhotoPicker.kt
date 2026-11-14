@@ -77,7 +77,7 @@ internal class ChatPhotoDraft {
 }
 
 @Composable
-private fun ChatPhotoDraftDialog(
+internal fun ChatPhotoDraftDialog(
     state: ChatPhotoDraft,
     send: (PreparedPhoto) -> Result<uniffi.dyapp.ChatSubmission>,
     enabled: Boolean
@@ -93,7 +93,7 @@ private fun ChatPhotoDraftDialog(
         text = { ChatPhotoConfirmation(state) },
         confirmButton = {
             TextButton({
-                if (!state.busy) {
+                if (!state.busy && state.photo != null) {
                     state.busy = true
                     scope.launch { state.send(send) }
                 }
@@ -102,7 +102,7 @@ private fun ChatPhotoDraftDialog(
             }
         },
         dismissButton = {
-            TextButton({ state.photo = null }, enabled = !state.busy) {
+            TextButton({ if (!state.busy) state.photo = null }, enabled = !state.busy) {
                 Text(androidx.compose.ui.res.stringResource(R.string.search_cancel))
             }
         },

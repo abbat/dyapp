@@ -220,6 +220,14 @@ and expects the localized not-connected failure, retry label and cleared confirm
 A second Android publish test checks and activates the emulator runner's loopback node
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
+
+Android photo-confirmation regression tests invoke the production dialog's semantic callbacks
+before recomposition: Send/Send/Cancel must retain one admitted draft, and Cancel/Send must leave
+no draft or busy operation. Sender start/release signals control refusal and queued retry;
+each transition has its own failure deadline. The callbacks check current state even before
+disabled buttons have recomposed. These fixtures do not exercise the OS picker, photo sanitization
+or real node delivery; authored/compiled tests still require device execution.
+
 The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest process, so the DEBUG
 launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test
 (`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the
