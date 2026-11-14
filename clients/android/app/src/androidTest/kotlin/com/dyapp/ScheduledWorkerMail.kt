@@ -17,8 +17,8 @@ internal class ScheduledWorkerMail(private val context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java)
         val occupied = scheduler.allPendingJobs.map { it.id }.toSet() + setOf(MAIL_JOB_ID, SEARCH_OUTBOX_JOB_ID)
         val jobId = generateSequence(0) { it + 1 }.first { it !in occupied }
+        // No network constraint: the CI emulator's network never validates, so such a job never starts.
         val job = JobInfo.Builder(jobId, ComponentName(context, MailJob::class.java))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setExpedited(true)
             .build()
         MailStorageSignal(directory).use { signal ->
