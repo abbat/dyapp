@@ -2,6 +2,8 @@
 use super::{search_projection::Head, search_publish::State, Error, Store};
 use dyapp_identity::SignedRecord;
 use rusqlite::{Transaction, TransactionBehavior};
+mod wake;
+pub use wake::SearchOutboxWake;
 
 /// The signed search outbox's next action; no signing or network work is implied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

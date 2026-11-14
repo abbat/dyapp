@@ -107,7 +107,7 @@ private suspend fun checkDraft(attempt: ConnectionAttempt, draft: NetworkSetting
 }
 
 private suspend fun activateDraft(checker: ConnectionCheck, state: NetworkDraftState) {
-    val activated = withContext(Dispatchers.IO) { runCatching { checker.activate() } }
+    val activated = withContext(Dispatchers.IO) { runCatching { withSearchOutboxChange { checker.activate() } } }
     state.checkStatus = if (activated.isSuccess) R.string.network_active else R.string.network_activation_failed
     state.checkError = activated.exceptionOrNull()?.toString()
 }

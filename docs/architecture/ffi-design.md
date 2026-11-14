@@ -372,7 +372,20 @@ existing database and returns `Idle`, `ReviewRequired` or `Scheduled { readyAt }
 `poll` reacquires the original owner, checks core readiness before network access, and dispatches
 already signed bytes on the dedicated network stack. Missing databases remain idle without creation;
 legacy records remain blocked and no MLS/chat credentials are created. Network errors leave the
-queue intact. This API alone does not schedule OS wakes; Android/iOS lifecycle wiring remains planned.
+queue intact. `MobileSearchOutboxes.poll` visits all ready owners independently without changing
+selection; a failed owner does not prevent the others from running. Core `SearchOutboxWake` merges
+future deadlines, returns `Retry` for failed or still-due work and excludes owner-review-required
+queues from automatic wakes. Native `At` includes an exact deadline and a saturating relative delay
+computed by core using the current millisecond clock. Retry takes priority over a later future
+queue; platform backoff governs the next pass, which recomputes every owner's deadlines.
+Android launches an initial network-constrained persisted wake from `DYApplication` and reuses
+`MailJob` for deadline sends, periodic fallback and mail. Publish/hide/withdraw and network-activation
+completion kick the same outbox job even after a failed or cancelled UI result. Kotlin adapts the
+native wake to `JobScheduler`; failed/still-due passes request its backoff rather than an immediate
+loop. Long waits are capped at `JobInfo.MAX_BACKOFF_DELAY_MILLIS` for safe OS adaptation; every
+resulting pass still checks the exact core deadline before sending.
+Stopping a job suppresses its late platform completion without releasing actual Rust admission.
+OS wakes remain best effort; iOS lifecycle wiring remains planned.
 Common Tauri commands `prepare_search_recovery`,
 `confirm_search_recovery`, `retry_search_recovery` and `dismiss_search_recovery` use opaque string
 handles and the same core policy. Idle desktop state retains only owner/path/generation and the

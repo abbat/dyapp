@@ -53,7 +53,13 @@ private suspend fun hide(opened: Opened.Ready, state: VisibilityState) {
     state.hiding = true
     state.failure = null
     withContext(Dispatchers.IO) {
-        runCatching { RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.hide(key) } } }
+        runCatching {
+            withSearchOutboxChange {
+                RustBridge.withKey(
+                    opened
+                ) { dir, key -> ProfilePublisher(dir).use { it.hide(key) } }
+            }
+        }
     }.fold({
         state.observed(it.version, it.hidden)
     }, { state.failure = publishError(it) })

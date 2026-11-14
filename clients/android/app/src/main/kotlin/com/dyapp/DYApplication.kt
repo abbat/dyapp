@@ -12,6 +12,7 @@ class DYApplication : Application() {
         nativeInit(this)
         NetworkType.start(this)
         scheduleMailJob(this)
+        startSearchOutboxJobs(this)
     }
 
     private external fun nativeInit(context: Context)

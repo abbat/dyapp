@@ -48,7 +48,13 @@ private class RemoveState {
     suspend fun withdrawThen(opened: Opened.Ready, remove: () -> Unit) {
         busy = true
         val result = withContext(Dispatchers.IO) {
-            runCatching { RustBridge.withKey(opened) { dir, key -> ProfilePublisher(dir).use { it.withdraw(key) } } }
+            runCatching {
+                withSearchOutboxChange {
+                    RustBridge.withKey(
+                        opened
+                    ) { dir, key -> ProfilePublisher(dir).use { it.withdraw(key) } }
+                }
+            }
         }
         busy = false
         if (result.isSuccess) remove() else offline = true

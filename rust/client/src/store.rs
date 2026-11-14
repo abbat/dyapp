@@ -45,7 +45,7 @@ mod search_projection;
 mod search_publish;
 pub use search_publish::SearchVisibility;
 mod search_outbox;
-pub use search_outbox::SearchOutboxSchedule;
+pub use search_outbox::{SearchOutboxSchedule, SearchOutboxWake};
 mod search_recovery;
 pub use search_recovery::SearchWithdrawalRecovery;
 pub mod sticker_packs;

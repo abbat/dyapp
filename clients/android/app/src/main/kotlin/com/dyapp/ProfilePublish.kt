@@ -134,7 +134,11 @@ private suspend fun prepareAndPublish(
         state.publishing = true
         val result = withContext(Dispatchers.IO) {
             runCatching {
-                synchronized(RustBridge.draftWrites) { RustBridge.withChats(opened) { it.publishProfile(attested) } }
+                withSearchOutboxChange {
+                    synchronized(
+                        RustBridge.draftWrites
+                    ) { RustBridge.withChats(opened) { it.publishProfile(attested) } }
+                }
             }
         }
         result.fold(state::completed) { state.failure = publishError(it) to R.string.profile_retry_publish }

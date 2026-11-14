@@ -8,9 +8,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import uniffi.dyapp.ChatNotice
+import uniffi.dyapp.CoreException
+import uniffi.dyapp.SearchOutboxWake
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 internal const val MAIL_JOB_ID = 1
+private const val MAIL_LOG_TAG = "dyapp"
 
 // The shortest period JobScheduler allows; Doze and App Standby stretch it further.
 private const val MAIL_JOB_PERIOD_MS = 15 * 60_000L
@@ -20,16 +24,38 @@ private const val MAIL_JOB_PERIOD_MS = 15 * 60_000L
  * bound to a user check, so this also runs while the app lock is on; the lock only covers the UI.
  */
 class MailJob : JobService() {
+    private val running = ConcurrentHashMap<Int, JobCompletion>()
+
     override fun onStartJob(params: JobParameters): Boolean {
+        val completion = JobCompletion()
+        running.put(params.jobId, completion)?.stop()
         thread(name = "mail-job") {
-            receiveMail(applicationContext)
-            jobFinished(params, false)
+            if (params.jobId == MAIL_JOB_ID) receiveMail(applicationContext)
+            if (!completion.isActive()) return@thread
+            val wake = searchPass()
+            completion.complete {
+                if (running.remove(params.jobId, completion)) {
+                    val retry = params.jobId == SEARCH_OUTBOX_JOB_ID && wake == SearchOutboxWake.Retry
+                    jobFinished(params, retry)
+                    scheduleSearchOutboxWake(applicationContext, wake, retryScheduled = retry)
+                }
+            }
         }
         return true
     }
 
-    // A receive in Rust cannot be interrupted; the next period simply runs again.
-    override fun onStopJob(params: JobParameters) = false
+    // Ending the OS task never releases an in-flight native admission or interrupts its worker.
+    override fun onStopJob(params: JobParameters): Boolean {
+        running.remove(params.jobId)?.stop()
+        return params.jobId == SEARCH_OUTBOX_JOB_ID
+    }
+
+    private fun searchPass(): SearchOutboxWake = try {
+        pollSearchOutboxes(applicationContext)
+    } catch (failure: CoreException) {
+        Log.i(MAIL_LOG_TAG, "Search delivery failed: ${failure.javaClass.simpleName}")
+        SearchOutboxWake.Retry
+    }
 }
 
 /**
@@ -49,7 +75,7 @@ internal fun receiveMail(context: Context) {
                 postMailNotice(context, noticeLines(notice, old, new))
             }
         }
-    }.onFailure { Log.i("dyapp", "Background receive failed: ${it.javaClass.simpleName}") }
+    }.onFailure { Log.i(MAIL_LOG_TAG, "Background receive failed: ${it.javaClass.simpleName}") }
 }
 
 /** Schedules [MailJob] once; it survives reboots and runs only with a network. */
