@@ -9,6 +9,11 @@ use zeroize::Zeroizing;
 
 #[cfg(target_os = "android")]
 mod android;
+mod app_lock;
+pub use app_lock::{
+    AppLockStorageError, MobileAppLock, MobileAppLockEntry, MobileAppLockFormat, MobileAppLockMode,
+    MobileAppLockStorage, MobilePinAttempt,
+};
 mod chat_composer;
 pub use chat_composer::{chat_composer_policy, ChatComposerPolicy};
 mod chat_links;
