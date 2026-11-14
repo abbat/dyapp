@@ -90,7 +90,8 @@ class ChatPhotoConfirmationTests {
         show()
         try {
             confirmTwiceBeforeRecomposition()
-            sender.started.get(PHOTO_SEND_STEP_SECONDS, TimeUnit.SECONDS)
+            // A blocking get would not advance the test clock that runs the dialog's launch.
+            compose.waitUntil(TimeUnit.SECONDS.toMillis(PHOTO_SEND_STEP_SECONDS)) { sender.started.isDone }
             compose.onNodeWithText(text(R.string.chat_send)).assertIsNotEnabled()
             compose.onNodeWithText(text(R.string.search_cancel)).assertIsNotEnabled()
             assertEquals(1, sender.calls.get())

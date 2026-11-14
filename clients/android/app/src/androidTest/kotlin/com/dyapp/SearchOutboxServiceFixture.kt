@@ -50,8 +50,8 @@ internal class SearchOutboxServiceFixture : SearchOutboxJobProbe, AutoCloseable 
     fun schedule() {
         check(searchOutboxJobProbe.compareAndSet(null, this)) { "Another outbox service probe is installed" }
         gate.arm()
+        // No network constraint: the CI emulator's network never validates, so such a job never starts.
         val job = JobInfo.Builder(jobId, ComponentName(context, SearchOutboxProbeService::class.java))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setExpedited(true)
             .build()
         check(scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS) { "Framework refused the outbox probe" }
