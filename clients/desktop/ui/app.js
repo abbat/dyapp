@@ -895,8 +895,8 @@ domById('add-identity', HTMLButtonElement).addEventListener('click', () =>
   act(invoke('storage_options')),
 );
 domById('retry', HTMLButtonElement).addEventListener('click', () => act(invoke('identity_state')));
-// A failed switch or removal keeps the backend's selection, but stopped its node; rendering the
-// reread state restarts that node.
+// Retry rereads the persisted selection after a failed identity transition.
+// The installation node is independent and is not restarted by this recovery.
 bootRetry.addEventListener('click', () => {
   show(null, 'status.loading');
   domById('boot-loading', HTMLParagraphElement).hidden = false;

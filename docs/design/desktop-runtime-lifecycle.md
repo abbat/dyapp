@@ -1,8 +1,8 @@
 # Desktop identity runtime lifecycle
 
-The Linux and Windows Tauri shell runs Store and network commands against a copied identity
+The Linux, Windows and macOS Tauri shell runs Store and network commands against a copied identity
 and slot path. [The current ownership audit](../architecture/ffi-design.md#current-desktop-runtime-ownership)
-records the gap: identity-bound network, profile, search, privacy, chat, safety, node and usage
+records the gap: identity-bound network, profile, search, privacy, chat, safety and usage
 commands now keep their admission lease through their work. The verified profile cache and
 seed-check cancellation handle are process-wide. Each profile solve has its own cancellation
 token. Identity selection now closes admission, signals the current profile solve and seed check
@@ -55,17 +55,19 @@ before updating shared option IDs or validity.
   begins. A command must not be force-aborted after it mutates MLS state or SQLite; it finishes
   or cooperatively cancels and reaches a safe commit/rollback boundary.
 - Switching marks the runtime as transitioning, cancels the active profile puzzle and network
-  check, waits off the UI thread for old leases to finish, stops the embedded node, then opens
-  the selected slot. Only after that does it replace the active identity, clear the profile
-  cache, and allow new leases. A failed selection either retains the old active slot if no
+  check, waits off the UI thread for old leases to finish, then opens the selected slot
+  while preserving the independent installation node. Only after that does it replace
+  the active identity, clear the profile cache, and allow new leases. A failed selection either retains the old active slot if no
   persistent selection changed, or shows the existing recovery state; it never silently opens
   an unrelated identity.
 - Removal uses the same exclusive transition before deleting any slot files. It verifies that
-  the requested slot and confirmed Peer ID still match, drains operations for that slot, stops
-  its node, then calls the slot removal path. A failed removal reopens only the persisted
-  selection, or leaves nothing open when that slot is gone. The page then shows the storage
-  error with Retry, which rereads the identity state, renders it and restarts its node; a failed
-  switch or creation takes the same way back.
+  the requested slot and confirmed Peer ID still match, drains operations for that slot, then
+  calls the slot removal path. A failed removal reopens only the persisted selection, or leaves
+  nothing open when that slot is gone. The page then shows the storage error with Retry, which
+  rereads the identity state and renders it; a failed switch or creation takes the same way back.
+  Profile creation, selection, linking, removal and recovery never stop or reconfigure the
+  installation node. Only explicit node/network configuration changes or application exit do so
+  ([ADR 0030](../decisions/0030-desktop-full-node.md)).
 - A cache entry or completion belongs to one slot and active network. Clearing the cache after
   the drain is sufficient for the first implementation; later concurrent slots may use a keyed
   cache. Activating a different network invalidates the old verified profile cache too.
@@ -82,12 +84,14 @@ worker that holds a Store transaction.
 ## Implementation checkpoints
 
 1. Add one runtime gate around all identity-bound Tauri commands, including the network,
-   profile, search, privacy, node, usage and chat commands. A lease is held across an async
+   profile, search, privacy, usage and chat commands. A lease is held across an async
    call and its blocking child. A transition closes admission before waiting for leases; do
    not hold the gate mutex while awaiting a worker. Use one generation for each active slot.
 2. Move the profile-solve and network-check cancellation handles into the active generation;
    cancel and drain them on transition. Keep the MLS `Sessions` mutex to serialize concurrent
-   commands *within* one slot. Stop the node only after old client work has drained.
+   commands *within* one slot. Keep installation node work outside this identity transition:
+   explicit node configuration snapshots the selected network under a short identity lease and
+   releases that lease before node work; startup and exit use the installation lifecycle.
 3. Clear the verified profile cache on switch and network activation, and guard WebView result
    rendering by generation. The first implementation may use one cache because only one slot
    is active at a time.
