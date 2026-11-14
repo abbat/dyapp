@@ -42,6 +42,7 @@ open class MailJob : JobService() {
 
     private fun runJob(params: JobParameters, completion: JobCompletion) {
         var completionRequested = false
+        var retryRequested = false
         try {
             if (!isSearchJob(params)) receiveMail(applicationContext)
             if (!completion.isActive()) return
@@ -51,16 +52,17 @@ open class MailJob : JobService() {
                     val retry = isSearchJob(params) && wake == SearchOutboxWake.Retry
                     jobFinished(params, retry)
                     completionRequested = true
+                    retryRequested = retry
                     scheduleSearchOutboxWake(applicationContext, wake, retryScheduled = retry)
                 }
             }
         } finally {
-            workerFinished(params, completionRequested)
+            workerFinished(params, completionRequested, retryRequested)
         }
     }
 
     /** The framework adapter can be observed by a debug-only service without replacing its lifecycle. */
-    protected open fun workerFinished(params: JobParameters, completionRequested: Boolean) {
+    protected open fun workerFinished(params: JobParameters, completionRequested: Boolean, retryRequested: Boolean) {
         // The release service has no observer.
     }
 

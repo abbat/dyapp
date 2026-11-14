@@ -14,9 +14,28 @@ class SearchOutboxJobServiceTests {
             fixture.schedule()
             fixture.gate.awaitEntered()
             fixture.gate.release()
-            assertTrue(fixture.awaitFinished())
+            val completion = fixture.awaitFinished()
+            assertTrue(completion.requested)
+            assertFalse(completion.retry)
             assertEquals(SearchOutboxWake.Idle, fixture.wake.get())
             assertEquals(1, fixture.completions.get())
+            fixture.requireAdmissionReleased()
+        }
+    }
+
+    @Test
+    fun realNativeStorageFailureRequestsBackoffWithoutReplacingTheDatabase() {
+        SearchOutboxServiceFixture().use { fixture ->
+            val database = fixture.damageDatabase()
+            val original = database.readBytes()
+            fixture.schedule()
+            fixture.gate.awaitEntered()
+            fixture.gate.release()
+            val completion = fixture.awaitFinished()
+            assertTrue(completion.requested)
+            assertTrue(completion.retry)
+            assertEquals(SearchOutboxWake.Retry, fixture.wake.get())
+            assertTrue(original.contentEquals(database.readBytes()))
             fixture.requireAdmissionReleased()
         }
     }
@@ -28,7 +47,9 @@ class SearchOutboxJobServiceTests {
             fixture.gate.awaitEntered()
             fixture.stop()
             fixture.gate.release()
-            assertFalse(fixture.awaitFinished())
+            val completion = fixture.awaitFinished()
+            assertFalse(completion.requested)
+            assertFalse(completion.retry)
             assertEquals(SearchOutboxWake.Idle, fixture.wake.get())
             assertEquals(0, fixture.completions.get())
             fixture.requireAdmissionReleased()

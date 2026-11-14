@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 internal interface SearchOutboxJobProbe {
     fun poll(): SearchOutboxWake
     fun stopped()
-    fun finished(completionRequested: Boolean)
+    fun finished(completionRequested: Boolean, retryRequested: Boolean)
 }
 
 internal val searchOutboxJobProbe = AtomicReference<SearchOutboxJobProbe?>()
@@ -36,10 +36,10 @@ class SearchOutboxProbeService : MailJob() {
 
     override fun searchPass(params: JobParameters): SearchOutboxWake = checkNotNull(probes[params]).poll()
 
-    override fun workerFinished(params: JobParameters, completionRequested: Boolean) {
+    override fun workerFinished(params: JobParameters, completionRequested: Boolean, retryRequested: Boolean) {
         probes.remove(params)?.let { probe ->
             active.remove(params.scopedJobId(), params)
-            probe.finished(completionRequested)
+            probe.finished(completionRequested, retryRequested)
         }
     }
 }

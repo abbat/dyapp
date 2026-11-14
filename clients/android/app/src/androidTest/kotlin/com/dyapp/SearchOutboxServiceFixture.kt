@@ -9,6 +9,7 @@ import uniffi.dyapp.MobileIdentityRegistry
 import uniffi.dyapp.MobileSearchOutboxes
 import uniffi.dyapp.MobileSlotLayout
 import uniffi.dyapp.SearchOutboxWake
+import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -17,6 +18,8 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+
+internal data class SearchJobCompletion(val requested: Boolean, val retry: Boolean)
 
 /** Own a free framework job ID and real native identity; never touch the app's selected slot. */
 internal class SearchOutboxServiceFixture : SearchOutboxJobProbe, AutoCloseable {
@@ -33,10 +36,16 @@ internal class SearchOutboxServiceFixture : SearchOutboxJobProbe, AutoCloseable 
     private val access = ReentrantReadWriteLock(true)
     private var closed = false
     private val stopped = CompletableFuture<Unit>()
-    private val finished = CompletableFuture<Boolean>()
+    private val finished = CompletableFuture<SearchJobCompletion>()
     private val failure = AtomicReference<CoreException?>()
     val completions = AtomicInteger()
     val wake = AtomicReference<SearchOutboxWake?>()
+
+    /** Test-owned malformed state must fail closed rather than being silently recreated. */
+    fun damageDatabase(): File = File(selected.slot.directory, "client.db").also { database ->
+        check(!database.exists()) { "Fixture already has database state" }
+        database.writeText("invalid fixture database")
+    }
 
     fun schedule() {
         check(searchOutboxJobProbe.compareAndSet(null, this)) { "Another outbox service probe is installed" }
@@ -65,16 +74,16 @@ internal class SearchOutboxServiceFixture : SearchOutboxJobProbe, AutoCloseable 
 
     override fun stopped() { stopped.complete(Unit) }
 
-    override fun finished(completionRequested: Boolean) {
+    override fun finished(completionRequested: Boolean, retryRequested: Boolean) {
         if (completionRequested) completions.incrementAndGet()
-        finished.complete(completionRequested)
+        finished.complete(SearchJobCompletion(completionRequested, retryRequested))
     }
 
-    fun awaitFinished(): Boolean {
-        val completionRequested = finished.get(NETWORK_STEP_SECONDS, TimeUnit.SECONDS)
+    fun awaitFinished(): SearchJobCompletion {
+        val completion = finished.get(NETWORK_STEP_SECONDS, TimeUnit.SECONDS)
         gate.awaitOpened()
         failure.get()?.let { throw it }
-        return completionRequested
+        return completion
     }
 
     fun requireAdmissionReleased() {

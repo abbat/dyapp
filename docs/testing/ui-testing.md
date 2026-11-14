@@ -102,8 +102,11 @@ native registry and credential. Native admission, key-open completion, platform 
 completion each have readiness callbacks with a fresh failure deadline. The final callback follows
 the completion decision, so native return alone cannot falsely prove suppression of a late
 `jobFinished` request. The debug component and configurable probe are absent from release builds.
-These are execution/stop smoke checks, not proof of reboot persistence, network retry/backoff or
-deadline scheduling; those runtime cases remain planned. Host SDK compilation does not execute them.
+A malformed fixture database also exercises native failure and the actual retry request without
+replacing its bytes. Completion flags are captured together for one execution, so legitimate OS
+retries cannot invalidate assertions through growing counters. These checks do not prove elapsed
+OS backoff, reboot persistence, network recovery or deadline scheduling; those runtime cases remain
+planned. Host SDK compilation does not execute them.
 
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on
