@@ -489,9 +489,37 @@ def shot_name() -> "str":
 
 
 def snapshot() -> None:
+    phase("snapshot selection")
+    view.call_async_javascript_function(
+        "return JSON.stringify([...document.querySelectorAll("
+        "'dialog:modal, [role=dialog][aria-modal=true]')].some("
+        "node => node.getClientRects().length > 0 && "
+        "getComputedStyle(node).visibility === 'visible'));",
+        -1,
+        None,
+        None,
+        None,
+        None,
+        snapshot_ready,
+    )
+
+
+def snapshot_ready(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
+    try:
+        modal = json.loads(
+            view.call_async_javascript_function_finish(result).to_string()
+        )
+        if not isinstance(modal, bool):
+            raise ValueError("Snapshot selection must return a boolean")
+    except (GLib.Error, ValueError) as error:
+        failed.append(f"{shot_name()} snapshot selection: {error}")
+        finish_job()
+        return
     phase("snapshot")
     view.get_snapshot(
-        WebKit2.SnapshotRegion.FULL_DOCUMENT,
+        WebKit2.SnapshotRegion.VISIBLE
+        if modal
+        else WebKit2.SnapshotRegion.FULL_DOCUMENT,
         WebKit2.SnapshotOptions.NONE,
         None,
         saved,

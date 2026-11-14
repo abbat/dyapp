@@ -94,6 +94,10 @@ The check waits for fonts, retains narrow/wide wrapping assertions and rejects h
 
 Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
 including the shared identifier ES module. No external network access is needed.
+A visible native or ARIA modal is captured in the current viewport: WebKit's full-document
+snapshot can reflow its scrollable content and change its scroll position. Pages without a
+visible modal retain full-document captures. Snapshot selection completes through the JavaScript
+callback before a fresh snapshot failure deadline starts.
 CI does not run it: run `make ui-prototype` locally after changing the prototype or its
 helpers; it writes JSON measurements to `build/ux-research/prototype/`. D1-D3 are checked at each screenshot, including
 negative fixtures for long titles, wrong Cancel keys and duplicate/missing defaults.
@@ -749,11 +753,21 @@ verified phase progress resets it. It emits thread stacks and exits on failure, 
 cancelled after report completion. Ordinary successful output stays captured.
 
 Each capture writes axe, clipping and dialog findings to `criteria.json`; missing measurements
-fail. Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.json`.
+fail. Clipping checks measure the page, or the focused visible native/ARIA modal and its
+viewport bounds. Inactive background is checked in its standalone states; it is not counted
+as active modal content. Counterexamples cover foreground clipping, hidden and off-viewport
+modals, and restored background coverage after closing. This follows the
+[modal interaction model](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/).
+Known accessibility/reflow findings live in `tests/scripts/desktop-ui-baseline.json`.
 New findings and stale entries fail. The baseline is intersected with every committed version,
 so it only shrinks, including manual CI runs; full Git history is required. Dialog and keyboard
 failures cannot be budgeted. `check-ui-criteria.py` validates each slice against its expected
-shots and the complete matrix. The existing L2/I1 measurement stays in the frozen normal-text
+shots and the complete matrix. Contrast checks hide only paint behind an opaque native or
+ARIA modal, preserving layout. Incomplete contrast for an unambiguously identified node is
+rechecked after scrolling it into view and paint completion; only an affirmative pass removes
+the incomplete result, and a confirmed failure remains a violation. Unresolvable targets stay
+incomplete. The audit restores page scroll and focus, and good/poor scrolled-text fixtures
+check both contrast decisions and restoration. The existing L2/I1 measurement stays in the frozen normal-text
 English/Russian 440/1280 light matrix and is checked through `layout.json` and `[layout]`.
 
 The frozen matrix also walks real GDK Tab/Shift+Tab events in DOM order and uses arrow keys

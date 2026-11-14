@@ -44,11 +44,87 @@ const restoreVisibility = (covered) => {
     else child.removeAttribute('style');
   }
 };
-// axe 4.14 compares text-line hit stacks below an opaque native dialog.
-// Hide only occluded page paint during the audit; keep its layout and restore on every exit.
+const captureAuditPosition = () => {
+  const focus = document.activeElement;
+  const saved = [...document.querySelectorAll('*')]
+    .filter(
+      (element) =>
+        element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight,
+    )
+    .map((element) => [element, element.scrollLeft, element.scrollTop]);
+  const position = [scrollX, scrollY];
+  return async () => {
+    if (focus?.isConnected && document.activeElement !== focus && typeof focus.focus === 'function')
+      focus.focus({ preventScroll: true });
+    for (const [element, left, top] of saved)
+      if (element.scrollLeft !== left || element.scrollTop !== top)
+        element.scrollTo({ left, top, behavior: 'instant' });
+    if (scrollX !== position[0] || scrollY !== position[1])
+      window.scrollTo({ left: position[0], top: position[1], behavior: 'instant' });
+    await paintReady();
+  };
+};
+// A clipped scroll position is not a contrast measurement; verify the same node where readable.
+const contrastElement = (node) => {
+  if (node.target.length !== 1 || typeof node.target[0] !== 'string') return null;
+  try {
+    const matches = document.querySelectorAll(node.target[0]);
+    return matches.length === 1 ? matches[0] : null;
+  } catch {
+    return null;
+  }
+};
+const contrastAtReadablePosition = async (element, options) => {
+  const saved = [];
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+    if (parent.scrollWidth > parent.clientWidth || parent.scrollHeight > parent.clientHeight)
+      saved.push([parent, parent.scrollLeft, parent.scrollTop]);
+  }
+  const position = [scrollX, scrollY];
+  try {
+    element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    await paintReady();
+    return await window.axe.run(element, options);
+  } finally {
+    for (const [parent, left, top] of saved)
+      if (parent.scrollLeft !== left || parent.scrollTop !== top)
+        parent.scrollTo({ left, top, behavior: 'instant' });
+    if (scrollX !== position[0] || scrollY !== position[1])
+      window.scrollTo({ left: position[0], top: position[1], behavior: 'instant' });
+    await paintReady();
+  }
+};
+const resolveScrollableContrast = async (result, options) => {
+  const review = result.incomplete.find((rule) => rule.id === 'color-contrast');
+  if (!review) return result;
+  for (const node of [...review.nodes]) {
+    const element = contrastElement(node);
+    if (!element) continue;
+    const checked = await contrastAtReadablePosition(element, options);
+    const matching = (rule) =>
+      rule?.nodes.find((candidate) => contrastElement(candidate) === element);
+    const violation = checked.violations.find((rule) => rule.id === 'color-contrast');
+    const failed = matching(violation);
+    const passing = checked.passes.find((rule) => rule.id === 'color-contrast');
+    const passed = matching(passing);
+    if (!failed && !passed) continue;
+    review.nodes = review.nodes.filter((candidate) => candidate !== node);
+    const collection = failed ? result.violations : result.passes;
+    let confirmed = collection.find((rule) => rule.id === 'color-contrast');
+    if (!confirmed) {
+      confirmed = { ...(failed ? violation : passing), nodes: [] };
+      collection.push(confirmed);
+    }
+    confirmed.nodes.push({ ...(failed || passed), target: node.target });
+  }
+  return result;
+};
+
+// Keep layout while hiding paint behind opaque native or ARIA modals during the audit.
 const runAccessibilityAudit = async () => {
   const options = smoke.accessibilityOptions();
-  const modal = document.activeElement?.closest('dialog:modal');
+  const restorePosition = captureAuditPosition();
+  const modal = document.activeElement?.closest('dialog:modal, [role="dialog"][aria-modal="true"]');
   const hidden = [];
   if (modal) {
     const style = getComputedStyle(modal);
@@ -65,9 +141,10 @@ const runAccessibilityAudit = async () => {
   }
   try {
     await paintReady();
-    return await window.axe.run(document, options);
+    return await resolveScrollableContrast(await window.axe.run(document, options), options);
   } finally {
     restoreVisibility(hidden);
+    await restorePosition();
   }
 };
 smoke.accessibility = async () => {
@@ -142,6 +219,56 @@ const calibrationFailure = (id, fixture, result) => {
     })}`,
   );
 };
+const calibrateScrollableContrast = async () => {
+  const previous = document.activeElement;
+  const fixture = document.createElement('dialog');
+  fixture.id = 'criteria-scrollable-contrast';
+  fixture.setAttribute('aria-label', 'Scrollable contrast calibration');
+  fixture.style.cssText =
+    'position:fixed;top:0;left:0;width:240px;height:30vh;max-height:30vh;overflow:auto;background:white';
+  fixture.innerHTML =
+    '<div aria-hidden="true"></div><p id="criteria-scrollable-text" style="font:18px sans-serif">Contrast remains checkable when this text starts partially outside its scrolling container.</p><div aria-hidden="true"></div><button>Anchor</button>';
+  document.body.append(fixture);
+  fixture.showModal();
+  const text = fixture.querySelector('p');
+  for (const spacer of fixture.querySelectorAll('div'))
+    spacer.style.height = `${fixture.clientHeight}px`;
+  const anchor = fixture.querySelector('button');
+  try {
+    for (const [color, expected] of [
+      ['#000', 'passed'],
+      ['#eee', 'failed'],
+    ]) {
+      fixture.style.color = color;
+      anchor.focus({ preventScroll: true });
+      const textBox = text.getBoundingClientRect();
+      const frame = fixture.getBoundingClientRect();
+      fixture.scrollTop += textBox.top - frame.top + textBox.height / 2;
+      const position = fixture.scrollTop;
+      const result = await runAccessibilityAudit();
+      const status = ['violations', 'incomplete', 'passes'].find((kind) =>
+        result[kind].some(
+          (rule) =>
+            rule.id === 'color-contrast' &&
+            rule.nodes.some((node) => contrastElement(node) === text),
+        ),
+      );
+      const actual = { violations: 'failed', incomplete: 'incomplete', passes: 'passed' }[status];
+      if (actual !== expected) throw Error(`scrolled contrast expected ${expected}, got ${actual}`);
+      if (fixture.scrollTop !== position || document.activeElement !== anchor)
+        throw Error(
+          `contrast audit changed scroll or focus: ${JSON.stringify({ before: position, after: fixture.scrollTop, expectedFocus: anchor.tagName, actualFocus: document.activeElement?.tagName })}`,
+        );
+    }
+  } finally {
+    const finished = closed(fixture);
+    fixture.close();
+    await finished;
+    fixture.remove();
+    previous?.focus({ preventScroll: true });
+  }
+};
+
 smoke.accessibilitySelfCheck = async () => {
   const previous = document.activeElement;
   const restore = calibrationBackground();
@@ -178,4 +305,5 @@ smoke.accessibilitySelfCheck = async () => {
       previous?.focus({ preventScroll: true });
     }
   }
+  await calibrateScrollableContrast();
 };
