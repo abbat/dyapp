@@ -1,6 +1,6 @@
 name: Wrong or awkward text
 description: A typo, a bad translation or a confusing message in the app.
-labels: [translation, "lang:en"]
+labels: [translation, "lang:en", triage]
 body:
   - type: markdown
     attributes:

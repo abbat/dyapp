@@ -1,6 +1,6 @@
 name: Идея
 description: Что сделало бы dyapp лучше для вас.
-labels: [idea, "lang:ru"]
+labels: [idea, "lang:ru", triage]
 body:
   - type: markdown
     attributes:

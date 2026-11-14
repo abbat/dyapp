@@ -1,6 +1,6 @@
 name: Bug in the app
 description: Something in the app does not work as it should.
-labels: [bug, "lang:en"]
+labels: [bug, "lang:en", triage]
 body:
   - type: markdown
     attributes:

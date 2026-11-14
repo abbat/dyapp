@@ -1,6 +1,6 @@
 name: Проблема с узлом dyappd
 description: Ваш bootstrap-узел не запускается, не синхронизируется или не отвечает.
-labels: [node, "lang:ru"]
+labels: [node, "lang:ru", triage]
 body:
   - type: markdown
     attributes:

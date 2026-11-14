@@ -1,6 +1,6 @@
 name: Ошибка в приложении
 description: Что-то в приложении работает не так, как должно.
-labels: [bug, "lang:ru"]
+labels: [bug, "lang:ru", triage]
 body:
   - type: markdown
     attributes:

@@ -1,6 +1,6 @@
 name: dyappd node problem
 description: A bootstrap node you run does not start, sync or answer.
-labels: [node, "lang:en"]
+labels: [node, "lang:en", triage]
 body:
   - type: markdown
     attributes:

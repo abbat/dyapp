@@ -1,6 +1,6 @@
 name: Неверный или неудачный текст
 description: Опечатка, плохой перевод или непонятное сообщение в приложении.
-labels: [translation, "lang:ru"]
+labels: [translation, "lang:ru", triage]
 body:
   - type: markdown
     attributes:
