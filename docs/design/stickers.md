@@ -231,6 +231,9 @@ can occur after file publication; refresh the collection before deciding what to
 Common native mailbox processing runs the existing bounded core answer/download jobs after
 mail application, under the same identity/session ownership. Only admitted explicit save intents
 can download packs; completed saves contribute to the refresh count and controls remain hidden.
+Shared `sticker_requests::status` owns received-pack state and saved-file/request reconciliation;
+desktop only projects typed outcomes. It authenticates the clicked hash before accepting saved
+status, preserves generation/deadline/failure and never deletes unreadable saved content.
 Native explicit Save pack intent/status operations and their mobile UI are still planned.
 
 Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed

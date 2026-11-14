@@ -1,9 +1,43 @@
 use super::*;
+use dyapp_client::store::sticker_packs::exchange::download::{
+    PackDownloadFailure, PackDownloadState,
+};
+
+#[test]
+fn new_saved_and_missing_sticker_keep_the_existing_json_contract() {
+    for (state, name) in [
+        (pack_requests::State::New, "new"),
+        (pack_requests::State::Saved, "saved"),
+    ] {
+        let value = Status::from(pack_requests::Status {
+            state,
+            generation: None,
+            failure: None,
+            retry_at_ms: None,
+        });
+        assert_eq!(
+            serde_json::to_value(value).unwrap(),
+            serde_json::json!({
+                "state":name, "generation":null, "failure":null, "retryAtMs":null,
+            })
+        );
+    }
+    let token = [3_u8; 16];
+    let value = Status::from(pack_requests::Status {
+        state: pack_requests::State::Failed,
+        generation: Some(token),
+        failure: Some(pack_requests::Failure::StickerMissing),
+        retry_at_ms: None,
+    });
+    let json = serde_json::to_value(value).unwrap();
+    assert_eq!(json["failure"], "stickerMissing");
+    assert_eq!(json["generation"], serde_json::json!(token));
+}
 
 #[test]
 fn local_status_exposes_only_typed_retry_metadata_and_generation() {
     let token = [3; 16];
-    let waiting = Status::download(
+    let waiting: Status = pack_requests::Status::from_download(
         &PackDownloadState {
             has_answer: false,
             failure: None,
@@ -11,7 +45,8 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
             retry_at_ms: 0,
         },
         token,
-    );
+    )
+    .into();
     let json = serde_json::to_value(waiting).unwrap();
     assert_eq!(json["state"], "waiting");
     assert!(json["retryAtMs"].is_null() && json["failure"].is_null());
@@ -22,7 +57,7 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
         (Some(PackDownloadFailure::Quota), "failed"),
         (Some(PackDownloadFailure::Storage), "failed"),
     ] {
-        let status = Status::download(
+        let status: Status = pack_requests::Status::from_download(
             &PackDownloadState {
                 has_answer: true,
                 failure,
@@ -30,7 +65,8 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
                 retry_at_ms: 1234,
             },
             token,
-        );
+        )
+        .into();
         let json = serde_json::to_value(status).unwrap();
         assert_eq!(json["state"], name);
         assert_eq!(json["retryAtMs"], 1234);
@@ -44,13 +80,4 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
         fields.sort_unstable();
         assert_eq!(fields, ["failure", "generation", "retryAtMs", "state"]);
     }
-}
-
-#[test]
-fn installed_pack_membership_does_not_accept_a_claimed_unrelated_sticker() {
-    let pack =
-        dyapp_client::sticker_pack::import_tar(&super::super::native_tests::archive_count(1))
-            .unwrap();
-    assert!(contains(&pack, &pack.stickers()[0].sha256));
-    assert!(!contains(&pack, &[99; 32]));
 }

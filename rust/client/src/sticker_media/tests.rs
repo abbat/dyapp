@@ -31,17 +31,17 @@ fn register(store: &mut Store, peer: &str, open: bool, sticker: &Sticker) {
     store.record_chat_sticker(sender, sticker, true).unwrap();
 }
 
-struct Fixture {
-    store: Store,
-    peer: String,
-    dir: PathBuf,
-    key: MessageKey,
+pub(crate) struct Fixture {
+    pub(crate) store: Store,
+    pub(crate) peer: String,
+    pub(crate) dir: PathBuf,
+    pub(crate) key: MessageKey,
     bytes: Vec<u8>,
-    pack: crate::sticker_pack::Pack,
+    pub(crate) pack: crate::sticker_pack::Pack,
 }
 
 impl Fixture {
-    fn new(open: bool, attached: bool) -> Self {
+    pub(crate) fn new(open: bool, attached: bool) -> Self {
         let owner = dyapp_identity::Identity::generate();
         let peer = dyapp_identity::Identity::generate().peer_id();
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))

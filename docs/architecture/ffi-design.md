@@ -305,7 +305,11 @@ remain in the adapter.
 Common native `receive` also runs bounded core sticker-pack responses and admitted downloads
 after applying the mailbox, retaining the same session/identity operation through completion.
 Only explicitly persisted download intents are processed. Completed saves add to the returned
-refresh count; control messages stay hidden. Native Save pack intent/status exports remain planned.
+refresh count; control messages stay hidden. Shared `sticker_requests::status` owns received-pack
+state, authenticated clicked-hash checks and already-saved intent reconciliation. Desktop maps
+these typed states to its existing JSON; an unreadable pack retains failure plus generation and
+is never silently new. Status can write reconciliation state and needs guarded mutable storage.
+Native Save pack intent/status exports remain planned.
 
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains
