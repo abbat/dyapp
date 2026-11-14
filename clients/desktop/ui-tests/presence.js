@@ -1,4 +1,12 @@
 // Active recently: the mocked smoke and the two-client steps it adds to the live scenario.
+const presenceRow = (peerId, activeRecently) => ({
+  peerId,
+  state: 'open',
+  lastMessage: null,
+  preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+  unreadCount: 0,
+  activeRecently,
+});
 const checkChatPresence = async () => {
   await openArea('chats-area');
   await appApi.chatsDone;
@@ -13,9 +21,7 @@ const checkChatPresence = async () => {
       return Promise.resolve({ state: 'open', messages: [], activeRecently });
     }
     if (command === 'chat_rows') {
-      return Promise.resolve([
-        { peerId: peer, state: 'open', lastMessage: null, unreadCount: 0, activeRecently },
-      ]);
+      return Promise.resolve([presenceRow(peer, activeRecently)]);
     }
     return Promise.resolve(0);
   };

@@ -213,11 +213,22 @@
     const other = 'e'.repeat(64);
     const message = { author: peer, text: 'hello', deleted: false, sentAtMs: 1_700_000_000_000 };
     const rows = [
-      { peerId: peer, state: 'requestReceived', lastMessage: message, unreadCount: 2 },
+      {
+        peerId: peer,
+        state: 'requestReceived',
+        lastMessage: message,
+        preview: {
+          body: { kind: 'text', text: message.text },
+          forwarded: false,
+          sentAtMs: message.sentAtMs,
+        },
+        unreadCount: 2,
+      },
       {
         peerId: other,
         state: 'open',
         lastMessage: { text: null, deleted: true, sentAtMs: null },
+        preview: { body: { kind: 'deleted' }, forwarded: false, sentAtMs: null },
         unreadCount: 0,
       },
     ];
@@ -302,7 +313,13 @@
       if (command === 'mark_chat_read') return Promise.resolve(0);
       if (command === 'chat_rows')
         return Promise.resolve([
-          { peerId: found.peerId, state: 'requestSent', lastMessage: own, unreadCount: 0 },
+          {
+            peerId: found.peerId,
+            state: 'requestSent',
+            lastMessage: own,
+            preview: { body: { kind: 'text', text: own.text }, forwarded: false, sentAtMs: null },
+            unreadCount: 0,
+          },
         ]);
       throw new Error(`unexpected first text command: ${command}`);
     });
@@ -348,7 +365,17 @@
   const clearChatFixture = () => {
     const peer = 'c'.repeat(64);
     const message = { author: peer, id: [3], text: 'private', deleted: false, sentAtMs: null };
-    const row = { peerId: peer, state: 'open', lastMessage: message, unreadCount: 0 };
+    const row = {
+      peerId: peer,
+      state: 'open',
+      lastMessage: message,
+      preview: {
+        body: { kind: 'text', text: message.text },
+        forwarded: false,
+        sentAtMs: message.sentAtMs,
+      },
+      unreadCount: 0,
+    };
     const history = { state: 'open', messages: [message] };
     const open = (currentHistory) =>
       appBindings.openChat(peer, (command) => {
@@ -384,7 +411,14 @@
       }
       if (command === 'chat_history') return Promise.resolve({ state: 'open', messages: [] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
-      if (command === 'chat_rows') return Promise.resolve([{ ...row, lastMessage: null }]);
+      if (command === 'chat_rows')
+        return Promise.resolve([
+          {
+            ...row,
+            lastMessage: null,
+            preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+          },
+        ]);
       throw new Error(`unexpected clear command: ${command}`);
     });
     assertClearChatClearDidNotKeepTheEmptyConversation(clearCalls);
@@ -432,7 +466,17 @@
     await appApi.chatsDone;
     const peer = 'b'.repeat(64);
     const message = { author: peer, id: [4], text: 'request', deleted: false, sentAtMs: null };
-    const row = { peerId: peer, state: 'requestReceived', lastMessage: message, unreadCount: 1 };
+    const row = {
+      peerId: peer,
+      state: 'requestReceived',
+      lastMessage: message,
+      preview: {
+        body: { kind: 'text', text: message.text },
+        forwarded: false,
+        sentAtMs: message.sentAtMs,
+      },
+      unreadCount: 1,
+    };
     const open = (state) =>
       appBindings.openChat(peer, (command) => {
         if (command === 'chat_history') return Promise.resolve({ state, messages: [message] });

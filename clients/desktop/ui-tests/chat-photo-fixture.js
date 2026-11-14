@@ -38,6 +38,7 @@
             unreadCount: 1,
             activeRecently: false,
             lastMessage: entry(peer, 1, { ...photo, preview: [] }),
+            preview: { body: { kind: 'photo' }, forwarded: false, sentAtMs: 1000 },
           },
         ]),
       chat_history: () =>

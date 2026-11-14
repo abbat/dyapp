@@ -176,6 +176,22 @@ export const endFixture = () => {
   fixtureDialog = null;
   if (fixtureFocus?.isConnected) fixtureFocus.focus();
 };
+export const checkRenameInitialFocus = async () => {
+  await beginFixture('initial-focus');
+  try {
+    controller.showState('chat-rename-dialog');
+    const input = element('#chat-rename-input');
+    if (document.activeElement !== input) throw new Error('Rename initial focus is missing');
+    input.blur();
+    if (!plan().problems.includes('initial focus does not match #chat-rename-input'))
+      throw new Error('Missing rename focus escaped the pre-walk audit');
+    controller.showState('chat');
+    controller.showState('chat-rename-dialog');
+    if (document.activeElement !== input) throw new Error('Reopened rename lost initial focus');
+  } finally {
+    endFixture();
+  }
+};
 export const restoreRadios = (group) => {
   group.names.forEach((name, index) => {
     element(name).checked = index === group.checked;

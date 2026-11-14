@@ -10,8 +10,12 @@
  *   photo: ChatPhoto | null, sticker: ChatSticker | null, sharedPeer: string | null }} ChatMessage
  * @typedef {{ state: ConversationState, messages: ChatMessage[], activeRecently: boolean,
  *   muted: boolean }} ChatHistory
+ * @typedef {{ kind: 'empty' | 'deleted' | 'photo' } |
+ *   { kind: 'text', text: string } | { kind: 'sticker', emoji: string, packName: string } |
+ *   { kind: 'profile', peerId: string }} ChatPreviewBody
+ * @typedef {{ body: ChatPreviewBody, forwarded: boolean, sentAtMs: number | null }} ChatListPreview
  * @typedef {{ peerId: string, state: ConversationState, lastMessage: ChatMessage | null,
- *   unreadCount: number, activeRecently: boolean, muted: boolean }} ChatRow
+ *   preview: ChatListPreview, unreadCount: number, activeRecently: boolean, muted: boolean }} ChatRow
  * @typedef {{ sourcePeerId: string, sourceGroupId: number[], sourceAuthor: string,
  *   sourceMessageId: number[], text: string, generation: number, request: number,
  *   share?: never }} ForwardMessage

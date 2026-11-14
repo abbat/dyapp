@@ -77,6 +77,10 @@ Publication checks inspect the dialog after the expected result and await its cl
 still pending. That fresh close deadline starts after proof/publication, replacing a fixed delay.
 Disconnected-search checks require Open Network without Retry, then exercise generic, offline
 and partial failures through completed production `runSearch` calls to catch stale recovery actions.
+Desktop foundation smoke renders all six core chat-preview kinds with and without the
+forwarded label. It supplies deliberately different legacy message text/time and requires the
+core payload and timestamp, unchanged history data, no visual ellipsis and the original opening
+callback. These cases are embedded in the native smoke inventory.
 Native desktop message-projection tests cover IDN/userinfo hosts, edits and deletion; the UI
 link-host smoke consumes that IPC shape and retains the caption/no-preview assertions. JavaScript
 must not reconstruct destinations from message text.
@@ -798,7 +802,9 @@ also saves the last compared frames as `keyboard-focus-before.png` and
 `keyboard-focus-after.png` beside the captures. The prototype models
 these keyboard/dialog transitions without backend actions. A dialog declaring `data-initial-focus`
 is checked before the keyboard walker sets its first anchor, so traversal cannot hide an incorrect
-initial focus target. The device-code variants declare the code field as their target.
+initial focus target. Device-code variants declare the code field; contact naming declares its
+name field. Rename calibration checks opening and reopening, then deliberately blurs that input
+and requires the pre-walk audit to report the missing initial focus.
 Completed keyboard audits release their retained screenshot before invoking the next-page
 callback, on success and failure; ownership regression tests require no garbage-collection wait.
 D1's two-line limit stays in the

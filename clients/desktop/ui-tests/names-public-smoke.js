@@ -119,6 +119,7 @@
             peerId: peer,
             state: 'open',
             lastMessage: null,
+            preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
             unreadCount: 1,
             activeRecently: false,
             muted: fixture.muted,
@@ -190,9 +191,31 @@
       sentAtMs: null,
     };
     const rows = [
-      { peerId: chatPeer, state: 'open', lastMessage: link, unreadCount: 0 },
-      { peerId: sharedPeer, state: 'open', lastMessage: null, unreadCount: 0 },
-      { peerId: requestPeer, state: 'requestReceived', lastMessage: null, unreadCount: 0 },
+      {
+        peerId: chatPeer,
+        state: 'open',
+        lastMessage: link,
+        preview: {
+          body: { kind: 'profile', peerId: sharedPeer },
+          forwarded: false,
+          sentAtMs: null,
+        },
+        unreadCount: 0,
+      },
+      {
+        peerId: sharedPeer,
+        state: 'open',
+        lastMessage: null,
+        preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
+      {
+        peerId: requestPeer,
+        state: 'requestReceived',
+        lastMessage: null,
+        preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
     ];
     const found = {
       peerId: sharedPeer,

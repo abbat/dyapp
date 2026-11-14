@@ -59,7 +59,13 @@
     const theirs = { ...own, author: peer, id: [2], text: 'theirs' };
     const deleted = { ...own, id: [3], text: null, deleted: true };
     fixture.messages = [own, theirs, deleted];
-    const row = { peerId: peer, state: 'open', lastMessage: own, unreadCount: 0 };
+    const row = {
+      peerId: peer,
+      state: 'open',
+      lastMessage: own,
+      preview: { body: { kind: 'text', text: own.text }, forwarded: false, sentAtMs: own.sentAtMs },
+      unreadCount: 0,
+    };
     const call = (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: fixture.messages });
@@ -199,7 +205,13 @@
     };
     const theirs = { ...own, author: peer, id: [8], text: 'keep theirs' };
     fixture.messages = [own, theirs];
-    const row = { peerId: peer, state: 'open', lastMessage: own, unreadCount: 0 };
+    const row = {
+      peerId: peer,
+      state: 'open',
+      lastMessage: own,
+      preview: { body: { kind: 'text', text: own.text }, forwarded: false, sentAtMs: own.sentAtMs },
+      unreadCount: 0,
+    };
     const call = (command) => {
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: fixture.messages });
@@ -433,7 +445,19 @@
     assertChatDeliveryDeviceReceiptStatusDidNotSurviveReopening();
     document.getElementById('chat-back').click();
     // A lost ACK fails the pass after the commit; the committed row still appears, once.
-    const committed = [{ peerId: peer, state: 'open', lastMessage: theirs, unreadCount: 1 }];
+    const committed = [
+      {
+        peerId: peer,
+        state: 'open',
+        lastMessage: theirs,
+        preview: {
+          body: { kind: 'text', text: theirs.text },
+          forwarded: false,
+          sentAtMs: theirs.sentAtMs,
+        },
+        unreadCount: 1,
+      },
+    ];
     await appApi.mailUpdated(null, (command) => {
       if (command === 'chat_rows') return Promise.resolve(committed);
       throw new Error(`unexpected refresh command: ${command}`);
@@ -466,7 +490,13 @@
     };
     const ordinary = { ...forwarded, id: [2], text: 'own words', forwarded: false };
     appBindings.renderChatRows([
-      { peerId: peer, state: 'open', lastMessage: forwarded, unreadCount: 0 },
+      {
+        peerId: peer,
+        state: 'open',
+        lastMessage: forwarded,
+        preview: { body: { kind: 'text', text: forwarded.text }, forwarded: true, sentAtMs: null },
+        unreadCount: 0,
+      },
     ]);
     const preview = document.querySelector('#chat-list button .caption');
     if (!preview?.textContent.startsWith(`${appApi.strings['chats.forwarded']} · shared words`)) {
@@ -563,9 +593,27 @@
       sentAtMs: null,
     };
     const rows = [
-      { peerId: sourcePeer, state: 'open', lastMessage: source, unreadCount: 0 },
-      { peerId: targetPeer, state: 'open', lastMessage: null, unreadCount: 0 },
-      { peerId: requestPeer, state: 'requestReceived', lastMessage: null, unreadCount: 0 },
+      {
+        peerId: sourcePeer,
+        state: 'open',
+        lastMessage: source,
+        preview: { body: { kind: 'text', text: source.text }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
+      {
+        peerId: targetPeer,
+        state: 'open',
+        lastMessage: null,
+        preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
+      {
+        peerId: requestPeer,
+        state: 'requestReceived',
+        lastMessage: null,
+        preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
     ];
     fixture.targetMessages = [];
     fixture.sendError = null;

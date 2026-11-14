@@ -4,19 +4,27 @@ import { chatTime } from './formatting.js';
 import { strings } from './locale.js';
 import { controller as stickersController } from './stickers.js';
 
-/** @param {import('./chat-state.js').ChatMessage} message */
-const chatContentPreview = (message) => {
-  if (message.sticker) return stickersController.stickerMessageText(message.sticker);
-  if (message.photo) return strings['chats.photo'];
-  if (message.sharedPeer) return profileCardText(message.sharedPeer);
-  return message.text || '';
+/** @param {import('./chat-state.js').ChatPreviewBody} body */
+const chatContentPreview = (body) => {
+  switch (body.kind) {
+    case 'empty':
+      return strings['chats.noMessages'];
+    case 'deleted':
+      return strings['chats.deleted'];
+    case 'photo':
+      return strings['chats.photo'];
+    case 'sticker':
+      return stickersController.stickerMessageText(body);
+    case 'profile':
+      return profileCardText(body.peerId);
+    case 'text':
+      return body.text;
+  }
 };
-/** @param {import('./chat-state.js').ChatMessage | null} message */
-const chatPreview = (message) => {
-  if (!message) return strings['chats.noMessages'];
-  if (message.deleted) return strings['chats.deleted'];
-  const prefix = message.forwarded ? `${strings['chats.forwarded']} · ` : '';
-  return `${prefix}${chatContentPreview(message)}`;
+/** @param {import('./chat-state.js').ChatListPreview} preview */
+const chatPreview = (preview) => {
+  const prefix = preview.forwarded ? `${strings['chats.forwarded']} · ` : '';
+  return `${prefix}${chatContentPreview(preview.body)}`;
 };
 /** @param {import('./chat-state.js').ChatRow} row @param {() => void} onOpen */
 export const chatRow = (row, onOpen) => {
@@ -49,14 +57,14 @@ export const chatRow = (row, onOpen) => {
     content.append(document.createTextNode(' '), muted);
   }
   const preview = document.createElement('span');
-  preview.className = 'caption ellipsis';
-  preview.textContent = chatPreview(row.lastMessage);
+  preview.className = 'caption chat-preview';
+  preview.textContent = chatPreview(row.preview);
   content.append(document.createElement('br'), preview);
   const meta = document.createElement('span');
   meta.className = 'meta';
   const time = document.createElement('span');
   time.className = 'caption';
-  time.textContent = chatTime(row.lastMessage);
+  time.textContent = chatTime(row.preview);
   meta.append(time);
   if (row.unreadCount) {
     const unread = document.createElement('span');

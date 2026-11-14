@@ -234,6 +234,7 @@
         peerId: 'b'.repeat(64),
         state: 'requestReceived',
         lastMessage: message,
+        preview: { body: { kind: 'text', text: 'row preview' }, forwarded: false, sentAtMs: 1 },
         unreadCount: 2,
         activeRecently: true,
         muted: true,
@@ -247,7 +248,7 @@
       !row.textContent.includes(strings['chats.state.requestReceived']) ||
       !row.textContent.includes(strings['chats.active']) ||
       !row.textContent.includes(strings['chats.muted']) ||
-      row.querySelector('.caption.ellipsis').textContent !== 'row preview' ||
+      row.querySelector('.chat-preview').textContent !== 'row preview' ||
       row.querySelector('.meta .badge').textContent !== '2' ||
       !row.querySelector('.meta .caption').textContent
     )
@@ -321,5 +322,7 @@
     await checkPhotoRemovalOwner();
     const rows = await import(new URL('chat-row.js', document.baseURI).href);
     checkChatRow(rows.chatRow, localization.strings);
+    const formatting = await import(new URL('formatting.js', document.baseURI).href);
+    smoke.checkChatPreviews(rows.chatRow, localization.strings, formatting.chatTime);
   };
 })();

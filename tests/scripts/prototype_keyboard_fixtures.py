@@ -28,6 +28,7 @@ class KeyboardFixtures:
                 ("trap", "expected #keyboard-fixture-second"),
                 ("focus", "focus indicator #keyboard-fixture-first"),
                 ("escape", "Escape did not close/restore focus"),
+                ("rename-initial", ""),
                 *[
                     (f"collection:{name}:{outcome}", "")
                     for name in ("identities", "devices", "blocked", "passed")
@@ -52,6 +53,9 @@ class KeyboardFixtures:
             self.finish([])
             return
         mode, self.expected = self.cases.popleft()
+        if mode == "rename-initial":
+            self.evaluate("await keys.checkRenameInitialFocus()", self.start)
+            return
         if mode.startswith("collection:"):
             _, name, outcome = mode.split(":")
             self.evaluate(

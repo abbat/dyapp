@@ -117,6 +117,11 @@ publishing a fetch result; preserve both guards when changing retries or data so
 For a dynamic owner-key array, use one structural key such as `key(owners.toList())`.
 The Kotlin/Compose compiler 2.4.21 crashes in `irJoinKeyChain` on a spread-only `key(*owners)`.
 
+Desktop smoke scripts are embedded by `clients/desktop/ui-tests/mod.rs`; add a new helper to
+that inventory and expose it through `smoke`. Native asset URLs serve production `ui/`, so an
+HTTP-only dynamic import of `../ui-tests/...` does not prove native smoke availability. Web
+unused checks deliberately validate imports against the shipped asset root.
+
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
 it as C with Clang after callback changes. Binding generation alone does not validate it.

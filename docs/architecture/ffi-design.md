@@ -37,8 +37,9 @@ an oversized single cluster yields the marker. Neither stored messages nor the f
 history projection is changed. Clients map typed kinds to localized labels and render
 the bounded text; they must not implement another truncation algorithm.
 
-The new record projection is available in both Rust adapters. Adoption by list rendering
-and removal of the existing visual ellipsis remain planned until the client changes land.
+The shared Tauri chat list renders `preview` and its timestamp directly, localizing body kinds
+without inspecting `lastMessage`. Its text wraps without CSS ellipsis; the complete message stays
+in history. Android and iOS list adoption remains planned behind the screen review gate.
 
 ## Network attempt ownership
 

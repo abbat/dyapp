@@ -57,7 +57,13 @@
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     const shownRows = appBindings.chatList.childElementCount;
     finishRowsCall.resolve([
-      { peerId: '6'.repeat(64), state: 'open', lastMessage: null, unreadCount: 0 },
+      {
+        peerId: '6'.repeat(64),
+        state: 'open',
+        lastMessage: null,
+        preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
+        unreadCount: 0,
+      },
     ]);
     await oldRefresh;
     if (appBindings.chatList.childElementCount !== shownRows)

@@ -893,6 +893,8 @@ details > summary {
   flex: 1;
 }
 .composer .icon-button {
+  display: grid;
+  place-items: center;
   width: 40px;
   min-width: 40px;
   height: 40px;
@@ -1139,6 +1141,7 @@ details > summary {
 }
 .list-button {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
@@ -1148,6 +1151,24 @@ details > summary {
   border-radius: var(--radius);
   padding: var(--space-3);
   margin-bottom: var(--space-2);
+}
+
+.list-button > .grow {
+  flex-basis: 10ch;
+  overflow-wrap: anywhere;
+}
+.list-button > .avatar,
+.list-button > .avatars .avatar {
+  width: max(40px, 2.5em);
+  height: max(40px, 2.5em);
+}
+.list-button > .meta {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.chat-preview {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 /* Modal dialog: Cancel left, action right, focus on Cancel. */

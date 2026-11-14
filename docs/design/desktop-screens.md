@@ -326,8 +326,12 @@ Sticker image selection and sending remain a separate transport/picker task.
 `chats`: the active identity's chats only; there is no shared inbox. **Liked you** lists
 received likes; liking back makes a match. **Message requests** come from non-matches; the sender
 learns nothing until a reply. The Linux screen now renders ordered, pair-wide local requests
-and conversations with a short Peer ID, latest text or deletion placeholder, original message
-time when present, and local unread count. Request rows carry an explicit message-request marker
+and conversations with a short Peer ID, a bounded latest-item preview, original message
+time when present, and local unread count. The common core supplies the preview's body kind,
+forwarded state, timestamp and text (at most 80 extended graphemes and 512 UTF-8 bytes,
+including its omission marker). Text wraps in the row without visual clipping; photo, sticker,
+shared-profile, empty and deletion kinds receive localized labels. Opening the conversation
+shows the unchanged full message history. Request rows carry an explicit message-request marker
 until a reply or match opens the conversation. In history, HTTP(S) text remains inert while a
 caption shows each parsed full host, with IDNs in punycode and no remote preview. It shows local
 rows after mailbox refresh even if that refresh or the network-backed **Liked you** lookup fails.

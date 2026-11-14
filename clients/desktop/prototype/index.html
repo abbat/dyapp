@@ -397,10 +397,10 @@ search providers asked: 0 of 3</pre>
       <h2 class="section-heading" data-t="chats.conversations"></h2>
       <div id="chat-list">
         <button type="button" class="list-button" id="chat-1"><span class="avatar photo p2" aria-hidden="true"></span>
-          <span class="grow"><b data-t="view.name"></b> <span class="caption" data-t="chat.active"></span><span class="ellipsis caption" data-t="chat.m4"></span></span>
+          <span class="grow"><b data-t="view.name"></b> <span class="caption" data-t="chat.active"></span><span class="chat-preview caption" data-t="chat.m4"></span></span>
           <span class="meta"><span class="caption">14:32</span><br><span class="badge" data-ta="chats.unread">2</span></span></button>
         <button type="button" class="list-button" id="chat-2"><span class="avatar photo p3" aria-hidden="true"></span>
-          <span class="grow"><code>@b8e0f3</code> <span class="caption" id="chat-muted" data-t="chat.muted"></span><span class="ellipsis caption" data-t="chats.c2.last"></span></span>
+          <span class="grow"><code>@b8e0f3</code> <span class="caption" id="chat-muted" data-t="chat.muted"></span><span class="chat-preview caption" data-t="chats.c2.last"></span></span>
           <span class="meta"><span class="caption" data-t="chats.yesterday"></span></span></button>
       </div>
       <p class="caption" data-t="chats.identity"></p>
@@ -416,7 +416,7 @@ search providers asked: 0 of 3</pre>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
           <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
-            <span class="sub caption ellipsis" id="chat-presence" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
+            <span class="sub caption" id="chat-presence" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
         <button type="button" class="btn quiet" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
           <button type="button" class="nav" role="menuitem" id="chat-rename" data-t="chat.rename"></button>
@@ -703,10 +703,10 @@ search providers asked: 0 of 3</pre>
 
 <!-- Local contact name: never published. -->
 <div class="modal-scrim" data-on="chat-rename-dialog">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rename-title" data-initial-focus="chat-rename-input">
     <h2 id="rename-title" data-t="chat.rename"></h2>
     <label class="field"><span data-t="rename.label"></span>
-      <input type="text" id="chat-rename-input" maxlength="64"></label>
+      <input type="text" class="focus" id="chat-rename-input" maxlength="64"></label>
     <p class="caption" data-t="rename.hint"></p>
     <div class="actions">
       <button type="button" class="btn" id="chat-rename-cancel" data-t="action.cancel"></button>

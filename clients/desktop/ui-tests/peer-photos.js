@@ -44,6 +44,7 @@
       peerId: byte.repeat(32),
       state: 'open',
       lastMessage: null,
+      preview: { body: { kind: 'empty' }, forwarded: false, sentAtMs: null },
       unreadCount: 0,
       activeRecently: false,
     }));
