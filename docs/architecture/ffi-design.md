@@ -23,6 +23,23 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+## Shared Chats-list preview
+
+Core `chat_preview::for_row` projects the Store-selected newest item into
+`ChatListPreview`. UniFFI `ChatRow.preview` and desktop JSON `ChatRowView.preview`
+carry the same body kind (empty, deleted, text, photo, sticker or shared profile),
+forwarded state and original wall time. A newer media marker never borrows retained
+older text. Read messages still have previews; notification eligibility is a separate policy.
+
+Variable display text is normalized to one line and bounded to 80 extended graphemes
+and 512 UTF-8 bytes, including an omission marker. Emoji/combining clusters are not split;
+an oversized single cluster yields the marker. Neither stored messages nor the full
+history projection is changed. Clients map typed kinds to localized labels and render
+the bounded text; they must not implement another truncation algorithm.
+
+The new record projection is available in both Rust adapters. Adoption by list rendering
+and removal of the existing visual ellipsis remain planned until the client changes land.
+
 ## Network attempt ownership
 
 `ConnectionAttempt(checker)` prepares a single-use cancellation owner without key access,

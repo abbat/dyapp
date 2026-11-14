@@ -66,6 +66,8 @@ mod send_photo;
 mod send_sticker;
 mod submission;
 pub use submission::ChatSubmission;
+mod preview;
+pub use preview::{ChatListPreview, ChatPreviewBody};
 mod view;
 pub use actions::{ChatBlock, ChatRevocation};
 pub use notices::ChatNotice;

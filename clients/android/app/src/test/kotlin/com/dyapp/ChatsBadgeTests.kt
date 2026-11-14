@@ -2,12 +2,21 @@ package com.dyapp
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import uniffi.dyapp.ChatListPreview
+import uniffi.dyapp.ChatPreviewBody
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
 
 class ChatsBadgeTests {
     private fun row(state: ChatState, unread: ULong) =
-        ChatRow(peerId = "peer", state = state, lastMessage = null, unreadCount = unread, muted = false)
+        ChatRow(
+            peerId = "peer",
+            state = state,
+            lastMessage = null,
+            preview = ChatListPreview(ChatPreviewBody.Empty, false, null),
+            unreadCount = unread,
+            muted = false,
+        )
 
     @Test
     fun countsUnreadMessagesAndEachRequestOnce() {

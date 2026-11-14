@@ -327,6 +327,8 @@ pub struct ChatRowView {
     pub peer_id: String,
     pub state: ChatState,
     pub last_message: Option<MessageView>,
+    /// Core-owned bounded newest text/media summary.
+    pub preview: dyapp_client::chat_preview::ChatListPreview,
     pub unread_count: usize,
     pub active_recently: bool,
     /// Mail from this peer adds no notice; see `notify::waiting`.

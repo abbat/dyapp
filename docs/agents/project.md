@@ -122,6 +122,9 @@ leak Swift backtick escaping into C callback fields; regenerate the Swift header
 it as C with Clang after callback changes. Binding generation alone does not validate it.
 Kotlin binding output follows its package directory (for example `uniffi/dyapp/dyapp.kt`).
 Verify new APIs and compile that generated file; a stale flat copy can hide missing coverage.
+In data-bearing Kotlin enums, UniFFI 0.32.2 emits fieldless variants as singleton objects
+(for example `ChatPreviewBody.Empty`); payload variants have constructors. Required record
+fields also need updates in hand-built unit/androidTest fixtures and any Swift initializers.
 
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared

@@ -1,6 +1,6 @@
 //! The local chat projection as records for the app, without internal request IDs.
 
-use super::ChatState;
+use super::{ChatListPreview, ChatState};
 use dyapp_client::store;
 use dyapp_client::store::messages::{self, DeliveryState};
 
@@ -99,6 +99,8 @@ pub struct ChatRow {
     pub state: ChatState,
     /// The newest message, absent in a cleared or still empty chat.
     pub last_message: Option<ChatMessage>,
+    /// Bounded newest text/media summary, computed once by the common core.
+    pub preview: ChatListPreview,
     /// Messages not yet read here.
     pub unread_count: u64,
     /// Whether this profile mutes the peer: no notifications, the chat itself unchanged.
@@ -107,10 +109,12 @@ pub struct ChatRow {
 
 impl ChatRow {
     pub(crate) fn new(row: store::ChatRow, muted: bool) -> Self {
+        let preview = dyapp_client::chat_preview::for_row(&row).into();
         Self {
             peer_id: row.peer_id,
             state: row.state.into(),
             last_message: row.last_message.map(Into::into),
+            preview,
             unread_count: row.unread_count as u64,
             muted,
         }

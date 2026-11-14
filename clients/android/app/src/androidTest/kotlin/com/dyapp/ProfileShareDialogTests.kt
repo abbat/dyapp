@@ -10,6 +10,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
+import uniffi.dyapp.ChatListPreview
+import uniffi.dyapp.ChatPreviewBody
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
 
@@ -28,6 +30,15 @@ class ProfileShareDialogTests {
         ProfileShareDialog(form, rows, { opened += it }) { sent += it }
     }
 
+    private fun row() = ChatRow(
+        peerId = peer,
+        state = ChatState.OPEN,
+        lastMessage = null,
+        preview = ChatListPreview(ChatPreviewBody.Empty, false, null),
+        unreadCount = 0uL,
+        muted = false,
+    )
+
     @Test
     fun emptyTargetsExplainAndCancelSendsNothing() {
         show()
@@ -42,7 +53,7 @@ class ProfileShareDialogTests {
     @Test
     fun failedSendAllowsRetryAndSuccessOffersNavigation() {
         form.status = ChatStatus(R.string.chat_send_failed, "offline")
-        show(listOf(ChatRow(peer, ChatState.OPEN, null, 0uL, false)))
+        show(listOf(row()))
         compose.onNodeWithText(string(R.string.chat_send_failed)).assertExists()
         compose.onNodeWithTag("profile-share-$peer").performClick()
         compose.runOnIdle {
@@ -62,7 +73,7 @@ class ProfileShareDialogTests {
     @Test
     fun inFlightSendDisablesCancelAndHidesTargets() {
         form.sending = true
-        show(listOf(ChatRow(peer, ChatState.OPEN, null, 0uL, false)))
+        show(listOf(row()))
         compose.onNodeWithText(string(R.string.search_cancel)).assertIsNotEnabled()
         compose.onNodeWithText(string(R.string.view_sending)).assertExists()
         compose.onNodeWithTag("profile-share-$peer").assertDoesNotExist()

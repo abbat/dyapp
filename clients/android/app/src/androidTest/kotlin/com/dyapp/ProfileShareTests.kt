@@ -3,6 +3,8 @@ package com.dyapp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import uniffi.dyapp.ChatListPreview
+import uniffi.dyapp.ChatPreviewBody
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
 import uniffi.dyapp.ChatSubmission
@@ -29,7 +31,14 @@ class ProfileShareTests {
     @Test
     fun sharingOffersOnlyOpenChatsOtherThanTheSharedProfile() {
         val rows = ChatState.entries.mapIndexed { index, state ->
-            ChatRow("peer-$index", state, null, 0uL, false)
+            ChatRow(
+                peerId = "peer-$index",
+                state = state,
+                lastMessage = null,
+                preview = ChatListPreview(ChatPreviewBody.Empty, false, null),
+                unreadCount = 0uL,
+                muted = false,
+            )
         }
         val open = rows.single { it.state == ChatState.OPEN }
         assertEquals(listOf(open), profileShareTargets(rows, "another-peer"))

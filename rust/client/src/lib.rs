@@ -10,6 +10,7 @@ pub mod cancellation;
 pub mod chat;
 pub mod chat_composer;
 pub mod chat_links;
+pub mod chat_preview;
 pub mod compatibility;
 pub mod contact_notes;
 pub mod favorites;

@@ -74,6 +74,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
             continue;
         }
         let muted = store.muted(&row.peer_id).map_err(|e| e.to_string())?;
+        let preview = dyapp_client::chat_preview::for_row(&row);
         rows.push(ChatRowView {
             active_recently: store
                 .active_recently(&row.peer_id, now)
@@ -81,6 +82,7 @@ pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, St
             peer_id: row.peer_id,
             state: row.state.into(),
             last_message: view::last_item(row.last_message, row.last_attachment, row.last_sticker),
+            preview,
             unread_count: row.unread_count,
             muted,
         });

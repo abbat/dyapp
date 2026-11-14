@@ -10,6 +10,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.ChatBlock
+import uniffi.dyapp.ChatListPreview
+import uniffi.dyapp.ChatPreviewBody
 import uniffi.dyapp.ChatRevocation
 import uniffi.dyapp.ChatRow
 import uniffi.dyapp.ChatState
@@ -26,7 +28,14 @@ class ChatsScreenTests {
 
     private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
-    private fun row(peer: String, state: ChatState) = ChatRow(peer, state, null, 0uL, false)
+    private fun row(peer: String, state: ChatState) = ChatRow(
+        peerId = peer,
+        state = state,
+        lastMessage = null,
+        preview = ChatListPreview(ChatPreviewBody.Empty, false, null),
+        unreadCount = 0uL,
+        muted = false,
+    )
 
     private fun found(peer: String) = FoundProfile(
         peer,
