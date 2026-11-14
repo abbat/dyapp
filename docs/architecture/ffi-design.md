@@ -307,8 +307,11 @@ order, with authoritative bounds and labels. Desktop only projects their existin
 Shared `sticker_picker::recents::page` owns hash-plus-emoji lookup, one-pack caching, missing/invalid
 pack filtering and original-list cursors; desktop only projects the resulting flattened entries.
 Callers retain identity admission and supply their transition signal. Cancellation and access/decode
-failures never publish a partial page. Native picker/recent exports remain planned; collection
-listings and individual full-frame reads are separate APIs.
+failures never publish a partial page. Common native `saved_sticker_page`/`recent_sticker_page`
+project these pages under the existing session/identity owner, with checked 32-bit offsets, safe
+labels and bounded RGBA only. Calls block off the UI thread, do no networking and make no local
+writes; native ownership remains held through completion. Collection listings and individual
+full-frame reads are separate APIs. Mobile picker UI remains planned.
 
 Common native `receive` also runs bounded core sticker-pack responses and admitted downloads
 after applying the mailbox, retaining the same session/identity operation through completion.
@@ -828,6 +831,8 @@ or returns constants.
 | `sticker_import_byte_limit` | function | `() -> u64` | Authoritative core picked-TAR byte bound; use it when reading an OS-selected stream. |
 | | method | `import_sticker_pack(archive: Vec<u8>) -> Result<SavedStickerPackImport, CoreError>` | Core-validated local TAR import into this identity's sealed collection. Success returns validated PackID and added=true for a new saved pack, false for an already readable identical pack. Persistence errors can follow file publication: refresh authoritative collection state rather than infer rollback. No network or chat staging. Call off the UI thread. |
 | | method | `saved_sticker_packs(after: Option<Vec<u8>>) -> Result<SavedStickerPackPage, CoreError>` | Identity-local bounded collection page from core storage. Entries retain PackID, encrypted size and Ready { name, stickers } or Unreadable { detail }; page retains the exclusive cursor, all-file used bytes and unrecognized-file count. A supplied cursor must be exactly 32 bytes. No networking, deletion, compressed media or transport secrets. Call off the UI thread. |
+| | method | `saved_sticker_page(pack_id: Vec<u8>, after: u32) -> Result<SavedStickerPickerPage, CoreError>` | Core manifest-order picker page with at most eight 96px RGBA choices. |
+| | method | `recent_sticker_page(after: u32) -> Result<RecentStickerPickerPage, CoreError>` | Core-filtered recent choices and original-list cursor, without state writes. |
 | | method | `saved_sticker_frame(pack_id: Vec<u8>, index: u32) -> Result<SavedStickerFrame, CoreError>` | One authenticated saved entry, decoded by core to actual width/height and row-major RGBA8. Retains PackID, manifest index, emoji and compressed-content hash without compressed bytes, keys or release capability. No networking or file mutation; invalid/missing selections and unreadable files refuse. Call off the UI thread; scale the returned pixels for presentation. |
 | | method | `submit_saved_sticker(peer_id: String, pack_id: Vec<u8>, index: u32) -> Result<ChatSubmission, CoreError>` | Send an authenticated saved-pack entry through core upload and open-chat submission. A queued result retains its committed ID; never resubmit it. Pre-commit failures remain errors, even if an upload reservation was persisted. Invalid hash length, missing pack and invalid index fail before network access; foreign or corrupt saved files are preserved. Call off the UI thread. |
 | | method | `forward_text(source: ChatForwardSource, target_peer_id: String) -> Result<ChatSubmission, ChatForwardError>` | Forward current local text into another open chat, as on Linux. Source carries peer, group, stored author and logical message ID; core verifies the full live key, source visibility and target eligibility. UI never supplies the forwarded body or a verified original-author claim. The new message is authored by this identity and carries the existing forwarded marker. Typed errors are pre-commit refusals/backend failure. `Queued` is already committed with its stable ID and exact retry bytes; do not submit a second copy. |

@@ -246,7 +246,8 @@ opening a second MLS session. Retry preserves the answer but rotates its generat
 attempt contains either current status or an explicit unavailable projection; a later read failure
 never becomes an application failure or permission to blindly resubmit. Success is local application
 or no-op, not delivery. Android has a non-UI real-node instrumentation scenario for native
-import/send, explicit pack save, authenticated collection/frame and resend with hidden controls.
+import/send, explicit pack save, authenticated collection/frame, bounded picker page, resend and
+recent-choice readback with hidden controls.
 Its device execution remains release acceptance work; mobile action UI remains planned.
 
 Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed
@@ -260,8 +261,11 @@ Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pag
 JSON without media calculations. Shared `sticker_picker::recents::page` resolves exact hash-plus-emoji
 choices against saved packs, caches at most one pack, filters missing/invalid content without deleting
 files and preserves original-list cursor offsets. Transition cancellation or storage/decode failure
-returns no partial page. Desktop only projects its unchanged flattened JSON. Native picker-page and
-recent exports remain planned; full saved-frame and collection exports are separate APIs.
+returns no partial page. Desktop only projects its unchanged flattened JSON. Common
+`ChatSession.saved_sticker_page` and `recent_sticker_page` project these core pages under the
+existing session/identity lifetime, with checked 32-bit offsets and safe labels/selectors/RGBA only.
+They perform no networking or state mutation. Mobile picker UI remains planned; full saved-frame
+and collection exports are separate APIs.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache

@@ -22,6 +22,8 @@ mod sticker_frame;
 mod sticker_import;
 #[path = "tests/sticker_original.rs"]
 mod sticker_original;
+#[path = "tests/sticker_picker.rs"]
+mod sticker_picker;
 #[path = "tests/sticker_request_actions.rs"]
 mod sticker_request_actions;
 #[path = "tests/sticker_request_status.rs"]

@@ -11,6 +11,7 @@ import uniffi.dyapp.ChatSticker
 import uniffi.dyapp.ChatSubmission
 import uniffi.dyapp.SavedStickerFrame
 import uniffi.dyapp.SavedStickerPackState
+import uniffi.dyapp.StickerPickerEntry
 
 /** Native-only consumers of the suite-owned real node; no Activity or screen changes. */
 class NativeStickerExchangeTests {
@@ -29,8 +30,9 @@ class NativeStickerExchangeTests {
                 assertEquals("Android native cats", sticker.packName)
                 assertOriginal(receiver, sticker, expected)
                 NativeStickerSave(receiver, sender, sticker).save()
-                assertSaved(receiver, sticker, expected)
+                val choice = assertSaved(receiver, sticker, expected)
                 val reply = submittedId(receiver.session.submitSavedSticker(sender.peerId, sticker.packId, 0u))
+                assertRecent(receiver, sticker, choice)
                 val returned = awaitSticker(sender, receiver, reply)
                 assertArrayEquals(sticker.packId, returned.packId)
                 assertArrayEquals(sticker.sha256, returned.sha256)
@@ -87,7 +89,7 @@ class NativeStickerExchangeTests {
         assertArrayEquals(expected.pixels, frame.pixels)
     }
 
-    private fun assertSaved(receiver: TestPeer, sticker: ChatSticker, expected: SavedStickerFrame) {
+    private fun assertSaved(receiver: TestPeer, sticker: ChatSticker, expected: SavedStickerFrame): StickerPickerEntry {
         val entry = receiver.session.savedStickerPacks(null).entries.single()
         assertArrayEquals(sticker.packId, entry.packId)
         val state = entry.state as SavedStickerPackState.Ready
@@ -99,5 +101,28 @@ class NativeStickerExchangeTests {
         assertEquals(expected.width, frame.width)
         assertEquals(expected.height, frame.height)
         assertArrayEquals(expected.pixels, frame.pixels)
+        val page = receiver.session.savedStickerPage(sticker.packId, 0u)
+        assertArrayEquals(sticker.packId, page.packId)
+        assertEquals(1u, page.total)
+        assertEquals(null, page.next)
+        return page.entries.single().also { choice ->
+            assertEquals(0u, choice.index)
+            assertEquals(sticker.emoji, choice.emoji)
+            assertTrue(choice.width in 1u..96u && choice.height in 1u..96u)
+            assertEquals(choice.width * choice.height * 4u, choice.pixels.size.toUInt())
+        }
+    }
+
+    private fun assertRecent(receiver: TestPeer, sticker: ChatSticker, choice: StickerPickerEntry) {
+        val page = receiver.session.recentStickerPage(0u)
+        assertEquals(null, page.next)
+        val entry = page.entries.single()
+        assertArrayEquals(sticker.packId, entry.packId)
+        assertEquals(sticker.packName, entry.packName)
+        assertEquals(choice.index, entry.sticker.index)
+        assertEquals(choice.emoji, entry.sticker.emoji)
+        assertEquals(choice.width, entry.sticker.width)
+        assertEquals(choice.height, entry.sticker.height)
+        assertArrayEquals(choice.pixels, entry.sticker.pixels)
     }
 }

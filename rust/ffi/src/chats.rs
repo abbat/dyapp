@@ -50,6 +50,10 @@ pub use sticker_request_status::{
 };
 mod sticker_original;
 pub use sticker_original::ChatStickerFrame;
+mod sticker_picker;
+pub use sticker_picker::{
+    RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerPickerPage, StickerPickerEntry,
+};
 mod sticker_frame;
 pub use sticker_frame::SavedStickerFrame;
 mod sticker_view;
