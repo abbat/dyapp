@@ -27,6 +27,13 @@ kind = "inherent_method"
 level = "expect"
 reason = "Called by the forwarding API used by the standalone desktop workspace."
 
+[[override]]
+lint = "hawk::dead_public"
+crate = "dyapp_client"
+item = "network_check::connect"
+level = "expect"
+reason = "Used by clients/desktop/network.rs outside this Cargo workspace."
+
 # Currently unused convenience APIs; retained by maintainer instruction.
 [[override]]
 lint = "hawk::dead_public"
