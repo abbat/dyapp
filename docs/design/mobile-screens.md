@@ -208,7 +208,9 @@ first and returns to the first section, as any activity relaunch does.
   `chat-block`, `chat-clear-dialog` and the `chat-cleared-note` above the thread after a clear.
   The static Android prototype uses the shared desktop catalogue: `clear.text` explains local
   removal and the peer's copy; `clear.pending` explains cancellation and saved packs, before
-  the unchanged `clear.later` warning. Dialog titles wrap long words at enlarged text sizes;
+  the unchanged `clear.later` warning. Android overrides `clear.text` and `chat.cleared` to say
+  this device rather than this computer, matching its native wording. Dialog titles wrap long words
+  at enlarged text sizes;
   the chat header lets the contact shrink so its navigation controls stay inside the viewport.
   Clear names the contact in `chat-clear-name`, then shows the full `chat-clear-peer` under
   `chat-clear-peer-label`, before the consequences. The name and ID come from the same header

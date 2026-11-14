@@ -11,6 +11,9 @@ Object.assign(STRINGS.en, {
   'lock.recovery': 'The device screen lock recovers a forgotten PIN.',
   'lock.skip': 'Skip',
   'rename.label': 'Name on this phone',
+  'clear.text':
+    'Messages and their kept originals will be removed from this device only. The other person keeps their copy.',
+  'chat.cleared': 'Chat cleared on this device',
   'lock.set': 'Set PIN',
   'lock.biometric': 'Use device biometrics',
   'lock.pin': 'PIN',
@@ -41,6 +44,9 @@ Object.assign(STRINGS.ru, {
   'lock.recovery': 'Забытый PIN восстанавливается блокировкой экрана устройства.',
   'lock.skip': 'Пропустить',
   'rename.label': 'Имя на этом телефоне',
+  'clear.text':
+    'Сообщения и сохранённые оригиналы удалятся только с этого устройства. У собеседника останется копия.',
+  'chat.cleared': 'Переписка очищена на этом устройстве',
   'lock.set': 'Установить PIN',
   'lock.biometric': 'Использовать биометрию устройства',
   'lock.pin': 'PIN',
