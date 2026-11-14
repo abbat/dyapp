@@ -22,6 +22,8 @@ contracts.
 data-on state in the prototype, so the page and the prototype cannot drift apart unnoticed.
 The prototype wording is a draft; the shipped strings stay in `clients/desktop/ui/i18n`.
 
+Identity Peer IDs use 64 lowercase hexadecimal characters, not the node's libp2p ID.
+Their shortened suffix and fallback avatar letters retain lowercase spelling.
 Both desktop views share the identifier formatter: code values have a separated monospace
 container and breaks after eight grapheme clusters. Break nodes leave textContent and copy
 ranges unchanged. Dynamic replacements use the same formatter. Engines without grapheme
